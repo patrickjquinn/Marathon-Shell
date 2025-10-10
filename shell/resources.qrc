@@ -1,0 +1,50 @@
+<RCC>
+    <qresource prefix="/images">
+        <file alias="phone.svg">resources/images/phone.svg</file>
+        <file alias="messages.svg">resources/images/messages.svg</file>
+        <file alias="browser.svg">resources/images/browser.svg</file>
+        <file alias="camera.svg">resources/images/camera.svg</file>
+        <file alias="settings.svg">resources/images/settings.svg</file>
+        <file alias="calendar.svg">resources/images/calendar.svg</file>
+        <file alias="clock.svg">resources/images/clock.svg</file>
+        <file alias="music.svg">resources/images/music.svg</file>
+        <file alias="gallery.svg">resources/images/gallery.svg</file>
+        <file alias="maps.svg">resources/images/maps.svg</file>
+        <file alias="calculator.svg">resources/images/calculator.svg</file>
+        <file alias="notes.svg">resources/images/notes.svg</file>
+    </qresource>
+    <qresource prefix="/wallpapers">
+        <file>resources/wallpapers/wallpaper.jpg</file>
+        <file>resources/wallpapers/wallpaper2.jpg</file>
+        <file>resources/wallpapers/wallpaper3.jpg</file>
+        <file>resources/wallpapers/wallpaper4.jpg</file>
+        <file>resources/wallpapers/wallpaper5.jpg</file>
+        <file>resources/wallpapers/wallpaper6.jpg</file>
+        <file>resources/wallpapers/wallpaper7.jpg</file>
+    </qresource>
+    <qresource prefix="/images/icons/lucide">
+        <file alias="wifi.svg">resources/images/icons/lucide/wifi.svg</file>
+        <file alias="bluetooth.svg">resources/images/icons/lucide/bluetooth.svg</file>
+        <file alias="battery.svg">resources/images/icons/lucide/battery.svg</file>
+        <file alias="battery-charging.svg">resources/images/icons/lucide/battery-charging.svg</file>
+        <file alias="signal.svg">resources/images/icons/lucide/signal.svg</file>
+        <file alias="plane.svg">resources/images/icons/lucide/plane.svg</file>
+        <file alias="rotate-ccw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
+        <file alias="volume-2.svg">resources/images/icons/lucide/volume-2.svg</file>
+        <file alias="sun.svg">resources/images/icons/lucide/sun.svg</file>
+        <file alias="bell.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="zap.svg">resources/images/icons/lucide/zap.svg</file>
+        <file alias="x.svg">resources/images/icons/lucide/x.svg</file>
+        <file alias="chevron-up.svg">resources/images/icons/lucide/chevron-up.svg</file>
+        <file alias="chevron-down.svg">resources/images/icons/lucide/chevron-down.svg</file>
+        <file alias="search.svg">resources/images/icons/lucide/search.svg</file>
+        <file alias="grid.svg">resources/images/icons/lucide/grid.svg</file>
+        <file alias="home.svg">resources/images/icons/lucide/home.svg</file>
+        <file alias="inbox.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="mail.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="message-square.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="phone.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="users.svg">resources/images/icons/lucide/bell.svg</file>
+    </qresource>
+</RCC>
+

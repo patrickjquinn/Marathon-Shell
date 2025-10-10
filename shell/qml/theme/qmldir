@@ -1,0 +1,6 @@
+module MarathonOS.Theme
+singleton Theme 1.0 Theme.qml
+singleton Colors 1.0 Colors.qml
+singleton Typography 1.0 Typography.qml
+singleton Layout 1.0 Layout.qml
+
