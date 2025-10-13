@@ -3,23 +3,27 @@ import QtQuick
 
 QtObject {
     readonly property color background: "#000000"
-    readonly property color backgroundDark: "#0a0e1a"
+    readonly property color backgroundDark: "#0A0A0A"
     readonly property color backgroundBlue: "#1a2840"
-    readonly property color surface: "#1e2838"
-    readonly property color surfaceLight: "#2a3648"
+    readonly property color surface: "#1A1A1A"
+    readonly property color surfaceLight: "#2A2A2A"
+    readonly property color surfaceDark: "#0A0A0A"
     readonly property color accent: "#006666"
     readonly property color accentHover: "#004d4d"
-    readonly property color accentLight: "#008080"
-    readonly property color text: "#ffffff"
-    readonly property color textSecondary: "#b8b8b8"
-    readonly property color textTertiary: "#7a8090"
-    readonly property color border: "#3a4658"
+    readonly property color accentLight: "#00CCCC"
+    readonly property color accentDark: "#004d4d"
+    readonly property color text: "#FFFFFF"
+    readonly property color textSecondary: "#888888"
+    readonly property color textTertiary: "#666666"
+    readonly property color border: "#333333"
+    readonly property color borderLight: "#2A2A2A"
     readonly property color success: "#00c853"
     readonly property color warning: "#ffc107"
-    readonly property color error: "#ff3b30"
+    readonly property color error: "#FF3B30"
     
-    readonly property real cornerRadiusSmall: 6
-    readonly property real cornerRadiusMedium: 8
-    readonly property real cornerRadiusLarge: 12
+    readonly property real cornerRadiusSmall: 2
+    readonly property real cornerRadiusMedium: 2
+    readonly property real cornerRadiusLarge: 4
+    readonly property real cornerRadiusCircle: 999
 }
 

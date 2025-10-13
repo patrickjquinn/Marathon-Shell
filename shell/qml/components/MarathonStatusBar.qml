@@ -1,7 +1,5 @@
 import QtQuick
-import "../theme"
-import "../stores"
-import "."
+import MarathonOS.Shell
 
 Item {
     id: statusBar
@@ -9,8 +7,11 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: "#CC000000"  // 80% opacity black
-        z: -1  // Behind content so it doesn't block touches
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: WallpaperStore.isDark ? "#80000000" : "#80FFFFFF" }
+            GradientStop { position: 1.0; color: "transparent" }
+        }
+        z: Constants.zIndexBackground
     }
     
     Row {
@@ -18,18 +19,20 @@ Item {
         anchors.leftMargin: 12
         anchors.verticalCenter: parent.verticalCenter
         spacing: 8
+        z: 1
         
         Icon {
-            name: SystemStatusStore.isCharging ? "battery-charging" : "battery"
-            color: SystemStatusStore.batteryLevel < 20 ? Colors.error : Colors.text
+            name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
+            color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
             size: 18
             anchors.verticalCenter: parent.verticalCenter
         }
         
         Text {
             text: SystemStatusStore.batteryLevel + "%"
-            color: Colors.text
+            color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
             font.pixelSize: 14
+            font.family: Typography.fontFamily
             anchors.verticalCenter: parent.verticalCenter
         }
     }
@@ -47,20 +50,49 @@ Item {
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
         spacing: 12
+        z: 1
         
         Icon {
-            name: "signal"
+            name: "plane"
             color: Colors.text
             size: 16
             anchors.verticalCenter: parent.verticalCenter
+            visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
+        }
+        
+        Icon {
+            name: "bell"
+            color: Colors.text
+            size: 16
+            anchors.verticalCenter: parent.verticalCenter
+            visible: StatusBarIconService.shouldShowDND(SystemStatusStore.isDndMode)
+            opacity: 0.9
+        }
+        
+        Icon {
+            name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
+            color: Colors.text
+            size: 16
+            anchors.verticalCenter: parent.verticalCenter
+            opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
+            visible: StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
+        }
+        
+        Icon {
+            name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
+            color: Colors.text
+            size: 16
+            anchors.verticalCenter: parent.verticalCenter
+            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
             visible: SystemStatusStore.cellularStrength > 0
         }
         
         Icon {
-            name: "wifi"
-            color: SystemStatusStore.isWifiOn ? Colors.text : Colors.textTertiary
+            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            color: Colors.text
             size: 16
             anchors.verticalCenter: parent.verticalCenter
+            opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
         }
     }
 }

@@ -27,6 +27,9 @@
         <file alias="bluetooth.svg">resources/images/icons/lucide/bluetooth.svg</file>
         <file alias="battery.svg">resources/images/icons/lucide/battery.svg</file>
         <file alias="battery-charging.svg">resources/images/icons/lucide/battery-charging.svg</file>
+        <file alias="battery-low.svg">resources/images/icons/lucide/battery-low.svg</file>
+        <file alias="battery-medium.svg">resources/images/icons/lucide/battery-medium.svg</file>
+        <file alias="battery-full.svg">resources/images/icons/lucide/battery-full.svg</file>
         <file alias="signal.svg">resources/images/icons/lucide/signal.svg</file>
         <file alias="plane.svg">resources/images/icons/lucide/plane.svg</file>
         <file alias="rotate-ccw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
@@ -37,14 +40,37 @@
         <file alias="x.svg">resources/images/icons/lucide/x.svg</file>
         <file alias="chevron-up.svg">resources/images/icons/lucide/chevron-up.svg</file>
         <file alias="chevron-down.svg">resources/images/icons/lucide/chevron-down.svg</file>
+        <file alias="chevron-left.svg">resources/images/icons/lucide/chevron-up.svg</file>
+        <file alias="chevron-right.svg">resources/images/icons/lucide/chevron-down.svg</file>
         <file alias="search.svg">resources/images/icons/lucide/search.svg</file>
         <file alias="grid.svg">resources/images/icons/lucide/grid.svg</file>
         <file alias="home.svg">resources/images/icons/lucide/home.svg</file>
-        <file alias="inbox.svg">resources/images/icons/lucide/bell.svg</file>
-        <file alias="mail.svg">resources/images/icons/lucide/bell.svg</file>
-        <file alias="message-square.svg">resources/images/icons/lucide/bell.svg</file>
-        <file alias="phone.svg">resources/images/icons/lucide/bell.svg</file>
-        <file alias="users.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="info.svg">resources/images/icons/lucide/info.svg</file>
+        <file alias="trash-2.svg">resources/images/icons/lucide/trash-2.svg</file>
+        <file alias="link.svg">resources/images/icons/lucide/link.svg</file>
+        <file alias="file-text.svg">resources/images/icons/lucide/file-text.svg</file>
+        <file alias="message-square.svg">resources/images/icons/lucide/message-square.svg</file>
+        <file alias="mail.svg">resources/images/icons/lucide/mail.svg</file>
+        <file alias="inbox.svg">resources/images/icons/lucide/inbox.svg</file>
+        <file alias="phone.svg">resources/images/icons/lucide/phone.svg</file>
+        <file alias="users.svg">resources/images/icons/lucide/users.svg</file>
+        <file alias="globe.svg">resources/images/icons/lucide/globe.svg</file>
+        <file alias="hard-drive.svg">resources/images/icons/lucide/hard-drive.svg</file>
+        <file alias="lock.svg">resources/images/icons/lucide/lock.svg</file>
+        <file alias="grid-black.svg">resources/images/icons/lucide/grid-black.svg</file>
+        <file alias="inbox-black.svg">resources/images/icons/lucide/inbox-black.svg</file>
+        <file alias="settings.svg">resources/images/icons/lucide/settings.svg</file>
+        <file alias="rotate-cw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
+        <file alias="layers.svg">resources/images/icons/lucide/grid.svg</file>
+        <file alias="activity.svg">resources/images/icons/lucide/zap.svg</file>
+        <file alias="calculator.svg">resources/images/icons/lucide/calculator.svg</file>
+        <file alias="music.svg">resources/images/icons/lucide/music.svg</file>
+        <file alias="calendar.svg">resources/images/icons/lucide/calendar.svg</file>
+        <file alias="camera.svg">resources/images/icons/lucide/camera.svg</file>
+        <file alias="clock.svg">resources/images/icons/lucide/clock.svg</file>
+        <file alias="map.svg">resources/images/icons/lucide/map.svg</file>
+        <file alias="image.svg">resources/images/icons/lucide/image.svg</file>
+        <file alias="folder.svg">resources/images/icons/lucide/folder.svg</file>
     </qresource>
 </RCC>
 

@@ -1,12 +1,11 @@
 import QtQuick
-import "../theme"
-import "."
+import MarathonOS.Shell
 
 Rectangle {
     id: listItem
     width: parent.width
     height: 80
-    color: pressed ? "#F0F0F0" : "#FFFFFF"
+    color: pressed ? Colors.surfaceLight : Colors.surface
     
     property string title: ""
     property string subtitle: ""
@@ -33,7 +32,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: 48
             height: 48
-            radius: 24
+            radius: Colors.cornerRadiusCircle
             color: iconColor
             opacity: 0.2
             
@@ -43,6 +42,8 @@ Rectangle {
                 width: 28
                 height: 28
                 fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
                 smooth: true
             }
         }
@@ -54,8 +55,8 @@ Rectangle {
             
             Text {
                 text: title
-                color: "#000000"
-                font.pixelSize: 20
+                color: Colors.text
+                font.pixelSize: Typography.sizeBody
                 font.weight: Font.DemiBold
                 font.family: Typography.fontFamily
                 elide: Text.ElideRight
@@ -64,8 +65,8 @@ Rectangle {
             
             Text {
                 text: subtitle
-                color: "#666666"
-                font.pixelSize: 16
+                color: Colors.textSecondary
+                font.pixelSize: Typography.sizeSmall
                 font.family: Typography.fontFamily
                 elide: Text.ElideRight
                 width: parent.width
@@ -75,8 +76,8 @@ Rectangle {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: time
-            color: "#999999"
-            font.pixelSize: 14
+            color: Colors.textTertiary
+            font.pixelSize: Typography.sizeSmall
             font.family: Typography.fontFamily
         }
         
@@ -89,7 +90,7 @@ Rectangle {
             
             Icon {
                 name: "x"
-                color: "#999999"
+                color: Colors.textSecondary
                 size: 24
                 anchors.centerIn: parent
             }
@@ -105,7 +106,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         width: parent.width
         height: 1
-        color: "#E0E0E0"
+        color: Colors.border
     }
     
     MouseArea {

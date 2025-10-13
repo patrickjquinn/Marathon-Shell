@@ -1,87 +1,21 @@
 import QtQuick
-import "../theme"
-import "../stores"
+import MarathonOS.Shell
 import "."
 
 Rectangle {
     id: hub
     anchors.fill: parent
-    color: "#0A0A0A"
+    anchors.topMargin: Constants.safeAreaTop
+    color: Qt.rgba(0.05, 0.05, 0.05, 0.95)
     
     signal closed()
+    
+    property int selectedTabIndex: 0
     
     Column {
         anchors.fill: parent
         spacing: 0
-        
-        Rectangle {
-            id: hubHeader
-            width: parent.width
-            height: 80
-            color: "#1A1A1A"
-            z: 1
-            
-            Row {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 16
-                
-                Text {
-                    text: "BlackBerry Hub"
-                    color: "#FFFFFF"
-                    font.pixelSize: 28
-                    font.weight: Font.Bold
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                
-                Rectangle {
-                    width: 32
-                    height: 32
-                    radius: 16
-                    color: "#006666"
-                    anchors.verticalCenter: parent.verticalCenter
                     
-                    Text {
-                        text: NotificationStore.notifications.length.toString()
-                        color: "#FFFFFF"
-                        font.pixelSize: 16
-                        font.weight: Font.Bold
-                        anchors.centerIn: parent
-                    }
-                }
-                
-                Item { width: parent.width - 300; height: 1 }
-                
-                Rectangle {
-                    width: 40
-                    height: 40
-                    radius: 20
-                    color: "transparent"
-                    border.width: 2
-                    border.color: "#006666"
-                    anchors.verticalCenter: parent.verticalCenter
-                    z: 999
-                    
-                    Icon {
-                        name: "x"
-                        size: 24
-                        color: "#006666"
-                        anchors.centerIn: parent
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        z: 1000
-                        onPressed: console.log("❌ Close button pressed")
-                        onClicked: {
-                            console.log("❌ Close button clicked - emitting closed()")
-                            closed()
-                        }
-                    }
-                }
-            }
-        }
-        
         Row {
             id: hubTabs
             width: parent.width
@@ -97,42 +31,86 @@ Rectangle {
                     { name: "Social", icon: "users" }
                 ]
                 
-                Rectangle {
+                Item {
                     width: hub.width / 5
                     height: 60
-                    color: index === 0 ? "#004d4d" : "#1A1A1A"
                     
                     Rectangle {
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        height: 3
-                        color: "#006666"
-                        visible: index === 0
-                    }
-                    
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 4
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        radius: 3
+                        color: index === hub.selectedTabIndex ? Qt.rgba(20, 184, 166, 0.15) : Qt.rgba(255, 255, 255, 0.03)
+                        border.width: 1
+                        border.color: index === hub.selectedTabIndex ? Qt.rgba(20, 184, 166, 0.7) : Qt.rgba(255, 255, 255, 0.08)
+                        layer.enabled: true
                         
-                        Icon {
-                            name: modelData.icon
-                            size: 20
-                            color: index === 0 ? "#00CCCC" : "#666666"
-                            anchors.horizontalCenter: parent.horizontalCenter
+                        transform: Translate {
+                            y: tabMouseArea.pressed ? -1 : 0
+                            
+                            Behavior on y {
+                                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                            }
                         }
                         
-                        Text {
-                            text: modelData.name
-                            color: index === 0 ? "#FFFFFF" : "#888888"
-                            font.pixelSize: 11
-                            font.weight: index === 0 ? Font.Bold : Font.Normal
-                            anchors.horizontalCenter: parent.horizontalCenter
+                        Behavior on border.color {
+                            ColorAnimation { duration: 150 }
+                        }
+                        
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+                        
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: 1
+                            radius: parent.radius - 1
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Qt.rgba(255, 255, 255, 0.02)
+                        }
+                        
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+                            
+                            Icon {
+                                name: modelData.icon
+                                size: 20
+                                color: index === hub.selectedTabIndex ? Colors.accent : Colors.textTertiary
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.6)
+                                
+                                Behavior on opacity {
+                                    NumberAnimation { duration: 200 }
+                                }
+                            }
+                            
+                            Text {
+                                text: modelData.name
+                                color: index === hub.selectedTabIndex ? Colors.accent : Colors.textTertiary
+                                font.pixelSize: Typography.sizeXSmall
+                                font.family: Typography.fontFamily
+                                font.weight: index === hub.selectedTabIndex ? Font.DemiBold : Font.Normal
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.7)
+                                
+                                Behavior on opacity {
+                                    NumberAnimation { duration: 200 }
+                                }
+                            }
                         }
                     }
                     
                     MouseArea {
+                        id: tabMouseArea
                         anchors.fill: parent
-                        onClicked: console.log("Hub tab clicked:", modelData.name)
+                        
+                        
+                        z: 100
+                        onClicked: {
+                            hub.selectedTabIndex = index
+                            Logger.info("Hub", "Switched to tab: " + modelData.name + " (index: " + index + ")")
+                        }
                     }
                 }
             }
@@ -141,22 +119,24 @@ Rectangle {
         ListView {
             id: notificationsList
             width: parent.width
-            height: parent.height - hubHeader.height - hubTabs.height
+            height: parent.height - hubTabs.height
             clip: true
             spacing: 0
+            cacheBuffer: Math.max(0, height * 2)
+            reuseItems: true
             
             model: NotificationStore.notifications
             
             delegate: Rectangle {
                 width: notificationsList.width
                 height: 100
-                color: modelData.read ? "#0A0A0A" : "#141414"
+                color: modelData.read ? Colors.backgroundDark : Colors.surface
                 
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
                     height: 1
-                    color: "#222222"
+                    color: Colors.surfaceLight
                 }
                 
                 Row {
@@ -167,10 +147,10 @@ Rectangle {
                     Rectangle {
                         width: 48
                         height: 48
-                        radius: 24
-                        color: modelData.type === "email" ? "#006666" :
-                               modelData.type === "sms" ? "#00AA00" :
-                               modelData.type === "call" ? "#0088FF" : "#FF8800"
+                        radius: Colors.cornerRadiusCircle
+                        color: modelData.type === "email" ? Colors.accent :
+                               modelData.type === "sms" ? Colors.success :
+                               modelData.type === "call" ? "#0088FF" : Colors.warning
                         anchors.verticalCenter: parent.verticalCenter
                         
                         Icon {
@@ -178,7 +158,7 @@ Rectangle {
                                   modelData.type === "sms" ? "message-square" :
                                   modelData.type === "call" ? "phone" : "bell"
                             size: 24
-                            color: "#FFFFFF"
+                            color: Colors.text
                             anchors.centerIn: parent
                         }
                     }
@@ -194,8 +174,8 @@ Rectangle {
                             
                             Text {
                                 text: modelData.title
-                                color: modelData.read ? "#888888" : "#FFFFFF"
-                                font.pixelSize: 18
+                                color: modelData.read ? Colors.textSecondary : Colors.text
+                                font.pixelSize: Typography.sizeBody
                                 font.weight: modelData.read ? Font.Normal : Font.Bold
                                 elide: Text.ElideRight
                             }
@@ -203,8 +183,8 @@ Rectangle {
                         
                         Text {
                             text: modelData.content || modelData.subtitle || ""
-                            color: "#666666"
-                            font.pixelSize: 14
+                            color: Colors.textTertiary
+                            font.pixelSize: Typography.sizeSmall
                             width: parent.width
                             elide: Text.ElideRight
                             maximumLineCount: 2
@@ -218,8 +198,8 @@ Rectangle {
                         
                         Text {
                             text: modelData.time
-                            color: "#666666"
-                            font.pixelSize: 12
+                            color: Colors.textTertiary
+                            font.pixelSize: Typography.sizeXSmall
                             anchors.right: parent.right
                         }
                         
@@ -227,8 +207,8 @@ Rectangle {
                             visible: !modelData.read
                             width: 10
                             height: 10
-                            radius: 5
-                            color: "#00CCCC"
+                            radius: Colors.cornerRadiusSmall
+                            color: Colors.accentLight
                             anchors.right: parent.right
                         }
                     }
@@ -246,8 +226,8 @@ Rectangle {
             Text {
                 visible: notificationsList.count === 0
                 text: "No notifications"
-                color: "#666666"
-                font.pixelSize: 18
+                color: Colors.textSecondary
+                font.pixelSize: Typography.sizeBody
                 anchors.centerIn: parent
             }
         }

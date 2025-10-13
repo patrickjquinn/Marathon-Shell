@@ -1,14 +1,11 @@
 import QtQuick
-import "../theme"
-import "../stores"
-import "."
+import MarathonOS.Shell
 
 Rectangle {
     id: appWindow
     anchors.fill: parent
-    color: "#1A1A1A"
-    visible: false
-    z: 500
+    color: Colors.surface
+    focus: true
     
     property string appId: ""
     property string appName: ""
@@ -21,12 +18,28 @@ Rectangle {
         appId = id
         appName = name
         appIcon = icon
+        
+        appContentLoader.setSource("../apps/template/TemplateApp.qml", {
+            "_appId": id,
+            "_appName": name,
+            "_appIcon": icon
+        })
+        
+        if (appContentLoader.item) {
+            appContentLoader.item.minimizeRequested.connect(function() {
+                Logger.info("AppWindow", "App minimize requested: " + name)
+                minimized()
+            })
+        }
+        
         visible = true
+        forceActiveFocus()
         slideIn.start()
-        console.log("📱 Showing app window for:", name)
+        Logger.info("AppWindow", "Showing app window for: " + name)
     }
     
     function hide() {
+        appContentLoader.source = ""
         slideOut.start()
     }
     
@@ -54,110 +67,35 @@ Rectangle {
         }
     }
     
-    Column {
+    Loader {
+        id: appContentLoader
         anchors.fill: parent
+        asynchronous: true
+        visible: status === Loader.Ready && item !== null
+        opacity: status === Loader.Ready ? 1.0 : 0.0
         
-        Rectangle {
-            id: appBar
-            width: parent.width
-            height: 60
-            color: Colors.surface
-            
-            Row {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 12
-                
-                Rectangle {
-                    width: 36
-                    height: 36
-                    radius: 18
-                    color: Colors.accent
-                    anchors.verticalCenter: parent.verticalCenter
-                    
-                    Icon {
-                        name: "chevron-down"
-                        size: 24
-                        color: "#FFFFFF"
-                        anchors.centerIn: parent
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: minimized()
-                    }
-                }
-                
-                Text {
-                    text: appName
-                    color: Colors.text
-                    font.pixelSize: Typography.sizeLarge
-                    font.weight: Font.Bold
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                
-                Item {
-                    width: parent.width - 500
-                    height: 1
-                }
-                
-                Rectangle {
-                    width: 36
-                    height: 36
-                    radius: 18
-                    color: Colors.error
-                    anchors.verticalCenter: parent.verticalCenter
-                    
-                    Icon {
-                        name: "x"
-                        size: 24
-                        color: "#FFFFFF"
-                        anchors.centerIn: parent
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            AppStore.closeApp(appId)
-                            hide()
-                        }
-                    }
-                }
+        Behavior on opacity {
+            NumberAnimation { 
+                duration: 300
+                easing.type: Easing.OutCubic
             }
         }
         
-        Rectangle {
-            width: parent.width
-            height: parent.height - appBar.height
-            color: "#000000"
-            
-            Column {
-                anchors.centerIn: parent
-                spacing: 24
-                
-                Image {
-                    source: appIcon
-                    width: 128
-                    height: 128
-                    fillMode: Image.PreserveAspectFit
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
-                
-                Text {
-                    text: appName
-                    color: "#FFFFFF"
-                    font.pixelSize: 32
-                    font.weight: Font.Bold
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
-                
-                Text {
-                    text: "App is running..."
-                    color: "#888888"
-                    font.pixelSize: 18
-                    anchors.horizontalCenter: parent.horizontalCenter
-                }
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                Logger.error("AppWindow", "Failed to load app content for: " + appId)
+            } else if (status === Loader.Ready) {
+                Logger.info("AppWindow", "App content loaded successfully for: " + appId)
             }
+        }
+    }
+    
+    Keys.onPressed: (event) => {
+        if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
+            console.log("[AppWindow] Back/Escape key pressed")
+            AppStore.closeApp(appId)
+            hide()
+            event.accepted = true
         }
     }
 }

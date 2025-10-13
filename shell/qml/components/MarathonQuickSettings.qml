@@ -1,12 +1,13 @@
 import QtQuick
 import QtQuick.Controls
-import "../theme"
-import "../stores"
+import MarathonOS.Shell
+import "../MarathonUI/Theme"
+import "../MarathonUI/Controls"
 import "."
 
 Rectangle {
     id: quickSettings
-    color: "#000000"
+    color: MColors.background
     opacity: 0.98
     
     signal closed()
@@ -45,454 +46,308 @@ Rectangle {
     Flickable {
         id: scrollView
         anchors.fill: parent
-        anchors.margins: 20
+        anchors.topMargin: 20
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
         anchors.bottomMargin: 80
         contentHeight: contentColumn.height
         clip: true
         
+        flickDeceleration: 5000
+        maximumFlickVelocity: 2500
+        
         Column {
             id: contentColumn
             width: parent.width
-            spacing: 20
+            spacing: 16
         
-        Text {
-            text: "Quick Settings"
-            color: Colors.text
-            font.pixelSize: Typography.sizeLarge
-            font.weight: Font.Bold
-        }
-        
-        Grid {
-            width: parent.width
-            columns: 2
-            spacing: 12
+            Text {
+                text: SystemStatusStore.dateString
+                color: MColors.text
+                font.pixelSize: MTypography.sizeBody
+                font.weight: MTypography.weightNormal
+                font.family: MTypography.fontFamily
+                anchors.left: parent.left
+            }
             
-            // WiFi Toggle
-            Rectangle {
-                width: (parent.width - parent.spacing) / 2
-                height: 110
-                radius: Colors.cornerRadiusMedium
-                color: SystemControlStore.isWifiOn ? Colors.accent : Colors.surface
-                border.width: 1
-                border.color: SystemControlStore.isWifiOn ? Colors.accentLight : Colors.border
+            // Paginated Quick Settings Toggles
+            Column {
+                width: parent.width
+                spacing: 12
                 
-                Behavior on color { ColorAnimation { duration: 200 } }
-                Behavior on border.color { ColorAnimation { duration: 200 } }
-                
-                scale: wifiMouseArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: 100 } }
-                
-                Rectangle {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.1) }
-                        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.1) }
+                SwipeView {
+                    id: toggleSwipeView
+                    width: parent.width
+                    height: 340
+                    clip: true
+                    interactive: true
+                    
+                    // Page 1
+                    Item {
+                        width: toggleSwipeView.width
+                        height: toggleSwipeView.height
+                        
+                        Grid {
+                            anchors.fill: parent
+                            columns: 2
+                            columnSpacing: 12
+                            rowSpacing: 12
+                            
+                            Repeater {
+                                model: [
+                                    { id: "settings", icon: "settings", label: "Settings", active: false },
+                                    { id: "rotation", icon: "rotate-cw", label: "Rotation lock", active: SystemControlStore.isRotationLocked },
+                                    { id: "wifi", icon: "wifi", label: "Wi-Fi", active: SystemControlStore.isWifiOn, subtitle: SystemStatusStore.wifiNetwork || "" },
+                                    { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn },
+                                    { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn },
+                                    { id: "torch", icon: "zap", label: "Torch", active: SystemControlStore.isFlashlightOn }
+                                ]
+                                
+                                delegate: QuickSettingsTile {
+                                    tileWidth: (toggleSwipeView.width - 12) / 2
+                                    toggleData: modelData
+                                    onTapped: handleToggleTap(modelData.id)
+                                    onLongPressed: handleLongPress(modelData.id)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Page 2
+                    Item {
+                        width: toggleSwipeView.width
+                        height: toggleSwipeView.height
+                        
+                        Grid {
+                            anchors.fill: parent
+                            columns: 2
+                            columnSpacing: 12
+                            rowSpacing: 12
+                            
+                            Repeater {
+                                model: [
+                                    { id: "alarm", icon: "bell", label: "Alarm", active: SystemControlStore.isAlarmOn },
+                                    { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, subtitle: "Normal" },
+                                    { id: "battery", icon: "battery", label: "Battery saving", active: SystemControlStore.isLowPowerMode },
+                                    { id: "monitor", icon: "activity", label: "Device monitor", active: false, subtitle: "Battery " + SystemStatusStore.batteryLevel + "%" },
+                                    { id: "network", icon: "signal", label: "Mobile network", active: false },
+                                    { id: "blend", icon: "layers", label: "Blend", active: false }
+                                ]
+                                
+                                delegate: QuickSettingsTile {
+                                    tileWidth: (toggleSwipeView.width - 12) / 2
+                                    toggleData: modelData
+                                    onTapped: handleToggleTap(modelData.id)
+                                    onLongPressed: handleLongPress(modelData.id)
+                                }
+                            }
+                        }
                     }
                 }
                 
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 12
+                // Page indicator
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: 8
                     
-                    Icon {
-                        name: "wifi"
-                        color: Colors.text
-                        size: 36
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    Repeater {
+                        model: toggleSwipeView.count
+                        
+                        Rectangle {
+                            width: index === toggleSwipeView.currentIndex ? 24 : 8
+                            height: 8
+                            radius: MRadius.md
+                            color: index === toggleSwipeView.currentIndex ? MColors.accent : Qt.rgba(255, 255, 255, 0.3)
+                            
+                            Behavior on width {
+                                NumberAnimation { duration: 200 }
+                            }
+                            
+                            Behavior on color {
+                                ColorAnimation { duration: 200 }
+                            }
+                        }
                     }
-                    
-                    Text {
-                        text: "Wi-Fi"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: wifiMouseArea
-                    anchors.fill: parent
-                    onClicked: SystemControlStore.toggleWifi()
                 }
             }
             
-            // Bluetooth Toggle
-            Rectangle {
-                width: (parent.width - parent.spacing) / 2
-                height: 110
-                radius: Colors.cornerRadiusMedium
-                color: SystemControlStore.isBluetoothOn ? Colors.accent : Colors.surface
-                
-                Behavior on color { ColorAnimation { duration: 200 } }
-                
-                scale: bluetoothMouseArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: 100 } }
-                
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 12
-                    
-                    Icon {
-                        name: "bluetooth"
-                        color: Colors.text
-                        size: 36
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    
-                    Text {
-                        text: "Bluetooth"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: bluetoothMouseArea
-                    anchors.fill: parent
-                    onClicked: SystemControlStore.toggleBluetooth()
-                }
+            // Media Playback Manager
+            MediaPlaybackManager {
+                id: mediaPlayer
+                width: parent.width
             }
             
-            // Airplane Mode Toggle
-            Rectangle {
-                width: (parent.width - parent.spacing) / 2
-                height: 110
-                radius: Colors.cornerRadiusMedium
-                color: SystemControlStore.isAirplaneModeOn ? Colors.accent : Colors.surface
+            // Brightness Slider
+            Column {
+                width: parent.width
+                spacing: MSpacing.md
                 
-                Behavior on color { ColorAnimation { duration: 200 } }
-                
-                scale: airplaneMouseArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: 100 } }
-                
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 12
-                    
-                    Icon {
-                        name: "plane"
-                        color: Colors.text
-                        size: 36
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    
-                    Text {
-                        text: "Airplane"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
+                Text {
+                    text: "Brightness"
+                    color: MColors.text
+                    font.pixelSize: MTypography.sizeBody
+                    font.weight: MTypography.weightMedium
+                    font.family: MTypography.fontFamily
                 }
                 
-                MouseArea {
-                    id: airplaneMouseArea
-                    anchors.fill: parent
-                    onClicked: SystemControlStore.toggleAirplaneMode()
-                }
-            }
-            
-            // Rotation Lock Toggle
-            Rectangle {
-                width: (parent.width - parent.spacing) / 2
-                height: 110
-                radius: Colors.cornerRadiusMedium
-                color: SystemControlStore.isRotationLocked ? Colors.accent : Colors.surface
-                
-                Behavior on color { ColorAnimation { duration: 200 } }
-                
-                scale: rotationMouseArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: 100 } }
-                
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 12
-                    
-                    Icon {
-                        name: "rotate-ccw"
-                        color: Colors.text
-                        size: 36
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    
-                    Text {
-                        text: "Rotation"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: rotationMouseArea
-                    anchors.fill: parent
-                    onClicked: SystemControlStore.toggleRotationLock()
-                }
-            }
-            
-            // Flashlight Toggle
-            Rectangle {
-                width: (parent.width - parent.spacing) / 2
-                height: 110
-                radius: Colors.cornerRadiusMedium
-                color: SystemControlStore.isFlashlightOn ? Colors.accent : Colors.surface
-                
-                Behavior on color { ColorAnimation { duration: 200 } }
-                
-                scale: flashlightMouseArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: 100 } }
-                
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 12
-                    
-                    Icon {
-                        name: "zap"
-                        color: Colors.text
-                        size: 36
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    
-                    Text {
-                        text: "Flashlight"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: flashlightMouseArea
-                    anchors.fill: parent
-                    onClicked: SystemControlStore.toggleFlashlight()
-                }
-            }
-            
-            // Alarm Toggle
-            Rectangle {
-                width: (parent.width - parent.spacing) / 2
-                height: 110
-                radius: Colors.cornerRadiusMedium
-                color: SystemControlStore.isAlarmOn ? Colors.accent : Colors.surface
-                
-                Behavior on color { ColorAnimation { duration: 200 } }
-                
-                scale: alarmMouseArea.pressed ? 0.95 : 1.0
-                Behavior on scale { NumberAnimation { duration: 100 } }
-                
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 12
-                    
-                    Icon {
-                        name: "bell"
-                        color: Colors.text
-                        size: 36
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                    
-                    Text {
-                        text: "Alarm"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        anchors.horizontalCenter: parent.horizontalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: alarmMouseArea
-                    anchors.fill: parent
-                    onClicked: SystemControlStore.toggleAlarm()
-                }
-            }
-        }
-        
-        // Brightness Slider
-        Rectangle {
-            width: parent.width
-            height: 60
-            radius: 12
-            color: Colors.surface
-            
-            Row {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 16
-                
-                Icon {
-                    name: "sun"
-                    color: Colors.text
-                    size: 24
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                
-                Slider {
-                    id: brightnessSlider
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 56
+                MSlider {
+                    width: parent.width
                     from: 0
                     to: 100
                     value: SystemControlStore.brightness
-                    onValueChanged: {
-                        if (pressed) {
-                            SystemControlStore.setBrightness(value)
-                        }
-                    }
-                    
-                    background: Rectangle {
-                        x: brightnessSlider.leftPadding
-                        y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                        implicitWidth: 200
-                        implicitHeight: 4
-                        width: brightnessSlider.availableWidth
-                        height: implicitHeight
-                        radius: 2
-                        color: Colors.textTertiary
-                        
-                        Rectangle {
-                            width: brightnessSlider.visualPosition * parent.width
-                            height: parent.height
-                            color: Colors.accent
-                            radius: 2
-                        }
-                    }
-                    
-                    handle: Rectangle {
-                        x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
-                        y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                        implicitWidth: 20
-                        implicitHeight: 20
-                        radius: 10
-                        color: brightnessSlider.pressed ? Qt.lighter(Colors.accent, 1.2) : Colors.accent
-                        border.color: Colors.text
-                        border.width: 1
+                    onMoved: {
+                        SystemControlStore.setBrightness(value)
                     }
                 }
             }
-        }
-        
-        // Volume Slider
-        Rectangle {
-            width: parent.width
-            height: 60
-            radius: 12
-            color: Colors.surface
             
-            Row {
-                anchors.fill: parent
-                anchors.margins: 16
-                spacing: 16
+            // Volume Slider
+            Column {
+                width: parent.width
+                spacing: MSpacing.md
                 
-                Icon {
-                    name: "volume-2"
-                    color: Colors.text
-                    size: 24
-                    anchors.verticalCenter: parent.verticalCenter
+                Text {
+                    text: "Volume"
+                    color: MColors.text
+                    font.pixelSize: MTypography.sizeBody
+                    font.weight: MTypography.weightMedium
+                    font.family: MTypography.fontFamily
                 }
                 
-                Slider {
-                    id: volumeSlider
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 56
+                MSlider {
+                    width: parent.width
                     from: 0
                     to: 100
                     value: SystemControlStore.volume
-                    onValueChanged: {
-                        if (pressed) {
-                            SystemControlStore.setVolume(value)
-                        }
-                    }
-                    
-                    background: Rectangle {
-                        x: volumeSlider.leftPadding
-                        y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                        implicitWidth: 200
-                        implicitHeight: 4
-                        width: volumeSlider.availableWidth
-                        height: implicitHeight
-                        radius: 2
-                        color: Colors.textTertiary
-                        
-                        Rectangle {
-                            width: volumeSlider.visualPosition * parent.width
-                            height: parent.height
-                            color: Colors.accent
-                            radius: 2
-                        }
-                    }
-                    
-                    handle: Rectangle {
-                        x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
-                        y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                        implicitWidth: 20
-                        implicitHeight: 20
-                        radius: 10
-                        color: volumeSlider.pressed ? Qt.lighter(Colors.accent, 1.2) : Colors.accent
-                        border.color: Colors.text
-                        border.width: 1
+                    onMoved: {
+                        SystemControlStore.setVolume(value)
                     }
                 }
             }
-        }
+            
+            Item { height: 20 }
         }
     }
     
-    // Drag handle at bottom
+    // Drag handle
     Rectangle {
         id: dragHandle
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 16
-        width: 120
-        height: 60
-        radius: Colors.cornerRadiusMedium
-        color: Qt.rgba(Colors.surface.r, Colors.surface.g, Colors.surface.b, 0.8)
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.1)
+        anchors.bottomMargin: 20
+        width: 100
+        height: 50
+        color: "transparent"
         z: 100
         
-        Rectangle {
-            anchors.centerIn: parent
-            width: 60
-            height: 4
-            radius: 2
-            color: Colors.textTertiary
-        }
-        
-        Icon {
-            name: "chevron-up"
-            color: Colors.text
-            size: 32
-            anchors.centerIn: parent
-        }
+            Rectangle {
+                anchors.centerIn: parent
+                width: 60
+                height: 6
+                radius: MRadius.sm
+                color: MColors.textTertiary
+            }
         
         MouseArea {
-            id: handleArea
             anchors.fill: parent
+            anchors.margins: -20
+            
             property real startY: 0
-            property bool wasDragged: false
+            property real velocity: 0
+            property real lastY: 0
+            property real lastTime: 0
+            property bool dragging: false
             
             onPressed: (mouse) => {
                 startY = mouse.y
-                wasDragged = false
+                lastY = mouse.y
+                lastTime = Date.now()
+                velocity = 0
+                dragging = false
             }
             
             onPositionChanged: (mouse) => {
-                if (Math.abs(mouse.y - startY) > 10) {
-                    wasDragged = true
+                var deltaY = mouse.y - startY
+                if (Math.abs(deltaY) > 10) {
+                    dragging = true
                 }
-                if (mouse.y - startY < -50) {
-                    closed()
+                
+                if (dragging) {
+                    var now = Date.now()
+                    var dt = now - lastTime
+                    if (dt > 0) {
+                        velocity = (mouse.y - lastY) / dt * 1000
+                    }
+                    lastY = mouse.y
+                    lastTime = now
+                    
+                    var newHeight = UIStore.quickSettingsHeight - deltaY
+                    if (newHeight < 700 && newHeight > 0) {
+                        UIStore.quickSettingsHeight = newHeight
+                    }
                 }
             }
             
-            onReleased: (mouse) => {
-                if (!wasDragged) {
-                    closed()
+            onReleased: {
+                if (dragging) {
+                    if (velocity < -500 || UIStore.quickSettingsHeight < 350) {
+                        UIStore.closeQuickSettings()
+                    } else {
+                        UIStore.openQuickSettings()
+                    }
                 }
+                dragging = false
             }
         }
     }
+    
+    // Handle toggle tap
+    function handleToggleTap(toggleId) {
+        Logger.info("QuickSettings", "Toggle tapped: " + toggleId)
+        HapticService.light()
+        
+        if (toggleId === "wifi") {
+            SystemControlStore.toggleWifi()
+        } else if (toggleId === "bluetooth") {
+            SystemControlStore.toggleBluetooth()
+        } else if (toggleId === "flight") {
+            SystemControlStore.toggleAirplaneMode()
+        } else if (toggleId === "rotation") {
+            SystemControlStore.toggleRotationLock()
+        } else if (toggleId === "torch") {
+            SystemControlStore.toggleFlashlight()
+        } else if (toggleId === "alarm") {
+            SystemControlStore.toggleAlarm()
+        } else if (toggleId === "battery") {
+            SystemControlStore.toggleLowPowerMode()
+        } else if (toggleId === "settings") {
+            UIStore.openSettings()
+            UIStore.closeQuickSettings()
+        }
+    }
+    
+    // Handle long press (deep link to settings)
+    function handleLongPress(toggleId) {
+        Logger.info("QuickSettings", "Toggle long-pressed: " + toggleId)
+        HapticService.medium()
+        
+        var deepLinkMap = {
+            "wifi": "marathon://settings/wifi",
+            "bluetooth": "marathon://settings/bluetooth",
+            "network": "marathon://settings/cellular",
+            "flight": "marathon://settings/cellular",
+            "rotation": "marathon://settings/display",
+            "torch": "marathon://settings/display",
+            "alarm": "marathon://settings/sound",
+            "notifications": "marathon://settings/notifications",
+            "battery": "marathon://settings/about",
+            "settings": "marathon://settings"
+        }
+        
+        var deepLink = deepLinkMap[toggleId]
+        if (deepLink) {
+            NavigationRouter.navigate(deepLink)
+            UIStore.closeQuickSettings()
+        }
+    }
 }
-

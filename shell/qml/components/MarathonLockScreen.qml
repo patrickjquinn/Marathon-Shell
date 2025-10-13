@@ -1,263 +1,332 @@
 import QtQuick
-import "../theme"
-import "../stores"
+import MarathonOS.Shell
 import "."
+import "./ui"
 
-// BlackBerry 10 Lock Screen - Clean, minimal, beautiful
-Rectangle {
+Item {
     id: lockScreen
     anchors.fill: parent
     
-    signal unlockRequested()  // Emitted when user swipes up
+    signal unlockRequested()
     signal cameraLaunched()
-    signal hubOpened()
+    signal notificationTapped(string id)
     
-    property real swipeProgress: 0.0  // 0.0 = locked, 1.0 = unlocking
-    property int currentNotificationPage: 0
-    property int totalNotificationPages: 3  // Mock data for now
+    property real swipeProgress: 0.0
+    property real swipeCenterX: 0.5
+    property real swipeCenterY: 0.5
+    property string expandedNotificationId: ""
     
-    // Wallpaper background
+    Rectangle {
+        id: lockContent
+        anchors.fill: parent
+        color: Colors.background
+    
     Image {
         anchors.fill: parent
         source: WallpaperStore.path
         fillMode: Image.PreserveAspectCrop
-        
-        // Fade out as unlock progresses
-        opacity: 1.0 - (swipeProgress * 0.3)
-        
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
-            }
-        }
+        asynchronous: true
+        cache: true
     }
     
-    // Status bar at top
-    MarathonStatusBar {
-        id: statusBar
-        width: parent.width
-        z: 5
-        opacity: 1.0 - (swipeProgress * 0.5)
-    }
-    
-    // Large Date Display (center-top)
-    Text {
-        id: dateDisplay
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: parent.height * 0.25
-        text: SystemStatusStore.dateString
-        color: WallpaperStore.isDark ? Colors.text : "#FFFFFF"
-        font.pixelSize: 48
-        font.weight: Font.Light
-        z: 2
-        
-        // Fade and move up slightly as unlock progresses
-        opacity: 1.0 - swipeProgress
-        transform: Translate { y: -swipeProgress * 50 }
-        
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 150
-                easing.type: Easing.OutCubic
-            }
-        }
-    }
-    
-    // Bottom UI Container
-    Item {
-        id: bottomUI
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        height: 140
-        z: 3
-        
-        // Fade out as unlock progresses
-        opacity: 1.0 - swipeProgress
-        
-        // Hub/Messages Shortcut (bottom left)
-        Rectangle {
-            id: hubShortcut
-            anchors.left: parent.left
-            anchors.leftMargin: 40
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 40
-            width: 64
-            height: 64
-            radius: 32
-            color: Qt.rgba(1, 1, 1, 0.2)
-            border.color: Qt.rgba(1, 1, 1, 0.4)
-            border.width: 1
-            
-            Image {
-                source: "qrc:/images/icons/lucide/bell.svg"
-                width: 32
-                height: 32
-                fillMode: Image.PreserveAspectFit
-                anchors.centerIn: parent
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    console.log("📨 Hub shortcut tapped")
-                    hubOpened()
-                }
-            }
-        }
-        
-        // Page Indicators (center)
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 52
-            spacing: 12
-            
-            Repeater {
-                model: totalNotificationPages
-                
-                Rectangle {
-                    width: index === currentNotificationPage ? 10 : 8
-                    height: index === currentNotificationPage ? 10 : 8
-                    radius: width / 2
-                    color: index === currentNotificationPage ? Colors.text : Qt.rgba(1, 1, 1, 0.4)
-                    border.color: Qt.rgba(1, 1, 1, 0.6)
-                    border.width: 1
-                    
-                    Behavior on width { NumberAnimation { duration: 200 } }
-                    Behavior on height { NumberAnimation { duration: 200 } }
-                    Behavior on color { ColorAnimation { duration: 200 } }
-                }
-            }
-        }
-        
-        // Camera Shortcut (bottom right)
-        Rectangle {
-            id: cameraShortcut
-            anchors.right: parent.right
-            anchors.rightMargin: 40
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 40
-            width: 64
-            height: 64
-            radius: 32
-            color: Qt.rgba(1, 1, 1, 0.2)
-            border.color: Qt.rgba(1, 1, 1, 0.4)
-            border.width: 1
-            
-            Image {
-                source: "qrc:/images/camera.svg"
-                width: 36
-                height: 36
-                fillMode: Image.PreserveAspectFit
-                anchors.centerIn: parent
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    console.log("📷 Camera shortcut tapped")
-                    cameraLaunched()
-                }
-            }
-        }
-    }
-    
-    // Swipe Up Unlock Gesture Area
+    // Dismiss expanded notifications when tapping elsewhere
     MouseArea {
-        id: swipeArea
         anchors.fill: parent
         z: 1
+        enabled: expandedNotificationId !== ""
+        onClicked: {
+            expandedNotificationId = ""
+            Logger.info("LockScreen", "Notifications dismissed")
+        }
+    }
+    
+        MarathonStatusBar {
+            id: statusBar
+        width: parent.width
+            z: 5
+        }
         
+        Column {
+            anchors.centerIn: parent
+            anchors.verticalCenterOffset: -80
+            spacing: 8
+            
+            Text {
+                text: SystemStatusStore.timeString
+                color: Colors.text
+                font.pixelSize: 96
+                font.weight: Font.Thin
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: SystemStatusStore.dateString
+                color: Colors.text
+                font.pixelSize: Typography.sizeLarge
+                font.weight: Font.Normal
+                anchors.horizontalCenter: parent.horizontalCenter
+                opacity: 0.9
+            }
+        }
+        
+        Column {
+            anchors.left: parent.left
+            anchors.leftMargin: 20
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 16
+            z: 10
+            
+            Repeater {
+                model: NotificationStore.notifications.slice(0, 4)
+                
+                Item {
+                    width: expandedNotificationId === modelData.id ? 300 : 48
+                    height: 48
+                    
+                    Behavior on width {
+                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    }
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        color: expandedNotificationId === modelData.id ? "#40000000" : "transparent"
+                        radius: Colors.cornerRadiusSmall  // BB10: 2px
+                        
+                        Behavior on color {
+                            ColorAnimation { duration: 200 }
+                        }
+                        
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            spacing: 12
+                            
+                            Rectangle {
+                                width: 40
+                                height: 40
+                                radius: Colors.cornerRadiusCircle  // BB10: True circle
+                                color: expandedNotificationId === modelData.id ? "#30FFFFFF" : "transparent"
+                                border.width: expandedNotificationId === modelData.id ? 0 : 1
+                                border.color: "#40FFFFFF"
+                                anchors.verticalCenter: parent.verticalCenter
+                                
+                                Behavior on color {
+                                    ColorAnimation { duration: 200 }
+                                }
+                                Behavior on border.width {
+                                    NumberAnimation { duration: 200 }
+                                }
+                                
+                                Image {
+                                    source: modelData.icon
+                                    width: 24
+                                    height: 24
+                                    fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
+                                    anchors.centerIn: parent
+                                }
+                                
+                                Rectangle {
+                                    visible: !modelData.read
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.rightMargin: -4
+                                    anchors.topMargin: -4
+                                    width: 18
+                                    height: 18
+                                    radius: Colors.cornerRadiusSmall
+                                    color: Colors.error
+                                    
+                                    Text {
+                                        text: "1"
+                                        color: Colors.text
+                                        font.pixelSize: Typography.sizeXSmall
+                                        font.weight: Font.Bold
+                                        anchors.centerIn: parent
+                                    }
+                                }
+                            }
+                            
+    Column {
+                                visible: expandedNotificationId === modelData.id
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 68
+                                spacing: 2
+        
+        Text {
+                                    text: modelData.title
+                                    color: Colors.text
+                                    font.pixelSize: Typography.sizeSmall
+                                    font.weight: Font.Bold
+                                    elide: Text.ElideRight
+                                    width: parent.width
+        }
+        
+        Text {
+                                    text: modelData.subtitle
+                                    color: Colors.textSecondary
+                                    font.pixelSize: Typography.sizeXSmall
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                            }
+                        }
+                        
+                        MouseArea {
+                            anchors.fill: parent
+                            z: 100
+                            
+                            property var notification: modelData
+                            
+                            onClicked: {
+                                if (expandedNotificationId === notification.id) {
+                                    // Second tap: dismiss notification
+                                    expandedNotificationId = ""
+                                    Logger.info("LockScreen", "Notification dismissed: " + notification.title)
+                                } else {
+                                    // First tap: expand notification
+                                    expandedNotificationId = notification.id
+                                    Logger.info("LockScreen", "Notification expanded: " + notification.title)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        MarathonBottomBar {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            showPageIndicators: false
+        }
+        
+        Canvas {
+            id: dissolveCanvas
+            anchors.fill: parent
+            z: 100
+            visible: swipeProgress > 0
+            
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.clearRect(0, 0, width, height)
+                
+                ctx.fillStyle = "#000000"
+                ctx.fillRect(0, 0, width, height)
+                
+                ctx.globalCompositeOperation = "destination-out"
+                
+                var centerX = swipeCenterX * width
+                var centerY = swipeCenterY * height
+                var maxDist = Math.sqrt(width * width + height * height)
+                var radius = swipeProgress * maxDist
+                
+                for (var i = 0; i < 20; i++) {
+                    var angle = (i / 20) * Math.PI * 2
+                    var length = radius * (0.9 + Math.random() * 0.2)
+                    
+                    var gradient = ctx.createLinearGradient(
+                        centerX, centerY,
+                        centerX + Math.cos(angle) * length,
+                        centerY + Math.sin(angle) * length
+                    )
+                    gradient.addColorStop(0, "rgba(255,255,255,1)")
+                    gradient.addColorStop(1, "rgba(255,255,255,0)")
+                    
+                    ctx.beginPath()
+                    ctx.moveTo(centerX, centerY)
+                    ctx.lineTo(
+                        centerX + Math.cos(angle) * length,
+                        centerY + Math.sin(angle) * length
+                    )
+                    ctx.lineWidth = 80
+                    ctx.strokeStyle = gradient
+                    ctx.lineCap = "round"
+                    ctx.stroke()
+                }
+                
+                var radialGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 0.6)
+                radialGrad.addColorStop(0, "rgba(255,255,255,1)")
+                radialGrad.addColorStop(1, "rgba(255,255,255,0)")
+                ctx.fillStyle = radialGrad
+                ctx.beginPath()
+                ctx.arc(centerX, centerY, radius * 0.6, 0, Math.PI * 2)
+                ctx.fill()
+            }
+        }
+        
+        opacity: 1.0 - swipeProgress
+    }
+    
+    MouseArea {
+        anchors.fill: parent
+        z: 5
+        propagateComposedEvents: true
+        
+        property real startX: 0
         property real startY: 0
-        property real startTime: 0
-        property bool isValidSwipe: false
+        property bool isDragging: false
         
         onPressed: (mouse) => {
+            startX = mouse.x
             startY = mouse.y
-            startTime = Date.now()
-            isValidSwipe = mouse.y > parent.height * 0.5  // Only accept swipes from bottom half
-            console.log("🔒 Lock screen touch started at:", mouse.y)
+            isDragging = false
+            swipeCenterX = mouse.x / width
+            swipeCenterY = mouse.y / height
+            Logger.debug("LockScreen", "Touch at: " + mouse.x + ", " + mouse.y)
+            
+            // Let notifications handle their own clicks if touch is on them
+            if (mouse.y > height * 0.3 && mouse.y < height * 0.7 && mouse.x < 350) {
+                mouse.accepted = false
+            }
         }
         
         onPositionChanged: (mouse) => {
-            if (!isValidSwipe) return
+            var distance = Math.sqrt(
+                Math.pow(mouse.x - startX, 2) + 
+                Math.pow(mouse.y - startY, 2)
+            )
             
-            var dragDistance = startY - mouse.y
-            if (dragDistance > 0) {
-                // Calculate progress (0.0 to 1.0)
-                swipeProgress = Math.min(1.0, dragDistance / (parent.height * 0.6))
-                console.log("🔒 Swipe progress:", swipeProgress.toFixed(2))
+            if (distance > 10) {
+                isDragging = true
+            }
+            
+            if (isDragging) {
+                swipeCenterX = mouse.x / width
+                swipeCenterY = mouse.y / height
+                swipeProgress = Math.min(1.0, distance / (height * 0.6))
+                dissolveCanvas.requestPaint()
             }
         }
         
         onReleased: (mouse) => {
-            if (!isValidSwipe) {
-                swipeProgress = 0
-                return
-            }
-            
-            var dragDistance = startY - mouse.y
-            var velocity = dragDistance / (Date.now() - startTime) * 1000  // pixels per second
-            
-            console.log("🔒 Released. Progress:", swipeProgress.toFixed(2), "Velocity:", velocity.toFixed(0))
-            
-            // Threshold: 40% of screen OR fast swipe (> 800 px/s)
-            if (swipeProgress > 0.4 || velocity > 800) {
-                // Complete unlock animation
+            if (isDragging && swipeProgress > 0.4) {
                 swipeProgress = 1.0
-                console.log("✅ Unlock threshold met - requesting unlock")
-                
-                // Emit unlock signal after animation completes
+                dissolveCanvas.requestPaint()
                 unlockTimer.start()
             } else {
-                // Snap back to locked
                 swipeProgress = 0
-                console.log("↩️ Snap back to locked")
+                if (isDragging) {
+                    expandedNotificationId = ""
+                }
             }
-            
-            startY = 0
-            isValidSwipe = false
-        }
-        
-        onCanceled: {
-            swipeProgress = 0
-            startY = 0
-            isValidSwipe = false
+            isDragging = false
         }
     }
     
-    // Spring animation for snap-back
     Behavior on swipeProgress {
         enabled: swipeProgress < 1.0
-        NumberAnimation {
-            duration: 300
-            easing.type: Easing.OutBack
-            easing.overshoot: 1.2
-        }
+        NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
     }
     
-    // Timer to emit unlock signal after animation
     Timer {
         id: unlockTimer
-        interval: 200
-        repeat: false
+        interval: 300
         onTriggered: {
-            console.log("🔓 Emitting unlockRequested signal")
+            Logger.state("LockScreen", "dissolveComplete", "unlocking")
             unlockRequested()
-        }
-    }
-    
-    // Force time updates
-    Timer {
-        interval: 1000
-        running: true
-        repeat: true
-        onTriggered: {
-            // Force refresh
-            lockScreen.visible = lockScreen.visible
         }
     }
 }

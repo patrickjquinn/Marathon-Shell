@@ -1,8 +1,0 @@
-module MarathonOS.Stores
-singleton AppStore 1.0 AppStore.qml
-singleton WallpaperStore 1.0 WallpaperStore.qml
-singleton SystemStatusStore 1.0 SystemStatusStore.qml
-singleton SystemControlStore 1.0 SystemControlStore.qml
-singleton TaskManagerStore 1.0 TaskManagerStore.qml
-singleton NotificationStore 1.0 NotificationStore.qml
-

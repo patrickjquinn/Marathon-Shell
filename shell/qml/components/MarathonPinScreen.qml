@@ -1,13 +1,11 @@
 import QtQuick
-import "../theme"
-import "../stores"
-import "."
+import MarathonOS.Shell
 
 // PIN Entry Screen - shown after swipe-up unlock
 Rectangle {
     id: pinScreen
     anchors.fill: parent
-    color: "#000000"
+    color: Colors.background
     
     signal pinCorrect()
     signal cancelled()
@@ -36,10 +34,9 @@ Rectangle {
         }
     }
     
-    // Dim background
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
+        color: Colors.background
         opacity: 0.95
     }
     
@@ -47,12 +44,11 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 40
         
-        // Title
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Enter PIN"
             color: Colors.text
-            font.pixelSize: 28
+            font.pixelSize: Typography.sizeXLarge
             font.weight: Font.Medium
         }
         
@@ -67,7 +63,7 @@ Rectangle {
                 Rectangle {
                     width: 16
                     height: 16
-                    radius: 8
+                    radius: Colors.cornerRadiusSmall  // BB10: 2px
                     color: index < pin.length ? Colors.accent : "transparent"
                     border.color: Colors.text
                     border.width: 2
@@ -106,145 +102,249 @@ Rectangle {
         }
         
         // Number pad
-        Grid {
+        Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            columns: 3
             spacing: 20
             
-            Repeater {
-                model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", ""]
+            Grid {
+                anchors.horizontalCenter: parent.horizontalCenter
+                columns: 3
+                columnSpacing: 20
+                rowSpacing: 20
+                
+                Repeater {
+                    model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+                    
+                    Rectangle {
+                        width: 80
+                        height: 80
+                        radius: 4
+                        color: Qt.rgba(255, 255, 255, 0.05)
+                        border.width: 1
+                        border.color: Qt.rgba(255, 255, 255, 0.1)
+                        
+                        Behavior on border.color {
+                            ColorAnimation { duration: 200 }
+                        }
+                        
+                        // Inner glow
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: 1
+                            radius: parent.radius - 1
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Qt.rgba(255, 255, 255, 0.02)
+                        }
+                        
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData
+                            color: Colors.text
+                            font.pixelSize: 32
+                            font.weight: Font.Light
+                            opacity: numMouseArea.pressed ? 1.0 : 0.9
+                            
+                            Behavior on opacity {
+                                NumberAnimation { duration: 200 }
+                            }
+                        }
+                        
+                        transform: [
+                            Scale {
+                                origin.x: 40
+                                origin.y: 40
+                                xScale: numMouseArea.pressed ? 0.88 : 1.0
+                                yScale: numMouseArea.pressed ? 0.88 : 1.0
+                                
+                                Behavior on xScale {
+                                    NumberAnimation { 
+                                        duration: 200
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                                Behavior on yScale {
+                                    NumberAnimation { 
+                                        duration: 200
+                                        easing.type: Easing.OutCubic
+                                    }
+                                }
+                            }
+                        ]
+                        
+                        MouseArea {
+                            id: numMouseArea
+                            anchors.fill: parent
+                            
+                            
+                            onClicked: handleInput(modelData)
+                        }
+                    }
+                }
+            }
+            
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 20
+                
+                Item { width: 80; height: 80 }
                 
                 Rectangle {
                     width: 80
                     height: 80
-                    radius: 40
-                    color: modelData !== "" ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
-                    border.color: modelData !== "" ? Qt.rgba(1, 1, 1, 0.3) : "transparent"
-                    border.width: 2
-                    visible: modelData !== ""
+                    radius: 4
+                    color: Qt.rgba(255, 255, 255, 0.05)
+                    border.width: 1
+                    border.color: Qt.rgba(255, 255, 255, 0.1)
                     
-                    // Glassy effect
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    
                     Rectangle {
                         anchors.fill: parent
-                        radius: parent.radius
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.15) }
-                            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.1) }
-                        }
+                        anchors.margins: 1
+                        radius: parent.radius - 1
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Qt.rgba(255, 255, 255, 0.02)
                     }
                     
                     Text {
                         anchors.centerIn: parent
-                        text: modelData
+                        text: "0"
                         color: Colors.text
                         font.pixelSize: 32
                         font.weight: Font.Light
+                        opacity: zeroMouseArea.pressed ? 1.0 : 0.9
+                        
+                        Behavior on opacity {
+                            NumberAnimation { duration: 200 }
+                        }
+                    }
+                    
+                    transform: [
+                        Scale {
+                            origin.x: 40
+                            origin.y: 40
+                            xScale: zeroMouseArea.pressed ? 0.88 : 1.0
+                            yScale: zeroMouseArea.pressed ? 0.88 : 1.0
+                            
+                            Behavior on xScale {
+                                NumberAnimation { 
+                                    duration: 200
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                            Behavior on yScale {
+                                NumberAnimation { 
+                                    duration: 200
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
+                    ]
+                    
+                    MouseArea {
+                        id: zeroMouseArea
+                        anchors.fill: parent
+                        
+                        
+                        onClicked: handleInput("0")
+                    }
+                }
+                
+                Rectangle {
+                    width: 80
+                    height: 80
+                    radius: 4
+                    color: Qt.rgba(255, 255, 255, 0.03)
+                    border.width: 1
+                    border.color: Qt.rgba(255, 255, 255, 0.08)
+                    
+                    Behavior on border.color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        radius: parent.radius - 1
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Qt.rgba(255, 255, 255, 0.02)
+                    }
+                    
+                    Text {
+                        anchors.centerIn: parent
+                        text: "←"
+                        color: Colors.text
+                        font.pixelSize: 26
+                        font.weight: Font.Light
+                        opacity: clearMouseArea.pressed ? 1.0 : 0.8
+                        
+                        Behavior on opacity {
+                            NumberAnimation { duration: 200 }
+                        }
+                    }
+                    
+                    transform: [
+                        Scale {
+                            origin.x: 40
+                            origin.y: 40
+                            xScale: clearMouseArea.pressed ? 0.88 : 1.0
+                            yScale: clearMouseArea.pressed ? 0.88 : 1.0
+                            
+                            Behavior on xScale {
+                                NumberAnimation { 
+                                    duration: 200
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                            Behavior on yScale {
+                                NumberAnimation { 
+                                    duration: 200
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                        }
+                    ]
+                    
+                    MouseArea {
+                        id: clearMouseArea
+                        anchors.fill: parent
+                        
+                        
+                        onClicked: {
+                            pin = ""
+                            error = ""
+                        }
+                    }
+                }
+            }
+            
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 0
+                
+                Text {
+                    text: "Cancel"
+                    color: Colors.text
+                    font.pixelSize: Typography.sizeBody
+                    font.weight: Font.Normal
+                    opacity: cancelMouseArea.pressed ? 0.5 : 0.7
+                    
+                    Behavior on opacity {
+                        NumberAnimation { duration: Constants.animationDurationFast }
                     }
                     
                     MouseArea {
-                        id: buttonArea
+                        id: cancelMouseArea
                         anchors.fill: parent
-                        enabled: modelData !== ""
-                        
-                        onPressed: {
-                            parent.scale = 0.9
-                            parent.opacity = 0.7
-                        }
-                        
-                        onReleased: {
-                            parent.scale = 1.0
-                            parent.opacity = 1.0
-                        }
-                        
-                        onClicked: {
-                            if (modelData !== "") {
-                                handleInput(modelData)
-                            }
-                        }
-                    }
-                    
-                    Behavior on scale {
-                        NumberAnimation { duration: 100 }
-                    }
-                    
-                    Behavior on opacity {
-                        NumberAnimation { duration: 100 }
+                        anchors.margins: -20
+                        onClicked: cancelled()
                     }
                 }
-            }
-        }
-        
-        // Backspace button
-        Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 180
-            height: 60
-            radius: 30
-            color: Qt.rgba(1, 1, 1, 0.1)
-            border.color: Qt.rgba(1, 1, 1, 0.3)
-            border.width: 2
-            
-            Text {
-                anchors.centerIn: parent
-                text: "← Clear"
-                color: Colors.text
-                font.pixelSize: 20
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                
-                onPressed: {
-                    parent.scale = 0.95
-                    parent.opacity = 0.7
-                }
-                
-                onReleased: {
-                    parent.scale = 1.0
-                    parent.opacity = 1.0
-                }
-                
-                onClicked: {
-                    pin = ""
-                    error = ""
-                }
-            }
-            
-            Behavior on scale {
-                NumberAnimation { duration: 100 }
-            }
-            
-            Behavior on opacity {
-                NumberAnimation { duration: 100 }
-            }
-        }
-    }
-    
-    // Cancel button (top left)
-    Rectangle {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.margins: 20
-        width: 100
-        height: 44
-        radius: 22
-        color: Qt.rgba(1, 1, 1, 0.1)
-        border.color: Qt.rgba(1, 1, 1, 0.3)
-        border.width: 1
-        
-        Text {
-            anchors.centerIn: parent
-            text: "Cancel"
-            color: Colors.text
-            font.pixelSize: 16
-        }
-        
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                pin = ""
-                error = ""
-                cancelled()
             }
         }
     }

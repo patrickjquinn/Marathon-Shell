@@ -13,6 +13,15 @@ int main(int argc, char *argv[])
     
     QQmlApplicationEngine engine;
     
+    // Add QML import paths for modules
+    engine.addImportPath("qrc:/");
+    engine.addImportPath(":/");
+    
+    // Add build directory path for MarathonUI modules
+    QString buildPath = QCoreApplication::applicationDirPath() + "/../../../qml";
+    engine.addImportPath(buildPath);
+    qDebug() << "Added QML import path:" << buildPath;
+    
     const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

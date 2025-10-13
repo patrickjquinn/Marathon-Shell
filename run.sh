@@ -19,8 +19,8 @@ if [ $? -eq 0 ]; then
     echo "🚀 Starting Marathon Shell..."
     echo ""
     
-    # Run the app
-    ./build/shell/marathon-shell
+    # Run the app (macOS .app bundle)
+    ./build/shell/marathon-shell.app/Contents/MacOS/marathon-shell
 else
     echo "❌ Build failed!"
     exit 1

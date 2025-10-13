@@ -1,0 +1,22 @@
+module MarathonOS.Shell.Services
+
+singleton Platform 1.0 Platform.qml
+singleton ServiceBus 1.0 ServiceBus.qml
+singleton PowerManager 1.0 PowerManager.qml
+singleton NetworkManager 1.0 NetworkManager.qml
+singleton DisplayManager 1.0 DisplayManager.qml
+singleton AudioManager 1.0 AudioManager.qml
+singleton NotificationService 1.0 NotificationService.qml
+singleton TelephonyManager 1.0 TelephonyManager.qml
+singleton LocationService 1.0 LocationService.qml
+singleton SessionManager 1.0 SessionManager.qml
+singleton AppLauncher 1.0 AppLauncher.qml
+singleton WindowManager 1.0 WindowManager.qml
+singleton DesktopFileParser 1.0 DesktopFileParser.qml
+singleton StatusBarIconService 1.0 StatusBarIconService.qml
+singleton SettingsManager 1.0 SettingsManager.qml
+singleton ScreenshotService 1.0 ScreenshotService.qml
+singleton HapticService 1.0 HapticService.qml
+singleton ClipboardService 1.0 ClipboardService.qml
+singleton NavigationRouter 1.0 NavigationRouter.qml
+

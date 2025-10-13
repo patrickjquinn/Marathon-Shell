@@ -1,163 +1,253 @@
 import QtQuick
-import "../theme"
-import "../stores"
+import MarathonOS.Shell
 import "."
 
-Rectangle {
+Item {
     id: taskSwitcher
-    color: "#000000"
-    opacity: 0.95
     
     signal closed()
     signal taskSelected(var task)
     
     MouseArea {
         anchors.fill: parent
-        onClicked: closed()
+        enabled: TaskManagerStore.taskCount > 0
+        onClicked: {
+            closed()
+        }
     }
     
-    Column {
+    GridView {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 20
+        anchors.margins: 16
+        anchors.bottomMargin: Constants.bottomBarHeight + 16
+        cellWidth: width / 2
+        cellHeight: height / 2  // 2x2 grid
+        clip: true
         
-        Row {
-            width: parent.width
-            height: 60
-            
-            Text {
-                text: "Active Frames"
-                color: Colors.text
-                font.pixelSize: 32
-                font.weight: Font.Bold
-                font.family: Typography.fontFamily
-            }
-            
-            Item { width: parent.width - 250; height: parent.height }
+        model: TaskManagerStore.runningTasks
+        
+        delegate: Item {
+            width: GridView.view.cellWidth
+            height: GridView.view.cellHeight
             
             Rectangle {
-                width: 120
-                height: 50
-                radius: 8
-                color: "#333333"
-                
-                Text {
-                    anchors.centerIn: parent
-                    text: "Close All"
-                    color: Colors.text
-                    font.pixelSize: 18
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        AppStore.closeAllApps()
-                        closed()
-                    }
-                }
-            }
-        }
-        
-        Item {
-            width: parent.width
-            height: parent.height - 80
-            
-            Text {
-                visible: AppStore.runningApps.length === 0
-                anchors.centerIn: parent
-                text: "No running apps"
-                color: Colors.textSecondary
-                font.pixelSize: 24
-                font.family: Typography.fontFamily
-            }
-            
-            GridView {
-                visible: AppStore.runningApps.length > 0
+                id: cardRoot
                 anchors.fill: parent
-                cellWidth: width / 2
-                cellHeight: 300
-                clip: true
+                anchors.margins: 8
+                color: Qt.rgba(255, 255, 255, 0.04)
+                radius: 4
+                border.width: 1
+                border.color: cardMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.4) : Qt.rgba(255, 255, 255, 0.12)
+                layer.enabled: true
                 
-                model: AppStore.runningApps
-                
-                delegate: Item {
-                    width: GridView.view.cellWidth
-                    height: GridView.view.cellHeight
-                    
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        color: "#1A1A1A"
-                        radius: 12
-                        border.width: 2
-                        border.color: "#333333"
+                transform: [
+                    Scale {
+                        origin.x: width / 2
+                        origin.y: height / 2
+                        xScale: cardMouseArea.pressed ? 0.98 : 1.0
+                        yScale: cardMouseArea.pressed ? 0.98 : 1.0
                         
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 12
-                            
-                            Image {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                source: modelData.icon
-                                width: 96
-                                height: 96
-                                fillMode: Image.PreserveAspectFit
-                                smooth: true
-                            }
-                            
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: modelData.name
-                                color: Colors.text
-                                font.pixelSize: 20
-                                font.family: Typography.fontFamily
+                        Behavior on xScale {
+                            NumberAnimation {
+                                duration: 150
+                                easing.type: Easing.OutCubic
                             }
                         }
-                        
-                        Rectangle {
-                            anchors.top: parent.top
-                            anchors.right: parent.right
-                            anchors.margins: 8
-                            width: 32
-                            height: 32
-                            radius: 16
-                            color: "#FF3B30"
-                            
-                            Text {
-                                anchors.centerIn: parent
-                                text: "×"
-                                color: "#FFFFFF"
-                                font.pixelSize: 24
-                                font.weight: Font.Bold
+                        Behavior on yScale {
+                            NumberAnimation {
+                                duration: 150
+                                easing.type: Easing.OutCubic
                             }
+                        }
+                    },
+                    Translate {
+                        y: cardMouseArea.pressed ? -2 : 0
+                        
+                        Behavior on y {
+                            NumberAnimation {
+                                duration: 150
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+                ]
+                
+                Behavior on border.color {
+                    ColorAnimation { duration: 150 }
+                }
+                
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Qt.rgba(255, 255, 255, 0.03)
+                }
+                
+                Column {
+                    anchors.fill: parent
+                    
+                    Rectangle {
+                        width: parent.width
+                        height: parent.height - 50
+                        color: Colors.backgroundDark
+                        radius: parent.parent.radius
+                        
+                        Loader {
+                            id: appPreview
+                            anchors.fill: parent
+                            anchors.margins: 2
+                            active: true
+                            asynchronous: true
                             
-                            MouseArea {
+                            sourceComponent: Item {
                                 anchors.fill: parent
-                                onClicked: {
-                                    console.log("Closing app from Task Switcher:", modelData.id)
-                                    AppStore.closeApp(modelData.id)
+                                clip: true
+                                
+                                Item {
+                                    id: livePreview
+                                    width: 720
+                                    height: 1280
+                                    
+                                    // Scale to fill width, anchored to top-left
+                                    anchors.top: parent.top
+                                    anchors.left: parent.left
+                                    scale: parent.width / 720
+                                    transformOrigin: Item.TopLeft
+                                    
+                                    Loader {
+                                        width: 720
+                                        height: 1280
+                                        active: modelData.appId !== "settings"
+                                        source: modelData.appId !== "settings" ? "../apps/template/TemplateApp.qml" : ""
+                                        visible: status === Loader.Ready
+                                        
+                                        onLoaded: {
+                                            if (item) {
+                                                item.appId = modelData.appId
+                                                item.appName = modelData.title
+                                                item.appIcon = modelData.icon
+                                            }
+                                        }
+                                    }
+                                    
+                                    Loader {
+                                        width: 720
+                                        height: 1280
+                                        active: modelData.appId === "settings"
+                                        source: modelData.appId === "settings" ? "../apps/settings/SettingsApp.qml" : ""
+                                        visible: status === Loader.Ready
+                                    }
                                 }
                             }
                         }
                         
                         MouseArea {
+                            id: cardMouseArea
                             anchors.fill: parent
+                            
+                            
                             onClicked: {
-                                console.log("Switching to app:", modelData.id)
-                                AppStore.switchToApp(modelData.id)
-                                taskSelected(modelData)
+                                if (modelData.appId === "settings") {
+                                    UIStore.openSettings()
+                                } else {
+                                    UIStore.restoreApp(modelData.appId, modelData.title, modelData.icon)
+                                }
                                 closed()
                             }
                         }
                     }
+                    
+                    Rectangle {
+                        width: parent.width
+                        height: 50
+                        color: Colors.surfaceLight
+                        radius: 0
+                        
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 8
+                            
+                            Image {
+                                anchors.verticalCenter: parent.verticalCenter
+                                source: modelData.icon
+                                width: 32
+                                height: 32
+                                fillMode: Image.PreserveAspectFit
+                                asynchronous: true
+                                cache: true
+                                smooth: true
+                            }
+                            
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - 80
+                                spacing: 2
+                                
+                                Text {
+                                    text: modelData.title
+                                    color: Colors.text
+                                    font.pixelSize: Typography.sizeSmall
+                                    font.weight: Font.DemiBold
+                                    font.family: Typography.fontFamily
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
+                                
+                                Text {
+                                    text: modelData.subtitle || "Running"
+                                    color: Colors.textSecondary
+                                    font.pixelSize: Typography.sizeXSmall
+                                    font.family: Typography.fontFamily
+                                    opacity: 0.7
+                                }
+                            }
+                            
+                            Item {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 32
+                                height: 32
+                                
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 28
+                                    height: 28
+                                    radius: Colors.cornerRadiusSmall
+                                    color: Colors.surfaceLight
+                                    
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "×"
+                                        color: Colors.text
+                                        font.pixelSize: Typography.sizeLarge
+                                        font.weight: Font.Bold
+                                    }
+                                    
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        anchors.margins: -8
+                                        z: 1000
+                                        onClicked: {
+                                            Logger.info("TaskSwitcher", "Closing task: " + modelData.appId)
+                                            TaskManagerStore.closeTask(modelData.id)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+                
             }
         }
     }
     
     Behavior on opacity {
         NumberAnimation {
-            duration: 300
+            duration: Constants.animationSlow
             easing.type: Easing.OutCubic
         }
     }
@@ -165,7 +255,7 @@ Rectangle {
     scale: visible ? 1.0 : 0.95
     Behavior on scale {
         NumberAnimation {
-            duration: 300
+            duration: Constants.animationSlow
             easing.type: Easing.OutCubic
         }
     }

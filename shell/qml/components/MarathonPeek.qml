@@ -1,6 +1,5 @@
 import QtQuick
-import "../theme"
-import "../stores"
+import MarathonOS.Shell
 import "."
 
 // Peek & Flow - THE signature BlackBerry 10 feature
@@ -35,12 +34,19 @@ Item {
     }
     
     // Hub content (slides in from left)
-    MarathonHub {
-        id: hubPanel
+    Item {
+        id: hubPanelContainer
         width: parent.width * 0.85
         height: parent.height
-        x: -width + (width * peekProgress)
-        opacity: 0.98
+        x: {
+            if (peekProgress === 0) {
+                return -width
+            } else {
+                return -width + (width * peekProgress)
+            }
+        }
+        visible: peekProgress > 0 || isPeeking
+        clip: true
         
         Behavior on x {
             enabled: !isPeeking
@@ -50,9 +56,24 @@ Item {
             }
         }
         
-        onClosed: {
-            closePeek()
+        MarathonHub {
+            id: hubPanel
+            anchors.fill: parent
+            
+            onClosed: {
+                closePeek()
+            }
+            
+            Component.onCompleted: {
+                Logger.info("Hub", "Initialized in peek panel, width: " + hubPanelContainer.width)
+            }
         }
+    }
+    
+    BackGestureIndicator {
+        id: backGestureIndicator
+        progress: peekProgress * 200
+        visible: peekProgress < 0.5 && peekProgress > 0
     }
     
     // Gesture area for peek - ONLY on left edge to not block other interactions!
@@ -143,8 +164,12 @@ Item {
     }
     
     Component.onCompleted: {
-        console.log("👈 Peek initialized. peekProgress:", peekProgress, "isFullyOpen:", isFullyOpen)
+        Logger.info("Peek", "Initialized, progress: " + peekProgress)
         forceActiveFocus()
+    }
+    
+    onVisibleChanged: {
+        Logger.debug("Peek", "Visibility changed: " + visible)
     }
 }
 

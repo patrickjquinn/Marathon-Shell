@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import MarathonOS.Shell
 
 QtObject {
     id: taskManager
@@ -7,51 +8,24 @@ QtObject {
     property var runningTasks: []
     property var recentTasks: []
     property int maxRecentTasks: 8
+    property int taskCount: 0
     
     // Current active task
     property var activeTask: null
     
     // Task model
-    Component.onCompleted: {
-        // Initialize with some mock tasks
-        runningTasks = [
-            {
-                id: "task_1",
-                appId: "browser",
-                title: "Browser",
-                icon: "qrc:/images/browser.svg",
-                color: "#4A90E2",
-                preview: null,
-                timestamp: Date.now()
-            },
-            {
-                id: "task_2",
-                appId: "messages",
-                title: "Messages",
-                icon: "qrc:/images/messages.svg",
-                color: "#7ED321",
-                preview: null,
-                timestamp: Date.now() - 10000
-            },
-            {
-                id: "task_3",
-                appId: "calendar",
-                title: "Calendar",
-                icon: "qrc:/images/calendar.svg",
-                color: "#F5A623",
-                preview: null,
-                timestamp: Date.now() - 20000
-            }
-        ]
-        activeTask = runningTasks[0]
-    }
     
     function launchTask(appId, appName, appIcon) {
         var existingTask = runningTasks.find(t => t.appId === appId)
         
         if (existingTask) {
             // Switch to existing task
+            existingTask.state = "active"
+            if (activeTask && activeTask.id !== existingTask.id) {
+                activeTask.state = "background"
+            }
             activeTask = existingTask
+            runningTasks = runningTasks // Trigger update
             return existingTask
         }
         
@@ -60,20 +34,28 @@ QtObject {
             id: "task_" + Date.now(),
             appId: appId,
             title: appName,
+            subtitle: getSubtitleForApp(appId),
             icon: appIcon,
             color: getRandomColor(),
             preview: null,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            state: "active"
+        }
+        
+        // Set current active to background
+        if (activeTask) {
+            activeTask.state = "background"
         }
         
         runningTasks.push(task)
-        runningTasks = runningTasks // Trigger property change
+        var newArray = runningTasks.slice()
+        runningTasks = newArray
+        taskCount = runningTasks.length
         activeTask = task
         
         // Add to recent tasks
         addToRecent(task)
         
-        console.log("Task launched:", appName)
         return task
     }
     
@@ -84,14 +66,14 @@ QtObject {
             activeTask = runningTasks.length > 0 ? runningTasks[runningTasks.length - 1] : null
         }
         
-        console.log("Task closed:", taskId)
+        Logger.info("TaskManager", "Closed: " + taskId)
     }
     
     function switchToTask(taskId) {
         var task = runningTasks.find(t => t.id === taskId)
         if (task) {
             activeTask = task
-            console.log("Switched to task:", task.title)
+            Logger.info("TaskManager", "Switched to: " + task.title)
         }
     }
     
@@ -111,6 +93,25 @@ QtObject {
     function getRandomColor() {
         var colors = ["#4A90E2", "#7ED321", "#F5A623", "#D0021B", "#9013FE", "#50E3C2", "#F8E71C"]
         return colors[Math.floor(Math.random() * colors.length)]
+    }
+    
+    function getSubtitleForApp(appId) {
+        var subtitles = {
+            "browser": "3 tabs open",
+            "messages": "2 new messages",
+            "email": "5 unread emails",
+            "calendar": "Next: Meeting at 3 PM",
+            "phone": "Recent: Mom",
+            "camera": "12 photos",
+            "gallery": "248 photos",
+            "music": "Playing: My Playlist",
+            "clock": "2 alarms set",
+            "notes": "5 notes",
+            "calculator": "Ready",
+            "maps": "Saved: Home",
+            "settings": "Configuring"
+        }
+        return subtitles[appId] || "Running"
     }
     
     function closeAllTasks() {

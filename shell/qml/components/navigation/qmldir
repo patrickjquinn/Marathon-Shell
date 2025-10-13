@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Components.Navigation
+
+InertiaNavBar 1.0 InertiaNavBar.qml
+

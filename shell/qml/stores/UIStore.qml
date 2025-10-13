@@ -1,0 +1,130 @@
+pragma Singleton
+import QtQuick
+import MarathonOS.Shell
+
+QtObject {
+    id: uiStore
+    
+    property bool quickSettingsOpen: false
+    property real quickSettingsHeight: 0
+    
+    property bool appWindowOpen: false
+    property string currentAppId: ""
+    property string currentAppName: ""
+    property string currentAppIcon: ""
+    
+    property bool settingsOpen: false
+    
+    property bool searchOpen: false
+    property bool shareSheetOpen: false
+    property bool clipboardManagerOpen: false
+    
+    signal showNotificationToast(var notification)
+    signal showSystemHUD(string type, real value)
+    signal showConfirmDialog(string title, string message, var onConfirm)
+    signal showShareSheet(var content, string contentType)
+    
+    function openSearch() {
+        searchOpen = true
+        Logger.state("UIStore", "search closed", "open")
+    }
+    
+    function closeSearch() {
+        searchOpen = false
+        Logger.state("UIStore", "search open", "closed")
+    }
+    
+    function toggleSearch() {
+        if (searchOpen) {
+            closeSearch()
+        } else {
+            openSearch()
+        }
+    }
+    
+    function openShareSheet(content, contentType) {
+        showShareSheet(content, contentType || "text")
+        shareSheetOpen = true
+    }
+    
+    function closeShareSheet() {
+        shareSheetOpen = false
+    }
+    
+    function openClipboardManager() {
+        clipboardManagerOpen = true
+    }
+    
+    function closeClipboardManager() {
+        clipboardManagerOpen = false
+    }
+    
+    function openQuickSettings() {
+        quickSettingsOpen = true
+        quickSettingsHeight = 700
+        Logger.state("UIStore", "quickSettings closed", "open")
+    }
+    
+    function closeQuickSettings() {
+        quickSettingsOpen = false
+        quickSettingsHeight = 0
+        Logger.state("UIStore", "quickSettings open", "closed")
+    }
+    
+    function toggleQuickSettings() {
+        if (quickSettingsOpen) {
+            closeQuickSettings()
+        } else {
+            openQuickSettings()
+        }
+    }
+    
+    function openApp(appId, appName, appIcon) {
+        currentAppId = appId
+        currentAppName = appName
+        currentAppIcon = appIcon
+        appWindowOpen = true
+    }
+    
+    function closeApp() {
+        appWindowOpen = false
+        currentAppId = ""
+        currentAppName = ""
+        currentAppIcon = ""
+    }
+    
+    function minimizeApp() {
+        appWindowOpen = false
+    }
+    
+    function restoreApp(appId, appName, appIcon) {
+        currentAppId = appId
+        currentAppName = appName
+        currentAppIcon = appIcon
+        appWindowOpen = true
+    }
+    
+    function openSettings() {
+        settingsOpen = true
+        Logger.state("UIStore", "settings closed", "open")
+    }
+    
+    function closeSettings() {
+        settingsOpen = false
+        Logger.state("UIStore", "settings open", "closed")
+    }
+    
+    function minimizeSettings() {
+        settingsOpen = false
+    }
+    
+    function closeAll() {
+        closeQuickSettings()
+        closeApp()
+        closeSettings()
+        closeSearch()
+        closeShareSheet()
+        closeClipboardManager()
+    }
+}
+

@@ -1,24 +1,36 @@
 import QtQuick
-import "../theme"
+import MarathonOS.Shell
 
 Rectangle {
     id: card
-    color: "#FFFFFF"
-    radius: 8
-    border.width: 1
-    border.color: "#E0E0E0"
+    color: Qt.rgba(255, 255, 255, 0.04)
+    radius: 4
     
     property alias content: contentItem.children
+    property int elevation: 1
+    property bool hoverable: false
     
+    border.width: 1
+    border.color: Qt.rgba(255, 255, 255, 0.12)
     layer.enabled: true
-    layer.effect: ShaderEffect {
-        property real shadowOpacity: 0.15
+    
+    Behavior on border.color {
+        ColorAnimation { duration: 150 }
+    }
+    
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: parent.radius - 1
+        color: "transparent"
+        border.width: 1
+        border.color: Qt.rgba(255, 255, 255, 0.03)
     }
     
     Item {
         id: contentItem
         anchors.fill: parent
-        anchors.margins: 2
+        anchors.margins: 0
     }
 }
 

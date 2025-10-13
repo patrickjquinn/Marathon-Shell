@@ -1,52 +1,38 @@
 import QtQuick
-import "../theme"
-import "../stores"
+import MarathonOS.Shell
 import "."
 
 Item {
     id: bottomBar
-    height: 100
+    height: Constants.bottomBarHeight
     
     property int currentPage: 0
     property int totalPages: 1
+    property bool showNotifications: currentPage >= 0
+    property bool showPageIndicators: true
     
-    Component.onCompleted: console.log("✅ BOTTOM BAR LOADED")
+    signal appLaunched(var app)
+    
+    Component.onCompleted: Logger.info("BottomBar", "Initialized")
     
     Rectangle {
         id: background
         anchors.fill: parent
-        color: WallpaperStore.isDark ? "#000000" : "#FFFFFF"
-        opacity: 0.3
-        z: 0
-        
-        MouseArea {
-            anchors.fill: parent
-            onPressed: console.log("🟡 BOTTOM BAR PRESSED")
-            onClicked: console.log("🟡 BOTTOM BAR CLICKED")
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "transparent" }
+            GradientStop { position: 1.0; color: WallpaperStore.isDark ? "#80000000" : "#80FFFFFF" }
         }
+        z: Constants.zIndexBackground
     }
     
-    Rectangle {
+    Item {
         id: phoneShortcut
         anchors.left: parent.left
-        anchors.leftMargin: 40
+        anchors.leftMargin: 30
         anchors.verticalCenter: parent.verticalCenter
-        width: 60
-        height: 60
-        radius: 30
-        color: Qt.rgba(Colors.surface.r, Colors.surface.g, Colors.surface.b, 0.6)
-        border.color: Qt.rgba(Colors.accentLight.r, Colors.accentLight.g, Colors.accentLight.b, 0.5)
-        border.width: 2
-        z: 1
-        
-        Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.15) }
-                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.15) }
-            }
-        }
+        width: 48
+        height: 48
+        z: 10
         
         Image {
             source: "qrc:/images/phone.svg"
@@ -54,79 +40,144 @@ Item {
             height: 32
             fillMode: Image.PreserveAspectFit
             anchors.centerIn: parent
+            asynchronous: true
+            cache: true
+            opacity: phoneMouseArea.pressed ? 0.6 : 1.0
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
         }
         
-            MouseArea {
-                anchors.fill: parent
-                onPressed: console.log("📱 PHONE SHORTCUT PRESSED")
-                onClicked: {
-                    console.log("📱 PHONE SHORTCUT CLICKED")
-                    AppStore.launchApp("phone")
-                }
+        MouseArea {
+            id: phoneMouseArea
+            anchors.fill: parent
+            onClicked: {
+                var app = { id: "phone", name: "Phone", icon: "qrc:/images/phone.svg" }
+                appLaunched(app)
             }
+        }
     }
     
     Row {
-        spacing: 16
         anchors.centerIn: parent
+        anchors.verticalCenterOffset: 0
+        spacing: 12
         z: 1
+        visible: bottomBar.showPageIndicators
+        
+        Rectangle {
+            width: bottomBar.currentPage === -2 ? 40 : 20
+            height: bottomBar.currentPage === -2 ? 40 : 20
+            radius: Colors.cornerRadiusCircle  // BB10: True circle
+            color: bottomBar.currentPage === -2 ? "#FFFFFF" : "transparent"
+            anchors.verticalCenter: parent.verticalCenter
+            
+            Behavior on width { NumberAnimation { duration: 200 } }
+            Behavior on height { NumberAnimation { duration: 200 } }
+            Behavior on color { ColorAnimation { duration: 200 } }
+            
+            Image {
+                source: bottomBar.currentPage === -2 ? "qrc:/images/icons/lucide/inbox-black.svg" : "qrc:/images/icons/lucide/inbox.svg"
+                width: bottomBar.currentPage === -2 ? 20 : 14
+                height: bottomBar.currentPage === -2 ? 20 : 14
+                fillMode: Image.PreserveAspectFit
+                anchors.centerIn: parent
+                smooth: true
+                antialiasing: true
+                
+                Behavior on width { NumberAnimation { duration: 200 } }
+                Behavior on height { NumberAnimation { duration: 200 } }
+            }
+        }
+        
+        Rectangle {
+            width: bottomBar.currentPage === -1 ? 40 : 20
+            height: bottomBar.currentPage === -1 ? 40 : 20
+            radius: Colors.cornerRadiusCircle  // BB10: True circle
+            color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
+            anchors.verticalCenter: parent.verticalCenter
+            
+            Behavior on width { NumberAnimation { duration: 200 } }
+            Behavior on height { NumberAnimation { duration: 200 } }
+            Behavior on color { ColorAnimation { duration: 200 } }
+            
+            Image {
+                source: bottomBar.currentPage === -1 ? "qrc:/images/icons/lucide/grid-black.svg" : "qrc:/images/icons/lucide/grid.svg"
+                width: bottomBar.currentPage === -1 ? 20 : 14
+                height: bottomBar.currentPage === -1 ? 20 : 14
+                fillMode: Image.PreserveAspectFit
+                anchors.centerIn: parent
+                smooth: true
+                antialiasing: true
+                
+                Behavior on width { NumberAnimation { duration: 200 } }
+                Behavior on height { NumberAnimation { duration: 200 } }
+            }
+        }
         
         Repeater {
-            model: totalPages
+            model: bottomBar.totalPages
             
             Rectangle {
-                width: index === currentPage ? 16 : 12
-                height: index === currentPage ? 16 : 12
-                radius: width / 2
-                color: index === currentPage ? Colors.accent : Colors.surface
-                border.width: 1
-                border.color: Colors.accentLight
-                opacity: index === currentPage ? 1.0 : 0.6
+                width: index === bottomBar.currentPage ? 28 : 16
+                height: index === bottomBar.currentPage ? 28 : 16
+                radius: Colors.cornerRadiusCircle  // BB10: True circle
+                color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
+                anchors.verticalCenter: parent.verticalCenter
                 
-                Behavior on width { NumberAnimation { duration: Theme.durationFast } }
-                Behavior on height { NumberAnimation { duration: Theme.durationFast } }
-                Behavior on color { ColorAnimation { duration: Theme.durationFast } }
-                Behavior on opacity { NumberAnimation { duration: Theme.durationFast } }
+                Behavior on width { NumberAnimation { duration: 200 } }
+                Behavior on height { NumberAnimation { duration: 200 } }
+                Behavior on color { ColorAnimation { duration: 200 } }
+                
+                Text {
+                    text: (index + 1).toString()
+                    color: index === bottomBar.currentPage ? "#000000" : "#FFFFFF"
+                    font.pixelSize: index === bottomBar.currentPage ? 14 : 10
+                    font.weight: Font.Medium
+                    anchors.centerIn: parent
+                    
+                    Behavior on color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    Behavior on font.pixelSize {
+                        NumberAnimation { duration: 200 }
+                    }
+                }
             }
         }
     }
     
-    Rectangle {
+    Item {
         id: cameraShortcut
         anchors.right: parent.right
-        anchors.rightMargin: 40
+        anchors.rightMargin: 30
         anchors.verticalCenter: parent.verticalCenter
-        width: 60
-        height: 60
-        radius: 30
-        color: Qt.rgba(Colors.surface.r, Colors.surface.g, Colors.surface.b, 0.6)
-        border.color: Qt.rgba(Colors.accentLight.r, Colors.accentLight.g, Colors.accentLight.b, 0.5)
-        border.width: 2
-        z: 1
-        
-        Rectangle {
-            anchors.fill: parent
-            radius: parent.radius
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.15) }
-                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.15) }
-            }
-        }
+        width: 48
+        height: 48
+        z: 10
         
         Image {
             source: "qrc:/images/camera.svg"
             width: 32
             height: 32
             fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
             anchors.centerIn: parent
+            opacity: cameraMouseArea.pressed ? 0.6 : 1.0
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
         }
         
         MouseArea {
+            id: cameraMouseArea
             anchors.fill: parent
-            onPressed: console.log("📷 CAMERA SHORTCUT PRESSED")
             onClicked: {
-                console.log("📷 CAMERA SHORTCUT CLICKED")
-                AppStore.launchApp("camera")
+                var app = { id: "camera", name: "Camera", icon: "qrc:/images/camera.svg" }
+                appLaunched(app)
             }
         }
     }
