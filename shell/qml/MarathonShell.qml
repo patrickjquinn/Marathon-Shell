@@ -1,9 +1,13 @@
 import QtQuick
+import QtQuick.Window
 import "./components"
 import MarathonOS.Shell
 
 Item {
     id: shell
+    
+    property var compositor: null
+    property var pendingNativeApp: null
     
     // State management moved to stores
     property bool showPinScreen: false
@@ -135,12 +139,19 @@ Item {
                 }
                 
                 onAppLaunched: (app) => {
-                    Logger.info("Shell", "App launched: " + app.name)
+                    Logger.info("Shell", "App launched: " + app.name + " (type: " + app.type + ")")
                     
                     if (app.id === "settings") {
                         UIStore.openSettings()
                         if (typeof AppLifecycleManager !== 'undefined') {
                             AppLifecycleManager.bringToForeground("settings")
+                        }
+                    } else if (app.type === "native") {
+                        if (compositor) {
+                            shell.pendingNativeApp = app
+                            compositor.launchApp(app.exec)
+                        } else {
+                            Logger.warn("Shell", "Cannot launch native app - compositor not available")
                         }
                     } else {
                         UIStore.openApp(app.id, app.name, app.icon)
@@ -181,12 +192,19 @@ Item {
                     showNotifications: shell.currentPage > 0
                     
                     onAppLaunched: (app) => {
-                        Logger.info("Shell", "Bottom bar launched: " + app.name)
+                        Logger.info("Shell", "Bottom bar launched: " + app.name + " (type: " + app.type + ")")
                         
                         if (app.id === "settings") {
                             UIStore.openSettings()
                             if (typeof AppLifecycleManager !== 'undefined') {
                                 AppLifecycleManager.bringToForeground("settings")
+                            }
+                        } else if (app.type === "native") {
+                            if (compositor) {
+                                shell.pendingNativeApp = app
+                                compositor.launchApp(app.exec)
+                            } else {
+                                Logger.warn("Shell", "Cannot launch native app - compositor not available")
                             }
                         } else {
                             UIStore.openApp(app.id, app.name, app.icon)
@@ -287,9 +305,15 @@ Item {
         
         onMinimizeApp: {
             if (UIStore.settingsOpen) {
-                TaskManagerStore.launchTask("settings", "Settings", "qrc:/images/settings.svg")
+                TaskManagerStore.launchTask("settings", "Settings", "qrc:/images/settings.svg", "marathon", -1)
             } else if (UIStore.appWindowOpen) {
-                TaskManagerStore.launchTask(appWindow.appId, appWindow.appName, appWindow.appIcon)
+                TaskManagerStore.launchTask(
+                    appWindow.appId, 
+                    appWindow.appName, 
+                    appWindow.appIcon, 
+                    appWindow.appType,
+                    appWindow.surfaceId
+                )
             }
             
             shell.isTransitioningToActiveFrames = true
@@ -1017,5 +1041,60 @@ Item {
     Component.onCompleted: {
         forceActiveFocus()
         Logger.info("Shell", "Marathon Shell initialized")
+        
+        try {
+            var rootWindow = Window.window
+            if (rootWindow) {
+                compositor = Qt.createQmlObject('import QtQuick; import MarathonOS.Wayland 1.0; WaylandCompositor {}', shell, "compositor")
+                if (compositor) {
+                    compositor.parent = rootWindow
+                    Logger.info("Shell", "Wayland Compositor initialized: " + compositor.socketName)
+                }
+            }
+        } catch (e) {
+            Logger.info("Shell", "Wayland Compositor not available on this platform (expected on macOS)")
+            compositor = null
+        }
+    }
+    
+    Connections {
+        target: compositor
+        
+        function onSurfaceCreated(surface) {
+            Logger.info("Shell", "Native app surface created")
+            
+            if (shell.pendingNativeApp) {
+                var app = shell.pendingNativeApp
+                var surfaceId = surface.property("surfaceId")
+                
+                Logger.info("Shell", "Showing native app window: " + app.name + " (surfaceId: " + surfaceId + ")")
+                
+                UIStore.openApp(app.id, app.name, app.icon)
+                appWindow.show(app.id, app.name, app.icon, "native", surface, surfaceId)
+                
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    AppLifecycleManager.bringToForeground(app.id)
+                }
+                
+                shell.pendingNativeApp = null
+            }
+        }
+        
+        function onAppLaunched(command, pid) {
+            Logger.info("Shell", "Native app process started: " + command + " (PID: " + pid + ")")
+        }
+        
+        function onSurfaceDestroyed(surface) {
+            Logger.info("Shell", "Native app surface destroyed")
+            
+            if (UIStore.appWindowOpen && appWindow.appType === "native") {
+                var surfaceId = surface.property("surfaceId")
+                if (appWindow.surfaceId === surfaceId) {
+                    Logger.info("Shell", "Closing native app window due to surface destruction")
+                    UIStore.closeApp()
+                    appWindow.hide()
+                }
+            }
+        }
     }
 }

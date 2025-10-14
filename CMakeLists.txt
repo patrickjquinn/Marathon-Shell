@@ -30,6 +30,15 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     DBus
 )
 
+find_package(Qt6 6.5 COMPONENTS WaylandCompositor)
+if(TARGET Qt6::WaylandCompositor)
+    message(STATUS "Qt WaylandCompositor found - enabling Wayland support")
+    set(HAVE_WAYLAND TRUE)
+else()
+    message(STATUS "Qt WaylandCompositor not found - Wayland support disabled (macOS doesn't support it)")
+    set(HAVE_WAYLAND FALSE)
+endif()
+
 find_package(Qt6 6.5 COMPONENTS VirtualKeyboard)
 if(TARGET Qt6::VirtualKeyboard)
     message(STATUS "Qt VirtualKeyboard found - enabling on-screen keyboard")

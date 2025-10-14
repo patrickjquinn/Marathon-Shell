@@ -9,7 +9,7 @@ Item {
     signal longPress()
     
     property int columns: 4
-    property int rows: 5
+    property int rows: 4
     property int currentPage: 0
     property int totalPages: Math.ceil(AppStore.apps.length / (columns * rows))
     
@@ -18,6 +18,7 @@ Item {
     ListView {
         id: pageView
         anchors.fill: parent
+        anchors.bottomMargin: Constants.bottomBarHeight + 16
         orientation: ListView.Horizontal
         snapMode: ListView.SnapOneItem
         highlightRangeMode: ListView.StrictlyEnforceRange

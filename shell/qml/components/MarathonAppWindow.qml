@@ -10,20 +10,35 @@ Rectangle {
     property string appId: ""
     property string appName: ""
     property string appIcon: ""
+    property string appType: "marathon"
+    property var waylandSurface: null
+    property int surfaceId: -1
     
     signal closed()
     signal minimized()
     
-    function show(id, name, icon) {
+    function show(id, name, icon, type, surface, sid) {
         appId = id
         appName = name
         appIcon = icon
+        appType = type || "marathon"
+        waylandSurface = surface || null
+        surfaceId = sid || -1
         
-        appContentLoader.setSource("../apps/template/TemplateApp.qml", {
-            "_appId": id,
-            "_appName": name,
-            "_appIcon": icon
-        })
+        if (appType === "native") {
+            appContentLoader.setSource("../apps/native/NativeAppWindow.qml", {
+                "nativeAppId": id,
+                "nativeTitle": name,
+                "waylandSurface": surface,
+                "surfaceId": sid
+            })
+        } else {
+            appContentLoader.setSource("../apps/template/TemplateApp.qml", {
+                "_appId": id,
+                "_appName": name,
+                "_appIcon": icon
+            })
+        }
         
         if (appContentLoader.item) {
             appContentLoader.item.minimizeRequested.connect(function() {
@@ -35,7 +50,7 @@ Rectangle {
         visible = true
         forceActiveFocus()
         slideIn.start()
-        Logger.info("AppWindow", "Showing app window for: " + name)
+        Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
     }
     
     function hide() {

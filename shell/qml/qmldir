@@ -33,9 +33,12 @@ singleton TelephonyManager 1.0 services/TelephonyManager.qml
 singleton LocationService 1.0 services/LocationService.qml
 singleton SessionManager 1.0 services/SessionManager.qml
 singleton AppLifecycleManager 1.0 services/AppLifecycleManager.qml
+singleton DesktopEntryParser 1.0 services/DesktopEntryParser.qml
+singleton UnifiedSearchService 1.0 services/UnifiedSearchService.qml
 
 # UI Components
 Icon 1.0 components/Icon.qml
 SettingsListItem 1.0 components/ui/SettingsListItem.qml
 Section 1.0 components/layout/Section.qml
+MarathonSearch 1.0 components/MarathonSearch.qml
 

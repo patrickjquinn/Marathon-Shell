@@ -71,6 +71,7 @@
         <file alias="map.svg">resources/images/icons/lucide/map.svg</file>
         <file alias="image.svg">resources/images/icons/lucide/image.svg</file>
         <file alias="folder.svg">resources/images/icons/lucide/folder.svg</file>
+        <file alias="terminal.svg">resources/images/icons/lucide/terminal.svg</file>
     </qresource>
 </RCC>
 

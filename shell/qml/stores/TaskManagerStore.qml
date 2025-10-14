@@ -15,21 +15,19 @@ QtObject {
     
     // Task model
     
-    function launchTask(appId, appName, appIcon) {
+    function launchTask(appId, appName, appIcon, appType, surfaceId) {
         var existingTask = runningTasks.find(t => t.appId === appId)
         
         if (existingTask) {
-            // Switch to existing task
             existingTask.state = "active"
             if (activeTask && activeTask.id !== existingTask.id) {
                 activeTask.state = "background"
             }
             activeTask = existingTask
-            runningTasks = runningTasks // Trigger update
+            runningTasks = runningTasks
             return existingTask
         }
         
-        // Create new task
         var task = {
             id: "task_" + Date.now(),
             appId: appId,
@@ -39,10 +37,11 @@ QtObject {
             color: getRandomColor(),
             preview: null,
             timestamp: Date.now(),
-            state: "active"
+            state: "active",
+            type: appType || "marathon",
+            surfaceId: surfaceId || -1
         }
         
-        // Set current active to background
         if (activeTask) {
             activeTask.state = "background"
         }
@@ -53,7 +52,6 @@ QtObject {
         taskCount = runningTasks.length
         activeTask = task
         
-        // Add to recent tasks
         addToRecent(task)
         
         return task

@@ -2,6 +2,13 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QDebug>
+#include <QQmlContext>
+
+#include "src/desktopfileparser.h"
+
+#ifdef HAVE_WAYLAND
+#include "src/waylandcompositor.h"
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -11,7 +18,18 @@ int main(int argc, char *argv[])
     QGuiApplication app(argc, argv);
     QQuickStyle::setStyle("Basic");
     
+#ifdef HAVE_WAYLAND
+    qmlRegisterType<WaylandCompositor>("MarathonOS.Wayland", 1, 0, "WaylandCompositor");
+    qDebug() << "Wayland Compositor support enabled";
+#else
+    qDebug() << "Wayland Compositor support disabled (not available on this platform)";
+#endif
+    
     QQmlApplicationEngine engine;
+    
+    // Register DesktopFileParser as a singleton accessible from QML
+    DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);
+    engine.rootContext()->setContextProperty("DesktopFileParserCpp", desktopFileParser);
     
     // Add QML import paths for modules
     engine.addImportPath("qrc:/");

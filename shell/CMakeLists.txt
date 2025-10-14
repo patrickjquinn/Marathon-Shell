@@ -1,6 +1,15 @@
 set(SOURCES
     main.cpp
+    src/desktopfileparser.h
+    src/desktopfileparser.cpp
 )
+
+if(TARGET Qt6::WaylandCompositor)
+    list(APPEND SOURCES
+        src/waylandcompositor.h
+        src/waylandcompositor.cpp
+    )
+endif()
 
 set(QML_FILES
     qml/Main.qml
@@ -47,6 +56,7 @@ set(QML_FILES
     qml/components/MarathonPinScreen.qml
     qml/components/MarathonAppWindow.qml
     qml/components/MarathonPageView.qml
+    qml/components/MarathonSearch.qml
     qml/components/ui/Button.qml
     qml/components/ui/Input.qml
     qml/components/ui/SettingsListItem.qml
@@ -117,6 +127,9 @@ set(QML_FILES
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
+    qml/services/AppLifecycleManager.qml
+    qml/services/DesktopEntryParser.qml
+    qml/services/UnifiedSearchService.qml
 )
 
 qt6_add_executable(marathon-shell ${SOURCES})
@@ -159,6 +172,9 @@ set(SINGLETON_FILES
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
+    qml/services/AppLifecycleManager.qml
+    qml/services/DesktopEntryParser.qml
+    qml/services/UnifiedSearchService.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -229,6 +245,11 @@ target_link_libraries(marathon-shell PRIVATE
 if(TARGET Qt6::VirtualKeyboard)
     target_link_libraries(marathon-shell PRIVATE Qt6::VirtualKeyboard)
     target_compile_definitions(marathon-shell PRIVATE HAVE_VIRTUALKEYBOARD)
+endif()
+
+if(TARGET Qt6::WaylandCompositor)
+    target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositor)
+    target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND)
 endif()
 
 set_target_properties(marathon-shell PROPERTIES

@@ -119,15 +119,15 @@ Item {
                                     Loader {
                                         width: 720
                                         height: 1280
-                                        active: modelData.appId !== "settings"
-                                        source: modelData.appId !== "settings" ? "../apps/template/TemplateApp.qml" : ""
+                                        active: modelData.type === "marathon" && modelData.appId !== "settings"
+                                        source: (modelData.type === "marathon" && modelData.appId !== "settings") ? "../apps/template/TemplateApp.qml" : ""
                                         visible: status === Loader.Ready
                                         
                                         onLoaded: {
                                             if (item) {
-                                                item.appId = modelData.appId
-                                                item.appName = modelData.title
-                                                item.appIcon = modelData.icon
+                                                item._appId = modelData.appId
+                                                item._appName = modelData.title
+                                                item._appIcon = modelData.icon
                                             }
                                         }
                                     }
@@ -135,9 +135,25 @@ Item {
                                     Loader {
                                         width: 720
                                         height: 1280
-                                        active: modelData.appId === "settings"
-                                        source: modelData.appId === "settings" ? "../apps/settings/SettingsApp.qml" : ""
+                                        active: modelData.type === "marathon" && modelData.appId === "settings"
+                                        source: (modelData.type === "marathon" && modelData.appId === "settings") ? "../apps/settings/SettingsApp.qml" : ""
                                         visible: status === Loader.Ready
+                                    }
+                                    
+                                    Loader {
+                                        width: 720
+                                        height: 1280
+                                        active: modelData.type === "native"
+                                        source: modelData.type === "native" ? "../apps/native/NativeAppWindow.qml" : ""
+                                        visible: status === Loader.Ready
+                                        
+                                        onLoaded: {
+                                            if (item && modelData.surfaceId >= 0) {
+                                                item.surfaceId = modelData.surfaceId
+                                                item.nativeAppId = modelData.appId
+                                                item.nativeTitle = modelData.title
+                                            }
+                                        }
                                     }
                                 }
                             }

@@ -17,6 +17,7 @@ QtObject {
     signal navigateToApps(int appPage)
     signal navigateBack()
     signal navigateNext()
+    signal navigateToSettingPage(string settingId)
     
     function goToHub() {
         Logger.nav("current", "Hub", "direct")
@@ -65,6 +66,11 @@ QtObject {
     
     function getCurrentPage() {
         return currentPageIndex - 2
+    }
+    
+    function navigateToSetting(settingId) {
+        Logger.nav("current", "Setting:" + settingId, "search")
+        navigateToSettingPage(settingId)
     }
 }
 
