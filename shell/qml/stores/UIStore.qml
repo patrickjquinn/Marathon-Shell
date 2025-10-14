@@ -7,6 +7,7 @@ QtObject {
     
     property bool quickSettingsOpen: false
     property real quickSettingsHeight: 0
+    property bool quickSettingsDragging: false
     
     property bool appWindowOpen: false
     property string currentAppId: ""
@@ -59,9 +60,15 @@ QtObject {
         clipboardManagerOpen = false
     }
     
+    property var shellRef: null  // Reference to shell for dynamic sizing
+    
     function openQuickSettings() {
         quickSettingsOpen = true
-        quickSettingsHeight = 700
+        if (shellRef) {
+            quickSettingsHeight = shellRef.maxQuickSettingsHeight
+        } else {
+            quickSettingsHeight = 1000  // Fallback
+        }
         Logger.state("UIStore", "quickSettings closed", "open")
     }
     

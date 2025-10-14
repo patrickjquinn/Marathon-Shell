@@ -18,36 +18,70 @@ QtObject {
         isIndexing = true
         searchIndex = []
 
-        var allApps = AppStore.apps
-        for (var i = 0; i < allApps.length; i++) {
-            var app = allApps[i]
-            searchIndex.push({
-                type: "app",
-                id: app.id,
-                title: app.name,
-                subtitle: app.type === "native" ? "Native App" : "Marathon App",
-                icon: app.icon,
-                keywords: [app.name.toLowerCase()],
-                data: app,
-                score: 0
-            })
+        // Get apps from C++ AppModel using getAppAtIndex
+        var appCount = AppModel.count
+        Logger.info("UnifiedSearch", "Indexing " + appCount + " apps from AppModel")
+        
+        var actualAppsAdded = 0
+        for (var i = 0; i < appCount; i++) {
+            var app = AppModel.getAppAtIndex(i)
+            if (!app) {
+                Logger.warning("UnifiedSearch", "Failed to get app at index " + i)
+                continue
+            }
+            
+            var appId = app.id
+            var appName = app.name
+            var appIcon = app.icon
+            var appType = app.type
+            
+            if (appName && appId) {
+                var keywords = [
+                    appName.toLowerCase(),
+                    appId.toLowerCase()
+                ]
+                
+                // Add word fragments for better matching
+                var nameParts = appName.toLowerCase().split(/\s+/)
+                for (var j = 0; j < nameParts.length; j++) {
+                    if (nameParts[j].length > 0) {
+                        keywords.push(nameParts[j])
+                    }
+                }
+                
+                searchIndex.push({
+                    type: "app",
+                    id: appId,
+                    title: appName,
+                    subtitle: appType === "native" ? "Native App" : "Marathon App",
+                    icon: appIcon,
+                    keywords: keywords,
+                    searchText: appName.toLowerCase() + " " + appId.toLowerCase(),
+                    data: { id: appId, name: appName, icon: appIcon, type: appType },
+                    score: 0
+                })
+                
+                actualAppsAdded++
+            }
         }
 
+        Logger.info("UnifiedSearch", "Added " + actualAppsAdded + " apps to search index")
+
         var settingsCategories = [
-            { id: "wifi", title: "Wi-Fi", subtitle: "Network Settings", keywords: ["wifi", "wireless", "network", "internet", "connection"] },
-            { id: "bluetooth", title: "Bluetooth", subtitle: "Device Connections", keywords: ["bluetooth", "bt", "wireless", "device", "pair"] },
-            { id: "display", title: "Display", subtitle: "Screen & Brightness", keywords: ["display", "screen", "brightness", "auto-brightness", "wallpaper"] },
-            { id: "sound", title: "Sound", subtitle: "Volume & Ringtones", keywords: ["sound", "volume", "ringtone", "notification", "audio"] },
-            { id: "notifications", title: "Notifications", subtitle: "App Alerts", keywords: ["notifications", "alerts", "badges", "sounds"] },
-            { id: "security", title: "Security", subtitle: "Lock Screen & Privacy", keywords: ["security", "privacy", "lock", "pin", "password", "biometric"] },
-            { id: "battery", title: "Battery", subtitle: "Power Management", keywords: ["battery", "power", "charging", "saver"] },
-            { id: "storage", title: "Storage", subtitle: "Space & Files", keywords: ["storage", "space", "memory", "files", "disk"] },
-            { id: "accounts", title: "Accounts", subtitle: "Sign In & Sync", keywords: ["accounts", "sync", "login", "sign in", "email"] },
-            { id: "about", title: "About", subtitle: "System Information", keywords: ["about", "version", "info", "system", "device"] }
+            { id: "wifi", title: "Wi-Fi", subtitle: "Network Settings", keywords: ["wifi", "wireless", "network", "internet", "connection", "wi-fi"] },
+            { id: "bluetooth", title: "Bluetooth", subtitle: "Device Connections", keywords: ["bluetooth", "bt", "wireless", "device", "pair", "pairing"] },
+            { id: "display", title: "Display", subtitle: "Screen & Brightness", keywords: ["display", "screen", "brightness", "auto-brightness", "wallpaper", "theme"] },
+            { id: "sound", title: "Sound", subtitle: "Volume & Ringtones", keywords: ["sound", "volume", "ringtone", "notification", "audio", "music"] },
+            { id: "notifications", title: "Notifications", subtitle: "App Alerts", keywords: ["notifications", "alerts", "badges", "sounds", "banner"] },
+            { id: "security", title: "Security", subtitle: "Lock Screen & Privacy", keywords: ["security", "privacy", "lock", "pin", "password", "biometric", "fingerprint"] },
+            { id: "battery", title: "Battery", subtitle: "Power Management", keywords: ["battery", "power", "charging", "saver", "energy"] },
+            { id: "storage", title: "Storage", subtitle: "Space & Files", keywords: ["storage", "space", "memory", "files", "disk", "capacity"] },
+            { id: "accounts", title: "Accounts", subtitle: "Sign In & Sync", keywords: ["accounts", "sync", "login", "sign in", "email", "user"] },
+            { id: "about", title: "About", subtitle: "System Information", keywords: ["about", "version", "info", "system", "device", "build"] }
         ]
 
-        for (var j = 0; j < settingsCategories.length; j++) {
-            var setting = settingsCategories[j]
+        for (var k = 0; k < settingsCategories.length; k++) {
+            var setting = settingsCategories[k]
             searchIndex.push({
                 type: "setting",
                 id: setting.id,
@@ -55,6 +89,7 @@ QtObject {
                 subtitle: setting.subtitle,
                 icon: "qrc:/images/settings.svg",
                 keywords: setting.keywords,
+                searchText: setting.title.toLowerCase() + " " + setting.keywords.join(" "),
                 data: setting,
                 score: 0
             })
@@ -62,7 +97,7 @@ QtObject {
 
         isIndexing = false
         indexingComplete()
-        Logger.info("UnifiedSearch", "Index built: " + searchIndex.length + " items")
+        Logger.info("UnifiedSearch", "Index built: " + searchIndex.length + " items (" + actualAppsAdded + " apps + " + settingsCategories.length + " settings)")
     }
 
     function search(query) {
@@ -73,9 +108,59 @@ QtObject {
         var normalizedQuery = query.toLowerCase().trim()
         var results = []
 
+        // Fast path: exact matches first
         for (var i = 0; i < searchIndex.length; i++) {
             var item = searchIndex[i]
-            var score = calculateScore(item, normalizedQuery)
+            var score = 0
+            
+            // 1. Exact title match (highest priority)
+            if (item.title.toLowerCase() === normalizedQuery) {
+                score = 10000
+            }
+            // 2. Title starts with query (very high priority)
+            else if (item.title.toLowerCase().startsWith(normalizedQuery)) {
+                score = 5000
+            }
+            // 3. Exact keyword match
+            else if (item.keywords.indexOf(normalizedQuery) !== -1) {
+                score = 3000
+            }
+            // 4. Any keyword starts with query
+            else {
+                for (var j = 0; j < item.keywords.length; j++) {
+                    if (item.keywords[j].startsWith(normalizedQuery)) {
+                        score = Math.max(score, 2000)
+                        break
+                    }
+                }
+            }
+            
+            // 5. Title contains query
+            if (score === 0 && item.title.toLowerCase().indexOf(normalizedQuery) !== -1) {
+                score = 1000
+            }
+            
+            // 6. Any keyword contains query
+            if (score === 0) {
+                for (var m = 0; m < item.keywords.length; m++) {
+                    if (item.keywords[m].indexOf(normalizedQuery) !== -1) {
+                        score = Math.max(score, 500)
+                    }
+                }
+            }
+            
+            // 7. Fuzzy match on searchText
+            if (score === 0) {
+                var fuzzyScore = fuzzyMatch(item.searchText, normalizedQuery)
+                if (fuzzyScore > 0) {
+                    score = fuzzyScore * 100
+                }
+            }
+            
+            // Boost apps over settings
+            if (score > 0 && item.type === "app") {
+                score += 100
+            }
 
             if (score > 0) {
                 var result = Object.assign({}, item)
@@ -84,6 +169,7 @@ QtObject {
             }
         }
 
+        // Sort by score (highest first), then alphabetically
         results.sort(function(a, b) {
             if (b.score !== a.score) {
                 return b.score - a.score
@@ -92,63 +178,28 @@ QtObject {
         })
 
         searchCompleted(results)
+        Logger.info("UnifiedSearch", "Search for '" + query + "' returned " + results.length + " results")
         return results
-    }
-
-    function calculateScore(item, query) {
-        var score = 0
-        var title = item.title.toLowerCase()
-
-        if (title === query) {
-            score += 1000
-        } else if (title.startsWith(query)) {
-            score += 500
-        } else if (title.indexOf(query) !== -1) {
-            score += 250
-        }
-
-        for (var i = 0; i < item.keywords.length; i++) {
-            var keyword = item.keywords[i]
-            if (keyword === query) {
-                score += 750
-            } else if (keyword.startsWith(query)) {
-                score += 400
-            } else if (keyword.indexOf(query) !== -1) {
-                score += 200
-            }
-        }
-
-        if (item.subtitle) {
-            var subtitle = item.subtitle.toLowerCase()
-            if (subtitle.indexOf(query) !== -1) {
-                score += 100
-            }
-        }
-
-        score += fuzzyMatch(title, query) * 50
-
-        if (item.type === "app") {
-            score += 50
-        }
-
-        return score
     }
 
     function fuzzyMatch(text, pattern) {
         var patternIdx = 0
         var score = 0
         var consecutiveMatches = 0
+        var textIdx = 0
 
-        for (var i = 0; i < text.length && patternIdx < pattern.length; i++) {
-            if (text[i] === pattern[patternIdx]) {
-                score += 1 + consecutiveMatches
+        while (textIdx < text.length && patternIdx < pattern.length) {
+            if (text[textIdx] === pattern[patternIdx]) {
+                score += 1 + consecutiveMatches * 2  // Bonus for consecutive chars
                 consecutiveMatches++
                 patternIdx++
             } else {
                 consecutiveMatches = 0
             }
+            textIdx++
         }
 
+        // Full match required
         if (patternIdx === pattern.length) {
             return score / pattern.length
         }
@@ -162,8 +213,8 @@ QtObject {
         }
 
         var normalized = query.trim()
-
         var existingIndex = recentSearches.indexOf(normalized)
+        
         if (existingIndex !== -1) {
             recentSearches.splice(existingIndex, 1)
         }
@@ -194,7 +245,9 @@ QtObject {
             }
         } else if (result.type === "setting") {
             UIStore.openSettings()
-            Router.navigateToSetting(result.id)
+            if (typeof Router !== 'undefined') {
+                Router.navigateToSetting(result.id)
+            }
         }
     }
 
@@ -202,10 +255,10 @@ QtObject {
         Logger.info("UnifiedSearch", "Unified Search Service initialized")
         buildSearchIndex()
 
-        AppStore.onAppsChanged.connect(function() {
-            Logger.info("UnifiedSearch", "App list changed, rebuilding index")
+        // Rebuild index when apps change
+        AppModel.countChanged.connect(function() {
+            Logger.info("UnifiedSearch", "App count changed, rebuilding index")
             buildSearchIndex()
         })
     }
 }
-

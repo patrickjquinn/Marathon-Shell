@@ -96,11 +96,11 @@ Rectangle {
                             Repeater {
                                 model: [
                                     { id: "settings", icon: "settings", label: "Settings", active: false },
-                                    { id: "rotation", icon: "rotate-cw", label: "Rotation lock", active: SystemControlStore.isRotationLocked },
+                                    { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked },
                                     { id: "wifi", icon: "wifi", label: "Wi-Fi", active: SystemControlStore.isWifiOn, subtitle: SystemStatusStore.wifiNetwork || "" },
                                     { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn },
                                     { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn },
-                                    { id: "torch", icon: "zap", label: "Torch", active: SystemControlStore.isFlashlightOn }
+                                    { id: "torch", icon: "sun", label: "Torch", active: SystemControlStore.isFlashlightOn }
                                 ]
                                 
                                 delegate: QuickSettingsTile {
@@ -126,12 +126,12 @@ Rectangle {
                             
                             Repeater {
                                 model: [
-                                    { id: "alarm", icon: "bell", label: "Alarm", active: SystemControlStore.isAlarmOn },
+                                    { id: "alarm", icon: "clock", label: "Alarm", active: SystemControlStore.isAlarmOn },
                                     { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, subtitle: "Normal" },
-                                    { id: "battery", icon: "battery", label: "Battery saving", active: SystemControlStore.isLowPowerMode },
-                                    { id: "monitor", icon: "activity", label: "Device monitor", active: false, subtitle: "Battery " + SystemStatusStore.batteryLevel + "%" },
+                                    { id: "battery", icon: "battery-low", label: "Battery saving", active: SystemControlStore.isLowPowerMode },
+                                    { id: "monitor", icon: "info", label: "Device monitor", active: false, subtitle: "Battery " + SystemStatusStore.batteryLevel + "%" },
                                     { id: "network", icon: "signal", label: "Mobile network", active: false },
-                                    { id: "blend", icon: "layers", label: "Blend", active: false }
+                                    { id: "blend", icon: "grid", label: "Blend", active: false }
                                 ]
                                 
                                 delegate: QuickSettingsTile {
@@ -226,78 +226,6 @@ Rectangle {
             }
             
             Item { height: 20 }
-        }
-    }
-    
-    // Drag handle
-    Rectangle {
-        id: dragHandle
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 20
-        width: 100
-        height: 50
-        color: "transparent"
-        z: 100
-        
-            Rectangle {
-                anchors.centerIn: parent
-                width: 60
-                height: 6
-                radius: MRadius.sm
-                color: MColors.textTertiary
-            }
-        
-        MouseArea {
-            anchors.fill: parent
-            anchors.margins: -20
-            
-            property real startY: 0
-            property real velocity: 0
-            property real lastY: 0
-            property real lastTime: 0
-            property bool dragging: false
-            
-            onPressed: (mouse) => {
-                startY = mouse.y
-                lastY = mouse.y
-                lastTime = Date.now()
-                velocity = 0
-                dragging = false
-            }
-            
-            onPositionChanged: (mouse) => {
-                var deltaY = mouse.y - startY
-                if (Math.abs(deltaY) > 10) {
-                    dragging = true
-                }
-                
-                if (dragging) {
-                    var now = Date.now()
-                    var dt = now - lastTime
-                    if (dt > 0) {
-                        velocity = (mouse.y - lastY) / dt * 1000
-                    }
-                    lastY = mouse.y
-                    lastTime = now
-                    
-                    var newHeight = UIStore.quickSettingsHeight - deltaY
-                    if (newHeight < 700 && newHeight > 0) {
-                        UIStore.quickSettingsHeight = newHeight
-                    }
-                }
-            }
-            
-            onReleased: {
-                if (dragging) {
-                    if (velocity < -500 || UIStore.quickSettingsHeight < 350) {
-                        UIStore.closeQuickSettings()
-                    } else {
-                        UIStore.openQuickSettings()
-                    }
-                }
-                dragging = false
-            }
         }
     }
     

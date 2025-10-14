@@ -77,7 +77,7 @@ Item {
             z: 10
             
             Repeater {
-                model: NotificationStore.notifications.slice(0, 4)
+                model: Math.min(NotificationModel.count, 4)
                 
                 Item {
                     width: expandedNotificationId === modelData.id ? 300 : 48

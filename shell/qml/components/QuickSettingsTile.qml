@@ -77,7 +77,7 @@ Rectangle {
             
             Icon {
                 name: toggleData.icon || "grid"
-                color: Colors.text
+                color: toggleData.id === "settings" ? Colors.accentLight : Colors.text
                 size: 24
                 anchors.centerIn: parent
             }

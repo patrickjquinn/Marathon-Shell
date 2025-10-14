@@ -8,39 +8,53 @@ Item {
     id: searchOverlay
     
     property bool active: false
+    property real pullProgress: 0.0  // 0.0 to 1.0, for pull-to-reveal animation
     property string searchQuery: ""
     property var searchResults: []
     
     signal closed()
     signal resultSelected(var result)
     
-    visible: opacity > 0
-    opacity: active ? 1.0 : 0.0
+    visible: opacity > 0.01
+    enabled: opacity > 0.01  // Block interactions whenever visible
     
+    // Opacity: active = full opacity, OR follows pullProgress during gesture
+    opacity: active ? 1.0 : Math.max(0.0, pullProgress)
+    
+    // Smooth fade-out when search closes or progress resets
     Behavior on opacity {
-        NumberAnimation { 
+        enabled: !active
+        NumberAnimation {
             duration: 200
             easing.type: Easing.OutCubic
+        }
+    }
+    
+    // Full-screen mouse blocker when visible at any opacity
+    // Excludes nav bar area to allow swipe-up-to-close gesture
+    MouseArea {
+        anchors.fill: parent
+        anchors.bottomMargin: Constants.bottomBarHeight
+        enabled: searchOverlay.opacity > 0.01 && !searchOverlay.active
+        onClicked: {
+            // Clicking on overlay when partially visible dismisses it
+            searchOverlay.pullProgress = 0.0
         }
     }
     
     Rectangle {
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.95)
-        
-        MouseArea {
-            anchors.fill: parent
-            onClicked: searchOverlay.close()
-        }
     }
     
     Column {
         anchors.fill: parent
-        anchors.topMargin: Constants.safeAreaTop + 16
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        anchors.bottomMargin: Constants.safeAreaBottom + 16
+        anchors.topMargin: Constants.safeAreaTop + 8
+        anchors.leftMargin: 20
+        anchors.rightMargin: 20
+        anchors.bottomMargin: Constants.safeAreaBottom + 20
         spacing: 16
+        z: 10
         
         Item {
             width: parent.width
@@ -124,10 +138,12 @@ Item {
         ListView {
             id: resultsList
             width: parent.width
-            height: parent.height - 72
+            height: parent.height - 76
             clip: true
             spacing: 8
             model: searchOverlay.searchResults
+            interactive: true
+            boundsBehavior: Flickable.StopAtBounds
             
             Keys.onUpPressed: {
                 if (currentIndex === 0) {
@@ -250,17 +266,20 @@ Item {
     }
     
     function open() {
-        active = true
         searchInput.forceActiveFocus()
-        Logger.info("Search", "Search overlay opened")
+        Logger.info("Search", "Search overlay opened - input focused")
     }
     
     function close() {
-        active = false
         searchInput.text = ""
         searchResults = []
         closed()
         Logger.info("Search", "Search overlay closed")
+    }
+    
+    function appendToSearch(text) {
+        searchInput.text += text
+        searchInput.forceActiveFocus()
     }
     
     function performSearch() {
@@ -284,9 +303,16 @@ Item {
     }
     
     onActiveChanged: {
-        if (!active) {
+        if (active) {
+            Logger.info("Search", "Search became active - focusing input")
+            Qt.callLater(function() {
+                searchInput.forceActiveFocus()
+            })
+        } else {
             searchInput.text = ""
             searchResults = []
+            Logger.info("Search", "Search became inactive - emitting closed signal")
+            closed()
         }
     }
 }

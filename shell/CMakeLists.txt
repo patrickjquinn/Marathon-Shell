@@ -2,6 +2,20 @@ set(SOURCES
     main.cpp
     src/desktopfileparser.h
     src/desktopfileparser.cpp
+    src/appmodel.h
+    src/appmodel.cpp
+    src/taskmodel.h
+    src/taskmodel.cpp
+    src/notificationmodel.h
+    src/notificationmodel.cpp
+    src/networkmanagercpp.h
+    src/networkmanagercpp.cpp
+    src/powermanagercpp.h
+    src/powermanagercpp.cpp
+    src/notificationservice.h
+    src/notificationservice.cpp
+    src/settingsmanager.h
+    src/settingsmanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -70,7 +84,6 @@ set(QML_FILES
     qml/components/navigation/InertiaNavBar.qml
     qml/components/NotificationToast.qml
     qml/components/SystemHUD.qml
-    qml/components/UniversalSearch.qml
     qml/components/ScreenshotPreview.qml
     qml/components/BackGestureIndicator.qml
     qml/components/ShareSheet.qml

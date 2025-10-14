@@ -3,8 +3,16 @@
 #include <QQuickStyle>
 #include <QDebug>
 #include <QQmlContext>
+#include <QDir>
 
 #include "src/desktopfileparser.h"
+#include "src/appmodel.h"
+#include "src/taskmodel.h"
+#include "src/notificationmodel.h"
+#include "src/networkmanagercpp.h"
+#include "src/powermanagercpp.h"
+#include "src/notificationservice.h"
+#include "src/settingsmanager.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -30,6 +38,43 @@ int main(int argc, char *argv[])
     // Register DesktopFileParser as a singleton accessible from QML
     DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);
     engine.rootContext()->setContextProperty("DesktopFileParserCpp", desktopFileParser);
+    
+    // Register C++ models
+    AppModel *appModel = new AppModel(&app);
+    TaskModel *taskModel = new TaskModel(&app);
+    NotificationModel *notificationModel = new NotificationModel(&app);
+    
+    engine.rootContext()->setContextProperty("AppModel", appModel);
+    engine.rootContext()->setContextProperty("TaskModel", taskModel);
+    engine.rootContext()->setContextProperty("NotificationModel", notificationModel);
+    
+    // Register C++ services
+    NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
+    PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
+    SettingsManager *settingsManager = new SettingsManager(&app);
+    
+    engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
+    engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
+    engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
+    
+    // Register notification service (D-Bus daemon)
+    NotificationService *notificationService = new NotificationService(notificationModel, &app);
+    bool notificationServiceRegistered = notificationService->registerService();
+    if (notificationServiceRegistered) {
+        qDebug() << "Notification service registered successfully";
+    } else {
+        qDebug() << "Failed to register notification service (may already be running)";
+    }
+    
+    // Scan for native apps and add to AppModel
+    QStringList searchPaths = {"/usr/share/applications", "/usr/local/share/applications", 
+                               QDir::homePath() + "/.local/share/applications"};
+    QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths);
+    for (const QVariant& appVariant : nativeApps) {
+        QVariantMap app = appVariant.toMap();
+        appModel->addApp(app["id"].toString(), app["name"].toString(), 
+                       app["icon"].toString(), app["type"].toString());
+    }
     
     // Add QML import paths for modules
     engine.addImportPath("qrc:/");

@@ -7,12 +7,21 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_DIR"
 
+# Detect number of CPU cores
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    CORES=$(sysctl -n hw.ncpu)
+else
+    CORES=$(nproc)
+fi
+
+echo "💻 Detected $CORES CPU cores"
+
 # Kill any existing instances first
 echo "🛑 Killing any running Marathon Shell instances..."
 pkill -9 marathon-shell 2>/dev/null || true
 
-echo "🏗️  Building Marathon Shell..."
-cmake --build build
+echo "🏗️  Building Marathon Shell with $CORES parallel jobs..."
+cmake --build build --parallel $CORES
 
 if [ $? -eq 0 ]; then
     echo "✅ Build successful!"

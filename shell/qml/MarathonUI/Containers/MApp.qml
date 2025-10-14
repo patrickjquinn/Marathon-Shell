@@ -40,6 +40,10 @@ Item {
     property string appName: ""
     property string appIcon: ""
     
+    // Preview mode - when true, this is just a visual preview (TaskSwitcher)
+    // and should NOT register with AppLifecycleManager
+    property bool isPreviewMode: false
+    
     // Lifecycle state
     property bool isActive: false
     property bool isPaused: false
@@ -192,8 +196,8 @@ Item {
     
     // Lifecycle management
     Component.onCompleted: {
-        // Register with lifecycle manager (if available)
-        if (appId && typeof AppLifecycleManager !== 'undefined') {
+        // Only register with lifecycle manager if NOT in preview mode
+        if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
             AppLifecycleManager.registerApp(appId, root)
             Logger.info("MApp", appId + " registered with AppLifecycleManager")
         }
@@ -206,21 +210,21 @@ Item {
         appStarted()
         appResumed()
         
-        if (appId) {
+        if (appId && !isPreviewMode) {
             Logger.info("MApp", appId + " lifecycle: created → launched → started → resumed")
         }
     }
     
     Component.onDestruction: {
-        // Unregister from lifecycle manager (if available)
-        if (appId && typeof AppLifecycleManager !== 'undefined') {
+        // Only unregister if NOT in preview mode
+        if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
             AppLifecycleManager.unregisterApp(appId)
         }
         
         appWillTerminate()
         appClosed()
         
-        if (appId) {
+        if (appId && !isPreviewMode) {
             Logger.info("MApp", appId + " destroyed")
         }
     }

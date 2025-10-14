@@ -8,6 +8,7 @@ Item {
     property alias currentPage: pageView.currentPage
     property alias isGestureActive: pageView.isGestureActive
     property alias count: pageView.count
+    property real searchPullProgress: 0.0  // Exposed to Shell for search overlay
     
     signal hubVisible(bool visible)
     signal framesVisible(bool visible)
@@ -34,8 +35,16 @@ ListView {
     
     property int currentPage: currentIndex - 2
     property bool isGestureActive: false
+    property int pageCount: Math.ceil(AppModel.count / 16)
     
-    model: AppStore.apps.length > 0 ? 2 + Math.ceil(AppStore.apps.length / 16) : 4
+    model: AppModel.count > 0 ? 2 + pageCount : 4
+    
+    Connections {
+        target: AppModel
+        function onCountChanged() {
+            pageView.pageCount = Math.ceil(AppModel.count / 16)
+        }
+    }
     
     delegate: Loader {
         width: pageView.width
@@ -83,6 +92,10 @@ ListView {
             columns: 4
             rows: 4
             
+            onSearchPullProgressChanged: {
+                pageViewContainer.searchPullProgress = searchPullProgress
+            }
+            
             onAppLaunched: (app) => {
                 Logger.info("PageView", "App launched: " + app.name)
                 pageViewContainer.appLaunched(app)
@@ -96,79 +109,16 @@ ListView {
         
         pageViewContainer.hubVisible(currentIndex === 0)
         pageViewContainer.framesVisible(currentIndex === 1)
-    }
-}
-
-MarathonSearch {
-    id: searchOverlay
-    anchors.fill: parent
-    z: 1000
-    
-    onResultSelected: (result) => {
-        Logger.info("PageView", "Search result selected: " + result.title)
-    }
-}
-
-MouseArea {
-    id: pullDownGestureArea
-    anchors.fill: parent
-    anchors.topMargin: -100
-    anchors.bottomMargin: Constants.bottomBarHeight
-    z: searchOverlay.active ? -1 : 5
-    enabled: pageView.currentIndex >= 2 && !searchOverlay.active
-    propagateComposedEvents: !searchOverlay.active
-    
-    property real startY: 0
-    property real pullDistance: 0
-    property bool isPulling: false
-    
-    onPressed: (mouse) => {
-        if (mouse.y < Constants.safeAreaTop + 50) {
-            startY = mouse.y
-            isPulling = true
-        } else {
-            mouse.accepted = false
-        }
-    }
-    
-    onPositionChanged: (mouse) => {
-        if (isPulling) {
-            pullDistance = mouse.y - startY
-            if (pullDistance < 0) {
-                pullDistance = 0
-            }
-        } else {
-            mouse.accepted = false
-        }
-    }
-    
-    onReleased: (mouse) => {
-        if (isPulling && pullDistance > 80) {
-            Logger.info("PageView", "Pull-down search triggered")
-            searchOverlay.open()
-        }
-        isPulling = false
-        pullDistance = 0
-    }
-    
-    onCanceled: {
-        isPulling = false
-        pullDistance = 0
-    }
-}
-
-Keys.onPressed: (event) => {
-    if (pageView.currentIndex >= 2 && !searchOverlay.active) {
-        if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9 ]/)) {
-            Logger.info("PageView", "Keyboard search triggered")
-            searchOverlay.open()
-            event.accepted = false
+        
+        // Reset search pull progress when navigating away from app grid pages
+        if (currentIndex < 2) {
+            pageViewContainer.searchPullProgress = 0.0
         }
     }
 }
 
 Component.onCompleted: {
-    pageViewContainer.forceActiveFocus()
+    // Don't force focus - let Shell manage keyboard input
 }
 }
 

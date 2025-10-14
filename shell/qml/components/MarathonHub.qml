@@ -5,15 +5,16 @@ import "."
 Rectangle {
     id: hub
     anchors.fill: parent
-    anchors.topMargin: Constants.safeAreaTop
     color: Qt.rgba(0.05, 0.05, 0.05, 0.95)
     
     signal closed()
     
     property int selectedTabIndex: 0
+    property bool isInPeekMode: false  // Set by parent (MarathonPeek vs MarathonPageView)
     
     Column {
         anchors.fill: parent
+        anchors.topMargin: hub.isInPeekMode ? Constants.safeAreaTop : 0
         spacing: 0
                     
         Row {
@@ -125,12 +126,12 @@ Rectangle {
             cacheBuffer: Math.max(0, height * 2)
             reuseItems: true
             
-            model: NotificationStore.notifications
+            model: NotificationModel
             
             delegate: Rectangle {
                 width: notificationsList.width
                 height: 100
-                color: modelData.read ? Colors.backgroundDark : Colors.surface
+                color: model.isRead ? Colors.backgroundDark : Colors.surface
                 
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -148,15 +149,11 @@ Rectangle {
                         width: 48
                         height: 48
                         radius: Colors.cornerRadiusCircle
-                        color: modelData.type === "email" ? Colors.accent :
-                               modelData.type === "sms" ? Colors.success :
-                               modelData.type === "call" ? "#0088FF" : Colors.warning
+                        color: Colors.accent
                         anchors.verticalCenter: parent.verticalCenter
                         
                         Icon {
-                            name: modelData.type === "email" ? "mail" :
-                                  modelData.type === "sms" ? "message-square" :
-                                  modelData.type === "call" ? "phone" : "bell"
+                            name: "bell"
                             size: 24
                             color: Colors.text
                             anchors.centerIn: parent
@@ -173,16 +170,16 @@ Rectangle {
                             spacing: 8
                             
                             Text {
-                                text: modelData.title
-                                color: modelData.read ? Colors.textSecondary : Colors.text
+                                text: model.title
+                                color: model.isRead ? Colors.textSecondary : Colors.text
                                 font.pixelSize: Typography.sizeBody
-                                font.weight: modelData.read ? Font.Normal : Font.Bold
+                                font.weight: model.isRead ? Font.Normal : Font.Bold
                                 elide: Text.ElideRight
                             }
                         }
                         
                         Text {
-                            text: modelData.content || modelData.subtitle || ""
+                            text: model.body || ""
                             color: Colors.textTertiary
                             font.pixelSize: Typography.sizeSmall
                             width: parent.width
@@ -197,14 +194,14 @@ Rectangle {
                         spacing: 8
                         
                         Text {
-                            text: modelData.time
+                            text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
                             color: Colors.textTertiary
                             font.pixelSize: Typography.sizeXSmall
                             anchors.right: parent.right
                         }
                         
                         Rectangle {
-                            visible: !modelData.read
+                            visible: !model.isRead
                             width: 10
                             height: 10
                             radius: Colors.cornerRadiusSmall
@@ -217,8 +214,8 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        console.log("Notification clicked:", modelData.title)
-                        NotificationStore.markAsRead(modelData.id)
+                        console.log("Notification clicked:", model.title)
+                        NotificationStore.markAsRead(model.id)
                     }
                 }
             }

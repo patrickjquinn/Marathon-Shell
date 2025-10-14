@@ -5,6 +5,7 @@ import MarathonOS.Shell
 
 Item {
     id: shell
+    focus: true  // Enable keyboard input
     
     property var compositor: null
     property var pendingNativeApp: null
@@ -14,6 +15,14 @@ Item {
     property bool isTransitioningToActiveFrames: false
     property int currentPage: 0
     property int totalPages: 1
+    
+    // Dynamic Quick Settings sizing
+    readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
+    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * 0.43  // 43% threshold
+    
+    Component.onCompleted: {
+        UIStore.shellRef = shell
+    }
     
     // State-based navigation using centralized stores
     state: SessionStore.isLocked ? (showPinScreen ? "pinEntry" : "locked") : 
@@ -134,7 +143,7 @@ Item {
                     Logger.nav("page" + shell.currentPage, "page" + currentPage, "navigation")
                     shell.currentPage = currentPage
                     if (currentPage >= 0) {
-                        shell.totalPages = Math.max(1, Math.ceil(AppStore.apps.length / 16))
+                        shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16))
                     }
                 }
                 
@@ -163,7 +172,7 @@ Item {
                 }
                 
                 Component.onCompleted: {
-                    shell.totalPages = Math.max(1, Math.ceil(AppStore.apps.length / 16))
+                    shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16))
                 }
             }
             
@@ -239,20 +248,20 @@ Item {
         anchors.right: parent.right
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-        
-        onSwipeLeft: {
-            if (pageView.currentIndex < pageView.count - 1) {
-                pageView.incrementCurrentIndex()
-                Router.navigateLeft()
+            
+            onSwipeLeft: {
+                if (pageView.currentIndex < pageView.count - 1) {
+                    pageView.incrementCurrentIndex()
+                    Router.navigateLeft()
+                }
             }
-        }
         
-        onSwipeRight: {
-            if (pageView.currentIndex > 0) {
-                pageView.decrementCurrentIndex()
-                Router.navigateRight()
+            onSwipeRight: {
+                if (pageView.currentIndex > 0) {
+                    pageView.decrementCurrentIndex()
+                    Router.navigateRight()
+                }
             }
-        }
         
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected")
@@ -277,14 +286,14 @@ Item {
             }
         }
         
-        onShortSwipeUp: {
-            Logger.gesture("NavBar", "shortSwipeUp", {target: "home"})
-            pageView.currentIndex = 2
-            Router.goToAppPage(0)
-        }
+            onShortSwipeUp: {
+                Logger.gesture("NavBar", "shortSwipeUp", {target: "home"})
+                pageView.currentIndex = 2
+                Router.goToAppPage(0)
+            }
         
-        onLongSwipeUp: {
-            Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
+            onLongSwipeUp: {
+                Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
             
             if (UIStore.appWindowOpen && !UIStore.settingsOpen) {
                 Logger.info("NavBar", "Minimizing app to active frames")
@@ -305,9 +314,9 @@ Item {
         
         onMinimizeApp: {
             if (UIStore.settingsOpen) {
-                TaskManagerStore.launchTask("settings", "Settings", "qrc:/images/settings.svg", "marathon", -1)
+                TaskModel.launchTask("settings", "Settings", "qrc:/images/settings.svg", "marathon", -1)
             } else if (UIStore.appWindowOpen) {
-                TaskManagerStore.launchTask(
+                TaskModel.launchTask(
                     appWindow.appId, 
                     appWindow.appName, 
                     appWindow.appIcon, 
@@ -327,6 +336,39 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
+    }
+    
+    // Peek gesture capture area - must be above app window to work when app is open
+    MouseArea {
+        id: peekGestureCapture
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: 50
+        z: Constants.zIndexPeekGesture
+        visible: !SessionStore.isLocked && !peekFlow.isFullyOpen
+        
+        property real startX: 0
+        property real lastX: 0
+        
+        onPressed: (mouse) => {
+            startX = mouse.x
+            lastX = mouse.x
+            peekFlow.startPeekGesture(mouse.x)
+        }
+        
+        onPositionChanged: (mouse) => {
+            if (pressed) {
+                var absoluteX = peekGestureCapture.x + mouse.x
+                var deltaX = absoluteX - startX
+                peekFlow.updatePeekGesture(deltaX)
+                lastX = absoluteX
+            }
+        }
+        
+        onReleased: {
+            peekFlow.endPeekGesture()
+        }
     }
     
     // App Window
@@ -404,10 +446,9 @@ Item {
                 anchors.topMargin: Constants.safeAreaTop
                 anchors.bottomMargin: Constants.safeAreaBottom
                 visible: true
-                
-                onMinimized: {
+        
+        onMinimized: {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName)
-                    TaskManagerStore.launchTask(appWindow.appId, appWindow.appName, appWindow.appIcon)
                     UIStore.minimizeApp()
                     pageView.currentIndex = 1
                     Router.goToFrames()
@@ -415,7 +456,7 @@ Item {
                 
                 onClosed: {
                     Logger.info("AppWindow", "Closed: " + appWindow.appName)
-                    UIStore.closeApp()
+            UIStore.closeApp()
                 }
             }
         }
@@ -510,7 +551,7 @@ Item {
                             anchors.fill: parent
                             anchors.margins: -8
                             onClicked: {
-                                UIStore.closeApp()
+            UIStore.closeApp()
                             }
                         }
                     }
@@ -620,7 +661,7 @@ Item {
                 Loader {
                     id: settingsAppLoader
                     anchors.fill: parent
-                    active: UIStore.settingsOpen
+        active: UIStore.settingsOpen
                     asynchronous: true
                     source: "./apps/settings/SettingsApp.qml"
                     visible: status === Loader.Ready && item !== null
@@ -733,7 +774,7 @@ Item {
                             anchors.fill: parent
                             anchors.margins: -8
                             onClicked: {
-                                UIStore.closeSettings()
+                    UIStore.closeSettings()
                             }
                         }
                     }
@@ -745,15 +786,16 @@ Item {
     // Quick Settings
     MarathonQuickSettings {
         id: quickSettings
-        anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: UIStore.quickSettingsHeight
+        y: Constants.statusBarHeight  // Start below status bar
+        height: UIStore.quickSettingsHeight  // Directly bind to drag height
         visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
         
         Behavior on height {
+            enabled: !UIStore.quickSettingsDragging  // Disable animation during drag
             NumberAnimation {
                 duration: Constants.animationSlow
                 easing.type: Easing.OutCubic
@@ -793,17 +835,19 @@ Item {
             
             if (dragDistance > 5 && !isDraggingDown) {
                 isDraggingDown = true
+                UIStore.quickSettingsDragging = true
                 Logger.gesture("StatusBar", "dragStart", {y: startY})
             }
             
             if (isDraggingDown) {
-                UIStore.quickSettingsHeight = Math.min(700, dragDistance)
+                UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, dragDistance)
             }
         }
         
         onReleased: (mouse) => {
             if (isDraggingDown) {
-                if (UIStore.quickSettingsHeight > 350) {
+                UIStore.quickSettingsDragging = false
+                if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
                     UIStore.openQuickSettings()
                 } else {
                     UIStore.closeQuickSettings()
@@ -818,6 +862,7 @@ Item {
             Logger.debug("StatusBar", "Touch canceled")
             startY = 0
             isDraggingDown = false
+            UIStore.quickSettingsDragging = false
             UIStore.closeQuickSettings()
         }
     }
@@ -844,18 +889,20 @@ Item {
         
         onPressed: (mouse) => {
             startY = mouse.y
+            UIStore.quickSettingsDragging = true
             Logger.gesture("QuickSettings", "overlayDragStart", {y: startY})
         }
         
         onPositionChanged: (mouse) => {
             var dragDistance = mouse.y - startY
             var newHeight = UIStore.quickSettingsHeight + dragDistance
-            UIStore.quickSettingsHeight = Math.max(0, Math.min(700, newHeight))
+            UIStore.quickSettingsHeight = Math.max(0, Math.min(shell.maxQuickSettingsHeight, newHeight))
             startY = mouse.y
         }
         
         onReleased: (mouse) => {
-            if (UIStore.quickSettingsHeight > 350) {
+            UIStore.quickSettingsDragging = false
+            if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
                 UIStore.openQuickSettings()
             } else {
                 UIStore.closeQuickSettings()
@@ -969,8 +1016,17 @@ Item {
         }
     }
     
-    UniversalSearch {
+    MarathonSearch {
         id: universalSearch
+        anchors.fill: parent
+        z: Constants.zIndexSearch
+        active: UIStore.searchOpen
+        pullProgress: pageView.searchPullProgress  // Bind to app grid's pull gesture
+        
+        onClosed: {
+            UIStore.closeSearch()
+            shell.forceActiveFocus()
+        }
     }
     
     ScreenshotPreview {
@@ -1035,6 +1091,16 @@ Item {
             UIStore.openClipboardManager()
             HapticService.light()
             event.accepted = true
+        } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
+            // Alphanumeric keys trigger search with that character
+            if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
+                Logger.info("Shell", "Global search triggered with: '" + event.text + "'")
+                UIStore.openSearch()
+                Qt.callLater(function() {
+                    universalSearch.appendToSearch(event.text)
+                })
+                event.accepted = true
+            }
         }
     }
     

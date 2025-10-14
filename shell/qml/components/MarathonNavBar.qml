@@ -107,7 +107,17 @@ Rectangle {
             if (isVerticalGesture) {
                 currentY = Math.max(0, diffY)
                 currentX = 0
-                if (isAppOpen) {
+                
+                // Drag Quick Settings up when open
+                if (UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) {
+                    if (!UIStore.quickSettingsDragging) {
+                        UIStore.quickSettingsDragging = true
+                    }
+                    var newHeight = UIStore.quickSettingsHeight - diffY
+                    var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000
+                    UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight))
+                    startY = mouse.y  // Update startY for continuous tracking
+                } else if (isAppOpen) {
                     var oldProgress = gestureProgress
                     gestureProgress = Math.min(1.0, diffY / 250)
                     if (oldProgress <= 0.15 && gestureProgress > 0.15) {
@@ -125,13 +135,47 @@ Rectangle {
             var diffX = mouse.x - startX
             var diffY = startY - mouse.y
             
-            Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen})
+            Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen})
+            
+            // Snap Quick Settings open/closed based on threshold
+            if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
+                Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight)
+                UIStore.quickSettingsDragging = false
+                var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400
+                if (UIStore.quickSettingsHeight > threshold) {
+                    UIStore.openQuickSettings()
+                } else {
+                    UIStore.closeQuickSettings()
+                }
+                // Reset gesture state
+                startX = 0
+                startY = 0
+                velocityX = 0
+                isVerticalGesture = false
+                currentX = 0
+                currentY = 0
+                gestureProgress = 0
+                return
+            }
+            
+            // Close Search with upward gesture
+            if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
+                Logger.info("NavBar", "Closing Search with upward gesture")
+                UIStore.closeSearch()
+                startX = 0
+                startY = 0
+                velocityX = 0
+                isVerticalGesture = false
+                currentX = 0
+                currentY = 0
+                gestureProgress = 0
+                return
+            }
             
             if (isVerticalGesture && diffY > 30) {
                 if (isAppOpen && diffY > 60) {
                     Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + gestureProgress)
                     minimizeApp()
-                    // Keep gestureProgress for the transition animation
                     gestureProgressResetTimer.start()
                 } else if (diffY > longSwipeThreshold) {
                     Logger.info("NavBar", "Long swipe up - Task switcher")

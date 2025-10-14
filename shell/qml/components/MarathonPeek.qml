@@ -14,8 +14,57 @@ Item {
     property bool isPeeking: false
     property bool isFullyOpen: false
     
+    property real gestureStartX: 0
+    property real gestureVelocity: 0
+    property real gestureLastX: 0
+    property real gestureLastTime: 0
+    
     signal closed()
     signal fullyOpened()
+    
+    // Public API for external gesture capture
+    function startPeekGesture(x) {
+        gestureStartX = x
+        gestureLastX = x
+        gestureLastTime = Date.now()
+        isPeeking = true
+        Logger.info("Peek", "Gesture started from external capture")
+    }
+    
+    function updatePeekGesture(deltaX) {
+        if (!isPeeking) return
+        
+        var now = Date.now()
+        var deltaTime = now - gestureLastTime
+        
+        if (deltaTime > 0) {
+            gestureVelocity = (deltaX - (gestureLastX - gestureStartX)) / deltaTime * 1000
+        }
+        
+        gestureLastX = gestureStartX + deltaX
+        gestureLastTime = now
+        
+        // Update peek progress (0 to 1)
+        peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)))
+    }
+    
+    function endPeekGesture() {
+        if (!isPeeking) return
+        
+        isPeeking = false
+        
+        // Velocity-based or threshold-based decision
+        var shouldOpen = (gestureVelocity > 300) || (peekProgress > peekThreshold)
+        
+        if (shouldOpen) {
+            openPeek()
+        } else {
+            closePeek()
+        }
+        
+        Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + 
+                    " (velocity: " + gestureVelocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)")
+    }
     
     // Main content area (dims as peek opens)
     Rectangle {
@@ -59,6 +108,7 @@ Item {
         MarathonHub {
             id: hubPanel
             anchors.fill: parent
+            isInPeekMode: true  // Tell Hub to apply safe area padding
             
             onClosed: {
                 closePeek()
@@ -68,13 +118,90 @@ Item {
                 Logger.info("Hub", "Initialized in peek panel, width: " + hubPanelContainer.width)
             }
         }
+        
+        // Drag-to-close gesture when peek is fully open
+        // Right-side close area (avoid blocking hub tabs on left)
+        MouseArea {
+            id: closeGestureArea
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            width: parent.width * 0.3  // Right 30% of screen
+            enabled: isFullyOpen
+            z: 100  // Above hub content
+            
+            property real startX: 0
+            property real lastX: 0
+            property real velocity: 0
+            property real lastTime: 0
+            property bool isDragging: false
+            
+            onPressed: (mouse) => {
+                startX = mouse.x
+                lastX = mouse.x
+                lastTime = Date.now()
+                isDragging = false
+                velocity = 0
+            }
+            
+            onPositionChanged: (mouse) => {
+                if (!isDragging) {
+                    var deltaX = mouse.x - startX
+                    // Detect left swipe (closing gesture)
+                    if (deltaX < -15) {
+                        isDragging = true
+                        isPeeking = true
+                        startX = mouse.x  // Reset for tracking
+                        lastX = mouse.x
+                        lastTime = Date.now()
+                        Logger.info("Peek", "Close drag started")
+                    }
+                } else {
+                    var now = Date.now()
+                    var deltaTime = now - lastTime
+                    
+                    if (deltaTime > 0) {
+                        velocity = (mouse.x - lastX) / deltaTime * 1000
+                    }
+                    lastX = mouse.x
+                    lastTime = now
+                    
+                    // Update progress: deltaX from reset startX
+                    var deltaX = mouse.x - startX
+                    var maxDrag = hubPanelContainer.width
+                    peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)))
+                }
+            }
+            
+            onReleased: (mouse) => {
+                if (isDragging) {
+                    isDragging = false
+                    isPeeking = false
+                    
+                    // Close if dragged left past threshold or velocity is high
+                    if (peekProgress < 0.65 || velocity < -500) {
+                        Logger.info("Peek", "Closing from drag (progress: " + peekProgress + ", velocity: " + velocity + ")")
+                        closePeek()
+                    } else {
+                        // Snap back to open
+                        Logger.info("Peek", "Snapping back open")
+                        peekProgress = 1.0
+                    }
+                }
+            }
+            
+            onCanceled: {
+                if (isDragging) {
+                    isDragging = false
+                    isPeeking = false
+                    peekProgress = 1.0
+                }
+            }
+        }
     }
     
-    BackGestureIndicator {
-        id: backGestureIndicator
-        progress: peekProgress * 200
-        visible: peekProgress < 0.5 && peekProgress > 0
-    }
+    // BackGestureIndicator removed - was visually distracting
+    // The peek animation itself provides enough visual feedback
     
     // Gesture area for peek - ONLY on left edge to not block other interactions!
     MouseArea {
@@ -143,6 +270,12 @@ Item {
     }
     
     // Functions
+    function openPeek() {
+        peekProgress = 1.0
+        isFullyOpen = true
+        fullyOpened()
+    }
+    
     function closePeek() {
         peekProgress = 0
         isFullyOpen = false
@@ -150,9 +283,7 @@ Item {
     }
     
     function openFully() {
-        peekProgress = 1.0
-        isFullyOpen = true
-        fullyOpened()
+        openPeek()
     }
     
     // Escape key to close

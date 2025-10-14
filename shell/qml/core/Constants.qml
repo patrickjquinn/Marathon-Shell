@@ -8,16 +8,18 @@ QtObject {
     readonly property int zIndexMainContent: 90
     readonly property int zIndexBottomSection: 150
     readonly property int zIndexTaskSwitcher: 200
-    readonly property int zIndexPeek: 250
     readonly property int zIndexAppWindow: 600
+    readonly property int zIndexPeekGesture: 650  // Above app window, captures left edge
+    readonly property int zIndexPeek: 700  // Above app window and gesture, so peek overlay shows over apps
     readonly property int zIndexSettings: 700
     readonly property int zIndexSettingsPage: 700
     readonly property int zIndexLockScreen: 1000
     readonly property int zIndexPinScreen: 1100
+    readonly property int zIndexSearch: 1150  // Above lock/pin, below status/nav
     readonly property int zIndexStatusBarApp: 1200
-    readonly property int zIndexNavBarApp: 1200
-    readonly property int zIndexQuickSettingsOverlay: 1500
-    readonly property int zIndexQuickSettings: 1600  // Always on top
+    readonly property int zIndexQuickSettings: 1200
+    readonly property int zIndexQuickSettingsOverlay: 1300
+    readonly property int zIndexNavBarApp: 1600  // Nav bar always on top
     readonly property int zIndexStatusBarDrag: 1700  // Highest priority
     readonly property int zIndexKeyboard: 3000  // Virtual keyboard on top of everything
     
