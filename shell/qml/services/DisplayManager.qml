@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import MarathonOS.Shell
 
 QtObject {
     id: displayManager
@@ -8,12 +9,12 @@ QtObject {
     property real minBrightness: 0.1
     property real maxBrightness: 1.0
     
-    property bool autoBrightnessEnabled: false
+    property bool autoBrightnessEnabled: SettingsManagerCpp.autoBrightness
     property bool nightModeEnabled: false
     property int nightModeTemperature: 3400
     
     property bool screenOn: true
-    property int screenTimeout: 30000
+    property int screenTimeout: SettingsManagerCpp.screenTimeout
     property bool ambientDisplayEnabled: false
     
     property string orientation: "portrait"
@@ -25,11 +26,34 @@ QtObject {
     property real displayDpi: 320
     property real refreshRate: 60.0
     
+    // Computed property for UI display
+    readonly property string screenTimeoutString: {
+        if (screenTimeout === 0) return "Never"
+        if (screenTimeout === 30000) return "30 seconds"
+        if (screenTimeout === 60000) return "1 minute"
+        if (screenTimeout === 120000) return "2 minutes"
+        if (screenTimeout === 300000) return "5 minutes"
+        return Math.round(screenTimeout / 1000) + " seconds"
+    }
+    
     signal brightnessSet(real value)
     signal autoBrightnessChanged(bool enabled)
     signal nightModeChanged(bool enabled)
     signal orientationSet(string orientation)
     signal screenStateChanged(bool on)
+    
+    // Wire property changes to SettingsManager for persistence
+    onAutoBrightnessEnabledChanged: {
+        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.autoBrightness !== autoBrightnessEnabled) {
+            SettingsManagerCpp.autoBrightness = autoBrightnessEnabled
+        }
+    }
+    
+    onScreenTimeoutChanged: {
+        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.screenTimeout !== screenTimeout) {
+            SettingsManagerCpp.screenTimeout = screenTimeout
+        }
+    }
     
     function setBrightness(value) {
         var clamped = Math.max(minBrightness, Math.min(maxBrightness, value))

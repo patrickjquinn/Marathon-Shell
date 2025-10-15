@@ -27,7 +27,7 @@ SettingsPageTemplate {
                 
                 SettingsListItem {
                     title: "Device Name"
-                    value: SettingsManager.deviceName
+                    value: SettingsManagerCpp.deviceName
                     showChevron: true
                 }
                 

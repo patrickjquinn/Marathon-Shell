@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import MarathonOS.Shell
 
 QtObject {
     id: audioManager
@@ -27,11 +28,41 @@ QtObject {
     property real notificationVolume: 0.7
     property real systemVolume: 0.5
     
+    // Sound file properties
+    property string currentRingtone: SettingsManagerCpp.ringtone
+    property string currentNotificationSound: SettingsManagerCpp.notificationSound
+    property string currentAlarmSound: SettingsManagerCpp.alarmSound
+    
+    // Available sounds (computed once)
+    readonly property var availableRingtones: SettingsManagerCpp.availableRingtones()
+    readonly property var availableNotificationSounds: SettingsManagerCpp.availableNotificationSounds()
+    readonly property var availableAlarmSounds: SettingsManagerCpp.availableAlarmSounds()
+    
+    // Friendly names for UI display
+    readonly property string currentRingtoneName: SettingsManagerCpp.formatSoundName(currentRingtone)
+    readonly property string currentNotificationSoundName: SettingsManagerCpp.formatSoundName(currentNotificationSound)
+    readonly property string currentAlarmSoundName: SettingsManagerCpp.formatSoundName(currentAlarmSound)
+    
     signal volumeSet(real value)
     signal muteToggled(bool muted)
     signal profileChanged(string profile)
     signal outputChanged(string output)
     signal headphonesStateChanged(bool connected)
+    
+    function setRingtone(path) {
+        currentRingtone = path
+        SettingsManagerCpp.ringtone = path
+    }
+    
+    function setNotificationSound(path) {
+        currentNotificationSound = path
+        SettingsManagerCpp.notificationSound = path
+    }
+    
+    function setAlarmSound(path) {
+        currentAlarmSound = path
+        SettingsManagerCpp.alarmSound = path
+    }
     
     function setVolume(value) {
         var clamped = Math.max(minVolume, Math.min(maxVolume, value))

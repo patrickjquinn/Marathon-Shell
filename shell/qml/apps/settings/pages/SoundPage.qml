@@ -74,24 +74,72 @@ SettingsPageTemplate {
                 
                 SettingsListItem {
                     title: "Ringtone"
-                    value: "Default"
+                    value: AudioManager.currentRingtoneName
                     showChevron: true
+                    onSettingClicked: {
+                        soundPage.parent.push(ringtonePickerComponent)
+                    }
                 }
                 
                 SettingsListItem {
                     title: "Notification Sound"
-                    value: SettingsManager.notificationSound
+                    value: AudioManager.currentNotificationSoundName
                     showChevron: true
+                    onSettingClicked: {
+                        soundPage.parent.push(notificationSoundPickerComponent)
+                    }
                 }
                 
                 SettingsListItem {
                     title: "Alarm Sound"
-                    value: "Classic"
+                    value: AudioManager.currentAlarmSoundName
                     showChevron: true
+                    onSettingClicked: {
+                        soundPage.parent.push(alarmSoundPickerComponent)
+                    }
                 }
             }
             
             Item { height: Constants.navBarHeight }
+        }
+    }
+    
+    Component {
+        id: ringtonePickerComponent
+        SoundPickerPage {
+            soundType: "ringtone"
+            currentSound: AudioManager.currentRingtone
+            availableSounds: AudioManager.availableRingtones
+            onSoundSelected: (path) => {
+                AudioManager.setRingtone(path)
+            }
+            onNavigateBack: soundPage.parent.pop()
+        }
+    }
+    
+    Component {
+        id: notificationSoundPickerComponent
+        SoundPickerPage {
+            soundType: "notification"
+            currentSound: AudioManager.currentNotificationSound
+            availableSounds: AudioManager.availableNotificationSounds
+            onSoundSelected: (path) => {
+                AudioManager.setNotificationSound(path)
+            }
+            onNavigateBack: soundPage.parent.pop()
+        }
+    }
+    
+    Component {
+        id: alarmSoundPickerComponent
+        SoundPickerPage {
+            soundType: "alarm"
+            currentSound: AudioManager.currentAlarmSound
+            availableSounds: AudioManager.availableAlarmSounds
+            onSoundSelected: (path) => {
+                AudioManager.setAlarmSound(path)
+            }
+            onNavigateBack: soundPage.parent.pop()
         }
     }
 }

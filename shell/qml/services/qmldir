@@ -14,7 +14,6 @@ singleton AppLauncher 1.0 AppLauncher.qml
 singleton WindowManager 1.0 WindowManager.qml
 singleton DesktopFileParser 1.0 DesktopFileParser.qml
 singleton StatusBarIconService 1.0 StatusBarIconService.qml
-singleton SettingsManager 1.0 SettingsManager.qml
 singleton ScreenshotService 1.0 ScreenshotService.qml
 singleton HapticService 1.0 HapticService.qml
 singleton ClipboardService 1.0 ClipboardService.qml

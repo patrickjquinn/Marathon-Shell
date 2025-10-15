@@ -28,6 +28,7 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     QuickControls2
     Svg
     DBus
+    Multimedia
 )
 
 find_package(Qt6 6.5 COMPONENTS WaylandCompositor)

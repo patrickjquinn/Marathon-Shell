@@ -13,6 +13,7 @@
 #include "src/powermanagercpp.h"
 #include "src/notificationservice.h"
 #include "src/settingsmanager.h"
+#include "src/bluetoothmanager.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -52,10 +53,12 @@ int main(int argc, char *argv[])
     NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
     PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
     SettingsManager *settingsManager = new SettingsManager(&app);
+    BluetoothManager *bluetoothManager = new BluetoothManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
     engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
+    engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     
     // Register notification service (D-Bus daemon)
     NotificationService *notificationService = new NotificationService(notificationModel, &app);

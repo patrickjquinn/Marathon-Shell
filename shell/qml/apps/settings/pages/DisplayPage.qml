@@ -86,13 +86,19 @@ SettingsPageTemplate {
                     title: "Auto-Brightness"
                     subtitle: "Adjust brightness automatically"
                     showToggle: true
-                    toggleValue: false
+                    toggleValue: DisplayManager.autoBrightnessEnabled
+                    onToggleChanged: (value) => {
+                        DisplayManager.setAutoBrightness(value)
+                    }
                 }
                 
                 SettingsListItem {
                     title: "Screen Timeout"
-                    value: "2 minutes"
+                    value: DisplayManager.screenTimeoutString
                     showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(screenTimeoutPageComponent)
+                    }
                 }
             }
             
@@ -133,6 +139,13 @@ SettingsPageTemplate {
     Component {
         id: wallpaperPageComponent
         WallpaperPage {
+            onNavigateBack: displayPage.parent.pop()
+        }
+    }
+    
+    Component {
+        id: screenTimeoutPageComponent
+        ScreenTimeoutPage {
             onNavigateBack: displayPage.parent.pop()
         }
     }

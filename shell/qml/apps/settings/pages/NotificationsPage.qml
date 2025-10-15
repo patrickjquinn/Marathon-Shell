@@ -39,12 +39,15 @@ SettingsPageTemplate {
                     title: "Show on Lock Screen"
                     subtitle: "Display notifications when locked"
                     showToggle: true
-                    toggleValue: true
+                    toggleValue: SettingsManagerCpp.showNotificationsOnLockScreen
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.showNotificationsOnLockScreen = value
+                    }
                 }
                 
                 SettingsListItem {
                     title: "Notification Sound"
-                    value: SettingsManager.notificationSound
+                    value: AudioManager.currentNotificationSoundName
                     showChevron: true
                 }
             }

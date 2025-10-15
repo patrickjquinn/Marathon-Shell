@@ -16,6 +16,8 @@ set(SOURCES
     src/notificationservice.cpp
     src/settingsmanager.h
     src/settingsmanager.cpp
+    src/bluetoothmanager.h
+    src/bluetoothmanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -109,6 +111,8 @@ set(QML_FILES
     qml/apps/settings/pages/AboutPage.qml
     qml/apps/settings/pages/ScalePage.qml
     qml/apps/settings/pages/WallpaperPage.qml
+    qml/apps/settings/pages/ScreenTimeoutPage.qml
+    qml/apps/settings/pages/SoundPickerPage.qml
     qml/apps/settings/components/SettingsPageTemplate.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
@@ -136,7 +140,6 @@ set(QML_FILES
     qml/services/WindowManager.qml
     qml/services/DesktopFileParser.qml
     qml/services/StatusBarIconService.qml
-    qml/services/SettingsManager.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
@@ -180,7 +183,6 @@ set(SINGLETON_FILES
     qml/services/WindowManager.qml
     qml/services/DesktopFileParser.qml
     qml/services/StatusBarIconService.qml
-    qml/services/SettingsManager.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
@@ -253,6 +255,7 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::QuickControls2
     Qt6::Svg
     Qt6::DBus
+    Qt6::Multimedia
 )
 
 if(TARGET Qt6::VirtualKeyboard)

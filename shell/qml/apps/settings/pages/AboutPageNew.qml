@@ -30,7 +30,7 @@ MPage {
             
             MListItem {
                 title: "Device Name"
-                subtitle: SettingsManager.deviceName
+                subtitle: SettingsManagerCpp.deviceName
                 showRightIcon: true
                 showDivider: true
             }

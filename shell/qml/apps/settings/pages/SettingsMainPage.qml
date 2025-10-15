@@ -104,17 +104,6 @@ Page {
                         mainPage.navigateToPage("display")
                     }
                 }
-                
-                SettingsListItem {
-                    title: "Rotation Lock"
-                    subtitle: "Lock screen orientation"
-                    iconName: "rotate-cw"
-                    showToggle: true
-                    toggleValue: SystemControlStore.isRotationLocked
-                    onToggleChanged: (value) => {
-                        SystemControlStore.toggleRotationLock()
-                    }
-                }
             }
             
             // Sound & Notifications
@@ -146,7 +135,7 @@ Page {
                 SettingsListItem {
                     title: "Do Not Disturb"
                     subtitle: "Silence notifications and calls"
-                    iconName: "bell"
+                    iconName: "moon"
                     showToggle: true
                     toggleValue: SystemControlStore.isDndMode
                     onToggleChanged: (value) => {

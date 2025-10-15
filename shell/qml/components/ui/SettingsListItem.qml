@@ -61,13 +61,12 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: 16
         
-        Image {
+        Icon {
             id: iconImage
             visible: iconName !== ""
-            source: iconName !== "" ? "qrc:/images/icons/lucide/" + iconName + ".svg" : ""
-            width: 24
-            height: 24
-            fillMode: Image.PreserveAspectFit
+            name: iconName
+            size: 24
+            color: Colors.text
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
         }
