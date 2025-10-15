@@ -61,6 +61,13 @@ QtObject {
     }
     
     /**
+     * Get app instance for preview/snapshot
+     */
+    function getAppInstance(appId) {
+        return appRegistry[appId] || null
+    }
+    
+    /**
      * Bring app to foreground
      */
     function bringToForeground(appId) {
@@ -148,9 +155,29 @@ QtObject {
         var appId = foregroundApp.appId
         Logger.info("AppLifecycle", "Minimizing app: " + appId)
         
+        // Create task if doesn't exist (no snapshot needed - using live preview)
+        if (typeof TaskModel !== 'undefined') {
+            var taskExists = TaskModel.getTaskByAppId(appId) !== null
+            
+            if (!taskExists) {
+                if (appRegistry[appId]) {
+                    var app = appRegistry[appId]
+                    TaskModel.launchTask(
+                        app.appId,
+                        app.appName,
+                        app.appIcon,
+                        app.appType || "marathon",
+                        app.surfaceId || -1
+                    )
+                    Logger.info("AppLifecycle", "Task created for: " + appId)
+                }
+            }
+        }
+        
+        // Hide the app
         if (appRegistry[appId]) {
-            appRegistry[appId].minimize()  // Calls pause() and emits appMinimized
-            appRegistry[appId].stop()      // No longer visible
+            appRegistry[appId].minimize()
+            appRegistry[appId].stop()
             
             if (appStates[appId]) {
                 appStates[appId].isMinimized = true
@@ -161,29 +188,9 @@ QtObject {
         // Clear foreground but keep app alive
         foregroundApp = null
         
-        // Add to task switcher
-        if (typeof TaskModel !== 'undefined') {
-            if (appId === "settings") {
-                TaskModel.launchTask("settings", "Settings", "qrc:/images/settings.svg", "marathon", -1)
-            } else if (appRegistry[appId]) {
-                var app = appRegistry[appId]
-                TaskModel.launchTask(
-                    app.appId,
-                    app.appName,
-                    app.appIcon,
-                    app.appType || "marathon",
-                    app.surfaceId || -1
-                )
-            }
-        }
-        
         // Hide the app UI and navigate to task switcher
         if (typeof UIStore !== 'undefined') {
-            if (appId === "settings") {
-                UIStore.minimizeSettings()
-            } else {
-                UIStore.minimizeApp()
-            }
+            UIStore.minimizeApp()
             
             // Navigate to task switcher
             if (typeof Router !== 'undefined') {

@@ -209,7 +209,7 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: Constants.touchTargetIndicator  // Only 50px wide on left edge
+        width: Constants.spacingSmall  // Narrow to not block back button
         enabled: !isFullyOpen
         
         property real startX: 0

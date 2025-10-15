@@ -18,6 +18,14 @@ set(SOURCES
     src/settingsmanager.cpp
     src/bluetoothmanager.h
     src/bluetoothmanager.cpp
+    src/marathonappregistry.h
+    src/marathonappregistry.cpp
+    src/marathonappscanner.h
+    src/marathonappscanner.cpp
+    src/marathonapploader.h
+    src/marathonapploader.cpp
+    src/marathonappinstaller.h
+    src/marathonappinstaller.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -95,25 +103,7 @@ set(QML_FILES
     qml/components/VirtualKeyboard.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
-    qml/apps/settings/qmldir
-    qml/apps/settings/SettingsApp.qml
     qml/apps/template/TemplateApp.qml
-    qml/apps/settings/pages/AboutPageNew.qml
-    qml/apps/settings/pages/WiFiPageRefactored.qml
-    qml/apps/settings/pages/SettingsMainPage.qml
-    qml/apps/settings/pages/WiFiPage.qml
-    qml/apps/settings/pages/BluetoothPage.qml
-    qml/apps/settings/pages/CellularPage.qml
-    qml/apps/settings/pages/DisplayPage.qml
-    qml/apps/settings/pages/SoundPage.qml
-    qml/apps/settings/pages/NotificationsPage.qml
-    qml/apps/settings/pages/StoragePage.qml
-    qml/apps/settings/pages/AboutPage.qml
-    qml/apps/settings/pages/ScalePage.qml
-    qml/apps/settings/pages/WallpaperPage.qml
-    qml/apps/settings/pages/ScreenTimeoutPage.qml
-    qml/apps/settings/pages/SoundPickerPage.qml
-    qml/apps/settings/components/SettingsPageTemplate.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml

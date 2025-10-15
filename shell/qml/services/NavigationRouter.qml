@@ -47,14 +47,12 @@ QtObject {
         currentParams = parsed.params
         
         // Route to appropriate handler
-        if (parsed.app === "settings") {
-            return handleSettingsRoute(parsed)
-        } else if (parsed.app === "hub") {
+        if (parsed.app === "hub") {
             return handleHubRoute(parsed)
         } else if (parsed.app === "browser") {
             return handleBrowserRoute(parsed)
         } else {
-            // Generic app launch
+            // Generic app launch (includes Settings now)
             return handleAppRoute(parsed)
         }
     }
@@ -131,24 +129,6 @@ QtObject {
     }
     
     /**
-     * Handle Settings app routing
-     */
-    function handleSettingsRoute(parsed) {
-        Logger.info("NavigationRouter", "Routing to Settings: " + parsed.page)
-        
-        // Open settings app in shell
-        UIStore.openSettings()
-        
-        // Send navigation event to Settings app
-        if (parsed.page) {
-            settingsNavigationRequested(parsed.page, parsed.subpage, parsed.params)
-        }
-        
-        navigated("marathon://settings/" + parsed.page)
-        return true
-    }
-    
-    /**
      * Handle Hub routing
      */
     function handleHubRoute(parsed) {
@@ -199,6 +179,33 @@ QtObject {
     // Signals for specific navigation events
     signal settingsNavigationRequested(string page, string subpage, var params)
     signal hubTabRequested(int tabIndex)
+    signal deepLinkRequested(string appId, string route, var params)
+    
+    function navigateToDeepLink(appId, route, params) {
+        Logger.info("NavigationRouter", "Deep link requested: " + appId + " → " + route)
+        
+        // Launch app if not already open
+        var appInfo = typeof MarathonAppRegistry !== 'undefined' ? 
+                      MarathonAppRegistry.getApp(appId) : null
+        
+        if (appInfo) {
+            // Launch the app first
+            AppStore.launchApp(appId)
+            
+            // Emit deep link signal for app to handle
+            deepLinkRequested(appId, route, params || {})
+            
+            // Legacy: Settings still uses old signal
+            if (appId === "settings") {
+                settingsNavigationRequested(route, "", params || {})
+            }
+            
+            return true
+        }
+        
+        Logger.error("NavigationRouter", "App not found for deep link: " + appId)
+        return false
+    }
     
     Component.onCompleted: {
         Logger.info("NavigationRouter", "Initialized")

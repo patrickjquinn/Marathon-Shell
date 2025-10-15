@@ -67,37 +67,76 @@ QtObject {
 
         Logger.info("UnifiedSearch", "Added " + actualAppsAdded + " apps to search index")
 
-        var settingsCategories = [
-            { id: "wifi", title: "Wi-Fi", subtitle: "Network Settings", keywords: ["wifi", "wireless", "network", "internet", "connection", "wi-fi"] },
-            { id: "bluetooth", title: "Bluetooth", subtitle: "Device Connections", keywords: ["bluetooth", "bt", "wireless", "device", "pair", "pairing"] },
-            { id: "display", title: "Display", subtitle: "Screen & Brightness", keywords: ["display", "screen", "brightness", "auto-brightness", "wallpaper", "theme"] },
-            { id: "sound", title: "Sound", subtitle: "Volume & Ringtones", keywords: ["sound", "volume", "ringtone", "notification", "audio", "music"] },
-            { id: "notifications", title: "Notifications", subtitle: "App Alerts", keywords: ["notifications", "alerts", "badges", "sounds", "banner"] },
-            { id: "security", title: "Security", subtitle: "Lock Screen & Privacy", keywords: ["security", "privacy", "lock", "pin", "password", "biometric", "fingerprint"] },
-            { id: "battery", title: "Battery", subtitle: "Power Management", keywords: ["battery", "power", "charging", "saver", "energy"] },
-            { id: "storage", title: "Storage", subtitle: "Space & Files", keywords: ["storage", "space", "memory", "files", "disk", "capacity"] },
-            { id: "accounts", title: "Accounts", subtitle: "Sign In & Sync", keywords: ["accounts", "sync", "login", "sign in", "email", "user"] },
-            { id: "about", title: "About", subtitle: "System Information", keywords: ["about", "version", "info", "system", "device", "build"] }
-        ]
-
-        for (var k = 0; k < settingsCategories.length; k++) {
-            var setting = settingsCategories[k]
-            searchIndex.push({
-                type: "setting",
-                id: setting.id,
-                title: setting.title,
-                subtitle: setting.subtitle,
-                icon: "qrc:/images/settings.svg",
-                keywords: setting.keywords,
-                searchText: setting.title.toLowerCase() + " " + setting.keywords.join(" "),
-                data: setting,
-                score: 0
-            })
+        // Index deep links from all apps in MarathonAppRegistry
+        var deepLinkCount = 0
+        if (typeof MarathonAppRegistry !== 'undefined') {
+            var registryCount = MarathonAppRegistry.count
+            Logger.info("UnifiedSearch", "Indexing deep links from " + registryCount + " apps in registry")
+            
+            for (var j = 0; j < registryCount; j++) {
+                var registryApp = MarathonAppRegistry.data(
+                    MarathonAppRegistry.index(j, 0),
+                    MarathonAppRegistry.IdRole
+                )
+                
+                var appName = MarathonAppRegistry.data(
+                    MarathonAppRegistry.index(j, 0),
+                    MarathonAppRegistry.NameRole
+                )
+                
+                var appIcon = MarathonAppRegistry.data(
+                    MarathonAppRegistry.index(j, 0),
+                    MarathonAppRegistry.IconRole
+                )
+                
+                var deepLinksJson = MarathonAppRegistry.data(
+                    MarathonAppRegistry.index(j, 0),
+                    MarathonAppRegistry.DeepLinksRole
+                )
+                
+                if (deepLinksJson && deepLinksJson.length > 0) {
+                    try {
+                        var deepLinks = JSON.parse(deepLinksJson)
+                        
+                        for (var route in deepLinks) {
+                            var link = deepLinks[route]
+                            var linkKeywords = link.keywords || []
+                            
+                            // Add app name as extra context
+                            linkKeywords.push(appName.toLowerCase())
+                            linkKeywords.push(route.toLowerCase())
+                            
+                            searchIndex.push({
+                                type: "deeplink",
+                                id: route,
+                                appId: registryApp,
+                                title: link.title || route,
+                                subtitle: link.description || appName,
+                                icon: appIcon || "qrc:/images/app-icon-placeholder.svg",
+                                keywords: linkKeywords,
+                                searchText: (link.title || route).toLowerCase() + " " + linkKeywords.join(" "),
+                                data: {
+                                    appId: registryApp,
+                                    route: route,
+                                    appName: appName
+                                },
+                                score: 0
+                            })
+                            
+                            deepLinkCount++
+                        }
+                    } catch (e) {
+                        Logger.warning("UnifiedSearch", "Failed to parse deep links for " + registryApp + ": " + e)
+                    }
+                }
+            }
+            
+            Logger.info("UnifiedSearch", "Indexed " + deepLinkCount + " deep links")
         }
 
         isIndexing = false
         indexingComplete()
-        Logger.info("UnifiedSearch", "Index built: " + searchIndex.length + " items (" + actualAppsAdded + " apps + " + settingsCategories.length + " settings)")
+        Logger.info("UnifiedSearch", "Index built: " + searchIndex.length + " items (" + actualAppsAdded + " apps + " + deepLinkCount + " deep links)")
     }
 
     function search(query) {
@@ -234,19 +273,24 @@ QtObject {
         Logger.info("UnifiedSearch", "Executing result: " + result.type + " - " + result.title)
 
         if (result.type === "app") {
+            // All apps (including Settings) go through unified launch path
             var app = result.data
-            if (app.id === "settings") {
-                UIStore.openSettings()
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    AppLifecycleManager.bringToForeground("settings")
-                }
-            } else {
-                UIStore.openApp(app.id, app.name, app.icon)
-            }
+            AppStore.launchApp(app.id)
         } else if (result.type === "setting") {
+            // Legacy setting support (deprecated - use deeplink instead)
             UIStore.openSettings()
             if (typeof Router !== 'undefined') {
                 Router.navigateToSetting(result.id)
+            }
+        } else if (result.type === "deeplink") {
+            // NEW: Deep link navigation (core Marathon app pattern)
+            var linkData = result.data
+            Logger.info("UnifiedSearch", "Navigating to deep link: " + linkData.appId + " → " + linkData.route)
+            
+            if (typeof NavigationRouter !== 'undefined') {
+                NavigationRouter.navigateToDeepLink(linkData.appId, linkData.route, {})
+            } else {
+                Logger.error("UnifiedSearch", "NavigationRouter not available")
             }
         }
     }

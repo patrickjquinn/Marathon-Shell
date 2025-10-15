@@ -216,15 +216,25 @@ Item {
                                 width: typeText.width + 12
                                 height: Constants.navBarHeight
                                 radius: 4
-                                color: modelData.type === "app" ? 
-                                       Qt.rgba(20/255, 184/255, 166/255, 0.15) : 
-                                       Qt.rgba(59/255, 130/255, 246/255, 0.15)
+                                color: {
+                                    if (modelData.type === "app") return Qt.rgba(20/255, 184/255, 166/255, 0.15)
+                                    if (modelData.type === "deeplink") return Qt.rgba(139/255, 92/255, 246/255, 0.15)
+                                    return Qt.rgba(59/255, 130/255, 246/255, 0.15)
+                                }
                                 
                                 Text {
                                     id: typeText
                                     anchors.centerIn: parent
-                                    text: modelData.type === "app" ? "App" : "Setting"
-                                    color: modelData.type === "app" ? Colors.accent : Qt.rgba(96/255, 165/255, 250/255, 1.0)
+                                    text: {
+                                        if (modelData.type === "app") return "App"
+                                        if (modelData.type === "deeplink") return "Page"
+                                        return "Setting"
+                                    }
+                                    color: {
+                                        if (modelData.type === "app") return Colors.accent
+                                        if (modelData.type === "deeplink") return Qt.rgba(167/255, 139/255, 250/255, 1.0)
+                                        return Qt.rgba(96/255, 165/255, 250/255, 1.0)
+                                    }
                                     font.pixelSize: MTypography.sizeSmall
                                     font.weight: MTypography.weightMedium
                                     font.family: MTypography.fontFamily

@@ -62,6 +62,8 @@ public:
     Q_INVOKABLE bool isNativeApp(const QString& appId);
 
     void initializeMarathonApps();
+    
+    Q_INVOKABLE void loadFromRegistry(QObject* registryObj);
 
 signals:
     void countChanged();

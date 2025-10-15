@@ -1,0 +1,71 @@
+{
+  "id": "settings",
+  "name": "Settings",
+  "version": "1.0.0",
+  "entryPoint": "SettingsApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["system"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": [
+    "settings",
+    "preferences",
+    "config",
+    "wifi",
+    "bluetooth",
+    "network",
+    "display",
+    "sound",
+    "notifications",
+    "about"
+  ],
+  "deepLinks": {
+    "wifi": {
+      "title": "WiFi Settings",
+      "description": "Manage wireless network connections",
+      "keywords": ["network", "internet", "wireless", "connection"]
+    },
+    "bluetooth": {
+      "title": "Bluetooth Settings",
+      "description": "Pair and manage Bluetooth devices",
+      "keywords": ["pair", "devices", "wireless", "headphones"]
+    },
+    "cellular": {
+      "title": "Mobile Network",
+      "description": "Manage cellular data settings",
+      "keywords": ["mobile", "data", "4g", "5g", "carrier"]
+    },
+    "display": {
+      "title": "Display & Brightness",
+      "description": "Adjust screen settings",
+      "keywords": ["brightness", "screen", "timeout", "auto-brightness"]
+    },
+    "sound": {
+      "title": "Sound Settings",
+      "description": "Adjust volume and ringtones",
+      "keywords": ["volume", "ringtone", "notification", "alarm", "audio"]
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Manage notification settings",
+      "keywords": ["alerts", "badges", "lock screen", "do not disturb"]
+    },
+    "storage": {
+      "title": "Storage",
+      "description": "View storage usage",
+      "keywords": ["disk", "space", "memory", "usage"]
+    },
+    "about": {
+      "title": "About Device",
+      "description": "Device information and updates",
+      "keywords": ["version", "info", "update", "device name"]
+    },
+    "appmanager": {
+      "title": "App Manager",
+      "description": "Install and manage applications",
+      "keywords": ["apps", "install", "uninstall", "packages"]
+    }
+  }
+}
+

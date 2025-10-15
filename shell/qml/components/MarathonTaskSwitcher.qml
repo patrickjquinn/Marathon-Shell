@@ -8,26 +8,7 @@ Item {
     signal closed()
     signal taskSelected(var task)
     
-    // Component definitions for preview instances (each delegate gets fresh instance)
-    Component {
-        id: templateAppComponent
-        Loader {
-            width: 720
-            height: 1280
-            source: "../apps/template/TemplateApp.qml"
-            asynchronous: true
-        }
-    }
-    
-    Component {
-        id: settingsAppComponent
-        Loader {
-            width: 720
-            height: 1280
-            source: "../apps/settings/SettingsApp.qml"
-            asynchronous: true
-        }
-    }
+    // No component definitions needed - we'll reference live app instances from AppLifecycleManager
     
     // Background click to close (but don't steal events from cards)
     MouseArea {
@@ -197,6 +178,11 @@ Item {
                             isDragging = false
                             velocity = 0
                             
+                            // Actually close the app instance, not just remove from TaskModel
+                            if (typeof AppLifecycleManager !== 'undefined') {
+                                AppLifecycleManager.closeApp(model.appId)
+                            }
+                            
                             // Close task - GridView will remove delegate cleanly
                             TaskModel.closeTask(taskIdToClose)
                             
@@ -210,11 +196,7 @@ Item {
                             
                             // Defer to avoid blocking
                             Qt.callLater(function() {
-                                if (appId === "settings") {
-                                    UIStore.openSettings()
-                                } else {
-                                    UIStore.restoreApp(appId, appTitle, appIcon)
-                                }
+                                UIStore.restoreApp(appId, appTitle, appIcon)
                                 closed()
                             })
                             mouse.accepted = true
@@ -299,60 +281,63 @@ Item {
                                         
                                         Item {
                                             id: livePreview
-                                            width: 720
-                                            height: 1280
+                                            anchors.fill: parent
                                             
-                                            anchors.top: parent.top
-                                            anchors.left: parent.left
-                                            scale: parent.width / 720
-                                            transformOrigin: Item.TopLeft
-                                            
-                                            Loader {
-                                                width: 720
-                                                height: 1280
-                                                active: model.type === "marathon" && model.appId !== "settings"
-                                                visible: status === Loader.Ready
+                                            Item {
+                                                id: previewContainer
+                                                anchors.fill: parent
+                                                visible: model.type === "marathon"
+                                                clip: true
                                                 
-                                                sourceComponent: (model.type === "marathon" && model.appId !== "settings") ? templateAppComponent : null
+                                                property var liveApp: typeof AppLifecycleManager !== 'undefined' ? 
+                                                    AppLifecycleManager.getAppInstance(model.appId) : null
                                                 
-                                                property string previewAppId: model.appId
-                                                property string previewAppName: model.title
-                                                property string previewAppIcon: model.icon
-                                                
-                                                function updateItem() {
-                                                    if (item && item.item) {
-                                                        item.item._appId = previewAppId
-                                                        item.item._appName = previewAppName
-                                                        item.item._appIcon = previewAppIcon
-                                                        item.item.isPreviewMode = true
-                                                    }
+                                                // Live preview using ShaderEffectSource (same approach as Wayland)
+                                                ShaderEffectSource {
+                                                    id: liveSnapshot
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    sourceItem: previewContainer.liveApp
+                                                    live: true
+                                                    recursive: false
+                                                    visible: previewContainer.liveApp !== null
+                                                    hideSource: false
                                                 }
                                                 
-                                                onLoaded: updateItem()
-                                                onPreviewAppIdChanged: updateItem()
-                                            }
-                                            
-                                            Loader {
-                                                width: 720
-                                                height: 1280
-                                                active: model.type === "marathon" && model.appId === "settings"
-                                                visible: status === Loader.Ready
-                                                
-                                                sourceComponent: (model.type === "marathon" && model.appId === "settings") ? settingsAppComponent : null
-                                                
-                                                onLoaded: {
-                                                    if (item && item.item) {
-                                                        item.item.isPreviewMode = true
+                                                Rectangle {
+                                                    anchors.centerIn: parent
+                                                    width: Math.min(parent.width * 0.8, parent.width - Constants.spacingLarge * 2)
+                                                    height: Constants.touchTargetMedium
+                                                    color: Colors.surface
+                                                    radius: Constants.borderRadiusSmall
+                                                    visible: previewContainer.liveApp === null
+                                                    
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: model.title
+                                                        color: Colors.text
+                                                        font.pixelSize: Typography.sizeSmall
+                                                        elide: Text.ElideRight
+                                                        width: parent.width - Constants.spacingMedium * 2
+                                                        horizontalAlignment: Text.AlignHCenter
                                                     }
                                                 }
                                             }
                                             
                                             Loader {
-                                                width: 720
-                                                height: 1280
+                                                anchors.top: parent.top
+                                                anchors.horizontalCenter: parent.horizontalCenter
                                                 active: model.type === "native"
                                                 source: model.type === "native" ? "../apps/native/NativeAppWindow.qml" : ""
                                                 visible: status === Loader.Ready
+                                                
+                                                // Scale to FULL WIDTH, let height extend as needed
+                                                property real scaleFactor: parent.width / Constants.screenWidth
+                                                
+                                                width: Constants.screenWidth * scaleFactor
+                                                height: Constants.screenHeight * scaleFactor
                                                 
                                                 onLoaded: {
                                                     if (item && model.surfaceId >= 0) {
@@ -453,11 +438,17 @@ Item {
                                                     mouse.accepted = true  // Consume release
                                                 }
                                                 
-                                                onClicked: (mouse) => {
-                                                    Logger.info("TaskSwitcher", "Closing task via button: " + model.appId)
-                                                    mouse.accepted = true  // Consume click
-                                                    TaskModel.closeTask(model.id)
+                                            onClicked: (mouse) => {
+                                                Logger.info("TaskSwitcher", "Closing task via button: " + model.appId)
+                                                mouse.accepted = true  // Consume click
+                                                
+                                                // Actually close the app instance, not just remove from TaskModel
+                                                if (typeof AppLifecycleManager !== 'undefined') {
+                                                    AppLifecycleManager.closeApp(model.appId)
                                                 }
+                                                
+                                                TaskModel.closeTask(model.id)
+                                            }
                                             }
                                         }
                                     }

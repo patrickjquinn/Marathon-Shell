@@ -173,21 +173,19 @@ Rectangle {
             }
             
             if (isVerticalGesture && diffY > 30) {
-                if (isAppOpen && diffY > 60) {
+                if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
                     Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + gestureProgress)
                     minimizeApp()
                     gestureProgressResetTimer.start()
                 } else if (diffY > longSwipeThreshold) {
                     Logger.info("NavBar", "Long swipe up - Task switcher")
                     longSwipeUp()
-                    // Reset immediately for non-app gestures
                     currentX = 0
                     currentY = 0
                     gestureProgress = 0
                 } else if (diffY > shortSwipeThreshold) {
                     Logger.info("NavBar", "Short swipe up - Go home")
                     shortSwipeUp()
-                    // Reset immediately for non-app gestures
                     currentX = 0
                     currentY = 0
                     gestureProgress = 0

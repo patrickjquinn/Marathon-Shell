@@ -1,4 +1,5 @@
 #include "appmodel.h"
+#include "marathonappregistry.h"
 #include <QDebug>
 
 AppModel::AppModel(QObject* parent)
@@ -133,7 +134,8 @@ bool AppModel::isNativeApp(const QString& appId)
 
 void AppModel::initializeMarathonApps()
 {
-    // Initialize with built-in Marathon apps
+    // Initialize with built-in Marathon apps (placeholders)
+    // These will be replaced by dynamically loaded apps from the registry
     addApp("phone", "Phone", "qrc:/images/phone.svg", "marathon");
     addApp("messages", "Messages", "qrc:/images/messages.svg", "marathon");
     addApp("browser", "Browser", "qrc:/images/browser.svg", "marathon");
@@ -144,8 +146,57 @@ void AppModel::initializeMarathonApps()
     addApp("clock", "Clock", "qrc:/images/clock.svg", "marathon");
     addApp("maps", "Maps", "qrc:/images/maps.svg", "marathon");
     addApp("notes", "Notes", "qrc:/images/notes.svg", "marathon");
-    addApp("settings", "Settings", "qrc:/images/settings.svg", "marathon");
 
     qDebug() << "[AppModel] Initialized with" << m_apps.count() << "Marathon apps";
+}
+
+void AppModel::loadFromRegistry(QObject* registryObj)
+{
+    MarathonAppRegistry* registry = qobject_cast<MarathonAppRegistry*>(registryObj);
+    if (!registry) {
+        qWarning() << "[AppModel] Invalid registry object";
+        return;
+    }
+    
+    qDebug() << "[AppModel] Loading apps from registry...";
+    
+    QStringList appIds = registry->getAllAppIds();
+    for (const QString& appId : appIds) {
+        QVariantMap appInfo = registry->getApp(appId);
+        
+        QString id = appInfo.value("id").toString();
+        QString name = appInfo.value("name").toString();
+        QString icon = appInfo.value("icon").toString();
+        int typeInt = appInfo.value("type").toInt();
+        
+        // Convert type enum to string
+        QString type = "marathon";
+        if (typeInt == MarathonAppRegistry::Native) {
+            type = "native";
+        } else if (typeInt == MarathonAppRegistry::System) {
+            type = "marathon";
+        }
+        
+        // Convert relative icon path to absolute if needed
+        QString absolutePath = appInfo.value("absolutePath").toString();
+        if (!icon.isEmpty() && !icon.startsWith("qrc:") && !icon.startsWith("file://")) {
+            if (!icon.startsWith("/")) {
+                icon = absolutePath + "/" + icon;
+            }
+            // Add file:// prefix for filesystem paths
+            icon = "file://" + icon;
+        }
+        
+        // Add or update app
+        if (m_appIndex.contains(id)) {
+            qDebug() << "[AppModel] Updating app from registry:" << id;
+            // For now, just log. In future, we could update the existing app
+        } else {
+            addApp(id, name, icon, type);
+            qDebug() << "[AppModel] Added app from registry:" << id;
+        }
+    }
+    
+    qDebug() << "[AppModel] Loaded" << appIds.count() << "apps from registry";
 }
 

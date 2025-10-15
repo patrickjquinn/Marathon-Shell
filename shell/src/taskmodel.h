@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QString>
 #include <QDateTime>
+#include <QImage>
 
 class Task : public QObject
 {
@@ -16,6 +17,7 @@ class Task : public QObject
     Q_PROPERTY(QString appType READ appType CONSTANT)
     Q_PROPERTY(int surfaceId READ surfaceId CONSTANT)
     Q_PROPERTY(qint64 timestamp READ timestamp CONSTANT)
+    Q_PROPERTY(QImage snapshot READ snapshot NOTIFY snapshotChanged)
 
 public:
     explicit Task(const QString& id, const QString& appId, const QString& title, 
@@ -30,6 +32,15 @@ public:
     QString appType() const { return m_appType; }
     int surfaceId() const { return m_surfaceId; }
     qint64 timestamp() const { return m_timestamp; }
+    QImage snapshot() const { return m_snapshot; }
+    
+    void setSnapshot(const QImage &snapshot) {
+        m_snapshot = snapshot;
+        emit snapshotChanged();
+    }
+
+signals:
+    void snapshotChanged();
 
 private:
     QString m_id;
@@ -39,6 +50,7 @@ private:
     QString m_appType;
     int m_surfaceId;
     qint64 m_timestamp;
+    QImage m_snapshot;
 };
 
 class TaskModel : public QAbstractListModel
@@ -54,7 +66,8 @@ public:
         IconRole,
         AppTypeRole,
         SurfaceIdRole,
-        TimestampRole
+        TimestampRole,
+        SnapshotRole
     };
 
     explicit TaskModel(QObject* parent = nullptr);
@@ -71,6 +84,7 @@ public:
     Q_INVOKABLE void closeTask(const QString& taskId);
     Q_INVOKABLE Task* getTask(const QString& taskId);
     Q_INVOKABLE Task* getTaskByAppId(const QString& appId);
+    Q_INVOKABLE void updateTaskSnapshot(const QString& appId, const QImage& snapshot);
     Q_INVOKABLE void clear();
 
 signals:

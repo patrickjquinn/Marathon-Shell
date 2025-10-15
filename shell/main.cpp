@@ -14,6 +14,10 @@
 #include "src/notificationservice.h"
 #include "src/settingsmanager.h"
 #include "src/bluetoothmanager.h"
+#include "src/marathonappregistry.h"
+#include "src/marathonappscanner.h"
+#include "src/marathonapploader.h"
+#include "src/marathonappinstaller.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -39,6 +43,17 @@ int main(int argc, char *argv[])
     // Register DesktopFileParser as a singleton accessible from QML
     DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);
     engine.rootContext()->setContextProperty("DesktopFileParserCpp", desktopFileParser);
+    
+    // Register Marathon App System
+    MarathonAppRegistry *appRegistry = new MarathonAppRegistry(&app);
+    MarathonAppScanner *appScanner = new MarathonAppScanner(appRegistry, &app);
+    MarathonAppLoader *appLoader = new MarathonAppLoader(appRegistry, &engine, &app);
+    MarathonAppInstaller *appInstaller = new MarathonAppInstaller(appRegistry, appScanner, &app);
+    
+    engine.rootContext()->setContextProperty("MarathonAppRegistry", appRegistry);
+    engine.rootContext()->setContextProperty("MarathonAppScanner", appScanner);
+    engine.rootContext()->setContextProperty("MarathonAppLoader", appLoader);
+    engine.rootContext()->setContextProperty("MarathonAppInstaller", appInstaller);
     
     // Register C++ models
     AppModel *appModel = new AppModel(&app);
@@ -69,6 +84,8 @@ int main(int argc, char *argv[])
         qDebug() << "Failed to register notification service (may already be running)";
     }
     
+    // Note: Marathon apps are auto-initialized in AppModel constructor
+    
     // Scan for native apps and add to AppModel
     QStringList searchPaths = {"/usr/share/applications", "/usr/local/share/applications", 
                                QDir::homePath() + "/.local/share/applications"};
@@ -78,6 +95,13 @@ int main(int argc, char *argv[])
         appModel->addApp(app["id"].toString(), app["name"].toString(), 
                        app["icon"].toString(), app["type"].toString());
     }
+    
+    // Scan for Marathon apps
+    qDebug() << "Scanning for Marathon apps...";
+    appScanner->scanApplications();
+    
+    // Load apps from registry into AppModel
+    appModel->loadFromRegistry(appRegistry);
     
     // Add QML import paths for modules
     engine.addImportPath("qrc:/");

@@ -91,10 +91,21 @@ QtObject {
         currentAppName = appName
         currentAppIcon = appIcon
         appWindowOpen = true
+        
+        // Also set settingsOpen for Settings app (for layout decisions)
+        if (appId === "settings") {
+            settingsOpen = true
+        }
     }
     
     function closeApp() {
         appWindowOpen = false
+        
+        // Also clear settingsOpen if it was Settings
+        if (currentAppId === "settings") {
+            settingsOpen = false
+        }
+        
         currentAppId = ""
         currentAppName = ""
         currentAppIcon = ""
@@ -102,6 +113,11 @@ QtObject {
     
     function minimizeApp() {
         appWindowOpen = false
+        
+        // Also clear settingsOpen if it was Settings
+        if (currentAppId === "settings") {
+            settingsOpen = false
+        }
     }
     
     function restoreApp(appId, appName, appIcon) {
@@ -109,6 +125,11 @@ QtObject {
         currentAppName = appName
         currentAppIcon = appIcon
         appWindowOpen = true
+        
+        // Also set settingsOpen for Settings app
+        if (appId === "settings") {
+            settingsOpen = true
+        }
     }
     
     function openSettings() {

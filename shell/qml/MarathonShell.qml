@@ -9,6 +9,7 @@ Item {
     
     property var compositor: null
     property var pendingNativeApp: null
+    property alias appWindowContainer: appWindowContainer
     
     // State management moved to stores
     property bool showPinScreen: false
@@ -187,12 +188,7 @@ Item {
                 onAppLaunched: (app) => {
                     Logger.info("Shell", "App launched: " + app.name + " (type: " + app.type + ")")
                     
-                    if (app.id === "settings") {
-                        UIStore.openSettings()
-                        if (typeof AppLifecycleManager !== 'undefined') {
-                            AppLifecycleManager.bringToForeground("settings")
-                        }
-                    } else if (app.type === "native") {
+                    if (app.type === "native") {
                         if (compositor) {
                             shell.pendingNativeApp = app
                             compositor.launchApp(app.exec)
@@ -200,8 +196,9 @@ Item {
                             Logger.warn("Shell", "Cannot launch native app - compositor not available")
                         }
                     } else {
+                        // All Marathon apps (including Settings) go through same path
                         UIStore.openApp(app.id, app.name, app.icon)
-                        appWindow.show(app.id, app.name, app.icon)
+                        appWindow.show(app.id, app.name, app.icon, app.type)
                         if (typeof AppLifecycleManager !== 'undefined') {
                             AppLifecycleManager.bringToForeground(app.id)
                         }
@@ -240,12 +237,7 @@ Item {
                     onAppLaunched: (app) => {
                         Logger.info("Shell", "Bottom bar launched: " + app.name + " (type: " + app.type + ")")
                         
-                        if (app.id === "settings") {
-                            UIStore.openSettings()
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                AppLifecycleManager.bringToForeground("settings")
-                            }
-                        } else if (app.type === "native") {
+                        if (app.type === "native") {
                             if (compositor) {
                                 shell.pendingNativeApp = app
                                 compositor.launchApp(app.exec)
@@ -253,8 +245,9 @@ Item {
                                 Logger.warn("Shell", "Cannot launch native app - compositor not available")
                             }
                         } else {
+                            // All Marathon apps go through same path
                             UIStore.openApp(app.id, app.name, app.icon)
-                            appWindow.show(app.id, app.name, app.icon)
+                            appWindow.show(app.id, app.name, app.icon, app.type)
                             if (typeof AppLifecycleManager !== 'undefined') {
                                 AppLifecycleManager.bringToForeground(app.id)
                             }
@@ -307,17 +300,13 @@ Item {
                 var handled = AppLifecycleManager.handleSystemBack()
                 if (!handled) {
                     Logger.info("NavBar", "App didn't handle back, closing")
-                    if (UIStore.settingsOpen) {
-                        UIStore.closeSettings()
-                    } else if (UIStore.appWindowOpen) {
+                    if (UIStore.appWindowOpen) {
                         UIStore.closeApp()
                     }
                 }
             } else {
                 Logger.info("NavBar", "AppLifecycleManager unavailable, closing directly")
-                if (UIStore.settingsOpen) {
-                    UIStore.closeSettings()
-                } else if (UIStore.appWindowOpen) {
+                if (UIStore.appWindowOpen) {
                     UIStore.closeApp()
                 }
             }
@@ -350,16 +339,11 @@ Item {
         }
         
         onMinimizeApp: {
-            if (UIStore.settingsOpen) {
-                TaskModel.launchTask("settings", "Settings", "qrc:/images/settings.svg", "marathon", -1)
-            } else if (UIStore.appWindowOpen) {
-                TaskModel.launchTask(
-                    appWindow.appId, 
-                    appWindow.appName, 
-                    appWindow.appIcon, 
-                    appWindow.appType,
-                    appWindow.surfaceId
-                )
+            Logger.info("Shell", "NavBar minimize gesture detected")
+            
+            // Use AppLifecycleManager for proper snapshot capture and task management
+            if (typeof AppLifecycleManager !== 'undefined') {
+                AppLifecycleManager.minimizeForegroundApp()
             }
             
             shell.isTransitioningToActiveFrames = true
@@ -376,12 +360,13 @@ Item {
     }
     
     // Peek gesture capture area - must be above app window to work when app is open
+    // Narrow width to not block back button or other left-side content
     MouseArea {
         id: peekGestureCapture
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: Constants.touchTargetIndicator
+        width: Constants.spacingSmall
         z: Constants.zIndexPeekGesture
         visible: !SessionStore.isLocked && !peekFlow.isFullyOpen
         
@@ -413,7 +398,7 @@ Item {
         id: appWindowContainer
         anchors.fill: parent
         anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
-        visible: (UIStore.appWindowOpen && !UIStore.settingsOpen) || shell.isTransitioningToActiveFrames
+        visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
         
         property real finalScale: 0.65
@@ -424,6 +409,17 @@ Item {
         opacity: shell.isTransitioningToActiveFrames ? 0.0 : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1.0)
         
         property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
+        
+        // Watch for app switching (when restoring from task switcher)
+        Connections {
+            target: UIStore
+            function onCurrentAppIdChanged() {
+                if (UIStore.appWindowOpen && UIStore.currentAppId) {
+                    Logger.info("Shell", "App ID changed, showing: " + UIStore.currentAppId)
+                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon")
+                }
+            }
+        }
         
         Behavior on opacity {
             enabled: shell.isTransitioningToActiveFrames
@@ -616,209 +612,7 @@ Item {
         }
     }
     
-    // Settings App (uses template app architecture)
-    Item {
-        id: settingsAppContainer
-        anchors.fill: parent
-        anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
-        visible: UIStore.settingsOpen || (shell.isTransitioningToActiveFrames && UIStore.settingsOpen)
-        z: Constants.zIndexSettings
-        
-        property real finalScale: 0.65
-        property real currentGestureScale: 1.0 - (navBar.gestureProgress * 0.35)
-        property real currentGestureOpacity: 1.0 - (navBar.gestureProgress * 0.3)
-        
-        scale: shell.isTransitioningToActiveFrames ? finalScale : (navBar.gestureProgress > 0 ? currentGestureScale : 1.0)
-        opacity: shell.isTransitioningToActiveFrames ? 0.0 : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1.0)
-        
-        property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
-        
-        Behavior on opacity {
-            enabled: shell.isTransitioningToActiveFrames
-            NumberAnimation {
-                duration: 200
-                easing.type: Easing.OutQuad
-            }
-        }
-        
-        Behavior on scale {
-            enabled: false
-        }
-        
-        Behavior on anchors.margins {
-            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-        }
-        
-        Rectangle {
-            id: settingsCardBorder
-            anchors.fill: parent
-            color: "transparent"
-            radius: 4
-            border.width: settingsAppContainer.showCardFrame ? 1 : 0
-            border.color: Qt.rgba(255, 255, 255, 0.12)
-            layer.enabled: settingsAppContainer.showCardFrame
-            clip: true
-            
-            Behavior on border.width {
-                NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-            }
-            
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: settingsAppContainer.showCardFrame ? 1 : 0
-                border.color: Qt.rgba(255, 255, 255, 0.03)
-                
-                Behavior on border.width {
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-                }
-            }
-            
-            Rectangle {
-                id: cardBackground
-                anchors.fill: parent
-                color: Colors.backgroundDark
-                radius: parent.radius
-                opacity: settingsAppContainer.showCardFrame ? 1.0 : 0.0
-                
-                Behavior on opacity {
-                    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-                }
-            }
-            
-            Rectangle {
-                id: settingsContent
-                anchors.fill: parent
-                anchors.topMargin: Constants.safeAreaTop
-                anchors.bottomMargin: Constants.safeAreaBottom
-                color: "transparent"
-                
-                Loader {
-                    id: settingsAppLoader
-                    anchors.fill: parent
-                    active: true
-                    asynchronous: true
-                    source: "./apps/settings/SettingsApp.qml"
-                    visible: UIStore.settingsOpen && status === Loader.Ready && item !== null
-                    opacity: (UIStore.settingsOpen && status === Loader.Ready) ? 1.0 : 0.0
-                    
-                    Behavior on opacity {
-                        NumberAnimation { 
-                            duration: 300
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    
-                    Connections {
-                        target: settingsAppLoader.item
-                        function onClosed() {
-                            UIStore.closeSettings()
-                        }
-                    }
-                }
-            }
-        }
-        
-        Rectangle {
-            id: cardFrameOverlay
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: Constants.touchTargetSmall
-            color: Colors.surfaceLight
-            opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1.0 / Math.max(0.1, settingsAppContainer.opacity)) : 0.0
-            visible: opacity > 0
-            z: 100
-            
-            Rectangle {
-                width: parent.width
-                height: 6
-                color: parent.color
-                anchors.top: parent.top
-            }
-            
-            Behavior on opacity {
-                NumberAnimation { 
-                    duration: 200
-                    easing.type: Easing.OutCubic
-                }
-            }
-            
-            Row {
-                anchors.fill: parent
-                anchors.leftMargin: Constants.spacingSmall
-                anchors.rightMargin: Constants.spacingSmall
-                spacing: Constants.spacingSmall
-                
-                Image {
-                    anchors.verticalCenter: parent.verticalCenter
-                    source: "qrc:/images/settings.svg"
-                    width: 32
-                    height: 32
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    cache: true
-                    smooth: true
-                }
-                
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 80
-                    spacing: 2
-                    
-                    Text {
-                        text: "Settings"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeSmall
-                        font.weight: Font.DemiBold
-                        font.family: Typography.fontFamily
-                        elide: Text.ElideRight
-                        width: parent.width
-                    }
-                    
-                    Text {
-                        text: "Running"
-                        color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeXSmall
-                        font.family: Typography.fontFamily
-                        opacity: 0.7
-                    }
-                }
-                
-                Item {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 32
-                    height: 32
-                    
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: 28
-                        height: 28
-                        radius: Colors.cornerRadiusSmall
-                        color: Colors.surfaceLight
-                        
-                        Text {
-                            anchors.centerIn: parent
-                            text: "×"
-                            color: Colors.text
-                            font.pixelSize: Typography.sizeLarge
-                            font.weight: Font.Bold
-                        }
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -8
-                            onClicked: {
-                    UIStore.closeSettings()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Settings app now loaded dynamically like other Marathon apps
     
     // Quick Settings
     MarathonQuickSettings {

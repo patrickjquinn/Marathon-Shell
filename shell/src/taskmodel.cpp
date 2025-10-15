@@ -41,6 +41,8 @@ QVariant TaskModel::data(const QModelIndex& index, int role) const
         return task->surfaceId();
     case TimestampRole:
         return task->timestamp();
+    case SnapshotRole:
+        return task->snapshot();
     default:
         return QVariant();
     }
@@ -56,6 +58,7 @@ QHash<int, QByteArray> TaskModel::roleNames() const
     roles[AppTypeRole] = "type";
     roles[SurfaceIdRole] = "surfaceId";
     roles[TimestampRole] = "timestamp";
+    roles[SnapshotRole] = "snapshot";
     return roles;
 }
 
@@ -116,6 +119,25 @@ Task* TaskModel::getTask(const QString& taskId)
 Task* TaskModel::getTaskByAppId(const QString& appId)
 {
     return m_appIndex.value(appId, nullptr);
+}
+
+void TaskModel::updateTaskSnapshot(const QString& appId, const QImage& snapshot)
+{
+    Task* task = m_appIndex.value(appId, nullptr);
+    if (!task) {
+        qDebug() << "[TaskModel] Cannot update snapshot: Task not found for app:" << appId;
+        return;
+    }
+    
+    task->setSnapshot(snapshot);
+    
+    // Notify model that this task's data changed
+    int index = m_tasks.indexOf(task);
+    if (index >= 0) {
+        QModelIndex modelIndex = createIndex(index, 0);
+        emit dataChanged(modelIndex, modelIndex, {SnapshotRole});
+        qDebug() << "[TaskModel] Updated snapshot for:" << appId << "size:" << snapshot.width() << "x" << snapshot.height();
+    }
 }
 
 void TaskModel::clear()
