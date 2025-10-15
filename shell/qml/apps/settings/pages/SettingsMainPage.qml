@@ -26,7 +26,7 @@ Page {
         Column {
             id: settingsContent
             width: parent.width
-            spacing: 32
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24

@@ -18,10 +18,8 @@ MApp {
     appName: _appName
     appIcon: _appIcon
     
-    // Template apps don't have navigation yet, so back = close
-    onBackPressed: {
-        return false  // Not handled, close app
-    }
+    // Template apps have no navigation depth, so back gesture will close them automatically
+    navigationDepth: 0
     
     content: Rectangle {
         anchors.fill: parent

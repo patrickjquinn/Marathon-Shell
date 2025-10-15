@@ -31,7 +31,7 @@ MPage {
             
             Rectangle {
                 width: parent.width
-                height: 72
+                height: Constants.appIconSize
                 color: "transparent"
                 
                 Row {
@@ -41,7 +41,7 @@ MPage {
                     
                     Icon {
                         name: "wifi"
-                        size: 32
+                        size: Constants.iconSizeMedium
                         color: MColors.text
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -91,7 +91,7 @@ MPage {
             
             Rectangle {
                 width: parent.width
-                height: 80
+                height: Constants.hubHeaderHeight
                 radius: MRadius.md
                 color: Qt.rgba(0, 102/255, 102/255, 0.08)
                 border.width: 1
@@ -136,7 +136,7 @@ MPage {
                     
                     Icon {
                         name: "chevron-right"
-                        size: 20
+                        size: Constants.iconSizeSmall
                         color: MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -229,7 +229,7 @@ MPage {
                         
                         Icon {
                             name: "rotate-cw"
-                            size: 20
+                            size: Constants.iconSizeSmall
                             color: MColors.accent
                             anchors.verticalCenter: parent.verticalCenter
                         }

@@ -49,7 +49,7 @@ Item {
         Column {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -80
-            spacing: 8
+            spacing: Constants.spacingSmall
             
             Text {
                 text: SystemStatusStore.timeString
@@ -71,9 +71,9 @@ Item {
         
         Column {
             anchors.left: parent.left
-            anchors.leftMargin: 20
+            anchors.leftMargin: Constants.spacingLarge
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 16
+            spacing: Constants.spacingMedium
             z: 10
             
             Repeater {
@@ -99,7 +99,7 @@ Item {
                         Row {
                             anchors.fill: parent
                             anchors.margins: 4
-                            spacing: 12
+                            spacing: Constants.spacingMedium
                             
                             Rectangle {
                                 width: 40

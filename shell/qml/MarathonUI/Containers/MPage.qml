@@ -41,7 +41,7 @@ Rectangle {
                 Icon {
                     visible: showBackButton
                     name: "chevron-left"
-                    size: 24
+                    size: Constants.iconSizeMedium
                     color: MColors.text
                     anchors.verticalCenter: parent.verticalCenter
                     
@@ -83,7 +83,7 @@ Rectangle {
             id: bottomBar
             visible: showBottomBar
             width: parent.width
-            height: 72
+            height: Constants.appIconSize
             color: MColors.glass
             border.width: 1
             border.color: MColors.glassBorder

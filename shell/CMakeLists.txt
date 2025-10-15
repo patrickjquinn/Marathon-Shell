@@ -107,13 +107,14 @@ set(QML_FILES
     qml/apps/settings/pages/NotificationsPage.qml
     qml/apps/settings/pages/StoragePage.qml
     qml/apps/settings/pages/AboutPage.qml
+    qml/apps/settings/pages/ScalePage.qml
+    qml/apps/settings/pages/WallpaperPage.qml
     qml/apps/settings/components/SettingsPageTemplate.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
     qml/stores/SystemControlStore.qml
     qml/stores/TaskManagerStore.qml
-    qml/stores/NotificationStore.qml
     qml/stores/SessionStore.qml
     qml/stores/UIStore.qml
     qml/core/Constants.qml
@@ -158,7 +159,6 @@ set(SINGLETON_FILES
     qml/stores/SystemStatusStore.qml
     qml/stores/SystemControlStore.qml
     qml/stores/TaskManagerStore.qml
-    qml/stores/NotificationStore.qml
     qml/stores/SessionStore.qml
     qml/stores/UIStore.qml
     qml/core/Constants.qml

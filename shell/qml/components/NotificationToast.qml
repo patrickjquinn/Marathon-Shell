@@ -36,7 +36,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
         width: Math.min(parent.width - 32, 400)
-        height: 80
+        height: Constants.hubHeaderHeight
         radius: MRadius.sm
         color: Qt.rgba(0, 0, 0, 0.95)
         border.width: 1
@@ -57,7 +57,7 @@ Item {
         Row {
             anchors.fill: parent
             anchors.margins: 12
-            spacing: 12
+            spacing: Constants.spacingMedium
             
             Rectangle {
                 width: MSpacing.touchTargetLarge
@@ -70,7 +70,7 @@ Item {
                 
                 Icon {
                     name: toast.notification?.icon || "bell"
-                    size: 32
+                    size: Constants.iconSizeMedium
                     color: MColors.text
                     anchors.centerIn: parent
                 }

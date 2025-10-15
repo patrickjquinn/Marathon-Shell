@@ -16,7 +16,7 @@ SettingsPageTemplate {
         Column {
             id: notificationsContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -55,7 +55,7 @@ SettingsPageTemplate {
                 width: parent.width - 48
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
 }

@@ -27,9 +27,9 @@ Item {
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.bottomMargin: Constants.navBarHeight + Constants.bottomBarHeight + 16
-        anchors.rightMargin: 16
+        anchors.rightMargin: Constants.spacingMedium
         width: 160
-        height: 90
+        height: Constants.touchTargetLarge
         radius: 4
         color: Qt.rgba(15, 15, 15, 0.98)
         border.width: 1

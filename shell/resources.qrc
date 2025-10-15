@@ -72,6 +72,9 @@
         <file alias="image.svg">resources/images/icons/lucide/image.svg</file>
         <file alias="folder.svg">resources/images/icons/lucide/folder.svg</file>
         <file alias="terminal.svg">resources/images/icons/lucide/terminal.svg</file>
+        <file alias="check.svg">resources/images/icons/lucide/check.svg</file>
+        <file alias="check-check.svg">resources/images/icons/lucide/check-check.svg</file>
+        <file alias="arrow-left.svg">resources/images/icons/lucide/arrow-left.svg</file>
     </qresource>
 </RCC>
 

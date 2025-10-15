@@ -77,7 +77,7 @@ Rectangle {
             anchors.left: iconImage.visible ? iconImage.right : parent.left
             anchors.leftMargin: iconImage.visible ? 16 : 0
             anchors.right: rightContent.left
-            anchors.rightMargin: 16
+            anchors.rightMargin: Constants.spacingMedium
             anchors.verticalCenter: parent.verticalCenter
             spacing: 4
             
@@ -128,7 +128,7 @@ Rectangle {
                 id: toggleItem
                 visible: showToggle
                 checked: toggleValue
-                width: 60
+                width: Constants.touchTargetSmall
                 height: 32
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -143,7 +143,7 @@ Rectangle {
                 visible: showChevron && !showToggle
                 source: "qrc:/images/icons/lucide/chevron-down.svg"
                 width: 20
-                height: 20
+                height: Constants.navBarHeight
                 rotation: -90
                 fillMode: Image.PreserveAspectFit
                 anchors.right: parent.right

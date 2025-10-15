@@ -5,7 +5,7 @@ Image {
     id: icon
     property string name: "wifi"
     property color color: "#FFFFFF"
-    property int size: 24
+    property int size: Constants.iconSizeMedium
     
     width: size
     height: size

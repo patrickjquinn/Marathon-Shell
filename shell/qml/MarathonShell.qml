@@ -21,7 +21,44 @@ Item {
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * 0.43  // 43% threshold
     
     Component.onCompleted: {
+        // Load persisted settings
+        Constants.userScaleFactor = SettingsManagerCpp.userScaleFactor
+        WallpaperStore.currentWallpaper = SettingsManagerCpp.wallpaperPath
+        
+        // Initialize responsive sizing system
+        Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4)
         UIStore.shellRef = shell
+        Logger.info("Shell", "Screen size: " + shell.width + "x" + shell.height + " @ " + Math.round(Screen.pixelDensity * 25.4) + " DPI")
+        Logger.info("Shell", "Scale factor: " + Constants.scaleFactor + " (base: " + (Constants.screenHeight / Constants.baseHeight) + " x user: " + Constants.userScaleFactor + ")")
+        
+        forceActiveFocus()
+        Logger.info("Shell", "Marathon Shell initialized")
+        
+        try {
+            var rootWindow = Window.window
+            if (rootWindow) {
+                compositor = Qt.createQmlObject('import QtQuick; import MarathonOS.Wayland 1.0; WaylandCompositor {}', shell, "compositor")
+                if (compositor) {
+                    compositor.parent = rootWindow
+                    Logger.info("Shell", "Wayland Compositor initialized: " + compositor.socketName)
+                }
+            }
+        } catch (e) {
+            Logger.info("Shell", "Wayland Compositor not available on this platform (expected on macOS)")
+            compositor = null
+        }
+    }
+    
+    // Handle window resize (for desktop/tablet)
+    onWidthChanged: {
+        if (Constants.screenWidth > 0) {  // Only after initialization
+            Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4)
+        }
+    }
+    onHeightChanged: {
+        if (Constants.screenHeight > 0) {  // Only after initialization
+            Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4)
+        }
     }
     
     // State-based navigation using centralized stores
@@ -344,7 +381,7 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 50
+        width: Constants.touchTargetIndicator
         z: Constants.zIndexPeekGesture
         visible: !SessionStore.isLocked && !peekFlow.isFullyOpen
         
@@ -466,7 +503,7 @@ Item {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 60
+            height: Constants.touchTargetSmall
             color: Colors.surfaceLight
             opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1.0 / Math.max(0.1, appWindowContainer.opacity)) : 0.0
             visible: opacity > 0
@@ -488,9 +525,9 @@ Item {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 8
+                anchors.leftMargin: Constants.spacingSmall
+                anchors.rightMargin: Constants.spacingSmall
+                spacing: Constants.spacingSmall
                 
                 Image {
                     anchors.verticalCenter: parent.verticalCenter
@@ -661,11 +698,11 @@ Item {
                 Loader {
                     id: settingsAppLoader
                     anchors.fill: parent
-        active: UIStore.settingsOpen
+                    active: true
                     asynchronous: true
                     source: "./apps/settings/SettingsApp.qml"
-                    visible: status === Loader.Ready && item !== null
-                    opacity: status === Loader.Ready ? 1.0 : 0.0
+                    visible: UIStore.settingsOpen && status === Loader.Ready && item !== null
+                    opacity: (UIStore.settingsOpen && status === Loader.Ready) ? 1.0 : 0.0
                     
                     Behavior on opacity {
                         NumberAnimation { 
@@ -689,7 +726,7 @@ Item {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 60
+            height: Constants.touchTargetSmall
             color: Colors.surfaceLight
             opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1.0 / Math.max(0.1, settingsAppContainer.opacity)) : 0.0
             visible: opacity > 0
@@ -711,9 +748,9 @@ Item {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 8
+                anchors.leftMargin: Constants.spacingSmall
+                anchors.rightMargin: Constants.spacingSmall
+                spacing: Constants.spacingSmall
                 
                 Image {
                     anchors.verticalCenter: parent.verticalCenter
@@ -867,10 +904,11 @@ Item {
         }
     }
     
-    // Quick Settings Overlay
+    // Quick Settings Overlay (dimmed background behind the shade)
     MouseArea {
         id: quickSettingsOverlay
         anchors.fill: parent
+        anchors.topMargin: Constants.statusBarHeight + UIStore.quickSettingsHeight
         z: Constants.zIndexQuickSettingsOverlay
         enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
         visible: enabled
@@ -936,7 +974,7 @@ Item {
         
         onNotificationTapped: (id) => {
             Logger.info("LockScreen", "Notification tapped: " + id)
-            NotificationStore.markAsRead(id)
+            NotificationModel.markAsRead(id)
         }
     }
     
@@ -1101,25 +1139,6 @@ Item {
                 })
                 event.accepted = true
             }
-        }
-    }
-    
-    Component.onCompleted: {
-        forceActiveFocus()
-        Logger.info("Shell", "Marathon Shell initialized")
-        
-        try {
-            var rootWindow = Window.window
-            if (rootWindow) {
-                compositor = Qt.createQmlObject('import QtQuick; import MarathonOS.Wayland 1.0; WaylandCompositor {}', shell, "compositor")
-                if (compositor) {
-                    compositor.parent = rootWindow
-                    Logger.info("Shell", "Wayland Compositor initialized: " + compositor.socketName)
-                }
-            }
-        } catch (e) {
-            Logger.info("Shell", "Wayland Compositor not available on this platform (expected on macOS)")
-            compositor = null
         }
     }
     

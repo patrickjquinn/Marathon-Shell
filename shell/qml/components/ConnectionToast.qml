@@ -29,7 +29,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
         width: Math.min(parent.width - 32, 300)
-        height: 60
+        height: Constants.touchTargetSmall
         radius: MRadius.sm
         color: Qt.rgba(0, 0, 0, 0.95)
         border.width: 1
@@ -47,11 +47,11 @@ Item {
         
         Row {
             anchors.centerIn: parent
-            spacing: 12
+            spacing: Constants.spacingMedium
             
             Icon {
                 name: iconName
-                size: 24
+                size: Constants.iconSizeMedium
                 color: MColors.accent
                 anchors.verticalCenter: parent.verticalCenter
             }

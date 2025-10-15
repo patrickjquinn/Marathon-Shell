@@ -3,7 +3,7 @@ import MarathonOS.Shell
 
 Item {
     id: toggle
-    width: 60
+    width: Constants.touchTargetSmall
     height: 32
     
     property bool checked: false

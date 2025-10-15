@@ -46,9 +46,9 @@ Rectangle {
     Flickable {
         id: scrollView
         anchors.fill: parent
-        anchors.topMargin: 20
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
+        anchors.topMargin: Constants.spacingLarge
+        anchors.leftMargin: Constants.spacingMedium
+        anchors.rightMargin: Constants.spacingMedium
         anchors.bottomMargin: 80
         contentHeight: contentColumn.height
         clip: true
@@ -59,7 +59,7 @@ Rectangle {
         Column {
             id: contentColumn
             width: parent.width
-            spacing: 16
+            spacing: Constants.spacingMedium
         
             Text {
                 text: SystemStatusStore.dateString
@@ -73,12 +73,12 @@ Rectangle {
             // Paginated Quick Settings Toggles
             Column {
                 width: parent.width
-                spacing: 12
+                spacing: Constants.spacingMedium
                 
                 SwipeView {
                     id: toggleSwipeView
                     width: parent.width
-                    height: 340
+                    height: Constants.isTallScreen ? 450 : 340
                     clip: true
                     interactive: true
                     
@@ -90,8 +90,8 @@ Rectangle {
                         Grid {
                             anchors.fill: parent
                             columns: 2
-                            columnSpacing: 12
-                            rowSpacing: 12
+                            columnSpacing: Constants.spacingSmall
+                            rowSpacing: Constants.spacingSmall
                             
                             Repeater {
                                 model: [
@@ -148,7 +148,7 @@ Rectangle {
                 // Page indicator
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 8
+                    spacing: Constants.spacingSmall
                     
                     Repeater {
                         model: toggleSwipeView.count
@@ -225,7 +225,7 @@ Rectangle {
                 }
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
     

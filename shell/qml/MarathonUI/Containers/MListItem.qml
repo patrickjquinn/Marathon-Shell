@@ -47,7 +47,7 @@ Rectangle {
     
     // Size
     width: parent.width
-    height: 72
+    height: Constants.appIconSize
     radius: MRadius.sm
     
     // Appearance
@@ -125,7 +125,7 @@ Rectangle {
         
         Icon {
             name: "chevron-right"
-            size: 20
+            size: Constants.iconSizeSmall
             color: MColors.textTertiary
             anchors.centerIn: parent
             visible: showChevron && !trailingLoader.item

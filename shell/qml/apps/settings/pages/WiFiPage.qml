@@ -17,7 +17,7 @@ SettingsPageTemplate {
         Column {
             id: wifiContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -25,7 +25,7 @@ SettingsPageTemplate {
             // WiFi toggle
             Rectangle {
                 width: parent.width - 48
-                height: 72
+                height: Constants.appIconSize
                 radius: 4
                 color: Qt.rgba(255, 255, 255, 0.04)
                 border.width: 1
@@ -34,11 +34,11 @@ SettingsPageTemplate {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 16
-                    spacing: 16
+                    spacing: Constants.spacingMedium
                     
                     Icon {
                         name: "wifi"
-                        size: 32
+                        size: Constants.iconSizeMedium
                         color: Colors.text
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -90,7 +90,7 @@ SettingsPageTemplate {
                 
                 Rectangle {
                     width: parent.width
-                    height: 80
+                    height: Constants.hubHeaderHeight
                     radius: 4
                     color: Qt.rgba(20, 184, 166, 0.08)
                     border.width: 1
@@ -99,7 +99,7 @@ SettingsPageTemplate {
                     Row {
                         anchors.fill: parent
                         anchors.margins: 16
-                        spacing: 16
+                        spacing: Constants.spacingMedium
                         
                         Icon {
                             name: "wifi"
@@ -135,7 +135,7 @@ SettingsPageTemplate {
                         
                         Icon {
                             name: "chevron-down"
-                            size: 20
+                            size: Constants.iconSizeSmall
                             color: Colors.textSecondary
                             rotation: -90
                             anchors.verticalCenter: parent.verticalCenter
@@ -162,7 +162,7 @@ SettingsPageTemplate {
                 Row {
                     width: parent.width
                     height: 48
-                    spacing: 12
+                    spacing: Constants.spacingMedium
                     visible: NetworkManager.isScanning
                     
                     BusyIndicator {
@@ -184,7 +184,7 @@ SettingsPageTemplate {
                 // Network list
                 Column {
                     width: parent.width
-                    spacing: 8
+                    spacing: Constants.spacingSmall
                     visible: !NetworkManager.isScanning && NetworkManager.availableNetworks.length > 0
                     
                     Repeater {
@@ -192,7 +192,7 @@ SettingsPageTemplate {
                         
                         Rectangle {
                             width: parent.width
-                            height: 72
+                            height: Constants.appIconSize
                             radius: 4
                             color: Qt.rgba(255, 255, 255, 0.04)
                             border.width: 1
@@ -201,12 +201,12 @@ SettingsPageTemplate {
                             Row {
                                 anchors.fill: parent
                                 anchors.margins: 16
-                                spacing: 16
+                                spacing: Constants.spacingMedium
                                 
                                 // Signal strength indicator
                                 Icon {
                                     name: "wifi"
-                                    size: 24
+                                    size: Constants.iconSizeMedium
                                     color: modelData.signal > 60 ? Qt.rgba(20, 184, 166, 1.0) : 
                                            modelData.signal > 30 ? Colors.text : Colors.textSecondary
                                     anchors.verticalCenter: parent.verticalCenter
@@ -230,7 +230,7 @@ SettingsPageTemplate {
                                     }
                                     
                                     Row {
-                                        spacing: 8
+                                        spacing: Constants.spacingSmall
                                         
                                         Text {
                                             text: modelData.security || "Open"
@@ -260,7 +260,7 @@ SettingsPageTemplate {
                                 
                                 Icon {
                                     name: modelData.secure ? "lock" : "globe"
-                                    size: 18
+                                    size: Constants.iconSizeSmall
                                     color: Colors.textSecondary
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -303,11 +303,11 @@ SettingsPageTemplate {
                     
                     Row {
                         anchors.centerIn: parent
-                        spacing: 8
+                        spacing: Constants.spacingSmall
                         
                         Icon {
                             name: "rotate-cw"
-                            size: 20
+                            size: Constants.iconSizeSmall
                             color: Qt.rgba(20, 184, 166, 1.0)
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -332,7 +332,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
     

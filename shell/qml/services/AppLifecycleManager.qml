@@ -42,6 +42,13 @@ QtObject {
                 lastActiveTime: 0
             }
         }
+        
+        // If this app was waiting to be brought to foreground, do it now
+        if (pendingForegroundApp === appId) {
+            Logger.info("AppLifecycle", "App registered, applying pending foreground")
+            pendingForegroundApp = ""
+            bringToForeground(appId)
+        }
     }
     
     /**
@@ -58,6 +65,7 @@ QtObject {
      */
     function bringToForeground(appId) {
         Logger.info("AppLifecycle", "Bringing to foreground: " + appId)
+        Logger.info("AppLifecycle", "App in registry: " + (appRegistry[appId] !== undefined))
         
         // Pause current foreground app
         if (foregroundApp && foregroundApp.appId !== appId) {
@@ -74,13 +82,20 @@ QtObject {
             app.start()   // Becomes visible
             app.resume()  // Becomes active
             foregroundApp = { appId: appId }
+            Logger.info("AppLifecycle", "Set foregroundApp to: " + appId)
             
             if (appStates[appId]) {
                 appStates[appId].isActive = true
                 appStates[appId].lastActiveTime = Date.now()
             }
+        } else {
+            Logger.warn("AppLifecycle", "App not in registry yet, deferring foreground")
+            // App will register itself shortly, set foreground then
+            pendingForegroundApp = appId
         }
     }
+    
+    property string pendingForegroundApp: ""
     
     /**
      * Restore app from task switcher
@@ -100,20 +115,25 @@ QtObject {
      * @returns {bool} - true if handled, false to close app
      */
     function handleSystemBack() {
+        Logger.info("AppLifecycle", "handleSystemBack() called, foregroundApp: " + (foregroundApp ? foregroundApp.appId : "null"))
+        
         if (!foregroundApp) {
-            Logger.debug("AppLifecycle", "No foreground app to handle back")
+            Logger.warn("AppLifecycle", "No foreground app to handle back")
             return false
         }
         
         var appId = foregroundApp.appId
         Logger.info("AppLifecycle", "Routing back gesture to: " + appId)
+        Logger.info("AppLifecycle", "App registered: " + (appRegistry[appId] !== undefined))
         
         if (appRegistry[appId]) {
+            Logger.info("AppLifecycle", "Calling app.handleBack()")
             var handled = appRegistry[appId].handleBack()
-            Logger.debug("AppLifecycle", "Back handled by app: " + handled)
+            Logger.info("AppLifecycle", "Back handled by app: " + handled)
             return handled
         }
         
+        Logger.warn("AppLifecycle", "App not found in registry!")
         return false
     }
     
@@ -138,7 +158,39 @@ QtObject {
             }
         }
         
+        // Clear foreground but keep app alive
         foregroundApp = null
+        
+        // Add to task switcher
+        if (typeof TaskModel !== 'undefined') {
+            if (appId === "settings") {
+                TaskModel.launchTask("settings", "Settings", "qrc:/images/settings.svg", "marathon", -1)
+            } else if (appRegistry[appId]) {
+                var app = appRegistry[appId]
+                TaskModel.launchTask(
+                    app.appId,
+                    app.appName,
+                    app.appIcon,
+                    app.appType || "marathon",
+                    app.surfaceId || -1
+                )
+            }
+        }
+        
+        // Hide the app UI and navigate to task switcher
+        if (typeof UIStore !== 'undefined') {
+            if (appId === "settings") {
+                UIStore.minimizeSettings()
+            } else {
+                UIStore.minimizeApp()
+            }
+            
+            // Navigate to task switcher
+            if (typeof Router !== 'undefined') {
+                Router.goToFrames()
+            }
+        }
+        
         return true
     }
     

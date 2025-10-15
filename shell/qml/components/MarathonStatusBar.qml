@@ -3,7 +3,7 @@ import MarathonOS.Shell
 
 Item {
     id: statusBar
-    height: 44
+    height: Constants.statusBarHeight
     
     Rectangle {
         anchors.fill: parent
@@ -16,22 +16,22 @@ Item {
     
     Row {
         anchors.left: parent.left
-        anchors.leftMargin: 12
+        anchors.leftMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+        spacing: Constants.spacingSmall
         z: 1
         
         Icon {
             name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
-            size: 18
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
         }
         
         Text {
             text: SystemStatusStore.batteryLevel + "%"
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
-            font.pixelSize: 14
+            font.pixelSize: Constants.fontSizeSmall
             font.family: Typography.fontFamily
             anchors.verticalCenter: parent.verticalCenter
         }
@@ -41,21 +41,21 @@ Item {
         anchors.centerIn: parent
         text: SystemStatusStore.timeString
         color: Colors.text
-        font.pixelSize: 16
+        font.pixelSize: Constants.fontSizeMedium
         font.weight: Font.Medium
     }
     
     Row {
         anchors.right: parent.right
-        anchors.rightMargin: 12
+        anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 12
+        spacing: Constants.spacingMedium
         z: 1
         
         Icon {
             name: "plane"
             color: Colors.text
-            size: 16
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
         }
@@ -63,7 +63,7 @@ Item {
         Icon {
             name: "bell"
             color: Colors.text
-            size: 16
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowDND(SystemStatusStore.isDndMode)
             opacity: 0.9
@@ -72,7 +72,7 @@ Item {
         Icon {
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             color: Colors.text
-            size: 16
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             visible: StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
@@ -81,7 +81,7 @@ Item {
         Icon {
             name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
             color: Colors.text
-            size: 16
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
             visible: SystemStatusStore.cellularStrength > 0
@@ -90,7 +90,7 @@ Item {
         Icon {
             name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
             color: Colors.text
-            size: 16
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
         }

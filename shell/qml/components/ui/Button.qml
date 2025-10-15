@@ -43,7 +43,7 @@ Rectangle {
     
     Row {
         anchors.centerIn: parent
-        spacing: 8
+        spacing: Constants.spacingSmall
         
         Image {
             visible: iconName !== ""
@@ -58,7 +58,7 @@ Rectangle {
             id: buttonText
             text: button.text
             color: disabled ? "#666666" : "#FFFFFF"
-            font.pixelSize: 16
+            font.pixelSize: Constants.fontSizeMedium
             font.weight: Font.Medium
             font.family: Typography.fontFamily
             anchors.verticalCenter: parent.verticalCenter

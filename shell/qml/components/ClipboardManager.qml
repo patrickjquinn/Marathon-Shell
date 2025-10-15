@@ -24,10 +24,10 @@ Rectangle {
     Column {
         anchors.fill: parent
         anchors.topMargin: Constants.statusBarHeight + 24
-        anchors.leftMargin: 24
-        anchors.rightMargin: 24
+        anchors.leftMargin: Constants.spacingXLarge
+        anchors.rightMargin: Constants.spacingXLarge
         anchors.bottomMargin: Constants.navBarHeight + 24
-        spacing: 16
+        spacing: Constants.spacingMedium
         
         Row {
             width: parent.width
@@ -74,13 +74,13 @@ Rectangle {
             width: parent.width
             height: parent.height - 56
             clip: true
-            spacing: 8
+            spacing: Constants.spacingSmall
             
             model: ClipboardService.getHistory()
             
             delegate: Rectangle {
                 width: ListView.view.width
-                height: 80
+                height: Constants.hubHeaderHeight
                 radius: 4
                 color: Qt.rgba(255, 255, 255, 0.05)
                 border.width: 1
@@ -103,7 +103,7 @@ Rectangle {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 12
+                    spacing: Constants.spacingMedium
                     
                     Column {
                         width: parent.width - 52
@@ -145,7 +145,7 @@ Rectangle {
                         
                         Icon {
                             name: "trash-2"
-                            size: 20
+                            size: Constants.iconSizeSmall
                             color: "#E63946"
                             anchors.centerIn: parent
                         }

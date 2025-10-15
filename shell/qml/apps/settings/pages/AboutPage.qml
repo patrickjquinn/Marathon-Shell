@@ -16,7 +16,7 @@ SettingsPageTemplate {
         Column {
             id: aboutContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -92,7 +92,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
 }

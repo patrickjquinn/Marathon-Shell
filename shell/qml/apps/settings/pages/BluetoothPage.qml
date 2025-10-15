@@ -17,7 +17,7 @@ SettingsPageTemplate {
         Column {
             id: bluetoothContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -25,7 +25,7 @@ SettingsPageTemplate {
             // Bluetooth toggle
             Rectangle {
                 width: parent.width - 48
-                height: 72
+                height: Constants.appIconSize
                 radius: 4
                 color: Qt.rgba(255, 255, 255, 0.04)
                 border.width: 1
@@ -34,18 +34,18 @@ SettingsPageTemplate {
                 Icon {
                     id: bluetoothIcon
                     anchors.left: parent.left
-                    anchors.leftMargin: 16
+                    anchors.leftMargin: Constants.spacingMedium
                     anchors.verticalCenter: parent.verticalCenter
                     name: "bluetooth"
-                    size: 32
+                    size: Constants.iconSizeMedium
                     color: Colors.text
                 }
                 
                 Column {
                     anchors.left: bluetoothIcon.right
-                    anchors.leftMargin: 16
+                    anchors.leftMargin: Constants.spacingMedium
                     anchors.right: bluetoothToggle.left
-                    anchors.rightMargin: 16
+                    anchors.rightMargin: Constants.spacingMedium
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 4
                     
@@ -68,7 +68,7 @@ SettingsPageTemplate {
                 MarathonToggle {
                     id: bluetoothToggle
                     anchors.right: parent.right
-                    anchors.rightMargin: 16
+                    anchors.rightMargin: Constants.spacingMedium
                     anchors.verticalCenter: parent.verticalCenter
                     checked: SystemControlStore.isBluetoothOn
                     onToggled: {
@@ -85,7 +85,7 @@ SettingsPageTemplate {
                 
                 Column {
                     width: parent.width
-                    spacing: 8
+                    spacing: Constants.spacingSmall
                     
                     // Placeholder for paired devices
                     Text {
@@ -118,7 +118,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
     

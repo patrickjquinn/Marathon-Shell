@@ -62,7 +62,7 @@ Item {
     Row {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: 0
-        spacing: 12
+        spacing: Constants.spacingMedium
         z: 1
         visible: bottomBar.showPageIndicators
         

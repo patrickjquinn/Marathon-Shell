@@ -32,7 +32,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         height: 400
-        radius: 12
+        radius: Constants.borderRadiusMedium
         color: Qt.rgba(15, 15, 15, 0.98)
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.15)
@@ -58,7 +58,7 @@ Item {
         Column {
             anchors.fill: parent
             anchors.margins: 24
-            spacing: 16
+            spacing: Constants.spacingMedium
             
             Row {
                 width: parent.width
@@ -86,7 +86,7 @@ Item {
                     
                     Icon {
                         name: "x"
-                        size: 20
+                        size: Constants.iconSizeSmall
                         color: Colors.text
                         anchors.centerIn: parent
                     }
@@ -118,7 +118,7 @@ Item {
                     
                     Column {
                         anchors.centerIn: parent
-                        spacing: 8
+                        spacing: Constants.spacingSmall
                         
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -135,7 +135,7 @@ Item {
                             
                             Icon {
                                 name: modelData.icon
-                                size: 32
+                                size: Constants.iconSizeMedium
                                 color: Colors.text
                                 anchors.centerIn: parent
                             }

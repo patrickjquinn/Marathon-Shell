@@ -11,7 +11,7 @@ Rectangle {
     signal longPressed()
     
     width: tileWidth
-    height: 80
+    height: Constants.hubHeaderHeight
     radius: 4
     border.width: 1
     border.color: toggleData.active ? Colors.accent : Qt.rgba(255, 255, 255, 0.12)
@@ -56,11 +56,11 @@ Rectangle {
     Row {
         anchors.fill: parent
         anchors.margins: 14
-        spacing: 12
+        spacing: Constants.spacingMedium
         
         Rectangle {
             width: 44
-            height: 44
+            height: Constants.statusBarHeight
             radius: 3
             color: toggleData.active ? Qt.rgba(0, 102/255, 102/255, 0.15) : Qt.rgba(255, 255, 255, 0.05)
             border.width: 1
@@ -78,7 +78,7 @@ Rectangle {
             Icon {
                 name: toggleData.icon || "grid"
                 color: toggleData.id === "settings" ? Colors.accentLight : Colors.text
-                size: 24
+                size: Constants.iconSizeMedium
                 anchors.centerIn: parent
             }
         }

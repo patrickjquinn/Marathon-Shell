@@ -20,7 +20,7 @@ Rectangle {
         Row {
             id: hubTabs
             width: parent.width
-            height: 60
+            height: Constants.touchTargetSmall
             z: 0
             
             Repeater {
@@ -34,7 +34,7 @@ Rectangle {
                 
                 Item {
                     width: hub.width / 5
-                    height: 60
+                    height: Constants.touchTargetSmall
                     
                     Rectangle {
                         anchors.fill: parent
@@ -76,7 +76,7 @@ Rectangle {
                             
                             Icon {
                                 name: modelData.icon
-                                size: 20
+                                size: Constants.iconSizeSmall
                                 color: index === hub.selectedTabIndex ? Colors.accent : Colors.textTertiary
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.6)
@@ -130,7 +130,7 @@ Rectangle {
             
             delegate: Rectangle {
                 width: notificationsList.width
-                height: 100
+                height: Constants.bottomBarHeight
                 color: model.isRead ? Colors.backgroundDark : Colors.surface
                 
                 Rectangle {
@@ -143,7 +143,7 @@ Rectangle {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 16
-                    spacing: 16
+                    spacing: Constants.spacingMedium
                     
                     Rectangle {
                         width: 48
@@ -154,7 +154,7 @@ Rectangle {
                         
                         Icon {
                             name: "bell"
-                            size: 24
+                            size: Constants.iconSizeMedium
                             color: Colors.text
                             anchors.centerIn: parent
                         }
@@ -167,7 +167,7 @@ Rectangle {
                         
                         Row {
                             width: parent.width
-                            spacing: 8
+                            spacing: Constants.spacingSmall
                             
                             Text {
                                 text: model.title
@@ -191,7 +191,7 @@ Rectangle {
                     
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 8
+                        spacing: Constants.spacingSmall
                         
                         Text {
                             text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
@@ -215,7 +215,7 @@ Rectangle {
                     anchors.fill: parent
                     onClicked: {
                         console.log("Notification clicked:", model.title)
-                        NotificationStore.markAsRead(model.id)
+                        NotificationModel.markAsRead(model.id)
                     }
                 }
             }

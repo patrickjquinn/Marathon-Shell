@@ -65,19 +65,19 @@ Item {
         
         Column {
             anchors.centerIn: parent
-            spacing: 20
+            spacing: Constants.spacingLarge
             width: parent.width - 40
             
             Icon {
                 name: hudType === "volume" ? "volume-2" : "sun"
-                size: 64
+                size: Constants.iconSizeXLarge
                 color: Colors.text
                 anchors.horizontalCenter: parent.horizontalCenter
             }
             
             Column {
                 width: parent.width
-                spacing: 8
+                spacing: Constants.spacingSmall
                 
                 Rectangle {
                     width: parent.width

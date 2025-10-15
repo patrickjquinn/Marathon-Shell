@@ -16,7 +16,7 @@ SettingsPageTemplate {
         Column {
             id: soundContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -27,7 +27,7 @@ SettingsPageTemplate {
                 
                 Column {
                     width: parent.width
-                    spacing: 16
+                    spacing: Constants.spacingMedium
                     
                     Slider {
                         width: parent.width
@@ -91,7 +91,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
 }

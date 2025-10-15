@@ -11,11 +11,6 @@ MApp {
     appName: "Settings"
     appIcon: "qrc:/images/settings.svg"
     
-    // Handle back navigation
-    onBackPressed: {
-        return navigateBack()
-    }
-    
     content: Rectangle {
         anchors.fill: parent
         color: Colors.background
@@ -25,6 +20,24 @@ MApp {
         id: navigationStack
         anchors.fill: parent
         initialItem: settingsMainPage
+        
+        // Update parent's navigationDepth when stack changes
+        onDepthChanged: {
+            var newDepth = depth - 1
+            Logger.info("SettingsApp", "StackView depth changed: " + depth + " → navigationDepth: " + newDepth)
+            settingsApp.navigationDepth = newDepth
+        }
+        
+        Component.onCompleted: {
+            settingsApp.navigationDepth = depth - 1
+            
+            // Connect MApp back signal to pop stack directly
+            settingsApp.backPressed.connect(function() {
+                if (depth > 1) {
+                    pop()
+                }
+            })
+        }
         
         // BB10-inspired slide transitions
         pushEnter: Transition {

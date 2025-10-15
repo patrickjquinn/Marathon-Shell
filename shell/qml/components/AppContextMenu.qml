@@ -73,13 +73,13 @@ Item {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 12
+                    anchors.leftMargin: Constants.spacingMedium
+                    anchors.rightMargin: Constants.spacingMedium
+                    spacing: Constants.spacingMedium
                     
                     Icon {
                         name: "info"
-                        size: 20
+                        size: Constants.iconSizeSmall
                         color: Colors.text
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -123,13 +123,13 @@ Item {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 12
+                    anchors.leftMargin: Constants.spacingMedium
+                    anchors.rightMargin: Constants.spacingMedium
+                    spacing: Constants.spacingMedium
                     
                     Icon {
                         name: "trash-2"
-                        size: 20
+                        size: Constants.iconSizeSmall
                         color: "#E63946"
                         anchors.verticalCenter: parent.verticalCenter
                     }

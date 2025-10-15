@@ -12,7 +12,7 @@ Modal {
     
     Column {
         width: parent.width
-        spacing: 16
+        spacing: Constants.spacingMedium
         
         Rectangle {
             width: parent.width
@@ -49,13 +49,13 @@ Modal {
         
         Row {
             width: parent.width
-            height: 44
-            spacing: 12
+            height: Constants.statusBarHeight
+            spacing: Constants.spacingMedium
             z: 10
             
             Rectangle {
                 width: (parent.width - 12) / 2
-                height: 44
+                height: Constants.statusBarHeight
                 color: Colors.surfaceLight
                 radius: 4
                 border.width: 1
@@ -92,7 +92,7 @@ Modal {
             
             Rectangle {
                 width: (parent.width - 12) / 2
-                height: 44
+                height: Constants.statusBarHeight
                 radius: 4
                 border.width: 1
                 border.color: Qt.rgba(20, 184, 166, 0.4)

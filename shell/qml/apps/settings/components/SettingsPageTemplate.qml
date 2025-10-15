@@ -28,13 +28,13 @@ Page {
         
         Row {
             anchors.left: parent.left
-            anchors.leftMargin: 16
+            anchors.leftMargin: Constants.spacingMedium
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 12
+            spacing: Constants.spacingMedium
             
             Icon {
                 name: "chevron-down"
-                size: 24
+                size: Constants.iconSizeMedium
                 color: Colors.text
                 anchors.verticalCenter: parent.verticalCenter
                 rotation: 90

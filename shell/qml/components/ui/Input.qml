@@ -24,13 +24,13 @@ Rectangle {
     
     Column {
         anchors.fill: parent
-        spacing: 8
+        spacing: Constants.spacingSmall
         
         Text {
             visible: label !== ""
             text: label
             color: hasError ? "#CC0000" : "#FFFFFF"
-            font.pixelSize: 14
+            font.pixelSize: Constants.fontSizeSmall
             font.weight: Font.Medium
             font.family: Typography.fontFamily
         }
@@ -56,7 +56,7 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: 12
                 color: disabled ? "#666666" : "#FFFFFF"
-                font.pixelSize: 16
+                font.pixelSize: Constants.fontSizeMedium
                 font.family: Typography.fontFamily
                 echoMode: password ? TextInput.Password : TextInput.Normal
                 enabled: !disabled
@@ -83,7 +83,7 @@ Rectangle {
             visible: hasError
             text: errorText
             color: "#CC0000"
-            font.pixelSize: 12
+            font.pixelSize: Constants.fontSizeSmall
             font.family: Typography.fontFamily
         }
     }

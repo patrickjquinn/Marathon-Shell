@@ -3,13 +3,13 @@ import MarathonOS.Shell
 
 Rectangle {
     id: navBar
-    height: 32
+    height: Constants.navBarHeight
     color: Colors.backgroundDark
     
     Rectangle {
         anchors.top: parent.top
         width: parent.width
-        height: 1
+        height: Constants.borderWidthThin
         color: Colors.borderLight
     }
     
@@ -25,14 +25,14 @@ Rectangle {
     property real startY: 0
     property real currentX: 0
     property real currentY: 0
-    property int shortSwipeThreshold: 80
-    property int longSwipeThreshold: 150
+    property real shortSwipeThreshold: Constants.gestureSwipeShort
+    property real longSwipeThreshold: Constants.gestureSwipeLong
     
     Rectangle {
         id: indicator
-        width: 100
-        height: 4
-        radius: 2
+        width: Constants.cardBannerHeight
+        height: Constants.spacingXSmall
+        radius: Constants.borderRadiusSmall / 2
         color: Colors.text
         opacity: 0.9
         
@@ -193,18 +193,18 @@ Rectangle {
                     gestureProgress = 0
                 }
             } else if (!isVerticalGesture && (Math.abs(diffX) > 50 || Math.abs(velocityX) > 500)) {
-                if (diffX > 0 || velocityX > 0) {
-                    Logger.gesture("NavBar", "swipeRight", {velocity: velocityX, isAppOpen: isAppOpen})
+                if (diffX < 0 || velocityX < 0) {
+                    Logger.gesture("NavBar", "swipeLeft", {velocity: velocityX, isAppOpen: isAppOpen})
                     if (isAppOpen) {
-                        // When app is open, swipe right = back gesture
+                        // When app is open, swipe left = back gesture (like browser back)
                         swipeBack()
                     } else {
-                        // Otherwise, navigate pages
-                        swipeRight()
+                        // Otherwise, navigate pages left
+                        swipeLeft()
                     }
                 } else {
-                    Logger.gesture("NavBar", "swipeLeft", {velocity: velocityX})
-                    swipeLeft()
+                    Logger.gesture("NavBar", "swipeRight", {velocity: velocityX})
+                    swipeRight()
                 }
                 currentX = 0
                 currentY = 0

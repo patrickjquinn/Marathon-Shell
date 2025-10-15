@@ -88,11 +88,19 @@ Item {
      * @returns {bool} - true if handled, false to close app
      */
     function handleBack() {
-        // Emit signal for app to handle
-        backPressed()
+        Logger.info("MApp", appId + " handleBack() called, canNavigateBack: " + canNavigateBack + ", depth: " + navigationDepth)
         
-        // If not handled by app, default is to close
-        return false
+        // If app has navigation depth (internal pages), emit signal for app to handle
+        if (canNavigateBack) {
+            Logger.info("MApp", appId + " has navigation depth, emitting backPressed signal")
+            backPressed()
+            return true  // Signal that we handled it
+        }
+        
+        // At root - minimize app (like iOS/Android home button)
+        Logger.info("MApp", appId + " at root, minimizing (not closing)")
+        minimizeRequested()
+        return true  // We handled it (minimize, don't close)
     }
     
     /**
@@ -150,7 +158,6 @@ Item {
         isMinimized = true
         pause()
         appMinimized()
-        minimizeRequested()
         Logger.debug("MApp", appId + " minimized")
     }
     
@@ -200,6 +207,11 @@ Item {
         if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
             AppLifecycleManager.registerApp(appId, root)
             Logger.info("MApp", appId + " registered with AppLifecycleManager")
+            
+            // Connect minimize signal to lifecycle manager
+            minimizeRequested.connect(function() {
+                AppLifecycleManager.minimizeForegroundApp()
+            })
         }
         
         appCreated()

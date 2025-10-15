@@ -42,7 +42,7 @@ Rectangle {
     
     Column {
         anchors.centerIn: parent
-        spacing: 40
+        spacing: Constants.spacingXXLarge
         
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -55,7 +55,7 @@ Rectangle {
         // PIN dots indicator
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 16
+            spacing: Constants.spacingMedium
             
             Repeater {
                 model: 6
@@ -104,7 +104,7 @@ Rectangle {
         // Number pad
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 20
+            spacing: Constants.spacingLarge
             
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -117,7 +117,7 @@ Rectangle {
                     
                     Rectangle {
                         width: 80
-                        height: 80
+                        height: Constants.hubHeaderHeight
                         radius: 4
                         color: Qt.rgba(255, 255, 255, 0.05)
                         border.width: 1
@@ -141,7 +141,7 @@ Rectangle {
                             anchors.centerIn: parent
                             text: modelData
                             color: Colors.text
-                            font.pixelSize: 32
+                            font.pixelSize: Constants.fontSizeXXLarge
                             font.weight: Font.Light
                             opacity: numMouseArea.pressed ? 1.0 : 0.9
                             
@@ -185,13 +185,13 @@ Rectangle {
             
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 20
+                spacing: Constants.spacingLarge
                 
-                Item { width: 80; height: 80 }
+                Item { width: 80; height: Constants.hubHeaderHeight }
                 
                 Rectangle {
                     width: 80
-                    height: 80
+                    height: Constants.hubHeaderHeight
                     radius: 4
                     color: Qt.rgba(255, 255, 255, 0.05)
                     border.width: 1
@@ -214,7 +214,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: "0"
                         color: Colors.text
-                        font.pixelSize: 32
+                        font.pixelSize: Constants.fontSizeXXLarge
                         font.weight: Font.Light
                         opacity: zeroMouseArea.pressed ? 1.0 : 0.9
                         
@@ -256,7 +256,7 @@ Rectangle {
                 
                 Rectangle {
                     width: 80
-                    height: 80
+                    height: Constants.hubHeaderHeight
                     radius: 4
                     color: Qt.rgba(255, 255, 255, 0.03)
                     border.width: 1

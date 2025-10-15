@@ -16,7 +16,7 @@ SettingsPageTemplate {
         Column {
             id: storageContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -27,7 +27,7 @@ SettingsPageTemplate {
                 
                 Rectangle {
                     width: parent.width
-                    height: 100
+                    height: Constants.bottomBarHeight
                     radius: 4
                     color: Qt.rgba(255, 255, 255, 0.04)
                     border.width: 1
@@ -35,7 +35,7 @@ SettingsPageTemplate {
                     
                     Column {
                         anchors.centerIn: parent
-                        spacing: 8
+                        spacing: Constants.spacingSmall
                         
                         Text {
                             text: "12.5 GB used of 64 GB"
@@ -84,7 +84,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Item { height: 20 }
+            Item { height: Constants.navBarHeight }
         }
     }
 }

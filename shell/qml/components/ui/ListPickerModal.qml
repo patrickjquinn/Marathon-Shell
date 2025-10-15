@@ -59,7 +59,7 @@ Modal {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 16
-                    spacing: 12
+                    spacing: Constants.spacingMedium
                     
                     Text {
                         text: modelData
@@ -74,7 +74,7 @@ Modal {
                     Rectangle {
                         visible: index === selectedIndex
                         width: 20
-                        height: 20
+                        height: Constants.navBarHeight
                         radius: 4
                         color: Colors.accent
                         anchors.verticalCenter: parent.verticalCenter
@@ -94,7 +94,7 @@ Modal {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: 16
+                    anchors.leftMargin: Constants.spacingMedium
                     height: 1
                     color: Qt.rgba(255, 255, 255, 0.08)
                 }

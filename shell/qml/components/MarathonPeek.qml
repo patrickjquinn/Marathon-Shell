@@ -209,7 +209,7 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 50  // Only 50px wide on left edge
+        width: Constants.touchTargetIndicator  // Only 50px wide on left edge
         enabled: !isFullyOpen
         
         property real startX: 0

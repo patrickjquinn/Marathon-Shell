@@ -29,7 +29,7 @@ Item {
             y: 4
             width: 24
             height: 24
-            radius: 12
+            radius: Constants.borderRadiusMedium
             color: MColors.text
             
             Behavior on x {

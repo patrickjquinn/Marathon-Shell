@@ -25,16 +25,16 @@ Item {
             
             delegate: Rectangle {
                 width: ListView.view.width
-                height: 60
+                height: Constants.touchTargetSmall
                 anchors.horizontalCenter: parent.horizontalCenter
                 color: "#FFFFFF"
                 opacity: 0.1
-                radius: 8
+                radius: Constants.borderRadiusSmall
                 
                 Row {
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 12
+                    spacing: Constants.spacingMedium
                     
                     Icon {
                         name: "bell"
@@ -67,10 +67,10 @@ Item {
         Rectangle {
             width: 40
             height: 40
-            radius: 20
+            radius: Constants.borderRadiusXLarge
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 20
+            anchors.bottomMargin: Constants.spacingLarge
             color: "#FFFFFF"
             opacity: 0.2
             
@@ -78,7 +78,7 @@ Item {
                 anchors.centerIn: parent
                 text: "▼"
                 color: Colors.text
-                font.pixelSize: 16
+                font.pixelSize: Constants.fontSizeMedium
             }
             
             MouseArea {

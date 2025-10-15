@@ -4,7 +4,7 @@ import MarathonOS.Shell
 Rectangle {
     id: listItem
     width: parent.width
-    height: 80
+    height: Constants.hubHeaderHeight
     color: pressed ? Colors.surfaceLight : Colors.surface
     
     property string title: ""
@@ -24,9 +24,9 @@ Rectangle {
     
     Row {
         anchors.fill: parent
-        anchors.leftMargin: 16
-        anchors.rightMargin: 16
-        spacing: 16
+        anchors.leftMargin: Constants.spacingMedium
+        anchors.rightMargin: Constants.spacingMedium
+        spacing: Constants.spacingMedium
         
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
@@ -91,7 +91,7 @@ Rectangle {
             Icon {
                 name: "x"
                 color: Colors.textSecondary
-                size: 24
+                size: Constants.iconSizeMedium
                 anchors.centerIn: parent
             }
             

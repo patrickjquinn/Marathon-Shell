@@ -3,7 +3,7 @@ import "../../theme"
 
 Row {
     id: pageIndicator
-    spacing: 12
+    spacing: Constants.spacingMedium
     
     property int currentPage: 0
     property int totalPages: 1

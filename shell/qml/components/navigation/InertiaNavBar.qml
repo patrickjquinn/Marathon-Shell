@@ -3,7 +3,7 @@ import "../../theme"
 
 Rectangle {
     id: navBar
-    height: 20
+    height: Constants.navBarHeight
     color: "#000000"
     
     signal swipeLeft()
@@ -169,10 +169,10 @@ Rectangle {
         visible: isDragging && dragCurrentX > swipeThreshold
         text: "◀ Previous"
         color: "#00CCCC"
-        font.pixelSize: 14
+        font.pixelSize: Constants.fontSizeSmall
         font.weight: Font.Bold
         anchors.left: parent.left
-        anchors.leftMargin: 20
+        anchors.leftMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
         opacity: Math.min(1.0, dragCurrentX / 100)
     }
@@ -181,10 +181,10 @@ Rectangle {
         visible: isDragging && dragCurrentX < -swipeThreshold
         text: "Next ▶"
         color: "#00CCCC"
-        font.pixelSize: 14
+        font.pixelSize: Constants.fontSizeSmall
         font.weight: Font.Bold
         anchors.right: parent.right
-        anchors.rightMargin: 20
+        anchors.rightMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
         opacity: Math.min(1.0, -dragCurrentX / 100)
     }
@@ -193,7 +193,7 @@ Rectangle {
         visible: isDragging && dragCurrentY < -swipeThreshold
         text: "▲ Apps"
         color: "#00CCCC"
-        font.pixelSize: 14
+        font.pixelSize: Constants.fontSizeSmall
         font.weight: Font.Bold
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.top

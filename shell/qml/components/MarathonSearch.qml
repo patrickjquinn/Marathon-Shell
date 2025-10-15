@@ -50,10 +50,10 @@ Item {
     Column {
         anchors.fill: parent
         anchors.topMargin: Constants.safeAreaTop + 8
-        anchors.leftMargin: 20
-        anchors.rightMargin: 20
+        anchors.leftMargin: Constants.spacingLarge
+        anchors.rightMargin: Constants.spacingLarge
         anchors.bottomMargin: Constants.safeAreaBottom + 20
-        spacing: 16
+        spacing: Constants.spacingMedium
         z: 10
         
         Item {
@@ -75,12 +75,12 @@ Item {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 12
+                    spacing: Constants.spacingMedium
                     
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "search"
-                        size: 24
+                        size: Constants.iconSizeMedium
                         color: searchInput.activeFocus ? Colors.accent : Colors.textSecondary
                         
                         Behavior on color {
@@ -118,7 +118,7 @@ Item {
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "x"
-                        size: 20
+                        size: Constants.iconSizeSmall
                         color: Colors.textSecondary
                         visible: searchInput.text.length > 0
                         
@@ -140,7 +140,7 @@ Item {
             width: parent.width
             height: parent.height - 76
             clip: true
-            spacing: 8
+            spacing: Constants.spacingSmall
             model: searchOverlay.searchResults
             interactive: true
             boundsBehavior: Flickable.StopAtBounds
@@ -162,7 +162,7 @@ Item {
             
             delegate: Rectangle {
                 width: resultsList.width
-                height: 72
+                height: Constants.appIconSize
                 color: resultMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : 
                        (resultsList.currentIndex === index ? Qt.rgba(255, 255, 255, 0.04) : "transparent")
                 radius: MRadius.sm
@@ -174,7 +174,7 @@ Item {
                 Row {
                     anchors.fill: parent
                     anchors.margins: 12
-                    spacing: 16
+                    spacing: Constants.spacingMedium
                     
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
@@ -209,12 +209,12 @@ Item {
                         }
                         
                         Row {
-                            spacing: 8
+                            spacing: Constants.spacingSmall
                             
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: typeText.width + 12
-                                height: 20
+                                height: Constants.navBarHeight
                                 radius: 4
                                 color: modelData.type === "app" ? 
                                        Qt.rgba(20/255, 184/255, 166/255, 0.15) : 

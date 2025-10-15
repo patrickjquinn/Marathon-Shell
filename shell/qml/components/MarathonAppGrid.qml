@@ -191,7 +191,7 @@ Item {
                 anchors.margins: 12
                 columns: appGrid.columns
                 rows: appGrid.rows
-                spacing: 12
+                spacing: Constants.spacingMedium
                 
                 Repeater {
                     model: AppModel
@@ -240,12 +240,12 @@ Item {
                         
                         Column {
                             anchors.centerIn: parent
-                            spacing: 8
+                            spacing: Constants.spacingSmall
                             
                             Rectangle {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                width: 72
-                                height: 72
+                                width: Constants.appIconSize
+                                height: Constants.appIconSize
                                 radius: 6
                                 color: Qt.rgba(255, 255, 255, 0.04)
                                 border.width: 1
@@ -283,7 +283,7 @@ Item {
                                     anchors.topMargin: -4
                                     anchors.rightMargin: -4
                                     width: 20
-                                    height: 20
+                                    height: Constants.navBarHeight
                                     radius: 10
                                     color: "#E63946"
                                     border.width: 2

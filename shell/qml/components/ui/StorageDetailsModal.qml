@@ -7,12 +7,12 @@ Modal {
     
     Column {
         width: parent.width
-        spacing: 24
+        spacing: Constants.spacingXLarge
         
         // Total Storage Bar
         Column {
             width: parent.width
-            spacing: 8
+            spacing: Constants.spacingSmall
             
             Row {
                 width: parent.width
@@ -67,11 +67,11 @@ Modal {
                 
                 Item {
                     width: parent.width
-                    height: 44
+                    height: Constants.statusBarHeight
                     
                     Row {
                         anchors.fill: parent
-                        spacing: 12
+                        spacing: Constants.spacingMedium
                         
                         Rectangle {
                             width: 12
@@ -97,7 +97,7 @@ Modal {
                             font.family: Typography.fontFamily
                             horizontalAlignment: Text.AlignRight
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 70
+                            width: Constants.touchTargetMedium
                         }
                     }
                 }

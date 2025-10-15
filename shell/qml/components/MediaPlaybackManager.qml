@@ -31,12 +31,12 @@ Rectangle {
     Column {
         anchors.fill: parent
         anchors.margins: 16
-        spacing: 12
+        spacing: Constants.spacingMedium
         
         // Title and artist
         Row {
             width: parent.width
-            spacing: 12
+            spacing: Constants.spacingMedium
             
             // Album art thumbnail
             Rectangle {
@@ -99,7 +99,7 @@ Rectangle {
                 
                 Icon {
                     name: "chevron-down"
-                    size: 20
+                    size: Constants.iconSizeSmall
                     color: Colors.text
                     rotation: 90
                     anchors.centerIn: parent
@@ -132,7 +132,7 @@ Rectangle {
                 Text {
                     text: mediaManager.isPlaying ? "⏸" : "▶"
                     color: Qt.rgba(20, 184, 166, 1.0)
-                    font.pixelSize: 20
+                    font.pixelSize: Constants.fontSizeXLarge
                     anchors.centerIn: parent
                 }
                 
@@ -163,7 +163,7 @@ Rectangle {
                 
                 Icon {
                     name: "chevron-down"
-                    size: 20
+                    size: Constants.iconSizeSmall
                     color: Colors.text
                     rotation: -90
                     anchors.centerIn: parent

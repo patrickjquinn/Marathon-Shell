@@ -369,15 +369,15 @@ Item {
                             
                             Rectangle {
                                 width: parent.width
-                                height: 50
+                                height: Constants.touchTargetIndicator
                         color: Colors.surfaceLight
                                 radius: 0
                                 
                                 Row {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 8
-                                    anchors.rightMargin: 8
-                                    spacing: 8
+                                    anchors.leftMargin: Constants.spacingSmall
+                                    anchors.rightMargin: Constants.spacingSmall
+                                    spacing: Constants.spacingSmall
                                     
                                     Image {
                                         anchors.verticalCenter: parent.verticalCenter
@@ -488,9 +488,9 @@ Item {
     Column {
         id: pageIndicator
         anchors.right: parent.right
-        anchors.rightMargin: 20
+        anchors.rightMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 12
+        spacing: Constants.spacingMedium
         visible: TaskModel.taskCount > 4
         z: 100  // Above cards
         

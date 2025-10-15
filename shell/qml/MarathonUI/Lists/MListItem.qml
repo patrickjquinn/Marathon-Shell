@@ -66,7 +66,7 @@ Rectangle {
             visible: showRightIcon
             source: "qrc:/images/icons/lucide/" + rightIconName + ".svg"
             width: 20
-            height: 20
+            height: Constants.navBarHeight
             fillMode: Image.PreserveAspectFit
             anchors.verticalCenter: parent.verticalCenter
             smooth: true

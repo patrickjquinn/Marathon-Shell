@@ -16,7 +16,7 @@ SettingsPageTemplate {
         Column {
             id: displayContent
             width: parent.width
-            spacing: 24
+            spacing: Constants.spacingXLarge
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -27,7 +27,7 @@ SettingsPageTemplate {
                 
                 Column {
                     width: parent.width
-                    spacing: 16
+                    spacing: Constants.spacingMedium
                     
                     Slider {
                         width: parent.width
@@ -96,7 +96,44 @@ SettingsPageTemplate {
                 }
             }
             
-            Item { height: 20 }
+            Section {
+                title: "Interface"
+                width: parent.width - 48
+                
+                SettingsListItem {
+                    title: "UI Scale"
+                    subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(scalePageComponent)
+                    }
+                }
+                
+                SettingsListItem {
+                    title: "Wallpaper"
+                    subtitle: "Change background image"
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(wallpaperPageComponent)
+                    }
+                }
+            }
+            
+            Item { height: Constants.navBarHeight }
+        }
+    }
+    
+    Component {
+        id: scalePageComponent
+        ScalePage {
+            onNavigateBack: displayPage.parent.pop()
+        }
+    }
+    
+    Component {
+        id: wallpaperPageComponent
+        WallpaperPage {
+            onNavigateBack: displayPage.parent.pop()
         }
     }
 }
