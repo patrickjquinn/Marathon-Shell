@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Music
+
+MusicApp 1.0 MusicApp.qml
+

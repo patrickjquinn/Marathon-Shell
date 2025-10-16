@@ -1,0 +1,45 @@
+import QtQuick
+import QtQuick.Controls
+import MarathonOS.Shell
+import MarathonUI.Containers
+
+MApp {
+    id: messagesApp
+    appId: "messages"
+    appName: "Messages"
+    appIcon: "assets/icon.svg"
+    
+    content: Rectangle {
+        anchors.fill: parent
+        color: Colors.background
+        
+        Column {
+            anchors.centerIn: parent
+            spacing: Constants.spacingLarge
+            
+            Icon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                name: "message-square"
+                size: Constants.iconSizeXLarge * 2
+                color: Colors.accent
+            }
+            
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Messages"
+                color: Colors.text
+                font.pixelSize: Constants.fontSizeXLarge
+                font.weight: Font.Bold
+            }
+            
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "SMS-style messaging\nComing soon"
+                color: Colors.textSecondary
+                font.pixelSize: Constants.fontSizeMedium
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+    }
+}
+

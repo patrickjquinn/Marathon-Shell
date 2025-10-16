@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Camera
+
+CameraApp 1.0 CameraApp.qml
+

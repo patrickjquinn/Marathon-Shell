@@ -16,14 +16,20 @@ echo "Installing to: $INSTALL_DIR"
 echo "Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
 
-# Install Settings app
-echo "Installing Settings app..."
-cp -r "$PROJECT_ROOT/apps/settings" "$INSTALL_DIR/"
+# Install all system apps
+echo "Installing system apps..."
+for app in settings notes clock calendar gallery music messages phone maps camera; do
+    if [ -d "$PROJECT_ROOT/apps/$app" ]; then
+        echo "  - $app"
+        cp -r "$PROJECT_ROOT/apps/$app" "$INSTALL_DIR/"
+    fi
+done
 
 echo ""
 echo "✅ System apps installed successfully!"
-echo "   Settings app: $INSTALL_DIR/settings/"
+echo "Installed apps:"
+ls "$INSTALL_DIR"
 echo ""
 echo "To verify installation:"
-echo "   ls -la $INSTALL_DIR/settings/"
+echo "   ls -la $INSTALL_DIR/"
 

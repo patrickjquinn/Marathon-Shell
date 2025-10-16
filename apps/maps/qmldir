@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Maps
+
+MapsApp 1.0 MapsApp.qml
+

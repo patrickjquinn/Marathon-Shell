@@ -28,6 +28,16 @@ Rectangle {
         
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
         
+        // CRITICAL: Unparent the current app instance BEFORE switching
+        if (appContentLoader.item && appContentLoader.item.children.length > 0) {
+            var currentChild = appContentLoader.item.children[0]
+            if (currentChild && currentChild.parent) {
+                Logger.info("AppWindow", "Unparenting previous app instance")
+                currentChild.parent = null
+                currentChild.visible = false
+            }
+        }
+        
         if (appType === "native") {
             // Load native Wayland app
             appContentLoader.setSource("../apps/native/NativeAppWindow.qml", {
@@ -50,6 +60,7 @@ Rectangle {
                 if (existingInstance) {
                     // Reuse existing instance - just reparent it
                     Logger.info("AppWindow", "Reusing existing app instance: " + id)
+                    existingInstance.visible = true
                     appWindow.pendingAppInstance = existingInstance
                     // FORCE reload by clearing first
                     appContentLoader.sourceComponent = undefined

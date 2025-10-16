@@ -148,6 +148,7 @@ QtObject {
     // TYPOGRAPHY (responsive)
     // =========================================================================
     
+    readonly property real fontSizeXSmall: Math.round(12 * scaleFactor)
     readonly property real fontSizeSmall: Math.round(14 * scaleFactor)
     readonly property real fontSizeMedium: Math.round(16 * scaleFactor)
     readonly property real fontSizeLarge: Math.round(18 * scaleFactor)

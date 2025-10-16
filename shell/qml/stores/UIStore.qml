@@ -118,6 +118,11 @@ QtObject {
         if (currentAppId === "settings") {
             settingsOpen = false
         }
+        
+        // CRITICAL: Clear currentAppId so restoring the same app later triggers onCurrentAppIdChanged
+        currentAppId = ""
+        currentAppName = ""
+        currentAppIcon = ""
     }
     
     function restoreApp(appId, appName, appIcon) {

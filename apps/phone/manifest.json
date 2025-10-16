@@ -1,0 +1,14 @@
+{
+  "id": "phone",
+  "name": "Phone",
+  "version": "1.0.0",
+  "entryPoint": "PhoneApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["phone", "contacts"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["phone", "dialer", "calls", "contacts", "voicemail"],
+  "deepLinks": {}
+}
+

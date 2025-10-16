@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Phone
+
+PhoneApp 1.0 PhoneApp.qml
+

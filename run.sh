@@ -25,6 +25,11 @@ cmake --build build --parallel $CORES
 
 if [ $? -eq 0 ]; then
     echo "✅ Build successful!"
+    
+    # Install system apps
+    echo "📦 Installing system apps..."
+    bash scripts/install-system-apps.sh
+    
     echo "🚀 Starting Marathon Shell..."
     echo ""
     

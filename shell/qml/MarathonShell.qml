@@ -419,6 +419,14 @@ Item {
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon")
                 }
             }
+            
+            function onAppWindowOpenChanged() {
+                // Also trigger when appWindowOpen becomes true (covers case where appId hasn't changed)
+                if (UIStore.appWindowOpen && UIStore.currentAppId) {
+                    Logger.info("Shell", "App window opened, showing: " + UIStore.currentAppId)
+                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon")
+                }
+            }
         }
         
         Behavior on opacity {

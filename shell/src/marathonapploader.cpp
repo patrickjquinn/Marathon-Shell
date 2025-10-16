@@ -90,6 +90,16 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
         return nullptr;
     }
     
+    // Inject icon path from registry into the app instance
+    // This ensures task switcher shows the correct icon
+    if (appInstance->property("appIcon").isValid()) {
+        QString iconPath = appInfo->icon;
+        if (!iconPath.isEmpty()) {
+            appInstance->setProperty("appIcon", iconPath);
+            qDebug() << "  Injected icon:" << iconPath;
+        }
+    }
+    
     // Don't cache instances - each launch gets a fresh instance
     // Component can be reused though
     if (!m_components.contains(appId)) {

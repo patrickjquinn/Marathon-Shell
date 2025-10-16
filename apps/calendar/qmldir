@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Calendar
+
+CalendarApp 1.0 CalendarApp.qml
+

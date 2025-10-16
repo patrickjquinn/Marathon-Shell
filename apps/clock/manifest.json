@@ -1,0 +1,21 @@
+{
+  "id": "clock",
+  "name": "Clock",
+  "version": "1.0.0",
+  "entryPoint": "ClockApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["notifications"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": [
+    "clock",
+    "alarm",
+    "timer",
+    "stopwatch",
+    "time",
+    "world clock"
+  ],
+  "deepLinks": {}
+}
+

@@ -196,6 +196,12 @@ Item {
                             
                             // Defer to avoid blocking
                             Qt.callLater(function() {
+                                // CRITICAL: Tell AppLifecycleManager to restore app lifecycle first
+                                if (typeof AppLifecycleManager !== 'undefined') {
+                                    AppLifecycleManager.restoreApp(appId)
+                                }
+                                
+                                // Then update UI state
                                 UIStore.restoreApp(appId, appTitle, appIcon)
                                 closed()
                             })
