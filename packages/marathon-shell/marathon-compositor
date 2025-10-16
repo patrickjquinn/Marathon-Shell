@@ -1,0 +1,19 @@
+#!/bin/sh
+# Marathon Shell Compositor Session Launcher
+# Runs the Marathon Shell compositor with real-time priorities
+
+chrt -f 75 -p $$ 2>/dev/null || true
+renice -n -12 -p $$ 2>/dev/null || true
+
+export QT_QPA_PLATFORM=wayland
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Marathon
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QT_QPA_PLATFORMTHEME=qt6ct
+
+exec /usr/bin/marathon-shell \
+  --input-thread-priority=85 \
+  --render-thread-priority=70
+
+

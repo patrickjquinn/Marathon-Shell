@@ -1,0 +1,83 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+
+# This package can be built for different devices by setting _device
+# Example: _device=enchilada abuild -r
+_device="${device:-enchilada}"
+
+pkgname=linux-marathon-$_device
+pkgver=6.17.0
+pkgrel=0
+pkgdesc="Marathon OS optimized Linux kernel for ARM64 mobile devices ($_device)"
+url="https://kernel.org"
+arch="aarch64"
+license="GPL-2.0-only"
+depends="initramfs-generator"
+makedepends="
+	bison
+	findutils
+	flex
+	gmp-dev
+	mpc1-dev
+	mpfr-dev
+	openssl-dev
+	perl
+	postmarketos-installkernel
+	rsync
+	xz
+"
+options="!strip !check !tracedeps"
+source="
+	https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$pkgver.tar.xz
+	config-marathon-base.aarch64
+"
+builddir="$srcdir/linux-$pkgver"
+
+# Add device-specific config fragment if it exists
+if [ -f "../../devices/$_device/kernel-config.fragment" ]; then
+	source="$source
+		../../devices/$_device/kernel-config.fragment"
+fi
+
+prepare() {
+	default_prepare
+	
+	# Start with Marathon base config
+	cp "$srcdir/config-marathon-base.aarch64" .config
+	
+	# Merge device-specific fragment if provided
+	if [ -f "$srcdir/kernel-config.fragment" ]; then
+		msg "Merging device-specific config fragment..."
+		./scripts/kconfig/merge_config.sh .config "$srcdir/kernel-config.fragment"
+	fi
+	
+	# Let kconfig resolve any missing options
+	make ARCH=arm64 olddefconfig
+}
+
+build() {
+	unset LDFLAGS
+	make ARCH=arm64 \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1))-Marathon-$_device"
+}
+
+package() {
+	mkdir -p "$pkgdir"/boot
+	make -j1 ARCH=arm64 \
+		INSTALL_MOD_PATH="$pkgdir" \
+		INSTALL_MOD_STRIP=1 \
+		INSTALL_DTBS_PATH="$pkgdir/boot/dtbs-marathon" \
+		modules_install dtbs_install
+	
+	install -Dm644 arch/arm64/boot/Image \
+		"$pkgdir/boot/vmlinuz-marathon-$_device"
+	
+	install -D include/config/kernel.release \
+		"$pkgdir/usr/share/kernel/marathon/kernel.release"
+}
+
+sha512sums="
+SKIP
+SKIP
+SKIP
+"

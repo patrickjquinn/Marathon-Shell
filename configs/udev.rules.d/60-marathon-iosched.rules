@@ -1,0 +1,16 @@
+# Marathon OS I/O Scheduler Configuration
+# Kyber scheduler for flash storage (eMMC/UFS) + polling + read-ahead tuning
+
+# Set Kyber scheduler on all mmcblk devices
+ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/scheduler}="kyber"
+
+# Enable I/O polling (test per device - may help latency on some controllers)
+ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/io_poll}="1"
+
+# Set read-ahead to 128KB for better sequential performance
+ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/read_ahead_kb}="128"
+
+# Disable NCQ depth limiting for better throughput
+ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/nr_requests}="128"
+
+

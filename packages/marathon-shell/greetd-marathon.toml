@@ -1,0 +1,16 @@
+# greetd configuration for Marathon OS
+# Autologin to Marathon Shell
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/bin/marathon-compositor"
+user = "user"
+
+# For initial setup, you can uncomment this to use agreety (greeter):
+# [initial_session]
+# command = "agreety --cmd /usr/bin/marathon-compositor"
+# user = "greeter"
+
+

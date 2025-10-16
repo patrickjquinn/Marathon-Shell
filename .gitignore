@@ -1,49 +1,60 @@
-build/
-build-apps/
-build-release/
-build-ui/
-build-tests/
+# Marathon OS .gitignore
+
+# Build outputs
+out/
+*.img
+*.zip
+*.tar.gz
+*.tar.xz
+
+# Temporary build files
+*.o
+*.ko
+*.mod
+*.mod.c
+*.a
+*.so
+*.so.*
+.tmp_versions/
+modules.order
+Module.symvers
+*.dwo
+
+# Alpine/pmbootstrap
+.abuild/
+*.apk
+*.APKINDEX.tar.gz
+
+# Kernel build artifacts
+.config.old
+.version
+vmlinux
+System.map
+*.dtb
+*.dtbo
+
+# Editor files
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
 .vscode/
-*.user
-*.autosave
+.idea/
+*.sublime-*
 .DS_Store
-.qtc_clangd/
-*.qmlc
-*.jsc
+
+# Logs
 *.log
-*.ini
-check_output.cpp
+*.log.*
+
+# Cached files
+__pycache__/
+*.pyc
+*.pyo
 .cache/
-compile_commands.json
-build-tests/
-build-power/
-CMakeFiles/
 
-# Deployment artifacts (generated manually, not part of source)
-*.tar
-libs_to_deploy.txt
+# Plan files (optional - uncomment if you don't want to track plans)
+# *.plan.md
 
-# Profiling output
-profile_data.qtd
-shell_perf.log
 
-# AI assistant guidance (local only)
-CLAUDE.md
-
-# Local build trees produced by scripts/build-all.sh, podman-build/build.sh, etc.
-build-podman/
-
-# Claude Code tooling/project state
-.claude/
-
-# Per-deployment OAuth client IDs (see oauth-clients.env.example).
-# Not secrets — PKCE installed-app means the client_id alone can't be
-# used to impersonate. Gitignored anyway so each release / fork picks
-# its own IDs without colliding with upstream Marathon's quota.
-tools/marathon-mail-oauth/oauth-clients.env
-# Rust cargo build artefacts under each Rust crate
-tools/marathon-mail-oauth/target/
-
-# WiFi preset for dev/QA images — never commit credentials.
-scripts/qemu/wifi-preset.conf
-tests/screenshots/

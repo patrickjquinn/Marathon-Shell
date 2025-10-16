@@ -1,0 +1,84 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-base-config
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Marathon OS base system configuration and tuning"
+url="https://github.com/patrickjquinn/Marathon-Image"
+arch="all"
+license="MIT"
+depends="
+	systemd
+	dbus
+	eudev
+	mesa-gbm
+	mesa-egl
+	mesa-dri-gallium
+	egl-wayland
+	pipewire
+	pipewire-pulse
+	wireplumber
+	modemmanager
+	networkmanager
+	mobile-broadband-provider-info
+	e2fsprogs
+	f2fs-tools
+	systemd-zram-generator
+	htop
+	iw
+	nano
+	tmux
+	font-noto
+	ttf-dejavu
+"
+install="$pkgname.post-install"
+options="!check"
+source="
+	99-marathon.conf
+	50-marathon-zram.conf
+	60-marathon-cpufreq.rules
+	60-marathon-iosched.rules
+	50-marathon-sleep.conf
+	50-marathon-limits.conf
+	50-pipewire-priority.conf
+	50-modemmanager-priority.conf
+"
+
+package() {
+	install -Dm644 "$srcdir/99-marathon.conf" \
+		"$pkgdir/etc/sysctl.d/99-marathon.conf"
+	
+	install -Dm644 "$srcdir/50-marathon-zram.conf" \
+		"$pkgdir/etc/systemd/zram-generator.conf.d/50-marathon.conf"
+	
+	install -Dm644 "$srcdir/60-marathon-cpufreq.rules" \
+		"$pkgdir/etc/udev/rules.d/60-marathon-cpufreq.rules"
+	
+	install -Dm644 "$srcdir/60-marathon-iosched.rules" \
+		"$pkgdir/etc/udev/rules.d/60-marathon-iosched.rules"
+	
+	install -Dm644 "$srcdir/50-marathon-sleep.conf" \
+		"$pkgdir/etc/systemd/sleep.conf.d/50-marathon.conf"
+	
+	install -Dm644 "$srcdir/50-marathon-limits.conf" \
+		"$pkgdir/etc/security/limits.d/50-marathon.conf"
+	
+	install -Dm644 "$srcdir/50-pipewire-priority.conf" \
+		"$pkgdir/etc/systemd/system/pipewire.service.d/50-priority.conf"
+	
+	install -Dm644 "$srcdir/50-modemmanager-priority.conf" \
+		"$pkgdir/etc/systemd/system/ModemManager.service.d/50-priority.conf"
+}
+
+sha512sums="
+SKIP
+SKIP
+SKIP
+SKIP
+SKIP
+SKIP
+SKIP
+SKIP
+"
+
+

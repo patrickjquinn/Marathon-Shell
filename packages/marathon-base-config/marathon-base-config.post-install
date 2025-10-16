@@ -1,0 +1,22 @@
+#!/bin/sh
+
+echo "Marathon OS base configuration installed."
+echo "Reloading systemd and udev configurations..."
+
+if [ -x /bin/systemctl ]; then
+	systemctl daemon-reload || true
+fi
+
+if [ -x /bin/udevadm ]; then
+	udevadm control --reload-rules || true
+	udevadm trigger || true
+fi
+
+echo "Applying sysctl settings..."
+if [ -x /sbin/sysctl ]; then
+	sysctl --system || true
+fi
+
+exit 0
+
+

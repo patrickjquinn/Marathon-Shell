@@ -1,0 +1,78 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-shell
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Marathon Shell - BlackBerry 10 inspired Qt6/QML Wayland compositor"
+url="https://github.com/patrickjquinn/Marathon-Shell"
+arch="aarch64"
+license="GPL-3.0-or-later"
+depends="
+	qt6-qtbase
+	qt6-qtdeclarative
+	qt6-qtwayland
+	qt6-qt5compat
+	qt6-qtmultimedia
+	qt6-qtsvg
+	dbus
+	mesa-egl
+	wayland
+	wayland-protocols
+	libinput
+	eudev
+	greetd
+	greetd-agreety
+"
+makedepends="
+	cmake
+	samurai
+	qt6-qtbase-dev
+	qt6-qtdeclarative-dev
+	qt6-qtwayland-dev
+	qt6-qt5compat-dev
+	qt6-qtmultimedia-dev
+	qt6-qtsvg-dev
+	wayland-dev
+	wayland-protocols
+	mesa-dev
+	libinput-dev
+	eudev-dev
+	dbus-dev
+"
+install="$pkgname.post-install"
+source="
+	marathon-shell-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/refs/tags/v$pkgver.tar.gz
+	marathon-compositor
+	marathon.desktop
+	greetd-marathon.toml
+"
+options="!check"
+builddir="$srcdir/Marathon-Shell-$pkgver"
+
+build() {
+	cmake -B build -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr
+	cmake --build build
+}
+
+package() {
+	DESTDIR="$pkgdir" cmake --install build
+	
+	install -Dm755 "$srcdir/marathon-compositor" \
+		"$pkgdir/usr/bin/marathon-compositor"
+	
+	install -Dm644 "$srcdir/marathon.desktop" \
+		"$pkgdir/usr/share/wayland-sessions/marathon.desktop"
+	
+	install -Dm644 "$srcdir/greetd-marathon.toml" \
+		"$pkgdir/etc/greetd/config.toml"
+}
+
+sha512sums="
+SKIP
+SKIP
+SKIP
+SKIP
+"
+
