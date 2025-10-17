@@ -11,6 +11,7 @@ Rectangle {
     opacity: 0.98
     
     signal closed()
+    signal launchApp(var app)
     
     property real dragStartY: 0
     property bool isDragging: false
@@ -96,11 +97,13 @@ Rectangle {
                             Repeater {
                                 model: [
                                     { id: "settings", icon: "settings", label: "Settings", active: false },
+                                    { id: "lock", icon: "lock", label: "Lock device", active: false },
                                     { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked },
                                     { id: "wifi", icon: "wifi", label: "Wi-Fi", active: SystemControlStore.isWifiOn, subtitle: SystemStatusStore.wifiNetwork || "" },
                                     { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn },
                                     { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn },
-                                    { id: "torch", icon: "sun", label: "Torch", active: SystemControlStore.isFlashlightOn }
+                                    { id: "torch", icon: "sun", label: "Torch", active: SystemControlStore.isFlashlightOn },
+                                    { id: "alarm", icon: "clock", label: "Alarm", active: SystemControlStore.isAlarmOn }
                                 ]
                                 
                                 delegate: QuickSettingsTile {
@@ -126,12 +129,10 @@ Rectangle {
                             
                             Repeater {
                                 model: [
-                                    { id: "alarm", icon: "clock", label: "Alarm", active: SystemControlStore.isAlarmOn },
+                                    { id: "cellular", icon: "signal", label: "Mobile network", active: SystemControlStore.isCellularOn, subtitle: (typeof CellularManager !== 'undefined' ? CellularManager.operatorName : "") || "No service" },
                                     { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, subtitle: "Normal" },
-                                    { id: "battery", icon: "battery-low", label: "Battery saving", active: SystemControlStore.isLowPowerMode },
-                                    { id: "monitor", icon: "info", label: "Device monitor", active: false, subtitle: "Battery " + SystemStatusStore.batteryLevel + "%" },
-                                    { id: "network", icon: "signal", label: "Mobile network", active: false },
-                                    { id: "blend", icon: "grid", label: "Blend", active: false }
+                                    { id: "battery", icon: "battery", label: "Battery saving", active: SystemControlStore.isLowPowerMode },
+                                    { id: "monitor", icon: "info", label: "Device monitor", active: false, subtitle: "Battery " + SystemStatusStore.batteryLevel + "%" }
                                 ]
                                 
                                 delegate: QuickSettingsTile {
@@ -232,7 +233,6 @@ Rectangle {
     // Handle toggle tap
     function handleToggleTap(toggleId) {
         Logger.info("QuickSettings", "Toggle tapped: " + toggleId)
-        HapticService.light()
         
         if (toggleId === "wifi") {
             SystemControlStore.toggleWifi()
@@ -246,23 +246,46 @@ Rectangle {
             SystemControlStore.toggleFlashlight()
         } else if (toggleId === "alarm") {
             SystemControlStore.toggleAlarm()
+            UIStore.closeQuickSettings()
+            Qt.callLater(function() {
+                var app = { id: "clock", name: "Clock", icon: "qrc:/images/clock.svg", type: "marathon" }
+                launchApp(app)
+            })
         } else if (toggleId === "battery") {
             SystemControlStore.toggleLowPowerMode()
         } else if (toggleId === "settings") {
-            UIStore.openSettings()
             UIStore.closeQuickSettings()
+            Qt.callLater(function() {
+                var app = { id: "settings", name: "Settings", icon: "qrc:/images/settings.svg", type: "marathon" }
+                launchApp(app)
+            })
+        } else if (toggleId === "lock") {
+            UIStore.closeQuickSettings()
+            Qt.callLater(function() {
+                SessionStore.lock()
+            })
+        } else if (toggleId === "cellular") {
+            SystemControlStore.toggleCellular()
+        } else if (toggleId === "notifications") {
+            SystemControlStore.toggleDndMode()
+        } else if (toggleId === "monitor") {
+            Logger.info("QuickSettings", "Device monitor - info only, no action")
         }
     }
     
     // Handle long press (deep link to settings)
     function handleLongPress(toggleId) {
         Logger.info("QuickSettings", "Toggle long-pressed: " + toggleId)
-        HapticService.medium()
+        
+        // Ignore long press for settings and lock tiles
+        if (toggleId === "settings" || toggleId === "lock") {
+            return
+        }
         
         var deepLinkMap = {
             "wifi": "marathon://settings/wifi",
             "bluetooth": "marathon://settings/bluetooth",
-            "network": "marathon://settings/cellular",
+            "cellular": "marathon://settings/cellular",
             "flight": "marathon://settings/cellular",
             "rotation": "marathon://settings/display",
             "torch": "marathon://settings/display",

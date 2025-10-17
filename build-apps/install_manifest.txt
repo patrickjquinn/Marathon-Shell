@@ -59,6 +59,11 @@
 /Users/patrick.quinn/.local/share/marathon-apps/clock/assets/icons/bell.svg
 /Users/patrick.quinn/.local/share/marathon-apps/clock/assets/icons/clock.svg
 /Users/patrick.quinn/.local/share/marathon-apps/clock/assets/icons/timer.svg
+/Users/patrick.quinn/.local/share/marathon-apps/calculator/CalculatorApp.qml
+/Users/patrick.quinn/.local/share/marathon-apps/calculator/manifest.json
+/Users/patrick.quinn/.local/share/marathon-apps/calculator/assets/icon.svg
+/Users/patrick.quinn/.local/share/marathon-apps/calculator/manifest.json
+/Users/patrick.quinn/.local/share/marathon-apps/calculator/assets/icon.svg
 /Users/patrick.quinn/.local/share/marathon-apps/phone/qmldir
 /Users/patrick.quinn/.local/share/marathon-apps/phone/PhoneApp.qml
 /Users/patrick.quinn/.local/share/marathon-apps/phone/manifest.json

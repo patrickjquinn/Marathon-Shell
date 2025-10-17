@@ -58,6 +58,18 @@ Item {
                 font.pixelSize: 96
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
+                
+                // Drop shadow using multiple text layers
+                Text {
+                    text: parent.text
+                    color: "#80000000"
+                    font.pixelSize: parent.font.pixelSize
+                    font.weight: parent.font.weight
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 2
+                    z: -1
+                }
             }
             
             Text {
@@ -67,6 +79,19 @@ Item {
                 font.weight: Font.Normal
                 anchors.horizontalCenter: parent.horizontalCenter
                 opacity: 0.9
+                
+                // Drop shadow using multiple text layers
+                Text {
+                    text: parent.text
+                    color: "#80000000"
+                    font.pixelSize: parent.font.pixelSize
+                    font.weight: parent.font.weight
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 2
+                    z: -1
+                    opacity: parent.opacity
+                }
             }
         }
         

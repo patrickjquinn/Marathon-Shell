@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MarathonOS VERSION 0.1.0 LANGUAGES CXX)
+project(MarathonOS VERSION 1.0.0 LANGUAGES CXX)
 
 if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
@@ -20,9 +20,18 @@ set(CMAKE_AUTOUIC ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Use Homebrew Qt 6.9.3 for compatibility with WebEngine
-set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6" ${CMAKE_PREFIX_PATH})
-message(STATUS "Using Homebrew Qt 6.9.3 for WebEngine compatibility")
+# Qt6 detection - support both Homebrew (macOS) and system installations (Linux)
+if(APPLE)
+    # Use Homebrew Qt 6.9.3 for compatibility with WebEngine on macOS
+    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6" ${CMAKE_PREFIX_PATH})
+    message(STATUS "Using Homebrew Qt 6.9.3 for WebEngine compatibility on macOS")
+elseif(UNIX)
+    # On Linux, try standard Qt6 installation paths
+    if(NOT DEFINED Qt6_DIR)
+        set(Qt6_DIR "/usr/lib/cmake/Qt6" CACHE PATH "Qt6 installation directory")
+    endif()
+    message(STATUS "Using system Qt6 at ${Qt6_DIR}")
+endif()
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS
     Core

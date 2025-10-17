@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
 
@@ -243,41 +244,61 @@ Item {
                             anchors.centerIn: parent
                             spacing: Constants.spacingSmall
                             
-                            Rectangle {
+                            Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 width: Constants.appIconSize
                                 height: Constants.appIconSize
-                                radius: Constants.borderRadiusSharp
-                                color: MColors.surface
-                                border.width: Constants.borderWidthMedium
-                                border.color: iconMouseArea.pressed ? MColors.accentBright : MColors.borderOuter
-                                antialiasing: Constants.enableAntialiasing
                                 
-                                Behavior on border.color {
-                                    ColorAnimation { duration: 150 }
-                                }
-                                
-                                // Inner border for depth
                                 Rectangle {
-                                    anchors.fill: parent
-                                    anchors.margins: 1
-                                    radius: Constants.borderRadiusSharp
+                                    id: pressGlow
+                                    anchors.centerIn: parent
+                                    width: parent.width * 1.4
+                                    height: parent.height * 1.4
+                                    radius: width / 2
                                     color: "transparent"
-                                    border.width: Constants.borderWidthThin
-                                    border.color: MColors.borderInner
-                                    antialiasing: Constants.enableAntialiasing
+                                    opacity: iconMouseArea.pressed ? 0.4 : 0.0
+                                    
+                                    border.width: iconMouseArea.pressed ? 20 : 0
+                                    border.color: MColors.accentBright
+                                    
+                                    Behavior on opacity {
+                                        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                                    }
+                                    
+                                    Behavior on border.width {
+                                        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                                    }
+                                    
+                                    layer.enabled: true
+                                    layer.effect: MultiEffect {
+                                        blurEnabled: true
+                                        blur: 1.0
+                                        blurMax: 64
+                                    }
                                 }
                                 
                                 Image {
+                                    id: appIcon
                                     anchors.centerIn: parent
                                     source: model.icon
-                                    width: parent.width - 8
-                                    height: parent.height - 8
+                                    width: parent.width
+                                    height: parent.height
                                     fillMode: Image.PreserveAspectFit
                                     smooth: true
                                     asynchronous: true
                                     cache: true
                                     sourceSize: Qt.size(width, height)
+                                    z: 1
+                                    
+                                    layer.enabled: true
+                                    layer.effect: MultiEffect {
+                                        shadowEnabled: true
+                                        shadowHorizontalOffset: 0
+                                        shadowVerticalOffset: 4
+                                        shadowBlur: 0.5
+                                        shadowScale: 1.05
+                                        shadowColor: Qt.rgba(0, 0, 0, 0.3)
+                                    }
                                 }
                                 
                                 Rectangle {

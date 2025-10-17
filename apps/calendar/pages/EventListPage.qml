@@ -29,7 +29,7 @@ Page {
                 color: MColors.text
                 font.pixelSize: Constants.fontSizeXLarge
                 font.weight: Font.Bold
-                font.family: Constants.fontFamily
+                font.family: MTypography.fontFamily
             }
             
             Section {

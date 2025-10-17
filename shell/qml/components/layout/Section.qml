@@ -47,7 +47,7 @@ Item {
         radius: 4
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.12)
-        layer.enabled: true
+        layer.enabled: false  // Disable layer for better ShaderEffectSource capture
         
         Rectangle {
             anchors.fill: parent

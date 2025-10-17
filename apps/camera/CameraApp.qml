@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtMultimedia
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -14,46 +15,105 @@ MApp {
     property string currentMode: "photo"
     property bool flashEnabled: false
     property int photoCount: 0
+    property bool isRecording: false
+    property bool frontCamera: false
     
-    content: Rectangle {
-        anchors.fill: parent
-        color: "#1A1A1A"
+    // List available cameras
+    MediaDevices {
+        id: mediaDevices
+    }
+    
+    // Media capture session (Qt6 way) - defined after content to avoid forward reference
+    property var captureSession: null
+    
+    // Camera component
+    Camera {
+        id: camera
+        active: true
         
-        Rectangle {
-            anchors.centerIn: parent
-            width: Math.min(parent.width, parent.height) * 0.8
-            height: width
-            color: MColors.surface
-            radius: Constants.borderRadiusSharp
-            border.width: Constants.borderWidthMedium
-            border.color: MColors.border
-            antialiasing: Constants.enableAntialiasing
-            
-            Column {
-                anchors.centerIn: parent
-                spacing: Constants.spacingMedium
-                
-                Icon {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    name: "camera"
-                    size: Constants.iconSizeXLarge
-                    color: MColors.textSecondary
-                }
-                
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Camera Viewfinder"
-                    font.pixelSize: Constants.fontSizeMedium
-                    color: MColors.textSecondary
-                }
+        Component.onCompleted: {
+            // Set initial camera device
+            if (mediaDevices.videoInputs.length > 0) {
+                cameraDevice = mediaDevices.videoInputs[0]
             }
         }
         
+        // Error handling
+        onErrorOccurred: function(error, errorString) {
+            Logger.error("Camera", "Camera error: " + errorString)
+        }
+    }
+    
+    // Image capture component
+    ImageCapture {
+        id: imageCapture
+        
+        onImageSaved: function(id, path) {
+            photoCount++
+            Logger.info("Camera", "Photo saved: " + path)
+        }
+        
+        onErrorOccurred: function(id, error, errorString) {
+            Logger.error("Camera", "Image capture error: " + errorString)
+        }
+    }
+    
+    // Video recording component
+    MediaRecorder {
+        id: mediaRecorder
+        
+        onRecorderStateChanged: function(state) {
+            if (state === MediaRecorder.RecordingState) {
+                isRecording = true
+            } else if (state === MediaRecorder.StoppedState) {
+                isRecording = false
+            }
+        }
+        
+        onErrorOccurred: function(error, errorString) {
+            Logger.error("Camera", "Video recording error: " + errorString)
+            isRecording = false
+        }
+    }
+    
+    content: Rectangle {
+        anchors.fill: parent
+        color: MColors.background
+        
+        // Full-screen camera viewfinder
+        VideoOutput {
+            id: viewfinder
+            anchors.fill: parent
+            fillMode: VideoOutput.PreserveAspectCrop
+        }
+        
+        // Setup capture session after viewfinder is created
+        Component.onCompleted: {
+            captureSession = Qt.createQmlObject('
+                import QtMultimedia
+                CaptureSession {
+                    camera: camera
+                    imageCapture: imageCapture
+                    recorder: mediaRecorder
+                    videoOutput: viewfinder
+                }
+            ', cameraApp)
+        }
+        
+        // Dark overlay for better UI contrast
+        Rectangle {
+            anchors.fill: parent
+            color: "black"
+            opacity: 0.3
+        }
+        
+        // Top controls
         Row {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.margins: Constants.spacingLarge
+            anchors.topMargin: Constants.spacingLarge
             spacing: Constants.spacingSmall
+            z: 10
             
             Rectangle {
                 width: Constants.touchTargetMedium * 2.5
@@ -112,11 +172,14 @@ MApp {
             }
         }
         
+        // Top right controls
         Row {
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.margins: Constants.spacingLarge
+            anchors.topMargin: Constants.spacingLarge
+            anchors.rightMargin: Constants.spacingLarge
             spacing: Constants.spacingMedium
+            z: 10
             
             Rectangle {
                 width: Constants.touchTargetMedium
@@ -141,6 +204,9 @@ MApp {
                     }
                     onClicked: {
                         flashEnabled = !flashEnabled
+                        if (camera.cameraDevice && camera.cameraDevice.flashMode !== undefined) {
+                            camera.flashMode = flashEnabled ? Camera.FlashOn : Camera.FlashOff
+                        }
                     }
                 }
             }
@@ -167,18 +233,21 @@ MApp {
                         HapticService.light()
                     }
                     onClicked: {
-                        console.log("Camera settings")
+                        Logger.info("Camera", "Settings clicked")
                     }
                 }
             }
         }
         
+        // Bottom controls
         Row {
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.margins: Constants.spacingXLarge
+            anchors.bottomMargin: Constants.spacingXLarge
             spacing: Constants.spacingXLarge
+            z: 10
             
+            // Gallery button
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Constants.touchTargetMedium
@@ -228,18 +297,19 @@ MApp {
                         parent.color = MColors.surface
                     }
                     onClicked: {
-                        console.log("Open gallery")
+                        Logger.info("Camera", "Open gallery")
                     }
                 }
             }
             
+            // Main capture button
             Rectangle {
                 width: Constants.touchTargetLarge + Constants.spacingMedium
                 height: Constants.touchTargetLarge + Constants.spacingMedium
                 radius: width / 2
                 color: "transparent"
                 border.width: Constants.borderWidthThick
-                border.color: MColors.accent
+                border.color: isRecording ? MColors.error : MColors.accent
                 antialiasing: true
                 
                 Rectangle {
@@ -247,8 +317,18 @@ MApp {
                     width: parent.width - Constants.spacingMedium
                     height: parent.height - Constants.spacingMedium
                     radius: width / 2
-                    color: MColors.accent
+                    color: isRecording ? MColors.error : MColors.accent
                     antialiasing: true
+                }
+                
+                // Recording indicator
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.3
+                    height: parent.height * 0.3
+                    radius: 4
+                    color: MColors.text
+                    visible: isRecording
                 }
                 
                 MouseArea {
@@ -265,10 +345,17 @@ MApp {
                     }
                     onClicked: {
                         if (currentMode === "photo") {
-                            photoCount++
-                            console.log("Photo taken")
+                            imageCapture.capture()
+                            Logger.info("Camera", "Photo taken")
                         } else {
-                            console.log("Video recording")
+                            if (isRecording) {
+                                mediaRecorder.stop()
+                                Logger.info("Camera", "Video recording stopped")
+                            } else {
+                                mediaRecorder.outputLocation = "file:///Users/patrick.quinn/Pictures/marathon_video_" + Date.now() + ".mp4"
+                                mediaRecorder.record()
+                                Logger.info("Camera", "Video recording started")
+                            }
                         }
                     }
                 }
@@ -278,6 +365,7 @@ MApp {
                 }
             }
             
+            // Camera switch button
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Constants.touchTargetMedium
@@ -308,9 +396,43 @@ MApp {
                         parent.color = "transparent"
                     }
                     onClicked: {
-                        console.log("Switch camera")
+                        frontCamera = !frontCamera
+                        
+                        // Switch camera device
+                        if (mediaDevices.videoInputs.length > 1) {
+                            var currentIndex = -1
+                            for (var i = 0; i < mediaDevices.videoInputs.length; i++) {
+                                if (mediaDevices.videoInputs[i].id === camera.cameraDevice.id) {
+                                    currentIndex = i
+                                    break
+                                }
+                            }
+                            var nextIndex = (currentIndex + 1) % mediaDevices.videoInputs.length
+                            camera.cameraDevice = mediaDevices.videoInputs[nextIndex]
+                            Logger.info("Camera", "Switched to camera: " + camera.cameraDevice.description)
+                        }
                     }
                 }
+            }
+        }
+        
+        // Recording indicator
+        Rectangle {
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.margins: Constants.spacingLarge
+            width: 12
+            height: 12
+            radius: 6
+            color: MColors.error
+            visible: isRecording
+            z: 10
+            
+            SequentialAnimation on opacity {
+                running: isRecording
+                loops: Animation.Infinite
+                NumberAnimation { to: 0.3; duration: 500 }
+                NumberAnimation { to: 1.0; duration: 500 }
             }
         }
     }

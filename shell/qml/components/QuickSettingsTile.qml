@@ -58,29 +58,20 @@ Rectangle {
         anchors.margins: 14
         spacing: Constants.spacingMedium
         
-        Rectangle {
+        Item {
             width: 44
             height: Constants.statusBarHeight
-            radius: Constants.borderRadiusSharp
-            color: toggleData.active ? MColors.surface2 : MColors.surface1
-            border.width: Constants.borderWidthThin
-            border.color: toggleData.active ? MColors.accentDim : MColors.borderOuter
-            antialiasing: Constants.enableAntialiasing
             anchors.verticalCenter: parent.verticalCenter
-            
-            Behavior on color {
-                ColorAnimation { duration: 150 }
-            }
-            
-            Behavior on border.color {
-                ColorAnimation { duration: 150 }
-            }
             
             Icon {
                 name: toggleData.icon || "grid"
-                color: toggleData.id === "settings" ? MColors.accentBright : MColors.text
+                color: toggleData.active ? MColors.accentBright : MColors.text
                 size: Constants.iconSizeMedium
                 anchors.centerIn: parent
+                
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
             }
         }
         
@@ -110,13 +101,42 @@ Rectangle {
         }
     }
     
+    property bool isPressed: false
+    
+    Rectangle {
+        anchors.fill: parent
+        color: MColors.accentBright
+        opacity: isPressed ? 0.1 : 0
+        radius: Constants.borderRadiusSharp
+        
+        Behavior on opacity {
+            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+        }
+    }
+    
     MouseArea {
         id: toggleMouseArea
         anchors.fill: parent
+        
+        onPressed: {
+            isPressed = true
+            HapticService.light()
+        }
+        
+        onReleased: {
+            isPressed = false
+        }
+        
+        onCanceled: {
+            isPressed = false
+        }
+        
         onClicked: {
             tile.tapped()
         }
+        
         onPressAndHold: {
+            HapticService.medium()
             tile.longPressed()
         }
     }

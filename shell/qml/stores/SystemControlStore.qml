@@ -9,9 +9,22 @@ QtObject {
     property bool isBluetoothOn: NetworkManager.bluetoothEnabled
     property bool isAirplaneModeOn: NetworkManager.airplaneModeEnabled
     property bool isRotationLocked: DisplayManager.rotationLocked
-    property bool isFlashlightOn: false
+    property bool isFlashlightOn: typeof FlashlightManager !== 'undefined' ? FlashlightManager.enabled : false
+    property bool isCellularOn: typeof CellularManager !== 'undefined' ? CellularManager.modemEnabled : false
+    property bool isCellularDataOn: typeof CellularManager !== 'undefined' ? CellularManager.dataEnabled : false
     property bool isDndMode: AudioManager.dndEnabled
-    property bool isAlarmOn: true
+    property bool isAlarmOn: typeof AlarmManager !== 'undefined' ? (AlarmManager.hasActiveAlarm || _hasEnabledAlarm()) : false
+    
+    function _hasEnabledAlarm() {
+        if (typeof AlarmManager !== 'undefined' && AlarmManager.alarms) {
+            for (var i = 0; i < AlarmManager.alarms.length; i++) {
+                if (AlarmManager.alarms[i].enabled) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
     
     property int brightness: Math.round(DisplayManager.brightness * 100)
     property int volume: Math.round(AudioManager.volume * 100)
@@ -47,8 +60,27 @@ QtObject {
     }
     
     function toggleFlashlight() {
-        isFlashlightOn = !isFlashlightOn
+        if (typeof FlashlightManager !== 'undefined') {
+            FlashlightManager.toggle()
+            isFlashlightOn = FlashlightManager.enabled
+        }
         Logger.info("SystemControl", "Flashlight: " + isFlashlightOn)
+    }
+    
+    function toggleCellular() {
+        if (typeof CellularManager !== 'undefined') {
+            CellularManager.toggleModem()
+            isCellularOn = CellularManager.modemEnabled
+        }
+        Logger.info("SystemControl", "Cellular: " + isCellularOn)
+    }
+    
+    function toggleCellularData() {
+        if (typeof CellularManager !== 'undefined') {
+            CellularManager.toggleData()
+            isCellularDataOn = CellularManager.dataEnabled
+        }
+        Logger.info("SystemControl", "Cellular Data: " + isCellularDataOn)
     }
     
     function toggleDndMode() {
@@ -59,8 +91,14 @@ QtObject {
     }
     
     function toggleAlarm() {
-        isAlarmOn = !isAlarmOn
-        Logger.info("SystemControl", "Alarm: " + isAlarmOn)
+        Logger.info("SystemControl", "Alarm quick settings tapped - opening Clock app")
+    }
+    
+    function toggleLowPowerMode() {
+        var newMode = !isLowPowerMode
+        PowerManager.setPowerSaveMode(newMode)
+        isLowPowerMode = newMode
+        Logger.info("SystemControl", "Low power mode: " + isLowPowerMode)
     }
     
     function setBrightness(value) {

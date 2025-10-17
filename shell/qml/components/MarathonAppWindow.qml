@@ -157,21 +157,25 @@ Rectangle {
                     appInstance.parent = this
                     appInstance.anchors.fill = this
                     
+                    // Capture values to avoid accessing potentially destroyed appWindow later
+                    var capturedAppName = appWindow.appName
+                    var capturedAppId = appWindow.appId
+                    
                     if (appInstance.minimizeRequested) {
                         minimizeConnection = appInstance.minimizeRequested.connect(function() {
-                            Logger.info("AppWindow", "MApp minimize requested: " + appWindow.appName)
+                            Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName)
                             appWindow.minimized()
                         })
                     }
                     
                     if (appInstance.closed) {
                         closedConnection = appInstance.closed.connect(function() {
-                            Logger.info("AppWindow", "MApp closed: " + appWindow.appName)
+                            Logger.info("AppWindow", "MApp closed: " + capturedAppName)
                             appWindow.hide()
                         })
                     }
                     
-                    Logger.info("AppWindow", "MApp instance connected: " + appWindow.appId)
+                    Logger.info("AppWindow", "MApp instance connected: " + capturedAppId)
                 }
             }
             

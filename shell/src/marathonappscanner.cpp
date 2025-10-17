@@ -53,6 +53,7 @@ void MarathonAppScanner::scanApplications()
         qDebug() << "[MarathonAppScanner] Scanning directory:" << searchPath;
         
         QStringList appDirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        appDirs.sort(); // Sort alphabetically for consistent ordering
         
         for (const QString &appDir : appDirs) {
             QString appPath = dir.absoluteFilePath(appDir);

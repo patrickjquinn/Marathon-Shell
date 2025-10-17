@@ -169,8 +169,8 @@ QtObject {
     function handleAppRoute(parsed) {
         Logger.info("NavigationRouter", "Routing to app: " + parsed.app)
         
-        // Launch app by ID
-        AppStore.launchApp(parsed.app)
+        // Request app launch via deep link signal
+        deepLinkRequested(parsed.app, "", {})
         
         navigated("marathon://" + parsed.app)
         return true

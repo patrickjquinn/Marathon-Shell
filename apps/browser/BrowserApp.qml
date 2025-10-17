@@ -20,6 +20,9 @@ MApp {
     property int nextTabId: 1
     readonly property int maxTabs: 20
     
+    property var backConnection: null
+    property var forwardConnection: null
+    
     property var bookmarks: []
     property var history: []
     property bool isPrivateMode: false
@@ -39,6 +42,7 @@ MApp {
     
     onCurrentTabIndexChanged: {
         Logger.warn("Browser", "Tab switched to index: " + currentTabIndex)
+        updateNavigationDepth()
         if (webView && currentTabIndex >= 0 && currentTabIndex < tabs.length) {
             Logger.warn("Browser", "Loading tab URL: " + tabs[currentTabIndex].url)
             updatingTabUrl = true
@@ -49,8 +53,33 @@ MApp {
         }
     }
     
+    function updateNavigationDepth() {
+        var currentTab = getCurrentTab()
+        
+        // Set navigation depth based on back capability
+        if (currentTab && currentTab.canGoBack) {
+            navigationDepth = 1
+        } else {
+            navigationDepth = 0
+        }
+        
+        // Set forward capability independently
+        canNavigateForward = currentTab ? (currentTab.canGoForward || false) : false
+    }
+    
     Component.onCompleted: {
-        Logger.warn("Browser", "Component.onCompleted - loading browser data")
+        backConnection = browserApp.backPressed.connect(function() {
+            if (webView && webView.canGoBack) {
+                webView.goBack()
+            }
+        })
+        
+        forwardConnection = browserApp.forwardPressed.connect(function() {
+            if (webView && webView.canGoForward) {
+                webView.goForward()
+            }
+        })
+        
         loadBookmarks()
         loadHistory()
         loadTabs()
@@ -407,6 +436,10 @@ MApp {
                     WebEngineView {
                         anchors.fill: parent
                         
+                        zoomFactor: 1.0
+                        
+                        profile.httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                        
                         settings.accelerated2dCanvasEnabled: true
                         settings.webGLEnabled: true
                         settings.pluginsEnabled: true
@@ -423,6 +456,7 @@ MApp {
                         settings.playbackRequiresUserGesture: false
                         settings.webRTCPublicInterfacesOnly: true
                         settings.dnsPrefetchEnabled: true
+                        settings.showScrollBars: false
                             
                         onUrlChanged: {
                             if (updatingTabUrl) {
@@ -476,6 +510,22 @@ MApp {
                                         addToHistory(url.toString(), title)
                                     }
                                     consecutiveLoadAttempts = 0
+                                    
+                                    runJavaScript(`
+                                        (function() {
+                                            var meta = document.querySelector('meta[name="viewport"]');
+                                            if (!meta) {
+                                                meta = document.createElement('meta');
+                                                meta.name = 'viewport';
+                                                meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
+                                                document.getElementsByTagName('head')[0].appendChild(meta);
+                                            }
+                                            document.body.style.maxWidth = '100vw';
+                                            document.body.style.overflowX = 'hidden';
+                                            document.documentElement.style.maxWidth = '100vw';
+                                            document.documentElement.style.overflowX = 'hidden';
+                                        })();
+                                    `)
                                 }
                                 
                                 if (loadRequest.status === WebEngineView.LoadFailedStatus) {
@@ -511,6 +561,7 @@ MApp {
                                         canGoBack: canGoBack
                                     })
                                     tabs = newTabs
+                                    updateNavigationDepth()
                                 }
                             }
                         }
@@ -524,6 +575,7 @@ MApp {
                                         canGoForward: canGoForward
                                     })
                                     tabs = newTabs
+                                    updateNavigationDepth()
                                 }
                             }
                         }
@@ -677,12 +729,8 @@ MApp {
                             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: {
                                 HapticService.light()
-                                Logger.warn("Browser", "Back button clicked")
                                 if (webView && webView.canGoBack) {
-                                    Logger.warn("Browser", "Calling webView.goBack()")
                                     webView.goBack()
-                                } else {
-                                    Logger.warn("Browser", "Cannot go back - webView: " + (webView ? "exists" : "null") + ", canGoBack: " + (webView ? webView.canGoBack : "N/A"))
                                 }
                             }
                         }
@@ -716,12 +764,8 @@ MApp {
                             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: {
                                 HapticService.light()
-                                Logger.warn("Browser", "Forward button clicked")
                                 if (webView && webView.canGoForward) {
-                                    Logger.warn("Browser", "Calling webView.goForward()")
                                     webView.goForward()
-                                } else {
-                                    Logger.warn("Browser", "Cannot go forward")
                                 }
                             }
                         }
@@ -735,6 +779,7 @@ MApp {
                         color: MColors.surface2
                         border.width: Constants.borderWidthThin
                         border.color: urlInput.activeFocus ? MColors.accent : MColors.border
+                        clip: true
                         
                         TextInput {
                             id: urlInput
@@ -748,6 +793,7 @@ MApp {
                             selectByMouse: true
                             selectedTextColor: MColors.background
                             selectionColor: MColors.accent
+                            clip: true
                             text: {
                                 var currentTab = getCurrentTab()
                                 return currentTab ? currentTab.url : ""
@@ -1083,8 +1129,32 @@ MApp {
     }
     
     onAppClosed: {
+        if (webView) {
+            webView.stop()
+            webView.url = "about:blank"
+            webView = null
+        }
+        
         saveTabs()
         saveBookmarks()
         saveHistory()
+    }
+    
+    Component.onDestruction: {
+        if (backConnection) {
+            browserApp.backPressed.disconnect(backConnection)
+            backConnection = null
+        }
+        
+        if (forwardConnection) {
+            browserApp.forwardPressed.disconnect(forwardConnection)
+            forwardConnection = null
+        }
+        
+        if (webView) {
+            webView.stop()
+            webView.url = "about:blank"
+            webView = null
+        }
     }
 }

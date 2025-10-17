@@ -35,6 +35,12 @@ import MarathonOS.Shell
 Item {
     id: root
     
+    // Enable layer rendering for proper ShaderEffectSource capture in task switcher
+    layer.enabled: true
+    layer.smooth: true
+    layer.mipmap: false
+    layer.samples: 0
+    
     // App metadata
     property string appId: ""
     property string appName: ""
@@ -54,6 +60,7 @@ Item {
     // Navigation
     property int navigationDepth: 0
     property bool canNavigateBack: navigationDepth > 0
+    property bool canNavigateForward: false
     
     // Content
     property alias content: contentLoader.sourceComponent
@@ -61,7 +68,8 @@ Item {
     // Signals
     signal closed()
     signal minimizeRequested()
-    signal backPressed()  // Return true to handle, false to close app
+    signal backPressed()     // Swipe left/back gesture
+    signal forwardPressed()  // Swipe right/forward gesture
     
     // Lifecycle signals (aligned with Android/iOS)
     signal appCreated()       // onCreate (Android) / didFinishLaunching (iOS)
@@ -101,6 +109,22 @@ Item {
         Logger.info("MApp", appId + " at root, minimizing (not closing)")
         minimizeRequested()
         return true  // We handled it (minimize, don't close)
+    }
+    
+    /**
+     * Handle system forward gesture (swipe right on nav bar)
+     * @returns {bool} - true if handled, false to ignore
+     */
+    function handleForward() {
+        Logger.info("MApp", appId + " handleForward() called, canNavigateForward: " + canNavigateForward)
+        
+        if (canNavigateForward) {
+            Logger.info("MApp", appId + " can navigate forward, emitting forwardPressed signal")
+            forwardPressed()
+            return true
+        }
+        
+        return false  // Not handled
     }
     
     /**

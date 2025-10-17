@@ -73,39 +73,48 @@ SettingsPageTemplate {
                                 }
                             }
                             
-                            Row {
-                                anchors.fill: parent
-                                anchors.leftMargin: Constants.spacingMedium
-                                anchors.rightMargin: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                            Item {
+                                width: parent.width
+                                height: parent.height
                                 
                                 Icon {
+                                    id: soundIcon
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: Constants.spacingMedium
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: soundPickerPage.currentSound === modelData ? "volume-2" : "music"
                                     size: Constants.iconSizeMedium
                                     color: soundPickerPage.currentSound === modelData ? Colors.accent : Colors.textSecondary
+                                    z: 2
                                 }
                                 
                                 Text {
+                                    anchors.left: soundIcon.right
+                                    anchors.leftMargin: Constants.spacingMedium
+                                    anchors.right: checkBox.left
+                                    anchors.rightMargin: Constants.spacingMedium
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - Constants.iconSizeMedium - Constants.iconSizeMedium - Constants.spacingMedium * 4
                                     text: SettingsManagerCpp.formatSoundName(modelData)
                                     color: Colors.text
                                     font.pixelSize: Typography.sizeBody
                                     font.family: Typography.fontFamily
                                     font.weight: soundPickerPage.currentSound === modelData ? Font.DemiBold : Font.Normal
                                     elide: Text.ElideRight
+                                    z: 1
                                 }
                                 
                                 Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    id: checkBox
                                     anchors.right: parent.right
+                                    anchors.rightMargin: Constants.spacingMedium
+                                    anchors.verticalCenter: parent.verticalCenter
                                     width: Constants.iconSizeMedium
                                     height: Constants.iconSizeMedium
                                     radius: Constants.iconSizeMedium / 2
                                     color: soundPickerPage.currentSound === modelData ? Colors.accent : "transparent"
                                     border.width: Constants.borderWidthMedium
                                     border.color: soundPickerPage.currentSound === modelData ? Colors.accent : Colors.border
+                                    z: 2
                                     
                                     Icon {
                                         anchors.centerIn: parent
@@ -121,11 +130,6 @@ SettingsPageTemplate {
                                 }
                             }
                             
-                            SoundEffect {
-                                id: soundEffect
-                                source: modelData
-                            }
-                            
                             MouseArea {
                                 id: soundMouseArea
                                 anchors.fill: parent
@@ -133,8 +137,6 @@ SettingsPageTemplate {
                                     Logger.info("SoundPickerPage", "Selected sound: " + modelData)
                                     soundPickerPage.currentSound = modelData
                                     soundPickerPage.soundSelected(modelData)
-                                    
-                                    soundEffect.play()
                                 }
                             }
                         }

@@ -143,6 +143,7 @@ void AppModel::loadFromRegistry(QObject* registryObj)
     qDebug() << "[AppModel] Loading apps from registry...";
     
     QStringList appIds = registry->getAllAppIds();
+    appIds.sort(); // Sort alphabetically for consistent ordering
     for (const QString& appId : appIds) {
         QVariantMap appInfo = registry->getApp(appId);
         

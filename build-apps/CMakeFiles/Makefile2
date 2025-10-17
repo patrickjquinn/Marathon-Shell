@@ -66,6 +66,7 @@ CMAKE_BINARY_DIR = /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-
 all: browser/all
 all: settings/all
 all: clock/all
+all: calculator/all
 all: phone/all
 all: messages/all
 all: notes/all
@@ -80,6 +81,7 @@ all: maps/all
 codegen: browser/codegen
 codegen: settings/codegen
 codegen: clock/codegen
+codegen: calculator/codegen
 codegen: phone/codegen
 codegen: messages/codegen
 codegen: notes/codegen
@@ -94,6 +96,7 @@ codegen: maps/codegen
 preinstall: browser/preinstall
 preinstall: settings/preinstall
 preinstall: clock/preinstall
+preinstall: calculator/preinstall
 preinstall: phone/preinstall
 preinstall: messages/preinstall
 preinstall: notes/preinstall
@@ -108,6 +111,7 @@ preinstall: maps/preinstall
 clean: browser/clean
 clean: settings/clean
 clean: clock/clean
+clean: calculator/clean
 clean: phone/clean
 clean: messages/clean
 clean: notes/clean
@@ -136,6 +140,25 @@ browser/preinstall:
 # Recursive "clean" directory target.
 browser/clean:
 .PHONY : browser/clean
+
+#=============================================================================
+# Directory level rules for directory calculator
+
+# Recursive "all" directory target.
+calculator/all:
+.PHONY : calculator/all
+
+# Recursive "codegen" directory target.
+calculator/codegen:
+.PHONY : calculator/codegen
+
+# Recursive "preinstall" directory target.
+calculator/preinstall:
+.PHONY : calculator/preinstall
+
+# Recursive "clean" directory target.
+calculator/clean:
+.PHONY : calculator/clean
 
 #=============================================================================
 # Directory level rules for directory calendar

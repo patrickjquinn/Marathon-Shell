@@ -27,7 +27,9 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     
     create();
     
-    defaultInputDevice()->setKeyboardFocus(defaultSeat()->keyboardFocus());
+    // Note: Keyboard focus is managed automatically by QWaylandCompositor in Qt6
+    // The defaultInputDevice() API was removed in newer Qt6 versions
+    // Keyboard focus handling is now done internally by the compositor
     
     qDebug() << "[WaylandCompositor] Initialized on socket:" << socketName()
              << "output size:" << m_output->window()->size();

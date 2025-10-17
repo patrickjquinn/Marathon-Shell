@@ -196,14 +196,14 @@ Rectangle {
                 if (diffX < 0 || velocityX < 0) {
                     Logger.gesture("NavBar", "swipeLeft", {velocity: velocityX, isAppOpen: isAppOpen})
                     if (isAppOpen) {
-                        // When app is open, swipe left = back gesture (like browser back)
+                        // When app is open, swipe left = back gesture
                         swipeBack()
                     } else {
                         // Otherwise, navigate pages left
                         swipeLeft()
                     }
                 } else {
-                    Logger.gesture("NavBar", "swipeRight", {velocity: velocityX})
+                    Logger.gesture("NavBar", "swipeRight", {velocity: velocityX, isAppOpen: isAppOpen, diffX: diffX})
                     swipeRight()
                 }
                 currentX = 0

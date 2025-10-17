@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -40,7 +41,7 @@ Rectangle {
                     width: Constants.touchTargetSmall
                     height: Constants.touchTargetSmall
                     radius: Constants.borderRadiusSmall
-                    color: backMouseArea.pressed ? MColors.surfaceHover : "transparent"
+                    color: backMouseArea.pressed ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
                     
                     Icon {
                         anchors.centerIn: parent
@@ -86,7 +87,7 @@ Rectangle {
             delegate: Rectangle {
                 width: parent.width
                 height: Constants.touchTargetLarge
-                color: delegateMouseArea.pressed ? MColors.surfaceHover : "transparent"
+                color: delegateMouseArea.pressed ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
                 
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -95,34 +96,33 @@ Rectangle {
                     color: MColors.border
                 }
                 
-                Row {
+                RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: Constants.spacingLarge
                     anchors.rightMargin: Constants.spacingLarge
                     spacing: Constants.spacingMedium
                     
                     Icon {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         name: "search"
                         size: Constants.iconSizeSmall
                         color: MColors.textSecondary
                     }
                     
                     Text {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         text: model.name
                         font.pixelSize: Constants.fontSizeMedium
                         color: MColors.text
                     }
                     
                     Item {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - parent.spacing * 2 - parent.children[0].width - parent.children[1].width - parent.children[3].width
-                        height: 1
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
                     }
                     
                     Icon {
-                        anchors.verticalCenter: parent.verticalCenter
+                        Layout.alignment: Qt.AlignVCenter
                         name: "check"
                         size: Constants.iconSizeSmall
                         color: MColors.accent

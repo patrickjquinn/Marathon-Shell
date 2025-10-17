@@ -132,7 +132,7 @@ SettingsPageTemplate {
                                 anchors.margins: Constants.spacingSmall
                                 text: modelData.name
                                 color: Colors.text
-                                font.pixelSize: Typography.sizeCaption
+                                font.pixelSize: Typography.sizeXSmall
                                 font.family: Typography.fontFamily
                                 font.weight: WallpaperStore.currentWallpaper === modelData.path ? Font.Bold : Font.Normal
                                 horizontalAlignment: Text.AlignHCenter

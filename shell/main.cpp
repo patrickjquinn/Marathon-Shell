@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
         "qt.qpa.*=false\n"         // Disable Qt Platform Abstraction spam (mouse, cursor, etc.)
         "qt.pointer.*=false\n"     // Disable pointer/mouse tracking spam
         "qt.quick.*=false\n"       // Disable Qt Quick internal spam
+        "qt.scenegraph.*=false\n"  // Disable scene graph warnings (pen interceptors, etc.)
         "marathon.*.info=true\n"   // Enable info for our own categories
     );
     

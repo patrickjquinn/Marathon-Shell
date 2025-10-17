@@ -21,6 +21,27 @@ Item {
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * 0.43  // 43% threshold
     
+    // Handle deep link requests from NavigationRouter
+    Connections {
+        target: NavigationRouter
+        
+        function onDeepLinkRequested(appId, route, params) {
+            Logger.info("Shell", "Deep link requested: " + appId)
+            
+            // Launch the app
+            var app = AppStore.getApp(appId)
+            if (app) {
+                UIStore.openApp(app.id, app.name, app.icon)
+                appWindow.show(app.id, app.name, app.icon, app.type)
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    AppLifecycleManager.bringToForeground(app.id)
+                }
+            } else {
+                Logger.warn("Shell", "App not found for deep link: " + appId)
+            }
+        }
+    }
+    
     Component.onCompleted: {
         // Load persisted settings
         Constants.userScaleFactor = SettingsManagerCpp.userScaleFactor
@@ -287,6 +308,15 @@ Item {
             }
         
             onSwipeRight: {
+                // Check if app can handle forward navigation first
+                if (UIStore.appWindowOpen && typeof AppLifecycleManager !== 'undefined') {
+                    var handled = AppLifecycleManager.handleSystemForward()
+                    if (handled) {
+                        return
+                    }
+                }
+                
+                // Otherwise, navigate pages
                 if (pageView.currentIndex > 0) {
                     pageView.decrementCurrentIndex()
                     Router.navigateRight()
@@ -643,6 +673,14 @@ Item {
         
         onClosed: {
             UIStore.closeQuickSettings()
+        }
+        
+        onLaunchApp: (app) => {
+            UIStore.openApp(app.id, app.name, app.icon)
+            appWindow.show(app.id, app.name, app.icon, app.type)
+            if (typeof AppLifecycleManager !== 'undefined') {
+                AppLifecycleManager.bringToForeground(app.id)
+            }
         }
     }
     

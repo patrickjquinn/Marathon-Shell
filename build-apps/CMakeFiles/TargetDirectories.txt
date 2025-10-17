@@ -22,6 +22,12 @@
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/clock/CMakeFiles/install.dir
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/clock/CMakeFiles/install/local.dir
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/clock/CMakeFiles/install/strip.dir
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/calculator/CMakeFiles/edit_cache.dir
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/calculator/CMakeFiles/rebuild_cache.dir
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/calculator/CMakeFiles/list_install_components.dir
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/calculator/CMakeFiles/install.dir
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/calculator/CMakeFiles/install/local.dir
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/calculator/CMakeFiles/install/strip.dir
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/phone/CMakeFiles/edit_cache.dir
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/phone/CMakeFiles/rebuild_cache.dir
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/phone/CMakeFiles/list_install_components.dir

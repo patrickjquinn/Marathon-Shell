@@ -26,8 +26,8 @@ Item {
                 delegate: AlarmItem {
                     width: alarmsList.width
                     alarmId: modelData.id
-                    alarmHour: modelData.hour
-                    alarmMinute: modelData.minute
+                    alarmHour: modelData.time ? _getHour(modelData.time) : (modelData.hour || 0)
+                    alarmMinute: modelData.time ? _getMinute(modelData.time) : (modelData.minute || 0)
                     alarmLabel: modelData.label
                     alarmEnabled: modelData.enabled
                     
@@ -37,6 +37,18 @@ Item {
                     
                     onDeleted: {
                         clockApp.deleteAlarm(alarmId)
+                    }
+                    
+                    function _getHour(timeStr) {
+                        if (!timeStr) return 0
+                        var parts = timeStr.split(":")
+                        return parseInt(parts[0])
+                    }
+                    
+                    function _getMinute(timeStr) {
+                        if (!timeStr) return 0
+                        var parts = timeStr.split(":")
+                        return parseInt(parts[1])
                     }
                 }
                 

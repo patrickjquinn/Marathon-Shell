@@ -9,6 +9,7 @@
 #include <QWaylandWlShell>
 #include <QWaylandQuickOutput>
 #include <QWaylandClient>
+#include <QWaylandSeat>
 #include <QQuickWindow>
 #include <QMap>
 #include <QProcess>

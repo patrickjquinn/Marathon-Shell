@@ -154,6 +154,21 @@ QtObject {
         return false
     }
     
+    function handleSystemForward() {
+        if (!foregroundApp) {
+            return false
+        }
+        
+        var appId = foregroundApp.appId
+        
+        if (appRegistry[appId]) {
+            var handled = appRegistry[appId].handleForward()
+            return handled
+        }
+        
+        return false
+    }
+    
     /**
      * Minimize current foreground app
      */

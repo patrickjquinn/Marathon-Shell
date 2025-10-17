@@ -10,6 +10,57 @@ Item {
     
     // No component definitions needed - we'll reference live app instances from AppLifecycleManager
     
+    // Empty state - show time and date like lock screen
+    Column {
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -80 - Constants.navBarHeight
+        spacing: Constants.spacingSmall
+        visible: TaskModel.taskCount === 0
+        z: 1
+        
+        Text {
+            text: SystemStatusStore.timeString
+            color: MColors.text
+            font.pixelSize: 96
+            font.weight: Font.Thin
+            anchors.horizontalCenter: parent.horizontalCenter
+            
+            // Drop shadow using multiple text layers
+            Text {
+                text: parent.text
+                color: "#80000000"
+                font.pixelSize: parent.font.pixelSize
+                font.weight: parent.font.weight
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 2
+                z: -1
+            }
+        }
+        
+        Text {
+            text: SystemStatusStore.dateString
+            color: MColors.text
+            font.pixelSize: Typography.sizeLarge
+            font.weight: Font.Normal
+            anchors.horizontalCenter: parent.horizontalCenter
+            opacity: 0.9
+            
+            // Drop shadow using multiple text layers
+            Text {
+                text: parent.text
+                color: "#80000000"
+                font.pixelSize: parent.font.pixelSize
+                font.weight: parent.font.weight
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 2
+                z: -1
+                opacity: parent.opacity
+            }
+        }
+    }
+    
     // Background click to close (but don't steal events from cards)
     MouseArea {
         anchors.fill: parent
@@ -90,9 +141,44 @@ Item {
                         border.color: cardDragArea.pressed ? MColors.accentLight : MColors.borderInner
                         antialiasing: Constants.enableAntialiasing
                         
+                        property bool closing: false
+                        
+                        scale: closing ? 0.7 : 1.0
+                        opacity: closing ? 0.0 : 1.0
+                        
+                        Behavior on scale {
+                            enabled: Constants.enableAnimations
+                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                        }
+                        
+                        Behavior on opacity {
+                            enabled: Constants.enableAnimations
+                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                        }
+                        
                         Behavior on border.color {
                             enabled: Constants.enableAnimations
                             ColorAnimation { duration: Constants.animationFast }
+                        }
+                        
+                        SequentialAnimation {
+                            id: closeAnimation
+                            
+                            ScriptAction {
+                                script: cardRoot.closing = true
+                            }
+                            
+                            PauseAnimation { duration: 250 }
+                            
+                            ScriptAction {
+                                script: {
+                                    if (typeof AppLifecycleManager !== 'undefined') {
+                                        AppLifecycleManager.closeApp(model.appId)
+                                    }
+                                    TaskModel.closeTask(model.id)
+                                    cardRoot.closing = false
+                                }
+                            }
                         }
                 
                 // FULL CARD MouseArea for dragging (covers preview AND banner)
@@ -270,12 +356,12 @@ Item {
                     border.color: Qt.rgba(255, 255, 255, 0.03)
                 }
                         
-                        Column {
+                        Item {
                             anchors.fill: parent
                             
                             Rectangle {
-                                width: parent.width
-                                height: parent.height - 50
+                                anchors.fill: parent
+                                anchors.bottomMargin: 50
                                 color: Colors.backgroundDark
                                 radius: parent.parent.radius
                                 
@@ -303,7 +389,7 @@ Item {
                                                 property var liveApp: typeof AppLifecycleManager !== 'undefined' ? 
                                                     AppLifecycleManager.getAppInstance(model.appId) : null
                                                 
-                                                // Live preview using ShaderEffectSource (same approach as Wayland)
+                                                // Live preview using ShaderEffectSource with forced updates
                                                 ShaderEffectSource {
                                                     id: liveSnapshot
                                                     anchors.top: parent.top
@@ -312,9 +398,83 @@ Item {
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                                     sourceItem: previewContainer.liveApp
                                                     live: true
-                                                    recursive: false
-                                                    visible: previewContainer.liveApp !== null
+                                                    recursive: true
+                                                    visible: previewContainer.liveApp !== null && model.appId !== "browser"
                                                     hideSource: false
+                                                    mipmap: false
+                                                    smooth: false
+                                                    format: ShaderEffectSource.RGBA
+                                                    samples: 0
+                                                    
+                                                    // Force multiple updates to catch all content
+                                                    Timer {
+                                                        interval: 50
+                                                        repeat: true
+                                                        running: liveSnapshot.visible
+                                                        onTriggered: liveSnapshot.scheduleUpdate()
+                                                    }
+                                                    
+                                                    // Force update after content loads
+                                                    Connections {
+                                                        target: previewContainer.liveApp
+                                                        function onChildrenChanged() {
+                                                            liveSnapshot.scheduleUpdate()
+                                                        }
+                                                    }
+                                                    
+                                                    // Force update when app becomes visible
+                                                    onVisibleChanged: {
+                                                        if (visible) {
+                                                            liveSnapshot.scheduleUpdate()
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Special browser preview fallback
+                                                Rectangle {
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    visible: previewContainer.liveApp !== null && model.appId === "browser"
+                                                    color: MColors.background
+                                                    
+                                                    // Browser UI elements
+                                                    Rectangle {
+                                                        id: browserUrlBar
+                                                        anchors.top: parent.top
+                                                        anchors.left: parent.left
+                                                        anchors.right: parent.right
+                                                        height: 50
+                                                        color: MColors.surface
+                                                        border.width: 1
+                                                        border.color: Qt.rgba(255, 255, 255, 0.1)
+                                                        
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "Browser"
+                                                            color: MColors.text
+                                                            font.pixelSize: Typography.sizeBody
+                                                            font.weight: Font.DemiBold
+                                                        }
+                                                    }
+                                                    
+                                                    Rectangle {
+                                                        anchors.top: browserUrlBar.bottom
+                                                        anchors.left: parent.left
+                                                        anchors.right: parent.right
+                                                        anchors.bottom: parent.bottom
+                                                        color: MColors.background
+                                                        
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "Web content preview\nnot available"
+                                                            color: MColors.textSecondary
+                                                            font.pixelSize: Typography.sizeSmall
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            opacity: 0.7
+                                                        }
+                                                    }
                                                 }
                                                 
                                                 Rectangle {
@@ -364,8 +524,10 @@ Item {
                             }
                             
                             Rectangle {
-                                width: parent.width
-                                height: Constants.touchTargetIndicator
+                                anchors.bottom: parent.bottom
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                height: 50
                         color: Colors.surfaceLight
                                 radius: 0
                                 
@@ -453,12 +615,9 @@ Item {
                                                 Logger.info("TaskSwitcher", "Closing task via button: " + model.appId)
                                                 mouse.accepted = true  // Consume click
                                                 
-                                                // Actually close the app instance, not just remove from TaskModel
-                                                if (typeof AppLifecycleManager !== 'undefined') {
-                                                    AppLifecycleManager.closeApp(model.appId)
-                                                }
+                                                closeAnimation.start()
                                                 
-                                                TaskModel.closeTask(model.id)
+                                                cardDragArea.closeButtonClicked = false
                                             }
                                             }
                                         }
