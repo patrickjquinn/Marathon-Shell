@@ -84,11 +84,16 @@ Item {
                         id: cardRoot
                         anchors.fill: parent
                         anchors.margins: 8
-                color: Qt.rgba(255, 255, 255, 0.04)
-                radius: 4
-                        border.width: 1
-                border.color: cardDragArea.pressed ? Qt.rgba(20, 184, 166, 0.4) : Qt.rgba(255, 255, 255, 0.12)
-                layer.enabled: true
+                        color: MColors.glass
+                        radius: Constants.borderRadiusSharp
+                        border.width: Constants.borderWidthThin
+                        border.color: cardDragArea.pressed ? MColors.accentLight : MColors.borderInner
+                        antialiasing: Constants.enableAntialiasing
+                        
+                        Behavior on border.color {
+                            enabled: Constants.enableAnimations
+                            ColorAnimation { duration: Constants.animationFast }
+                        }
                 
                 // FULL CARD MouseArea for dragging (covers preview AND banner)
                 MouseArea {

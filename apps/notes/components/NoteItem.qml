@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: noteItem
@@ -42,8 +43,8 @@ Item {
         
         Rectangle {
             anchors.fill: parent
-            color: mouseArea.pressed ? Colors.surfaceLight : "transparent"
-            radius: Constants.borderRadiusMedium
+            color: mouseArea.pressed ? MColors.surface2 : "transparent"
+            radius: Constants.borderRadiusSharp
             
             Behavior on color {
                 ColorAnimation { duration: 150 }
@@ -61,7 +62,7 @@ Item {
                 
                 Text {
                     text: noteTitle || "Untitled"
-                    color: Colors.text
+                    color: MColors.text
                     font.pixelSize: Constants.fontSizeMedium
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
@@ -71,7 +72,7 @@ Item {
                 Text {
                     id: timestampText
                     text: formatTimestamp(noteTimestamp)
-                    color: Colors.textSecondary
+                    color: MColors.textSecondary
                     font.pixelSize: Constants.fontSizeSmall
                     anchors.baseline: parent.children[0].baseline
                 }
@@ -80,7 +81,7 @@ Item {
             Text {
                 width: parent.width
                 text: noteContent.substring(0, 100) + (noteContent.length > 100 ? "..." : "")
-                color: Colors.textSecondary
+                    color: MColors.textSecondary
                 font.pixelSize: Constants.fontSizeSmall
                 elide: Text.ElideRight
                 maximumLineCount: 2
@@ -95,7 +96,7 @@ Item {
             anchors.leftMargin: Constants.spacingMedium
             anchors.rightMargin: Constants.spacingMedium
             height: Constants.borderWidthThin
-            color: Colors.border
+            color: MColors.border
         }
         
         MouseArea {

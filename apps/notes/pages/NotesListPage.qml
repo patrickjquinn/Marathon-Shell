@@ -1,7 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../components"
+import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
 
 Page {
     id: listPage
@@ -10,124 +12,87 @@ Page {
     signal openNote(int noteId)
     
     background: Rectangle {
-        color: Colors.background
+        color: MColors.background
     }
     
-    Column {
+    MScrollView {
+        id: scrollView
         anchors.fill: parent
-        spacing: 0
+        contentHeight: notesContent.height + 40
         
-        Rectangle {
+        Column {
+            id: notesContent
             width: parent.width
-            height: Constants.statusBarHeight + Constants.spacingLarge
-            color: Colors.surface
+            spacing: Constants.spacingXLarge
+            leftPadding: 24
+            rightPadding: 24
+            topPadding: 24
+            bottomPadding: 24
             
-            Column {
-                anchors.fill: parent
-                anchors.margins: Constants.spacingLarge
-                spacing: Constants.spacingMedium
+            Text {
+                text: "Notes"
+                color: MColors.text
+                font.pixelSize: Constants.fontSizeXLarge
+                font.weight: Font.Bold
+                font.family: Constants.fontFamily
+            }
+            
+            Section {
+                title: "Your Notes"
+                subtitle: notesApp.notes.length === 0 ? "No notes yet. Tap the + button to create one." : notesApp.notes.length + " note" + (notesApp.notes.length === 1 ? "" : "s")
+                width: parent.width - 48
                 
-                Item {
-                    width: parent.width
-                    height: Constants.fontSizeXXLarge + Constants.spacingMedium
+                Repeater {
+                    model: notesApp.notes
                     
-                    Text {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Notes"
-                        color: Colors.text
-                        font.pixelSize: Constants.fontSizeXXLarge
-                        font.weight: Font.Bold
-                    }
-                    
-                    Button {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "New"
-                        variant: "primary"
-                        width: Constants.touchTargetLarge + Constants.spacingMedium
-                        onClicked: {
-                            HapticService.light()
-                            listPage.createNewNote()
+                    SettingsListItem {
+                        title: modelData.title || "Untitled"
+                        subtitle: modelData.content.substring(0, 100) + (modelData.content.length > 100 ? "..." : "")
+                        iconName: "file-text"
+                        showChevron: true
+                        value: formatTimestamp(modelData.timestamp)
+                        onSettingClicked: {
+                            openNote(modelData.id)
                         }
                     }
                 }
             }
             
-            Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: Constants.borderWidthThin
-                color: Colors.border
-            }
+            Item { height: 40 }
         }
+    }
+    
+    MIconButton {
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: Constants.spacingLarge
+        icon: "plus"
+        size: Constants.touchTargetLarge
+        variant: "primary"
+        shape: "circular"
+        onClicked: {
+            listPage.createNewNote()
+        }
+    }
+    
+    function formatTimestamp(timestamp) {
+        var date = new Date(timestamp)
+        var now = new Date()
+        var diff = now - date
         
-        Item {
-            width: parent.width
-            height: parent.height - Constants.statusBarHeight - Constants.spacingLarge
-            
-            ListView {
-                id: notesList
-                anchors.fill: parent
-                anchors.topMargin: Constants.spacingMedium
-                clip: true
-                model: notesApp.notes
-                spacing: 0
-                
-                delegate: NoteItem {
-                    width: notesList.width
-                    noteId: modelData.id
-                    noteTitle: modelData.title
-                    noteContent: modelData.content
-                    noteTimestamp: modelData.timestamp
-                    
-                    onClicked: {
-                        HapticService.light()
-                        listPage.openNote(noteId)
-                    }
-                }
-                
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: Math.min(parent.width * 0.8, Constants.screenWidth * 0.6)
-                    height: emptyColumn.height
-                    color: "transparent"
-                    visible: notesList.count === 0
-                    
-                    Column {
-                        id: emptyColumn
-                        anchors.centerIn: parent
-                        spacing: Constants.spacingLarge
-                        
-                        Icon {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            name: "file-text"
-                            size: Constants.iconSizeXLarge * 2
-                            color: Colors.textSecondary
-                            opacity: 0.5
-                        }
-                        
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "No notes yet"
-                            color: Colors.textSecondary
-                            font.pixelSize: Constants.fontSizeLarge
-                            font.weight: Font.Medium
-                        }
-                        
-                        Text {
-                            width: parent.width
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Tap the New button to create your first note"
-                            color: Colors.textSecondary
-                            font.pixelSize: Constants.fontSizeMedium
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                        }
-                    }
-                }
-            }
+        if (diff < 60000) {
+            return "Just now"
+        } else if (diff < 3600000) {
+            var mins = Math.floor(diff / 60000)
+            return mins + "m ago"
+        } else if (diff < 86400000) {
+            var hours = Math.floor(diff / 3600000)
+            return hours + "h ago"
+        } else if (diff < 604800000) {
+            var days = Math.floor(diff / 86400000)
+            return days + "d ago"
+        } else {
+            return Qt.formatDate(date, "MMM d")
         }
     }
 }
-

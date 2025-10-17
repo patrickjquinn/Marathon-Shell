@@ -20,6 +20,10 @@ set(CMAKE_AUTOUIC ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Use Homebrew Qt 6.9.3 for compatibility with WebEngine
+set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6" ${CMAKE_PREFIX_PATH})
+message(STATUS "Using Homebrew Qt 6.9.3 for WebEngine compatibility")
+
 find_package(Qt6 6.5 REQUIRED COMPONENTS
     Core
     Gui
@@ -30,6 +34,16 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS
     DBus
     Multimedia
 )
+
+# Try to find Qt6WebEngineQuick
+find_package(Qt6 6.5 COMPONENTS WebEngineQuick)
+if(TARGET Qt6::WebEngineQuick)
+    message(STATUS "Qt WebEngineQuick found - enabling web browser")
+    set(HAVE_WEBENGINE TRUE)
+else()
+    message(STATUS "Qt WebEngineQuick not found - browser will use mockup UI")
+    set(HAVE_WEBENGINE FALSE)
+endif()
 
 find_package(Qt6 6.5 COMPONENTS WaylandCompositor)
 if(TARGET Qt6::WaylandCompositor)

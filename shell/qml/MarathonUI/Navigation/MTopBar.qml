@@ -1,5 +1,6 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 import "../Core"
 
 Rectangle {
@@ -22,9 +23,9 @@ Rectangle {
     
     Row {
         anchors.fill: parent
-        anchors.leftMargin: MSpacing.md
-        anchors.rightMargin: MSpacing.md
-        spacing: MSpacing.md
+        anchors.leftMargin: Constants.spacingMedium
+        anchors.rightMargin: Constants.spacingMedium
+        spacing: Constants.spacingMedium
         
         Item {
             id: leftContainer
@@ -42,11 +43,11 @@ Rectangle {
         Text {
             text: root.title
             color: MColors.text
-            font.pixelSize: MTypography.sizeLarge
-            font.weight: MTypography.weightDemiBold
+            font.pixelSize: Constants.fontSizeLarge
+            font.weight: Font.DemiBold
             font.family: MTypography.fontFamily
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - leftContainer.width - rightContainer.width - MSpacing.md * 2
+            width: parent.width - leftContainer.width - rightContainer.width - Constants.spacingMedium * 2
             elide: Text.ElideRight
         }
         

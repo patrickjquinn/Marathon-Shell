@@ -4,6 +4,11 @@
 #include <QDebug>
 #include <QQmlContext>
 #include <QDir>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+#include <QStandardPaths>
+#include <QLoggingCategory>
 
 #include "src/desktopfileparser.h"
 #include "src/appmodel.h"
@@ -23,12 +28,102 @@
 #include "src/waylandcompositor.h"
 #endif
 
+#ifdef HAVE_WEBENGINE
+#include <QtWebEngineQuick/QtWebEngineQuick>
+#endif
+
+// Custom message handler for logging Qt messages
+static QFile *logFile = nullptr;
+static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    QString logLevel;
+    switch (type) {
+    case QtDebugMsg:
+        logLevel = "DEBUG";
+        break;
+    case QtInfoMsg:
+        logLevel = "INFO";
+        break;
+    case QtWarningMsg:
+        logLevel = "WARNING";
+        break;
+    case QtCriticalMsg:
+        logLevel = "CRITICAL";
+        break;
+    case QtFatalMsg:
+        logLevel = "FATAL";
+        break;
+    }
+    
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
+    QString logMessage = QString("[%1] [%2] %3").arg(timestamp, logLevel, msg);
+    
+    if (context.file) {
+        logMessage += QString(" (%1:%2)").arg(context.file).arg(context.line);
+    }
+    
+    // Write to file
+    if (logFile && logFile->isOpen()) {
+        QTextStream stream(logFile);
+        stream << logMessage << "\n";
+        stream.flush();
+    }
+    
+    // Also output to stderr for development
+    fprintf(stderr, "%s\n", qPrintable(logMessage));
+    
+    // For fatal errors, close log file before abort
+    if (type == QtFatalMsg) {
+        if (logFile) {
+            logFile->close();
+            delete logFile;
+            logFile = nullptr;
+        }
+        abort();
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    // Configure Qt logging - filter out noisy categories
+    QLoggingCategory::setFilterRules(
+        "*.debug=false\n"
+        "*.info=false\n"           // Disable info by default
+        "*.warning=true\n"
+        "*.error=true\n"
+        "qt.qpa.*=false\n"         // Disable Qt Platform Abstraction spam (mouse, cursor, etc.)
+        "qt.pointer.*=false\n"     // Disable pointer/mouse tracking spam
+        "qt.quick.*=false\n"       // Disable Qt Quick internal spam
+        "marathon.*.info=true\n"   // Enable info for our own categories
+    );
+    
     QGuiApplication::setApplicationName("Marathon Shell");
     QGuiApplication::setOrganizationName("Marathon OS");
     
+#ifdef HAVE_WEBENGINE
+    QtWebEngineQuick::initialize();
+#endif
+    
     QGuiApplication app(argc, argv);
+    
+    // Initialize logging
+    QString logPath = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/.marathon";
+    QDir logDir(logPath);
+    if (!logDir.exists()) {
+        logDir.mkpath(".");
+    }
+    
+    logFile = new QFile(logPath + "/crash.log");
+    if (logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        qInstallMessageHandler(marathonMessageHandler);
+        qInfo() << "Marathon Shell starting...";
+        qInfo() << "Log file:" << logFile->fileName();
+    } else {
+        qWarning() << "Failed to open log file:" << logFile->fileName();
+        delete logFile;
+        logFile = nullptr;
+    }
+    
     QQuickStyle::setStyle("Basic");
     
 #ifdef HAVE_WAYLAND
@@ -107,10 +202,23 @@ int main(int argc, char *argv[])
     engine.addImportPath("qrc:/");
     engine.addImportPath(":/");
     
-    // Add build directory path for MarathonUI modules
+    // Add build directory path for MarathonUI modules (for development)
     QString buildPath = QCoreApplication::applicationDirPath() + "/../../../qml";
     engine.addImportPath(buildPath);
     qDebug() << "Added QML import path:" << buildPath;
+    
+    // MarathonUI plugin modules are built in qml/MarathonUI/*/qml/
+    QString marathonUIContainersPath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Containers/qml";
+    engine.addImportPath(marathonUIContainersPath);
+    qDebug() << "Added MarathonUI.Containers import path:" << marathonUIContainersPath;
+    
+    QString marathonUICorePath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Core/qml";
+    engine.addImportPath(marathonUICorePath);
+    qDebug() << "Added MarathonUI.Core import path:" << marathonUICorePath;
+    
+    QString marathonUIControlsPath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Controls/qml";
+    engine.addImportPath(marathonUIControlsPath);
+    qDebug() << "Added MarathonUI.Controls import path:" << marathonUIControlsPath;
     
     const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     

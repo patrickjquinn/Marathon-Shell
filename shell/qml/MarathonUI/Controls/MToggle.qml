@@ -1,5 +1,5 @@
 import QtQuick
-import "../Theme"
+import MarathonUI.Theme
 
 Item {
     id: root

@@ -21,6 +21,8 @@ MApp {
         anchors.fill: parent
         initialItem: settingsMainPage
         
+        property var backConnection: null
+        
         // Update parent's navigationDepth when stack changes
         onDepthChanged: {
             var newDepth = depth - 1
@@ -32,11 +34,17 @@ MApp {
             settingsApp.navigationDepth = depth - 1
             
             // Connect MApp back signal to pop stack directly
-            settingsApp.backPressed.connect(function() {
+            backConnection = settingsApp.backPressed.connect(function() {
                 if (depth > 1) {
                     pop()
                 }
             })
+        }
+        
+        Component.onDestruction: {
+            if (backConnection) {
+                settingsApp.backPressed.disconnect(backConnection)
+            }
         }
         
         // BB10-inspired slide transitions

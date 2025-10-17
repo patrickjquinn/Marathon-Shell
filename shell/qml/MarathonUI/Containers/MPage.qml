@@ -34,9 +34,9 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: MSpacing.md
-                anchors.rightMargin: MSpacing.md
-                spacing: MSpacing.md
+                anchors.leftMargin: Constants.spacingMedium
+                anchors.rightMargin: Constants.spacingMedium
+                spacing: Constants.spacingMedium
                 
                 Icon {
                     visible: showBackButton
@@ -55,8 +55,8 @@ Rectangle {
                 Text {
                     text: root.title
                     color: MColors.text
-                    font.pixelSize: MTypography.sizeLarge
-                    font.weight: MTypography.weightDemiBold
+                    font.pixelSize: Constants.fontSizeLarge
+                    font.weight: Font.DemiBold
                     font.family: MTypography.fontFamily
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -92,7 +92,7 @@ Rectangle {
             Item {
                 id: bottomBarContainer
                 anchors.fill: parent
-                anchors.margins: MSpacing.md
+                anchors.margins: Constants.spacingMedium
             }
         }
     }

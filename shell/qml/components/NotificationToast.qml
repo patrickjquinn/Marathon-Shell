@@ -37,21 +37,24 @@ Item {
         y: -height
         width: Math.min(parent.width - 32, 400)
         height: Constants.hubHeaderHeight
-        radius: MRadius.sm
-        color: Qt.rgba(0, 0, 0, 0.95)
-        border.width: 1
-        border.color: MColors.border
+        radius: Constants.borderRadiusSharp
+        color: MColors.surface
+        border.width: Constants.borderWidthMedium
+        border.color: MColors.borderOuter
+        antialiasing: Constants.enableAntialiasing
         visible: false
         
         property var notification: null
         
+        // Inner border for depth
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
-            radius: parent.radius - 1
+            radius: Constants.borderRadiusSharp
             color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.03)
+            border.width: Constants.borderWidthThin
+            border.color: MColors.borderHighlight
+            antialiasing: Constants.enableAntialiasing
         }
         
         Row {
@@ -62,10 +65,11 @@ Item {
             Rectangle {
                 width: MSpacing.touchTargetLarge
                 height: MSpacing.touchTargetLarge
-                radius: MRadius.sm
-                color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.08)
+                radius: Constants.borderRadiusSharp
+                color: MColors.surface1
+                border.width: Constants.borderWidthThin
+                border.color: MColors.borderOuter
+                antialiasing: Constants.enableAntialiasing
                 anchors.verticalCenter: parent.verticalCenter
                 
                 Icon {
@@ -83,7 +87,7 @@ Item {
                 
                 Text {
                     text: toast.notification?.title || ""
-                    color: Colors.text
+                    color: MColors.text
                     font.pixelSize: Typography.sizeBody
                     font.weight: Font.DemiBold
                     font.family: Typography.fontFamily
@@ -93,7 +97,7 @@ Item {
                 
                 Text {
                     text: toast.notification?.body || ""
-                    color: Colors.textSecondary
+                    color: MColors.textSecondary
                     font.pixelSize: Typography.sizeSmall
                     font.family: Typography.fontFamily
                     elide: Text.ElideRight

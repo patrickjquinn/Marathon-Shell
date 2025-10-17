@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
-import "../Theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: root
@@ -8,57 +9,69 @@ Rectangle {
     property alias text: textInput.text
     property alias placeholderText: placeholder.text
     property alias echoMode: textInput.echoMode
+    property alias textInput: textInput
     property bool disabled: false
     property string variant: "default"
+    property color backgroundColor: MColors.surface
     
     signal accepted()
-    signal textChanged()
     
     implicitWidth: 280
-    implicitHeight: 48
-    radius: MRadius.md
+    implicitHeight: Constants.touchTargetMedium
+    radius: Constants.borderRadiusSharp
     
-    color: MColors.glass
-    border.width: 1
+    color: backgroundColor
+    border.width: Constants.borderWidthThin
     border.color: {
-        if (disabled) return MColors.border
-        if (textInput.activeFocus) return MColors.accent
-        return MColors.glassBorder
+        if (disabled) return MColors.borderLight
+        if (textInput.activeFocus) return MColors.accentBright
+        return MColors.borderOuter
     }
     
-    Behavior on border.color { ColorAnimation { duration: 200 } }
+    antialiasing: Constants.enableAntialiasing
     
-    Row {
+    Behavior on border.color { 
+        enabled: Constants.enableAnimations
+        ColorAnimation { duration: Constants.animationFast } 
+    }
+    
+    // Inner border for depth (shell pattern)
+    Rectangle {
         anchors.fill: parent
-        anchors.margins: MSpacing.md
-        spacing: MSpacing.sm
+        anchors.margins: 1
+        radius: Constants.borderRadiusSharp
+        color: "transparent"
+        border.width: Constants.borderWidthThin
+        border.color: MColors.borderInner
+        antialiasing: Constants.enableAntialiasing
+    }
+    
+    TextInput {
+        id: textInput
+        anchors.fill: parent
+        anchors.margins: Constants.spacingMedium
+        color: disabled ? MColors.textDisabled : MColors.text
+        font.pixelSize: Constants.fontSizeMedium
+        font.family: MTypography.fontFamily
+        verticalAlignment: TextInput.AlignVCenter
+        enabled: !root.disabled
+        selectByMouse: true
+        selectedTextColor: MColors.background
+        selectionColor: MColors.accent
+        clip: true
         
-        TextInput {
-            id: textInput
-            width: parent.width
-            height: parent.height
-            color: disabled ? MColors.textDisabled : MColors.text
-            font.pixelSize: MTypography.sizeBody
-            font.family: MTypography.fontFamily
-            verticalAlignment: TextInput.AlignVCenter
-            enabled: !root.disabled
-            selectByMouse: true
-            selectedTextColor: MColors.background
-            selectionColor: MColors.accent
-            clip: true
-            
-            onAccepted: root.accepted()
-            onTextChanged: root.textChanged()
-        }
-        
-        Text {
-            id: placeholder
-            visible: !textInput.text && !textInput.activeFocus
-            color: MColors.textTertiary
-            font.pixelSize: MTypography.sizeBody
-            font.family: MTypography.fontFamily
-            anchors.verticalCenter: parent.verticalCenter
-        }
+        onAccepted: root.accepted()
+    }
+    
+    Text {
+        id: placeholder
+        anchors.fill: parent
+        anchors.margins: Constants.spacingMedium
+        visible: !textInput.text && !textInput.activeFocus
+        color: MColors.textTertiary
+        font.pixelSize: Constants.fontSizeMedium
+        font.family: MTypography.fontFamily
+        verticalAlignment: Text.AlignVCenter
     }
 }
 

@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
+import MarathonUI.Core
+import MarathonUI.Theme
 import "../components"
 
 SettingsPageTemplate {
@@ -109,7 +111,7 @@ SettingsPageTemplate {
                                 }
                             }
                             
-                            Button {
+                            MButton {
                                 Layout.preferredWidth: Constants.touchTargetLarge + Constants.spacingLarge
                                 text: "Uninstall"
                                 variant: "danger"
@@ -188,7 +190,7 @@ SettingsPageTemplate {
                 Layout.fillWidth: true
                 spacing: Constants.spacingMedium
                 
-                Button {
+                MButton {
                     Layout.fillWidth: true
                     text: "Cancel"
                     variant: "secondary"
@@ -197,7 +199,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                Button {
+                MButton {
                     Layout.fillWidth: true
                     text: "Uninstall"
                     variant: "danger"

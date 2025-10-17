@@ -1,86 +1,59 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
 
-Item {
-    ListView {
+Page {
+    background: Rectangle {
+        color: MColors.background
+    }
+    
+    MScrollView {
+        id: scrollView
         anchors.fill: parent
-        anchors.topMargin: Constants.spacingMedium
-        clip: true
-        model: calendarApp.events
-        spacing: 0
+        contentHeight: calendarContent.height + 40
         
-        delegate: Item {
+        Column {
+            id: calendarContent
             width: parent.width
-            height: Constants.touchTargetLarge
+            spacing: Constants.spacingXLarge
+            leftPadding: 24
+            rightPadding: 24
+            topPadding: 24
+            bottomPadding: 24
             
-            Rectangle {
-                anchors.fill: parent
-                anchors.leftMargin: Constants.spacingLarge
-                anchors.rightMargin: Constants.spacingLarge
-                color: "transparent"
+            Text {
+                text: "Calendar"
+                color: MColors.text
+                font.pixelSize: Constants.fontSizeXLarge
+                font.weight: Font.Bold
+                font.family: Constants.fontFamily
+            }
+            
+            Section {
+                title: "Upcoming Events"
+                subtitle: calendarApp.events.length === 0 ? "No events scheduled. Tap + to create one." : calendarApp.events.length + " event" + (calendarApp.events.length === 1 ? "" : "s")
+                width: parent.width - 48
                 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingXSmall
+                Repeater {
+                    model: calendarApp.events
                     
-                    Text {
-                        text: modelData.title
-                        color: Colors.text
-                        font.pixelSize: Constants.fontSizeMedium
-                        font.weight: Font.DemiBold
+                    SettingsListItem {
+                        title: modelData.title
+                        subtitle: modelData.allDay ? Qt.formatDate(new Date(modelData.date), "MMMM d, yyyy") : 
+                                  Qt.formatDate(new Date(modelData.date), "MMM d") + " at " + modelData.time
+                        iconName: "calendar"
+                        showChevron: true
+                        onSettingClicked: {
+                            console.log("View event:", modelData.title)
+                        }
                     }
-                    
-                    Text {
-                        text: modelData.allDay ? Qt.formatDate(new Date(modelData.date), "MMM d, yyyy") : 
-                              Qt.formatDate(new Date(modelData.date), "MMM d") + " at " + modelData.time
-                        color: Colors.textSecondary
-                        font.pixelSize: Constants.fontSizeSmall
-                    }
-                }
-                
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.leftMargin: Constants.spacingMedium
-                    anchors.rightMargin: Constants.spacingMedium
-                    height: Constants.borderWidthThin
-                    color: Colors.border
                 }
             }
-        }
-        
-        Rectangle {
-            anchors.centerIn: parent
-            width: Math.min(parent.width * 0.8, Constants.screenWidth * 0.6)
-            height: emptyColumn.height
-            color: "transparent"
-            visible: parent.count === 0
             
-            Column {
-                id: emptyColumn
-                anchors.centerIn: parent
-                spacing: Constants.spacingLarge
-                
-                Icon {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    name: "calendar"
-                    size: Constants.iconSizeXLarge * 2
-                    color: Colors.textSecondary
-                    opacity: 0.5
-                }
-                
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: "No events"
-                    color: Colors.textSecondary
-                    font.pixelSize: Constants.fontSizeLarge
-                    font.weight: Font.Medium
-                }
-            }
+            Item { height: 80 }
         }
     }
 }
-

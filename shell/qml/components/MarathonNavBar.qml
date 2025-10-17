@@ -1,16 +1,17 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: navBar
     height: Constants.navBarHeight
-    color: Colors.backgroundDark
+    color: MColors.backgroundDark
     
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: Constants.borderWidthThin
-        color: Colors.borderLight
+        color: MColors.borderOuter
     }
     
     signal swipeLeft()
@@ -32,9 +33,10 @@ Rectangle {
         id: indicator
         width: Constants.cardBannerHeight
         height: Constants.spacingXSmall
-        radius: Constants.borderRadiusSmall / 2
-        color: Colors.text
+        radius: Constants.borderRadiusSharp
+        color: MColors.text
         opacity: 0.9
+        antialiasing: Constants.enableAntialiasing
         
         property real targetX: parent.width / 2 - width / 2
         property real targetY: parent.height / 2 - height / 2

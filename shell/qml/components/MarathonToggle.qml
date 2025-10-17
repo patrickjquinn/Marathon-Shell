@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: toggle
@@ -12,11 +13,11 @@ Item {
     Rectangle {
         id: track
         anchors.fill: parent
-        radius: 4
-        border.width: 1
-        border.color: checked ? Qt.rgba(20, 184, 166, 0.8) : Qt.rgba(255, 255, 255, 0.15)
-        color: checked ? Qt.rgba(20, 184, 166, 0.2) : Qt.rgba(255, 255, 255, 0.05)
-        layer.enabled: true
+        radius: Constants.borderRadiusSharp
+        border.width: Constants.borderWidthThin
+        border.color: checked ? MColors.accentBright : MColors.borderOuter
+        color: checked ? MColors.surface2 : MColors.surface
+        antialiasing: Constants.enableAntialiasing
         
         Behavior on border.color {
             ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
@@ -29,10 +30,11 @@ Item {
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
-            radius: parent.radius - 1
+            radius: Constants.borderRadiusSharp
             color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.03)
+            border.width: Constants.borderWidthThin
+            border.color: MColors.borderInner
+            antialiasing: Constants.enableAntialiasing
         }
     }
     
@@ -42,24 +44,17 @@ Item {
         x: checked ? parent.width - width - 2 : 2
         width: 28
         height: 28
-        radius: 3
-        color: Colors.text
-        border.width: 1
-        border.color: Qt.rgba(0, 0, 0, 0.15)
-        layer.enabled: true
+        radius: Constants.borderRadiusSharp
+        color: MColors.text
+        border.width: Constants.borderWidthThin
+        border.color: MColors.borderShadow
+        antialiasing: Constants.enableAntialiasing
         
-        scale: mouseArea.pressed ? 0.95 : 1.0
+        // NO scale animation - BB10 style
         
         Behavior on x {
             NumberAnimation { 
                 duration: 250
-                easing.type: Easing.OutCubic
-            }
-        }
-        
-        Behavior on scale {
-            NumberAnimation { 
-                duration: 150
                 easing.type: Easing.OutCubic
             }
         }

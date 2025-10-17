@@ -1,7 +1,7 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
 
-Rectangle {
+Item {
     id: root
     
     property string title: ""
@@ -10,43 +10,90 @@ Rectangle {
     property string rightIconName: "chevron-right"
     property bool showRightIcon: true
     property bool showDivider: true
+    property var contextualActions: []
+    property real swipeThreshold: 0.3
     
     signal clicked()
+    signal contextualActionTriggered(int index, string action)
     
-    implicitWidth: parent.width
+    implicitWidth: parent ? parent.width : 300
     implicitHeight: subtitle ? 72 : 56
-    color: mouseArea.pressed ? MColors.glass : "transparent"
+    clip: true
     
-    Behavior on color { ColorAnimation { duration: 150 } }
+    Row {
+        id: actionsRow
+        anchors.right: mainContent.left
+        height: parent.height
+        spacing: 0
+        visible: root.contextualActions.length > 0
+        
+        Repeater {
+            model: root.contextualActions
+            
+            Rectangle {
+                width: Constants.touchTargetLarge
+                height: actionsRow.height
+                color: modelData.color || MColors.error
+                
+                Icon {
+                    name: modelData.icon || "trash"
+                    size: Constants.iconSizeMedium
+                    color: MColors.text
+                    anchors.centerIn: parent
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        root.contextualActionTriggered(index, modelData.action || "")
+                        mainContent.x = 0
+                    }
+                }
+            }
+        }
+    }
+    
+    Rectangle {
+        id: mainContent
+        width: root.width
+        height: root.height
+        x: 0
+        color: mouseArea.pressed ? MColors.glass : MElevation.getSurface(1)
+        
+        Behavior on color {
+            enabled: Constants.enableAnimations
+            ColorAnimation { duration: Constants.animationFast }
+        }
+        
+        Behavior on x {
+            enabled: Constants.enableAnimations && !dragArea.drag.active
+            SmoothedAnimation { velocity: 1000 }
+        }
     
     Row {
         anchors.fill: parent
-        anchors.leftMargin: MSpacing.lg
-        anchors.rightMargin: MSpacing.lg
-        spacing: MSpacing.md
+        anchors.leftMargin: Constants.spacingLarge
+        anchors.rightMargin: Constants.spacingLarge
+        spacing: Constants.spacingMedium
         
-        Image {
+        Icon {
             visible: leftIconName !== ""
-            source: leftIconName !== "" ? "qrc:/images/icons/lucide/" + leftIconName + ".svg" : ""
-            width: 24
-            height: 24
-            fillMode: Image.PreserveAspectFit
+            name: leftIconName
+            size: Constants.iconSizeMedium
+            color: MColors.text
             anchors.verticalCenter: parent.verticalCenter
-            smooth: true
-            antialiasing: true
         }
         
         Column {
-            width: parent.width - (leftIconName !== "" ? 48 : 0) - (showRightIcon ? 40 : 0)
+            width: parent.width - (leftIconName !== "" ? Constants.iconSizeMedium + parent.spacing : 0) - (showRightIcon ? Constants.iconSizeSmall + parent.spacing : 0)
             anchors.verticalCenter: parent.verticalCenter
-            spacing: MSpacing.xs
+            spacing: Constants.spacingXSmall
             
             Text {
                 text: root.title
                 color: MColors.text
-                font.pixelSize: MTypography.sizeBody
-                font.weight: MTypography.weightMedium
-                font.family: MTypography.fontFamily
+                font.pixelSize: Constants.fontSizeMedium
+                font.weight: Font.Medium
                 elide: Text.ElideRight
                 width: parent.width
             }
@@ -55,39 +102,77 @@ Rectangle {
                 visible: subtitle !== ""
                 text: subtitle
                 color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeSmall
-                font.family: MTypography.fontFamily
+                font.pixelSize: Constants.fontSizeSmall
                 elide: Text.ElideRight
                 width: parent.width
             }
         }
         
-        Image {
+        Icon {
             visible: showRightIcon
-            source: "qrc:/images/icons/lucide/" + rightIconName + ".svg"
-            width: 20
-            height: Constants.navBarHeight
-            fillMode: Image.PreserveAspectFit
+            name: rightIconName
+            size: Constants.iconSizeSmall
+            color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
-            smooth: true
-            antialiasing: true
         }
+    }
+    
     }
     
     Rectangle {
         visible: showDivider
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.leftMargin: MSpacing.lg
-        height: 1
+        anchors.bottom: mainContent.bottom
+        anchors.left: mainContent.left
+        anchors.right: mainContent.right
+        anchors.leftMargin: Constants.spacingLarge
+        height: Constants.borderWidthThin
         color: MColors.border
     }
     
     MouseArea {
         id: mouseArea
-        anchors.fill: parent
-        onClicked: root.clicked()
+        anchors.fill: mainContent
+        enabled: !dragArea.drag.active
+        onClicked: {
+            if (Math.abs(mainContent.x) < 5) {
+                root.clicked()
+            }
+        }
+    }
+    
+    MouseArea {
+        id: dragArea
+        anchors.fill: mainContent
+        enabled: root.contextualActions.length > 0
+        
+        property real startX: 0
+        property real startTime: 0
+        
+        drag.target: mainContent
+        drag.axis: Drag.XAxis
+        drag.minimumX: -actionsRow.width
+        drag.maximumX: 0
+        
+        onPressed: function(mouse) {
+            startX = mainContent.x
+            startTime = Date.now()
+        }
+        
+        onReleased: function(mouse) {
+            var delta = mainContent.x - startX
+            var time = Date.now() - startTime
+            var velocity = Math.abs(delta) / time
+            
+            if (Math.abs(mainContent.x) > actionsRow.width * root.swipeThreshold || velocity > 0.5) {
+                mainContent.x = -actionsRow.width
+            } else {
+                mainContent.x = 0
+            }
+        }
+    }
+    
+    function resetSwipe() {
+        mainContent.x = 0
     }
 }
 

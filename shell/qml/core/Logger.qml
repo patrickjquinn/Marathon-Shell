@@ -11,7 +11,7 @@ QtObject {
         ERROR = 3
     }
     
-    property int currentLevel: Logger.Level.INFO
+    property int currentLevel: Logger.Level.WARN
     
     function debug(component, message) {
         if (currentLevel <= Logger.Level.DEBUG) {

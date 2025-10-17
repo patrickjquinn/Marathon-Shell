@@ -1,5 +1,6 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 
 Column {
     id: root
@@ -13,22 +14,22 @@ Column {
     Rectangle {
         visible: title !== ""
         width: parent.width
-        height: subtitle ? 64 : 48
+        height: subtitle ? Constants.touchTargetLarge : Constants.touchTargetMedium
         color: "transparent"
         
         Column {
             anchors.fill: parent
-            anchors.leftMargin: MSpacing.lg
-            anchors.rightMargin: MSpacing.lg
-            anchors.topMargin: MSpacing.md
-            anchors.bottomMargin: MSpacing.sm
-            spacing: MSpacing.xs
+            anchors.leftMargin: Constants.spacingLarge
+            anchors.rightMargin: Constants.spacingLarge
+            anchors.topMargin: Constants.spacingMedium
+            anchors.bottomMargin: Constants.spacingSmall
+            spacing: Constants.spacingXSmall
             
             Text {
                 text: root.title
                 color: MColors.text
-                font.pixelSize: MTypography.sizeSmall
-                font.weight: MTypography.weightDemiBold
+                font.pixelSize: Constants.fontSizeLarge
+                font.weight: Font.DemiBold
                 font.family: MTypography.fontFamily
                 textFormat: Text.PlainText
             }
@@ -37,7 +38,7 @@ Column {
                 visible: subtitle !== ""
                 text: subtitle
                 color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeXSmall
+                font.pixelSize: Constants.fontSizeXSmall
                 font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
                 width: parent.width
@@ -48,18 +49,20 @@ Column {
     Rectangle {
         width: parent.width
         implicitHeight: contentContainer.childrenRect.height
-        color: MColors.glass
-        radius: MRadius.md
-        border.width: 1
-        border.color: MColors.glassBorder
+        color: MColors.surface
+        radius: Constants.borderRadiusSharp
+        border.width: Constants.borderWidthMedium
+        border.color: MColors.border
+        antialiasing: Constants.enableAntialiasing
         
         Rectangle {
             anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
+            anchors.margins: Constants.borderWidthThin
+            radius: parent.radius - Constants.borderWidthThin
             color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.03)
+            border.width: Constants.borderWidthThin
+            border.color: MColors.borderInner
+            antialiasing: Constants.enableAntialiasing
         }
         
         Column {

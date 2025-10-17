@@ -1,6 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
+import MarathonUI.Theme
 
 Item {
     id: hudContainer
@@ -39,25 +39,26 @@ Item {
         anchors.centerIn: parent
         width: 200
         height: 200
-        radius: 6
-        color: Qt.rgba(0, 0, 0, 0.95)
-        border.width: 1
-        border.color: Qt.rgba(255/255, 255/255, 255/255, 0.15)
-        layer.enabled: true
+        radius: Constants.borderRadiusSharp
+        color: MElevation.getSurface(4)
+        border.width: Constants.borderWidthThin
+        border.color: MElevation.getBorderOuter(4)
+        antialiasing: Constants.enableAntialiasing
         opacity: 0
         visible: hudVisible
         
         Behavior on opacity {
+            enabled: Constants.enableAnimations
             NumberAnimation { 
-                duration: 200
+                duration: Constants.animationNormal
                 easing.type: Easing.OutCubic
             }
         }
         
         Rectangle {
             anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
+            anchors.margins: Constants.borderWidthThin
+            radius: parent.radius > 0 ? parent.radius - Constants.borderWidthThin : 0
             color: "transparent"
             border.width: 1
             border.color: Qt.rgba(1, 1, 1, 0.05)

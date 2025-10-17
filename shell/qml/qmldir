@@ -5,7 +5,6 @@ singleton AppStore 1.0 stores/AppStore.qml
 singleton WallpaperStore 1.0 stores/WallpaperStore.qml
 singleton SystemStatusStore 1.0 stores/SystemStatusStore.qml
 singleton SystemControlStore 1.0 stores/SystemControlStore.qml
-singleton TaskManagerStore 1.0 stores/TaskManagerStore.qml
 singleton SessionStore 1.0 stores/SessionStore.qml
 singleton UIStore 1.0 stores/UIStore.qml
 

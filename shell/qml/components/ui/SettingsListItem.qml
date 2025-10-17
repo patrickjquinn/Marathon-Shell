@@ -15,7 +15,7 @@ Rectangle {
     signal settingClicked()
     signal toggleChanged(bool value)
     
-    width: parent.width
+    width: parent ? parent.width : 0
     height: subtitle !== "" ? Constants.touchTargetLarge : Constants.touchTargetMedium
     color: "transparent"
     

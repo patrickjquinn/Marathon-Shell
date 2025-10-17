@@ -1,5 +1,6 @@
 import QtQuick
-import "../Theme"
+import QtQuick.Controls
+import MarathonOS.Shell
 
 Rectangle {
     id: root
@@ -18,19 +19,19 @@ Rectangle {
     
     implicitWidth: fullWidth ? parent.width : Math.max(minWidth, contentRow.width + horizontalPadding * 2)
     implicitHeight: {
-        if (size === "small") return MSpacing.touchTargetSmall
-        if (size === "large") return MSpacing.touchTargetLarge
-        return MSpacing.touchTargetMedium
+        if (size === "small") return Constants.touchTargetSmall
+        if (size === "large") return Constants.touchTargetLarge
+        return Constants.touchTargetMedium
     }
     
     readonly property int minWidth: 100
     readonly property int horizontalPadding: {
-        if (size === "small") return MSpacing.md
-        if (size === "large") return MSpacing.xl
-        return MSpacing.lg
+        if (size === "small") return Constants.spacingMedium
+        if (size === "large") return Constants.spacingXLarge
+        return Constants.spacingLarge
     }
     
-    radius: MRadius.md
+    radius: Constants.borderRadiusSharp
     
     color: {
         if (disabled) return MColors.surfaceDark
@@ -46,37 +47,54 @@ Rectangle {
         return MColors.glass
     }
     
-    border.width: variant === "secondary" ? 1 : 0
-    border.color: variant === "secondary" ? MColors.border : "transparent"
+    border.width: Constants.borderWidthThin
+    border.color: {
+        if (variant === "primary") return MColors.accentBright
+        if (variant === "secondary") return MColors.borderOuter
+        if (variant === "danger") return MColors.error
+        return MColors.borderOuter
+    }
     
-    Behavior on color { ColorAnimation { duration: 150 } }
-    Behavior on scale { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
+    antialiasing: Constants.enableAntialiasing
     
-    scale: mouseArea.pressed ? 0.98 : 1.0
+    Behavior on color {
+        enabled: Constants.enableAnimations
+        ColorAnimation { duration: Constants.animationFast }
+    }
+    
+    // Inner border for depth (shell pattern)
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: 1
+        radius: Constants.borderRadiusSharp
+        color: "transparent"
+        border.width: Constants.borderWidthThin
+        border.color: MColors.borderInner
+        antialiasing: Constants.enableAntialiasing
+    }
     
     Row {
         id: contentRow
         anchors.centerIn: parent
-        spacing: MSpacing.sm
+        spacing: Constants.spacingSmall
         layoutDirection: iconLeft ? Qt.LeftToRight : Qt.RightToLeft
         
         Image {
             visible: iconName !== ""
             source: iconName !== "" ? "qrc:/images/icons/lucide/" + iconName + ".svg" : ""
-            width: root.size === "small" ? 16 : (root.size === "large" ? 24 : 20)
+            width: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
             height: width
             fillMode: Image.PreserveAspectFit
             anchors.verticalCenter: parent.verticalCenter
             smooth: true
-            antialiasing: true
+            antialiasing: Constants.enableAntialiasing
         }
         
         Text {
             text: root.text
             color: disabled ? MColors.textDisabled : MColors.text
-            font.pixelSize: root.size === "small" ? MTypography.sizeSmall : (root.size === "large" ? MTypography.sizeLarge : MTypography.sizeBody)
-            font.weight: MTypography.weightDemiBold
-            font.family: MTypography.fontFamily
+            font.pixelSize: root.size === "small" ? Constants.fontSizeSmall : (root.size === "large" ? Constants.fontSizeLarge : Constants.fontSizeMedium)
+            font.weight: Font.DemiBold
             anchors.verticalCenter: parent.verticalCenter
         }
     }
@@ -100,7 +118,8 @@ Rectangle {
         z: 100
         
         Behavior on opacity {
-            NumberAnimation { duration: 150 }
+            enabled: Constants.enableAnimations
+            NumberAnimation { duration: Constants.animationFast }
         }
     }
 }

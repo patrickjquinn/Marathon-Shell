@@ -5,7 +5,6 @@
 AppModel::AppModel(QObject* parent)
     : QAbstractListModel(parent)
 {
-    initializeMarathonApps();
 }
 
 AppModel::~AppModel()
@@ -132,23 +131,6 @@ bool AppModel::isNativeApp(const QString& appId)
     return app ? (app->type() == "native") : false;
 }
 
-void AppModel::initializeMarathonApps()
-{
-    // Initialize with built-in Marathon apps (placeholders)
-    // These will be replaced by dynamically loaded apps from the registry
-    addApp("phone", "Phone", "qrc:/images/phone.svg", "marathon");
-    addApp("messages", "Messages", "qrc:/images/messages.svg", "marathon");
-    addApp("browser", "Browser", "qrc:/images/browser.svg", "marathon");
-    addApp("camera", "Camera", "qrc:/images/camera.svg", "marathon");
-    addApp("gallery", "Gallery", "qrc:/images/gallery.svg", "marathon");
-    addApp("music", "Music", "qrc:/images/music.svg", "marathon");
-    addApp("calendar", "Calendar", "qrc:/images/calendar.svg", "marathon");
-    addApp("clock", "Clock", "qrc:/images/clock.svg", "marathon");
-    addApp("maps", "Maps", "qrc:/images/maps.svg", "marathon");
-    addApp("notes", "Notes", "qrc:/images/notes.svg", "marathon");
-
-    qDebug() << "[AppModel] Initialized with" << m_apps.count() << "Marathon apps";
-}
 
 void AppModel::loadFromRegistry(QObject* registryObj)
 {
@@ -190,7 +172,9 @@ void AppModel::loadFromRegistry(QObject* registryObj)
         // Add or update app
         if (m_appIndex.contains(id)) {
             qDebug() << "[AppModel] Updating app from registry:" << id;
-            // For now, just log. In future, we could update the existing app
+            // Replace hardcoded placeholder with real app from filesystem
+            removeApp(id);
+            addApp(id, name, icon, type);
         } else {
             addApp(id, name, icon, type);
             qDebug() << "[AppModel] Added app from registry:" << id;
@@ -198,5 +182,22 @@ void AppModel::loadFromRegistry(QObject* registryObj)
     }
     
     qDebug() << "[AppModel] Loaded" << appIds.count() << "apps from registry";
+    
+    // Remove hardcoded placeholders that don't exist in the filesystem
+    cleanupMissingApps(appIds);
+}
+
+void AppModel::cleanupMissingApps(const QStringList& registryAppIds)
+{
+    // List of hardcoded app IDs that should be removed if not found in registry
+    QStringList hardcodedAppIds = {"phone", "messages", "browser", "camera", "gallery", 
+                                   "music", "calendar", "clock", "maps", "notes"};
+    
+    for (const QString& hardcodedId : hardcodedAppIds) {
+        if (!registryAppIds.contains(hardcodedId) && m_appIndex.contains(hardcodedId)) {
+            qDebug() << "[AppModel] Removing hardcoded placeholder (not found in filesystem):" << hardcodedId;
+            removeApp(hardcodedId);
+        }
+    }
 }
 

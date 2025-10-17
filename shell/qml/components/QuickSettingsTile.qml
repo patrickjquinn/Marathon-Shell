@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: tile
@@ -12,16 +13,13 @@ Rectangle {
     
     width: tileWidth
     height: Constants.hubHeaderHeight
-    radius: 4
-    border.width: 1
-    border.color: toggleData.active ? Colors.accent : Qt.rgba(255, 255, 255, 0.12)
-    color: Qt.rgba(255, 255, 255, 0.04)
+    radius: Constants.borderRadiusSharp
+    border.width: Constants.borderWidthThin
+    border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
+    color: MColors.surface
+    antialiasing: Constants.enableAntialiasing
     
-    scale: toggleMouseArea.pressed ? 0.98 : 1.0
-    
-    Behavior on scale {
-        NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
-    }
+    // NO scale animation - BB10 style
     
     Behavior on border.color {
         ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
@@ -34,23 +32,25 @@ Rectangle {
         anchors.right: parent.right
         anchors.margins: 1
         height: 4
-        radius: 2
-        color: Colors.accent
+        radius: Constants.borderRadiusSharp
+        color: MColors.accentBright
         visible: toggleData.active
+        antialiasing: Constants.enableAntialiasing
         
         Behavior on opacity {
             NumberAnimation { duration: 200 }
         }
     }
     
-    // Inner border
+    // Inner border for depth
     Rectangle {
         anchors.fill: parent
         anchors.margins: 1
-        radius: parent.radius - 1
+        radius: Constants.borderRadiusSharp
         color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.03)
+        border.width: Constants.borderWidthThin
+        border.color: MColors.borderInner
+        antialiasing: Constants.enableAntialiasing
     }
     
     Row {
@@ -61,10 +61,11 @@ Rectangle {
         Rectangle {
             width: 44
             height: Constants.statusBarHeight
-            radius: 3
-            color: toggleData.active ? Qt.rgba(0, 102/255, 102/255, 0.15) : Qt.rgba(255, 255, 255, 0.05)
-            border.width: 1
-            border.color: toggleData.active ? Qt.rgba(0, 102/255, 102/255, 0.3) : Qt.rgba(255, 255, 255, 0.08)
+            radius: Constants.borderRadiusSharp
+            color: toggleData.active ? MColors.surface2 : MColors.surface1
+            border.width: Constants.borderWidthThin
+            border.color: toggleData.active ? MColors.accentDim : MColors.borderOuter
+            antialiasing: Constants.enableAntialiasing
             anchors.verticalCenter: parent.verticalCenter
             
             Behavior on color {
@@ -77,7 +78,7 @@ Rectangle {
             
             Icon {
                 name: toggleData.icon || "grid"
-                color: toggleData.id === "settings" ? Colors.accentLight : Colors.text
+                color: toggleData.id === "settings" ? MColors.accentBright : MColors.text
                 size: Constants.iconSizeMedium
                 anchors.centerIn: parent
             }
@@ -90,7 +91,7 @@ Rectangle {
             
             Text {
                 text: toggleData.label || ""
-                color: Colors.text
+                color: MColors.text
                 font.pixelSize: Typography.sizeBody
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
@@ -100,7 +101,7 @@ Rectangle {
             Text {
                 visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
                 text: toggleData.subtitle || ""
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: Typography.sizeXSmall
                 elide: Text.ElideRight
                 width: parent.width

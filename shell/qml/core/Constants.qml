@@ -75,6 +75,13 @@ QtObject {
     readonly property int sessionTimeout: 600000  // 10 minutes
     
     // =========================================================================
+    // PERFORMANCE MODE
+    // =========================================================================
+    
+    property bool performanceMode: false
+    readonly property bool enableAnimations: !performanceMode
+    
+    // =========================================================================
     // LAYOUT DIMENSIONS (responsive)
     // =========================================================================
     
@@ -168,17 +175,20 @@ QtObject {
     readonly property real spacingXXLarge: Math.round(40 * scaleFactor)
     
     // =========================================================================
-    // BORDERS & RADII (responsive)
+    // BORDERS & RADII (responsive, BB10-inspired sharp)
     // =========================================================================
     
-    readonly property real borderRadiusSmall: Math.round(8 * scaleFactor)
-    readonly property real borderRadiusMedium: Math.round(12 * scaleFactor)
-    readonly property real borderRadiusLarge: Math.round(16 * scaleFactor)
+    readonly property real borderRadiusSharp: 0
+    readonly property real borderRadiusSmall: 4
+    readonly property real borderRadiusMedium: 8
+    readonly property real borderRadiusLarge: 12
     readonly property real borderRadiusXLarge: Math.round(20 * scaleFactor)
     
-    readonly property real borderWidthThin: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real borderWidthMedium: Math.max(1, Math.round(2 * scaleFactor))
-    readonly property real borderWidthThick: Math.max(2, Math.round(4 * scaleFactor))
+    readonly property real borderWidthThin: 1
+    readonly property real borderWidthMedium: 2
+    readonly property real borderWidthThick: 3
+    
+    readonly property bool enableAntialiasing: true
     
     // =========================================================================
     // ICON SIZES (responsive)

@@ -1,11 +1,12 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 // PIN Entry Screen - shown after swipe-up unlock
 Rectangle {
     id: pinScreen
     anchors.fill: parent
-    color: Colors.background
+    color: MColors.background
     
     signal pinCorrect()
     signal cancelled()
@@ -36,7 +37,7 @@ Rectangle {
     
     Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         opacity: 0.95
     }
     
@@ -47,7 +48,7 @@ Rectangle {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Enter PIN"
-            color: Colors.text
+            color: MColors.text
             font.pixelSize: Typography.sizeXLarge
             font.weight: Font.Medium
         }
@@ -63,10 +64,11 @@ Rectangle {
                 Rectangle {
                     width: 16
                     height: 16
-                    radius: Colors.cornerRadiusSmall  // BB10: 2px
-                    color: index < pin.length ? Colors.accent : "transparent"
-                    border.color: Colors.text
+                    radius: Constants.borderRadiusSharp
+                    color: index < pin.length ? MColors.accentBright : "transparent"
+                    border.color: MColors.text
                     border.width: 2
+                    antialiasing: Constants.enableAntialiasing
                     
                     Behavior on color {
                         ColorAnimation { duration: 150 }
@@ -86,7 +88,7 @@ Rectangle {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: error
-            color: Colors.error
+            color: MColors.error
             font.pixelSize: Typography.sizeBody
             visible: error !== ""
             height: visible ? implicitHeight : 0
@@ -118,29 +120,31 @@ Rectangle {
                     Rectangle {
                         width: 80
                         height: Constants.hubHeaderHeight
-                        radius: 4
-                        color: Qt.rgba(255, 255, 255, 0.05)
-                        border.width: 1
-                        border.color: Qt.rgba(255, 255, 255, 0.1)
+                        radius: Constants.borderRadiusSharp
+                        color: MColors.surface
+                        border.width: Constants.borderWidthMedium
+                        border.color: MColors.borderOuter
+                        antialiasing: Constants.enableAntialiasing
                         
                         Behavior on border.color {
                             ColorAnimation { duration: 200 }
                         }
                         
-                        // Inner glow
+                        // Inner border for depth
                         Rectangle {
                             anchors.fill: parent
                             anchors.margins: 1
-                            radius: parent.radius - 1
+                            radius: Constants.borderRadiusSharp
                             color: "transparent"
-                            border.width: 1
-                            border.color: Qt.rgba(255, 255, 255, 0.02)
+                            border.width: Constants.borderWidthThin
+                            border.color: MColors.borderInner
+                            antialiasing: Constants.enableAntialiasing
                         }
                         
                         Text {
                             anchors.centerIn: parent
                             text: modelData
-                            color: Colors.text
+                            color: MColors.text
                             font.pixelSize: Constants.fontSizeXXLarge
                             font.weight: Font.Light
                             opacity: numMouseArea.pressed ? 1.0 : 0.9
@@ -192,10 +196,11 @@ Rectangle {
                 Rectangle {
                     width: 80
                     height: Constants.hubHeaderHeight
-                    radius: 4
-                    color: Qt.rgba(255, 255, 255, 0.05)
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.1)
+                    radius: Constants.borderRadiusSharp
+                    color: MColors.surface
+                    border.width: Constants.borderWidthMedium
+                    border.color: MColors.borderOuter
+                    antialiasing: Constants.enableAntialiasing
                     
                     Behavior on border.color {
                         ColorAnimation { duration: 200 }
@@ -204,16 +209,17 @@ Rectangle {
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
-                        radius: parent.radius - 1
+                        radius: Constants.borderRadiusSharp
                         color: "transparent"
-                        border.width: 1
-                        border.color: Qt.rgba(255, 255, 255, 0.02)
+                        border.width: Constants.borderWidthThin
+                        border.color: MColors.borderInner
+                        antialiasing: Constants.enableAntialiasing
                     }
                     
                     Text {
                         anchors.centerIn: parent
                         text: "0"
-                        color: Colors.text
+                        color: MColors.text
                         font.pixelSize: Constants.fontSizeXXLarge
                         font.weight: Font.Light
                         opacity: zeroMouseArea.pressed ? 1.0 : 0.9
@@ -257,10 +263,11 @@ Rectangle {
                 Rectangle {
                     width: 80
                     height: Constants.hubHeaderHeight
-                    radius: 4
-                    color: Qt.rgba(255, 255, 255, 0.03)
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.08)
+                    radius: Constants.borderRadiusSharp
+                    color: MColors.surface1
+                    border.width: Constants.borderWidthMedium
+                    border.color: MColors.borderOuter
+                    antialiasing: Constants.enableAntialiasing
                     
                     Behavior on border.color {
                         ColorAnimation { duration: 200 }
@@ -269,16 +276,17 @@ Rectangle {
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
-                        radius: parent.radius - 1
+                        radius: Constants.borderRadiusSharp
                         color: "transparent"
-                        border.width: 1
-                        border.color: Qt.rgba(255, 255, 255, 0.02)
+                        border.width: Constants.borderWidthThin
+                        border.color: MColors.borderInner
+                        antialiasing: Constants.enableAntialiasing
                     }
                     
                     Text {
                         anchors.centerIn: parent
                         text: "←"
-                        color: Colors.text
+                        color: MColors.text
                         font.pixelSize: 26
                         font.weight: Font.Light
                         opacity: clearMouseArea.pressed ? 1.0 : 0.8
@@ -329,7 +337,7 @@ Rectangle {
                 
                 Text {
                     text: "Cancel"
-                    color: Colors.text
+                    color: MColors.text
                     font.pixelSize: Typography.sizeBody
                     font.weight: Font.Normal
                     opacity: cancelMouseArea.pressed ? 0.5 : 0.7

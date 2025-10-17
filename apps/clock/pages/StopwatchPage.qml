@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Core
 
 Item {
     id: stopwatchPage
@@ -53,7 +54,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Constants.spacingLarge
                 
-                Button {
+                MButton {
                     text: isRunning ? "Lap" : "Start"
                     variant: "primary"
                     onClicked: {
@@ -67,7 +68,7 @@ Item {
                     }
                 }
                 
-                Button {
+                MButton {
                     text: isRunning ? "Stop" : "Reset"
                     variant: isRunning ? "danger" : "secondary"
                     onClicked: {

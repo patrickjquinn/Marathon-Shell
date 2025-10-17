@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Core
 import "../components"
 
 SettingsPageTemplate {
@@ -174,7 +175,7 @@ SettingsPageTemplate {
                     width: parent.width
                     spacing: Constants.spacingMedium
                     
-                    Button {
+                    MButton {
                         width: parent.width
                         text: BluetoothManagerCpp.scanning ? "Stop Scanning" : "Scan for Devices"
                         onClicked: {

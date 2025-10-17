@@ -1,5 +1,6 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: root
@@ -15,7 +16,7 @@ Rectangle {
     Item {
         id: contentContainer
         anchors.fill: parent
-        anchors.margins: MSpacing.md
+        anchors.margins: Constants.spacingMedium
     }
 }
 

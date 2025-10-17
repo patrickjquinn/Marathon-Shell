@@ -60,8 +60,6 @@ public:
     Q_INVOKABLE QString getAppName(const QString& appId);
     Q_INVOKABLE QString getAppIcon(const QString& appId);
     Q_INVOKABLE bool isNativeApp(const QString& appId);
-
-    void initializeMarathonApps();
     
     Q_INVOKABLE void loadFromRegistry(QObject* registryObj);
 
@@ -71,6 +69,8 @@ signals:
 private:
     QVector<App*> m_apps;
     QHash<QString, App*> m_appIndex; // O(1) lookup
+    
+    void cleanupMissingApps(const QStringList& registryAppIds);
 };
 
 #endif // APPMODEL_H

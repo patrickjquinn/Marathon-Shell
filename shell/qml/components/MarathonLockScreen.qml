@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 import "."
 import "./ui"
 
@@ -19,7 +20,7 @@ Item {
     Rectangle {
         id: lockContent
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
     
     Image {
         anchors.fill: parent
@@ -53,7 +54,7 @@ Item {
             
             Text {
                 text: SystemStatusStore.timeString
-                color: Colors.text
+                color: MColors.text
                 font.pixelSize: 96
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -61,7 +62,7 @@ Item {
             
             Text {
                 text: SystemStatusStore.dateString
-                color: Colors.text
+                color: MColors.text
                 font.pixelSize: Typography.sizeLarge
                 font.weight: Font.Normal
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -89,8 +90,9 @@ Item {
                     
                     Rectangle {
                         anchors.fill: parent
-                        color: expandedNotificationId === modelData.id ? "#40000000" : "transparent"
-                        radius: Colors.cornerRadiusSmall  // BB10: 2px
+                        color: expandedNotificationId === modelData.id ? MColors.surface : "transparent"
+                        radius: Constants.borderRadiusSharp
+                        antialiasing: Constants.enableAntialiasing
                         
                         Behavior on color {
                             ColorAnimation { duration: 200 }
@@ -104,11 +106,12 @@ Item {
                             Rectangle {
                                 width: 40
                                 height: 40
-                                radius: Colors.cornerRadiusCircle  // BB10: True circle
-                                color: expandedNotificationId === modelData.id ? "#30FFFFFF" : "transparent"
+                                radius: 20
+                                color: expandedNotificationId === modelData.id ? MColors.surface2 : "transparent"
                                 border.width: expandedNotificationId === modelData.id ? 0 : 1
-                                border.color: "#40FFFFFF"
+                                border.color: MColors.borderOuter
                                 anchors.verticalCenter: parent.verticalCenter
+                                antialiasing: Constants.enableAntialiasing
                                 
                                 Behavior on color {
                                     ColorAnimation { duration: 200 }
@@ -135,12 +138,13 @@ Item {
                                     anchors.topMargin: -4
                                     width: 18
                                     height: 18
-                                    radius: Colors.cornerRadiusSmall
-                                    color: Colors.error
+                                    radius: Constants.borderRadiusSharp
+                                    color: MColors.error
+                                    antialiasing: Constants.enableAntialiasing
                                     
                                     Text {
                                         text: "1"
-                                        color: Colors.text
+                                        color: MColors.text
                                         font.pixelSize: Typography.sizeXSmall
                                         font.weight: Font.Bold
                                         anchors.centerIn: parent
@@ -156,7 +160,7 @@ Item {
         
         Text {
                                     text: modelData.title
-                                    color: Colors.text
+                                    color: MColors.text
                                     font.pixelSize: Typography.sizeSmall
                                     font.weight: Font.Bold
                                     elide: Text.ElideRight
@@ -165,7 +169,7 @@ Item {
         
         Text {
                                     text: modelData.subtitle
-                                    color: Colors.textSecondary
+                                    color: MColors.textSecondary
                                     font.pixelSize: Typography.sizeXSmall
                                     elide: Text.ElideRight
                                     width: parent.width

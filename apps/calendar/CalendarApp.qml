@@ -3,6 +3,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
 import "./pages"
 
 MApp {
@@ -20,7 +22,7 @@ MApp {
     }
     
     function loadEvents() {
-        var savedEvents = SettingsManager.value("calendar/events", "[]")
+        var savedEvents = SettingsManagerCpp.get("calendar/events", "[]")
         try {
             events = JSON.parse(savedEvents)
             if (events.length > 0) {
@@ -34,7 +36,7 @@ MApp {
     
     function saveEvents() {
         var data = JSON.stringify(events)
-        SettingsManager.setValue("calendar/events", data)
+        SettingsManagerCpp.set("calendar/events", data)
     }
     
     function createEvent(title, date, time, allDay) {
@@ -66,81 +68,21 @@ MApp {
     
     content: Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         
-        Column {
-            anchors.fill: parent
-            spacing: 0
-            
-            Rectangle {
-                width: parent.width
-                height: Constants.actionBarHeight
-                color: Colors.surface
-                z: 10
-                
-                Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingLarge
-                    anchors.rightMargin: Constants.spacingLarge
-                    spacing: Constants.spacingMedium
-                    
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: Qt.formatDate(currentDate, "MMMM yyyy")
-                        color: Colors.text
-                        font.pixelSize: Constants.fontSizeLarge
-                        font.weight: Font.Bold
-                    }
-                    
-                    Item { Layout.fillWidth: true }
-                    
-                    Button {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Today"
-                        variant: "secondary"
-                        onClicked: {
-                            currentDate = new Date()
-                        }
-                    }
-                }
-                
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width
-                    height: Constants.borderWidthThin
-                    color: Colors.border
-                }
-            }
-            
-            EventListPage {
-                width: parent.width
-                height: parent.height - Constants.actionBarHeight
-            }
-        }
+        EventListPage {}
         
-        Rectangle {
+        MIconButton {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: Constants.spacingLarge
-            width: Constants.touchTargetLarge
-            height: Constants.touchTargetLarge
-            radius: width / 2
-            color: Colors.accent
-            
-            Icon {
-                anchors.centerIn: parent
-                name: "calendar"
-                size: Constants.iconSizeMedium
-                color: Colors.background
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    HapticService.light()
-                    var now = new Date()
-                    calendarApp.createEvent("New Event", Qt.formatDate(now, "yyyy-MM-dd"), Qt.formatTime(now, "HH:mm"), false)
-                }
+            icon: "plus"
+            size: Constants.touchTargetLarge
+            variant: "primary"
+            shape: "circular"
+            onClicked: {
+                var now = new Date()
+                calendarApp.createEvent("New Event", Qt.formatDate(now, "yyyy-MM-dd"), Qt.formatTime(now, "HH:mm"), false)
             }
         }
     }

@@ -1,30 +1,33 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: card
-    color: Qt.rgba(255, 255, 255, 0.04)
-    radius: 4
+    color: MColors.surface
+    radius: Constants.borderRadiusSharp
     
     property alias content: contentItem.children
     property int elevation: 1
     property bool hoverable: false
     
-    border.width: 1
-    border.color: Qt.rgba(255, 255, 255, 0.12)
-    layer.enabled: true
+    border.width: Constants.borderWidthThin
+    border.color: MColors.borderOuter
+    antialiasing: Constants.enableAntialiasing
     
     Behavior on border.color {
         ColorAnimation { duration: 150 }
     }
     
+    // Inner border for depth (MElevation technique)
     Rectangle {
         anchors.fill: parent
         anchors.margins: 1
-        radius: parent.radius - 1
+        radius: Constants.borderRadiusSharp
         color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.03)
+        border.width: Constants.borderWidthThin
+        border.color: MColors.borderInner
+        antialiasing: Constants.enableAntialiasing
     }
     
     Item {

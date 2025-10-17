@@ -1,5 +1,6 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: root
@@ -13,17 +14,17 @@ Rectangle {
     
     Column {
         anchors.fill: parent
-        anchors.leftMargin: MSpacing.lg
-        anchors.rightMargin: MSpacing.lg
-        anchors.topMargin: MSpacing.md
-        anchors.bottomMargin: MSpacing.sm
-        spacing: MSpacing.xs
+        anchors.leftMargin: Constants.spacingLarge
+        anchors.rightMargin: Constants.spacingLarge
+        anchors.topMargin: Constants.spacingMedium
+        anchors.bottomMargin: Constants.spacingSmall
+        spacing: Constants.spacingXSmall
         
         Text {
             text: root.title
             color: MColors.text
-            font.pixelSize: MTypography.sizeSmall
-            font.weight: MTypography.weightDemiBold
+            font.pixelSize: Constants.fontSizeSmall
+            font.weight: Font.DemiBold
             font.family: MTypography.fontFamily
             textFormat: Text.PlainText
         }
@@ -32,7 +33,7 @@ Rectangle {
             visible: subtitle !== ""
             text: subtitle
             color: MColors.textSecondary
-            font.pixelSize: MTypography.sizeXSmall
+            font.pixelSize: Constants.fontSizeXSmall
             font.family: MTypography.fontFamily
             wrapMode: Text.WordWrap
             width: parent.width

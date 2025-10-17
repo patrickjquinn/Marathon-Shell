@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: appGrid
@@ -246,23 +247,25 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 width: Constants.appIconSize
                                 height: Constants.appIconSize
-                                radius: 6
-                                color: Qt.rgba(255, 255, 255, 0.04)
-                                border.width: 1
-                                border.color: iconMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.12)
-                                layer.enabled: true
+                                radius: Constants.borderRadiusSharp
+                                color: MColors.surface
+                                border.width: Constants.borderWidthMedium
+                                border.color: iconMouseArea.pressed ? MColors.accentBright : MColors.borderOuter
+                                antialiasing: Constants.enableAntialiasing
                                 
                                 Behavior on border.color {
                                     ColorAnimation { duration: 150 }
                                 }
                                 
+                                // Inner border for depth
                                 Rectangle {
                                     anchors.fill: parent
                                     anchors.margins: 1
-                                    radius: parent.radius - 1
+                                    radius: Constants.borderRadiusSharp
                                     color: "transparent"
-                                    border.width: 1
-                                    border.color: Qt.rgba(255, 255, 255, 0.03)
+                                    border.width: Constants.borderWidthThin
+                                    border.color: MColors.borderInner
+                                    antialiasing: Constants.enableAntialiasing
                                 }
                                 
                                 Image {
@@ -285,9 +288,10 @@ Item {
                                     width: 20
                                     height: Constants.navBarHeight
                                     radius: 10
-                                    color: "#E63946"
+                                    color: MColors.error
                                     border.width: 2
-                                    border.color: Colors.background
+                                    border.color: MColors.background
+                                    antialiasing: Constants.enableAntialiasing
                                     visible: {
                                         var count = NotificationService.getNotificationCountForApp(model.id)
                                         return count > 0
@@ -298,7 +302,7 @@ Item {
                                             var count = NotificationService.getNotificationCountForApp(model.id)
                                             return count > 9 ? "9+" : count.toString()
                                         }
-                                        color: Colors.text
+                                        color: MColors.text
                                         font.pixelSize: 10
                                         font.weight: Font.Bold
                                         font.family: Typography.fontFamily
@@ -310,7 +314,7 @@ Item {
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: model.name
-                                color: WallpaperStore.isDark ? Colors.text : "#000000"
+                                color: WallpaperStore.isDark ? MColors.text : "#000000"
                                 font.pixelSize: Typography.sizeSmall
                                 font.family: Typography.fontFamily
                                 font.weight: Font.DemiBold

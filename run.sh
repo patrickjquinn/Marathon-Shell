@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Marathon Shell - Build and Run Script
+# Now builds BOTH shell AND apps using the new build system
 
 set -e
 
@@ -20,16 +21,20 @@ echo "💻 Detected $CORES CPU cores"
 echo "🛑 Killing any running Marathon Shell instances..."
 pkill -9 marathon-shell 2>/dev/null || true
 
-echo "🏗️  Building Marathon Shell with $CORES parallel jobs..."
-cmake --build build --parallel $CORES
+echo ""
+echo "============================================"
+echo "Marathon OS Complete Build"
+echo "============================================"
+echo ""
+
+# Build everything using new build-all.sh script
+echo "🏗️  Building Marathon Shell and Apps..."
+./scripts/build-all.sh
 
 if [ $? -eq 0 ]; then
-    echo "✅ Build successful!"
-    
-    # Install system apps
-    echo "📦 Installing system apps..."
-    bash scripts/install-system-apps.sh
-    
+    echo ""
+    echo "✅ Complete build successful!"
+    echo ""
     echo "🚀 Starting Marathon Shell..."
     echo ""
     
@@ -39,4 +44,3 @@ else
     echo "❌ Build failed!"
     exit 1
 fi
-

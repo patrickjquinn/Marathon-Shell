@@ -1,0 +1,22 @@
+{
+  "id": "browser",
+  "name": "Browser",
+  "version": "1.0.0",
+  "entryPoint": "BrowserApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["network", "storage"],
+  "minShellVersion": "1.0.0",
+  "protected": false,
+  "searchKeywords": [
+    "browser",
+    "web",
+    "internet",
+    "search",
+    "url",
+    "bookmarks",
+    "history",
+    "online"
+  ],
+  "deepLinks": {}
+}

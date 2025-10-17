@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Core
+import MarathonUI.Modals
+import MarathonUI.Theme
 
 Page {
     id: editorPage
@@ -14,7 +17,7 @@ Page {
     signal deleteNote(int noteId)
     
     background: Rectangle {
-        color: Colors.background
+        color: MColors.background
     }
     
     Component.onCompleted: {
@@ -32,7 +35,7 @@ Page {
         Rectangle {
             width: parent.width
             height: Constants.actionBarHeight
-            color: Colors.surface
+            color: MColors.surface
             z: 10
             
             Row {
@@ -41,7 +44,7 @@ Page {
                 anchors.rightMargin: Constants.spacingMedium
                 spacing: Constants.spacingMedium
                 
-                Button {
+                MButton {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Cancel"
                     variant: "secondary"
@@ -52,9 +55,13 @@ Page {
                     }
                 }
                 
-                Item { width: 1; height: 1; Layout.fillWidth: true }
+                Item {
+                    width: parent.width - (Constants.touchTargetLarge + Constants.spacingMedium) * 2 - (deleteBtn.visible ? Constants.touchTargetLarge + Constants.spacingLarge : 0) - parent.spacing * (deleteBtn.visible ? 3 : 2)
+                    height: 1
+                }
                 
-                Button {
+                MButton {
+                    id: deleteBtn
                     anchors.verticalCenter: parent.verticalCenter
                     text: !isNewNote ? "Delete" : ""
                     variant: "danger"
@@ -66,7 +73,7 @@ Page {
                     }
                 }
                 
-                Button {
+                MButton {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Save"
                     variant: "primary"
@@ -84,7 +91,7 @@ Page {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: Constants.borderWidthThin
-                color: Colors.border
+                color: MColors.border
             }
         }
         
@@ -100,118 +107,66 @@ Page {
                 padding: Constants.spacingLarge
                 spacing: Constants.spacingMedium
                 
-                Input {
-                    id: titleInput
-                    width: parent.width - parent.padding * 2
-                    placeholderText: "Title"
-                    font.pixelSize: Constants.fontSizeLarge
-                    font.weight: Font.Bold
-                }
-                
                 Rectangle {
                     width: parent.width - parent.padding * 2
-                    height: Constants.borderWidthThin
-                    color: Colors.border
+                    height: Constants.touchTargetMedium
+                    radius: Constants.borderRadiusSharp
+                    color: MColors.surface
+                    border.width: Constants.borderWidthMedium
+                    border.color: MColors.border
+                    antialiasing: Constants.enableAntialiasing
+                    
+                    TextInput {
+                        id: titleInput
+                        anchors.fill: parent
+                        anchors.margins: Constants.spacingMedium
+                        color: MColors.text
+                        font.pixelSize: Constants.fontSizeLarge
+                        font.weight: Font.Bold
+                        verticalAlignment: TextInput.AlignVCenter
+                        
+                        Text {
+                            anchors.fill: parent
+                            text: "Title"
+                            color: MColors.textSecondary
+                            font.pixelSize: Constants.fontSizeLarge
+                            font.weight: Font.Bold
+                            verticalAlignment: Text.AlignVCenter
+                            visible: titleInput.text.length === 0
+                        }
+                    }
                 }
                 
-                TextArea {
+                MTextArea {
                     id: contentInput
                     width: parent.width - parent.padding * 2
-                    height: Math.max(Constants.screenHeight * 0.5, implicitHeight)
+                    height: Math.max(Constants.screenHeight * 0.4, 300)
                     placeholderText: "Start typing..."
-                    color: Colors.text
-                    font.pixelSize: Constants.fontSizeMedium
-                    wrapMode: TextArea.Wrap
-                    background: Rectangle {
-                        color: "transparent"
-                    }
+                    text: initialContent
+                    maxLength: 10000
+                    showCharCount: true
                 }
             }
         }
     }
     
-    Rectangle {
+    MConfirmDialog {
         id: deleteDialog
-        anchors.centerIn: parent
-        width: Math.min(Constants.screenWidth * 0.85, parent.width - Constants.spacingXLarge * 2)
-        height: dialogContent.height + Constants.spacingXLarge * 2
-        color: Colors.surface
-        radius: Constants.borderRadiusLarge
-        visible: false
-        z: 1000
+        title: "Delete Note?"
+        message: "This note will be permanently deleted."
+        confirmText: "Delete"
+        cancelText: "Cancel"
         
         function open() {
-            visible = true
+            show()
         }
         
         function close() {
-            visible = false
+            hide()
         }
         
-        Column {
-            id: dialogContent
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.margins: Constants.spacingXLarge
-            spacing: Constants.spacingLarge
-            
-            Text {
-                width: parent.width - parent.anchors.margins * 2
-                text: "Delete Note?"
-                color: Colors.text
-                font.pixelSize: Constants.fontSizeLarge
-                font.weight: Font.Bold
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-            }
-            
-            Text {
-                width: parent.width - parent.anchors.margins * 2
-                text: "This note will be permanently deleted."
-                color: Colors.textSecondary
-                font.pixelSize: Constants.fontSizeMedium
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-            }
-            
-            Row {
-                width: parent.width - parent.anchors.margins * 2
-                spacing: Constants.spacingMedium
-                
-                Button {
-                    width: (parent.width - Constants.spacingMedium) / 2
-                    text: "Cancel"
-                    variant: "secondary"
-                    onClicked: {
-                        deleteDialog.close()
-                    }
-                }
-                
-                Button {
-                    width: (parent.width - Constants.spacingMedium) / 2
-                    text: "Delete"
-                    variant: "danger"
-                    onClicked: {
-                        editorPage.deleteNote(noteId)
-                        deleteDialog.close()
-                    }
-                }
-            }
-        }
-    }
-    
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.7)
-        visible: deleteDialog.visible
-        z: 999
-        
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                deleteDialog.close()
-            }
+        onAccepted: {
+            editorPage.deleteNote(noteId)
         }
     }
 }

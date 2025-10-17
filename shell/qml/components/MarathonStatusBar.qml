@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: statusBar
@@ -40,7 +41,7 @@ Item {
     Text {
         anchors.centerIn: parent
         text: SystemStatusStore.timeString
-        color: Colors.text
+        color: MColors.text
         font.pixelSize: Constants.fontSizeMedium
         font.weight: Font.Medium
     }
@@ -54,7 +55,7 @@ Item {
         
         Icon {
             name: "plane"
-            color: Colors.text
+            color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
@@ -62,7 +63,7 @@ Item {
         
         Icon {
             name: "bell"
-            color: Colors.text
+            color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowDND(SystemStatusStore.isDndMode)
@@ -71,7 +72,7 @@ Item {
         
         Icon {
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            color: Colors.text
+            color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
@@ -80,7 +81,7 @@ Item {
         
         Icon {
             name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
-            color: Colors.text
+            color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
@@ -89,7 +90,7 @@ Item {
         
         Icon {
             name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
-            color: Colors.text
+            color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)

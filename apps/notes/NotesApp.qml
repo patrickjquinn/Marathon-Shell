@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
 import "./pages"
 
 MApp {
@@ -18,7 +20,7 @@ MApp {
     }
     
     function loadNotes() {
-        var savedNotes = SettingsManager.value("notes/data", "[]")
+        var savedNotes = SettingsManagerCpp.get("notes/data", "[]")
         try {
             notes = JSON.parse(savedNotes)
             if (notes.length > 0) {
@@ -32,7 +34,7 @@ MApp {
     
     function saveNotes() {
         var data = JSON.stringify(notes)
-        SettingsManager.setValue("notes/data", data)
+        SettingsManagerCpp.set("notes/data", data)
     }
     
     function createNote(title, content) {
@@ -85,12 +87,14 @@ MApp {
     
     content: Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         
         StackView {
             id: navigationStack
             anchors.fill: parent
             initialItem: notesListPage
+            
+            property var backConnection: null
             
             onDepthChanged: {
                 notesApp.navigationDepth = depth - 1
@@ -99,11 +103,17 @@ MApp {
             Component.onCompleted: {
                 notesApp.navigationDepth = depth - 1
                 
-                notesApp.backPressed.connect(function() {
+                backConnection = notesApp.backPressed.connect(function() {
                     if (depth > 1) {
                         pop()
                     }
                 })
+            }
+            
+            Component.onDestruction: {
+                if (backConnection) {
+                    notesApp.backPressed.disconnect(backConnection)
+                }
             }
             
             pushEnter: Transition {

@@ -28,13 +28,17 @@ Rectangle {
         
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
         
-        // CRITICAL: Unparent the current app instance BEFORE switching
-        if (appContentLoader.item && appContentLoader.item.children.length > 0) {
-            var currentChild = appContentLoader.item.children[0]
-            if (currentChild && currentChild.parent) {
-                Logger.info("AppWindow", "Unparenting previous app instance")
-                currentChild.parent = null
-                currentChild.visible = false
+        // CRITICAL: Cleanup connections and unparent the current app instance BEFORE switching
+        if (appContentLoader.item) {
+            // Trigger cleanup in the container's onDestruction
+            // This will disconnect signals before unparenting
+            if (appContentLoader.item.children.length > 0) {
+                var currentChild = appContentLoader.item.children[0]
+                if (currentChild && currentChild.parent) {
+                    Logger.info("AppWindow", "Unparenting previous app instance")
+                    currentChild.parent = null
+                    currentChild.visible = false
+                }
             }
         }
         
@@ -99,14 +103,8 @@ Rectangle {
             }
         }
         
-        if (appContentLoader.item) {
-            if (appContentLoader.item.minimizeRequested) {
-                appContentLoader.item.minimizeRequested.connect(function() {
-                    Logger.info("AppWindow", "App minimize requested: " + name)
-                    minimized()
-                })
-            }
-        }
+        // Note: Signal connections are handled in appInstanceContainer Component.onCompleted
+        // to ensure proper cleanup on destruction
         
         visible = true
         forceActiveFocus()
@@ -147,29 +145,44 @@ Rectangle {
         Item {
             anchors.fill: parent
             
+            property var appInstance: null
+            property var minimizeConnection: null
+            property var closedConnection: null
+            
             Component.onCompleted: {
                 if (appWindow.pendingAppInstance) {
-                    var appInstance = appWindow.pendingAppInstance
+                    appInstance = appWindow.pendingAppInstance
                     appWindow.pendingAppInstance = null
                     
                     appInstance.parent = this
                     appInstance.anchors.fill = this
                     
                     if (appInstance.minimizeRequested) {
-                        appInstance.minimizeRequested.connect(function() {
+                        minimizeConnection = appInstance.minimizeRequested.connect(function() {
                             Logger.info("AppWindow", "MApp minimize requested: " + appWindow.appName)
                             appWindow.minimized()
                         })
                     }
                     
                     if (appInstance.closed) {
-                        appInstance.closed.connect(function() {
+                        closedConnection = appInstance.closed.connect(function() {
                             Logger.info("AppWindow", "MApp closed: " + appWindow.appName)
                             appWindow.hide()
                         })
                     }
                     
                     Logger.info("AppWindow", "MApp instance connected: " + appWindow.appId)
+                }
+            }
+            
+            Component.onDestruction: {
+                if (appInstance) {
+                    if (minimizeConnection && appInstance.minimizeRequested) {
+                        appInstance.minimizeRequested.disconnect(minimizeConnection)
+                    }
+                    if (closedConnection && appInstance.closed) {
+                        appInstance.closed.disconnect(closedConnection)
+                    }
                 }
             }
         }

@@ -1,5 +1,6 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: root
@@ -7,7 +8,7 @@ Rectangle {
     property string text: ""
     property string variant: "error"
     
-    implicitWidth: Math.max(20, badgeText.width + MSpacing.sm * 2)
+    implicitWidth: Math.max(20, badgeText.width + Constants.spacingSmall * 2)
     implicitHeight: 20
     radius: MRadius.pill
     
@@ -22,8 +23,8 @@ Rectangle {
         id: badgeText
         text: root.text
         color: MColors.text
-        font.pixelSize: MTypography.sizeTiny
-        font.weight: MTypography.weightBold
+        font.pixelSize: Constants.fontSizeXSmall
+        font.weight: Font.Bold
         font.family: MTypography.fontFamily
         anchors.centerIn: parent
     }

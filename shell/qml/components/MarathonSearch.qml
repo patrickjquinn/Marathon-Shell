@@ -63,10 +63,11 @@ Item {
             Rectangle {
                 id: searchBarContainer
                 anchors.fill: parent
-                color: Colors.surface
-                radius: MRadius.md
-                border.width: searchInput.activeFocus ? 2 : 1
-                border.color: searchInput.activeFocus ? Colors.accent : Colors.border
+                color: MColors.surface
+                radius: Constants.borderRadiusSharp
+                border.width: searchInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
+                border.color: searchInput.activeFocus ? MColors.accentBright : MColors.borderOuter
+                antialiasing: Constants.enableAntialiasing
                 
                 Behavior on border.color {
                     ColorAnimation { duration: 200 }
@@ -81,7 +82,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "search"
                         size: Constants.iconSizeMedium
-                        color: searchInput.activeFocus ? Colors.accent : Colors.textSecondary
+                        color: searchInput.activeFocus ? MColors.accentBright : MColors.textSecondary
                         
                         Behavior on color {
                             ColorAnimation { duration: 200 }
@@ -92,11 +93,11 @@ Item {
                         id: searchInput
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 80
-                        color: Colors.text
+                        color: MColors.text
                         font.pixelSize: MTypography.sizeLarge
                         font.family: MTypography.fontFamily
-                        selectionColor: Colors.accent
-                        selectedTextColor: Colors.text
+                        selectionColor: MColors.accentBright
+                        selectedTextColor: MColors.text
                         
                         Keys.onEscapePressed: searchOverlay.close()
                         Keys.onDownPressed: resultsList.forceActiveFocus()
@@ -109,7 +110,7 @@ Item {
                         Text {
                             anchors.fill: parent
                             text: "Search apps, settings..."
-                            color: Colors.textTertiary
+                            color: MColors.textSecondary
                             font: parent.font
                             visible: !searchInput.text && !searchInput.activeFocus
                         }
@@ -119,7 +120,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "x"
                         size: Constants.iconSizeSmall
-                        color: Colors.textSecondary
+                        color: MColors.textSecondary
                         visible: searchInput.text.length > 0
                         
                         MouseArea {
@@ -163,9 +164,10 @@ Item {
             delegate: Rectangle {
                 width: resultsList.width
                 height: Constants.appIconSize
-                color: resultMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : 
-                       (resultsList.currentIndex === index ? Qt.rgba(255, 255, 255, 0.04) : "transparent")
-                radius: MRadius.sm
+                color: resultMouseArea.pressed ? MColors.surface2 : 
+                       (resultsList.currentIndex === index ? MColors.surface1 : "transparent")
+                radius: Constants.borderRadiusSharp
+                antialiasing: Constants.enableAntialiasing
                 
                 Behavior on color {
                     ColorAnimation { duration: 150 }
@@ -180,8 +182,9 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 48
                         height: 48
-                        radius: modelData.type === "app" ? MRadius.md : 24
-                        color: Qt.rgba(255, 255, 255, 0.04)
+                        radius: modelData.type === "app" ? Constants.borderRadiusSharp : 24
+                        color: MColors.surface1
+                        antialiasing: Constants.enableAntialiasing
                         
                         Image {
                             anchors.centerIn: parent
@@ -201,7 +204,7 @@ Item {
                         Text {
                             width: parent.width
                             text: modelData.title
-                            color: Colors.text
+                            color: MColors.text
                             font.pixelSize: MTypography.sizeBody
                             font.weight: MTypography.weightDemiBold
                             font.family: MTypography.fontFamily
@@ -215,12 +218,13 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: typeText.width + 12
                                 height: Constants.navBarHeight
-                                radius: 4
+                                radius: Constants.borderRadiusSharp
                                 color: {
-                                    if (modelData.type === "app") return Qt.rgba(20/255, 184/255, 166/255, 0.15)
+                                    if (modelData.type === "app") return MColors.surface2
                                     if (modelData.type === "deeplink") return Qt.rgba(139/255, 92/255, 246/255, 0.15)
                                     return Qt.rgba(59/255, 130/255, 246/255, 0.15)
                                 }
+                                antialiasing: Constants.enableAntialiasing
                                 
                                 Text {
                                     id: typeText
@@ -231,7 +235,7 @@ Item {
                                         return "Setting"
                                     }
                                     color: {
-                                        if (modelData.type === "app") return Colors.accent
+                                        if (modelData.type === "app") return MColors.accentBright
                                         if (modelData.type === "deeplink") return Qt.rgba(167/255, 139/255, 250/255, 1.0)
                                         return Qt.rgba(96/255, 165/255, 250/255, 1.0)
                                     }
@@ -244,7 +248,7 @@ Item {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.subtitle
-                                color: Colors.textSecondary
+                                color: MColors.textSecondary
                                 font.pixelSize: MTypography.sizeSmall
                                 font.family: MTypography.fontFamily
                             }
@@ -267,7 +271,7 @@ Item {
                 text: searchInput.text.length === 0 ? 
                       "Start typing to search" : 
                       "No results found"
-                color: Colors.textTertiary
+                color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 visible: resultsList.count === 0

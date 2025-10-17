@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
+import MarathonUI.Core
 
 Item {
     id: timerPage
@@ -81,7 +82,7 @@ Item {
                     Repeater {
                         model: [1, 3, 5, 10, 15, 30]
                         
-                        Button {
+                        MButton {
                             width: (parent.width - parent.spacing * 2) / 3
                             text: modelData + " min"
                             variant: "secondary"
@@ -101,7 +102,7 @@ Item {
                 spacing: Constants.spacingLarge
                 visible: remainingSeconds > 0
                 
-                Button {
+                MButton {
                     text: isRunning ? "Pause" : "Start"
                     variant: "primary"
                     onClicked: {
@@ -110,7 +111,7 @@ Item {
                     }
                 }
                 
-                Button {
+                MButton {
                     text: "Reset"
                     variant: "secondary"
                     onClicked: {

@@ -1,8 +1,15 @@
 import QtQuick
 import MarathonOS.Shell
 
+// DEPRECATED: Use MarathonUI.Core.MButton instead
+// This component is kept for backward compatibility only
+
 Rectangle {
     id: button
+    
+    Component.onCompleted: {
+        console.warn("DEPRECATED: components/ui/Button is deprecated. Use MarathonUI.Core.MButton instead.")
+    }
     
     property string text: ""
     property string variant: "primary"

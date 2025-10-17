@@ -1,6 +1,7 @@
 import QtQuick
+import MarathonOS.Shell
 import QtQuick.Controls
-import "../Theme"
+import MarathonUI.Theme
 
 Slider {
     id: root
@@ -17,7 +18,7 @@ Slider {
         y: root.topPadding + root.availableHeight / 2 - height / 2
         width: root.availableWidth
         height: 6
-        radius: MRadius.sm
+        radius: Constants.borderRadiusSharp
         color: MColors.glass
         border.width: 1
         border.color: MColors.border
@@ -35,7 +36,7 @@ Slider {
         y: root.topPadding + root.availableHeight / 2 - height / 2
         width: 24
         height: 24
-        radius: MRadius.md
+        radius: Constants.borderRadiusSharp
         color: MColors.accent
         border.width: 1
         border.color: MColors.text

@@ -48,7 +48,7 @@ Rectangle {
     // Size
     width: parent.width
     height: Constants.appIconSize
-    radius: MRadius.sm
+    radius: Constants.borderRadiusSharp
     
     // Appearance
     color: clickable && mouseArea.pressed ? backgroundHoverColor : backgroundColor
@@ -66,7 +66,7 @@ Rectangle {
     Icon {
         id: leadingIconItem
         anchors.left: parent.left
-        anchors.leftMargin: MSpacing.md
+        anchors.leftMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
         name: leadingIcon
         size: leadingIconSize
@@ -78,19 +78,19 @@ Rectangle {
     Column {
         id: textContent
         anchors.left: leadingIcon !== "" ? leadingIconItem.right : parent.left
-        anchors.leftMargin: leadingIcon !== "" ? MSpacing.md : MSpacing.md
+        anchors.leftMargin: leadingIcon !== "" ? Constants.spacingMedium : Constants.spacingMedium
         anchors.right: trailingArea.left
-        anchors.rightMargin: MSpacing.md
+        anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
-        spacing: MSpacing.xs
+        spacing: Constants.spacingXSmall
         
         Text {
             id: titleText
             text: root.title
             width: parent.width
             color: MColors.text
-            font.pixelSize: MTypography.sizeBody
-            font.weight: MTypography.weightDemiBold
+            font.pixelSize: Constants.fontSizeMedium
+            font.weight: Font.DemiBold
             font.family: MTypography.fontFamily
             elide: Text.ElideRight
             opacity: root.enabled ? 1.0 : 0.5
@@ -101,7 +101,7 @@ Rectangle {
             text: root.subtitle
             width: parent.width
             color: MColors.textSecondary
-            font.pixelSize: MTypography.sizeSmall
+            font.pixelSize: Constants.fontSizeSmall
             font.family: MTypography.fontFamily
             elide: Text.ElideRight
             visible: subtitle !== ""
@@ -113,10 +113,10 @@ Rectangle {
     Item {
         id: trailingArea
         anchors.right: parent.right
-        anchors.rightMargin: MSpacing.md
+        anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(childrenRect.width, showChevron ? 24 : 0)
-        height: parent.height - (MSpacing.md * 2)
+        height: parent.height - (Constants.spacingMedium * 2)
         
         Loader {
             id: trailingLoader

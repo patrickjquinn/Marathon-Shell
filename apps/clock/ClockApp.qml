@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Theme
 import "./pages"
 import "./components" as ClockComponents
 
@@ -94,7 +95,7 @@ MApp {
     
     content: Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         
         Column {
             anchors.fill: parent
@@ -128,7 +129,7 @@ MApp {
                 id: tabBar
                 width: parent.width
                 height: Constants.actionBarHeight
-                color: Colors.surface
+                color: MColors.surface
                 
                 property int currentIndex: 0
                 
@@ -136,7 +137,7 @@ MApp {
                     anchors.top: parent.top
                     width: parent.width
                     height: Constants.borderWidthThin
-                    color: Colors.border
+                    color: MColors.border
                 }
                 
                 Row {
@@ -163,7 +164,7 @@ MApp {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 width: parent.width * 0.8
                                 height: Constants.borderWidthThick
-                                color: Colors.accent
+                                color: MColors.accent
                                 opacity: tabBar.currentIndex === index ? 1.0 : 0.0
                                 
                                 Behavior on opacity {
@@ -179,7 +180,7 @@ MApp {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     name: modelData.icon
                                     size: Constants.iconSizeMedium
-                                    color: tabBar.currentIndex === index ? Colors.accent : Colors.textSecondary
+                                    color: tabBar.currentIndex === index ? MColors.accent : MColors.textSecondary
                                     
                                     Behavior on color {
                                         ColorAnimation { duration: Constants.animationFast }
@@ -190,7 +191,7 @@ MApp {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: modelData.label
                                     font.pixelSize: Constants.fontSizeXSmall
-                                    color: tabBar.currentIndex === index ? Colors.accent : Colors.textSecondary
+                                    color: tabBar.currentIndex === index ? MColors.accent : MColors.textSecondary
                                     font.weight: tabBar.currentIndex === index ? Font.DemiBold : Font.Normal
                                     
                                     Behavior on color {

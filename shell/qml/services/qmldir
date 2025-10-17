@@ -18,4 +18,5 @@ singleton ScreenshotService 1.0 ScreenshotService.qml
 singleton HapticService 1.0 HapticService.qml
 singleton ClipboardService 1.0 ClipboardService.qml
 singleton NavigationRouter 1.0 NavigationRouter.qml
+singleton StateManager 1.0 StateManager.qml
 

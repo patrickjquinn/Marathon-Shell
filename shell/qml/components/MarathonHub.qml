@@ -1,11 +1,12 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 import "."
 
 Rectangle {
     id: hub
     anchors.fill: parent
-    color: Qt.rgba(0.05, 0.05, 0.05, 0.95)
+    color: MColors.backgroundDark
     
     signal closed()
     
@@ -39,11 +40,11 @@ Rectangle {
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 4
-                        radius: 3
-                        color: index === hub.selectedTabIndex ? Qt.rgba(20, 184, 166, 0.15) : Qt.rgba(255, 255, 255, 0.03)
-                        border.width: 1
-                        border.color: index === hub.selectedTabIndex ? Qt.rgba(20, 184, 166, 0.7) : Qt.rgba(255, 255, 255, 0.08)
-                        layer.enabled: true
+                        radius: Constants.borderRadiusSharp
+                        color: index === hub.selectedTabIndex ? MColors.surface2 : MColors.surface
+                        border.width: Constants.borderWidthThin
+                        border.color: index === hub.selectedTabIndex ? MColors.accentBright : MColors.borderOuter
+                        antialiasing: Constants.enableAntialiasing
                         
                         transform: Translate {
                             y: tabMouseArea.pressed ? -1 : 0
@@ -64,10 +65,11 @@ Rectangle {
                         Rectangle {
                             anchors.fill: parent
                             anchors.margins: 1
-                            radius: parent.radius - 1
+                            radius: Constants.borderRadiusSharp
                             color: "transparent"
-                            border.width: 1
-                            border.color: Qt.rgba(255, 255, 255, 0.02)
+                            border.width: Constants.borderWidthThin
+                            border.color: MColors.borderInner
+                            antialiasing: Constants.enableAntialiasing
                         }
                         
                         Column {
@@ -77,7 +79,7 @@ Rectangle {
                             Icon {
                                 name: modelData.icon
                                 size: Constants.iconSizeSmall
-                                color: index === hub.selectedTabIndex ? Colors.accent : Colors.textTertiary
+                                color: index === hub.selectedTabIndex ? MColors.accentBright : MColors.textSecondary
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.6)
                                 
@@ -88,7 +90,7 @@ Rectangle {
                             
                             Text {
                                 text: modelData.name
-                                color: index === hub.selectedTabIndex ? Colors.accent : Colors.textTertiary
+                                color: index === hub.selectedTabIndex ? MColors.accentBright : MColors.textSecondary
                                 font.pixelSize: Typography.sizeXSmall
                                 font.family: Typography.fontFamily
                                 font.weight: index === hub.selectedTabIndex ? Font.DemiBold : Font.Normal
@@ -131,13 +133,13 @@ Rectangle {
             delegate: Rectangle {
                 width: notificationsList.width
                 height: Constants.bottomBarHeight
-                color: model.isRead ? Colors.backgroundDark : Colors.surface
+                color: model.isRead ? MColors.backgroundDark : MColors.surface
                 
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
                     height: 1
-                    color: Colors.surfaceLight
+                    color: MColors.borderOuter
                 }
                 
                 Row {
@@ -148,14 +150,15 @@ Rectangle {
                     Rectangle {
                         width: 48
                         height: 48
-                        radius: Colors.cornerRadiusCircle
-                        color: Colors.accent
+                        radius: 24
+                        color: MColors.accentDim
                         anchors.verticalCenter: parent.verticalCenter
+                        antialiasing: Constants.enableAntialiasing
                         
                         Icon {
                             name: "bell"
                             size: Constants.iconSizeMedium
-                            color: Colors.text
+                            color: MColors.text
                             anchors.centerIn: parent
                         }
                     }
@@ -171,7 +174,7 @@ Rectangle {
                             
                             Text {
                                 text: model.title
-                                color: model.isRead ? Colors.textSecondary : Colors.text
+                                color: model.isRead ? MColors.textSecondary : MColors.text
                                 font.pixelSize: Typography.sizeBody
                                 font.weight: model.isRead ? Font.Normal : Font.Bold
                                 elide: Text.ElideRight
@@ -180,7 +183,7 @@ Rectangle {
                         
                         Text {
                             text: model.body || ""
-                            color: Colors.textTertiary
+                            color: MColors.textSecondary
                             font.pixelSize: Typography.sizeSmall
                             width: parent.width
                             elide: Text.ElideRight
@@ -195,7 +198,7 @@ Rectangle {
                         
                         Text {
                             text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
-                            color: Colors.textTertiary
+                            color: MColors.textSecondary
                             font.pixelSize: Typography.sizeXSmall
                             anchors.right: parent.right
                         }
@@ -204,9 +207,10 @@ Rectangle {
                             visible: !model.isRead
                             width: 10
                             height: 10
-                            radius: Colors.cornerRadiusSmall
-                            color: Colors.accentLight
+                            radius: Constants.borderRadiusSharp
+                            color: MColors.accentBright
                             anchors.right: parent.right
+                            antialiasing: Constants.enableAntialiasing
                         }
                     }
                 }
@@ -223,7 +227,7 @@ Rectangle {
             Text {
                 visible: notificationsList.count === 0
                 text: "No notifications"
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: Typography.sizeBody
                 anchors.centerIn: parent
             }

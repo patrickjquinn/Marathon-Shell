@@ -10,7 +10,7 @@ import MarathonOS.Shell
  * - Handle app lifecycle events (launch, pause, resume, close)
  * - Manage app stack (foreground, background)
  * - Route system events to apps (back gesture, minimize, etc.)
- * - Coordinate with UIStore and TaskManagerStore
+ * - Coordinate with UIStore and TaskModel
  */
 QtObject {
     id: lifecycleManager
@@ -56,6 +56,16 @@ QtObject {
      */
     function unregisterApp(appId) {
         Logger.info("AppLifecycle", "Unregistering app: " + appId)
+        
+        // Clean up task when app unregistered
+        if (typeof TaskModel !== 'undefined') {
+            var task = TaskModel.getTaskByAppId(appId)
+            if (task) {
+                TaskModel.closeTask(task.id)
+                Logger.info("AppLifecycle", "Removed task for unregistered app: " + appId)
+            }
+        }
+        
         delete appRegistry[appId]
         delete appStates[appId]
     }
@@ -219,6 +229,15 @@ QtObject {
      */
     function closeApp(appId) {
         Logger.info("AppLifecycle", "Closing app: " + appId)
+        
+        // Remove from TaskModel
+        if (typeof TaskModel !== 'undefined') {
+            var task = TaskModel.getTaskByAppId(appId)
+            if (task) {
+                TaskModel.closeTask(task.id)
+                Logger.info("AppLifecycle", "Removed task for closed app: " + appId)
+            }
+        }
         
         if (appRegistry[appId]) {
             appRegistry[appId].close()

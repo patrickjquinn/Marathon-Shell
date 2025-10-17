@@ -1,33 +1,48 @@
 import QtQuick
-import "../Theme"
+import MarathonOS.Shell
 
 Rectangle {
     id: root
     
     default property alias content: contentItem.data
     property string variant: "default"
+    property int elevation: 1
+    property bool pressed: false
     
     implicitWidth: 300
-    implicitHeight: contentItem.childrenRect.height + MSpacing.lg * 2
-    radius: MRadius.md
+    implicitHeight: contentItem.childrenRect.height + Constants.spacingLarge * 2
+    radius: Constants.borderRadiusSharp
     
-    color: MColors.glass
-    border.width: 1
-    border.color: MColors.glassBorder
+    color: pressed ? MColors.surface0 : MElevation.getSurface(root.elevation)
+    border.width: Constants.borderWidthThin
+    border.color: MElevation.getBorderOuter(root.elevation)
+    antialiasing: Constants.enableAntialiasing
+    
+    Behavior on color {
+        enabled: Constants.enableAnimations
+        ColorAnimation { duration: Constants.animationFast }
+    }
     
     Rectangle {
+        id: innerBorder
         anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius - 1
+        anchors.margins: Constants.borderWidthThin
+        radius: parent.radius > 0 ? parent.radius - Constants.borderWidthThin : 0
         color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.03)
+        border.width: Constants.borderWidthThin
+        border.color: root.pressed ? Qt.rgba(1, 1, 1, 0.02) : MElevation.getBorderInner(root.elevation)
+        antialiasing: Constants.enableAntialiasing
+        
+        Behavior on border.color {
+            enabled: Constants.enableAnimations
+            ColorAnimation { duration: Constants.animationFast }
+        }
     }
     
     Item {
         id: contentItem
         anchors.fill: parent
-        anchors.margins: MSpacing.lg
+        anchors.margins: Constants.spacingLarge
     }
 }
 
