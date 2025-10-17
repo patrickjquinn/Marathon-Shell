@@ -3,6 +3,18 @@
 # Device-specific options should go in config-<device>.fragment files
 
 # ============================================================
+# Kernel Compression
+# ============================================================
+# XZ compression for smallest size (~30% smaller than gzip)
+CONFIG_HAVE_KERNEL_GZIP=y
+CONFIG_HAVE_KERNEL_BZIP2=y
+CONFIG_HAVE_KERNEL_LZMA=y
+CONFIG_HAVE_KERNEL_XZ=y
+CONFIG_HAVE_KERNEL_LZO=y
+CONFIG_HAVE_KERNEL_LZ4=y
+CONFIG_KERNEL_XZ=y
+
+# ============================================================
 # PREEMPT_RT (Mainlined in 6.12+)
 # ============================================================
 CONFIG_PREEMPTION=y
@@ -128,11 +140,26 @@ CONFIG_CGROUP_PERF=y
 CONFIG_CGROUP_BPF=y
 
 # ============================================================
-# Display & Graphics (Generic DRM/KMS)
+# Display & Graphics (Generic DRM/KMS + MSM for Snapdragon)
 # ============================================================
 CONFIG_DRM=y
 CONFIG_DRM_KMS_HELPER=y
 CONFIG_DRM_FBDEV_EMULATION=y
+
+# MSM DRM driver dependencies (MUST be built-in, not modules)
+CONFIG_QCOM_LLCC=y
+CONFIG_QCOM_OCMEM=y
+CONFIG_QCOM_SCM=y
+CONFIG_QCOM_COMMAND_DB=y
+
+# MSM DRM driver for Adreno GPU (Snapdragon 845)
+CONFIG_DRM_MSM=y
+CONFIG_DRM_MSM_DSI=y
+CONFIG_DRM_MSM_DSI_PLL=y
+CONFIG_DRM_MSM_GPU=y
+CONFIG_DRM_MSM_HDMI=y
+CONFIG_DRM_MSM_DP=y
+
 CONFIG_FB=y
 CONFIG_FRAMEBUFFER_CONSOLE=y
 

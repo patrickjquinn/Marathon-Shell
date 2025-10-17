@@ -132,7 +132,7 @@ Newer Snapdragon 855/855+ devices:
 
 ```
 packages/
-├── linux-marathon-enchilada/
+├── linux-marathon/
 ├── linux-marathon-beryllium/
 └── linux-marathon-fajita/
 ```

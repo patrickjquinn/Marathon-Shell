@@ -1,0 +1,14 @@
+{
+  "id": "camera",
+  "name": "Camera",
+  "version": "1.0.0",
+  "entryPoint": "CameraApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["camera", "storage"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["camera", "photo", "video", "capture", "picture"],
+  "deepLinks": {}
+}
+

@@ -1,0 +1,14 @@
+{
+  "id": "gallery",
+  "name": "Gallery",
+  "version": "1.0.0",
+  "entryPoint": "GalleryApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["storage"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["gallery", "photos", "images", "pictures", "media"],
+  "deepLinks": {}
+}
+

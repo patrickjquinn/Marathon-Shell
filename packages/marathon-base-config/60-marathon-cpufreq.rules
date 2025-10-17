@@ -1,1 +1,7 @@
-../../configs/udev.rules.d/60-marathon-cpufreq.rules
+# Marathon OS CPU Frequency Governor
+# Set schedutil governor for all CPUs for responsive scaling
+
+ACTION=="add", SUBSYSTEM=="cpu", KERNEL=="cpu[0-9]*", \
+  RUN+="/bin/sh -c 'echo schedutil > /sys/devices/system/cpu/%k/cpufreq/scaling_governor'"
+
+

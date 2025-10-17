@@ -1,0 +1,13 @@
+{
+  "id": "calendar",
+  "name": "Calendar",
+  "version": "1.0.0",
+  "entryPoint": "CalendarApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["notifications", "storage"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["calendar", "events", "schedule", "appointments", "reminders"],
+  "deepLinks": {}
+}

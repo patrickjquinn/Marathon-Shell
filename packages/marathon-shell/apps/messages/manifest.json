@@ -1,0 +1,14 @@
+{
+  "id": "messages",
+  "name": "Messages",
+  "version": "1.0.0",
+  "entryPoint": "MessagesApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["notifications"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["messages", "sms", "text", "chat", "messaging"],
+  "deepLinks": {}
+}
+

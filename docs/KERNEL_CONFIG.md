@@ -301,15 +301,15 @@ To customize the config:
 
 ```bash
 # Start with Marathon config
-cd packages/linux-marathon-enchilada
-cp config-marathon-enchilada.aarch64 .config
+cd packages/linux-marathon
+cp config-marathon-base.aarch64 .config
 
 # Customize with menuconfig
 make ARCH=arm64 menuconfig
 
 # Save changes
 make ARCH=arm64 savedefconfig
-mv defconfig config-marathon-enchilada.aarch64
+mv defconfig config-marathon-base.aarch64
 ```
 
 **Important:** Always test on device after config changes. Some options (like `io_poll`) may cause instability depending on hardware.

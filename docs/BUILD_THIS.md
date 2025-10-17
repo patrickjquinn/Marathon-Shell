@@ -79,7 +79,7 @@ pmbootstrap kconfig edit postmarketos-install-recommends # only if needed
 
 ## 3) Kernel: 6.12+ with PREEMPT_RT & mobile options
 
-Create a device-specific kernel package (example: `linux-marathon-enchilada`).
+Create a device-specific kernel package (example: `linux-marathon`).
 
 **Key `CONFIG` options (excerpt):**
 
@@ -336,7 +336,7 @@ Install a `wayland-session` desktop file and set autologin to the `marathon` use
 
 ## 13) Build the image
 
-**Device package**: point `deviceinfo_kernel` to `linux-marathon-enchilada` in the device’s pmaports entry.
+**Device package**: point `deviceinfo_kernel` to `linux-marathon` in the device's pmaports entry.
 
 **Package manifest** (example `marathon-packages.txt`): core/base, graphics, audio, telephony, `marathon-base-config`, `marathon-shell`, custom kernel.
 
@@ -346,10 +346,10 @@ Install a `wayland-session` desktop file and set autologin to the `marathon` use
 # Build packages
 pmbootstrap build marathon-base-config
 pmbootstrap build marathon-shell
-pmbootstrap build linux-marathon-enchilada
+pmbootstrap build linux-marathon
 
 # Install system to rootfs and export images
-pmbootstrap install --device oneplus-enchilada --add marathon-base-config --add marathon-shell --add linux-marathon-enchilada
+pmbootstrap install --device oneplus-enchilada --add marathon-base-config --add marathon-shell --add linux-marathon
 pmbootstrap export --android-boot-img
 pmbootstrap flasher export_rootfs
 ```
@@ -451,7 +451,7 @@ glmark2-wayland
 
 ## 19) Appendix: Package/File Drop Summary
 
-* `linux-marathon-enchilada` (custom kernel pkg)
+* `linux-marathon` (custom kernel pkg)
 * `marathon-base-config` (drops: sysctl, zram, iosched/cpufreq udev rules, limits, sleep policy, PipeWire & ModemManager overrides)
 * `marathon-shell` (Wayland compositor + session file + `marathon-compositor` launcher)
 

@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Messages
+
+MessagesApp 1.0 MessagesApp.qml
+

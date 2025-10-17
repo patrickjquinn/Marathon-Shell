@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Settings.Components
+
+SettingsPageTemplate 1.0 SettingsPageTemplate.qml
+

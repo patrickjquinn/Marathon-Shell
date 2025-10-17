@@ -1,0 +1,169 @@
+<RCC>
+    <qresource prefix="/images">
+        <file alias="phone.svg">resources/images/phone.svg</file>
+        <file alias="messages.svg">resources/images/messages.svg</file>
+        <file alias="browser.svg">resources/images/browser.svg</file>
+        <file alias="camera.svg">resources/images/camera.svg</file>
+        <file alias="settings.svg">resources/images/settings.svg</file>
+        <file alias="calendar.svg">resources/images/calendar.svg</file>
+        <file alias="clock.svg">resources/images/clock.svg</file>
+        <file alias="music.svg">resources/images/music.svg</file>
+        <file alias="gallery.svg">resources/images/gallery.svg</file>
+        <file alias="maps.svg">resources/images/maps.svg</file>
+        <file alias="calculator.svg">resources/images/calculator.svg</file>
+        <file alias="notes.svg">resources/images/notes.svg</file>
+    </qresource>
+    <qresource prefix="/wallpapers">
+        <file>resources/wallpapers/wallpaper.jpg</file>
+        <file>resources/wallpapers/wallpaper2.jpg</file>
+        <file>resources/wallpapers/wallpaper3.jpg</file>
+        <file>resources/wallpapers/wallpaper4.jpg</file>
+        <file>resources/wallpapers/wallpaper5.jpg</file>
+        <file>resources/wallpapers/wallpaper6.jpg</file>
+        <file>resources/wallpapers/wallpaper7.jpg</file>
+    </qresource>
+    <qresource prefix="/images/icons/lucide">
+        <file alias="wifi.svg">resources/images/icons/lucide/wifi.svg</file>
+        <file alias="bluetooth.svg">resources/images/icons/lucide/bluetooth.svg</file>
+        <file alias="battery.svg">resources/images/icons/lucide/battery.svg</file>
+        <file alias="battery-charging.svg">resources/images/icons/lucide/battery-charging.svg</file>
+        <file alias="battery-low.svg">resources/images/icons/lucide/battery-low.svg</file>
+        <file alias="battery-medium.svg">resources/images/icons/lucide/battery-medium.svg</file>
+        <file alias="battery-full.svg">resources/images/icons/lucide/battery-full.svg</file>
+        <file alias="signal.svg">resources/images/icons/lucide/signal.svg</file>
+        <file alias="plane.svg">resources/images/icons/lucide/plane.svg</file>
+        <file alias="rotate-ccw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
+        <file alias="volume-2.svg">resources/images/icons/lucide/volume-2.svg</file>
+        <file alias="sun.svg">resources/images/icons/lucide/sun.svg</file>
+        <file alias="bell.svg">resources/images/icons/lucide/bell.svg</file>
+        <file alias="zap.svg">resources/images/icons/lucide/zap.svg</file>
+        <file alias="x.svg">resources/images/icons/lucide/x.svg</file>
+        <file alias="chevron-up.svg">resources/images/icons/lucide/chevron-up.svg</file>
+        <file alias="chevron-down.svg">resources/images/icons/lucide/chevron-down.svg</file>
+        <file alias="chevron-left.svg">resources/images/icons/lucide/chevron-left.svg</file>
+        <file alias="chevron-right.svg">resources/images/icons/lucide/chevron-right.svg</file>
+        <file alias="search.svg">resources/images/icons/lucide/search.svg</file>
+        <file alias="grid.svg">resources/images/icons/lucide/grid.svg</file>
+        <file alias="home.svg">resources/images/icons/lucide/home.svg</file>
+        <file alias="info.svg">resources/images/icons/lucide/info.svg</file>
+        <file alias="trash-2.svg">resources/images/icons/lucide/trash-2.svg</file>
+        <file alias="link.svg">resources/images/icons/lucide/link.svg</file>
+        <file alias="file-text.svg">resources/images/icons/lucide/file-text.svg</file>
+        <file alias="message-square.svg">resources/images/icons/lucide/message-square.svg</file>
+        <file alias="mail.svg">resources/images/icons/lucide/mail.svg</file>
+        <file alias="inbox.svg">resources/images/icons/lucide/inbox.svg</file>
+        <file alias="phone.svg">resources/images/icons/lucide/phone.svg</file>
+        <file alias="users.svg">resources/images/icons/lucide/users.svg</file>
+        <file alias="globe.svg">resources/images/icons/lucide/globe.svg</file>
+        <file alias="hard-drive.svg">resources/images/icons/lucide/hard-drive.svg</file>
+        <file alias="lock.svg">resources/images/icons/lucide/lock.svg</file>
+        <file alias="grid-black.svg">resources/images/icons/lucide/grid-black.svg</file>
+        <file alias="inbox-black.svg">resources/images/icons/lucide/inbox-black.svg</file>
+        <file alias="settings.svg">resources/images/icons/lucide/settings.svg</file>
+        <file alias="rotate-cw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
+        <file alias="layers.svg">resources/images/icons/lucide/grid.svg</file>
+        <file alias="activity.svg">resources/images/icons/lucide/zap.svg</file>
+        <file alias="calculator.svg">resources/images/icons/lucide/calculator.svg</file>
+        <file alias="music.svg">resources/images/icons/lucide/music.svg</file>
+        <file alias="calendar.svg">resources/images/icons/lucide/calendar.svg</file>
+        <file alias="camera.svg">resources/images/icons/lucide/camera.svg</file>
+        <file alias="clock.svg">resources/images/icons/lucide/clock.svg</file>
+        <file alias="map.svg">resources/images/icons/lucide/map.svg</file>
+        <file alias="image.svg">resources/images/icons/lucide/image.svg</file>
+        <file alias="folder.svg">resources/images/icons/lucide/folder.svg</file>
+        <file alias="terminal.svg">resources/images/icons/lucide/terminal.svg</file>
+        <file alias="check.svg">resources/images/icons/lucide/check.svg</file>
+        <file alias="check-check.svg">resources/images/icons/lucide/check-check.svg</file>
+        <file alias="arrow-left.svg">resources/images/icons/lucide/arrow-left.svg</file>
+        <file alias="bell-off.svg">resources/images/icons/lucide/bell-off.svg</file>
+        <file alias="moon.svg">resources/images/icons/lucide/moon.svg</file>
+        <file alias="volume-x.svg">resources/images/icons/lucide/volume-x.svg</file>
+        <file alias="monitor.svg">resources/images/icons/lucide/monitor.svg</file>
+        <file alias="smartphone.svg">resources/images/icons/lucide/smartphone.svg</file>
+        <file alias="music-2.svg">resources/images/icons/lucide/music-2.svg</file>
+        <file alias="wifi-off.svg">resources/images/icons/lucide/wifi-off.svg</file>
+        <file alias="bluetooth-off.svg">resources/images/icons/lucide/bluetooth-off.svg</file>
+        <file alias="battery-warning.svg">resources/images/icons/lucide/battery-warning.svg</file>
+        <file alias="sliders.svg">resources/images/icons/lucide/sliders.svg</file>
+        <file alias="toggle-left.svg">resources/images/icons/lucide/toggle-left.svg</file>
+        <file alias="toggle-right.svg">resources/images/icons/lucide/toggle-right.svg</file>
+        <file alias="trash.svg">resources/images/icons/lucide/trash.svg</file>
+        <file alias="download.svg">resources/images/icons/lucide/download.svg</file>
+        <file alias="upload.svg">resources/images/icons/lucide/upload.svg</file>
+        <file alias="eye.svg">resources/images/icons/lucide/eye.svg</file>
+        <file alias="eye-off.svg">resources/images/icons/lucide/eye-off.svg</file>
+        <file alias="shield.svg">resources/images/icons/lucide/shield.svg</file>
+        <file alias="key.svg">resources/images/icons/lucide/key.svg</file>
+    </qresource>
+    <qresource prefix="/sounds">
+        <file>resources/sounds/alarms/alarm_antelope.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_bbproalarm.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_definite.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_earlyriser.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_electronic.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_highalert.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_sunrise.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_transition.m4a.mp3</file>
+        <file>resources/sounds/alarms/alarm_vintagealarm.m4a.mp3</file>
+        <file>resources/sounds/phone/bbpro1.m4a.mp3</file>
+        <file>resources/sounds/phone/bbpro2.m4a.mp3</file>
+        <file>resources/sounds/phone/bbpro3.m4a.mp3</file>
+        <file>resources/sounds/phone/bbpro4.m4a.mp3</file>
+        <file>resources/sounds/phone/bonjour.m4a.mp3</file>
+        <file>resources/sounds/phone/classicphone.m4a.mp3</file>
+        <file>resources/sounds/phone/clean.m4a.mp3</file>
+        <file>resources/sounds/phone/evolving_destiny.m4a.mp3</file>
+        <file>resources/sounds/phone/fresh.m4a.mp3</file>
+        <file>resources/sounds/phone/lively.m4a.mp3</file>
+        <file>resources/sounds/phone/open.m4a.mp3</file>
+        <file>resources/sounds/phone/radiant.m4a.mp3</file>
+        <file>resources/sounds/phone/spirit.m4a.mp3</file>
+        <file>resources/sounds/messages/bright.m4a.mp3</file>
+        <file>resources/sounds/messages/confident.m4a.mp3</file>
+        <file>resources/sounds/messages/contentment.m4a.mp3</file>
+        <file>resources/sounds/messages/eager.m4a.mp3</file>
+        <file>resources/sounds/messages/gungho.m4a.mp3</file>
+        <file>resources/sounds/messages/keen.m4a.mp3</file>
+        <file>resources/sounds/messages/lightspeed.m4a.mp3</file>
+        <file>resources/sounds/messages/sanguine.m4a.mp3</file>
+        <file>resources/sounds/messages/sonar.m4a.mp3</file>
+        <file>resources/sounds/messages/vivid.m4a.mp3</file>
+        <file>resources/sounds/messages/warm.m4a.mp3</file>
+        <file>resources/sounds/text/bikebell.m4a.mp3</file>
+        <file>resources/sounds/text/brief.m4a.mp3</file>
+        <file>resources/sounds/text/caffeine.m4a.mp3</file>
+        <file>resources/sounds/text/chigong.m4a.mp3</file>
+        <file>resources/sounds/text/chime.m4a.mp3</file>
+        <file>resources/sounds/text/crystal.m4a.mp3</file>
+        <file>resources/sounds/text/lucid.m4a.mp3</file>
+        <file>resources/sounds/text/presto.m4a.mp3</file>
+        <file>resources/sounds/text/pure.m4a.mp3</file>
+        <file>resources/sounds/text/tight.m4a.mp3</file>
+        <file>resources/sounds/text/ufo.m4a.mp3</file>
+        <file>resources/sounds/reminders/active.m4a.mp3</file>
+        <file>resources/sounds/reminders/entrance.m4a.mp3</file>
+        <file>resources/sounds/reminders/gentle.m4a.mp3</file>
+        <file>resources/sounds/reminders/immediate.m4a.mp3</file>
+        <file>resources/sounds/reminders/instant.m4a.mp3</file>
+        <file>resources/sounds/reminders/morning.m4a.mp3</file>
+        <file>resources/sounds/reminders/nymph.m4a.mp3</file>
+        <file>resources/sounds/reminders/ready.m4a.mp3</file>
+        <file>resources/sounds/reminders/spell.m4a.mp3</file>
+        <file>resources/sounds/reminders/starportal.m4a.mp3</file>
+        <file>resources/sounds/reminders/tranquil.m4a.mp3</file>
+        <file>resources/sounds/timers/notification_timer.m4a.mp3</file>
+        <file>resources/sounds/timers/notification_timer3beeps.m4a.mp3</file>
+        <file>resources/sounds/bbm/bbm_ping.m4a.mp3</file>
+        <file>resources/sounds/bbm/bbpro5.m4a.mp3</file>
+        <file>resources/sounds/bbm/bbpro6.m4a.mp3</file>
+        <file>resources/sounds/bbm/crisp.m4a.mp3</file>
+        <file>resources/sounds/bbm/dimples.m4a.mp3</file>
+        <file>resources/sounds/bbm/glimmer.m4a.mp3</file>
+        <file>resources/sounds/bbm/greeter.m4a.mp3</file>
+        <file>resources/sounds/bbm/ninja.m4a.mp3</file>
+        <file>resources/sounds/bbm/present.m4a.mp3</file>
+        <file>resources/sounds/bbm/reflect.m4a.mp3</file>
+        <file>resources/sounds/bbm/sparkle.m4a.mp3</file>
+    </qresource>
+</RCC>
+

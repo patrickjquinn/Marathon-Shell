@@ -68,7 +68,7 @@ QT_QUICK_CONTROLS_STYLE=Basic
 - Input thread: priority 85 (via --input-thread-priority)
 - Render thread: priority 70 (via --render-thread-priority)
 
-### 3. linux-marathon-enchilada
+### 3. linux-marathon
 
 **Purpose:** Custom kernel for OnePlus 6
 
@@ -90,12 +90,12 @@ QT_QUICK_CONTROLS_STYLE=Basic
 
 **Build:**
 ```bash
-cd packages/linux-marathon-enchilada
-pmbootstrap build linux-marathon-enchilada
+cd packages/linux-marathon
+pmbootstrap build linux-marathon
 ```
 
 **Configuration:**
-- Base: `config-marathon-enchilada.aarch64`
+- Base: `config-marathon-base.aarch64`
 - Located in package directory
 - Merge with device-specific configs during build
 
@@ -126,12 +126,12 @@ pmbootstrap init
 PMAPORTS="$HOME/.local/var/pmbootstrap/cache_git/pmaports"
 cp -r packages/marathon-base-config "$PMAPORTS/main/"
 cp -r packages/marathon-shell "$PMAPORTS/main/"
-cp -r packages/linux-marathon-enchilada "$PMAPORTS/device/main/"
+cp -r packages/linux-marathon "$PMAPORTS/device/main/"
 
 # Build each package
 pmbootstrap build marathon-base-config
 pmbootstrap build marathon-shell
-pmbootstrap build linux-marathon-enchilada
+pmbootstrap build linux-marathon
 
 # Install system
 pmbootstrap install \
@@ -232,12 +232,12 @@ sysctl net.ipv4.tcp_congestion_control  # Should be: bbr
 
 ### Update Kernel
 
-1. Edit `config-marathon-enchilada.aarch64`
+1. Edit `config-marathon-base.aarch64`
 2. Bump `pkgver` for new kernel version
 3. Update kernel source URL
 4. Rebuild:
    ```bash
-   pmbootstrap build linux-marathon-enchilada
+   pmbootstrap build linux-marathon
    pmbootstrap install --kernel marathon
    pmbootstrap export --android-boot-img
    fastboot flash boot boot-oneplus-enchilada.img
@@ -310,9 +310,9 @@ Marathon-Image/
 │   │   ├── APKBUILD
 │   │   ├── marathon-compositor
 │   │   └── marathon.desktop
-│   └── linux-marathon-enchilada/
+│   └── linux-marathon/
 │       ├── APKBUILD
-│       └── config-marathon-enchilada.aarch64
+│       └── config-marathon-base.aarch64
 ├── configs/
 │   ├── sysctl.d/
 │   ├── udev.rules.d/
@@ -368,7 +368,7 @@ sudo make modules_install install
 
 # Or extract to dev machine:
 scp user@device:/usr/src/linux-6.17.0/.config ./new-config
-diff config-marathon-enchilada.aarch64 new-config
+diff config-marathon-base.aarch64 new-config
 ```
 
 ### Test Without Flashing

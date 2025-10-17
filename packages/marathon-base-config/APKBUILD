@@ -14,7 +14,9 @@ depends="
 	mesa-gbm
 	mesa-egl
 	mesa-dri-gallium
-	egl-wayland
+	mesa-gles
+	mesa-vdpau-gallium
+	mesa-utils
 	pipewire
 	pipewire-pulse
 	wireplumber
@@ -23,7 +25,7 @@ depends="
 	mobile-broadband-provider-info
 	e2fsprogs
 	f2fs-tools
-	systemd-zram-generator
+	zram-init-systemd
 	htop
 	iw
 	nano
@@ -38,47 +40,52 @@ source="
 	50-marathon-zram.conf
 	60-marathon-cpufreq.rules
 	60-marathon-iosched.rules
+	60-gpu-acceleration.rules
 	50-marathon-sleep.conf
 	50-marathon-limits.conf
 	50-pipewire-priority.conf
 	50-modemmanager-priority.conf
+	50-gpu-acceleration.conf
+	20-modesetting.conf
 "
-
 package() {
 	install -Dm644 "$srcdir/99-marathon.conf" \
 		"$pkgdir/etc/sysctl.d/99-marathon.conf"
-	
 	install -Dm644 "$srcdir/50-marathon-zram.conf" \
 		"$pkgdir/etc/systemd/zram-generator.conf.d/50-marathon.conf"
-	
 	install -Dm644 "$srcdir/60-marathon-cpufreq.rules" \
 		"$pkgdir/etc/udev/rules.d/60-marathon-cpufreq.rules"
-	
 	install -Dm644 "$srcdir/60-marathon-iosched.rules" \
 		"$pkgdir/etc/udev/rules.d/60-marathon-iosched.rules"
-	
+	install -Dm644 "$srcdir/60-gpu-acceleration.rules" \
+		"$pkgdir/etc/udev/rules.d/60-gpu-acceleration.rules"
 	install -Dm644 "$srcdir/50-marathon-sleep.conf" \
 		"$pkgdir/etc/systemd/sleep.conf.d/50-marathon.conf"
-	
 	install -Dm644 "$srcdir/50-marathon-limits.conf" \
 		"$pkgdir/etc/security/limits.d/50-marathon.conf"
-	
+	install -d "$pkgdir"/etc/systemd/system/pipewire.service.d
 	install -Dm644 "$srcdir/50-pipewire-priority.conf" \
 		"$pkgdir/etc/systemd/system/pipewire.service.d/50-priority.conf"
-	
+	install -d "$pkgdir"/etc/systemd/system/ModemManager.service.d
 	install -Dm644 "$srcdir/50-modemmanager-priority.conf" \
 		"$pkgdir/etc/systemd/system/ModemManager.service.d/50-priority.conf"
+	install -d "$pkgdir"/etc/environment.d
+	install -Dm644 "$srcdir/50-gpu-acceleration.conf" \
+		"$pkgdir/etc/environment.d/50-gpu-acceleration.conf"
+	install -d "$pkgdir"/etc/X11/xorg.conf.d
+	install -Dm644 "$srcdir/20-modesetting.conf" \
+		"$pkgdir/etc/X11/xorg.conf.d/20-modesetting.conf"
 }
-
 sha512sums="
-SKIP
-SKIP
-SKIP
-SKIP
-SKIP
-SKIP
-SKIP
-SKIP
+8b1a65e8a7fc5a638c3462062da4f4d19ad60ca1c754dfc0346d724df69742e8e38de66472548b06507ec712d462f6a6da0415a5d616bf577b15109c9d04675f  99-marathon.conf
+68ec412f971bd5e77394f75c617e9d00de495dac37b4f1ceba102a116475d20a6d6752bd85cd997fe422e4436461453b804b0f6a145ad3a321b8720f9e12c4eb  50-marathon-zram.conf
+1e67bd4c3535b35518b2677202a079be9ea3b12dee3d047ca86dde4e2b75d034b48712c0df9c2ab8ac000b014221f1dd3c0d84656e835a3cc4dde7b2d31b6002  60-marathon-cpufreq.rules
+36582312335aa3f821e4e474cebabb6735e83a2241187830eff03e8006a95b025184bd3eb9f00211976aec7e9ebfde16efccf8c58d0e59e3d159bcaa681b6f7d  60-marathon-iosched.rules
+7161cf7d0921688f038df7cee8df0367f656eb58bfcd3835043e0abb72a04a01478e4a850d5b42f813cdedafada29eec3dfe827396db836053c6e7cf280e00d7  60-gpu-acceleration.rules
+93865b797c877973f7d7f552be8adc14d942ddff34e7fc15c4ac84b59d6fb3ba21a1d2f3f1a2cede173c0235d5537431d31837f8c66c8af0cca96a6b4cf6815b  50-marathon-sleep.conf
+c749d2bc17b8330d9461a94b2b7ca8103c58f5f5130a8c50d67093c6f8fad461c6a3b6971f08d9fc989e29dd1ad951d6be2a65d04e998b3ea4dea581dcaa2f9b  50-marathon-limits.conf
+80d4b35fc079fe96d3fe6672427765b7c884481551cf09af6da7c1de095ecd0aba8bacdf53f8c3b4f9c69ccfcb6ceea8a3dc44fa4ce9f98c8880384145edcf5b  50-pipewire-priority.conf
+eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339aaf6d34ec664b0d41b0f2e823ba37a5bdc3d8e2f8285fcdf  50-modemmanager-priority.conf
+b07a1172c593dc76244d796ff3c2a856cd07b0ef24fe4fb227520883b05e885120d256e4f23724f81527b8bdbf097efa61e1356c27ef93b563ba00a89b0898a0  50-gpu-acceleration.conf
+9d767358913c14aa3746f1b3fc174a4620cc71840e081e74ca582d6d544d33fd7447ed8f8af8ab7976e3d02d423407b67068ff469c1d8a63804399d0f5a5c61d  20-modesetting.conf
 "
-
-

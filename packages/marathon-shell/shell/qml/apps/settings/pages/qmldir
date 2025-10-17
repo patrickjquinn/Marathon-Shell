@@ -1,0 +1,12 @@
+module MarathonOS.Shell.Apps.Settings.Pages
+
+SettingsMainPage 1.0 SettingsMainPage.qml
+WiFiPage 1.0 WiFiPage.qml
+BluetoothPage 1.0 BluetoothPage.qml
+CellularPage 1.0 CellularPage.qml
+DisplayPage 1.0 DisplayPage.qml
+SoundPage 1.0 SoundPage.qml
+NotificationsPage 1.0 NotificationsPage.qml
+StoragePage 1.0 StoragePage.qml
+AboutPage 1.0 AboutPage.qml
+

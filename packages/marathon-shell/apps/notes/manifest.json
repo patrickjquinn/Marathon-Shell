@@ -1,0 +1,21 @@
+{
+  "id": "notes",
+  "name": "Notes",
+  "version": "1.0.0",
+  "entryPoint": "NotesApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["storage"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": [
+    "notes",
+    "memo",
+    "text",
+    "write",
+    "editor",
+    "document"
+  ],
+  "deepLinks": {}
+}
+

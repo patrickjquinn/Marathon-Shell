@@ -1,0 +1,14 @@
+{
+  "id": "maps",
+  "name": "Maps",
+  "version": "1.0.0",
+  "entryPoint": "MapsApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["location", "network"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["maps", "navigation", "location", "directions", "places"],
+  "deepLinks": {}
+}
+

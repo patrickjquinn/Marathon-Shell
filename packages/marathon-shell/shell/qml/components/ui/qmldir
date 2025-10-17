@@ -1,0 +1,12 @@
+module MarathonOS.Shell.Components.UI
+
+Button 1.0 Button.qml
+Input 1.0 Input.qml
+SettingsListItem 1.0 SettingsListItem.qml
+PageIndicator 1.0 PageIndicator.qml
+Modal 1.0 Modal.qml
+TextInputModal 1.0 TextInputModal.qml
+ListPickerModal 1.0 ListPickerModal.qml
+StorageDetailsModal 1.0 StorageDetailsModal.qml
+ConfirmDialog 1.0 ConfirmDialog.qml
+

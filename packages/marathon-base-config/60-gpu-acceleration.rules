@@ -1,0 +1,14 @@
+# Marathon OS GPU Acceleration Udev Rules
+# Ensure proper permissions for GPU devices
+
+# GPU device permissions
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", GROUP="video", MODE="0664"
+KERNEL=="renderD[0-9]*", SUBSYSTEM=="drm", GROUP="video", MODE="0664"
+
+# GPU device ownership
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", RUN+="/bin/chown root:video /dev/%k"
+KERNEL=="renderD[0-9]*", SUBSYSTEM=="drm", RUN+="/bin/chown root:video /dev/%k"
+
+# GPU device access
+KERNEL=="card[0-9]*", SUBSYSTEM=="drm", RUN+="/bin/chmod 664 /dev/%k"
+KERNEL=="renderD[0-9]*", SUBSYSTEM=="drm", RUN+="/bin/chmod 664 /dev/%k"

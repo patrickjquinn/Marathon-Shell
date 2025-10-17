@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Clock
+
+ClockApp 1.0 ClockApp.qml
+

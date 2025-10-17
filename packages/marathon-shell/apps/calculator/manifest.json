@@ -1,0 +1,20 @@
+{
+  "id": "calculator",
+  "name": "Calculator",
+  "version": "1.0.0",
+  "entryPoint": "CalculatorApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": [],
+  "minShellVersion": "1.0.0",
+  "protected": false,
+  "searchKeywords": [
+    "calculator",
+    "math",
+    "calc",
+    "numbers",
+    "arithmetic"
+  ],
+  "deepLinks": {}
+}
+

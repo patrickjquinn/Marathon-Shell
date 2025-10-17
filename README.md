@@ -93,21 +93,27 @@ sudo dnf install pmbootstrap git android-tools
 sudo apt install pmbootstrap git android-tools-adb android-tools-fastboot
 ```
 
+**System Requirements:**
+- 8GB+ RAM (for building)
+- 20GB+ free disk space
+- Internet connection (for downloading packages)
+- Root access (for pmbootstrap chroot operations)
+
 ### Build Process
 
 1. **Initialize pmbootstrap:**
 
 ```bash
 pmbootstrap init
-# Choose: edge, oneplus/enchilada, systemd, none (UI)
+# Choose: v25.06 (stable), oneplus/enchilada, systemd, none (UI)
 ```
 
-2. **Build Marathon OS:**
+2. **Build complete Marathon OS:**
 
 ```bash
 cd Marathon-Image
 
-# For OnePlus 6 (default)
+# For OnePlus 6 (default) - builds Marathon Shell + all optimizations
 ./scripts/build-and-flash.sh enchilada
 
 # For other devices
@@ -121,17 +127,25 @@ This script will:
 - Load device-specific configuration
 - Build custom kernel with device fragment
 - Build base config package (universal)
-- Build shell package (universal)
+- Build Marathon Shell package (universal)
+- Install Marathon Shell in rootfs
+- Configure greetd for autologin
 - Create flashable images in `./out/<device>/`
 
 3. **Flash to device:**
 
 ```bash
 # Boot OnePlus 6 into fastboot (Power + Vol Down)
-fastboot flash boot out/boot-oneplus-enchilada.img
-fastboot flash userdata out/postmarketos-oneplus-enchilada.img
+fastboot flash boot out/enchilada/boot.img
+fastboot flash system out/enchilada/oneplus-enchilada-root.img
 fastboot reboot
 ```
+
+**Result:** Device boots directly to Marathon Shell with all BlackBerry 10-inspired optimizations!
+
+**Note:** The build creates two essential images:
+- `boot.img` (26MB) - Contains kernel and initramfs
+- `oneplus-enchilada-root.img` (624MB) - Contains the root filesystem with Marathon Shell
 
 ### Post-Boot Validation
 
@@ -198,6 +212,34 @@ Device-specific configurations are in `devices/<codename>/`:
 SoC family configs are shared in `devices/<soc-family>/`.
 
 ## Troubleshooting
+
+### Build Issues
+
+**"pmbootstrap not found":**
+```bash
+# Install pmbootstrap
+sudo dnf install pmbootstrap  # Fedora
+sudo apt install pmbootstrap  # Ubuntu/Debian
+```
+
+**"Permission denied" errors:**
+```bash
+# Ensure you have sudo access
+sudo -v
+# The build script needs root access for chroot operations
+```
+
+**Build hangs on password prompt:**
+- The improved build script automatically uses a dummy password
+- If using manual commands, add `--password "dummy123"`
+
+**"Package build failed":**
+```bash
+# Check the build log
+pmbootstrap log
+# Rebuild with force if needed
+pmbootstrap build <package-name> --force
+```
 
 ### Laggy UI
 

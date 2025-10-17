@@ -1,0 +1,14 @@
+{
+  "id": "music",
+  "name": "Music",
+  "version": "1.0.0",
+  "entryPoint": "MusicApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["storage"],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["music", "audio", "songs", "player", "playlist"],
+  "deepLinks": {}
+}
+

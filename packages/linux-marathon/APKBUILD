@@ -5,14 +5,17 @@
 # Example: _device=enchilada abuild -r
 _device="${device:-enchilada}"
 
-pkgname=linux-marathon-$_device
-pkgver=6.17.0
+pkgname=linux-marathon
+pkgver=6.17.3
 pkgrel=0
 pkgdesc="Marathon OS optimized Linux kernel for ARM64 mobile devices ($_device)"
 url="https://kernel.org"
 arch="aarch64"
 license="GPL-2.0-only"
 depends="initramfs-generator"
+provides="linux"
+replaces="linux-postmarketos-qcom-sdm845 postmarketos-qcom-sdm845"
+provider_priority=100
 makedepends="
 	bison
 	findutils
@@ -29,7 +32,7 @@ makedepends="
 options="!strip !check !tracedeps"
 source="
 	https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$pkgver.tar.xz
-	config-marathon-base.aarch64
+	config-marathon-complete.aarch64
 "
 builddir="$srcdir/linux-$pkgver"
 
@@ -42,17 +45,17 @@ fi
 prepare() {
 	default_prepare
 	
-	# Start with Marathon base config
-	cp "$srcdir/config-marathon-base.aarch64" .config
+	# Use complete Marathon config (no merge needed)
+	msg "Using complete Marathon kernel config..."
+	cp "$srcdir/config-marathon-complete.aarch64" .config
 	
-	# Merge device-specific fragment if provided
-	if [ -f "$srcdir/kernel-config.fragment" ]; then
-		msg "Merging device-specific config fragment..."
-		./scripts/kconfig/merge_config.sh .config "$srcdir/kernel-config.fragment"
-	fi
+	# Verify MSM drivers are in config
+	msg "Verifying MSM drivers in config:"
+	grep -E "CONFIG_DRM_MSM|CONFIG_QCOM_LLCC|CONFIG_QCOM_OCMEM" .config || msg "WARNING: MSM drivers not found in config!"
 	
 	# Let kconfig resolve any missing options
 	make ARCH=arm64 olddefconfig
+	msg "Kernel config preparation completed"
 }
 
 build() {
@@ -70,14 +73,16 @@ package() {
 		modules_install dtbs_install
 	
 	install -Dm644 arch/arm64/boot/Image \
-		"$pkgdir/boot/vmlinuz-marathon-$_device"
+		"$pkgdir/boot/vmlinuz-marathon"
 	
 	install -D include/config/kernel.release \
 		"$pkgdir/usr/share/kernel/marathon/kernel.release"
+	
+	# Create symlink for compatibility with postmarketos-qcom-sdm845
+	ln -s vmlinuz-marathon "$pkgdir/boot/vmlinuz-postmarketos-qcom-sdm845"
 }
 
 sha512sums="
-SKIP
-SKIP
-SKIP
+b2c77d3d0bee221a970dd020f71d10843275994538a98584129887db20854bcceb5da3f5fa057ebc42d8d8714cb9bcb36239716ea59a70c56c8f9d2a16421fa6  linux-6.17.3.tar.xz
+0fc9edef2ef69bbfa452a0ad935c42d6273aba32fa5249a22cd8b50da84d214f2664f0255002e76a858444b750b5fb4968e09f5d0d3566eb45ddea790328df15  config-marathon-base.aarch64
 "

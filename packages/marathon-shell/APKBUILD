@@ -3,76 +3,119 @@
 pkgname=marathon-shell
 pkgver=1.0.0
 pkgrel=0
-pkgdesc="Marathon Shell - BlackBerry 10 inspired Qt6/QML Wayland compositor"
+pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
-arch="aarch64"
-license="GPL-3.0-or-later"
+arch="aarch64 x86_64"
+license="MIT"
 depends="
 	qt6-qtbase
 	qt6-qtdeclarative
 	qt6-qtwayland
-	qt6-qt5compat
+	qt6-qtwebengine
 	qt6-qtmultimedia
 	qt6-qtsvg
-	dbus
-	mesa-egl
 	wayland
 	wayland-protocols
-	libinput
-	eudev
+	mesa
+	mesa-gbm
+	mesa-egl
+	mesa-dri-gallium
+	mesa-gles
+	pipewire
+	pipewire-pulse
+	wireplumber
 	greetd
-	greetd-agreety
-"
+	dbus
+	"
 makedepends="
 	cmake
 	samurai
 	qt6-qtbase-dev
 	qt6-qtdeclarative-dev
 	qt6-qtwayland-dev
-	qt6-qt5compat-dev
+	qt6-qtwebengine-dev
 	qt6-qtmultimedia-dev
 	qt6-qtsvg-dev
 	wayland-dev
 	wayland-protocols
 	mesa-dev
-	libinput-dev
-	eudev-dev
 	dbus-dev
-"
-install="$pkgname.post-install"
+	"
+install=""
+subpackages="$pkgname-doc"
 source="
-	marathon-shell-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/refs/tags/v$pkgver.tar.gz
-	marathon-compositor
 	marathon.desktop
-	greetd-marathon.toml
-"
-options="!check"
-builddir="$srcdir/Marathon-Shell-$pkgver"
+	marathon-shell.toml
+	"
+builddir="$srcdir/marathon-shell"
+
+prepare() {
+	default_prepare
+	
+	# Copy specific files and directories to build directory
+	cp -r "$srcdir/shell" "$builddir/"
+	cp -r "$srcdir/apps" "$builddir/"
+	cp -r "$srcdir/scripts" "$builddir/" 2>/dev/null || true
+	cp -r "$srcdir/docs" "$builddir/" 2>/dev/null || true
+	cp "$srcdir/CMakeLists.txt" "$builddir/" 2>/dev/null || true
+	cp "$srcdir/run.sh" "$builddir/" 2>/dev/null || true
+	
+	# Ensure proper permissions
+	chmod -R +x "$builddir/scripts/" 2>/dev/null || true
+}
 
 build() {
+	cd "$builddir"
+	
+	# Build main shell
 	cmake -B build -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_INSTALL_PREFIX=/usr
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
 	cmake --build build
+	
+	# Build apps
+	cmake -B build-apps -S apps -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
+	cmake --build build-apps
+}
+
+check() {
+	cd "$builddir"
+	# Add tests when available
+	true
 }
 
 package() {
+	cd "$builddir"
+	
+	# Install main shell
 	DESTDIR="$pkgdir" cmake --install build
 	
-	install -Dm755 "$srcdir/marathon-compositor" \
-		"$pkgdir/usr/bin/marathon-compositor"
+	# Install apps
+	DESTDIR="$pkgdir" cmake --install build-apps
 	
-	install -Dm644 "$srcdir/marathon.desktop" \
-		"$pkgdir/usr/share/wayland-sessions/marathon.desktop"
+	# Install launcher script
+	install -Dm755 run.sh "$pkgdir"/usr/bin/marathon-shell
 	
-	install -Dm644 "$srcdir/greetd-marathon.toml" \
-		"$pkgdir/etc/greetd/config.toml"
+	# Install Wayland session file
+	install -Dm644 "$srcdir"/marathon.desktop \
+		"$pkgdir"/usr/share/wayland-sessions/marathon.desktop
+	
+	# Install greetd configuration example
+	install -Dm644 "$srcdir"/marathon-shell.toml \
+		"$pkgdir"/usr/share/greetd/marathon-shell.toml
+	
+	# Install documentation
+	install -Dm644 README.md \
+		"$pkgdir"/usr/share/doc/$pkgname/README.md
+	install -Dm644 docs/*.md \
+		"$pkgdir"/usr/share/doc/$pkgname/
 }
 
 sha512sums="
-SKIP
-SKIP
-SKIP
-SKIP
 "
 

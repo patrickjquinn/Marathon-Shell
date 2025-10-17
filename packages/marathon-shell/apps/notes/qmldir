@@ -1,0 +1,4 @@
+module MarathonOS.Shell.Apps.Notes
+
+NotesApp 1.0 NotesApp.qml
+

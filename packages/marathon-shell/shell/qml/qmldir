@@ -1,0 +1,50 @@
+module MarathonOS.Shell
+
+# Singletons from stores
+singleton AppStore 1.0 stores/AppStore.qml
+singleton WallpaperStore 1.0 stores/WallpaperStore.qml
+singleton SystemStatusStore 1.0 stores/SystemStatusStore.qml
+singleton SystemControlStore 1.0 stores/SystemControlStore.qml
+singleton SessionStore 1.0 stores/SessionStore.qml
+singleton UIStore 1.0 stores/UIStore.qml
+
+# Singletons from core
+singleton Constants 1.0 core/Constants.qml
+singleton Logger 1.0 core/Logger.qml
+singleton Router 1.0 core/Router.qml
+
+# Singletons from theme
+singleton Theme 1.0 theme/Theme.qml
+singleton Colors 1.0 theme/Colors.qml
+singleton Typography 1.0 theme/Typography.qml
+singleton Layout 1.0 theme/Layout.qml
+
+# Singletons from services
+singleton AlarmManager 1.0 services/AlarmManager.qml
+singleton AmbientLightSensor 1.0 services/AmbientLightSensor.qml
+singleton AppLifecycleManager 1.0 services/AppLifecycleManager.qml
+singleton AudioManager 1.0 services/AudioManager.qml
+singleton CellularManager 1.0 services/CellularManager.qml
+singleton DesktopEntryParser 1.0 services/DesktopEntryParser.qml
+singleton DisplayManager 1.0 services/DisplayManager.qml
+singleton FlashlightManager 1.0 services/FlashlightManager.qml
+singleton LocationService 1.0 services/LocationService.qml
+singleton NavigationRouter 1.0 services/NavigationRouter.qml
+singleton NetworkManager 1.0 services/NetworkManager.qml
+singleton NotificationService 1.0 services/NotificationService.qml
+singleton Platform 1.0 services/Platform.qml
+singleton PowerManager 1.0 services/PowerManager.qml
+singleton ProximitySensor 1.0 services/ProximitySensor.qml
+singleton ServiceBus 1.0 services/ServiceBus.qml
+singleton SessionManager 1.0 services/SessionManager.qml
+singleton TelephonyManager 1.0 services/TelephonyManager.qml
+singleton UnifiedSearchService 1.0 services/UnifiedSearchService.qml
+singleton WakeManager 1.0 services/WakeManager.qml
+
+# UI Components
+Icon 1.0 components/Icon.qml
+SettingsListItem 1.0 components/ui/SettingsListItem.qml
+Section 1.0 components/layout/Section.qml
+MarathonSearch 1.0 components/MarathonSearch.qml
+MarathonAlarmOverlay 1.0 components/MarathonAlarmOverlay.qml
+

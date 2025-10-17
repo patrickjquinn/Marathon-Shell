@@ -1,8 +1,7 @@
 [Desktop Entry]
 Name=Marathon Shell
-Comment=BlackBerry 10 inspired mobile shell
-Exec=/usr/bin/marathon-compositor
+Comment=Marathon Shell Wayland Compositor
+Exec=/usr/bin/marathon-shell
 Type=Application
 DesktopNames=Marathon
-
 
