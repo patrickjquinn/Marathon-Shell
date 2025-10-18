@@ -160,18 +160,23 @@ Rectangle {
                     // Capture values to avoid accessing potentially destroyed appWindow later
                     var capturedAppName = appWindow.appName
                     var capturedAppId = appWindow.appId
+                    var capturedWindow = appWindow  // Capture window reference
                     
                     if (appInstance.minimizeRequested) {
                         minimizeConnection = appInstance.minimizeRequested.connect(function() {
                             Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName)
-                            appWindow.minimized()
+                            if (capturedWindow) {
+                                capturedWindow.minimized()
+                            }
                         })
                     }
                     
                     if (appInstance.closed) {
                         closedConnection = appInstance.closed.connect(function() {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName)
-                            appWindow.hide()
+                            if (capturedWindow) {
+                                capturedWindow.hide()
+                            }
                         })
                     }
                     
@@ -195,7 +200,7 @@ Rectangle {
     Loader {
         id: appContentLoader
         anchors.fill: parent
-        asynchronous: true
+        asynchronous: false  // Changed to synchronous to reduce app launch latency
         visible: status === Loader.Ready && item !== null
         opacity: status === Loader.Ready ? 1.0 : 0.0
         

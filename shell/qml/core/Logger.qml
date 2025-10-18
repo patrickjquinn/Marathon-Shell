@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import MarathonOS.Shell
 
 QtObject {
     id: logger
@@ -14,7 +15,7 @@ QtObject {
     property int currentLevel: Logger.Level.WARN
     
     function debug(component, message) {
-        if (currentLevel <= Logger.Level.DEBUG) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
             console.log("[DEBUG]", component + ":", message)
         }
     }
@@ -38,7 +39,7 @@ QtObject {
     }
     
     function gesture(component, action, data) {
-        if (currentLevel <= Logger.Level.DEBUG) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
             console.log("[GESTURE]", component + ":", action, JSON.stringify(data || {}))
         }
     }

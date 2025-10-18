@@ -44,9 +44,10 @@ QtObject {
         }
         
         // If this app was waiting to be brought to foreground, do it now
-        if (pendingForegroundApp === appId) {
+        if (pendingForegroundApps.indexOf(appId) !== -1) {
             Logger.info("AppLifecycle", "App registered, applying pending foreground")
-            pendingForegroundApp = ""
+            var index = pendingForegroundApps.indexOf(appId)
+            pendingForegroundApps.splice(index, 1)
             bringToForeground(appId)
         }
     }
@@ -108,11 +109,11 @@ QtObject {
         } else {
             Logger.warn("AppLifecycle", "App not in registry yet, deferring foreground")
             // App will register itself shortly, set foreground then
-            pendingForegroundApp = appId
+            pendingForegroundApps.push(appId)
         }
     }
     
-    property string pendingForegroundApp: ""
+    property var pendingForegroundApps: []
     
     /**
      * Restore app from task switcher

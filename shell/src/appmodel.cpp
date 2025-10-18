@@ -70,6 +70,23 @@ void AppModel::addApp(const QString& id, const QString& name, const QString& ico
         return;
     }
 
+    // Validate inputs
+    if (name.isEmpty()) {
+        qWarning() << "[AppModel] Invalid app: empty name for ID:" << id;
+        return;
+    }
+
+    if (icon.isEmpty()) {
+        qWarning() << "[AppModel] Invalid app: empty icon for ID:" << id;
+        return;
+    }
+
+    // Validate type is one of: "native", "marathon", "system"
+    if (type != "native" && type != "marathon" && type != "system") {
+        qWarning() << "[AppModel] Invalid app type:" << type << "for ID:" << id;
+        return;
+    }
+
     beginInsertRows(QModelIndex(), m_apps.count(), m_apps.count());
     App* app = new App(id, name, icon, type, this);
     m_apps.append(app);

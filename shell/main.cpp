@@ -127,6 +127,13 @@ int main(int argc, char *argv[])
     
     QQuickStyle::setStyle("Basic");
     
+    // Enable debug logging via environment variable
+    QString debugEnv = qgetenv("MARATHON_DEBUG");
+    bool debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
+    if (debugEnabled) {
+        qDebug() << "Debug mode enabled via MARATHON_DEBUG";
+    }
+    
 #ifdef HAVE_WAYLAND
     qmlRegisterType<WaylandCompositor>("MarathonOS.Wayland", 1, 0, "WaylandCompositor");
     qDebug() << "Wayland Compositor support enabled";
@@ -135,6 +142,9 @@ int main(int argc, char *argv[])
 #endif
     
     QQmlApplicationEngine engine;
+    
+    // Set debug mode context property
+    engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
     
     // Register DesktopFileParser as a singleton accessible from QML
     DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);

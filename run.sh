@@ -38,6 +38,12 @@ if [ $? -eq 0 ]; then
     echo "🚀 Starting Marathon Shell..."
     echo ""
     
+    # Check for debug mode
+    if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
+        echo "🐛 Debug mode enabled (MARATHON_DEBUG=$MARATHON_DEBUG)"
+        echo ""
+    fi
+    
     # Run the app (macOS .app bundle)
     ./build/shell/marathon-shell.app/Contents/MacOS/marathon-shell
 else

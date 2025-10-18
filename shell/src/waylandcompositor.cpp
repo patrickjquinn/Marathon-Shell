@@ -44,7 +44,7 @@ WaylandCompositor::~WaylandCompositor()
                 process->kill();
             }
         }
-        delete process;
+        process->deleteLater();
     }
 }
 

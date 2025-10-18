@@ -1,5 +1,6 @@
 /Users/patrick.quinn/.local/share/marathon-apps/browser/qmldir
 /Users/patrick.quinn/.local/share/marathon-apps/browser/BrowserApp.qml
+/Users/patrick.quinn/.local/share/marathon-apps/browser/components/WebView.qml
 /Users/patrick.quinn/.local/share/marathon-apps/browser/components/TabCard.qml
 /Users/patrick.quinn/.local/share/marathon-apps/browser/components/BrowserDrawer.qml
 /Users/patrick.quinn/.local/share/marathon-apps/browser/manifest.json

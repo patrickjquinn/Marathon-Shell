@@ -22,9 +22,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Qt6 detection - support both Homebrew (macOS) and system installations (Linux)
 if(APPLE)
-    # Use Homebrew Qt 6.9.3 for compatibility with WebEngine on macOS
-    set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6" ${CMAKE_PREFIX_PATH})
-    message(STATUS "Using Homebrew Qt 6.9.3 for WebEngine compatibility on macOS")
+    # Try environment variable first, then Homebrew default
+    if(DEFINED ENV{QT_ROOT})
+        set(CMAKE_PREFIX_PATH "$ENV{QT_ROOT}" ${CMAKE_PREFIX_PATH})
+        message(STATUS "Using Qt from QT_ROOT: $ENV{QT_ROOT}")
+    else()
+        set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6" ${CMAKE_PREFIX_PATH})
+        message(STATUS "Using Homebrew Qt 6.9.3 for WebEngine compatibility on macOS")
+    endif()
 elseif(UNIX)
     # On Linux, try standard Qt6 installation paths
     if(NOT DEFINED Qt6_DIR)
@@ -33,7 +38,7 @@ elseif(UNIX)
     message(STATUS "Using system Qt6 at ${Qt6_DIR}")
 endif()
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS
+find_package(Qt6 6.5...6.9.3 REQUIRED COMPONENTS
     Core
     Gui
     Qml

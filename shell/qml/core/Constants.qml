@@ -81,6 +81,9 @@ QtObject {
     property bool performanceMode: false
     readonly property bool enableAnimations: !performanceMode
     
+    // Debug mode - controlled by MARATHON_DEBUG environment variable
+    property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
+    
     // =========================================================================
     // LAYOUT DIMENSIONS (responsive)
     // =========================================================================
