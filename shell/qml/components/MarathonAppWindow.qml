@@ -19,14 +19,14 @@ Rectangle {
     signal minimized()
     
     function show(id, name, icon, type, surface, sid) {
-        root.appId = id
-        root.appName = name
-        root.appIcon = icon
-        root.appType = type || "marathon"
-        root.waylandSurface = surface || null
-        root.surfaceId = sid || -1
+        appId = id
+        appName = name
+        appIcon = icon
+        appType = type || "marathon"
+        waylandSurface = surface || null
+        surfaceId = sid || -1
         
-        Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + root.appType + ")")
+        Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
         
         // CRITICAL: Cleanup connections and unparent the current app instance BEFORE switching
         if (appContentLoader.item) {
@@ -42,7 +42,7 @@ Rectangle {
             }
         }
         
-        if (root.appType === "native") {
+        if (appType === "native") {
             // Load native Wayland app
             appContentLoader.setSource("../apps/native/NativeAppWindow.qml", {
                 "nativeAppId": id,
@@ -213,9 +213,9 @@ Rectangle {
         
         onStatusChanged: {
             if (status === Loader.Error) {
-                Logger.error("AppWindow", "Failed to load app content for: " + root.appId)
+                Logger.error("AppWindow", "Failed to load app content for: " + appId)
             } else if (status === Loader.Ready) {
-                Logger.info("AppWindow", "App content loaded successfully for: " + root.appId)
+                Logger.info("AppWindow", "App content loaded successfully for: " + appId)
             }
         }
     }
@@ -223,7 +223,7 @@ Rectangle {
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
             console.log("[AppWindow] Back/Escape key pressed")
-            AppStore.closeApp(root.appId)
+            AppStore.closeApp(appId)
             hide()
             event.accepted = true
         }

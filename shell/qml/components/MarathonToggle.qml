@@ -15,8 +15,8 @@ Item {
         anchors.fill: parent
         radius: Constants.borderRadiusSharp
         border.width: Constants.borderWidthThin
-        border.color: root.checked ? MColors.accentBright : MColors.borderOuter
-        color: root.checked ? MColors.surface2 : MColors.surface
+        border.color: checked ? MColors.accentBright : MColors.borderOuter
+        color: checked ? MColors.surface2 : MColors.surface
         antialiasing: Constants.enableAntialiasing
         
         Behavior on border.color {
@@ -41,7 +41,7 @@ Item {
     Rectangle {
         id: switchHandle
         anchors.verticalCenter: parent.verticalCenter
-        x: root.checked ? parent.width - width - 2 : 2
+        x: checked ? parent.width - width - 2 : 2
         width: 28
         height: 28
         radius: Constants.borderRadiusSharp
@@ -65,8 +65,8 @@ Item {
         anchors.fill: parent
         anchors.margins: -8
         onClicked: {
-            root.checked = !root.checked
-            toggled(root.checked)
+            checked = !checked
+            toggled(checked)
         }
     }
 }

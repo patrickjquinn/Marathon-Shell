@@ -12,19 +12,19 @@ Item {
     
     function showToast(notification) {
         toastQueue.push(notification)
-        if (!root.currentToast) {
+        if (!currentToast) {
             showNextToast()
         }
     }
     
     function showNextToast() {
         if (toastQueue.length === 0) {
-            root.currentToast = null
+            currentToast = null
             return
         }
         
-        root.currentToast = toastQueue.shift()
-        toast.notification = root.currentToast
+        currentToast = toastQueue.shift()
+        toast.notification = currentToast
         toast.visible = true
         toast.y = -toast.height
         slideIn.start()

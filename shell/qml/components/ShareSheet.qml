@@ -167,7 +167,7 @@ Item {
     Connections {
         target: UIStore
         function onShowShareSheet(content, type) {
-            shareSheet.content = root.content
+            shareSheet.content = content
             shareSheet.contentType = type
         }
     }

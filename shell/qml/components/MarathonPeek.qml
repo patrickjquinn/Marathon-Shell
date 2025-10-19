@@ -24,37 +24,37 @@ Item {
     
     // Public API for external gesture capture
     function startPeekGesture(x) {
-        root.gestureStartX = x
-        root.gestureLastX = x
-        root.gestureLastTime = Date.now()
-        root.isPeeking = true
+        gestureStartX = x
+        gestureLastX = x
+        gestureLastTime = Date.now()
+        isPeeking = true
         Logger.info("Peek", "Gesture started from external capture")
     }
     
     function updatePeekGesture(deltaX) {
-        if (!root.isPeeking) return
+        if (!isPeeking) return
         
         var now = Date.now()
-        var deltaTime = now - root.gestureLastTime
+        var deltaTime = now - gestureLastTime
         
         if (deltaTime > 0) {
-            root.gestureVelocity = (deltaX - (root.gestureLastX - gestureStartX)) / deltaTime * 1000
+            gestureVelocity = (deltaX - (gestureLastX - gestureStartX)) / deltaTime * 1000
         }
         
-        root.gestureLastX = gestureStartX + deltaX
-        root.gestureLastTime = now
+        gestureLastX = gestureStartX + deltaX
+        gestureLastTime = now
         
         // Update peek progress (0 to 1)
-        root.peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)))
+        peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)))
     }
     
     function endPeekGesture() {
-        if (!root.isPeeking) return
+        if (!isPeeking) return
         
-        root.isPeeking = false
+        isPeeking = false
         
         // Velocity-based or threshold-based decision
-        var shouldOpen = (root.gestureVelocity > 300) || (root.peekProgress > peekThreshold)
+        var shouldOpen = (gestureVelocity > 300) || (peekProgress > peekThreshold)
         
         if (shouldOpen) {
             openPeek()
@@ -63,19 +63,19 @@ Item {
         }
         
         Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + 
-                    " (velocity: " + gestureVelocity.toFixed(0) + "px/s, progress: " + (root.peekProgress * 100).toFixed(0) + "%)")
+                    " (velocity: " + gestureVelocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)")
     }
     
     // Main content area (dims as peek opens)
     Rectangle {
         anchors.fill: parent
         color: "#000000"
-        opacity: root.peekProgress * 0.6
-        visible: root.peekProgress > 0
+        opacity: peekProgress * 0.6
+        visible: peekProgress > 0
         
         MouseArea {
             anchors.fill: parent
-            enabled: root.peekProgress > 0
+            enabled: peekProgress > 0
             onClicked: {
                 closePeek()
             }
@@ -88,17 +88,17 @@ Item {
         width: parent.width * 0.85
         height: parent.height
         x: {
-            if (root.peekProgress === 0) {
+            if (peekProgress === 0) {
                 return -width
             } else {
-                return -width + (width * root.peekProgress)
+                return -width + (width * peekProgress)
             }
         }
-        visible: root.peekProgress > 0 || isPeeking
+        visible: peekProgress > 0 || isPeeking
         clip: true
         
         Behavior on x {
-            enabled: !root.isPeeking
+            enabled: !isPeeking
             NumberAnimation {
                 duration: 350
                 easing.type: Easing.OutCubic
@@ -127,7 +127,7 @@ Item {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             width: parent.width * 0.3  // Right 30% of screen
-            enabled: root.isFullyOpen
+            enabled: isFullyOpen
             z: 100  // Above hub content
             
             property real startX: 0
@@ -137,55 +137,55 @@ Item {
             property bool isDragging: false
             
             onPressed: (mouse) => {
-                root.startX = mouse.x
-                root.lastX = mouse.x
-                root.lastTime = Date.now()
+                startX = mouse.x
+                lastX = mouse.x
+                lastTime = Date.now()
                 isDragging = false
-                root.velocity = 0
+                velocity = 0
             }
             
             onPositionChanged: (mouse) => {
                 if (!isDragging) {
-                    var deltaX = mouse.x - root.startX
+                    var deltaX = mouse.x - startX
                     // Detect left swipe (closing gesture)
                     if (deltaX < -15) {
                         isDragging = true
-                        root.isPeeking = true
-                        root.startX = mouse.x  // Reset for tracking
-                        root.lastX = mouse.x
-                        root.lastTime = Date.now()
+                        isPeeking = true
+                        startX = mouse.x  // Reset for tracking
+                        lastX = mouse.x
+                        lastTime = Date.now()
                         Logger.info("Peek", "Close drag started")
                     }
                 } else {
                     var now = Date.now()
-                    var deltaTime = now - root.lastTime
+                    var deltaTime = now - lastTime
                     
                     if (deltaTime > 0) {
-                        root.velocity = (mouse.x - lastX) / deltaTime * 1000
+                        velocity = (mouse.x - lastX) / deltaTime * 1000
                     }
-                    root.lastX = mouse.x
-                    root.lastTime = now
+                    lastX = mouse.x
+                    lastTime = now
                     
                     // Update progress: deltaX from reset startX
-                    var deltaX = mouse.x - root.startX
+                    var deltaX = mouse.x - startX
                     var maxDrag = hubPanelContainer.width
-                    root.peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)))
+                    peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)))
                 }
             }
             
             onReleased: (mouse) => {
                 if (isDragging) {
                     isDragging = false
-                    root.isPeeking = false
+                    isPeeking = false
                     
                     // Close if dragged left past threshold or velocity is high
-                    if (root.peekProgress < 0.65 || velocity < -500) {
-                        Logger.info("Peek", "Closing from drag (progress: " + root.peekProgress + ", velocity: " + velocity + ")")
+                    if (peekProgress < 0.65 || velocity < -500) {
+                        Logger.info("Peek", "Closing from drag (progress: " + peekProgress + ", velocity: " + velocity + ")")
                         closePeek()
                     } else {
                         // Snap back to open
                         Logger.info("Peek", "Snapping back open")
-                        root.peekProgress = 1.0
+                        peekProgress = 1.0
                     }
                 }
             }
@@ -193,8 +193,8 @@ Item {
             onCanceled: {
                 if (isDragging) {
                     isDragging = false
-                    root.isPeeking = false
-                    root.peekProgress = 1.0
+                    isPeeking = false
+                    peekProgress = 1.0
                 }
             }
         }
@@ -210,7 +210,7 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: Constants.spacingSmall  // Narrow to not block back button
-        enabled: !root.isFullyOpen
+        enabled: !isFullyOpen
         
         property real startX: 0
         property real lastX: 0
@@ -219,43 +219,43 @@ Item {
         
         onPressed: (mouse) => {
             // Always start peek since we're already in left edge area
-            root.startX = mouse.x
-            root.lastX = mouse.x
-            root.lastTime = Date.now()
-            root.isPeeking = true
+            startX = mouse.x
+            lastX = mouse.x
+            lastTime = Date.now()
+            isPeeking = true
             console.log("👈 Peek gesture started from left edge")
         }
         
         onPositionChanged: (mouse) => {
-            if (!root.isPeeking) return
+            if (!isPeeking) return
             
             // Calculate absolute X position (since we're in a 50px wide area)
             var absoluteX = gestureArea.x + mouse.x
-            var deltaX = absoluteX - root.startX
+            var deltaX = absoluteX - startX
             var now = Date.now()
-            var deltaTime = now - root.lastTime
+            var deltaTime = now - lastTime
             
             if (deltaTime > 0) {
-                root.velocity = (absoluteX - lastX) / deltaTime * 1000  // pixels per second
+                velocity = (absoluteX - lastX) / deltaTime * 1000  // pixels per second
             }
             
-            root.lastX = absoluteX
-            root.lastTime = now
+            lastX = absoluteX
+            lastTime = now
             
             // Update peek progress (0 to 1) based on parent width, not gestureArea width
-            root.peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)))
+            peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)))
         }
         
         onReleased: {
-            if (!root.isPeeking) return
+            if (!isPeeking) return
             
-            root.isPeeking = false
+            isPeeking = false
             
             // Decision logic: open fully or close
-            if (root.peekProgress > peekThreshold || velocity > 500) {
+            if (peekProgress > peekThreshold || velocity > 500) {
                 // Open fully
-                root.peekProgress = 1.0
-                root.isFullyOpen = true
+                peekProgress = 1.0
+                isFullyOpen = true
                 fullyOpened()
             } else {
                 // Close
@@ -264,21 +264,21 @@ Item {
         }
         
         onCanceled: {
-            root.isPeeking = false
+            isPeeking = false
             closePeek()
         }
     }
     
     // Functions
     function openPeek() {
-        root.peekProgress = 1.0
-        root.isFullyOpen = true
+        peekProgress = 1.0
+        isFullyOpen = true
         fullyOpened()
     }
     
     function closePeek() {
-        root.peekProgress = 0
-        root.isFullyOpen = false
+        peekProgress = 0
+        isFullyOpen = false
         closed()
     }
     
@@ -288,14 +288,14 @@ Item {
     
     // Escape key to close
     Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_Escape && root.peekProgress > 0) {
+        if (event.key === Qt.Key_Escape && peekProgress > 0) {
             closePeek()
             event.accepted = true
         }
     }
     
     Component.onCompleted: {
-        Logger.info("Peek", "Initialized, progress: " + root.peekProgress)
+        Logger.info("Peek", "Initialized, progress: " + peekProgress)
         forceActiveFocus()
     }
     

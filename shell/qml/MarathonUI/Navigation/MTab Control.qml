@@ -13,7 +13,7 @@ Rectangle {
     signal tabChanged(int index)
     
     implicitWidth: 300
-    implicitHeight: root.orientation === "horizontal" ? 
+    implicitHeight: orientation === "horizontal" ? 
         Constants.actionBarHeight + stackLayout.implicitHeight :
         600
     

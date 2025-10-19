@@ -26,40 +26,40 @@ Item {
         propagateComposedEvents: true
         
         onPressed: (mouse) => {
-            root.startX = mouse.x
-            root.startY = mouse.y
+            startX = mouse.x
+            startY = mouse.y
             
             if (mouse.y > height - Theme.peekThreshold) {
-                root.activeGesture = "bottom"
+                activeGesture = "bottom"
                 bottomSwipeStarted()
                 mouse.accepted = true
             } else if (mouse.x < Theme.edgeGestureWidth) {
-                root.activeGesture = "left"
+                activeGesture = "left"
                 leftSwipeStarted()
                 mouse.accepted = true
             } else if (mouse.x > width - Theme.edgeGestureWidth) {
-                root.activeGesture = "right"
+                activeGesture = "right"
                 rightSwipeStarted()
                 mouse.accepted = true
             } else {
-                root.activeGesture = ""
+                activeGesture = ""
                 mouse.accepted = false
             }
         }
         
         onPositionChanged: (mouse) => {
-            if (root.activeGesture === "bottom") {
-                var dragY = root.startY - mouse.y
+            if (activeGesture === "bottom") {
+                var dragY = startY - mouse.y
                 var progress = Math.max(0, Math.min(1, dragY / Theme.commitThreshold))
                 bottomSwipeProgress(progress)
                 mouse.accepted = true
-            } else if (root.activeGesture === "left") {
-                var dragX = mouse.x - root.startX
+            } else if (activeGesture === "left") {
+                var dragX = mouse.x - startX
                 var progress = Math.max(0, Math.min(1, dragX / Theme.hubWidth))
                 leftSwipeProgress(progress)
                 mouse.accepted = true
-            } else if (root.activeGesture === "right") {
-                var dragX = root.startX - mouse.x
+            } else if (activeGesture === "right") {
+                var dragX = startX - mouse.x
                 var progress = Math.max(0, Math.min(1, dragX / 200))
                 rightSwipeProgress(progress)
                 mouse.accepted = true
@@ -67,20 +67,20 @@ Item {
         }
         
         onReleased: (mouse) => {
-            if (root.activeGesture === "bottom") {
-                var dragY = root.startY - mouse.y
+            if (activeGesture === "bottom") {
+                var dragY = startY - mouse.y
                 var committed = dragY > Theme.commitThreshold
                 bottomSwipeReleased(committed)
-            } else if (root.activeGesture === "left") {
-                var dragX = mouse.x - root.startX
+            } else if (activeGesture === "left") {
+                var dragX = mouse.x - startX
                 var committed = dragX > Theme.hubWidth * 0.5
                 leftSwipeReleased(committed)
-            } else if (root.activeGesture === "right") {
-                var dragX = root.startX - mouse.x
+            } else if (activeGesture === "right") {
+                var dragX = startX - mouse.x
                 var committed = dragX > 100
                 rightSwipeReleased(committed)
             }
-            root.activeGesture = ""
+            activeGesture = ""
             mouse.accepted = true
         }
     }

@@ -19,7 +19,7 @@ Rectangle {
     color: MElevation.getSurface(1)
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
-    border.color: root.expanded ? MColors.accent : MElevation.getBorderOuter(1)
+    border.color: expanded ? MColors.accent : MElevation.getBorderOuter(1)
     antialiasing: Constants.enableAntialiasing
     
     Behavior on border.color {

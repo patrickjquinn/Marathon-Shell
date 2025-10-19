@@ -19,13 +19,13 @@ Rectangle {
     implicitWidth: 300
     implicitHeight: contentItem.childrenRect.height + Constants.spacingLarge * 2
     radius: Constants.borderRadiusSharp
-    scale: root.pressed ? 0.98 : 1.0
+    scale: pressed ? 0.98 : 1.0
     
     readonly property int currentElevation: pressed ? Math.max(0, elevationPressed) : (hovered ? elevationHover : elevation)
     
-    color: MElevation.getSurface(root.currentElevation)
+    color: MElevation.getSurface(currentElevation)
     border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(root.currentElevation)
+    border.color: MElevation.getBorderOuter(currentElevation)
     antialiasing: Constants.enableAntialiasing
     
     Behavior on color {
@@ -34,7 +34,7 @@ Rectangle {
     }
     
     Behavior on scale {
-        enabled: Constants.enableAnimations && root.interactive
+        enabled: Constants.enableAnimations && interactive
         SpringAnimation { 
             spring: MMotion.springMedium
             damping: MMotion.dampingMedium
@@ -49,7 +49,7 @@ Rectangle {
         radius: root.radius > 0 ? root.radius - Constants.borderWidthThin : 0
         color: "transparent"
         border.width: Constants.borderWidthThin
-        border.color: MElevation.getBorderInner(root.currentElevation)
+        border.color: MElevation.getBorderInner(currentElevation)
         antialiasing: Constants.enableAntialiasing
         
         Behavior on border.color {
@@ -66,15 +66,15 @@ Rectangle {
     
     MouseArea {
         anchors.fill: parent
-        enabled: root.interactive
-        hoverEnabled: root.interactive
-        cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onEntered: if (root.interactive) { root.hovered = true; HapticService.light() }
+        enabled: interactive
+        hoverEnabled: interactive
+        cursorShape: interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onEntered: if (interactive) { root.hovered = true; HapticService.light() }
         onExited: root.hovered = false
-        onPressed: if (root.interactive) { root.pressed = true }
+        onPressed: if (interactive) { root.pressed = true }
         onReleased: root.pressed = false
         onCanceled: root.pressed = false
-        onClicked: if (root.interactive) { root.clicked(); HapticService.medium() }
+        onClicked: if (interactive) { root.clicked(); HapticService.medium() }
     }
 }
 

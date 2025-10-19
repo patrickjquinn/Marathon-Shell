@@ -660,7 +660,7 @@ Item {
             // Calculate which page we're on based on contentY
             // Each page is exactly taskGrid.height tall (2 rows of cards)
             var page = Math.round(taskGrid.contentY / taskGrid.height)
-            return Math.max(0, Math.min(page, root.pageCount - 1))
+            return Math.max(0, Math.min(page, pageCount - 1))
         }
         
         Repeater {
