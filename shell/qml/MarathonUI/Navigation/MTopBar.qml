@@ -29,11 +29,11 @@ Rectangle {
         
         Item {
             id: leftContainer
-            width: showBackButton ? 48 : childrenRect.width
+            width: root.showBackButton ? 48 : childrenRect.width
             height: parent.height
             
             MIconButton {
-                visible: showBackButton && leftContainer.children.length === 1
+                visible: root.showBackButton && leftContainer.children.length === 1
                 iconName: "chevron-left"
                 anchors.verticalCenter: parent.verticalCenter
                 onClicked: root.backClicked()
@@ -53,12 +53,12 @@ Rectangle {
         
         Item {
             id: rightContainer
-            width: rightIconName !== "" ? 48 : childrenRect.width
+            width: root.rightIconName !== "" ? 48 : childrenRect.width
             height: parent.height
             
             MIconButton {
-                visible: rightIconName !== "" && rightContainer.children.length === 1
-                iconName: rightIconName
+                visible: root.rightIconName !== "" && rightContainer.children.length === 1
+                iconName: root.rightIconName
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: parent.right
                 onClicked: root.rightIconClicked()

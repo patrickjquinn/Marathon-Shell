@@ -15,9 +15,9 @@ MouseArea {
     propagateComposedEvents: true
     
     onPressed: (mouse) => {
-        startY = mouse.y
+        root.startY = mouse.y
         if (mouse.y > height - Theme.peekThreshold) {
-            isPeeking = true
+            root.isPeeking = true
             peekStarted()
             mouse.accepted = true
         } else {
@@ -26,8 +26,8 @@ MouseArea {
     }
     
     onPositionChanged: (mouse) => {
-        if (isPeeking) {
-            var dragY = startY - mouse.y
+        if (root.isPeeking) {
+            var dragY = root.startY - mouse.y
             var progress = Math.max(0, Math.min(1, 
                 dragY / Theme.commitThreshold))
             peekProgress(progress)
@@ -36,11 +36,11 @@ MouseArea {
     }
     
     onReleased: (mouse) => {
-        if (isPeeking) {
-            var dragY = startY - mouse.y
+        if (root.isPeeking) {
+            var dragY = root.startY - mouse.y
             var committed = dragY > Theme.commitThreshold
             peekReleased(committed)
-            isPeeking = false
+            root.isPeeking = false
             mouse.accepted = true
         }
     }

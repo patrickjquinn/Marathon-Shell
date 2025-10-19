@@ -18,11 +18,11 @@ Item {
     enabled: opacity > 0.01  // Block interactions whenever visible
     
     // Opacity: active = full opacity, OR follows pullProgress during gesture
-    opacity: active ? 1.0 : Math.max(0.0, pullProgress)
+    opacity: root.active ? 1.0 : Math.max(0.0, root.pullProgress)
     
     // Smooth fade-out when search closes or progress resets
     Behavior on opacity {
-        enabled: !active
+        enabled: !root.active
         NumberAnimation {
             duration: 200
             easing.type: Easing.OutCubic
@@ -285,7 +285,7 @@ Item {
     
     function close() {
         searchInput.text = ""
-        searchResults = []
+        root.searchResults = []
         closed()
         Logger.info("Search", "Search overlay closed")
     }
@@ -297,33 +297,33 @@ Item {
     
     function performSearch() {
         if (searchQuery.trim().length === 0) {
-            searchResults = []
+            root.searchResults = []
             return
         }
         
-        var results = UnifiedSearchService.search(searchQuery)
-        searchResults = results.slice(0, 20)
+        var results = UnifiedSearchService.search(root.searchQuery)
+        root.searchResults = results.slice(0, 20)
         
-        Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results")
+        Logger.info("Search", "Search performed: '" + root.searchQuery + "' - " + searchResults.length + " results")
     }
     
     function selectResult(result) {
         Logger.info("Search", "Result selected: " + result.title)
-        UnifiedSearchService.addToRecentSearches(searchQuery)
+        UnifiedSearchService.addToRecentSearches(root.searchQuery)
         UnifiedSearchService.executeSearchResult(result)
         resultSelected(result)
         close()
     }
     
     onActiveChanged: {
-        if (active) {
-            Logger.info("Search", "Search became active - focusing input")
+        if (root.active) {
+            Logger.info("Search", "Search became root.active - focusing input")
             Qt.callLater(function() {
                 searchInput.forceActiveFocus()
             })
         } else {
             searchInput.text = ""
-            searchResults = []
+            root.searchResults = []
             Logger.info("Search", "Search became inactive - emitting closed signal")
             closed()
         }

@@ -12,9 +12,9 @@ Item {
     property bool showing: false
     
     function show(msg, icon) {
-        message = msg
-        iconName = icon || "wifi"
-        showing = true
+        root.message = msg
+        root.iconName = icon || "wifi"
+        root.showing = true
         toast.y = -toast.height
         slideIn.start()
         autoHideTimer.restart()
@@ -34,7 +34,7 @@ Item {
         color: Qt.rgba(0, 0, 0, 0.95)
         border.width: 1
         border.color: MColors.border
-        visible: showing
+        visible: root.showing
         
         Rectangle {
             anchors.fill: parent
@@ -50,14 +50,14 @@ Item {
             spacing: Constants.spacingMedium
             
             Icon {
-                name: iconName
+                name: root.iconName
                 size: Constants.iconSizeMedium
                 color: MColors.accent
                 anchors.verticalCenter: parent.verticalCenter
             }
             
             Text {
-                text: message
+                text: root.message
                 color: MColors.text
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
@@ -83,7 +83,7 @@ Item {
         duration: 200
         easing.type: Easing.InCubic
         onFinished: {
-            showing = false
+            root.showing = false
         }
     }
     
@@ -98,17 +98,17 @@ Item {
     Connections {
         target: SystemStatusStore
         function onIsWifiOnChanged() {
-            if (initialized && SystemStatusStore.isWifiOn) {
+            if (root.initialized && SystemStatusStore.isWifiOn) {
                 show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi")
             }
         }
         function onIsBluetoothOnChanged() {
-            if (initialized && SystemStatusStore.isBluetoothOn) {
+            if (root.initialized && SystemStatusStore.isBluetoothOn) {
                 show("Bluetooth enabled", "bluetooth")
             }
         }
         function onIsAirplaneModeChanged() {
-            if (!initialized) return
+            if (!root.initialized) return
             
             if (SystemStatusStore.isAirplaneMode) {
                 show("Airplane mode enabled", "plane")

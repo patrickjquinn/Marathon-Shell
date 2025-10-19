@@ -19,10 +19,10 @@ Rectangle {
     implicitHeight: Constants.touchTargetMedium
     radius: Constants.borderRadiusSharp
     
-    color: backgroundColor
+    color: root.backgroundColor
     border.width: Constants.borderWidthThin
     border.color: {
-        if (disabled) return MColors.borderLight
+        if (root.disabled) return MColors.borderLight
         if (textInput.activeFocus) return MColors.accentBright
         return MColors.borderOuter
     }
@@ -49,7 +49,7 @@ Rectangle {
         id: textInput
         anchors.fill: parent
         anchors.margins: Constants.spacingMedium
-        color: disabled ? MColors.textDisabled : MColors.text
+        color: root.disabled ? MColors.textDisabled : MColors.text
         font.pixelSize: Constants.fontSizeMedium
         font.family: MTypography.fontFamily
         verticalAlignment: TextInput.AlignVCenter

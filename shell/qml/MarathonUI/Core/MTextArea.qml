@@ -63,7 +63,7 @@ Rectangle {
             
             onTextChanged: {
                 if (text.length > root.maxLength) {
-                    text = text.substring(0, root.maxLength)
+                    root.text = text.substring(0, root.maxLength)
                 }
             }
         }

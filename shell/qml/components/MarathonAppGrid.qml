@@ -19,13 +19,13 @@ Item {
     
     // Smooth animation when resetting progress (only when gesture ends)
     Behavior on searchPullProgress {
-        enabled: !searchGestureActive && searchPullProgress > 0.01 && !UIStore.searchOpen
+        enabled: !root.searchGestureActive && root.searchPullProgress > 0.01 && !UIStore.searchOpen
         NumberAnimation {
             duration: 200
             easing.type: Easing.OutCubic
             onRunningChanged: {
                 // Force to 0 when animation completes
-                if (!running && searchPullProgress < 0.02) {
+                if (!running && root.searchPullProgress < 0.02) {
                     appGrid.searchPullProgress = 0.0
                 }
             }
@@ -36,7 +36,7 @@ Item {
     Timer {
         id: autoDismissTimer
         interval: 50
-        running: !searchGestureActive && searchPullProgress > 0.01 && searchPullProgress < 0.99 && !UIStore.searchOpen
+        running: !root.searchGestureActive && root.searchPullProgress > 0.01 && root.searchPullProgress < 0.99 && !UIStore.searchOpen
         repeat: false
         onTriggered: {
             Logger.info("AppGrid", "Auto-dismissing partial search overlay")
@@ -48,7 +48,7 @@ Item {
     Connections {
         target: UIStore
         function onSearchOpenChanged() {
-            if (!UIStore.searchOpen && !searchGestureActive) {
+            if (!UIStore.searchOpen && !root.searchGestureActive) {
                 appGrid.searchPullProgress = 0.0
             }
         }
@@ -59,8 +59,8 @@ Item {
     Connections {
         target: AppModel
         function onCountChanged() {
-            pageCount = Math.ceil(AppModel.count / (appGrid.columns * appGrid.rows))
-            Logger.info("AppGrid", "App count changed: " + AppModel.count + ", pages: " + pageCount)
+            root.pageCount = Math.ceil(AppModel.count / (appGrid.columns * appGrid.rows))
+            Logger.info("AppGrid", "App count changed: " + AppModel.count + ", pages: " + root.pageCount)
         }
     }
     
@@ -83,34 +83,34 @@ Item {
         readonly property real gestureThreshold: 10  // Pixels before deciding direction
         
         onPressed: (mouse) => {
-            pressX = mouse.x
-            pressY = mouse.y
-            pressTime = Date.now()
-            isSearchGesture = false
-            isHorizontalGesture = false
-            dragDistance = 0
+            root.pressX = mouse.x
+            root.pressY = mouse.y
+            root.pressTime = Date.now()
+            root.isSearchGesture = false
+            root.isHorizontalGesture = false
+            root.dragDistance = 0
             appGrid.searchGestureActive = false
             mouse.accepted = false  // Don't claim yet - decide in onPositionChanged
         }
         
         onPositionChanged: (mouse) => {
-            var deltaX = Math.abs(mouse.x - pressX)
-            var deltaY = mouse.y - pressY  // Positive = down
-            dragDistance = deltaY
+            var deltaX = Math.abs(mouse.x - root.pressX)
+            var deltaY = mouse.y - root.pressY  // Positive = down
+            root.dragDistance = deltaY
             
             // Decide gesture direction after threshold
-            if (!isSearchGesture && !isHorizontalGesture) {
-                if (Math.abs(deltaX) > gestureThreshold || Math.abs(deltaY) > gestureThreshold) {
+            if (!root.isSearchGesture && !root.isHorizontalGesture) {
+                if (Math.abs(deltaX) > root.gestureThreshold || Math.abs(deltaY) > root.gestureThreshold) {
                     // Determine if this is vertical (search) or horizontal (page nav)
                     if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5 && deltaY > 0) {
                         // Vertical down - search gesture
-                        isSearchGesture = true
+                        root.isSearchGesture = true
                         preventStealing = true  // NOW prevent ListView from stealing
                         Logger.info("AppGrid", "Page-wide search gesture started (deltaY: " + deltaY + ")")
                         mouse.accepted = true
                     } else {
                         // Horizontal or up - let ListView handle
-                        isHorizontalGesture = true
+                        root.isHorizontalGesture = true
                         mouse.accepted = false  // Let ListView take it
                         return  // Don't process further
                     }
@@ -118,9 +118,9 @@ Item {
             }
             
             // Update pull progress only if it's our gesture
-            if (isSearchGesture && deltaY > 0) {
+            if (root.isSearchGesture && deltaY > 0) {
                 appGrid.searchGestureActive = true
-                appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                appGrid.searchPullProgress = Math.min(1.0, deltaY / root.pullThreshold)
             }
         }
         
@@ -128,11 +128,11 @@ Item {
             appGrid.searchGestureActive = false
             preventStealing = false  // Reset for next gesture
             
-            var deltaTime = Date.now() - pressTime
-            var velocity = dragDistance / deltaTime
+            var deltaTime = Date.now() - root.pressTime
+            var velocity = root.dragDistance / deltaTime
             
             // Open search if: past 35% threshold OR velocity > 0.25px/ms
-            if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
+            if (root.isSearchGesture && (appGrid.searchPullProgress > root.commitThreshold || velocity > 0.25)) {
                 Logger.info("AppGrid", "Page search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%, velocity: " + velocity.toFixed(2) + "px/ms)")
                 
                 // Stop any ongoing page animation before opening search
@@ -142,7 +142,7 @@ Item {
                 UIStore.openSearch()
                 appGrid.searchPullProgress = 0.0  // Instant reset when opening
                 mouse.accepted = true
-            } else if (isSearchGesture) {
+            } else if (root.isSearchGesture) {
                 // Search gesture but didn't meet threshold - accept to prevent page change
                 mouse.accepted = true
             } else {
@@ -150,17 +150,17 @@ Item {
                 mouse.accepted = false
             }
             
-            isSearchGesture = false
-            isHorizontalGesture = false
-            dragDistance = 0
+            root.isSearchGesture = false
+            root.isHorizontalGesture = false
+            root.dragDistance = 0
         }
         
         onCanceled: {
             appGrid.searchGestureActive = false
             preventStealing = false
-            isSearchGesture = false
-            isHorizontalGesture = false
-            dragDistance = 0
+            root.isSearchGesture = false
+            root.isHorizontalGesture = false
+            root.dragDistance = 0
         }
     }
     
@@ -182,7 +182,7 @@ Item {
         displayMarginBeginning: 40
         displayMarginEnd: 40
         
-        model: pageCount
+        model: root.pageCount
         
         delegate: Item {
             width: pageView.width
@@ -362,28 +362,28 @@ Item {
                             readonly property real commitThreshold: 0.35  // 35% commit
                             
                             onPressed: (mouse) => {
-                                pressX = mouse.x
-                                pressY = mouse.y
-                                pressTime = Date.now()
-                                isSearchGesture = false
-                                dragDistance = 0
+                                root.pressX = mouse.x
+                                root.pressY = mouse.y
+                                root.pressTime = Date.now()
+                                root.isSearchGesture = false
+                                root.dragDistance = 0
                                 appGrid.searchGestureActive = false
                             }
                             
                             onPositionChanged: (mouse) => {
-                                var deltaX = Math.abs(mouse.x - pressX)
-                                var deltaY = mouse.y - pressY  // Positive = down
-                                dragDistance = deltaY
+                                var deltaX = Math.abs(mouse.x - root.pressX)
+                                var deltaY = mouse.y - root.pressY  // Positive = down
+                                root.dragDistance = deltaY
                                 
                                 // Update pull progress
                                 if (deltaY > 0) {
                                     appGrid.searchGestureActive = true
-                                    appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                                    appGrid.searchPullProgress = Math.min(1.0, deltaY / root.pullThreshold)
                                 }
                                 
                                 // Quick flick down detection - more lenient
-                                if (!isSearchGesture && deltaY > 15 && deltaY > deltaX * 1.2) {
-                                    isSearchGesture = true
+                                if (!root.isSearchGesture && deltaY > 15 && deltaY > deltaX * 1.2) {
+                                    root.isSearchGesture = true
                                     Logger.info("AppGrid", "Icon search flick detected (deltaY: " + deltaY + ")")
                                 }
                             }
@@ -391,20 +391,20 @@ Item {
                             onReleased: (mouse) => {
                                 appGrid.searchGestureActive = false
                                 
-                                var deltaTime = Date.now() - pressTime
-                                var velocity = dragDistance / deltaTime
+                                var deltaTime = Date.now() - root.pressTime
+                                var velocity = root.dragDistance / deltaTime
                                 
                                 // Open search if: past 35% OR velocity > 0.25px/ms
-                                if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
+                                if (root.isSearchGesture && (appGrid.searchPullProgress > root.commitThreshold || velocity > 0.25)) {
                                     Logger.info("AppGrid", "Icon search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%, velocity: " + velocity.toFixed(2) + "px/ms)")
                                     UIStore.openSearch()
                                     appGrid.searchPullProgress = 0.0  // Instant reset when opening
-                                    isSearchGesture = false
+                                    root.isSearchGesture = false
                                     return
                                 }
                                 
                                 // Normal tap - launch app
-                                if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
+                                if (!root.isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
                                     Logger.info("AppGrid", "App launched: " + model.name)
                                     appLaunched({
                                         id: model.id,
@@ -416,8 +416,8 @@ Item {
                                 }
                                 
                                 // Let animation handle snap-back
-                                isSearchGesture = false
-                                dragDistance = 0
+                                root.isSearchGesture = false
+                                root.dragDistance = 0
                             }
                             
                             onPressAndHold: {
@@ -444,8 +444,8 @@ Item {
         }
         
         onCurrentIndexChanged: {
-            currentPage = currentIndex
-            pageChanged(currentPage, pageCount)
+            root.currentPage = currentIndex
+            pageChanged(root.currentPage, pageCount)
         }
     }
     

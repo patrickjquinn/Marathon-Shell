@@ -22,25 +22,25 @@ Rectangle {
         propagateComposedEvents: true
         
         onPressed: (mouse) => {
-            dragStartY = mouse.y
-            isDragging = false
+            root.dragStartY = mouse.y
+            root.isDragging = false
         }
         
         onPositionChanged: (mouse) => {
-            if (Math.abs(mouse.y - dragStartY) > 10) {
-                isDragging = true
+            if (Math.abs(mouse.y - root.dragStartY) > 10) {
+                root.isDragging = true
             }
-            if (isDragging && (mouse.y - dragStartY) < -50) {
+            if (root.isDragging && (mouse.y - root.dragStartY) < -50) {
                 closed()
             }
         }
         
         onReleased: {
-            if (isDragging && (dragStartY > 0)) {
+            if (root.isDragging && (root.dragStartY > 0)) {
                 closed()
             }
-            isDragging = false
-            dragStartY = 0
+            root.isDragging = false
+            root.dragStartY = 0
         }
     }
     

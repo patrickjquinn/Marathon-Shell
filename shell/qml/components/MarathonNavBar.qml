@@ -43,8 +43,8 @@ Rectangle {
         property real dragX: currentX * 0.3
         property real dragY: currentY * 0.3
         
-        x: targetX + dragX
-        y: targetY - dragY
+        x: root.targetX + dragX
+        y: root.targetY - dragY
         
         Behavior on x {
             enabled: !navMouseArea.pressed
@@ -80,35 +80,35 @@ Rectangle {
         property bool isVerticalGesture: false
         
         onPressed: (mouse) => {
-            startX = mouse.x
-            startY = mouse.y
-            lastX = mouse.x
-            lastTime = Date.now()
-            velocityX = 0
-            isVerticalGesture = false
+            root.startX = mouse.x
+            root.startY = mouse.y
+            root.lastX = mouse.x
+            root.lastTime = Date.now()
+            root.velocityX = 0
+            root.isVerticalGesture = false
         }
         
         onPositionChanged: (mouse) => {
             var now = Date.now()
-            var dt = now - lastTime
+            var dt = now - root.lastTime
             if (dt > 0) {
-                velocityX = (mouse.x - lastX) / dt * 1000
+                root.velocityX = (mouse.x - root.lastX) / dt * 1000
             }
-            lastX = mouse.x
-            lastTime = now
+            root.lastX = mouse.x
+            root.lastTime = now
             
-            var diffX = mouse.x - startX
-            var diffY = startY - mouse.y
+            var diffX = mouse.x - root.startX
+            var diffY = root.startY - mouse.y
             
             if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 10) {
-                if (!isVerticalGesture) {
+                if (!root.isVerticalGesture) {
                 }
-                isVerticalGesture = true
+                root.isVerticalGesture = true
             }
             
-            if (isVerticalGesture) {
-                currentY = Math.max(0, diffY)
-                currentX = 0
+            if (root.isVerticalGesture) {
+                root.currentY = Math.max(0, diffY)
+                root.currentX = 0
                 
                 // Drag Quick Settings up when open
                 if (UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) {
@@ -118,29 +118,29 @@ Rectangle {
                     var newHeight = UIStore.quickSettingsHeight - diffY
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight))
-                    startY = mouse.y  // Update startY for continuous tracking
-                } else if (isAppOpen) {
-                    var oldProgress = gestureProgress
-                    gestureProgress = Math.min(1.0, diffY / 250)
-                    if (oldProgress <= 0.15 && gestureProgress > 0.15) {
+                    root.startY = mouse.y  // Update startY for continuous tracking
+                } else if (root.isAppOpen) {
+                    var oldProgress = root.gestureProgress
+                    root.gestureProgress = Math.min(1.0, diffY / 250)
+                    if (oldProgress <= 0.15 && root.gestureProgress > 0.15) {
                         startPageTransition()
                     }
                 }
             } else {
-                currentX = diffX
-                currentY = 0
-                gestureProgress = 0
+                root.currentX = diffX
+                root.currentY = 0
+                root.gestureProgress = 0
             }
         }
         
         onReleased: (mouse) => {
-            var diffX = mouse.x - startX
-            var diffY = startY - mouse.y
+            var diffX = mouse.x - root.startX
+            var diffY = root.startY - mouse.y
             
-            Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen})
+            Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: root.velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen})
             
             // Snap Quick Settings open/closed based on threshold
-            if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
+            if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && root.isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight)
                 UIStore.quickSettingsDragging = false
                 var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400
@@ -150,52 +150,52 @@ Rectangle {
                     UIStore.closeQuickSettings()
                 }
                 // Reset gesture state
-                startX = 0
-                startY = 0
-                velocityX = 0
-                isVerticalGesture = false
-                currentX = 0
-                currentY = 0
-                gestureProgress = 0
+                root.startX = 0
+                root.startY = 0
+                root.velocityX = 0
+                root.isVerticalGesture = false
+                root.currentX = 0
+                root.currentY = 0
+                root.gestureProgress = 0
                 return
             }
             
             // Close Search with upward gesture
-            if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
+            if (UIStore.searchOpen && root.isVerticalGesture && diffY > 60) {
                 Logger.info("NavBar", "Closing Search with upward gesture")
                 UIStore.closeSearch()
-                startX = 0
-                startY = 0
-                velocityX = 0
-                isVerticalGesture = false
-                currentX = 0
-                currentY = 0
-                gestureProgress = 0
+                root.startX = 0
+                root.startY = 0
+                root.velocityX = 0
+                root.isVerticalGesture = false
+                root.currentX = 0
+                root.currentY = 0
+                root.gestureProgress = 0
                 return
             }
             
-            if (isVerticalGesture && diffY > 30) {
-                if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
-                    Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + gestureProgress)
+            if (root.isVerticalGesture && diffY > 30) {
+                if (root.isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
+                    Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + root.gestureProgress)
                     minimizeApp()
                     gestureProgressResetTimer.start()
-                } else if (diffY > longSwipeThreshold) {
+                } else if (diffY > root.longSwipeThreshold) {
                     Logger.info("NavBar", "Long swipe up - Task switcher")
                     longSwipeUp()
-                    currentX = 0
-                    currentY = 0
-                    gestureProgress = 0
-                } else if (diffY > shortSwipeThreshold) {
+                    root.currentX = 0
+                    root.currentY = 0
+                    root.gestureProgress = 0
+                } else if (diffY > root.shortSwipeThreshold) {
                     Logger.info("NavBar", "Short swipe up - Go home")
                     shortSwipeUp()
-                    currentX = 0
-                    currentY = 0
-                    gestureProgress = 0
+                    root.currentX = 0
+                    root.currentY = 0
+                    root.gestureProgress = 0
                 }
-            } else if (!isVerticalGesture && (Math.abs(diffX) > 50 || Math.abs(velocityX) > 500)) {
-                if (diffX < 0 || velocityX < 0) {
-                    Logger.gesture("NavBar", "swipeLeft", {velocity: velocityX, isAppOpen: isAppOpen})
-                    if (isAppOpen) {
+            } else if (!root.isVerticalGesture && (Math.abs(diffX) > 50 || Math.abs(root.velocityX) > 500)) {
+                if (diffX < 0 || root.velocityX < 0) {
+                    Logger.gesture("NavBar", "swipeLeft", {velocity: root.velocityX, isAppOpen: isAppOpen})
+                    if (root.isAppOpen) {
                         // When app is open, swipe left = back gesture
                         swipeBack()
                     } else {
@@ -203,24 +203,24 @@ Rectangle {
                         swipeLeft()
                     }
                 } else {
-                    Logger.gesture("NavBar", "swipeRight", {velocity: velocityX, isAppOpen: isAppOpen, diffX: diffX})
+                    Logger.gesture("NavBar", "swipeRight", {velocity: root.velocityX, isAppOpen: isAppOpen, diffX: diffX})
                     swipeRight()
                 }
-                currentX = 0
-                currentY = 0
-                gestureProgress = 0
+                root.currentX = 0
+                root.currentY = 0
+                root.gestureProgress = 0
             } else {
                 // Cancelled gesture - reset immediately
                 Logger.info("NavBar", "🔴 GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY)
-                currentX = 0
-                currentY = 0
-                gestureProgress = 0
+                root.currentX = 0
+                root.currentY = 0
+                root.gestureProgress = 0
             }
             
-            startX = 0
-            startY = 0
-            velocityX = 0
-            isVerticalGesture = false
+            root.startX = 0
+            root.startY = 0
+            root.velocityX = 0
+            root.isVerticalGesture = false
         }
     }
     

@@ -7,10 +7,10 @@ Image {
     property color color: "#FFFFFF"
     property int size: Constants.iconSizeMedium
     
-    width: size
-    height: size
-    source: name ? "qrc:/images/icons/lucide/" + name + ".svg" : ""
-    sourceSize: Qt.size(size, size)
+    width: root.size
+    height: root.size
+    source: root.name ? "qrc:/images/icons/lucide/" + root.name + ".svg" : ""
+    sourceSize: Qt.size(root.size, root.size)
     fillMode: Image.PreserveAspectFit
     smooth: true
     asynchronous: true
