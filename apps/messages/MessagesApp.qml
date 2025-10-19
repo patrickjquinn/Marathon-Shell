@@ -13,45 +13,16 @@ MApp {
     appName: "Messages"
     appIcon: "assets/icon.svg"
     
-    property var conversations: [
-        {
-            id: 1,
-            contactName: "Alice Johnson",
-            lastMessage: "See you tomorrow!",
-            timestamp: Date.now() - 1000 * 60 * 15,
-            unread: 2
-        },
-        {
-            id: 2,
-            contactName: "Bob Smith",
-            lastMessage: "Thanks for the help",
-            timestamp: Date.now() - 1000 * 60 * 60 * 2,
-            unread: 0
-        },
-        {
-            id: 3,
-            contactName: "Carol Williams",
-            lastMessage: "Can you call me?",
-            timestamp: Date.now() - 1000 * 60 * 60 * 4,
-            unread: 1
-        },
-        {
-            id: 4,
-            contactName: "David Brown",
-            lastMessage: "Got it, will do 👍",
-            timestamp: Date.now() - 1000 * 60 * 60 * 24,
-            unread: 0
-        },
-        {
-            id: 5,
-            contactName: "Emma Davis",
-            lastMessage: "Perfect! See you there",
-            timestamp: Date.now() - 1000 * 60 * 60 * 24 * 2,
-            unread: 0
-        }
-    ]
+    property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
     
     property int selectedConversationId: -1
+    
+    Connections {
+        target: typeof SMSService !== 'undefined' ? SMSService : null
+        function onMessageReceived(sender, text, timestamp) {
+            Logger.info("Messages", "New message from: " + sender)
+        }
+    }
     
     content: Rectangle {
         anchors.fill: parent
@@ -147,12 +118,40 @@ MApp {
                         navigationStack.push(chatPage, { conversation: conversation })
                     }
                 }
+                onNewMessage: function() {
+                    navigationStack.push(newConversationPage)
+                }
             }
         }
         
         Component {
             id: chatPage
             ChatPage {}
+        }
+        
+        Component {
+            id: newConversationPage
+            NewConversationPage {
+                onConversationStarted: function(recipient, recipientName) {
+                    Logger.info("Messages", "Starting conversation with: " + recipient)
+                    var conversationId = typeof SMSService !== 'undefined' ? SMSService.generateConversationId(recipient) : "conv_" + recipient
+                    
+                    var conversation = {
+                        "id": conversationId,
+                        "contactName": recipientName,
+                        "contactNumber": recipient,
+                        "lastMessage": "",
+                        "timestamp": Date.now(),
+                        "unread": false
+                    }
+                    
+                    navigationStack.pop()
+                    navigationStack.push(chatPage, { conversation: conversation })
+                }
+                onCancelled: function() {
+                    navigationStack.pop()
+                }
+            }
         }
     }
     

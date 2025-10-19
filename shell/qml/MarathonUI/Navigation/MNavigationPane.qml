@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: root
@@ -18,92 +19,126 @@ Item {
         initialItem: root.initialPage
         
         pushEnter: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: stackView.width
-                to: 0
-                duration: Constants.animationNormal
-                easing.type: Easing.OutCubic
-            }
-            PropertyAnimation {
-                property: "opacity"
-                from: 0
-                to: 1
-                duration: Constants.animationNormal
+            ParallelAnimation {
+                // Incoming page: slide from right with slight scale
+                NumberAnimation {
+                    property: "x"
+                    from: stackView.width
+                    to: 0
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingEmphasized
+                }
+                NumberAnimation {
+                    property: "scale"
+                    from: 0.95
+                    to: 1.0
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingDecelerate
+                }
+                NumberAnimation {
+                    property: "opacity"
+                    from: 0
+                    to: 1
+                    duration: MMotion.quick
+                }
             }
         }
         
         pushExit: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: 0
-                to: -stackView.width * 0.3
-                duration: Constants.animationNormal
-                easing.type: Easing.OutCubic
-            }
-            PropertyAnimation {
-                property: "opacity"
-                from: 1
-                to: 0.5
-                duration: Constants.animationNormal
+            ParallelAnimation {
+                // Outgoing page: parallax shift left + scale down + fade
+                NumberAnimation {
+                    property: "x"
+                    from: 0
+                    to: -stackView.width * MMotion.pageParallaxOffset
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingEmphasized
+                }
+                NumberAnimation {
+                    property: "scale"
+                    from: 1.0
+                    to: MMotion.pageScaleOut
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingAccelerate
+                }
+                NumberAnimation {
+                    property: "opacity"
+                    from: 1
+                    to: 0.3
+                    duration: MMotion.moderate
+                }
             }
         }
         
         popEnter: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: -stackView.width * 0.3
-                to: 0
-                duration: Constants.animationNormal
-                easing.type: Easing.OutCubic
-            }
-            PropertyAnimation {
-                property: "opacity"
-                from: 0.5
-                to: 1
-                duration: Constants.animationNormal
+            ParallelAnimation {
+                // Returning page: parallax shift right + scale up + fade in
+                NumberAnimation {
+                    property: "x"
+                    from: -stackView.width * MMotion.pageParallaxOffset
+                    to: 0
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingEmphasized
+                }
+                NumberAnimation {
+                    property: "scale"
+                    from: MMotion.pageScaleOut
+                    to: 1.0
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingDecelerate
+                }
+                NumberAnimation {
+                    property: "opacity"
+                    from: 0.3
+                    to: 1
+                    duration: MMotion.moderate
+                }
             }
         }
         
         popExit: Transition {
-            PropertyAnimation {
-                property: "x"
-                from: 0
-                to: stackView.width
-                duration: Constants.animationNormal
-                easing.type: Easing.OutCubic
-            }
-            PropertyAnimation {
-                property: "opacity"
-                from: 1
-                to: 0
-                duration: Constants.animationNormal
+            ParallelAnimation {
+                // Exiting page: slide right + fade out
+                NumberAnimation {
+                    property: "x"
+                    from: 0
+                    to: stackView.width
+                    duration: MMotion.moderate
+                    easing.type: MMotion.easingEmphasized
+                }
+                NumberAnimation {
+                    property: "opacity"
+                    from: 1
+                    to: 0
+                    duration: MMotion.quick
+                }
             }
         }
         
-        onCurrentItemChanged: {
-            if (currentItem && currentItem.title) {
-                // Auto-update action bar title if present
-            }
-        }
+        replaceEnter: pushEnter
+        replaceExit: pushExit
     }
     
     function push(page, properties) {
-        var item = stackView.push(page, properties)
-        root.pagePushed(item)
-        return item
+        var result = stackView.push(page, properties || {})
+        pagePushed(result)
+        return result
     }
     
     function pop() {
-        var item = stackView.pop()
-        root.pagePopped(item)
-        return item
+        var result = stackView.pop()
+        pagePopped(result)
+        return result
     }
     
     function popToRoot() {
         while (stackView.depth > 1) {
             stackView.pop()
         }
+    }
+    
+    function replace(page, properties) {
+        return stackView.replace(page, properties || {})
     }
     
     function clear() {

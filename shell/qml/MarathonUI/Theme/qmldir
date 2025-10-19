@@ -3,4 +3,5 @@ singleton MTypography 1.0 MTypography.qml
 singleton MSpacing 1.0 MSpacing.qml
 singleton MRadius 1.0 MRadius.qml
 singleton MElevation 1.0 MElevation.qml
+singleton MMotion 1.0 MMotion.qml
 

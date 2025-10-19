@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtMultimedia
+import Qt.labs.platform
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -17,6 +18,24 @@ MApp {
     property int photoCount: 0
     property bool isRecording: false
     property bool frontCamera: false
+    property string savePath: StandardPaths.writableLocation(StandardPaths.PicturesLocation) + "/Marathon"
+    property int recordingSeconds: 0
+    
+    Timer {
+        id: recordingTimer
+        interval: 1000
+        running: isRecording
+        repeat: true
+        onTriggered: {
+            recordingSeconds++
+        }
+    }
+    
+    Component.onCompleted: {
+        var dir = Qt.createQmlObject('import Qt.labs.platform; FolderDialog {}', cameraApp)
+        var folder = new String(savePath)
+        Logger.info("Camera", "Save path: " + savePath)
+    }
     
     // List available cameras
     MediaDevices {
@@ -51,6 +70,9 @@ MApp {
         onImageSaved: function(id, path) {
             photoCount++
             Logger.info("Camera", "Photo saved: " + path)
+            if (typeof MediaLibraryManager !== 'undefined') {
+                MediaLibraryManager.scanLibrary()
+            }
         }
         
         onErrorOccurred: function(id, error, errorString) {
@@ -85,6 +107,46 @@ MApp {
             id: viewfinder
             anchors.fill: parent
             fillMode: VideoOutput.PreserveAspectCrop
+        }
+        
+        // Recording time indicator
+        Rectangle {
+            anchors.top: parent.top
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.margins: Constants.spacingLarge
+            width: Constants.touchTargetLarge * 2
+            height: Constants.touchTargetMedium
+            radius: Constants.borderRadiusSharp
+            color: "#80000000"
+            visible: isRecording
+            
+            Row {
+                anchors.centerIn: parent
+                spacing: Constants.spacingSmall
+                
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Constants.spacingMedium
+                    height: Constants.spacingMedium
+                    radius: width / 2
+                    color: MColors.error
+                    
+                    SequentialAnimation on opacity {
+                        running: isRecording
+                        loops: Animation.Infinite
+                        NumberAnimation { from: 1.0; to: 0.0; duration: 500 }
+                        NumberAnimation { from: 0.0; to: 1.0; duration: 500 }
+                    }
+                }
+                
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Math.floor(recordingSeconds / 60) + ":" + (recordingSeconds % 60 < 10 ? "0" : "") + (recordingSeconds % 60)
+                    font.pixelSize: Constants.fontSizeLarge
+                    font.weight: Font.Bold
+                    color: "white"
+                }
+            }
         }
         
         // Setup capture session after viewfinder is created
@@ -350,10 +412,14 @@ MApp {
                         } else {
                             if (isRecording) {
                                 mediaRecorder.stop()
+                                isRecording = false
+                                recordingSeconds = 0
                                 Logger.info("Camera", "Video recording stopped")
                             } else {
-                                mediaRecorder.outputLocation = "file:///Users/patrick.quinn/Pictures/marathon_video_" + Date.now() + ".mp4"
+                                mediaRecorder.outputLocation = "file://" + savePath + "/VID_" + Date.now() + ".mp4"
                                 mediaRecorder.record()
+                                isRecording = true
+                                recordingSeconds = 0
                                 Logger.info("Camera", "Video recording started")
                             }
                         }

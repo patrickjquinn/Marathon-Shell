@@ -52,6 +52,7 @@
 /Users/patrick.quinn/.local/share/marathon-apps/clock/pages/StopwatchPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/clock/pages/AlarmPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/clock/pages/ClockPage.qml
+/Users/patrick.quinn/.local/share/marathon-apps/clock/pages/AlarmEditorDialog.qml
 /Users/patrick.quinn/.local/share/marathon-apps/clock/ClockApp.qml
 /Users/patrick.quinn/.local/share/marathon-apps/clock/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/clock/qmldir
@@ -64,12 +65,16 @@
 /Users/patrick.quinn/.local/share/marathon-apps/calculator/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/calculator/assets/icon.svg
 /Users/patrick.quinn/.local/share/marathon-apps/calculator/manifest.json
+/Users/patrick.quinn/.local/share/marathon-apps/calculator/assets/.DS_Store
 /Users/patrick.quinn/.local/share/marathon-apps/calculator/assets/icon.svg
 /Users/patrick.quinn/.local/share/marathon-apps/phone/qmldir
 /Users/patrick.quinn/.local/share/marathon-apps/phone/PhoneApp.qml
 /Users/patrick.quinn/.local/share/marathon-apps/phone/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/phone/assets/icon.svg
 /Users/patrick.quinn/.local/share/marathon-apps/phone/pages/ContactsPage.qml
+/Users/patrick.quinn/.local/share/marathon-apps/phone/pages/ContactEditorPage.qml
+/Users/patrick.quinn/.local/share/marathon-apps/phone/pages/ActiveCallPage.qml
+/Users/patrick.quinn/.local/share/marathon-apps/phone/pages/IncomingCallScreen.qml
 /Users/patrick.quinn/.local/share/marathon-apps/phone/pages/CallHistoryPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/phone/pages/DialerPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/phone/manifest.json
@@ -80,6 +85,7 @@
 /Users/patrick.quinn/.local/share/marathon-apps/messages/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/messages/assets/icon.svg
 /Users/patrick.quinn/.local/share/marathon-apps/messages/pages/ConversationsListPage.qml
+/Users/patrick.quinn/.local/share/marathon-apps/messages/pages/NewConversationPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/messages/pages/ChatPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/messages/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/messages/qmldir
@@ -98,6 +104,7 @@
 /Users/patrick.quinn/.local/share/marathon-apps/calendar/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/calendar/CalendarApp.qml
 /Users/patrick.quinn/.local/share/marathon-apps/calendar/assets/icon.svg
+/Users/patrick.quinn/.local/share/marathon-apps/calendar/pages/CalendarGridPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/calendar/pages/EventListPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/calendar/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/calendar/qmldir
@@ -113,6 +120,7 @@
 /Users/patrick.quinn/.local/share/marathon-apps/gallery/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/gallery/GalleryApp.qml
 /Users/patrick.quinn/.local/share/marathon-apps/gallery/assets/icon.svg
+/Users/patrick.quinn/.local/share/marathon-apps/gallery/pages/PhotoViewerPage.qml
 /Users/patrick.quinn/.local/share/marathon-apps/gallery/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/gallery/qmldir
 /Users/patrick.quinn/.local/share/marathon-apps/gallery/assets/icon.svg
@@ -130,3 +138,11 @@
 /Users/patrick.quinn/.local/share/marathon-apps/maps/manifest.json
 /Users/patrick.quinn/.local/share/marathon-apps/maps/qmldir
 /Users/patrick.quinn/.local/share/marathon-apps/maps/assets/icon.svg
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/libterminal-plugin.dylib
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/TerminalApp.qml
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/Terminal/qmldir
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/Terminal/libterminal-pluginplugin.dylib
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/Terminal/terminal-plugin.qmltypes
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/manifest.json
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/assets/.DS_Store
+/Users/patrick.quinn/.local/share/marathon-apps/terminal/assets/icon.svg

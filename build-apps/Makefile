@@ -161,6 +161,253 @@ depend:
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
 
+#=============================================================================
+# Target rules for targets named module_terminal-plugin_aotstats_target
+
+# Build rule for target.
+module_terminal-plugin_aotstats_target: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 module_terminal-plugin_aotstats_target
+.PHONY : module_terminal-plugin_aotstats_target
+
+# fast build rule for target.
+module_terminal-plugin_aotstats_target/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/module_terminal-plugin_aotstats_target.dir/build.make CMakeFiles/module_terminal-plugin_aotstats_target.dir/build
+.PHONY : module_terminal-plugin_aotstats_target/fast
+
+#=============================================================================
+# Target rules for targets named all_aotstats
+
+# Build rule for target.
+all_aotstats: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all_aotstats
+.PHONY : all_aotstats
+
+# fast build rule for target.
+all_aotstats/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/all_aotstats.dir/build.make CMakeFiles/all_aotstats.dir/build
+.PHONY : all_aotstats/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin
+
+# Build rule for target.
+terminal-plugin: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin
+.PHONY : terminal-plugin
+
+# fast build rule for target.
+terminal-plugin/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin.dir/build.make terminal/CMakeFiles/terminal-plugin.dir/build
+.PHONY : terminal-plugin/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_qmltyperegistration
+
+# Build rule for target.
+terminal-plugin_qmltyperegistration: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_qmltyperegistration
+.PHONY : terminal-plugin_qmltyperegistration
+
+# fast build rule for target.
+terminal-plugin_qmltyperegistration/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_qmltyperegistration.dir/build.make terminal/CMakeFiles/terminal-plugin_qmltyperegistration.dir/build
+.PHONY : terminal-plugin_qmltyperegistration/fast
+
+#=============================================================================
+# Target rules for targets named all_qmltyperegistrations
+
+# Build rule for target.
+all_qmltyperegistrations: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all_qmltyperegistrations
+.PHONY : all_qmltyperegistrations
+
+# fast build rule for target.
+all_qmltyperegistrations/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/all_qmltyperegistrations.dir/build.make terminal/CMakeFiles/all_qmltyperegistrations.dir/build
+.PHONY : all_qmltyperegistrations/fast
+
+#=============================================================================
+# Target rules for targets named terminal-pluginplugin
+
+# Build rule for target.
+terminal-pluginplugin: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-pluginplugin
+.PHONY : terminal-pluginplugin
+
+# fast build rule for target.
+terminal-pluginplugin/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-pluginplugin.dir/build.make terminal/CMakeFiles/terminal-pluginplugin.dir/build
+.PHONY : terminal-pluginplugin/fast
+
+#=============================================================================
+# Target rules for targets named qt_internal_plugins
+
+# Build rule for target.
+qt_internal_plugins: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 qt_internal_plugins
+.PHONY : qt_internal_plugins
+
+# fast build rule for target.
+qt_internal_plugins/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/qt_internal_plugins.dir/build.make terminal/CMakeFiles/qt_internal_plugins.dir/build
+.PHONY : qt_internal_plugins/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_qmllint
+
+# Build rule for target.
+terminal-plugin_qmllint: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_qmllint
+.PHONY : terminal-plugin_qmllint
+
+# fast build rule for target.
+terminal-plugin_qmllint/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_qmllint.dir/build.make terminal/CMakeFiles/terminal-plugin_qmllint.dir/build
+.PHONY : terminal-plugin_qmllint/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_qmllint_json
+
+# Build rule for target.
+terminal-plugin_qmllint_json: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_qmllint_json
+.PHONY : terminal-plugin_qmllint_json
+
+# fast build rule for target.
+terminal-plugin_qmllint_json/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_qmllint_json.dir/build.make terminal/CMakeFiles/terminal-plugin_qmllint_json.dir/build
+.PHONY : terminal-plugin_qmllint_json/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_qmllint_module
+
+# Build rule for target.
+terminal-plugin_qmllint_module: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_qmllint_module
+.PHONY : terminal-plugin_qmllint_module
+
+# fast build rule for target.
+terminal-plugin_qmllint_module/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_qmllint_module.dir/build.make terminal/CMakeFiles/terminal-plugin_qmllint_module.dir/build
+.PHONY : terminal-plugin_qmllint_module/fast
+
+#=============================================================================
+# Target rules for targets named all_qmllint
+
+# Build rule for target.
+all_qmllint: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all_qmllint
+.PHONY : all_qmllint
+
+# fast build rule for target.
+all_qmllint/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/all_qmllint.dir/build.make terminal/CMakeFiles/all_qmllint.dir/build
+.PHONY : all_qmllint/fast
+
+#=============================================================================
+# Target rules for targets named all_qmllint_json
+
+# Build rule for target.
+all_qmllint_json: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all_qmllint_json
+.PHONY : all_qmllint_json
+
+# fast build rule for target.
+all_qmllint_json/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/all_qmllint_json.dir/build.make terminal/CMakeFiles/all_qmllint_json.dir/build
+.PHONY : all_qmllint_json/fast
+
+#=============================================================================
+# Target rules for targets named all_qmllint_module
+
+# Build rule for target.
+all_qmllint_module: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all_qmllint_module
+.PHONY : all_qmllint_module
+
+# fast build rule for target.
+all_qmllint_module/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/all_qmllint_module.dir/build.make terminal/CMakeFiles/all_qmllint_module.dir/build
+.PHONY : all_qmllint_module/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_copy_qml
+
+# Build rule for target.
+terminal-plugin_copy_qml: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_copy_qml
+.PHONY : terminal-plugin_copy_qml
+
+# fast build rule for target.
+terminal-plugin_copy_qml/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_copy_qml.dir/build.make terminal/CMakeFiles/terminal-plugin_copy_qml.dir/build
+.PHONY : terminal-plugin_copy_qml/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_copy_res
+
+# Build rule for target.
+terminal-plugin_copy_res: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_copy_res
+.PHONY : terminal-plugin_copy_res
+
+# fast build rule for target.
+terminal-plugin_copy_res/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_copy_res.dir/build.make terminal/CMakeFiles/terminal-plugin_copy_res.dir/build
+.PHONY : terminal-plugin_copy_res/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_autogen_timestamp_deps
+
+# Build rule for target.
+terminal-plugin_autogen_timestamp_deps: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_autogen_timestamp_deps
+.PHONY : terminal-plugin_autogen_timestamp_deps
+
+# fast build rule for target.
+terminal-plugin_autogen_timestamp_deps/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_autogen_timestamp_deps.dir/build.make terminal/CMakeFiles/terminal-plugin_autogen_timestamp_deps.dir/build
+.PHONY : terminal-plugin_autogen_timestamp_deps/fast
+
+#=============================================================================
+# Target rules for targets named terminal-plugin_autogen
+
+# Build rule for target.
+terminal-plugin_autogen: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-plugin_autogen
+.PHONY : terminal-plugin_autogen
+
+# fast build rule for target.
+terminal-plugin_autogen/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-plugin_autogen.dir/build.make terminal/CMakeFiles/terminal-plugin_autogen.dir/build
+.PHONY : terminal-plugin_autogen/fast
+
+#=============================================================================
+# Target rules for targets named terminal-pluginplugin_autogen_timestamp_deps
+
+# Build rule for target.
+terminal-pluginplugin_autogen_timestamp_deps: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-pluginplugin_autogen_timestamp_deps
+.PHONY : terminal-pluginplugin_autogen_timestamp_deps
+
+# fast build rule for target.
+terminal-pluginplugin_autogen_timestamp_deps/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-pluginplugin_autogen_timestamp_deps.dir/build.make terminal/CMakeFiles/terminal-pluginplugin_autogen_timestamp_deps.dir/build
+.PHONY : terminal-pluginplugin_autogen_timestamp_deps/fast
+
+#=============================================================================
+# Target rules for targets named terminal-pluginplugin_autogen
+
+# Build rule for target.
+terminal-pluginplugin_autogen: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 terminal-pluginplugin_autogen
+.PHONY : terminal-pluginplugin_autogen
+
+# fast build rule for target.
+terminal-pluginplugin_autogen/fast:
+	$(MAKE) $(MAKESILENT) -f terminal/CMakeFiles/terminal-pluginplugin_autogen.dir/build.make terminal/CMakeFiles/terminal-pluginplugin_autogen.dir/build
+.PHONY : terminal-pluginplugin_autogen/fast
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -173,6 +420,25 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
+	@echo "... all_aotstats"
+	@echo "... all_qmllint"
+	@echo "... all_qmllint_json"
+	@echo "... all_qmllint_module"
+	@echo "... all_qmltyperegistrations"
+	@echo "... module_terminal-plugin_aotstats_target"
+	@echo "... qt_internal_plugins"
+	@echo "... terminal-plugin_autogen"
+	@echo "... terminal-plugin_autogen_timestamp_deps"
+	@echo "... terminal-plugin_copy_qml"
+	@echo "... terminal-plugin_copy_res"
+	@echo "... terminal-plugin_qmllint"
+	@echo "... terminal-plugin_qmllint_json"
+	@echo "... terminal-plugin_qmllint_module"
+	@echo "... terminal-plugin_qmltyperegistration"
+	@echo "... terminal-pluginplugin_autogen"
+	@echo "... terminal-pluginplugin_autogen_timestamp_deps"
+	@echo "... terminal-plugin"
+	@echo "... terminal-pluginplugin"
 .PHONY : help
 
 

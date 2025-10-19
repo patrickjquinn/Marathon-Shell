@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Core
 import "../components"
 import "../components" as ClockComponents
 
@@ -95,29 +96,23 @@ Item {
         }
     }
     
-    Rectangle {
+    MIconButton {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: Constants.spacingLarge
-        width: Constants.touchTargetLarge
-        height: Constants.touchTargetLarge
-        radius: width / 2
-        color: Colors.accent
-        
-        ClockComponents.ClockIcon {
-            anchors.centerIn: parent
-            name: "clock"
-            size: Constants.iconSizeMedium
-            color: Colors.background
+        icon: "plus"
+        size: Constants.touchTargetLarge
+        variant: "primary"
+        shape: "circular"
+        onClicked: {
+            alarmEditorDialog.open()
         }
-        
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                HapticService.light()
-                var now = new Date()
-                clockApp.createAlarm(now.getHours(), now.getMinutes(), "Alarm", true)
-            }
+    }
+    
+    AlarmEditorDialog {
+        id: alarmEditorDialog
+        onAlarmCreated: function(hour, minute) {
+            clockApp.createAlarm(hour, minute, "Alarm", true)
         }
     }
 }

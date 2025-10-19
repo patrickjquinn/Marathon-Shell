@@ -5,6 +5,7 @@ import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import "./pages"
 
 MApp {
     id: galleryApp
@@ -12,21 +13,22 @@ MApp {
     appName: "Gallery"
     appIcon: "assets/icon.svg"
     
-    property var albums: [
-        { name: "Camera Roll", count: 47, thumbnail: 0 },
-        { name: "Screenshots", count: 23, thumbnail: 1 },
-        { name: "Favorites", count: 12, thumbnail: 2 },
-        { name: "Vacation 2024", count: 156, thumbnail: 3 }
-    ]
+    property var albums: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager.albums : []
+    property var photos: []
+    property string selectedAlbum: ""
     
-    property var photos: [
-        { id: 1, album: "Camera Roll", timestamp: Date.now() - 1000 * 60 * 60 },
-        { id: 2, album: "Camera Roll", timestamp: Date.now() - 1000 * 60 * 60 * 2 },
-        { id: 3, album: "Camera Roll", timestamp: Date.now() - 1000 * 60 * 60 * 24 },
-        { id: 4, album: "Screenshots", timestamp: Date.now() - 1000 * 60 * 60 * 24 * 2 },
-        { id: 5, album: "Favorites", timestamp: Date.now() - 1000 * 60 * 60 * 24 * 3 },
-        { id: 6, album: "Vacation 2024", timestamp: Date.now() - 1000 * 60 * 60 * 24 * 7 }
-    ]
+    Component.onCompleted: {
+        if (typeof MediaLibraryManager !== 'undefined') {
+            MediaLibraryManager.scanLibrary()
+        }
+    }
+    
+    Connections {
+        target: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager : null
+        function onScanComplete(photoCount, videoCount) {
+            Logger.info("Gallery", "Library scan complete: " + photoCount + " photos, " + videoCount + " videos")
+        }
+    }
     
     content: Rectangle {
         anchors.fill: parent
@@ -102,7 +104,7 @@ MApp {
                                         }
                                         
                                         Text {
-                                            text: modelData.count + " photos"
+                                            text: modelData.photoCount + " photos"
                                             font.pixelSize: Constants.fontSizeSmall
                                             color: MColors.textSecondary
                                         }
@@ -129,7 +131,11 @@ MApp {
                                         parent.color = MColors.surface
                                     }
                                     onClicked: {
-                                        console.log("Open album:", modelData.name)
+                                        Logger.info("Gallery", "Open album: " + modelData.name)
+                                        selectedAlbum = modelData.id
+                                        if (typeof MediaLibraryManager !== 'undefined') {
+                                            photos = MediaLibraryManager.getPhotos(modelData.id)
+                                        }
                                         parent.parent.parent.parent.parent.parent.parent.currentView = 1
                                     }
                                 }
@@ -145,7 +151,7 @@ MApp {
                     cellHeight: cellWidth
                     clip: true
                     
-                    model: 12
+                    model: photos
                     
                     delegate: Rectangle {
                         width: GridView.view.cellWidth - Constants.spacingXSmall
@@ -156,11 +162,28 @@ MApp {
                         border.color: MColors.border
                         antialiasing: Constants.enableAntialiasing
                         
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "image"
-                            size: Constants.iconSizeLarge
-                            color: MColors.textSecondary
+                        Image {
+                            anchors.fill: parent
+                            anchors.margins: Constants.borderWidthThin
+                            source: modelData.thumbnailPath || modelData.path
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            cache: true
+                            clip: true
+                            
+                            Rectangle {
+                                anchors.fill: parent
+                                color: MColors.surface2
+                                radius: Constants.borderRadiusSharp
+                                visible: parent.status === Image.Loading || parent.status === Image.Error
+                                
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "image"
+                                    size: Constants.iconSizeLarge
+                                    color: MColors.textSecondary
+                                }
+                            }
                         }
                         
                         MouseArea {
@@ -176,7 +199,9 @@ MApp {
                                 parent.color = MColors.surface
                             }
                             onClicked: {
-                                console.log("View photo:", index)
+                                Logger.info("Gallery", "View photo: " + modelData.id)
+                                photoViewerLoader.active = true
+                                photoViewerLoader.item.show(modelData)
                             }
                         }
                     }
@@ -264,5 +289,12 @@ MApp {
                 }
             }
         }
+    }
+    
+    Loader {
+        id: photoViewerLoader
+        anchors.fill: parent
+        active: false
+        sourceComponent: PhotoViewerPage {}
     }
 }

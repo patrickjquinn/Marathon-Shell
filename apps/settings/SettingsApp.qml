@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
-import "./pages"
-import "./components"
+import "pages"
+import "components"
 
 MApp {
     id: settingsApp

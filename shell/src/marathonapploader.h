@@ -17,6 +17,7 @@ public:
     Q_INVOKABLE QObject* loadApp(const QString &appId);
     Q_INVOKABLE void unloadApp(const QString &appId);
     Q_INVOKABLE bool isAppLoaded(const QString &appId) const;
+    Q_INVOKABLE void preloadApp(const QString &appId);
     
 signals:
     void appLoaded(const QString &appId);

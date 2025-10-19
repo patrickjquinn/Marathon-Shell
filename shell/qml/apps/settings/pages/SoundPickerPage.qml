@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtMultimedia
 import MarathonOS.Shell
 import "../components"

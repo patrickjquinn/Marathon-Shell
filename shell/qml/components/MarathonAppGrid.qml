@@ -216,15 +216,19 @@ Item {
                                 yScale: iconMouseArea.pressed ? 0.95 : 1.0
                                 
                                 Behavior on xScale {
-                                    NumberAnimation {
-                                        duration: 150
-                                        easing.type: Easing.OutCubic
+                                    enabled: Constants.enableAnimations
+                                    SpringAnimation {
+                                        spring: MMotion.springMedium
+                                        damping: MMotion.dampingMedium
+                                        epsilon: MMotion.epsilon
                                     }
                                 }
                                 Behavior on yScale {
-                                    NumberAnimation {
-                                        duration: 150
-                                        easing.type: Easing.OutCubic
+                                    enabled: Constants.enableAnimations
+                                    SpringAnimation {
+                                        spring: MMotion.springMedium
+                                        damping: MMotion.dampingMedium
+                                        epsilon: MMotion.epsilon
                                     }
                                 }
                             },
@@ -232,9 +236,11 @@ Item {
                                 y: iconMouseArea.pressed ? -2 : 0
                                 
                                 Behavior on y {
-                                    NumberAnimation {
-                                        duration: 150
-                                        easing.type: Easing.OutCubic
+                                    enabled: Constants.enableAnimations
+                                    SpringAnimation {
+                                        spring: MMotion.springMedium
+                                        damping: MMotion.dampingMedium
+                                        epsilon: MMotion.epsilon
                                     }
                                 }
                             }

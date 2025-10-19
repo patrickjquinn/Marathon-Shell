@@ -8,14 +8,23 @@ Rectangle {
     color: MColors.background
     
     property var conversation
-    property var messages: [
-        { id: 1, text: "Hey! How are you?", sent: false, timestamp: Date.now() - 1000 * 60 * 60 },
-        { id: 2, text: "I'm good! How about you?", sent: true, timestamp: Date.now() - 1000 * 60 * 50 },
-        { id: 3, text: "Great! Want to grab lunch tomorrow?", sent: false, timestamp: Date.now() - 1000 * 60 * 40 },
-        { id: 4, text: "Sure! What time works for you?", sent: true, timestamp: Date.now() - 1000 * 60 * 30 },
-        { id: 5, text: "How about 12:30?", sent: false, timestamp: Date.now() - 1000 * 60 * 20 },
-        { id: 6, text: "See you tomorrow!", sent: false, timestamp: Date.now() - 1000 * 60 * 15 }
-    ]
+    property var messages: typeof SMSService !== 'undefined' && conversation ? SMSService.getMessages(conversation.id) : []
+    
+    Component.onCompleted: {
+        if (typeof SMSService !== 'undefined' && conversation) {
+            messages = SMSService.getMessages(conversation.id)
+            SMSService.markAsRead(conversation.id)
+        }
+    }
+    
+    Connections {
+        target: typeof SMSService !== 'undefined' ? SMSService : null
+        function onMessageSent(recipient, timestamp) {
+            if (conversation && messages) {
+                messages = SMSService.getMessages(conversation.id)
+            }
+        }
+    }
     
     Column {
         anchors.fill: parent
@@ -72,6 +81,7 @@ Rectangle {
             width: parent.width
             height: parent.height - parent.children[0].height - parent.children[2].height
             clip: true
+            topMargin: Constants.spacingMedium
             verticalLayoutDirection: ListView.BottomToTop
             spacing: Constants.spacingSmall
             
@@ -79,29 +89,42 @@ Rectangle {
             
             delegate: Item {
                 width: messagesList.width
-                height: messageBubble.height + Constants.spacingSmall
+                height: messageBubble.height + timestampText.height + Constants.spacingSmall * 2
                 
-                Rectangle {
-                    id: messageBubble
-                    anchors.left: modelData.sent ? undefined : parent.left
-                    anchors.right: modelData.sent ? parent.right : undefined
+                Column {
+                    anchors.left: modelData.isOutgoing ? undefined : parent.left
+                    anchors.right: modelData.isOutgoing ? parent.right : undefined
                     anchors.margins: Constants.spacingMedium
-                    width: Math.min(messageText.implicitWidth + Constants.spacingMedium * 2, parent.width * 0.75)
-                    height: messageText.implicitHeight + Constants.spacingMedium * 2
-                    radius: Constants.borderRadiusSharp
-                    color: modelData.sent ? MColors.accent : MColors.surface
-                    border.width: Constants.borderWidthThin
-                    border.color: modelData.sent ? MColors.accentDark : MColors.border
-                    antialiasing: Constants.enableAntialiasing
+                    spacing: Constants.spacingXSmall
+                    
+                    Rectangle {
+                        id: messageBubble
+                        width: Math.min(messageText.implicitWidth + Constants.spacingMedium * 2, messagesList.width * 0.75)
+                        height: messageText.implicitHeight + Constants.spacingMedium * 2
+                        radius: Constants.borderRadiusSharp
+                        color: modelData.isOutgoing ? MColors.accent : MColors.surface
+                        border.width: Constants.borderWidthThin
+                        border.color: modelData.isOutgoing ? MColors.accentDark : MColors.border
+                        antialiasing: Constants.enableAntialiasing
+                        
+                        Text {
+                            id: messageText
+                            anchors.fill: parent
+                            anchors.margins: Constants.spacingMedium
+                            text: modelData.text
+                            font.pixelSize: Constants.fontSizeMedium
+                            color: modelData.isOutgoing ? MColors.text : MColors.text
+                            wrapMode: Text.Wrap
+                        }
+                    }
                     
                     Text {
-                        id: messageText
-                        anchors.fill: parent
-                        anchors.margins: Constants.spacingMedium
-                        text: modelData.text
-                        font.pixelSize: Constants.fontSizeMedium
-                        color: modelData.sent ? MColors.text : MColors.text
-                        wrapMode: Text.Wrap
+                        id: timestampText
+                        text: new Date(modelData.timestamp).toLocaleTimeString(Qt.locale(), "h:mm AP")
+                        font.pixelSize: Constants.fontSizeXSmall
+                        color: MColors.textTertiary
+                        anchors.left: modelData.isOutgoing ? undefined : parent.left
+                        anchors.right: modelData.isOutgoing ? parent.right : undefined
                     }
                 }
             }
@@ -138,14 +161,12 @@ Rectangle {
                     variant: messageInput.text.length > 0 ? "primary" : "secondary"
                     enabled: messageInput.text.length > 0
                     onClicked: {
-                        if (messageInput.text.length > 0) {
-                            console.log("Send message:", messageInput.text)
-                            messages.push({
-                                id: messages.length + 1,
-                                text: messageInput.text,
-                                sent: true,
-                                timestamp: Date.now()
-                            })
+                        if (messageInput.text.length > 0 && conversation) {
+                            Logger.info("Messages", "Sending message to: " + conversation.contactName)
+                            var recipientNumber = conversation.contactNumber || conversation.id.replace("conv_", "")
+                            if (typeof SMSService !== 'undefined') {
+                                SMSService.sendMessage(recipientNumber, messageInput.text)
+                            }
                             messageInput.text = ""
                         }
                     }

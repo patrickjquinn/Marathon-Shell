@@ -28,7 +28,7 @@ Rectangle {
             
             Text {
                 anchors.centerIn: parent
-                text: dialedNumber.length > 0 ? dialedNumber : "Enter number"
+                text: dialedNumber.length > 0 ? dialedNumber : "🔥 420 BLAZE IT! 🔥"
                 font.pixelSize: Constants.fontSizeXLarge
                 font.family: "Courier New"
                 color: dialedNumber.length > 0 ? MColors.text : MColors.textSecondary
@@ -63,11 +63,35 @@ Rectangle {
                 Rectangle {
                     width: (parent.width - Constants.spacingMedium * 2) / 3
                     height: Constants.touchTargetLarge
-                    color: MColors.surface
+                    color: MColors.glass
                     radius: Constants.borderRadiusSharp
                     border.width: Constants.borderWidthMedium
-                    border.color: MColors.border
+                    border.color: MColors.glassBorder
                     antialiasing: Constants.enableAntialiasing
+                    scale: mouseArea.pressed ? 0.95 : 1.0
+                    
+                    Behavior on scale {
+                        SpringAnimation {
+                            spring: 2.0
+                            damping: 0.25
+                            epsilon: 0.01
+                        }
+                    }
+                    
+                    Behavior on color {
+                        ColorAnimation { duration: 200 }
+                    }
+                    
+                    // Inner border for depth
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: Constants.borderWidthThin
+                        radius: parent.radius - Constants.borderWidthThin
+                        color: "transparent"
+                        border.width: Constants.borderWidthThin
+                        border.color: MColors.borderInner
+                        antialiasing: Constants.enableAntialiasing
+                    }
                     
                     Column {
                         anchors.centerIn: parent
@@ -91,16 +115,17 @@ Rectangle {
                     }
                     
                     MouseArea {
+                        id: mouseArea
                         anchors.fill: parent
                         onPressed: {
-                            parent.color = MColors.surface2
+                            parent.color = MColors.hover
                             HapticService.light()
                         }
                         onReleased: {
-                            parent.color = MColors.surface
+                            parent.color = MColors.glass
                         }
                         onCanceled: {
-                            parent.color = MColors.surface
+                            parent.color = MColors.glass
                         }
                         onClicked: {
                             if (modelData.digit === "0" && dialedNumber.length === 0) {
@@ -121,94 +146,28 @@ Rectangle {
             Layout.preferredWidth: parent.width
             spacing: Constants.spacingLarge
             
-            Rectangle {
-                width: Constants.touchTargetLarge
-                height: Constants.touchTargetLarge
-                color: MColors.surface
-                radius: Constants.borderRadiusSharp
-                border.width: Constants.borderWidthMedium
-                border.color: dialedNumber.length > 0 ? MColors.border : MColors.borderLight
-                opacity: dialedNumber.length > 0 ? 1.0 : 0.5
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: "delete"
-                    size: Constants.iconSizeMedium
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: dialedNumber.length > 0
-                    onPressed: {
-                        if (enabled) {
-                            parent.color = MColors.surface2
-                            HapticService.light()
-                        }
-                    }
-                    onReleased: {
-                        parent.color = MColors.surface
-                    }
-                    onCanceled: {
-                        parent.color = MColors.surface
-                    }
-                    onClicked: {
-                        if (dialedNumber.length > 0) {
-                            dialedNumber = dialedNumber.slice(0, -1)
-                        }
+            MIconButton {
+                icon: "delete"
+                size: Constants.touchTargetLarge
+                variant: "secondary"
+                disabled: dialedNumber.length === 0
+                onClicked: {
+                    if (dialedNumber.length > 0) {
+                        dialedNumber = dialedNumber.slice(0, -1)
                     }
                 }
             }
             
-            Rectangle {
-                width: Constants.touchTargetLarge * 2
-                height: Constants.touchTargetLarge
-                color: dialedNumber.length > 0 ? MColors.accent : MColors.surface
-                radius: Constants.borderRadiusSharp
-                border.width: Constants.borderWidthMedium
-                border.color: dialedNumber.length > 0 ? MColors.accentDark : MColors.border
-                opacity: dialedNumber.length > 0 ? 1.0 : 0.5
-                antialiasing: Constants.enableAntialiasing
-                
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingSmall
-                    
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "phone"
-                        size: Constants.iconSizeMedium
-                        color: dialedNumber.length > 0 ? MColors.text : MColors.textSecondary
-                    }
-                    
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Call"
-                        font.pixelSize: Constants.fontSizeLarge
-                        font.weight: Font.DemiBold
-                        color: dialedNumber.length > 0 ? MColors.text : MColors.textSecondary
-                    }
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: dialedNumber.length > 0
-                    onPressed: {
-                        if (enabled) {
-                            parent.color = MColors.accentDim
-                            HapticService.medium()
-                        }
-                    }
-                    onReleased: {
-                        parent.color = MColors.accent
-                    }
-                    onCanceled: {
-                        parent.color = MColors.accent
-                    }
-                    onClicked: {
-                        console.log("Calling:", dialedNumber)
-                    }
+            MButton {
+                text: "Call"
+                iconName: "phone"
+                iconLeft: true
+                variant: "primary"
+                size: "large"
+                disabled: dialedNumber.length === 0
+                implicitWidth: Constants.touchTargetLarge * 2
+                onClicked: {
+                    console.log("Calling:", dialedNumber)
                 }
             }
         }

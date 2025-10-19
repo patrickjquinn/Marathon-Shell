@@ -5,6 +5,7 @@ import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import "./pages"
 
 MApp {
     id: phoneApp
@@ -12,23 +13,41 @@ MApp {
     appName: "Phone"
     appIcon: "assets/icon.svg"
     
-    property var contacts: [
-        { id: 1, name: "Alice Johnson", phone: "+1 (555) 123-4567", favorite: true },
-        { id: 2, name: "Bob Smith", phone: "+1 (555) 234-5678", favorite: false },
-        { id: 3, name: "Carol Williams", phone: "+1 (555) 345-6789", favorite: true },
-        { id: 4, name: "David Brown", phone: "+1 (555) 456-7890", favorite: false },
-        { id: 5, name: "Emma Davis", phone: "+1 (555) 567-8901", favorite: true }
-    ]
-    
-    property var callHistory: [
-        { id: 1, contactName: "Alice Johnson", phone: "+1 (555) 123-4567", type: "outgoing", timestamp: Date.now() - 1000 * 60 * 15, duration: 180 },
-        { id: 2, contactName: "Bob Smith", phone: "+1 (555) 234-5678", type: "incoming", timestamp: Date.now() - 1000 * 60 * 60 * 2, duration: 420 },
-        { id: 3, contactName: "Unknown", phone: "+1 (555) 999-8888", type: "missed", timestamp: Date.now() - 1000 * 60 * 60 * 4, duration: 0 },
-        { id: 4, contactName: "Carol Williams", phone: "+1 (555) 345-6789", type: "outgoing", timestamp: Date.now() - 1000 * 60 * 60 * 24, duration: 600 },
-        { id: 5, contactName: "David Brown", phone: "+1 (555) 456-7890", type: "incoming", timestamp: Date.now() - 1000 * 60 * 60 * 24 * 2, duration: 120 }
-    ]
+    property var contacts: typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
+    property var callHistory: typeof CallHistoryManager !== 'undefined' ? CallHistoryManager.history : []
     
     property string dialedNumber: ""
+    property bool inCall: typeof TelephonyService !== 'undefined' && TelephonyService.callState !== "idle"
+    
+    property int editingContactId: -1
+    property string editingContactName: ""
+    property string editingContactPhone: ""
+    property string editingContactEmail: ""
+    
+    Connections {
+        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
+        function onIncomingCall(number) {
+            Logger.info("Phone", "Incoming call from: " + number)
+            var contactName = resolveContactName(number)
+            incomingCallScreen.show(number, contactName)
+        }
+        
+        function onCallStateChanged(state) {
+            Logger.info("Phone", "Call state changed: " + state)
+            if (state === "idle" && dialedNumber.length > 0) {
+                dialedNumber = ""
+            }
+        }
+    }
+    
+    function resolveContactName(number) {
+        for (var i = 0; i < contacts.length; i++) {
+            if (contacts[i].phone === number) {
+                return contacts[i].name
+            }
+        }
+        return "Unknown"
+    }
     
     function formatTimestamp(timestamp) {
         var now = Date.now()
@@ -67,9 +86,13 @@ MApp {
     
     function makeCall() {
         if (dialedNumber.length > 0) {
-            console.log("Calling:", dialedNumber)
+            Logger.info("Phone", "Calling: " + dialedNumber)
+            if (typeof TelephonyService !== 'undefined') {
+                TelephonyService.dial(dialedNumber)
+                var contactName = resolveContactName(dialedNumber)
+                activeCallPage.show(dialedNumber, contactName)
+            }
             HapticService.medium()
-            // TODO: Actually make the call
         }
     }
     
@@ -284,6 +307,36 @@ MApp {
                         color: "transparent"
                         
                         Rectangle {
+                            id: deleteButton
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.margins: Constants.spacingMedium
+                            anchors.topMargin: 0
+                            width: Constants.touchTargetLarge
+                            color: "#E74C3C"
+                            radius: Constants.borderRadiusSharp
+                            visible: callHistoryItem.x < -20
+                            
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "trash"
+                                size: Constants.iconSizeMedium
+                                color: "white"
+                            }
+                            
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    if (typeof CallHistoryManager !== 'undefined') {
+                                        CallHistoryManager.deleteCall(modelData.id)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Rectangle {
+                            id: callHistoryItem
                             anchors.fill: parent
                             anchors.margins: Constants.spacingMedium
                             anchors.topMargin: 0
@@ -292,6 +345,10 @@ MApp {
                             border.width: Constants.borderWidthThin
                             border.color: MColors.border
                             antialiasing: Constants.enableAntialiasing
+                            
+                            Behavior on x {
+                                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                            }
                             
                             Row {
                                 anchors.fill: parent
@@ -353,19 +410,42 @@ MApp {
                             
                             MouseArea {
                                 anchors.fill: parent
+                                property real startX: 0
+                                
                                 onPressed: {
+                                    startX = mouse.x
                                     parent.color = MColors.surface2
                                     HapticService.light()
                                 }
                                 onReleased: {
                                     parent.color = MColors.surface
+                                    if (callHistoryItem.x < -100) {
+                                        if (typeof CallHistoryManager !== 'undefined') {
+                                            CallHistoryManager.deleteCall(modelData.id)
+                                        }
+                                    } else {
+                                        callHistoryItem.x = 0
+                                    }
                                 }
                                 onCanceled: {
                                     parent.color = MColors.surface
+                                    callHistoryItem.x = 0
+                                }
+                                onPositionChanged: {
+                                    if (pressed) {
+                                        var delta = mouse.x - startX
+                                        if (delta < 0) {
+                                            callHistoryItem.x = Math.max(delta, -120)
+                                        }
+                                    }
                                 }
                                 onClicked: {
-                                    dialedNumber = modelData.phone
-                                    parent.parent.parent.parent.parent.currentIndex = 0
+                                    if (callHistoryItem.x === 0) {
+                                        dialedNumber = modelData.phone
+                                        parent.parent.parent.parent.parent.currentIndex = 0
+                                    } else {
+                                        callHistoryItem.x = 0
+                                    }
                                 }
                             }
                         }
@@ -373,86 +453,139 @@ MApp {
                 }
                 
                 // Contacts Page
-                ListView {
-                    width: parent.width
-                    height: parent.height
-                    clip: true
+                Rectangle {
+                    color: MColors.background
                     
-                    model: contacts
-                    
-                    delegate: Rectangle {
-                        width: ListView.view.width
-                        height: Constants.touchTargetLarge + Constants.spacingSmall
-                        color: "transparent"
+                    ListView {
+                        id: contactsList
+                        anchors.fill: parent
+                        clip: true
                         
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            anchors.topMargin: 0
-                            color: MColors.surface
-                            radius: Constants.borderRadiusSharp
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.border
-                            antialiasing: Constants.enableAntialiasing
+                        model: contacts
+                        
+                        delegate: Rectangle {
+                            width: contactsList.width
+                            height: Constants.touchTargetLarge + Constants.spacingSmall
+                            color: "transparent"
                             
-                            Row {
+                            Rectangle {
                                 anchors.fill: parent
                                 anchors.margins: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                                anchors.topMargin: 0
+                                color: MColors.surface
+                                radius: Constants.borderRadiusSharp
+                                border.width: Constants.borderWidthThin
+                                border.color: MColors.border
+                                antialiasing: Constants.enableAntialiasing
                                 
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: "user"
-                                    size: Constants.iconSizeMedium
-                                    color: MColors.accent
-                                }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - parent.spacing * 2 - Constants.iconSizeMedium * 2
-                                    spacing: Constants.spacingXSmall
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.margins: Constants.spacingMedium
+                                    spacing: Constants.spacingMedium
                                     
-                                    Text {
-                                        width: parent.width
-                                        text: modelData.name
-                                        font.pixelSize: Constants.fontSizeMedium
-                                        font.weight: Font.DemiBold
-                                        color: MColors.text
-                                        elide: Text.ElideRight
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: "user"
+                                        size: Constants.iconSizeMedium
+                                        color: MColors.accent
                                     }
                                     
-                                    Text {
-                                        text: modelData.phone
-                                        font.pixelSize: Constants.fontSizeSmall
-                                        color: MColors.textSecondary
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: parent.width - parent.spacing * 2 - Constants.iconSizeMedium * 2
+                                        spacing: Constants.spacingXSmall
+                                        
+                                        Text {
+                                            width: parent.width
+                                            text: modelData.name
+                                            font.pixelSize: Constants.fontSizeMedium
+                                            font.weight: Font.DemiBold
+                                            color: MColors.text
+                                            elide: Text.ElideRight
+                                        }
+                                        
+                                        Text {
+                                            text: modelData.phone
+                                            font.pixelSize: Constants.fontSizeSmall
+                                            color: MColors.textSecondary
+                                        }
+                                    }
+                                    
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: modelData.favorite ? "star" : "star-off"
+                                        size: Constants.iconSizeMedium
+                                        color: modelData.favorite ? MColors.accent : MColors.textTertiary
                                     }
                                 }
                                 
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: modelData.favorite ? "star" : "star-off"
-                                    size: Constants.iconSizeMedium
-                                    color: modelData.favorite ? MColors.accent : MColors.textTertiary
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onPressed: {
+                                        parent.color = MColors.surface2
+                                        HapticService.light()
+                                    }
+                                    onReleased: {
+                                        parent.color = MColors.surface
+                                    }
+                                    onCanceled: {
+                                        parent.color = MColors.surface
+                                    }
+                                    onClicked: {
+                                        editingContactId = modelData.id || -1
+                                        editingContactName = modelData.name || ""
+                                        editingContactPhone = modelData.phone || ""
+                                        editingContactEmail = modelData.email || ""
+                                        contactEditorLoader.active = true
+                                    }
                                 }
                             }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onPressed: {
-                                    parent.color = MColors.surface2
-                                    HapticService.light()
-                                }
-                                onReleased: {
-                                    parent.color = MColors.surface
-                                }
-                                onCanceled: {
-                                    parent.color = MColors.surface
-                                }
-                                onClicked: {
-                                    dialedNumber = modelData.phone
-                                    parent.parent.parent.parent.parent.currentIndex = 0
-                                }
+                        }
+                    }
+                    
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.margins: Constants.spacingLarge
+                        width: Constants.touchTargetLarge
+                        height: Constants.touchTargetLarge
+                        radius: Constants.touchTargetLarge / 2
+                        color: MColors.accent
+                        border.width: Constants.borderWidthThick
+                        border.color: MColors.accentDark
+                        antialiasing: true
+                        
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "plus"
+                            size: Constants.iconSizeLarge
+                            color: MColors.text
+                        }
+                        
+                        MouseArea {
+                            anchors.fill: parent
+                            onPressed: {
+                                parent.scale = 0.9
+                                HapticService.medium()
                             }
+                            onReleased: {
+                                parent.scale = 1.0
+                            }
+                            onCanceled: {
+                                parent.scale = 1.0
+                            }
+                            onClicked: {
+                                Logger.info("Phone", "Add new contact")
+                                editingContactId = -1
+                                editingContactName = ""
+                                editingContactPhone = ""
+                                editingContactEmail = ""
+                                contactEditorLoader.active = true
+                            }
+                        }
+                        
+                        Behavior on scale {
+                            NumberAnimation { duration: 100 }
                         }
                     }
                 }
@@ -540,5 +673,36 @@ MApp {
                 }
             }
         }
+        
+        Loader {
+            id: contactEditorLoader
+            anchors.fill: parent
+            active: false
+            z: 999
+            
+            sourceComponent: ContactEditorPage {
+                contactId: phoneApp.editingContactId
+                contactName: phoneApp.editingContactName
+                contactPhone: phoneApp.editingContactPhone
+                contactEmail: phoneApp.editingContactEmail
+                
+                onContactSaved: {
+                    contactEditorLoader.active = false
+                }
+                onCancelled: {
+                    contactEditorLoader.active = false
+                }
+            }
+        }
+        
+    IncomingCallScreen {
+        id: incomingCallScreen
+        anchors.fill: parent
     }
+    
+    ActiveCallPage {
+        id: activeCallPage
+        anchors.fill: parent
+    }
+}
 }

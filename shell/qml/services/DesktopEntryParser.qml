@@ -1,6 +1,5 @@
 pragma Singleton
 import QtQuick
-import Qt.labs.folderlistmodel
 import MarathonOS.Shell
 
 QtObject {

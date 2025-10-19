@@ -36,6 +36,12 @@ echo ""
 
 # Step 2: Build all Marathon Apps
 echo "Step 2/2: Building Marathon Apps..."
+
+# Add QML validation
+echo "🔍 Validating QML files..."
+find "$PROJECT_ROOT/apps" -name "*.qml" -exec qmllint {} \; 2>/dev/null || {
+    echo "⚠️  QML validation found issues (continuing build...)"
+}
 echo "----------------------------------------"
 "$SCRIPT_DIR/build-apps.sh"
 

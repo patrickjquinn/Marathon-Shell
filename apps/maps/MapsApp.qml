@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Controls
+import QtLocation
+import QtPositioning
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -11,419 +13,492 @@ MApp {
     appName: "Maps"
     appIcon: "assets/icon.svg"
     
-    property string currentLocation: "San Francisco, CA"
-    property var searchResults: [
-        { name: "Cafe Lumière", address: "123 Market St", distance: "0.3 mi", type: "cafe" },
-        { name: "Central Park", address: "456 Park Ave", distance: "0.7 mi", type: "park" },
-        { name: "Tech Museum", address: "789 Innovation Dr", distance: "1.2 mi", type: "museum" },
-        { name: "Marina Harbor", address: "321 Waterfront Rd", distance: "2.5 mi", type: "landmark" }
-    ]
-    
     property bool showSearch: false
+    property var searchResults: []
+    property bool isSearching: false
+    property bool mapLoaded: false
+    
+    onAppLaunched: {
+        loadTimer.start()
+    }
+    
+    Timer {
+        id: loadTimer
+        interval: 100
+        onTriggered: {
+            mapLoaded = true
+        }
+    }
+    
+    PositionSource {
+        id: positionSource
+        active: mapLoaded
+        updateInterval: 5000
+        
+        onPositionChanged: {
+            if (position.latitudeValid && position.longitudeValid && mapLoader.item) {
+                mapLoader.item.center = position.coordinate
+                Logger.info("Maps", "Position updated: " + position.coordinate)
+            }
+        }
+        
+        onSourceErrorChanged: {
+            if (sourceError !== PositionSource.NoError) {
+                Logger.warn("Maps", "Position source error (macOS stub mode)")
+            }
+        }
+    }
+    
+    function searchLocation(query) {
+        if (query.length === 0) {
+            searchResults = []
+            return
+        }
+        
+        isSearching = true
+        var xhr = new XMLHttpRequest()
+        var url = "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(query) + "&format=json&limit=5"
+        
+        xhr.open("GET", url)
+        xhr.setRequestHeader("User-Agent", "MarathonOS/1.0")
+        
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                isSearching = false
+                if (xhr.status === 200) {
+                    try {
+                        var results = JSON.parse(xhr.responseText)
+                        searchResults = results.map(function(result) {
+                            return {
+                                name: result.display_name.split(',')[0],
+                                address: result.display_name,
+                                lat: parseFloat(result.lat),
+                                lon: parseFloat(result.lon),
+                                type: result.type
+                            }
+                        })
+                        Logger.info("Maps", "Found " + searchResults.length + " results")
+                    } catch (e) {
+                        Logger.error("Maps", "Failed to parse search results: " + e)
+                        searchResults = []
+                    }
+                } else {
+                    Logger.error("Maps", "Search request failed: " + xhr.status)
+                    searchResults = []
+                }
+            }
+        }
+        
+        xhr.send()
+    }
+    
+    function goToLocation(lat, lon) {
+        if (mapLoader.item) {
+            mapLoader.item.center = QtPositioning.coordinate(lat, lon)
+            mapLoader.item.zoomLevel = 15
+            showSearch = false
+        }
+    }
     
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
         
-        Rectangle {
-            id: mapView
+        Loader {
+            id: mapLoader
             anchors.fill: parent
-            color: "#2A2A2A"
+            active: mapLoaded
+            asynchronous: true
             
-            // Grid pattern for map
-            Grid {
+            sourceComponent: Map {
+                id: map
                 anchors.fill: parent
-                columns: 4
-                rows: 6
                 
-                Repeater {
-                    model: 24
-                    
-                    Rectangle {
-                        width: mapView.width / 4
-                        height: mapView.height / 6
-                        color: index % 2 === 0 ? "#252525" : "#2F2F2F"
-                        border.width: 1
-                        border.color: "#1A1A1A"
-                    }
-                }
-            }
-            
-            // Navigation icon in center
-            Icon {
-                anchors.centerIn: parent
-                name: "navigation"
-                size: Constants.iconSizeLarge
-                color: MColors.accent
-                rotation: 45
-            }
-            
-            // Search bar
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.margins: Constants.spacingMedium
-                height: Constants.touchTargetLarge
-                color: MColors.surface
-                radius: Constants.borderRadiusSharp
-                border.width: Constants.borderWidthMedium
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
-                    
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "search"
-                        size: Constants.iconSizeMedium
-                        color: MColors.textSecondary
-                    }
-                    
-                    TextInput {
-                        id: searchInput
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
-                        font.pixelSize: Constants.fontSizeMedium
-                        color: MColors.text
-                        verticalAlignment: TextInput.AlignVCenter
-                        
-                        onTextChanged: {
-                            showSearch = text.length > 0
-                        }
-                        
-                        Text {
-                            anchors.fill: parent
-                            text: "Search for places..."
-                            font.pixelSize: Constants.fontSizeMedium
-                            color: MColors.textSecondary
-                            verticalAlignment: Text.AlignVCenter
-                            visible: searchInput.text.length === 0
-                        }
-                    }
-                    
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: searchInput.text.length > 0 ? "x" : "map-pin"
-                        size: Constants.iconSizeMedium
-                        color: searchInput.text.length > 0 ? MColors.text : MColors.textSecondary
-                        visible: true
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            visible: searchInput.text.length > 0
-                            onClicked: {
-                                searchInput.text = ""
-                                showSearch = false
-                                HapticService.light()
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Map controls
-            Column {
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingSmall
-                
-                Rectangle {
-                    width: Constants.touchTargetMedium
-                    height: Constants.touchTargetMedium
-                    radius: Constants.borderRadiusSharp
-                    color: MColors.surface
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.border
-                    antialiasing: Constants.enableAntialiasing
-                    
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "plus"
-                        size: Constants.iconSizeMedium
-                        color: MColors.text
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onPressed: {
-                            parent.color = MColors.surface2
-                            HapticService.light()
-                        }
-                        onReleased: {
-                            parent.color = MColors.surface
-                        }
-                        onCanceled: {
-                            parent.color = MColors.surface
-                        }
-                        onClicked: {
-                            console.log("Zoom in")
-                        }
-                    }
+                plugin: Plugin {
+                    name: "osm"
                 }
                 
-                Rectangle {
-                    width: Constants.touchTargetMedium
-                    height: Constants.touchTargetMedium
-                    radius: Constants.borderRadiusSharp
-                    color: MColors.surface
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.border
-                    antialiasing: Constants.enableAntialiasing
-                    
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "minus"
-                        size: Constants.iconSizeMedium
-                        color: MColors.text
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onPressed: {
-                            parent.color = MColors.surface2
-                            HapticService.light()
-                        }
-                        onReleased: {
-                            parent.color = MColors.surface
-                        }
-                        onCanceled: {
-                            parent.color = MColors.surface
-                        }
-                        onClicked: {
-                            console.log("Zoom out")
-                        }
-                    }
-                }
+                center: positionSource.position.valid ? positionSource.position.coordinate : QtPositioning.coordinate(37.7749, -122.4194)
+                zoomLevel: 14
                 
-                Item { height: Constants.spacingMedium }
+                // Gestures are enabled by default in Qt 6
+                // gesture.enabled: true removed - not a valid property
                 
-                Rectangle {
-                    width: Constants.touchTargetMedium
-                    height: Constants.touchTargetMedium
-                    radius: width / 2
-                    color: MColors.accent
-                    border.width: Constants.borderWidthMedium
-                    border.color: MColors.accentDark
-                    antialiasing: true
+                MapQuickItem {
+                    id: userLocationMarker
+                    coordinate: positionSource.position.valid ? positionSource.position.coordinate : map.center
+                    anchorPoint.x: locationDot.width / 2
+                    anchorPoint.y: locationDot.height / 2
                     
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "crosshair"
-                        size: Constants.iconSizeMedium
-                        color: MColors.text
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onPressed: {
-                            parent.scale = 0.9
-                            HapticService.medium()
-                        }
-                        onReleased: {
-                            parent.scale = 1.0
-                        }
-                        onCanceled: {
-                            parent.scale = 1.0
-                        }
-                        onClicked: {
-                            console.log("Center on current location")
-                        }
-                    }
-                    
-                    Behavior on scale {
-                        NumberAnimation { duration: 100 }
-                    }
-                }
-            }
-            
-            // Location info bar
-            Rectangle {
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.margins: Constants.spacingMedium
-                height: Constants.touchTargetLarge
-                radius: Constants.borderRadiusSharp
-                color: MColors.surface
-                border.width: Constants.borderWidthThin
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                visible: !showSearch
-                
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
-                    
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "map-pin"
-                        size: Constants.iconSizeMedium
+                    sourceItem: Rectangle {
+                        id: locationDot
+                        width: Constants.spacingLarge
+                        height: Constants.spacingLarge
+                        radius: width / 2
                         color: MColors.accent
-                    }
-                    
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - parent.spacing * 2 - Constants.iconSizeMedium * 2
-                        spacing: Constants.spacingXSmall
+                        border.width: Constants.borderWidthThick
+                        border.color: "white"
                         
-                        Text {
-                            text: currentLocation
-                            font.pixelSize: Constants.fontSizeMedium
-                            font.weight: Font.DemiBold
-                            color: MColors.text
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: parent.width * 0.4
+                            height: parent.height * 0.4
+                            radius: width / 2
+                            color: "white"
                         }
-                        
-                        Text {
-                            text: "Current location"
-                            font.pixelSize: Constants.fontSizeSmall
-                            color: MColors.textSecondary
-                        }
-                    }
-                    
-                    Icon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        name: "navigation"
-                        size: Constants.iconSizeMedium
-                        color: MColors.accent
-                    }
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        parent.color = MColors.surface2
-                        HapticService.light()
-                    }
-                    onReleased: {
-                        parent.color = MColors.surface
-                    }
-                    onCanceled: {
-                        parent.color = MColors.surface
-                    }
-                    onClicked: {
-                        console.log("Start navigation")
                     }
                 }
             }
         }
         
-        // Search results overlay
         Rectangle {
+            anchors.fill: parent
+            color: MColors.background
+            visible: !mapLoaded
+            
+            Column {
+                anchors.centerIn: parent
+                spacing: Constants.spacingLarge
+                
+                Icon {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    name: "map"
+                    size: Constants.iconSizeXLarge * 2
+                    color: MColors.accent
+                    
+                    RotationAnimation on rotation {
+                        running: !mapLoaded
+                        loops: Animation.Infinite
+                        from: 0
+                        to: 360
+                        duration: 2000
+                    }
+                }
+                
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Loading map..."
+                    font.pixelSize: Constants.fontSizeLarge
+                    color: MColors.textSecondary
+                }
+            }
+        }
+        
+        Rectangle {
+            id: searchBar
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.topMargin: Constants.touchTargetLarge + Constants.spacingMedium * 2
-            anchors.leftMargin: Constants.spacingMedium
-            anchors.rightMargin: Constants.spacingMedium
-            height: Math.min(searchResults.length * (Constants.touchTargetLarge + Constants.spacingSmall) + Constants.spacingMedium, parent.height * 0.5)
-            radius: Constants.borderRadiusSharp
+            anchors.margins: Constants.spacingMedium
+            height: Constants.touchTargetLarge
             color: MColors.surface
+            radius: Constants.borderRadiusSharp
             border.width: Constants.borderWidthMedium
             border.color: MColors.border
             antialiasing: Constants.enableAntialiasing
-            visible: showSearch
+            z: 100
             
-            ListView {
+            Row {
                 anchors.fill: parent
                 anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingSmall
+                spacing: Constants.spacingMedium
+                
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: isSearching ? "loader" : "search"
+                    size: Constants.iconSizeMedium
+                    color: MColors.textSecondary
+                    
+                    RotationAnimation on rotation {
+                        running: isSearching
+                        loops: Animation.Infinite
+                        from: 0
+                        to: 360
+                        duration: 1000
+                    }
+                }
+                
+                TextInput {
+                    id: searchInput
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
+                    font.pixelSize: Constants.fontSizeMedium
+                    color: MColors.text
+                    verticalAlignment: TextInput.AlignVCenter
+                    selectByMouse: true
+                    
+                    onTextChanged: {
+                        showSearch = text.length > 0
+                        if (text.length > 2) {
+                            searchTimer.restart()
+                        }
+                    }
+                    
+                    Text {
+                        anchors.fill: parent
+                        text: "Search for places..."
+                        font.pixelSize: Constants.fontSizeMedium
+                        color: MColors.textTertiary
+                        verticalAlignment: Text.AlignVCenter
+                        visible: !searchInput.text && !searchInput.activeFocus
+                    }
+                }
+                
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "x"
+                    size: Constants.iconSizeMedium
+                    color: MColors.textSecondary
+                    visible: searchInput.text.length > 0
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            searchInput.text = ""
+                            showSearch = false
+                        }
+                    }
+                }
+            }
+        }
+        
+        Timer {
+            id: searchTimer
+            interval: 500
+            onTriggered: {
+                searchLocation(searchInput.text)
+            }
+        }
+        
+        Rectangle {
+            id: searchResultsPanel
+            anchors.top: searchBar.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: Constants.spacingMedium
+            anchors.topMargin: Constants.spacingSmall
+            height: Math.min(searchResultsList.contentHeight + Constants.spacingMedium * 2, parent.height * 0.5)
+            color: MColors.surface
+            radius: Constants.borderRadiusSharp
+            border.width: Constants.borderWidthMedium
+            border.color: MColors.border
+            visible: showSearch && searchResults.length > 0
+            z: 99
+            
+            ListView {
+                id: searchResultsList
+                anchors.fill: parent
+                anchors.margins: Constants.spacingSmall
                 clip: true
                 
                 model: searchResults
                 
                 delegate: Rectangle {
-                    width: ListView.view.width
-                    height: Constants.touchTargetLarge
-                    color: MColors.background
-                    radius: Constants.borderRadiusSharp
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.border
-                    antialiasing: Constants.enableAntialiasing
+                    width: searchResultsList.width
+                    height: Constants.touchTargetLarge + Constants.spacingSmall
+                    color: "transparent"
                     
-                    Row {
+                    Rectangle {
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingMedium
-                        spacing: Constants.spacingMedium
+                        anchors.margins: Constants.spacingXSmall
+                        color: MColors.surface
+                        radius: Constants.borderRadiusSharp
+                        border.width: Constants.borderWidthThin
+                        border.color: MColors.border
                         
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: modelData.type === "cafe" ? "coffee" :
-                                  modelData.type === "park" ? "tree-pine" :
-                                  modelData.type === "museum" ? "landmark" : "map-pin"
-                            size: Constants.iconSizeMedium
-                            color: MColors.accent
-                        }
-                        
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - parent.spacing * 2 - Constants.iconSizeMedium * 2
-                            spacing: Constants.spacingXSmall
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: Constants.spacingMedium
+                            spacing: Constants.spacingMedium
                             
-                            Text {
-                                width: parent.width
-                                text: modelData.name
-                                font.pixelSize: Constants.fontSizeMedium
-                                font.weight: Font.DemiBold
-                                color: MColors.text
-                                elide: Text.ElideRight
+                            Icon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "map-pin"
+                                size: Constants.iconSizeMedium
+                                color: MColors.accent
                             }
                             
-                            Row {
-                                spacing: Constants.spacingSmall
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - parent.children[0].width - parent.spacing
+                                spacing: Constants.spacingXSmall
                                 
                                 Text {
+                                    width: parent.width
+                                    text: modelData.name
+                                    font.pixelSize: Constants.fontSizeMedium
+                                    font.weight: Font.DemiBold
+                                    color: MColors.text
+                                    elide: Text.ElideRight
+                                }
+                                
+                                Text {
+                                    width: parent.width
                                     text: modelData.address
                                     font.pixelSize: Constants.fontSizeSmall
                                     color: MColors.textSecondary
-                                }
-                                
-                                Text {
-                                    text: "•"
-                                    font.pixelSize: Constants.fontSizeSmall
-                                    color: MColors.textSecondary
-                                }
-                                
-                                Text {
-                                    text: modelData.distance
-                                    font.pixelSize: Constants.fontSizeSmall
-                                    color: MColors.textSecondary
+                                    elide: Text.ElideRight
                                 }
                             }
                         }
                         
-                        Icon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            name: "chevron-right"
-                            size: Constants.iconSizeMedium
-                            color: MColors.textTertiary
-                        }
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onPressed: {
-                            parent.color = MColors.surface
-                            HapticService.light()
-                        }
-                        onReleased: {
-                            parent.color = MColors.background
-                        }
-                        onCanceled: {
-                            parent.color = MColors.background
-                        }
-                        onClicked: {
-                            console.log("Navigate to:", modelData.name)
-                            showSearch = false
-                            searchInput.text = ""
+                        MouseArea {
+                            anchors.fill: parent
+                            onPressed: {
+                                parent.color = MColors.surface2
+                                HapticService.light()
+                            }
+                            onReleased: {
+                                parent.color = MColors.surface
+                            }
+                            onCanceled: {
+                                parent.color = MColors.surface
+                            }
+                            onClicked: {
+                                Logger.info("Maps", "Selected: " + modelData.name)
+                                goToLocation(modelData.lat, modelData.lon)
+                            }
                         }
                     }
                 }
+            }
+        }
+        
+        Column {
+            anchors.right: parent.right
+            anchors.bottom: locateButton.top
+            anchors.margins: Constants.spacingLarge
+            anchors.bottomMargin: Constants.spacingMedium
+            spacing: Constants.spacingMedium
+            z: 100
+            
+            Rectangle {
+                width: Constants.touchTargetLarge
+                height: Constants.touchTargetLarge
+                radius: Constants.borderRadiusSharp
+                color: MColors.surface
+                border.width: Constants.borderWidthMedium
+                border.color: MColors.border
+                antialiasing: Constants.enableAntialiasing
+                
+                Icon {
+                    anchors.centerIn: parent
+                    name: "plus"
+                    size: Constants.iconSizeLarge
+                    color: MColors.text
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        parent.scale = 0.9
+                        HapticService.light()
+                    }
+                    onReleased: {
+                        parent.scale = 1.0
+                    }
+                    onCanceled: {
+                        parent.scale = 1.0
+                    }
+                    onClicked: {
+                        if (mapLoader.item) {
+                            mapLoader.item.zoomLevel = Math.min(mapLoader.item.zoomLevel + 1, mapLoader.item.maximumZoomLevel)
+                        }
+                    }
+                }
+                
+                Behavior on scale {
+                    NumberAnimation { duration: 100 }
+                }
+            }
+            
+            Rectangle {
+                width: Constants.touchTargetLarge
+                height: Constants.touchTargetLarge
+                radius: Constants.borderRadiusSharp
+                color: MColors.surface
+                border.width: Constants.borderWidthMedium
+                border.color: MColors.border
+                antialiasing: Constants.enableAntialiasing
+                
+                Icon {
+                    anchors.centerIn: parent
+                    name: "minus"
+                    size: Constants.iconSizeLarge
+                    color: MColors.text
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: {
+                        parent.scale = 0.9
+                        HapticService.light()
+                    }
+                    onReleased: {
+                        parent.scale = 1.0
+                    }
+                    onCanceled: {
+                        parent.scale = 1.0
+                    }
+                    onClicked: {
+                        if (mapLoader.item) {
+                            mapLoader.item.zoomLevel = Math.max(mapLoader.item.zoomLevel - 1, mapLoader.item.minimumZoomLevel)
+                        }
+                    }
+                }
+                
+                Behavior on scale {
+                    NumberAnimation { duration: 100 }
+                }
+            }
+        }
+        
+        Rectangle {
+            id: locateButton
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: Constants.spacingLarge
+            width: Constants.touchTargetLarge
+            height: Constants.touchTargetLarge
+            radius: Constants.touchTargetLarge / 2
+            color: MColors.accent
+            border.width: Constants.borderWidthThick
+            border.color: MColors.accentDark
+            antialiasing: true
+            z: 100
+            
+            Icon {
+                anchors.centerIn: parent
+                name: "navigation"
+                size: Constants.iconSizeLarge
+                color: MColors.text
+            }
+            
+            MouseArea {
+                anchors.fill: parent
+                onPressed: {
+                    parent.scale = 0.9
+                    HapticService.medium()
+                }
+                onReleased: {
+                    parent.scale = 1.0
+                }
+                onCanceled: {
+                    parent.scale = 1.0
+                }
+                onClicked: {
+                    if (positionSource.position.valid && mapLoader.item) {
+                        mapLoader.item.center = positionSource.position.coordinate
+                        mapLoader.item.zoomLevel = 15
+                        Logger.info("Maps", "Centered on current location")
+                    } else {
+                        Logger.warn("Maps", "Position not available")
+                    }
+                }
+            }
+            
+            Behavior on scale {
+                NumberAnimation { duration: 100 }
             }
         }
     }

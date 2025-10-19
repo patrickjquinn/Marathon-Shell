@@ -4,11 +4,474 @@
 
 Marathon UI is a **performance-first, BB10-inspired design system** optimized for embedded systems (Raspberry Pi 4). It emphasizes:
 
-- **Sharp, squared-off aesthetics** with minimal rounded corners (2-4px radius)
-- **Depth through borders**, not shadows or blur
+- **Black background with dark grey cards** - Pure OLED-friendly aesthetic
+- **Teal accent palette** - Dark teal to bright teal gradient
+- **Depth through layers** - Dual-border technique + dynamic elevation
+- **Sharp, squared-off aesthetics** with minimal rounded corners (0-4px radius)
+- **Spring physics motion** - Natural, fluid animations
 - **Opaque-first rendering** for maximum GPU efficiency
-- **Subtle layering** using dual-border techniques
 - **60fps target** on ARM embedded hardware
+
+---
+
+## Design Tokens
+
+### Colors (`MColors.qml`)
+
+**Background:**
+```qml
+background: "#000000"         // Pure black (OLED-friendly)
+```
+
+**Surface Elevation (Dark Grey Cards):**
+```qml
+surface0: "#0A0A0A"          // Sunken (inset fields)
+surface1: "#1A1A1A"          // Base cards
+surface2: "#242424"          // Raised elements
+surface3: "#2E2E2E"          // Modals, sheets
+surface4: "#383838"          // Floating menus
+surface5: "#424242"          // Highest elevation
+```
+
+**Teal Accent Palette:**
+```qml
+accent: "#14B8A6"            // Primary teal
+accentBright: "#2DD4BF"      // Bright teal (borders)
+accentDim: "#0D9488"         // Dark teal (muted)
+accentHover: "#0F766E"       // Hover state
+accentPressed: "#0A5F56"     // Pressed state
+accentLight: "#5EEAD4"       // Light emphasis
+accentSubtle: rgba(0.078, 0.722, 0.651, 0.1)  // 10% tint
+```
+
+**Text:**
+```qml
+text: "#FFFFFF"              // Primary (white)
+textSecondary: "#A0A0A0"     // Secondary (light grey)
+textTertiary: "#707070"      // Tertiary (medium grey)
+textOnAccent: "#000000"      // Text on teal (black)
+```
+
+**Semantic Colors:**
+```qml
+success: "#10B981"  successDim: "#059669"  successBright: "#34D399"
+warning: "#F59E0B"  warningDim: "#D97706"  warningBright: "#FBBF24"
+error: "#EF4444"    errorDim: "#DC2626"    errorBright: "#F87171"
+info: "#3B82F6"     infoDim: "#2563EB"     infoBright: "#60A5FA"
+```
+
+### Motion (`MMotion.qml`)
+
+**Duration Tokens:**
+```qml
+instant: 0
+micro: 100          // Hover, ripple start
+quick: 200          // Button press, toggle
+moderate: 300       // Card animations, sheets
+slow: 400           // Modals, page transitions
+slower: 600         // Complex choreography
+```
+
+**Spring Physics:**
+```qml
+springLight: 1.5    dampingLight: 0.15     // Bouncy (cards, buttons)
+springMedium: 2.0   dampingMedium: 0.25    // Balanced (sheets, modals)
+springHeavy: 3.0    dampingHeavy: 0.4      // Firm (toggles, sliders)
+```
+
+**Easing Curves:**
+```qml
+easingStandard: Easing.OutCubic       // Default smooth
+easingDecelerate: Easing.OutQuint     // Heavy deceleration
+easingAccelerate: Easing.InQuint      // Heavy acceleration
+easingEmphasized: Easing.OutExpo      // Dramatic emphasis
+easingSharp: Easing.InOutQuad         // BB10-like precision
+```
+
+**Choreography (Staggered Delays):**
+```qml
+staggerMicro: 20      // Tight sequence (list items)
+staggerShort: 50      // Standard sequence (card grid)
+staggerMedium: 80     // Relaxed sequence
+staggerLong: 120      // Dramatic reveal
+```
+
+---
+
+## Component Library
+
+### MButton - Primary Interactive Element
+
+**Variants:**
+- `primary` - Teal background with white text
+- `secondary` - Dark grey card with border
+- `tertiary` - Transparent with border
+- `ghost` - Transparent, borderless
+- `danger` - Red background
+- `success` - Green background
+
+**States:**
+- `default` - Normal state
+- `loading` - Spinner replaces content
+- `success` - Checkmark animation
+- `error` - X icon animation
+
+**Example:**
+```qml
+import MarathonUI.Core
+
+MButton {
+    text: "Save Changes"
+    variant: "primary"
+    size: "medium"
+    iconName: "check"
+    state: "default"  // or "loading", "success", "error"
+    onClicked: {
+        state = "loading"
+        // ...do async work...
+        state = "success"
+    }
+}
+```
+
+**Features:**
+- ✅ Spring physics press animation (scale: 0.98)
+- ✅ Ripple effect on touch
+- ✅ Loading/success/error states
+- ✅ Dual-border depth
+- ✅ Teal accent colors
+
+### MIconButton - Icon-Only Buttons
+
+```qml
+MIconButton {
+    iconName: "settings"
+    variant: "ghost"       // ghost, primary, secondary
+    shape: "circular"      // circular, square
+    size: Constants.touchTargetMedium
+    onClicked: { }
+}
+```
+
+**Features:**
+- ✅ Spring physics press animation
+- ✅ Ripple effect
+- ✅ Circular or square shapes
+- ✅ Consistent with MButton
+
+### MCard - Elevated Containers
+
+```qml
+import MarathonUI.Containers
+
+MCard {
+    elevation: 1
+    elevationHover: 2
+    elevationPressed: 0
+    interactive: true  // Enables hover/press states
+    
+    onClicked: { }
+    
+    content: [
+        Text {
+            text: "Card content"
+            color: MColors.text
+        }
+    ]
+}
+```
+
+**Features:**
+- ✅ Dynamic elevation (changes on hover/press)
+- ✅ Spring physics scale animation
+- ✅ Dual-border depth technique
+- ✅ Interactive mode for clickable cards
+
+### MRipple - Touch Feedback
+
+```qml
+import MarathonUI.Effects
+
+Rectangle {
+    // ... your component ...
+    
+    MRipple {
+        id: ripple
+        rippleColor: MColors.ripple
+    }
+    
+    MouseArea {
+        anchors.fill: parent
+        onPressed: function(mouse) {
+            ripple.trigger(Qt.point(mouse.x, mouse.y))
+        }
+    }
+}
+```
+
+**Features:**
+- ✅ Expands from touch point
+- ✅ Fades out naturally
+- ✅ Configurable color
+- ✅ Performance-optimized
+
+### MNavigationPane - Page Transitions
+
+```qml
+import MarathonUI.Navigation
+
+MNavigationPane {
+    initialPage: homePage
+    
+    onPagePushed: function(page) { }
+    onPagePopped: function(page) { }
+}
+```
+
+**Features:**
+- ✅ Parallax depth (background page shifts 30%)
+- ✅ Scale animations (0.95 → 1.0, 1.0 → 0.92)
+- ✅ Smooth fade transitions
+- ✅ Emphasized easing curves
+- ✅ iOS-inspired feel
+
+---
+
+## Depth & Layers
+
+### Dual-Border Technique
+
+All elevated components use a two-border system for depth:
+
+```qml
+// Outer border (shadow edge)
+border.color: MColors.borderOuter  // Pure black
+
+// Inner border (highlight edge)
+Rectangle {
+    anchors.fill: parent
+    anchors.margins: 1
+    border.color: MColors.borderInner  // Subtle white (rgba 5%)
+}
+```
+
+### Dynamic Elevation
+
+Components respond to interaction:
+
+```qml
+// At rest: elevation 1
+// On hover: elevation 2 (lift up)
+// On press: elevation 0 (push down)
+
+currentElevation: pressed ? 0 : (hovered ? 2 : 1)
+```
+
+---
+
+## Motion Design Principles
+
+### 1. Spring Physics Over Linear
+
+❌ **Bad:**
+```qml
+Behavior on scale {
+    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+}
+```
+
+✅ **Good:**
+```qml
+Behavior on scale {
+    SpringAnimation { 
+        spring: MMotion.springMedium
+        damping: MMotion.dampingMedium
+        epsilon: MMotion.epsilon
+    }
+}
+```
+
+### 2. Unified Press States
+
+All interactive components follow the same pattern:
+
+```qml
+scale: pressed ? 0.98 : 1.0  // Slight push down
+color: pressed ? darkerColor : normalColor
+```
+
+### 3. Ripple Feedback
+
+Every touch interaction triggers a ripple:
+
+```qml
+onPressed: function(mouse) {
+    rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
+    HapticService.light()
+}
+```
+
+### 4. State Transitions
+
+State changes are animated, not instant:
+
+```qml
+Icon {
+    visible: state === "success"
+    scale: state === "success" ? 1 : 0
+    
+    Behavior on scale {
+        SpringAnimation { 
+            spring: MMotion.springLight
+            damping: MMotion.dampingLight
+        }
+    }
+}
+```
+
+---
+
+## Performance Principles
+
+### 1. Opaque Rendering First
+
+All UI elements use fully opaque colors (alpha = 1.0) unless absolutely necessary.
+
+**Exceptions:**
+- Overlay backgrounds: `MColors.overlay` (85% opacity)
+- Glass effects: `MColors.glass` (97% opacity)
+- Ripple effects: `MColors.ripple` (12% opacity)
+- Accent tints: `MColors.accentSubtle` (10% opacity)
+
+### 2. No layer.enabled (Except Icons)
+
+`layer.enabled` creates expensive framebuffer objects. Only used for icon colorization.
+
+### 3. Minimal Clipping
+
+Avoid `clip: true` unless absolutely required.
+
+### 4. No Blur Effects
+
+Never use `FastBlur`, `GaussianBlur`, etc. Use subtle opacity or darker backgrounds instead.
+
+### 5. Spring Physics Performance
+
+Spring animations are CPU-bound but provide natural motion. Use sparingly:
+- ✅ Buttons, cards, modals
+- ❌ Large lists, rapid-fire interactions
+
+---
+
+## Migration Guide
+
+### Old vs New Components
+
+| Old | New | Changes |
+|-----|-----|---------|
+| `Constants.animationFast` | `MMotion.quick` | Spring physics available |
+| `MColors.surface` | `MColors.surface1` | Clearer elevation naming |
+| Scale animations | Spring animations | Natural motion |
+| Static elevation | Dynamic elevation | Responds to interaction |
+| Color-only press | Scale + ripple | Richer feedback |
+
+### Example Migration
+
+**Before:**
+```qml
+Rectangle {
+    color: mouseArea.pressed ? "#1A1A1A" : "#0F0F0F"
+    
+    Behavior on color {
+        ColorAnimation { duration: 150 }
+    }
+}
+```
+
+**After:**
+```qml
+import MarathonUI.Theme
+import MarathonUI.Effects
+
+Rectangle {
+    color: mouseArea.pressed ? MColors.surface2 : MColors.surface1
+    scale: mouseArea.pressed ? 0.98 : 1.0
+    
+    Behavior on color {
+        ColorAnimation { duration: MMotion.quick }
+    }
+    
+    Behavior on scale {
+        SpringAnimation { 
+            spring: MMotion.springMedium
+            damping: MMotion.dampingMedium
+        }
+    }
+    
+    MRipple { id: ripple }
+    
+    MouseArea {
+        id: mouseArea
+        anchors.fill: parent
+        onPressed: function(mouse) {
+            ripple.trigger(Qt.point(mouse.x, mouse.y))
+            HapticService.light()
+        }
+    }
+}
+```
+
+---
+
+## Testing
+
+### Visual Testing
+
+1. ✅ Black background everywhere
+2. ✅ Dark grey cards with clear hierarchy (surface1-5)
+3. ✅ Teal accent colors pop against dark background
+4. ✅ Depth perception through dual-borders
+5. ✅ Spring animations feel natural, not robotic
+6. ✅ Ripple effects visible on all interactions
+7. ✅ Page transitions smooth with parallax
+
+### Performance Testing
+
+```bash
+# Run with QML profiler
+QML_PROFILER=1 ./marathon-shell
+
+# Monitor FPS
+QSG_VISUALIZE=overdraw ./marathon-shell
+QSG_VISUALIZE=batches ./marathon-shell
+```
+
+### Motion Testing
+
+- Press buttons: Should scale to 0.98 with bounce
+- Hover cards: Should lift (elevation increase)
+- Page navigation: Should parallax with depth
+- State changes: Should animate, not snap
+
+---
+
+## Future Enhancements
+
+1. **Shared element transitions** - Hero animations between pages
+2. **Pull-to-refresh** - Spring physics momentum
+3. **Rubber-band overscroll** - Bounce at scroll limits
+4. **Context menus** - Right-click/long-press menus with choreography
+5. **Toast notifications** - Slide-in from bottom with stagger
+6. **Dark mode variants** - Lighter theme option
+7. **Accessibility** - Screen reader, high contrast, larger targets
+
+---
+
+**Version**: 2.0  
+**Last Updated**: October 18, 2025  
+**Target**: Raspberry Pi 4 (ARM Cortex-A72)  
+**Status**: Production Ready ✅
+
 
 ## Performance Principles
 
