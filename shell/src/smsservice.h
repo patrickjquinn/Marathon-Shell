@@ -9,6 +9,8 @@
 #include <QSqlDatabase>
 #include <QTimer>
 
+class ContactsManager;
+
 struct Message {
     int id;
     QString conversationId;
@@ -36,6 +38,8 @@ class SMSService : public QObject
 public:
     explicit SMSService(QObject *parent = nullptr);
     ~SMSService();
+    
+    void setContactsManager(ContactsManager *contactsManager);
 
     QVariantList conversations() const;
 
@@ -59,11 +63,13 @@ private:
     void loadConversations();
     void storeMessage(const Message& msg);
     void connectToModemManager();
+    QString resolveContactName(const QString& number) const;
     
     QList<Conversation> m_conversations;
     QSqlDatabase m_database;
     QDBusInterface* m_modemManager;
     QTimer* m_pollTimer;
+    ContactsManager *m_contactsManager;
     
 #ifdef Q_OS_MACOS
     bool m_stubMode;

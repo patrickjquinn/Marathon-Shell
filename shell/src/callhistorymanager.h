@@ -8,6 +8,8 @@
 #include <QSqlDatabase>
 #include <QDateTime>
 
+class ContactsManager;
+
 struct CallRecord {
     int id;
     QString number;
@@ -26,6 +28,8 @@ class CallHistoryManager : public QObject
 public:
     explicit CallHistoryManager(QObject *parent = nullptr);
     ~CallHistoryManager();
+    
+    void setContactsManager(ContactsManager *contactsManager);
 
     QVariantList history() const;
     int count() const;
@@ -48,6 +52,7 @@ private:
     
     QList<CallRecord> m_history;
     QSqlDatabase m_database;
+    ContactsManager *m_contactsManager;
     static const int MAX_HISTORY_SIZE = 500;
 };
 

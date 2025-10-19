@@ -193,6 +193,10 @@ int main(int argc, char *argv[])
     CallHistoryManager *callHistoryManager = new CallHistoryManager(&app);
     SMSService *smsService = new SMSService(&app);
     
+    // Wire up contacts to call history for name resolution
+    callHistoryManager->setContactsManager(contactsManager);
+    smsService->setContactsManager(contactsManager);
+    
     engine.rootContext()->setContextProperty("ContactsManager", contactsManager);
     engine.rootContext()->setContextProperty("TelephonyService", telephonyService);
     engine.rootContext()->setContextProperty("CallHistoryManager", callHistoryManager);
