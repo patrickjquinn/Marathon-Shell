@@ -1117,7 +1117,13 @@ MApp {
         target: NavigationRouter
         function onDeepLinkRequested(appId, route, params) {
             if (appId === "browser") {
-                Logger.info("BrowserApp", "Deep link requested: " + route)
+                Logger.info("BrowserApp", "Deep link requested with params: " + JSON.stringify(params))
+                
+                // Handle URL parameter
+                if (params && params.url) {
+                    Logger.info("BrowserApp", "Opening URL from deep link: " + params.url)
+                    navigateTo(params.url)
+                }
             }
         }
     }
