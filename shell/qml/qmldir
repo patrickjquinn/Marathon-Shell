@@ -17,7 +17,6 @@ singleton Router 1.0 core/Router.qml
 singleton Theme 1.0 theme/Theme.qml
 singleton Colors 1.0 theme/Colors.qml
 singleton Typography 1.0 theme/Typography.qml
-singleton Layout 1.0 theme/Layout.qml
 
 # Singletons from services
 singleton AlarmManager 1.0 services/AlarmManager.qml

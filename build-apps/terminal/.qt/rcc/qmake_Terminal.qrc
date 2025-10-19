@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/qt/qml/Terminal">
+    <file alias="qmldir">/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/apps/terminal/Terminal/qmldir</file>
+  </qresource>
+</RCC>
+

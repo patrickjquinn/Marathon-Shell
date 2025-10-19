@@ -1,0 +1,9 @@
+module Terminal
+linktarget terminal-pluginplugin
+plugin terminal-pluginplugin
+classname TerminalPlugin
+typeinfo terminal-plugin.qmltypes
+prefer :/qt/qml/Terminal/
+TerminalApp 1.0 TerminalApp.qml
+depends QtQuick
+

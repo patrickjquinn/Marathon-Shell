@@ -23,6 +23,12 @@
 #include "src/marathonappscanner.h"
 #include "src/marathonapploader.h"
 #include "src/marathonappinstaller.h"
+#include "src/contactsmanager.h"
+#include "src/telephonyservice.h"
+#include "src/callhistorymanager.h"
+#include "src/smsservice.h"
+#include "src/medialibrarymanager.h"
+#include "src/musiclibrarymanager.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -180,6 +186,24 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
+    
+    // Register Telephony & Messaging services
+    ContactsManager *contactsManager = new ContactsManager(&app);
+    TelephonyService *telephonyService = new TelephonyService(&app);
+    CallHistoryManager *callHistoryManager = new CallHistoryManager(&app);
+    SMSService *smsService = new SMSService(&app);
+    
+    engine.rootContext()->setContextProperty("ContactsManager", contactsManager);
+    engine.rootContext()->setContextProperty("TelephonyService", telephonyService);
+    engine.rootContext()->setContextProperty("CallHistoryManager", callHistoryManager);
+    engine.rootContext()->setContextProperty("SMSService", smsService);
+    
+    // Register Media Library services
+    MediaLibraryManager *mediaLibraryManager = new MediaLibraryManager(&app);
+    MusicLibraryManager *musicLibraryManager = new MusicLibraryManager(&app);
+    
+    engine.rootContext()->setContextProperty("MediaLibraryManager", mediaLibraryManager);
+    engine.rootContext()->setContextProperty("MusicLibraryManager", musicLibraryManager);
     
     // Register notification service (D-Bus daemon)
     NotificationService *notificationService = new NotificationService(notificationModel, &app);

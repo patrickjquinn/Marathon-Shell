@@ -1,0 +1,20 @@
+{
+  "id": "terminal",
+  "name": "Terminal",
+  "version": "1.0.0",
+  "entryPoint": "TerminalApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["system", "storage"],
+  "minShellVersion": "1.0.0",
+  "protected": false,
+  "searchKeywords": ["terminal", "shell", "command", "bash", "zsh", "console", "cli"],
+  "deepLinks": {
+    "new-tab": {
+      "title": "New Terminal Tab",
+      "description": "Open a new terminal tab",
+      "keywords": ["new", "tab", "session"]
+    }
+  }
+}
+

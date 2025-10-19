@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Effects
 
 Rectangle {
     id: tile
@@ -18,8 +19,16 @@ Rectangle {
     border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
     color: MColors.surface
     antialiasing: Constants.enableAntialiasing
+    scale: isPressed ? 0.98 : 1.0
     
-    // NO scale animation - BB10 style
+    Behavior on scale {
+        enabled: Constants.enableAnimations
+        SpringAnimation { 
+            spring: MMotion.springMedium
+            damping: MMotion.dampingMedium
+            epsilon: MMotion.epsilon
+        }
+    }
     
     Behavior on border.color {
         ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
@@ -51,6 +60,12 @@ Rectangle {
         border.width: Constants.borderWidthThin
         border.color: MColors.borderInner
         antialiasing: Constants.enableAntialiasing
+    }
+    
+    // Ripple effect
+    MRipple {
+        id: rippleEffect
+        rippleColor: toggleData.active ? Qt.rgba(0.078, 0.722, 0.651, 0.2) : MColors.ripple
     }
     
     Row {
@@ -118,8 +133,9 @@ Rectangle {
         id: toggleMouseArea
         anchors.fill: parent
         
-        onPressed: {
+        onPressed: function(mouse) {
             isPressed = true
+            rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
             HapticService.light()
         }
         

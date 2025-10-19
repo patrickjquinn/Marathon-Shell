@@ -2,5 +2,5 @@ MTopBar 1.0 MTopBar.qml
 MBottomBar 1.0 MBottomBar.qml
 MActionBar 1.0 MActionBar.qml
 MNavigationPane 1.0 MNavigationPane.qml
-MTabControl 1.0 MTabControl.qml
+MTabControl 1.0 "MTab Control.qml"
 

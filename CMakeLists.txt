@@ -46,7 +46,10 @@ find_package(Qt6 6.5...6.9.3 REQUIRED COMPONENTS
     QuickControls2
     Svg
     DBus
+    Sql
     Multimedia
+    Location
+    Positioning
 )
 
 # Try to find Qt6WebEngineQuick

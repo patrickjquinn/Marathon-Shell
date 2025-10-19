@@ -14,9 +14,23 @@ MApp {
     
     property var notes: []
     property int nextId: 1
+    property string sortMode: "newest" // "newest", "oldest", "alphabetical"
     
     Component.onCompleted: {
         loadNotes()
+    }
+    
+    function sortNotes() {
+        if (sortMode === "newest") {
+            notes.sort(function(a, b) { return b.timestamp - a.timestamp })
+        } else if (sortMode === "oldest") {
+            notes.sort(function(a, b) { return a.timestamp - b.timestamp })
+        } else if (sortMode === "alphabetical") {
+            notes.sort(function(a, b) {
+                return a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+            })
+        }
+        notesChanged()
     }
     
     function loadNotes() {
@@ -26,6 +40,7 @@ MApp {
             if (notes.length > 0) {
                 nextId = Math.max(...notes.map(n => n.id)) + 1
             }
+            sortNotes()
         } catch (e) {
             Logger.error("NotesApp", "Failed to load notes: " + e)
             notes = []
@@ -83,6 +98,18 @@ MApp {
             }
         }
         return null
+    }
+    
+    function searchNotes(query) {
+        if (!query || query.length === 0) {
+            return notes
+        }
+        
+        var lowerQuery = query.toLowerCase()
+        return notes.filter(function(note) {
+            return note.title.toLowerCase().indexOf(lowerQuery) !== -1 ||
+                   note.content.toLowerCase().indexOf(lowerQuery) !== -1
+        })
     }
     
     content: Rectangle {

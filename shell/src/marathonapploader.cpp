@@ -59,8 +59,9 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
     
     qDebug() << "  Loading from:" << entryPointPath;
     
-    // Create component
-    QQmlComponent *component = new QQmlComponent(m_engine, QUrl::fromLocalFile(entryPointPath), this);
+    // Create component from file URL
+    QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
+    QQmlComponent *component = new QQmlComponent(m_engine, fileUrl, this);
     
     if (component->isLoading()) {
         qDebug() << "  Component is loading asynchronously...";
@@ -132,5 +133,44 @@ bool MarathonAppLoader::isAppLoaded(const QString &appId) const
 {
     // Check if component is cached (not instances since we don't cache those)
     return m_components.contains(appId);
+}
+
+void MarathonAppLoader::preloadApp(const QString &appId)
+{
+    // Asynchronously preload app component for faster launch later
+    // This creates and caches the QQmlComponent without instantiating it
+    
+    if (m_components.contains(appId)) {
+        qDebug() << "[MarathonAppLoader] Component already loaded:" << appId;
+        return;
+    }
+    
+    MarathonAppRegistry::AppInfo *appInfo = m_registry->getAppInfo(appId);
+    if (!appInfo) {
+        qDebug() << "[MarathonAppLoader] Cannot preload - app not in registry:" << appId;
+        return;
+    }
+    
+    QString appPath = appInfo->absolutePath;
+    if (!appPath.isEmpty()) {
+        m_engine->addImportPath(appPath);
+    }
+    
+    QString entryPointPath = appPath + "/" + appInfo->entryPoint;
+    if (!QFileInfo::exists(entryPointPath)) {
+        qDebug() << "[MarathonAppLoader] Cannot preload - entry point not found:" << entryPointPath;
+        return;
+    }
+    
+    qDebug() << "[MarathonAppLoader] Preloading component:" << appId;
+    
+    // Create component asynchronously
+    QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
+    QQmlComponent *component = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
+    
+    // Cache for later use
+    m_components.insert(appId, component);
+    
+    qDebug() << "[MarathonAppLoader] Component preloaded:" << appId;
 }
 

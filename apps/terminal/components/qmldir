@@ -1,0 +1,7 @@
+import QtQuick
+import MarathonApp.Terminal
+
+QtObject {
+    // Auto-import TerminalEngine type
+}
+

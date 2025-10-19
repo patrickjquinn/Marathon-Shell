@@ -26,6 +26,18 @@ set(SOURCES
     src/marathonapploader.cpp
     src/marathonappinstaller.h
     src/marathonappinstaller.cpp
+    src/contactsmanager.h
+    src/contactsmanager.cpp
+    src/telephonyservice.h
+    src/telephonyservice.cpp
+    src/callhistorymanager.h
+    src/callhistorymanager.cpp
+    src/smsservice.h
+    src/smsservice.cpp
+    src/medialibrarymanager.h
+    src/medialibrarymanager.cpp
+    src/musiclibrarymanager.h
+    src/musiclibrarymanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -44,6 +56,7 @@ set(QML_FILES
     qml/MarathonUI/Theme/MSpacing.qml
     qml/MarathonUI/Theme/MRadius.qml
     qml/MarathonUI/Theme/MElevation.qml
+    qml/MarathonUI/Theme/MMotion.qml
     qml/MarathonUI/Core/qmldir
     qml/MarathonUI/Core/MButton.qml
     qml/MarathonUI/Core/MIconButton.qml
@@ -309,6 +322,7 @@ qt6_add_qml_module(marathon-ui-effects
     QML_FILES
         qml/MarathonUI/Effects/MInset.qml
         qml/MarathonUI/Effects/MOutset.qml
+        qml/MarathonUI/Effects/MRipple.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Effects
 )
 
@@ -338,6 +352,9 @@ if(TARGET Qt6::WaylandCompositor)
     target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositor)
     target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND)
 endif()
+
+# Link QtDBus and QtSql for telephony and media services
+target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
 
 if(HAVE_WEBENGINE)
     target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)

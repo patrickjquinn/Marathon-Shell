@@ -9,9 +9,17 @@ Rectangle {
     ListView {
         id: contactsList
         anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
+        anchors.leftMargin: Constants.spacingMedium
+        anchors.rightMargin: Constants.spacingMedium
+        anchors.bottomMargin: Constants.spacingMedium
         spacing: Constants.spacingSmall
         clip: true
+        
+        // Header spacer for top padding
+        header: Item {
+            width: parent.width
+            height: Constants.spacingLarge
+        }
         
         model: phoneApp.contacts
         
@@ -106,4 +114,3 @@ Rectangle {
         }
     }
 }
-

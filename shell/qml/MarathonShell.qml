@@ -90,36 +90,94 @@ Item {
     states: [
         State {
             name: "locked"
-            PropertyChanges { target: lockScreen; visible: true; enabled: true; opacity: 1.0 }
-            PropertyChanges { target: pinScreen; visible: false; enabled: false }
-            PropertyChanges { target: mainContent; visible: false; enabled: false }
-            PropertyChanges { target: appWindow; visible: false }
-            PropertyChanges { target: navBar; visible: false }
+            PropertyChanges {
+                lockScreen.visible: true
+                lockScreen.enabled: true
+                lockScreen.opacity: 1.0
+            }
+            PropertyChanges {
+                pinScreen.visible: false
+                pinScreen.enabled: false
+            }
+            PropertyChanges {
+                mainContent.visible: false
+                mainContent.enabled: false
+            }
+            PropertyChanges {
+                appWindow.visible: false
+            }
+            PropertyChanges {
+                navBar.visible: false
+            }
         },
         State {
             name: "pinEntry"
-            PropertyChanges { target: lockScreen; visible: false; enabled: false }
-            PropertyChanges { target: pinScreen; visible: true; enabled: true }
-            PropertyChanges { target: mainContent; visible: false; enabled: false }
-            PropertyChanges { target: appWindow; visible: false }
-            PropertyChanges { target: navBar; visible: false }
+            PropertyChanges {
+                lockScreen.visible: false
+                lockScreen.enabled: false
+            }
+            PropertyChanges {
+                pinScreen.visible: true
+                pinScreen.enabled: true
+            }
+            PropertyChanges {
+                mainContent.visible: false
+                mainContent.enabled: false
+            }
+            PropertyChanges {
+                appWindow.visible: false
+            }
+            PropertyChanges {
+                navBar.visible: false
+            }
         },
         State {
             name: "home"
-            PropertyChanges { target: lockScreen; visible: false; enabled: false; opacity: 0.0 }
-            PropertyChanges { target: pinScreen; visible: false; enabled: false }
-            PropertyChanges { target: mainContent; visible: true; enabled: true }
-            PropertyChanges { target: appWindow; visible: false }
-            PropertyChanges { target: navBar; visible: true }
+            PropertyChanges {
+                lockScreen.visible: false
+                lockScreen.enabled: false
+                lockScreen.opacity: 0.0
+            }
+            PropertyChanges {
+                pinScreen.visible: false
+                pinScreen.enabled: false
+            }
+            PropertyChanges {
+                mainContent.visible: true
+                mainContent.enabled: true
+            }
+            PropertyChanges {
+                appWindow.visible: false
+            }
+            PropertyChanges {
+                navBar.visible: true
+            }
         },
         State {
             name: "app"
-            PropertyChanges { target: lockScreen; visible: false; enabled: false }
-            PropertyChanges { target: pinScreen; visible: false; enabled: false }
-            PropertyChanges { target: mainContent; visible: false; enabled: false }
-            PropertyChanges { target: appWindow; visible: true }
-            PropertyChanges { target: statusBar; visible: true; z: Constants.zIndexStatusBarApp }
-            PropertyChanges { target: navBar; visible: true; z: Constants.zIndexNavBarApp }
+            PropertyChanges {
+                lockScreen.visible: false
+                lockScreen.enabled: false
+            }
+            PropertyChanges {
+                pinScreen.visible: false
+                pinScreen.enabled: false
+            }
+            PropertyChanges {
+                mainContent.visible: false
+                mainContent.enabled: false
+            }
+            PropertyChanges {
+                appWindow.visible: true
+            }
+            PropertyChanges {
+                statusBar.visible: true
+                statusBar.z: Constants.zIndexStatusBarApp
+            }
+            PropertyChanges {
+                navBar.visible: true
+                navBar.z: Constants.zIndexNavBarApp
+            }
         }
     ]
     
@@ -809,7 +867,7 @@ Item {
         
         onCameraLaunched: {
             Logger.info("LockScreen", "Camera launched")
-            AppStore.launchApp("camera")
+            UIStore.openApp("camera", "Camera", "")
         }
         
         onNotificationTapped: (id) => {

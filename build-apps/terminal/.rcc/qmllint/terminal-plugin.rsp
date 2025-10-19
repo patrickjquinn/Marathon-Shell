@@ -1,0 +1,10 @@
+--bare
+-I
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/apps/terminal
+-I
+/opt/homebrew/opt/qt@6/share/qt/qml
+--resource
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qmake_Terminal.qrc
+--resource
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/terminal-plugin_raw_qml_0.qrc
+/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/TerminalApp.qml

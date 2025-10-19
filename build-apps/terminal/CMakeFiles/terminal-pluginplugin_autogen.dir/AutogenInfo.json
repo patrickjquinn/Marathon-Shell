@@ -1,0 +1,121 @@
+{
+	"BUILD_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_autogen",
+	"CMAKE_BINARY_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps",
+	"CMAKE_CURRENT_BINARY_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal",
+	"CMAKE_CURRENT_SOURCE_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal",
+	"CMAKE_EXECUTABLE" : "/opt/homebrew/bin/cmake",
+	"CMAKE_LIST_FILES" : 
+	[
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/CMakeLists.txt",
+		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in",
+		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Qml/Qt6QmlPluginTemplate.cpp.in",
+		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Qml/Qt6QmlModuleDirMappingTemplate.qrc.in",
+		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in",
+		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Qml/Qt6qmldirTemplate.cmake.in",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_TerminalPlugin_in.cpp"
+	],
+	"CMAKE_SOURCE_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps",
+	"CROSS_CONFIG" : false,
+	"DEP_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_autogen/deps",
+	"DEP_FILE_RULE_NAME" : "terminal-pluginplugin_autogen/timestamp",
+	"HEADERS" : [],
+	"HEADER_EXTENSIONS" : [ "h", "hh", "h++", "hm", "hpp", "hxx", "in", "txx" ],
+	"INCLUDE_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_autogen/include",
+	"MOC_COMPILATION_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_autogen/mocs_compilation.cpp",
+	"MOC_DEFINITIONS" : 
+	[
+		"QT_CORE_LIB",
+		"QT_DEPRECATED_WARNINGS",
+		"QT_NETWORK_LIB",
+		"QT_NO_DEBUG",
+		"QT_PLUGIN",
+		"QT_QMLINTEGRATION_LIB",
+		"QT_QML_LIB",
+		"terminal_pluginplugin_EXPORTS"
+	],
+	"MOC_DEPEND_FILTERS" : 
+	[
+		[
+			"Q_PLUGIN_METADATA",
+			"[\n][ \t]*Q_PLUGIN_METADATA[ \t]*\\([^\\)]*FILE[ \t]*\"([^\"]+)\""
+		]
+	],
+	"MOC_INCLUDES" : 
+	[
+		"/opt/homebrew/opt/qt@6/lib/QtQml.framework/Headers",
+		"/opt/homebrew/opt/qt@6/lib/QtQml.framework",
+		"/opt/homebrew/opt/qt@6/lib/QtCore.framework/Headers",
+		"/opt/homebrew/opt/qt@6/lib/QtCore.framework",
+		"/opt/homebrew/opt/qt@6/share/qt/mkspecs/macx-clang",
+		"/opt/homebrew/opt/qt@6/include",
+		"/opt/homebrew/opt/qt@6/include/QtQmlIntegration",
+		"/opt/homebrew/opt/qt@6/lib/QtNetwork.framework/Headers",
+		"/opt/homebrew/opt/qt@6/lib/QtNetwork.framework",
+		"/Users/patrick.quinn/.wasmedge/include",
+		"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include/c++/v1",
+		"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include",
+		"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include",
+		"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"
+	],
+	"MOC_MACRO_NAMES" : 
+	[
+		"Q_OBJECT",
+		"Q_GADGET",
+		"Q_NAMESPACE",
+		"Q_NAMESPACE_EXPORT",
+		"Q_GADGET_EXPORT",
+		"Q_ENUM_NS"
+	],
+	"MOC_OPTIONS" : [ "-Muri=Terminal" ],
+	"MOC_PATH_PREFIX" : false,
+	"MOC_PREDEFS_CMD" : 
+	[
+		"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++",
+		"-std=gnu++17",
+		"-dM",
+		"-E",
+		"-c",
+		"/opt/homebrew/share/cmake/Modules/CMakeCXXCompilerABI.cpp"
+	],
+	"MOC_PREDEFS_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_autogen/moc_predefs.h",
+	"MOC_RELAXED_MODE" : false,
+	"MOC_SKIP" : 
+	[
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_qmake_Terminal.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_terminal-plugin_raw_qml_0.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_TerminalApp_qml.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_qmlcache_loader.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/mocs_compilation.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_qmltyperegistrations.cpp"
+	],
+	"MULTI_CONFIG" : false,
+	"PARALLEL" : 10,
+	"PARSE_CACHE_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/CMakeFiles/terminal-pluginplugin_autogen.dir/ParseCache.txt",
+	"QT_MOC_EXECUTABLE" : "/opt/homebrew/opt/qt@6/share/qt/libexec/moc",
+	"QT_UIC_EXECUTABLE" : "",
+	"QT_VERSION_MAJOR" : 6,
+	"QT_VERSION_MINOR" : 9,
+	"SETTINGS_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/CMakeFiles/terminal-pluginplugin_autogen.dir/AutogenUsed.txt",
+	"SOURCES" : 
+	[
+		[
+			"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_TerminalPlugin.cpp",
+			"MU",
+			null
+		]
+	],
+	"UIC_OPTIONS" : [],
+	"UIC_SEARCH_PATHS" : [],
+	"UIC_SKIP" : 
+	[
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_qmake_Terminal.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_terminal-plugin_raw_qml_0.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_TerminalApp_qml.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_qmlcache_loader.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/mocs_compilation.cpp",
+		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_qmltyperegistrations.cpp"
+	],
+	"UIC_UI_FILES" : [],
+	"USE_BETTER_GRAPH" : true,
+	"VERBOSITY" : 0
+}

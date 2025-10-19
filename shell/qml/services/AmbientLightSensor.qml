@@ -25,7 +25,7 @@ QtObject {
         {maxLux: 999999, brightness: 1.0}   // Direct sunlight
     ]
     
-    signal lightLevelChanged(real lux)
+    signal lightLevelUpdated(real lux)
     signal brightnessAdjusted(real brightness)
     signal sensorError(string error)
     
@@ -207,9 +207,9 @@ QtObject {
         brightnessAdjusted(smoothed)
     }
     
-    Timer {
+    property var pollTimer: Timer {
         id: pollTimer
-        interval: 2000  // Poll every 2 seconds (light changes slowly)
+        interval: 2000
         repeat: true
         running: false
         onTriggered: _readSensor()
