@@ -70,7 +70,6 @@ set(QML_FILES
     qml/MarathonUI/Containers/MSection.qml
     qml/MarathonUI/Containers/MLayer.qml
     qml/MarathonUI/Lists/qmldir
-    qml/MarathonUI/Lists/MListItem.qml
     qml/MarathonUI/Lists/MSectionHeader.qml
     qml/MarathonUI/Lists/MDivider.qml
     qml/MarathonUI/Feedback/qmldir
@@ -274,7 +273,6 @@ qt6_add_qml_module(marathon-ui-lists
     URI MarathonUI.Lists
     VERSION 1.0
     QML_FILES
-        qml/MarathonUI/Lists/MListItem.qml
         qml/MarathonUI/Lists/MSectionHeader.qml
         qml/MarathonUI/Lists/MDivider.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Lists

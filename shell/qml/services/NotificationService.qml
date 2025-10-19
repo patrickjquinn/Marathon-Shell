@@ -1,24 +1,137 @@
 pragma Singleton
 import QtQuick
 
+/**
+ * @singleton
+ * @brief Manages system-wide notifications
+ * 
+ * NotificationService provides a centralized system for sending, managing,
+ * and tracking notifications. Integrates with platform notification systems
+ * (D-Bus on Linux, NSUserNotification on macOS).
+ * 
+ * @example
+ * // Send a simple notification
+ * NotificationService.sendNotification(
+ *     "myapp",
+ *     "Hello World",
+ *     "This is a notification body"
+ * )
+ * 
+ * @example
+ * // Send notification with actions
+ * NotificationService.sendNotification(
+ *     "messages",
+ *     "New Message",
+ *     "John: Hey, are you free?",
+ *     {
+ *         icon: "qrc:/images/messages.svg",
+ *         category: "message",
+ *         priority: "high",
+ *         actions: ["reply", "dismiss"]
+ *     }
+ * )
+ */
 QtObject {
     id: notificationService
     
+    /**
+     * @brief Array of all notifications
+     * @type {Array<Object>}
+     */
     property var notifications: []
+    
+    /**
+     * @brief Count of unread notifications
+     * @type {int}
+     */
     property int unreadCount: 0
+    
     property int notificationIdCounter: 1000
     
+    /**
+     * @brief Whether notifications are globally enabled
+     * @type {bool}
+     * @default true
+     */
     property bool notificationsEnabled: true
+    
+    /**
+     * @brief Whether notification sounds are enabled
+     * @type {bool}
+     * @default true
+     */
     property bool soundEnabled: true
+    
+    /**
+     * @brief Whether notification vibrations are enabled
+     * @type {bool}
+     * @default true
+     */
     property bool vibrationEnabled: true
+    
     property bool ledEnabled: true
+    
+    /**
+     * @brief Whether Do Not Disturb mode is active
+     * @type {bool}
+     * @default false
+     */
     property bool isDndEnabled: false
     
+    /**
+     * @brief Emitted when a new notification is received
+     * @param {Object} notification - The notification object
+     */
     signal notificationReceived(var notification)
+    
+    /**
+     * @brief Emitted when a notification is dismissed
+     * @param {int} id - Notification ID
+     */
     signal notificationDismissed(int id)
+    
+    /**
+     * @brief Emitted when a notification is clicked
+     * @param {int} id - Notification ID
+     */
     signal notificationClicked(int id)
+    
+    /**
+     * @brief Emitted when a notification action button is triggered
+     * @param {int} id - Notification ID
+     * @param {string} action - Action identifier
+     */
     signal notificationActionTriggered(int id, string action)
     
+    /**
+     * @brief Sends a new notification
+     * 
+     * @param {string} appId - Application identifier
+     * @param {string} title - Notification title
+     * @param {string} body - Notification body text
+     * @param {Object} options - Optional configuration
+     * @param {string} options.icon - Icon URL
+     * @param {string} options.image - Large image URL
+     * @param {string} options.category - Category ("message", "email", "system", etc.)
+     * @param {string} options.priority - Priority level ("low", "normal", "high")
+     * @param {Array<string>} options.actions - Action button labels
+     * @param {bool} options.persistent - Whether notification persists until dismissed
+     * 
+     * @returns {int} Notification ID, or -1 if notifications disabled
+     * 
+     * @example
+     * const id = NotificationService.sendNotification(
+     *     "calendar",
+     *     "Meeting in 5 minutes",
+     *     "Team standup in Conference Room A",
+     *     {
+     *         icon: "qrc:/images/calendar.svg",
+     *         category: "reminder",
+     *         priority: "high",
+     *         persistent: true
+     *     }
+     * )
+     */
     function sendNotification(appId, title, body, options) {
         if (!notificationsEnabled) {
             console.log("[NotificationService] Notifications disabled, ignoring")
