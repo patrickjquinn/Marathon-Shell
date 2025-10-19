@@ -207,9 +207,9 @@ QtObject {
         Logger.info("NavigationRouter", "Routing to Browser")
         
         var url = parsed.params.url || ""
-        AppStore.launchApp("browser")
         
-        // TODO: Pass URL to browser when app integration is complete
+        // Launch browser with URL parameter
+        deepLinkRequested("browser", "", { url: url })
         
         navigated("marathon://browser")
         return true
