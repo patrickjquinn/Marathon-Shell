@@ -104,15 +104,17 @@ Item {
         flickDeceleration: 8000
         maximumFlickVelocity: 3000
         
-        // Custom page snapping
-        onMovementEnded: {
+        // Snap to page helper function
+        function snapToPage() {
             var page = Math.round(contentY / height)
             var targetY = page * height
             snapAnimation.to = targetY
             snapAnimation.start()
         }
         
-        onFlickEnded: onMovementEnded()
+        // Custom page snapping
+        onMovementEnded: snapToPage()
+        onFlickEnded: snapToPage()
         
         NumberAnimation {
             id: snapAnimation
