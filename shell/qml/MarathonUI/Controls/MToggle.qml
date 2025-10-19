@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 
 Item {
     id: root
