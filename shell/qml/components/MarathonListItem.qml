@@ -5,7 +5,7 @@ Rectangle {
     id: listItem
     width: parent.width
     height: Constants.hubHeaderHeight
-    color: pressed ? Colors.surfaceLight : Colors.surface
+    color: root.pressed ? Colors.surfaceLight : Colors.surface
     
     property string title: ""
     property string subtitle: ""
@@ -33,12 +33,12 @@ Rectangle {
             width: 48
             height: 48
             radius: Colors.cornerRadiusCircle
-            color: iconColor
+            color: root.iconColor
             opacity: 0.2
             
             Image {
                 anchors.centerIn: parent
-                source: iconSource
+                source: root.iconSource
                 width: 28
                 height: 28
                 fillMode: Image.PreserveAspectFit
@@ -54,7 +54,7 @@ Rectangle {
             spacing: 4
             
             Text {
-                text: title
+                text: root.title
                 color: Colors.text
                 font.pixelSize: Typography.sizeBody
                 font.weight: Font.DemiBold
@@ -64,7 +64,7 @@ Rectangle {
             }
             
             Text {
-                text: subtitle
+                text: root.subtitle
                 color: Colors.textSecondary
                 font.pixelSize: Typography.sizeSmall
                 font.family: Typography.fontFamily
@@ -75,14 +75,14 @@ Rectangle {
         
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: time
+            text: root.time
             color: Colors.textTertiary
             font.pixelSize: Typography.sizeSmall
             font.family: Typography.fontFamily
         }
         
         Rectangle {
-            visible: showDelete
+            visible: root.showDelete
             anchors.verticalCenter: parent.verticalCenter
             width: 40
             height: 40

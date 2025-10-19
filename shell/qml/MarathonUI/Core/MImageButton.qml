@@ -13,10 +13,10 @@ Rectangle {
     signal pressed()
     signal released()
     
-    implicitWidth: Math.max(imageSize + Constants.spacingLarge * 2, 100)
-    implicitHeight: text !== "" ? imageSize + Constants.fontSizeMedium + Constants.spacingLarge * 2 : imageSize + Constants.spacingLarge * 2
+    implicitWidth: Math.max(root.imageSize + Constants.spacingLarge * 2, 100)
+    implicitHeight: root.text !== "" ? imageSize + Constants.fontSizeMedium + Constants.spacingLarge * 2 : imageSize + Constants.spacingLarge * 2
     
-    color: disabled ? MElevation.getSurface(0) : (mouseArea.pressed ? MElevation.getSurface(1) : MElevation.getSurface(2))
+    color: root.disabled ? MElevation.getSurface(0) : (mouseArea.pressed ? MElevation.getSurface(1) : MElevation.getSurface(2))
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
     border.color: MElevation.getBorderOuter(2)

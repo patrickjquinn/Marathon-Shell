@@ -15,8 +15,8 @@ Item {
     signal move()
     
     function show(app, pos) {
-        appData = app
-        position = pos
+        root.appData = app
+        root.position = pos
         
         menu.x = Math.min(Math.max(pos.x - menu.width / 2, 16), parent.width - menu.width - 16)
         menu.y = Math.max(pos.y - menu.height - 10, Constants.statusBarHeight + 16)

@@ -90,17 +90,17 @@ Item {
      * @returns {bool} - true if handled, false to close app
      */
     function handleBack() {
-        Logger.info("MApp", appId + " handleBack() called, canNavigateBack: " + canNavigateBack + ", depth: " + navigationDepth)
+        Logger.info("MApp", root.appId + " handleBack() called, canNavigateBack: " + canNavigateBack + ", depth: " + navigationDepth)
         
         // If app has navigation depth (internal pages), emit signal for app to handle
-        if (canNavigateBack) {
-            Logger.info("MApp", appId + " has navigation depth, emitting backPressed signal")
+        if (root.canNavigateBack) {
+            Logger.info("MApp", root.appId + " has navigation depth, emitting backPressed signal")
             backPressed()
             return true  // Signal that we handled it
         }
         
         // At root - minimize app (like iOS/Android home button)
-        Logger.info("MApp", appId + " at root, minimizing (not closing)")
+        Logger.info("MApp", root.appId + " at root, minimizing (not closing)")
         minimizeRequested()
         return true  // We handled it (minimize, don't close)
     }
@@ -110,10 +110,10 @@ Item {
      * @returns {bool} - true if handled, false to ignore
      */
     function handleForward() {
-        Logger.info("MApp", appId + " handleForward() called, canNavigateForward: " + canNavigateForward)
+        Logger.info("MApp", root.appId + " handleForward() called, canNavigateForward: " + root.canNavigateForward)
         
-        if (canNavigateForward) {
-            Logger.info("MApp", appId + " can navigate forward, emitting forwardPressed signal")
+        if (root.canNavigateForward) {
+            Logger.info("MApp", root.appId + " can navigate forward, emitting forwardPressed signal")
             forwardPressed()
             return true
         }
@@ -125,10 +125,10 @@ Item {
      * Start app (becomes visible)
      */
     function start() {
-        if (!isVisible) {
-            isVisible = true
+        if (!root.isVisible) {
+            root.isVisible = true
             appStarted()
-            Logger.debug("MApp", appId + " started (visible)")
+            Logger.debug("MApp", root.appId + " started (visible)")
         }
     }
     
@@ -136,10 +136,10 @@ Item {
      * Stop app (no longer visible)
      */
     function stop() {
-        if (isVisible) {
-            isVisible = false
+        if (root.isVisible) {
+            root.isVisible = false
             appStopped()
-            Logger.debug("MApp", appId + " stopped (hidden)")
+            Logger.debug("MApp", root.appId + " stopped (hidden)")
         }
     }
     
@@ -147,12 +147,12 @@ Item {
      * Pause app (when minimized or another app takes focus)
      */
     function pause() {
-        if (!isPaused) {
-            isPaused = true
-            isActive = false
-            isForeground = false
+        if (!root.isPaused) {
+            root.isPaused = true
+            root.isActive = false
+            root.isForeground = false
             appPaused()
-            Logger.debug("MApp", appId + " paused")
+            Logger.debug("MApp", root.appId + " paused")
         }
     }
     
@@ -160,12 +160,12 @@ Item {
      * Resume app (when restored from minimized or regains focus)
      */
     function resume() {
-        if (isPaused || !isActive) {
-            isPaused = false
-            isActive = true
-            isForeground = true
+        if (root.isPaused || !root.isActive) {
+            root.isPaused = false
+            root.isActive = true
+            root.isForeground = true
             appResumed()
-            Logger.debug("MApp", appId + " resumed")
+            Logger.debug("MApp", root.appId + " resumed")
         }
     }
     
@@ -173,21 +173,21 @@ Item {
      * Minimize app (user gesture)
      */
     function minimize() {
-        isMinimized = true
+        root.isMinimized = true
         pause()
         appMinimized()
-        Logger.debug("MApp", appId + " minimized")
+        Logger.debug("MApp", root.appId + " minimized")
     }
     
     /**
      * Restore app from minimized state
      */
     function restore() {
-        isMinimized = false
+        root.isMinimized = false
         resume()
         start()
         appRestored()
-        Logger.debug("MApp", appId + " restored")
+        Logger.debug("MApp", root.appId + " restored")
     }
     
     /**
@@ -198,7 +198,7 @@ Item {
         stop()
         appClosed()
         closed()
-        Logger.debug("MApp", appId + " closed")
+        Logger.debug("MApp", root.appId + " closed")
     }
     
     /**
@@ -206,7 +206,7 @@ Item {
      */
     function handleLowMemory() {
         lowMemoryWarning()
-        Logger.warn("MApp", appId + " received low memory warning")
+        Logger.warn("MApp", root.appId + " received low memory warning")
     }
     
     // Content area
@@ -225,52 +225,52 @@ Item {
     // Lifecycle management
     Component.onCompleted: {
         // Only register with lifecycle manager if NOT in preview mode
-        if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
-            AppLifecycleManager.registerApp(appId, root)
-            Logger.info("MApp", appId + " registered with AppLifecycleManager")
+        if (root.appId && !root.isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
+            AppLifecycleManager.registerApp(root.appId, root)
+            Logger.info("MApp", root.appId + " registered with AppLifecycleManager")
             
             // Connect minimize signal to lifecycle manager (store for cleanup)
-            minimizeConnection = minimizeRequested.connect(function() {
+            root.minimizeConnection = minimizeRequested.connect(function() {
                 AppLifecycleManager.minimizeForegroundApp()
             })
         }
         
         appCreated()
-        isActive = true
-        isVisible = true
-        isForeground = true
+        root.isActive = true
+        root.isVisible = true
+        root.isForeground = true
         appLaunched()
         appStarted()
         appResumed()
         
-        if (appId && !isPreviewMode) {
-            Logger.info("MApp", appId + " lifecycle: created → launched → started → resumed")
+        if (root.appId && !root.isPreviewMode) {
+            Logger.info("MApp", root.appId + " lifecycle: created → launched → started → resumed")
         }
     }
     
     Component.onDestruction: {
         // Disconnect signals before unregistering
-        if (minimizeConnection) {
-            minimizeRequested.disconnect(minimizeConnection)
-            minimizeConnection = null
+        if (root.minimizeConnection) {
+            minimizeRequested.disconnect(root.minimizeConnection)
+            root.minimizeConnection = null
         }
         
         // Only unregister if NOT in preview mode
-        if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
-            AppLifecycleManager.unregisterApp(appId)
+        if (root.appId && !root.isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
+            AppLifecycleManager.unregisterApp(root.appId)
         }
         
         appWillTerminate()
         appClosed()
         
-        if (appId && !isPreviewMode) {
-            Logger.info("MApp", appId + " destroyed")
+        if (root.appId && !root.isPreviewMode) {
+            Logger.info("MApp", root.appId + " destroyed")
         }
     }
     
     // Monitor visibility changes
     onIsVisibleChanged: {
-        if (isVisible) {
+        if (root.isVisible) {
             appBecameVisible()
         } else {
             appBecameHidden()

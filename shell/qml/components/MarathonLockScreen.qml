@@ -34,9 +34,9 @@ Item {
     MouseArea {
         anchors.fill: parent
         z: 1
-        enabled: expandedNotificationId !== ""
+        enabled: root.expandedNotificationId !== ""
         onClicked: {
-            expandedNotificationId = ""
+            root.expandedNotificationId = ""
             Logger.info("LockScreen", "Notifications dismissed")
         }
     }
@@ -106,7 +106,7 @@ Item {
                 model: Math.min(NotificationModel.count, 4)
                 
                 Item {
-                    width: expandedNotificationId === modelData.id ? 300 : 48
+                    width: root.expandedNotificationId === modelData.id ? 300 : 48
                     height: 48
                     
                     Behavior on width {
@@ -115,7 +115,7 @@ Item {
                     
                     Rectangle {
                         anchors.fill: parent
-                        color: expandedNotificationId === modelData.id ? MColors.surface : "transparent"
+                        color: root.expandedNotificationId === modelData.id ? MColors.surface : "transparent"
                         radius: Constants.borderRadiusSharp
                         antialiasing: Constants.enableAntialiasing
                         
@@ -132,8 +132,8 @@ Item {
                                 width: 40
                                 height: 40
                                 radius: 20
-                                color: expandedNotificationId === modelData.id ? MColors.surface2 : "transparent"
-                                border.width: expandedNotificationId === modelData.id ? 0 : 1
+                                color: root.expandedNotificationId === modelData.id ? MColors.surface2 : "transparent"
+                                border.width: root.expandedNotificationId === modelData.id ? 0 : 1
                                 border.color: MColors.borderOuter
                                 anchors.verticalCenter: parent.verticalCenter
                                 antialiasing: Constants.enableAntialiasing
@@ -178,7 +178,7 @@ Item {
                             }
                             
     Column {
-                                visible: expandedNotificationId === modelData.id
+                                visible: root.expandedNotificationId === modelData.id
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - 68
                                 spacing: 2
@@ -209,13 +209,13 @@ Item {
                             property var notification: modelData
                             
                             onClicked: {
-                                if (expandedNotificationId === notification.id) {
+                                if (root.expandedNotificationId === notification.id) {
                                     // Second tap: dismiss notification
-                                    expandedNotificationId = ""
+                                    root.expandedNotificationId = ""
                                     Logger.info("LockScreen", "Notification dismissed: " + notification.title)
                                 } else {
                                     // First tap: expand notification
-                                    expandedNotificationId = notification.id
+                                    root.expandedNotificationId = notification.id
                                     Logger.info("LockScreen", "Notification expanded: " + notification.title)
                                 }
                             }
@@ -236,7 +236,7 @@ Item {
             id: dissolveCanvas
             anchors.fill: parent
             z: 100
-            visible: swipeProgress > 0
+            visible: root.swipeProgress > 0
             
             onPaint: {
                 var ctx = getContext("2d")
@@ -247,10 +247,10 @@ Item {
                 
                 ctx.globalCompositeOperation = "destination-out"
                 
-                var centerX = swipeCenterX * width
-                var centerY = swipeCenterY * height
+                var centerX = root.swipeCenterX * width
+                var centerY = root.swipeCenterY * height
                 var maxDist = Math.sqrt(width * width + height * height)
-                var radius = swipeProgress * maxDist
+                var radius = root.swipeProgress * maxDist
                 
                 for (var i = 0; i < 20; i++) {
                     var angle = (i / 20) * Math.PI * 2
@@ -286,7 +286,7 @@ Item {
             }
         }
         
-        opacity: 1.0 - swipeProgress
+        opacity: 1.0 - root.swipeProgress
     }
     
     MouseArea {
@@ -299,11 +299,11 @@ Item {
         property bool isDragging: false
         
         onPressed: (mouse) => {
-            startX = mouse.x
-            startY = mouse.y
-            isDragging = false
-            swipeCenterX = mouse.x / width
-            swipeCenterY = mouse.y / height
+            root.startX = mouse.x
+            root.startY = mouse.y
+            root.isDragging = false
+            root.swipeCenterX = mouse.x / width
+            root.swipeCenterY = mouse.y / height
             Logger.debug("LockScreen", "Touch at: " + mouse.x + ", " + mouse.y)
             
             // Let notifications handle their own clicks if touch is on them
@@ -314,39 +314,39 @@ Item {
         
         onPositionChanged: (mouse) => {
             var distance = Math.sqrt(
-                Math.pow(mouse.x - startX, 2) + 
-                Math.pow(mouse.y - startY, 2)
+                Math.pow(mouse.x - root.startX, 2) + 
+                Math.pow(mouse.y - root.startY, 2)
             )
             
             if (distance > 10) {
-                isDragging = true
+                root.isDragging = true
             }
             
-            if (isDragging) {
-                swipeCenterX = mouse.x / width
-                swipeCenterY = mouse.y / height
-                swipeProgress = Math.min(1.0, distance / (height * 0.6))
+            if (root.isDragging) {
+                root.swipeCenterX = mouse.x / width
+                root.swipeCenterY = mouse.y / height
+                root.swipeProgress = Math.min(1.0, distance / (height * 0.6))
                 dissolveCanvas.requestPaint()
             }
         }
         
         onReleased: (mouse) => {
-            if (isDragging && swipeProgress > 0.4) {
-                swipeProgress = 1.0
+            if (root.isDragging && root.swipeProgress > 0.4) {
+                root.swipeProgress = 1.0
                 dissolveCanvas.requestPaint()
                 unlockTimer.start()
             } else {
-                swipeProgress = 0
-                if (isDragging) {
-                    expandedNotificationId = ""
+                root.swipeProgress = 0
+                if (root.isDragging) {
+                    root.expandedNotificationId = ""
                 }
             }
-            isDragging = false
+            root.isDragging = false
         }
     }
     
     Behavior on swipeProgress {
-        enabled: swipeProgress < 1.0
+        enabled: root.swipeProgress < 1.0
         NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
     }
     

@@ -11,9 +11,9 @@ Item {
     property var thumbnail: null
     
     function show(path, image) {
-        filePath = path
-        thumbnail = image
-        showing = true
+        root.filePath = path
+        root.thumbnail = image
+        root.showing = true
         slideIn.start()
         autoHideTimer.restart()
     }
@@ -35,7 +35,7 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.15)
         layer.enabled: true
-        visible: showing
+        visible: root.showing
         opacity: 0
         
         Rectangle {
@@ -61,7 +61,7 @@ Item {
                 
                 Image {
                     anchors.fill: parent
-                    source: thumbnail || ""
+                    source: root.thumbnail || ""
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                 }
@@ -79,7 +79,7 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                Logger.info("ScreenshotPreview", "Opening screenshot: " + filePath)
+                Logger.info("ScreenshotPreview", "Opening screenshot: " + root.filePath)
                 hide()
             }
             
@@ -115,7 +115,7 @@ Item {
         duration: 200
         easing.type: Easing.InCubic
         onFinished: {
-            showing = false
+            root.showing = false
         }
     }
     

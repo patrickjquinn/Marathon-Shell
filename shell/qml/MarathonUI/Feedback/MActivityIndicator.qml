@@ -9,8 +9,8 @@ Item {
     property bool running: true
     property int speed: 1000
     
-    implicitWidth: size
-    implicitHeight: size
+    implicitWidth: root.size
+    implicitHeight: root.size
     
     Repeater {
         model: 8

@@ -20,17 +20,17 @@ Rectangle {
     signal pressed()
     signal released()
     
-    implicitWidth: fullWidth ? parent.width : Math.max(minWidth, contentRow.width + horizontalPadding * 2)
+    implicitWidth: root.fullWidth ? parent.width : Math.max(minWidth, contentRow.width + horizontalPadding * 2)
     implicitHeight: {
-        if (size === "small") return Constants.touchTargetSmall
-        if (size === "large") return Constants.touchTargetLarge
+        if (root.size === "small") return Constants.touchTargetSmall
+        if (root.size === "large") return Constants.touchTargetLarge
         return Constants.touchTargetMedium
     }
     
     readonly property int minWidth: 100
     readonly property int horizontalPadding: {
-        if (size === "small") return Constants.spacingMedium
-        if (size === "large") return Constants.spacingXLarge
+        if (root.size === "small") return Constants.spacingMedium
+        if (root.size === "large") return Constants.spacingXLarge
         return Constants.spacingLarge
     }
     
@@ -38,33 +38,33 @@ Rectangle {
     scale: mouseArea.pressed ? 0.98 : 1.0
     
     color: {
-        if (disabled) return MColors.surface0
+        if (root.disabled) return MColors.surface0
         if (mouseArea.pressed) {
-            if (variant === "primary") return MColors.accentPressed
-            if (variant === "secondary") return MColors.glass
-            if (variant === "tertiary") return MColors.surface1
-            if (variant === "ghost") return MColors.hover
-            if (variant === "danger") return MColors.errorDim
-            if (variant === "success") return MColors.successDim
+            if (root.variant === "primary") return MColors.accentPressed
+            if (root.variant === "secondary") return MColors.glass
+            if (root.variant === "tertiary") return MColors.surface1
+            if (root.variant === "ghost") return MColors.hover
+            if (root.variant === "danger") return MColors.errorDim
+            if (root.variant === "success") return MColors.successDim
             return MColors.surface
         }
-        if (variant === "primary") return MColors.accent
-        if (variant === "secondary") return MColors.glass
-        if (variant === "tertiary") return "transparent"
-        if (variant === "ghost") return "transparent"
-        if (variant === "danger") return MColors.error
-        if (variant === "success") return MColors.success
+        if (root.variant === "primary") return MColors.accent
+        if (root.variant === "secondary") return MColors.glass
+        if (root.variant === "tertiary") return "transparent"
+        if (root.variant === "ghost") return "transparent"
+        if (root.variant === "danger") return MColors.error
+        if (root.variant === "success") return MColors.success
         return MColors.glass
     }
     
     border.width: Constants.borderWidthThin
     border.color: {
-        if (variant === "primary") return MColors.accentBright
-        if (variant === "secondary") return MColors.glassBorder
-        if (variant === "tertiary") return MColors.border
-        if (variant === "ghost") return "transparent"
-        if (variant === "danger") return MColors.errorBright
-        if (variant === "success") return MColors.successBright
+        if (root.variant === "primary") return MColors.accentBright
+        if (root.variant === "secondary") return MColors.glassBorder
+        if (root.variant === "tertiary") return MColors.border
+        if (root.variant === "ghost") return "transparent"
+        if (root.variant === "danger") return MColors.errorBright
+        if (root.variant === "success") return MColors.successBright
         return MColors.borderOuter
     }
     
@@ -91,9 +91,9 @@ Rectangle {
         radius: Constants.borderRadiusSharp
         color: "transparent"
         border.width: Constants.borderWidthThin
-        border.color: variant === "primary" ? MColors.borderHighlight : MColors.borderInner
+        border.color: root.variant === "primary" ? MColors.borderHighlight : MColors.borderInner
         antialiasing: Constants.enableAntialiasing
-        visible: variant !== "ghost" && variant !== "tertiary"
+        visible: root.variant !== "ghost" && root.variant !== "tertiary"
         
         Behavior on border.color {
             enabled: Constants.enableAnimations
@@ -104,14 +104,14 @@ Rectangle {
     // Ripple effect
     MRipple {
         id: rippleEffect
-        rippleColor: variant === "primary" ? Qt.rgba(1, 1, 1, 0.2) : MColors.ripple
+        rippleColor: root.variant === "primary" ? Qt.rgba(1, 1, 1, 0.2) : MColors.ripple
     }
     
     Row {
         id: contentRow
         anchors.centerIn: parent
         spacing: Constants.spacingSmall
-        layoutDirection: iconLeft ? Qt.LeftToRight : Qt.RightToLeft
+        layoutDirection: root.iconLeft ? Qt.LeftToRight : Qt.RightToLeft
         opacity: root.state === "loading" ? 0 : 1
         
         Behavior on opacity {
@@ -120,18 +120,18 @@ Rectangle {
         }
         
         Icon {
-            visible: iconName !== "" && root.state === "default"
-            name: iconName
+            visible: root.iconName !== "" && root.state === "default"
+            name: root.iconName
             size: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
-            color: disabled ? MColors.textDisabled : (variant === "primary" ? MColors.textOnAccent : MColors.text)
+            color: root.disabled ? MColors.textDisabled : (variant === "primary" ? MColors.textOnAccent : MColors.text)
             anchors.verticalCenter: parent.verticalCenter
         }
         
         Text {
             text: root.text
             color: {
-                if (disabled) return MColors.textDisabled
-                if (variant === "primary") return MColors.textOnAccent
+                if (root.disabled) return MColors.textDisabled
+                if (root.variant === "primary") return MColors.textOnAccent
                 return MColors.text
             }
             font.pixelSize: root.size === "small" ? Constants.fontSizeSmall : (root.size === "large" ? Constants.fontSizeLarge : Constants.fontSizeMedium)
@@ -145,7 +145,7 @@ Rectangle {
         anchors.centerIn: parent
         size: root.size === "small" ? 20 : (root.size === "large" ? 32 : 24)
         visible: root.state === "loading"
-        color: variant === "primary" ? MColors.textOnAccent : MColors.accent
+        color: root.variant === "primary" ? MColors.textOnAccent : MColors.accent
     }
     
     // Success icon
@@ -153,7 +153,7 @@ Rectangle {
         anchors.centerIn: parent
         name: "check"
         size: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
-        color: variant === "primary" ? MColors.textOnAccent : MColors.success
+        color: root.variant === "primary" ? MColors.textOnAccent : MColors.success
         visible: root.state === "success"
         scale: root.state === "success" ? 1 : 0
         
@@ -172,7 +172,7 @@ Rectangle {
         anchors.centerIn: parent
         name: "x"
         size: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
-        color: variant === "primary" ? MColors.textOnAccent : MColors.error
+        color: root.variant === "primary" ? MColors.textOnAccent : MColors.error
         visible: root.state === "error"
         scale: root.state === "error" ? 1 : 0
         
@@ -189,7 +189,7 @@ Rectangle {
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        enabled: !disabled && root.state === "default"
+        enabled: !root.disabled && root.state === "default"
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
         
         onPressed: function(mouse) {

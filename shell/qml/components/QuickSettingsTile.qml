@@ -12,14 +12,14 @@ Rectangle {
     signal tapped()
     signal longPressed()
     
-    width: tileWidth
+    width: root.tileWidth
     height: Constants.hubHeaderHeight
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
     border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
     color: MColors.surface
     antialiasing: Constants.enableAntialiasing
-    scale: isPressed ? 0.98 : 1.0
+    scale: root.isPressed ? 0.98 : 1.0
     
     Behavior on scale {
         enabled: Constants.enableAnimations
@@ -121,7 +121,7 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         color: MColors.accentBright
-        opacity: isPressed ? 0.1 : 0
+        opacity: root.isPressed ? 0.1 : 0
         radius: Constants.borderRadiusSharp
         
         Behavior on opacity {
@@ -134,17 +134,17 @@ Rectangle {
         anchors.fill: parent
         
         onPressed: function(mouse) {
-            isPressed = true
+            root.isPressed = true
             rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
             HapticService.light()
         }
         
         onReleased: {
-            isPressed = false
+            root.isPressed = false
         }
         
         onCanceled: {
-            isPressed = false
+            root.isPressed = false
         }
         
         onClicked: {

@@ -83,7 +83,7 @@ Item {
             
             MouseArea {
                 anchors.fill: parent
-                onClicked: showVertical = false
+                onClicked: root.showVertical = false
             }
         }
     }
