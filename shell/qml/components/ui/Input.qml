@@ -12,7 +12,7 @@ Rectangle {
     property string errorText: ""
     property bool hasError: errorText !== ""
     
-    signal textChanged(string text)
+    signal inputTextChanged(string text)
     signal accepted()
     signal focused()
     signal unfocused()
@@ -69,7 +69,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 
-                onTextChanged: inputContainer.textChanged(text)
+                onTextChanged: inputContainer.inputTextChanged(text)
                 onAccepted: inputContainer.accepted()
                 onActiveFocusChanged: {
                     if (activeFocus) inputContainer.focused()
