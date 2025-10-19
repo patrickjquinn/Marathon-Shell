@@ -7,7 +7,7 @@ import MarathonOS.Shell
  * 
  * Features:
  * - Proper constraints preventing content overflow
- * - Support for leading icon, root.title, root.subtitle
+ * - Support for leading icon, title, subtitle
  * - Trailing action area (toggle, button, chevron, custom content)
  * - Built-in press states and interactions
  * - Consistent spacing and sizing
@@ -50,9 +50,9 @@ Rectangle {
     radius: Constants.borderRadiusSharp
     
     // Appearance
-    color: root.clickable && mouseArea.pressed ? backgroundHoverColor : backgroundColor
+    color: clickable && mouseArea.pressed ? backgroundHoverColor : backgroundColor
     border.width: 1
-    border.color: root.borderColor
+    border.color: borderColor
     
     Behavior on color {
         ColorAnimation { duration: 150 }
@@ -67,17 +67,17 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
-        name: root.leadingIcon
-        size: root.leadingIconSize
-        color: root.leadingIconColor
-        visible: root.leadingIcon !== ""
+        name: leadingIcon
+        size: leadingIconSize
+        color: leadingIconColor
+        visible: leadingIcon !== ""
     }
     
     // Text content (constrained between icon and trailing)
     Column {
         id: textContent
-        anchors.left: root.leadingIcon !== "" ? leadingIconItem.right : parent.left
-        anchors.leftMargin: root.leadingIcon !== "" ? Constants.spacingMedium : Constants.spacingMedium
+        anchors.left: leadingIcon !== "" ? leadingIconItem.right : parent.left
+        anchors.leftMargin: leadingIcon !== "" ? Constants.spacingMedium : Constants.spacingMedium
         anchors.right: trailingArea.left
         anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
@@ -103,7 +103,7 @@ Rectangle {
             font.pixelSize: Constants.fontSizeSmall
             font.family: MTypography.fontFamily
             elide: Text.ElideRight
-            visible: root.subtitle !== ""
+            visible: subtitle !== ""
             opacity: root.enabled ? 1.0 : 0.5
         }
     }
@@ -114,7 +114,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(childrenRect.width, root.showChevron ? 24 : 0)
+        width: Math.max(childrenRect.width, showChevron ? 24 : 0)
         height: parent.height - (Constants.spacingMedium * 2)
         
         Loader {
@@ -127,7 +127,7 @@ Rectangle {
             size: Constants.iconSizeSmall
             color: MColors.textTertiary
             anchors.centerIn: parent
-            visible: root.showChevron && !trailingLoader.item
+            visible: showChevron && !trailingLoader.item
         }
     }
     

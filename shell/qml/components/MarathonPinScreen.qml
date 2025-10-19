@@ -17,8 +17,8 @@ Rectangle {
     property real entryProgress: 0.0  // 0.0 = hidden, 1.0 = shown
     
     // Fade and scale in
-    opacity: root.entryProgress
-    scale: 0.95 + (root.entryProgress * 0.05)
+    opacity: entryProgress
+    scale: 0.95 + (entryProgress * 0.05)
     
     Behavior on opacity {
         NumberAnimation {
@@ -87,15 +87,15 @@ Rectangle {
         // Error message
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: root.error
+            text: error
             color: MColors.error
             font.pixelSize: Typography.sizeBody
-            visible: root.error !== ""
+            visible: error !== ""
             height: visible ? implicitHeight : 0
             
             // Shake animation on error
             SequentialAnimation on x {
-                running: root.error !== ""
+                running: error !== ""
                 loops: 3
                 NumberAnimation { to: 10; duration: 50 }
                 NumberAnimation { to: -10; duration: 50 }
@@ -324,8 +324,8 @@ Rectangle {
                         
                         
                         onClicked: {
-                            root.pin = ""
-                            root.error = ""
+                            pin = ""
+                            error = ""
                         }
                     }
                 }
@@ -359,8 +359,8 @@ Rectangle {
     
     function handleInput(digit) {
         if (pin.length < 6) {
-            root.pin += digit
-            root.error = ""
+            pin += digit
+            error = ""
             
             if (pin.length === 6) {
                 verifyPin()
@@ -369,12 +369,12 @@ Rectangle {
     }
     
     function verifyPin() {
-        if (root.pin === correctPin) {
+        if (pin === correctPin) {
             console.log("✅ PIN correct!")
             pinCorrect()
         } else {
             console.log("❌ PIN incorrect!")
-            root.error = "Incorrect PIN"
+            error = "Incorrect PIN"
             
             // Clear PIN after a delay
             errorTimer.start()
@@ -382,15 +382,15 @@ Rectangle {
     }
     
     function reset() {
-        root.pin = ""
-        root.error = ""
-        root.entryProgress = 0.0
+        pin = ""
+        error = ""
+        entryProgress = 0.0
     }
     
     function show() {
-        root.pin = ""  // Clear PIN when showing
-        root.error = ""
-        root.entryProgress = 1.0
+        pin = ""  // Clear PIN when showing
+        error = ""
+        entryProgress = 1.0
         console.log("📱 PIN screen shown, PIN cleared")
     }
     
@@ -399,8 +399,8 @@ Rectangle {
         interval: 1500
         repeat: false
         onTriggered: {
-            root.pin = ""
-            root.error = ""
+            pin = ""
+            error = ""
         }
     }
 }

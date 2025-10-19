@@ -13,7 +13,7 @@ Canvas {
     property real maxProgress: 200
     
     onProgressChanged: {
-        opacity = Math.min(root.progress / 50, 1.0)
+        opacity = Math.min(progress / 50, 1.0)
         requestPaint()
     }
     
@@ -21,13 +21,13 @@ Canvas {
         var ctx = getContext("2d")
         ctx.clearRect(0, 0, width, height)
         
-        if (root.progress === 0) return
+        if (progress === 0) return
         
         var centerY = height / 2
         var startX = 0
-        var controlX = Math.min(root.progress * 0.5, 50)
-        var endX = Math.min(root.progress, 80)
-        var curveHeight = Math.min(root.progress * 0.8, 60)
+        var controlX = Math.min(progress * 0.5, 50)
+        var endX = Math.min(progress, 80)
+        var curveHeight = Math.min(progress * 0.8, 60)
         
         ctx.beginPath()
         ctx.moveTo(startX, centerY - curveHeight)
@@ -47,11 +47,11 @@ Canvas {
     }
     
     function show(gestureProgress) {
-        root.progress = gestureProgress
+        progress = gestureProgress
     }
     
     function hide() {
-        root.progress = 0
+        progress = 0
         opacity = 0
     }
     

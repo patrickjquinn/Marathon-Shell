@@ -7,7 +7,7 @@ Text {
     property string variant: "body"
     
     font.pixelSize: {
-        switch (root.variant) {
+        switch (variant) {
             case "h1": return Constants.fontSizeHuge
             case "h2": return Constants.fontSizeXXLarge
             case "h3": return Constants.fontSizeXLarge
@@ -20,7 +20,7 @@ Text {
     }
     
     font.weight: {
-        switch (root.variant) {
+        switch (variant) {
             case "h1":
             case "h2":
             case "h3":
@@ -33,7 +33,7 @@ Text {
     }
     
     color: {
-        switch (root.variant) {
+        switch (variant) {
             case "overline":
             case "caption":
                 return MColors.textSecondary

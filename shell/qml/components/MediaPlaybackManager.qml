@@ -7,7 +7,7 @@ Rectangle {
     id: mediaManager
     
     width: parent.width
-    height: root.isPlaying ? 120 : 0
+    height: isPlaying ? 120 : 0
     visible: height > 0
     radius: 4
     color: Qt.rgba(255, 255, 255, 0.04)

@@ -23,7 +23,7 @@ Rectangle {
         
         Rectangle {
             id: topBar
-            visible: root.showTopBar
+            visible: showTopBar
             width: parent.width
             height: 56
             color: MColors.glass
@@ -38,7 +38,7 @@ Rectangle {
                 spacing: Constants.spacingMedium
                 
                 Icon {
-                    visible: root.showBackButton
+                    visible: showBackButton
                     name: "chevron-left"
                     size: Constants.iconSizeMedium
                     color: MColors.text
@@ -65,7 +65,7 @@ Rectangle {
         Flickable {
             id: scrollView
             width: parent.width
-            height: parent.height - (root.showTopBar ? 56 : 0) - (root.showBottomBar ? 72 : 0)
+            height: parent.height - (showTopBar ? 56 : 0) - (showBottomBar ? 72 : 0)
             contentHeight: contentContainer.height
             clip: true
             
@@ -80,7 +80,7 @@ Rectangle {
         
         Rectangle {
             id: bottomBar
-            visible: root.showBottomBar
+            visible: showBottomBar
             width: parent.width
             height: Constants.appIconSize
             color: MColors.glass

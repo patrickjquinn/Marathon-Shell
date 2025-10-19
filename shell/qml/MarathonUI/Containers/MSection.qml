@@ -12,9 +12,9 @@ Column {
     spacing: 0
     
     Rectangle {
-        visible: root.title !== ""
+        visible: title !== ""
         width: parent.width
-        height: root.subtitle ? Constants.touchTargetLarge : Constants.touchTargetMedium
+        height: subtitle ? Constants.touchTargetLarge : Constants.touchTargetMedium
         color: "transparent"
         
         Column {
@@ -35,8 +35,8 @@ Column {
             }
             
             Text {
-                visible: root.subtitle !== ""
-                text: root.subtitle
+                visible: subtitle !== ""
+                text: subtitle
                 color: MColors.textSecondary
                 font.pixelSize: Constants.fontSizeXSmall
                 font.family: MTypography.fontFamily

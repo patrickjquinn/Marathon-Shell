@@ -12,25 +12,25 @@ Item {
     property bool hudVisible: false
     
     function showVolume(value) {
-        root.hudType = "volume"
-        root.hudValue = value
+        hudType = "volume"
+        hudValue = value
         show()
     }
     
     function showBrightness(value) {
-        root.hudType = "brightness"
-        root.hudValue = value
+        hudType = "brightness"
+        hudValue = value
         show()
     }
     
     function show() {
-        root.hudVisible = true
+        hudVisible = true
         hud.opacity = 1
         autoHideTimer.restart()
     }
     
     function hide() {
-        root.hudVisible = false
+        hudVisible = false
         fadeOut.start()
     }
     
@@ -45,7 +45,7 @@ Item {
         border.color: MElevation.getBorderOuter(4)
         antialiasing: Constants.enableAntialiasing
         opacity: 0
-        visible: root.hudVisible
+        visible: hudVisible
         
         Behavior on opacity {
             enabled: Constants.enableAnimations
@@ -70,7 +70,7 @@ Item {
             width: parent.width - 40
             
             Icon {
-                name: root.hudType === "volume" ? "volume-2" : "sun"
+                name: hudType === "volume" ? "volume-2" : "sun"
                 size: Constants.iconSizeXLarge
                 color: Colors.text
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -89,7 +89,7 @@ Item {
                     border.color: Qt.rgba(1, 1, 1, 0.05)
                     
                     Rectangle {
-                        width: parent.width * root.hudValue
+                        width: parent.width * hudValue
                         height: parent.height
                         radius: parent.radius
                         color: Qt.rgba(20/255, 184/255, 166/255, 0.9)
@@ -104,7 +104,7 @@ Item {
                 }
                 
                 Text {
-                    text: Math.round(root.hudValue * 100) + "%"
+                    text: Math.round(hudValue * 100) + "%"
                     color: Colors.text
                     font.pixelSize: Typography.sizeLarge
                     font.weight: Font.DemiBold

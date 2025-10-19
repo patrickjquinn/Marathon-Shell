@@ -14,7 +14,7 @@ Rectangle {
     property var currentAlarm: null
     
     function show(alarm) {
-        root.currentAlarm = alarm
+        currentAlarm = alarm
         visible = true
         
         swipeUpText.opacity = 1.0
@@ -22,17 +22,17 @@ Rectangle {
     }
     
     function dismiss() {
-        if (root.currentAlarm) {
+        if (currentAlarm) {
             AlarmManager.dismissAlarm(currentAlarm.id)
-            root.currentAlarm = null
+            currentAlarm = null
         }
         visible = false
     }
     
     function snooze() {
-        if (root.currentAlarm) {
+        if (currentAlarm) {
             AlarmManager.snoozeAlarm(currentAlarm.id)
-            root.currentAlarm = null
+            currentAlarm = null
         }
         visible = false
     }
@@ -45,17 +45,17 @@ Rectangle {
         property bool dragging: false
         
         onPressed: (mouse) => {
-            root.startY = mouse.y
-            root.dragging = false
+            startY = mouse.y
+            dragging = false
         }
         
         onPositionChanged: (mouse) => {
-            if (Math.abs(mouse.y - root.startY) > 20) {
-                root.dragging = true
+            if (Math.abs(mouse.y - startY) > 20) {
+                dragging = true
             }
             
-            if (root.dragging) {
-                var delta = mouse.y - root.startY
+            if (dragging) {
+                var delta = mouse.y - startY
                 
                 if (delta < -100) {
                     alarmOverlay.dismiss()
@@ -64,7 +64,7 @@ Rectangle {
         }
         
         onReleased: {
-            root.dragging = false
+            dragging = false
         }
     }
     
@@ -82,7 +82,7 @@ Rectangle {
         
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: root.currentAlarm ? currentAlarm.label : "Alarm"
+            text: currentAlarm ? currentAlarm.label : "Alarm"
             color: MColors.text
             font.pixelSize: MTypography.sizeXLarge
             font.weight: MTypography.weightBold

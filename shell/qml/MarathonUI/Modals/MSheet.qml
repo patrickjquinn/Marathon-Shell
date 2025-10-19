@@ -14,7 +14,7 @@ Item {
     
     anchors.fill: parent
     visible: opacity > 0
-    opacity: root.showing ? 1.0 : 0.0
+    opacity: showing ? 1.0 : 0.0
     z: Constants.zIndexQuickSettings + 200
     
     Behavior on opacity {
@@ -134,11 +134,11 @@ Item {
     }
     
     function show() {
-        root.showing = true
+        showing = true
     }
     
     function close() {
-        root.showing = false
+        showing = false
         Qt.callLater(() => root.closed())
     }
 }

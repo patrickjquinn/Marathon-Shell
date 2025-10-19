@@ -14,7 +14,7 @@ Rectangle {
     anchors.fill: parent
     color: MColors.overlay
     visible: opacity > 0
-    opacity: root.showing ? 1.0 : 0.0
+    opacity: showing ? 1.0 : 0.0
     z: Constants.zIndexQuickSettings + 100
     
     Behavior on opacity {
@@ -78,11 +78,11 @@ Rectangle {
     }
     
     function show() {
-        root.showing = true
+        showing = true
     }
     
     function hide() {
-        root.showing = false
+        showing = false
     }
 }
 

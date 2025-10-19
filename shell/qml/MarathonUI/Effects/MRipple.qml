@@ -66,9 +66,9 @@ Item {
     
     function trigger(point) {
         if (point) {
-            root.origin = point
+            origin = point
         }
-        root.active = true
+        active = true
     }
 }
 

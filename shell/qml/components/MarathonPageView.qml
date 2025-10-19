@@ -93,7 +93,7 @@ ListView {
             rows: 4
             
             onSearchPullProgressChanged: {
-                pageViewContainer.searchPullProgress = root.searchPullProgress
+                pageViewContainer.searchPullProgress = searchPullProgress
             }
             
             onAppLaunched: (app) => {
@@ -104,14 +104,14 @@ ListView {
     }
     
     onCurrentIndexChanged: {
-        root.currentPage = currentIndex - 2
-        Logger.debug("PageView", "Page changed to index: " + root.currentIndex + ", page: " + root.currentPage)
+        currentPage = currentIndex - 2
+        Logger.debug("PageView", "Page changed to index: " + currentIndex + ", page: " + currentPage)
         
-        pageViewContainer.hubVisible(root.currentIndex === 0)
-        pageViewContainer.framesVisible(root.currentIndex === 1)
+        pageViewContainer.hubVisible(currentIndex === 0)
+        pageViewContainer.framesVisible(currentIndex === 1)
         
         // Reset search pull progress when navigating away from app grid pages
-        if (root.currentIndex < 2) {
+        if (currentIndex < 2) {
             pageViewContainer.searchPullProgress = 0.0
         }
     }

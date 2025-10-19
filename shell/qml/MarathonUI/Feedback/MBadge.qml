@@ -13,9 +13,9 @@ Rectangle {
     radius: MRadius.pill
     
     color: {
-        if (root.variant === "success") return MColors.success
-        if (root.variant === "warning") return MColors.warning
-        if (root.variant === "info") return MColors.info
+        if (variant === "success") return MColors.success
+        if (variant === "warning") return MColors.warning
+        if (variant === "info") return MColors.info
         return MColors.error
     }
     
