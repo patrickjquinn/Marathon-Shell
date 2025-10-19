@@ -11,11 +11,25 @@ Rectangle {
     visible: false
     z: 1000
     
+    property int editingAlarmId: -1
+    property bool isEditMode: false
+    
     signal alarmCreated(int hour, int minute)
+    signal alarmUpdated(int alarmId, int hour, int minute)
     
     function open() {
+        isEditMode = false
+        editingAlarmId = -1
         hourTumbler.currentIndex = new Date().getHours()
         minuteTumbler.currentIndex = new Date().getMinutes()
+        dialog.visible = true
+    }
+    
+    function openForEdit(alarmId, hour, minute, label) {
+        isEditMode = true
+        editingAlarmId = alarmId
+        hourTumbler.currentIndex = hour
+        minuteTumbler.currentIndex = minute
         dialog.visible = true
     }
     
@@ -49,7 +63,7 @@ Rectangle {
             
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Set Alarm Time"
+                text: isEditMode ? "Edit Alarm" : "Set Alarm Time"
                 font.pixelSize: Constants.fontSizeLarge
                 font.weight: Font.Bold
                 color: MColors.text
@@ -114,7 +128,11 @@ Rectangle {
                     text: "Save"
                     variant: "primary"
                     onClicked: {
-                        dialog.alarmCreated(hourTumbler.currentIndex, minuteTumbler.currentIndex)
+                        if (isEditMode) {
+                            dialog.alarmUpdated(editingAlarmId, hourTumbler.currentIndex, minuteTumbler.currentIndex)
+                        } else {
+                            dialog.alarmCreated(hourTumbler.currentIndex, minuteTumbler.currentIndex)
+                        }
                         dialog.close()
                     }
                 }

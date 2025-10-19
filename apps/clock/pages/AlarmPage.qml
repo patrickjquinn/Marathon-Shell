@@ -32,6 +32,10 @@ Item {
                     alarmLabel: modelData.label
                     alarmEnabled: modelData.enabled
                     
+                    onClicked: {
+                        alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel)
+                    }
+                    
                     onToggled: {
                         clockApp.toggleAlarm(alarmId)
                     }
@@ -113,6 +117,9 @@ Item {
         id: alarmEditorDialog
         onAlarmCreated: function(hour, minute) {
             clockApp.createAlarm(hour, minute, "Alarm", true)
+        }
+        onAlarmUpdated: function(alarmId, hour, minute) {
+            clockApp.updateAlarm(alarmId, hour, minute, "Alarm", true, [])
         }
     }
 }

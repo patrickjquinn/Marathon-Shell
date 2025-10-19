@@ -16,6 +16,7 @@ Item {
     
     signal toggled()
     signal deleted()
+    signal clicked()
     
     function formatTime(hour, minute) {
         var h = hour
@@ -33,6 +34,11 @@ Item {
         anchors.leftMargin: Constants.spacingLarge
         anchors.rightMargin: Constants.spacingLarge
         color: "transparent"
+        
+        MouseArea {
+            anchors.fill: parent
+            onClicked: alarmItem.clicked()
+        }
         
         Row {
             anchors.fill: parent
