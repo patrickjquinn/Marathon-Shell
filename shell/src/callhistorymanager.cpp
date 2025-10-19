@@ -1,4 +1,5 @@
 #include "callhistorymanager.h"
+#include "contactsmanager.h"
 #include <QStandardPaths>
 #include <QSqlQuery>
 #include <QSqlError>
@@ -7,7 +8,7 @@
 #include <QVariant>
 
 CallHistoryManager::CallHistoryManager(QObject *parent)
-    : QObject(parent)
+    : QObject(parent), m_contactsManager(nullptr)
 {
     initDatabase();
     loadHistory();
@@ -19,6 +20,13 @@ CallHistoryManager::~CallHistoryManager()
     if (m_database.isOpen()) {
         m_database.close();
     }
+}
+
+void CallHistoryManager::setContactsManager(ContactsManager *contactsManager)
+{
+    m_contactsManager = contactsManager;
+    // Reload history to resolve contact names
+    loadHistory();
 }
 
 QVariantList CallHistoryManager::history() const
@@ -216,8 +224,20 @@ void CallHistoryManager::saveCall(const CallRecord& record)
 
 QString CallHistoryManager::resolveContactName(const QString& number)
 {
-    // TODO: Integrate with ContactsManager to resolve contact names
-    // For now, return "Unknown" if no contact found
+    if (!m_contactsManager) {
+        return "Unknown";
+    }
+    
+    // Search contacts by phone number
+    QVariantList results = m_contactsManager->searchContacts(number);
+    if (!results.isEmpty()) {
+        QVariantMap contact = results.first().toMap();
+        QString name = contact.value("name").toString();
+        if (!name.isEmpty()) {
+            return name;
+        }
+    }
+    
     return "Unknown";
 }
 

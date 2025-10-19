@@ -1,4 +1,5 @@
 #include "smsservice.h"
+#include "contactsmanager.h"
 #include <QStandardPaths>
 #include <QSqlQuery>
 #include <QSqlError>
@@ -12,6 +13,7 @@ SMSService::SMSService(QObject *parent)
     : QObject(parent)
     , m_modemManager(nullptr)
     , m_pollTimer(new QTimer(this))
+    , m_contactsManager(nullptr)
 {
     initDatabase();
     loadConversations();
@@ -41,13 +43,20 @@ SMSService::~SMSService()
     }
 }
 
+void SMSService::setContactsManager(ContactsManager *contactsManager)
+{
+    m_contactsManager = contactsManager;
+    // Reload conversations to resolve contact names
+    loadConversations();
+}
+
 QVariantList SMSService::conversations() const
 {
     QVariantList list;
     for (const Conversation& conv : m_conversations) {
         QVariantMap map;
         map["id"] = conv.id;
-        map["contactName"] = conv.contactNumber; // TODO: Resolve contact name
+        map["contactName"] = resolveContactName(conv.contactNumber);
         map["lastMessage"] = conv.lastMessage;
         map["timestamp"] = conv.lastTimestamp;
         map["unread"] = conv.unreadCount;
@@ -300,3 +309,21 @@ void SMSService::handleStubSend(const QString& recipient, const QString& text)
 }
 #endif
 
+QString SMSService::resolveContactName(const QString& number) const
+{
+    if (!m_contactsManager) {
+        return number;
+    }
+    
+    // Search contacts by phone number
+    QVariantList results = m_contactsManager->searchContacts(number);
+    if (!results.isEmpty()) {
+        QVariantMap contact = results.first().toMap();
+        QString name = contact.value("name").toString();
+        if (!name.isEmpty()) {
+            return name;
+        }
+    }
+    
+    return number;
+}
