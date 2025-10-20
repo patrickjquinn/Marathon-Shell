@@ -241,8 +241,8 @@ QtObject {
                       MarathonAppRegistry.getApp(appId) : null
         
         if (appInfo) {
-            // Launch the app first
-            AppStore.launchApp(appId)
+            // Launch the app first using UIStore
+            UIStore.openApp(appId, appInfo.name, appInfo.icon)
             
             // Emit deep link signal for app to handle
             deepLinkRequested(appId, route, params || {})
