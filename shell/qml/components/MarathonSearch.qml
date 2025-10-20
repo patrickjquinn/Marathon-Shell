@@ -319,11 +319,25 @@ Item {
     }
     
     function selectResult(result) {
+        console.error("===== selectResult() CALLED, title:", result.title, "=====")
+        
+        // Prevent double execution
+        if (searchOverlay.opacity < 1.0 || !active) {
+            console.error("Search already closing, ignoring duplicate tap")
+            return
+        }
+        
         Logger.info("Search", "Result selected: " + result.title)
         UnifiedSearchService.addToRecentSearches(searchQuery)
-        UnifiedSearchService.executeSearchResult(result)
-        resultSelected(result)
+        
+        // Close first to prevent double-tap through
         close()
+        
+        // Execute after a brief delay to ensure search is closed
+        Qt.callLater(function() {
+            UnifiedSearchService.executeSearchResult(result)
+            resultSelected(result)
+        })
     }
     
     onActiveChanged: {
