@@ -406,13 +406,13 @@ Item {
                 Router.goToAppPage(0)
             }
         
-            onLongSwipeUp: {
-                Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
-            
+        onLongSwipeUp: {
+            Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
+        
             if (UIStore.appWindowOpen && !UIStore.settingsOpen) {
                 Logger.info("NavBar", "Minimizing app to active frames")
                 appWindow.hide()
-                UIStore.closeApp()
+                UIStore.minimizeApp()  // Use minimizeApp() instead of closeApp() to preserve app state
             }
             
             pageView.currentIndex = 1
