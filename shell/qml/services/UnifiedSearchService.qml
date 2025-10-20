@@ -14,13 +14,15 @@ QtObject {
     signal indexingComplete()
 
     function buildSearchIndex() {
-        Logger.info("UnifiedSearch", "Building search index...")
+        console.error("===== buildSearchIndex() CALLED =====")
+        Logger.error("UnifiedSearch", "Building search index...")
         isIndexing = true
         searchIndex = []
 
         // Get apps from C++ AppModel using getAppAtIndex
         var appCount = AppModel.count
-        Logger.info("UnifiedSearch", "Indexing " + appCount + " apps from AppModel")
+        console.error("AppModel.count =", appCount)
+        Logger.error("UnifiedSearch", "Indexing " + appCount + " apps from AppModel")
         
         var actualAppsAdded = 0
         for (var i = 0; i < appCount; i++) {
@@ -66,12 +68,14 @@ QtObject {
         }
 
         Logger.info("UnifiedSearch", "Added " + actualAppsAdded + " apps to search index")
+        console.error("Added", actualAppsAdded, "apps to index")
 
         // Index deep links from all apps in MarathonAppRegistry
         var deepLinkCount = 0
         if (typeof MarathonAppRegistry !== 'undefined') {
             var registryCount = MarathonAppRegistry.count
-            Logger.info("UnifiedSearch", "Indexing deep links from " + registryCount + " apps in registry")
+            console.error("===== INDEXING DEEP LINKS, MarathonAppRegistry.count =", registryCount, "=====")
+            Logger.error("UnifiedSearch", "Indexing deep links from " + registryCount + " apps in registry")
             
             for (var j = 0; j < registryCount; j++) {
                 var registryApp = MarathonAppRegistry.data(
@@ -94,10 +98,12 @@ QtObject {
                     MarathonAppRegistry.DeepLinksRole
                 )
                 
-                Logger.info("UnifiedSearch", "App " + j + ": " + registryApp + " (" + appName + ") - deepLinks JSON length: " + (deepLinksJson ? deepLinksJson.length : 0))
+                console.error("App", j, ":", registryApp, "- deepLinksJson:", deepLinksJson)
+                Logger.error("UnifiedSearch", "App " + j + ": " + registryApp + " (" + appName + ") - deepLinks JSON length: " + (deepLinksJson ? deepLinksJson.length : 0))
                 
                 if (deepLinksJson && deepLinksJson.length > 0) {
-                    Logger.info("UnifiedSearch", "Deep links JSON for " + registryApp + ": " + deepLinksJson)
+                    console.error("  Has deep links JSON, length:", deepLinksJson.length)
+                    Logger.error("UnifiedSearch", "Deep links JSON for " + registryApp + ": " + deepLinksJson)
                     try {
                         var deepLinks = JSON.parse(deepLinksJson)
                         var linkCount = 0
@@ -309,23 +315,30 @@ QtObject {
     }
 
     Component.onCompleted: {
-        Logger.info("UnifiedSearch", "Unified Search Service initialized")
+        console.error("===== UNIFIED SEARCH SERVICE STARTING =====")
+        Logger.error("UnifiedSearch", "Unified Search Service initialized")
         
         // Wait for app scanner to complete before building index
         if (typeof MarathonAppScanner !== 'undefined') {
+            console.error("MarathonAppScanner EXISTS, connecting to scanComplete")
             MarathonAppScanner.scanComplete.connect(function(count) {
-                Logger.info("UnifiedSearch", "App scan complete with " + count + " apps, building search index...")
+                console.error("===== SCAN COMPLETE, COUNT:", count, "=====")
+                Logger.error("UnifiedSearch", "App scan complete with " + count + " apps, building search index...")
                 buildSearchIndex()
             })
             
             // If scan already happened, build immediately
             if (typeof MarathonAppRegistry !== 'undefined' && MarathonAppRegistry.count > 0) {
-                Logger.info("UnifiedSearch", "Apps already loaded, building index immediately")
+                console.error("MarathonAppRegistry ALREADY HAS", MarathonAppRegistry.count, "apps, building NOW")
+                Logger.error("UnifiedSearch", "Apps already loaded, building index immediately")
                 buildSearchIndex()
+            } else {
+                console.error("MarathonAppRegistry count is 0 or undefined, WAITING for scan")
             }
         } else {
+            console.error("MarathonAppScanner UNDEFINED, building immediately as fallback")
             // Fallback: build index immediately
-            Logger.warning("UnifiedSearch", "MarathonAppScanner not available, building index immediately")
+            Logger.error("UnifiedSearch", "MarathonAppScanner not available, building index immediately")
             buildSearchIndex()
         }
 
