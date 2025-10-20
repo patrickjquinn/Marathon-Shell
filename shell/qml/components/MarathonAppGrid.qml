@@ -347,6 +347,87 @@ Item {
                     }
                 }
             }
+            
+            // GESTURE MASK OVERLAY - Only detects downward swipes, ignores everything else
+            MouseArea {
+                id: gestureMask
+                anchors.fill: parent
+                z: 100  // Above Grid but below icon MouseAreas (z:200)
+                enabled: !UIStore.searchOpen
+                
+                property real pressX: 0
+                property real pressY: 0
+                property real pressTime: 0
+                property bool isDownwardSwipe: false
+                property real dragDistance: 0
+                readonly property real pullThreshold: 100
+                readonly property real commitThreshold: 0.35
+                
+                onPressed: (mouse) => {
+                    pressX = mouse.x
+                    pressY = mouse.y
+                    pressTime = Date.now()
+                    isDownwardSwipe = false
+                    dragDistance = 0
+                    // ALWAYS reject initially - let children handle
+                    mouse.accepted = false
+                }
+                
+                onPositionChanged: (mouse) => {
+                    var deltaX = Math.abs(mouse.x - pressX)
+                    var deltaY = mouse.y - pressY
+                    dragDistance = deltaY
+                    
+                    // ONLY claim if it's a strict downward swipe
+                    if (!isDownwardSwipe && deltaY > 10) {
+                        if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
+                            // This is a downward swipe - claim it
+                            isDownwardSwipe = true
+                            pageView.interactive = false
+                            mouse.accepted = true
+                            Logger.info("AppGrid", "Mask caught downward swipe in gap")
+                        } else {
+                            // Not downward - reject it (allows horizontal page swipes)
+                            mouse.accepted = false
+                            return
+                        }
+                    }
+                    
+                    // Update progress only if we claimed this gesture
+                    if (isDownwardSwipe && deltaY > 0) {
+                        appGrid.searchGestureActive = true
+                        appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                        mouse.accepted = true
+                    }
+                }
+                
+                onReleased: (mouse) => {
+                    if (isDownwardSwipe) {
+                        appGrid.searchGestureActive = false
+                        pageView.interactive = true
+                        
+                        var deltaTime = Date.now() - pressTime
+                        var velocity = dragDistance / deltaTime
+                        
+                        if (appGrid.searchPullProgress > commitThreshold || velocity > 0.25) {
+                            Logger.info("AppGrid", "Mask opened search from gap")
+                            UIStore.openSearch()
+                            appGrid.searchPullProgress = 0.0
+                        }
+                        mouse.accepted = true
+                    }
+                    
+                    isDownwardSwipe = false
+                    dragDistance = 0
+                }
+                
+                onCanceled: {
+                    appGrid.searchGestureActive = false
+                    pageView.interactive = true
+                    isDownwardSwipe = false
+                    dragDistance = 0
+                }
+            }
         }
         
         onCurrentIndexChanged: {
