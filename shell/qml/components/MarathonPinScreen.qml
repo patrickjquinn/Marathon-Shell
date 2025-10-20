@@ -41,6 +41,20 @@ Rectangle {
         opacity: 0.95
     }
     
+    Keys.onPressed: function(event) {
+        if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
+            var digit = String.fromCharCode(event.key)
+            handleInput(digit)
+            event.accepted = true
+        } else if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
+            pin = ""
+            error = ""
+            event.accepted = true
+        }
+    }
+    
+    focus: visible && entryProgress >= 1.0
+    
     Column {
         anchors.centerIn: parent
         spacing: Constants.spacingXXLarge

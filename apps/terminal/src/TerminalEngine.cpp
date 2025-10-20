@@ -67,10 +67,18 @@ void TerminalEngine::start()
     m_process = new QProcess(this);
     m_process->setWorkingDirectory(m_workingDirectory);
     
+    // CRITICAL: Separate the process channels from parent
+    // This prevents the child shell from stealing the parent terminal's stdin/stdout
+    m_process->setProcessChannelMode(QProcess::SeparateChannels);
+    m_process->setInputChannelMode(QProcess::ManagedInputChannel);
+    
     // Set up environment
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("TERM", "xterm-256color");
     env.insert("COLORTERM", "truecolor");
+    // Prevent inheriting terminal control
+    env.remove("TERMINFO");
+    env.remove("TERM_PROGRAM");
     m_process->setProcessEnvironment(env);
     
     // Connect signals
@@ -80,22 +88,25 @@ void TerminalEngine::start()
             this, &TerminalEngine::handleFinished);
     connect(m_process, &QProcess::errorOccurred, this, &TerminalEngine::handleError);
     
-    // Start shell
+    // Start shell in non-interactive mode (no TTY)
     QString shell = getDefaultShell();
     qDebug() << "[TerminalEngine] Starting shell:" << shell;
     
-#ifdef Q_OS_MACOS
-    m_process->start(shell, QStringList() << "-i" << "-l");
-#else
-    m_process->start(shell, QStringList() << "-i");
-#endif
+    // Start shell WITHOUT terminal control flags
+    // This creates a "dumb" shell that doesn't try to control a TTY
+    m_process->start(shell, QStringList());
     
     if (!m_process->waitForStarted(3000)) {
         qWarning() << "[TerminalEngine] Failed to start shell:" << m_process->errorString();
         return;
     }
     
-    qDebug() << "[TerminalEngine] Shell started successfully";
+    qDebug() << "[TerminalEngine] Shell started successfully (PID:" << m_process->processId() << ")";
+    
+    // Send initial prompt
+    m_output = "Marathon Terminal\n";
+    m_output += "Type 'help' for available commands\n\n";
+    emit outputChanged();
     emit runningChanged();
 }
 

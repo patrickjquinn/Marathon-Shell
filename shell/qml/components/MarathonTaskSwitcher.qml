@@ -7,6 +7,50 @@ Item {
     
     signal closed()
     signal taskSelected(var task)
+    signal pullDownToSearch()
+    
+    // Gesture area for pull-down to search (only when empty)
+    MouseArea {
+        anchors.fill: parent
+        enabled: TaskModel.taskCount === 0
+        z: 2
+        
+        property real startY: 0
+        property real currentY: 0
+        property bool isDragging: false
+        
+        onPressed: function(mouse) {
+            startY = mouse.y
+            currentY = mouse.y
+            isDragging = false
+        }
+        
+        onPositionChanged: function(mouse) {
+            if (pressed) {
+                currentY = mouse.y
+                var deltaY = currentY - startY
+                
+                // Start dragging if moved down more than 10px
+                if (deltaY > 10) {
+                    isDragging = true
+                }
+            }
+        }
+        
+        onReleased: function(mouse) {
+            if (isDragging) {
+                var deltaY = currentY - startY
+                
+                // If pulled down more than 80px, open search
+                if (deltaY > 80) {
+                    Logger.info("TaskSwitcher", "Pull down detected - opening search")
+                    UIStore.openSearch()
+                }
+            }
+            
+            isDragging = false
+        }
+    }
     
     // No component definitions needed - we'll reference live app instances from AppLifecycleManager
     
