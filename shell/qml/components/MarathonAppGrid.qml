@@ -102,14 +102,16 @@ Item {
             if (!isSearchGesture && !isHorizontalGesture) {
                 if (Math.abs(deltaX) > gestureThreshold || Math.abs(deltaY) > gestureThreshold) {
                     // Determine if this is vertical (search) or horizontal (page nav)
-                    if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5 && deltaY > 0) {
+                    // STRICT: Vertical must be at least 3x more than horizontal (max ~18° angle)
+                    if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
                         // Vertical down - search gesture
                         isSearchGesture = true
-                        preventStealing = true  // NOW prevent ListView from stealing
-                        Logger.info("AppGrid", "Page-wide search gesture started (deltaY: " + deltaY + ")")
+                        preventStealing = true  // Prevent ListView from stealing
+                        appGrid.searchGestureActive = true  // Block other interactions IMMEDIATELY
+                        Logger.info("AppGrid", "Page-wide search gesture started (deltaY: " + deltaY + ", deltaX: " + deltaX + ")")
                         mouse.accepted = true
                     } else {
-                        // Horizontal or up - let ListView handle
+                        // Horizontal, up, or too diagonal - let ListView handle
                         isHorizontalGesture = true
                         mouse.accepted = false  // Let ListView take it
                         return  // Don't process further
@@ -119,8 +121,8 @@ Item {
             
             // Update pull progress only if it's our gesture
             if (isSearchGesture && deltaY > 0) {
-                appGrid.searchGestureActive = true
                 appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                mouse.accepted = true  // Keep accepting to block other handlers
             }
         }
         
