@@ -10,14 +10,7 @@ QtObject {
     property bool quickSettingsDragging: false
     
     property bool appWindowOpen: false
-    onAppWindowOpenChanged: {
-        console.error("===== UIStore.appWindowOpen CHANGED to:", appWindowOpen, "=====")
-    }
-    
     property string currentAppId: ""
-    onCurrentAppIdChanged: {
-        console.error("===== UIStore.currentAppId CHANGED to:", currentAppId, "=====")
-    }
     property string currentAppName: ""
     property string currentAppIcon: ""
     
