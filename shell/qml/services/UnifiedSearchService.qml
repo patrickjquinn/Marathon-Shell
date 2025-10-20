@@ -286,14 +286,17 @@ QtObject {
     }
 
     function executeSearchResult(result) {
-        Logger.info("UnifiedSearch", "Executing result: " + result.type + " - " + result.title)
+        console.error("===== executeSearchResult() CALLED, type:", result.type, "title:", result.title, "=====")
+        Logger.error("UnifiedSearch", "Executing result: " + result.type + " - " + result.title)
 
         if (result.type === "app") {
-            // All apps (including Settings) go through unified launch path
+            // Launch app through UIStore
             var app = result.data
-            AppStore.launchApp(app.id)
+            console.error("Launching app:", app.id)
+            UIStore.openApp(app.id, app.name, app.icon)
         } else if (result.type === "setting") {
             // Legacy setting support (deprecated - use deeplink instead)
+            console.error("Opening settings (legacy)")
             UIStore.openSettings()
             if (typeof Router !== 'undefined') {
                 Router.navigateToSetting(result.id)
@@ -301,7 +304,8 @@ QtObject {
         } else if (result.type === "deeplink") {
             // NEW: Deep link navigation (core Marathon app pattern)
             var linkData = result.data
-            Logger.info("UnifiedSearch", "Navigating to deep link: " + linkData.appId + " → " + linkData.route)
+            console.error("Navigating to deep link:", linkData.appId, "→", linkData.route)
+            Logger.error("UnifiedSearch", "Navigating to deep link: " + linkData.appId + " → " + linkData.route)
             
             if (typeof NavigationRouter !== 'undefined') {
                 NavigationRouter.navigateToDeepLink(linkData.appId, linkData.route, {})
