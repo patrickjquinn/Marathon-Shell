@@ -296,34 +296,20 @@ Item {
     }
     
     function performSearch() {
-        console.error("===== performSearch() CALLED, query:", searchQuery, "=====")
-        Logger.error("MarathonSearch", "performSearch called with: " + searchQuery)
-        
         if (searchQuery.trim().length === 0) {
-            console.error("Empty query, returning")
             searchResults = []
             return
         }
         
-        console.error("Calling UnifiedSearchService.search...")
-        Logger.error("MarathonSearch", "About to call UnifiedSearchService.search()")
-        
         var results = UnifiedSearchService.search(searchQuery)
-        
-        console.error("Got results, length:", results.length)
-        Logger.error("MarathonSearch", "Got " + results.length + " results")
-        
         searchResults = results.slice(0, 20)
         
         Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results")
     }
     
     function selectResult(result) {
-        console.error("===== selectResult() CALLED, title:", result.title, "=====")
-        
         // Prevent double execution
         if (searchOverlay.opacity < 1.0 || !active) {
-            console.error("Search already closing, ignoring duplicate tap")
             return
         }
         

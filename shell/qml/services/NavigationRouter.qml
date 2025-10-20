@@ -234,7 +234,6 @@ QtObject {
     signal deepLinkRequested(string appId, string route, var params)
     
     function navigateToDeepLink(appId, route, params) {
-        console.error("===== navigateToDeepLink() CALLED, appId:", appId, "route:", route, "=====")
         Logger.info("NavigationRouter", "Deep link requested: " + appId + " → " + route)
         
         // Get app info
@@ -248,14 +247,10 @@ QtObject {
         
         // Check if THIS specific app is already open
         var isAppOpen = (UIStore.appWindowOpen && UIStore.currentAppId === appId)
-        console.error("App already open:", isAppOpen, "appWindowOpen:", UIStore.appWindowOpen, "currentAppId:", UIStore.currentAppId)
         
         if (!isAppOpen) {
             // Launch the app first using UIStore
-            console.error("Launching app:", appId)
             UIStore.openApp(appId, appInfo.name, appInfo.icon)
-        } else {
-            console.error("App already open, skipping launch")
         }
         
         // Emit deep link signal for app to handle (after a small delay if we just opened it)
