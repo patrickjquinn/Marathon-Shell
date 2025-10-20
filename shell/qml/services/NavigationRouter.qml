@@ -267,11 +267,6 @@ QtObject {
             })
         }
         
-        // Legacy: Settings still uses old signal
-        if (appId === "settings") {
-            settingsNavigationRequested(route, "", params || {})
-        }
-        
         return true
     }
     
