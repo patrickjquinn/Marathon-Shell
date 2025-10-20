@@ -296,16 +296,23 @@ Item {
     }
     
     function performSearch() {
-        console.log("===== performSearch() called, searchQuery:", searchQuery, "=====")
+        console.error("===== performSearch() CALLED, query:", searchQuery, "=====")
+        Logger.error("MarathonSearch", "performSearch called with: " + searchQuery)
         
         if (searchQuery.trim().length === 0) {
+            console.error("Empty query, returning")
             searchResults = []
             return
         }
         
-        console.log("About to call UnifiedSearchService.search()...")
+        console.error("Calling UnifiedSearchService.search...")
+        Logger.error("MarathonSearch", "About to call UnifiedSearchService.search()")
+        
         var results = UnifiedSearchService.search(searchQuery)
-        console.log("Got results:", results.length)
+        
+        console.error("Got results, length:", results.length)
+        Logger.error("MarathonSearch", "Got " + results.length + " results")
+        
         searchResults = results.slice(0, 20)
         
         Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results")
