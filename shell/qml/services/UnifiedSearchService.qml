@@ -94,9 +94,13 @@ QtObject {
                     MarathonAppRegistry.DeepLinksRole
                 )
                 
+                Logger.info("UnifiedSearch", "App " + j + ": " + registryApp + " (" + appName + ") - deepLinks JSON length: " + (deepLinksJson ? deepLinksJson.length : 0))
+                
                 if (deepLinksJson && deepLinksJson.length > 0) {
+                    Logger.info("UnifiedSearch", "Deep links JSON for " + registryApp + ": " + deepLinksJson)
                     try {
                         var deepLinks = JSON.parse(deepLinksJson)
+                        var linkCount = 0
                         
                         for (var route in deepLinks) {
                             var link = deepLinks[route]
@@ -105,6 +109,8 @@ QtObject {
                             // Add app name as extra context
                             linkKeywords.push(appName.toLowerCase())
                             linkKeywords.push(route.toLowerCase())
+                            
+                            Logger.info("UnifiedSearch", "  Adding deep link: " + link.title + " (route: " + route + ")")
                             
                             searchIndex.push({
                                 type: "deeplink",
@@ -124,14 +130,21 @@ QtObject {
                             })
                             
                             deepLinkCount++
+                            linkCount++
                         }
+                        
+                        Logger.info("UnifiedSearch", "  Added " + linkCount + " deep links for " + registryApp)
                     } catch (e) {
-                        Logger.warning("UnifiedSearch", "Failed to parse deep links for " + registryApp + ": " + e)
+                        Logger.error("UnifiedSearch", "Failed to parse deep links for " + registryApp + ": " + e)
                     }
+                } else {
+                    Logger.info("UnifiedSearch", "  No deep links for " + registryApp)
                 }
             }
             
             Logger.info("UnifiedSearch", "Indexed " + deepLinkCount + " deep links")
+        } else {
+            Logger.warning("UnifiedSearch", "MarathonAppRegistry is undefined!")
         }
 
         isIndexing = false
@@ -297,12 +310,31 @@ QtObject {
 
     Component.onCompleted: {
         Logger.info("UnifiedSearch", "Unified Search Service initialized")
-        buildSearchIndex()
+        
+        // Wait for app scanner to complete before building index
+        if (typeof MarathonAppScanner !== 'undefined') {
+            MarathonAppScanner.scanComplete.connect(function(count) {
+                Logger.info("UnifiedSearch", "App scan complete with " + count + " apps, building search index...")
+                buildSearchIndex()
+            })
+            
+            // If scan already happened, build immediately
+            if (typeof MarathonAppRegistry !== 'undefined' && MarathonAppRegistry.count > 0) {
+                Logger.info("UnifiedSearch", "Apps already loaded, building index immediately")
+                buildSearchIndex()
+            }
+        } else {
+            // Fallback: build index immediately
+            Logger.warning("UnifiedSearch", "MarathonAppScanner not available, building index immediately")
+            buildSearchIndex()
+        }
 
         // Rebuild index when apps change
-        AppModel.countChanged.connect(function() {
-            Logger.info("UnifiedSearch", "App count changed, rebuilding index")
-            buildSearchIndex()
-        })
+        if (typeof AppModel !== 'undefined') {
+            AppModel.countChanged.connect(function() {
+                Logger.info("UnifiedSearch", "App count changed, rebuilding index")
+                buildSearchIndex()
+            })
+        }
     }
 }
