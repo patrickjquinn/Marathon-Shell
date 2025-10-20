@@ -13,8 +13,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         enabled: TaskModel.taskCount === 0
-        z: 100  // Above background content
-        preventStealing: isDragging
+        z: 2
         
         property real startX: 0
         property real startY: 0
@@ -28,7 +27,6 @@ Item {
             currentY = mouse.y
             isDragging = false
             isVertical = false
-            mouse.accepted = false  // Don't claim yet
         }
         
         onPositionChanged: function(mouse) {
@@ -42,13 +40,11 @@ Item {
                     if (Math.abs(deltaY) > deltaX * 3.0 && deltaY > 0) {
                         isVertical = true
                         isDragging = true
-                        preventStealing = true
-                        mouse.accepted = true
                         Logger.info("TaskSwitcher", "Pull-down gesture started")
                     } else {
-                        // Too diagonal or wrong direction - reject
+                        // Too diagonal or wrong direction - reject gesture
                         isVertical = false
-                        mouse.accepted = false
+                        isDragging = false
                         return
                     }
                 }
@@ -56,7 +52,6 @@ Item {
             
             if (isDragging && pressed) {
                 currentY = mouse.y
-                mouse.accepted = true  // Keep blocking
             }
         }
         
@@ -69,10 +64,6 @@ Item {
                     Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)")
                     UIStore.openSearch()
                 }
-                
-                mouse.accepted = true
-            } else {
-                mouse.accepted = false
             }
             
             isDragging = false
@@ -789,4 +780,3 @@ Item {
         }
     }
 }
-

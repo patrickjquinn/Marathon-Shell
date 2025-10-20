@@ -137,24 +137,9 @@ Rectangle {
             var diffX = mouse.x - startX
             var diffY = startY - mouse.y
             
-            Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen, searchOpen: UIStore.searchOpen})
+            Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen})
             
-            // PRIORITY 1: Close Search with upward gesture (must be first!)
-            if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
-                Logger.info("NavBar", "Closing Search with upward gesture")
-                UIStore.closeSearch()
-                // Reset gesture state
-                startX = 0
-                startY = 0
-                velocityX = 0
-                isVerticalGesture = false
-                currentX = 0
-                currentY = 0
-                gestureProgress = 0
-                return  // STOP HERE - don't process any other navigation
-            }
-            
-            // PRIORITY 2: Snap Quick Settings open/closed based on threshold
+            // Snap Quick Settings open/closed based on threshold
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight)
                 UIStore.quickSettingsDragging = false
@@ -175,8 +160,23 @@ Rectangle {
                 return
             }
             
-            // PRIORITY 3: Other vertical gestures (app minimize, task switcher, go home)
-            if (isVerticalGesture && diffY > 30) {
+            // Close Search with upward gesture - ONLY close search, don't navigate
+            if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
+                Logger.info("NavBar", "Closing Search with upward gesture")
+                UIStore.closeSearch()
+                // Reset all state and RETURN to prevent further navigation
+                startX = 0
+                startY = 0
+                velocityX = 0
+                isVerticalGesture = false
+                currentX = 0
+                currentY = 0
+                gestureProgress = 0
+                return
+            }
+            
+            // Only process navigation gestures if search is NOT open
+            if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
                 if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
                     Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + gestureProgress)
                     minimizeApp()

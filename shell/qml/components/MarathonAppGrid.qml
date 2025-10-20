@@ -68,9 +68,9 @@ Item {
     MouseArea {
         id: pageGestureArea
         anchors.fill: parent
-        z: 250  // ABOVE icon MouseAreas (z: 200) to intercept gestures first
+        z: 1  // In front of ListView to catch gestures
         enabled: !UIStore.searchOpen
-        propagateComposedEvents: true  // Let tap events through to icon MouseAreas
+        propagateComposedEvents: true  // Let events through to children
         
         property real pressX: 0
         property real pressY: 0
@@ -90,7 +90,7 @@ Item {
             isHorizontalGesture = false
             dragDistance = 0
             appGrid.searchGestureActive = false
-            mouse.accepted = false  // Don't claim yet - let it propagate for taps
+            mouse.accepted = false  // Don't claim yet - decide in onPositionChanged
         }
         
         onPositionChanged: (mouse) => {
@@ -101,34 +101,35 @@ Item {
             // Decide gesture direction after threshold
             if (!isSearchGesture && !isHorizontalGesture) {
                 if (Math.abs(deltaX) > gestureThreshold || Math.abs(deltaY) > gestureThreshold) {
-                    // Determine if this is vertical (search) or horizontal (page nav)
-                    // STRICT: Vertical must be at least 3x more than horizontal (max ~18° angle)
+                    // STRICT: Require vertical to be at least 3x horizontal (max ~18° angle)
+                    // This matches BB10's strict downward gesture
                     if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
-                        // Vertical down - search gesture - NOW claim it
+                        // Vertical down - search gesture
                         isSearchGesture = true
-                        preventStealing = true
-                        appGrid.searchGestureActive = true
-                        Logger.info("AppGrid", "Page-wide search gesture started (deltaY: " + deltaY + ", deltaX: " + deltaX + ")")
-                        mouse.accepted = true  // Claim and block icon taps
+                        preventStealing = true  // NOW prevent ListView from stealing
+                        pageView.interactive = false  // CRITICAL: Disable page scrolling immediately
+                        Logger.info("AppGrid", "Page-wide search gesture started (deltaY: " + deltaY + ", angle ratio: " + (Math.abs(deltaY) / (deltaX || 1)).toFixed(1) + ")")
+                        mouse.accepted = true
                     } else {
-                        // Horizontal, up, or too diagonal - let ListView handle
+                        // Too diagonal, horizontal, or up - let ListView handle
                         isHorizontalGesture = true
                         mouse.accepted = false  // Let ListView take it
-                        return
+                        return  // Don't process further
                     }
                 }
             }
             
             // Update pull progress only if it's our gesture
             if (isSearchGesture && deltaY > 0) {
+                appGrid.searchGestureActive = true
                 appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
-                mouse.accepted = true  // Keep claiming
             }
         }
         
         onReleased: (mouse) => {
             appGrid.searchGestureActive = false
             preventStealing = false  // Reset for next gesture
+            pageView.interactive = true  // Re-enable page scrolling
             
             var deltaTime = Date.now() - pressTime
             var velocity = dragDistance / deltaTime
@@ -137,15 +138,12 @@ Item {
             if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
                 Logger.info("AppGrid", "Page search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%, velocity: " + velocity.toFixed(2) + "px/ms)")
                 
-                // Stop any ongoing page animation before opening search
-                pageView.interactive = false
-                pageView.interactive = true
-                
                 UIStore.openSearch()
                 appGrid.searchPullProgress = 0.0  // Instant reset when opening
                 mouse.accepted = true
             } else if (isSearchGesture) {
                 // Search gesture but didn't meet threshold - accept to prevent page change
+                Logger.info("AppGrid", "Search gesture cancelled (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%)")
                 mouse.accepted = true
             } else {
                 // Not our gesture - let it propagate
@@ -160,6 +158,7 @@ Item {
         onCanceled: {
             appGrid.searchGestureActive = false
             preventStealing = false
+            pageView.interactive = true  // Re-enable page scrolling
             isSearchGesture = false
             isHorizontalGesture = false
             dragDistance = 0
@@ -355,17 +354,58 @@ Item {
                             anchors.fill: parent
                             z: 200
                             
+                            property real pressX: 0
+                            property real pressY: 0
                             property real pressTime: 0
+                            property bool isSearchGesture: false
+                            property real dragDistance: 0
+                            readonly property real pullThreshold: 100  // Match page gesture
+                            readonly property real commitThreshold: 0.35  // 35% commit
                             
                             onPressed: (mouse) => {
+                                pressX = mouse.x
+                                pressY = mouse.y
                                 pressTime = Date.now()
+                                isSearchGesture = false
+                                dragDistance = 0
+                                appGrid.searchGestureActive = false
+                            }
+                            
+                            onPositionChanged: (mouse) => {
+                                var deltaX = Math.abs(mouse.x - pressX)
+                                var deltaY = mouse.y - pressY  // Positive = down
+                                dragDistance = deltaY
+                                
+                                // Update pull progress
+                                if (deltaY > 0) {
+                                    appGrid.searchGestureActive = true
+                                    appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                                }
+                                
+                                // Quick flick down detection - more lenient
+                                if (!isSearchGesture && deltaY > 15 && deltaY > deltaX * 1.2) {
+                                    isSearchGesture = true
+                                    Logger.info("AppGrid", "Icon search flick detected (deltaY: " + deltaY + ")")
+                                }
                             }
                             
                             onReleased: (mouse) => {
-                                var deltaTime = Date.now() - pressTime
+                                appGrid.searchGestureActive = false
                                 
-                                // Only launch if it was a quick tap
-                                if (deltaTime < 500) {
+                                var deltaTime = Date.now() - pressTime
+                                var velocity = dragDistance / deltaTime
+                                
+                                // Open search if: past 35% OR velocity > 0.25px/ms
+                                if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
+                                    Logger.info("AppGrid", "Icon search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%, velocity: " + velocity.toFixed(2) + "px/ms)")
+                                    UIStore.openSearch()
+                                    appGrid.searchPullProgress = 0.0  // Instant reset when opening
+                                    isSearchGesture = false
+                                    return
+                                }
+                                
+                                // Normal tap - launch app
+                                if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
                                     Logger.info("AppGrid", "App launched: " + model.name)
                                     appLaunched({
                                         id: model.id,
@@ -375,6 +415,10 @@ Item {
                                     })
                                     HapticService.medium()
                                 }
+                                
+                                // Let animation handle snap-back
+                                isSearchGesture = false
+                                dragDistance = 0
                             }
                             
                             onPressAndHold: {
