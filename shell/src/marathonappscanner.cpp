@@ -159,6 +159,8 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     QJsonObject deepLinksObj = obj.value("deepLinks").toObject();
     info.deepLinksJson = QJsonDocument(deepLinksObj).toJson(QJsonDocument::Compact);
     
+    qDebug() << "[MarathonAppScanner] Deep links for" << info.id << ":" << info.deepLinksJson;
+    
     qDebug() << "[MarathonAppScanner] Parsed manifest:"
              << "ID:" << info.id
              << "| Name:" << info.name
