@@ -14,41 +14,74 @@ Item {
         anchors.fill: parent
         enabled: TaskModel.taskCount === 0
         z: 2
+        preventStealing: isDragging
         
+        property real startX: 0
         property real startY: 0
         property real currentY: 0
         property bool isDragging: false
+        property bool isVertical: false
         
         onPressed: function(mouse) {
+            startX = mouse.x
             startY = mouse.y
             currentY = mouse.y
             isDragging = false
+            isVertical = false
+            mouse.accepted = false  // Don't claim yet
         }
         
         onPositionChanged: function(mouse) {
-            if (pressed) {
-                currentY = mouse.y
-                var deltaY = currentY - startY
+            if (pressed && !isDragging && !isVertical) {
+                var deltaX = Math.abs(mouse.x - startX)
+                var deltaY = mouse.y - startY
                 
-                // Start dragging if moved down more than 10px
-                if (deltaY > 10) {
-                    isDragging = true
+                // Decide gesture direction after 10px threshold
+                if (deltaX > 10 || Math.abs(deltaY) > 10) {
+                    // STRICT: Vertical must be at least 3x more than horizontal (max ~18° angle)
+                    if (Math.abs(deltaY) > deltaX * 3.0 && deltaY > 0) {
+                        isVertical = true
+                        isDragging = true
+                        preventStealing = true
+                        mouse.accepted = true
+                        Logger.info("TaskSwitcher", "Pull-down gesture started")
+                    } else {
+                        // Too diagonal or wrong direction - reject
+                        isVertical = false
+                        mouse.accepted = false
+                        return
+                    }
                 }
+            }
+            
+            if (isDragging && pressed) {
+                currentY = mouse.y
+                mouse.accepted = true  // Keep blocking
             }
         }
         
         onReleased: function(mouse) {
-            if (isDragging) {
+            if (isDragging && isVertical) {
                 var deltaY = currentY - startY
                 
                 // If pulled down more than 80px, open search
                 if (deltaY > 80) {
-                    Logger.info("TaskSwitcher", "Pull down detected - opening search")
+                    Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)")
                     UIStore.openSearch()
                 }
+                
+                mouse.accepted = true
+            } else {
+                mouse.accepted = false
             }
             
             isDragging = false
+            isVertical = false
+        }
+        
+        onCanceled: {
+            isDragging = false
+            isVertical = false
         }
     }
     
@@ -756,3 +789,4 @@ Item {
         }
     }
 }
+
