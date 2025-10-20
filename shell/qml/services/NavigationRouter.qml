@@ -234,29 +234,45 @@ QtObject {
     signal deepLinkRequested(string appId, string route, var params)
     
     function navigateToDeepLink(appId, route, params) {
+        console.error("===== navigateToDeepLink() CALLED, appId:", appId, "route:", route, "=====")
         Logger.info("NavigationRouter", "Deep link requested: " + appId + " → " + route)
         
-        // Launch app if not already open
+        // Get app info
         var appInfo = typeof MarathonAppRegistry !== 'undefined' ? 
                       MarathonAppRegistry.getApp(appId) : null
         
-        if (appInfo) {
-            // Launch the app first using UIStore
-            UIStore.openApp(appId, appInfo.name, appInfo.icon)
-            
-            // Emit deep link signal for app to handle
-            deepLinkRequested(appId, route, params || {})
-            
-            // Legacy: Settings still uses old signal
-            if (appId === "settings") {
-                settingsNavigationRequested(route, "", params || {})
-            }
-            
-            return true
+        if (!appInfo) {
+            Logger.error("NavigationRouter", "App not found for deep link: " + appId)
+            return false
         }
         
-        Logger.error("NavigationRouter", "App not found for deep link: " + appId)
-        return false
+        // Check if app is already open
+        var isAppOpen = (UIStore.currentState === "app" && UIStore.currentAppId === appId)
+        console.error("App already open:", isAppOpen, "currentAppId:", UIStore.currentAppId)
+        
+        if (!isAppOpen) {
+            // Launch the app first using UIStore
+            console.error("Launching app:", appId)
+            UIStore.openApp(appId, appInfo.name, appInfo.icon)
+        } else {
+            console.error("App already open, skipping launch")
+        }
+        
+        // Emit deep link signal for app to handle (after a small delay if we just opened it)
+        if (isAppOpen) {
+            deepLinkRequested(appId, route, params || {})
+        } else {
+            Qt.callLater(function() {
+                deepLinkRequested(appId, route, params || {})
+            })
+        }
+        
+        // Legacy: Settings still uses old signal
+        if (appId === "settings") {
+            settingsNavigationRequested(route, "", params || {})
+        }
+        
+        return true
     }
     
     Component.onCompleted: {
