@@ -78,25 +78,22 @@ QtObject {
             Logger.error("UnifiedSearch", "Indexing deep links from " + registryCount + " apps in registry")
             
             for (var j = 0; j < registryCount; j++) {
-                var registryApp = MarathonAppRegistry.data(
-                    MarathonAppRegistry.index(j, 0),
-                    MarathonAppRegistry.IdRole
-                )
+                // Use getApp() instead of data() - much simpler!
+                var allAppIds = MarathonAppRegistry.getAllAppIds()
+                if (j >= allAppIds.length) break
                 
-                var appName = MarathonAppRegistry.data(
-                    MarathonAppRegistry.index(j, 0),
-                    MarathonAppRegistry.NameRole
-                )
+                var appId = allAppIds[j]
+                var appData = MarathonAppRegistry.getApp(appId)
                 
-                var appIcon = MarathonAppRegistry.data(
-                    MarathonAppRegistry.index(j, 0),
-                    MarathonAppRegistry.IconRole
-                )
+                if (!appData || !appData.id) {
+                    console.error("Failed to get app data for index", j)
+                    continue
+                }
                 
-                var deepLinksJson = MarathonAppRegistry.data(
-                    MarathonAppRegistry.index(j, 0),
-                    MarathonAppRegistry.DeepLinksRole
-                )
+                var registryApp = appData.id
+                var appName = appData.name
+                var appIcon = appData.icon
+                var deepLinksJson = appData.deepLinks
                 
                 console.error("App", j, ":", registryApp, "- deepLinksJson:", deepLinksJson)
                 Logger.error("UnifiedSearch", "App " + j + ": " + registryApp + " (" + appName + ") - deepLinks JSON length: " + (deepLinksJson ? deepLinksJson.length : 0))
