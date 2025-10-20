@@ -68,7 +68,7 @@ Item {
     MouseArea {
         id: pageGestureArea
         anchors.fill: parent
-        z: 1  // In front of ListView to catch gestures
+        z: 100  // Above ListView (z: default) but below icon MouseAreas (z: 200)
         enabled: !UIStore.searchOpen
         propagateComposedEvents: true  // Let events through to children
         
@@ -358,55 +358,32 @@ Item {
                             property real pressX: 0
                             property real pressY: 0
                             property real pressTime: 0
-                            property bool isSearchGesture: false
-                            property real dragDistance: 0
-                            readonly property real pullThreshold: 100  // Match page gesture
-                            readonly property real commitThreshold: 0.35  // 35% commit
                             
                             onPressed: (mouse) => {
                                 pressX = mouse.x
                                 pressY = mouse.y
                                 pressTime = Date.now()
-                                isSearchGesture = false
-                                dragDistance = 0
-                                appGrid.searchGestureActive = false
+                                mouse.accepted = true  // Initially claim the event
                             }
                             
                             onPositionChanged: (mouse) => {
                                 var deltaX = Math.abs(mouse.x - pressX)
-                                var deltaY = mouse.y - pressY  // Positive = down
-                                dragDistance = deltaY
+                                var deltaY = mouse.y - pressY
                                 
-                                // Update pull progress
-                                if (deltaY > 0) {
-                                    appGrid.searchGestureActive = true
-                                    appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
-                                }
-                                
-                                // Quick flick down detection - more lenient
-                                if (!isSearchGesture && deltaY > 15 && deltaY > deltaX * 1.2) {
-                                    isSearchGesture = true
-                                    Logger.info("AppGrid", "Icon search flick detected (deltaY: " + deltaY + ")")
+                                // If vertical drag detected, release to page gesture
+                                if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 10) {
+                                    mouse.accepted = false  // Let page gesture handle search
+                                    return
                                 }
                             }
                             
                             onReleased: (mouse) => {
-                                appGrid.searchGestureActive = false
-                                
                                 var deltaTime = Date.now() - pressTime
-                                var velocity = dragDistance / deltaTime
+                                var deltaX = Math.abs(mouse.x - pressX)
+                                var deltaY = Math.abs(mouse.y - pressY)
                                 
-                                // Open search if: past 35% OR velocity > 0.25px/ms
-                                if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
-                                    Logger.info("AppGrid", "Icon search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%, velocity: " + velocity.toFixed(2) + "px/ms)")
-                                    UIStore.openSearch()
-                                    appGrid.searchPullProgress = 0.0  // Instant reset when opening
-                                    isSearchGesture = false
-                                    return
-                                }
-                                
-                                // Normal tap - launch app
-                                if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
+                                // Only launch if it was a quick tap (not drag)
+                                if (deltaTime < 500 && deltaX < 15 && deltaY < 15) {
                                     Logger.info("AppGrid", "App launched: " + model.name)
                                     appLaunched({
                                         id: model.id,
@@ -416,10 +393,6 @@ Item {
                                     })
                                     HapticService.medium()
                                 }
-                                
-                                // Let animation handle snap-back
-                                isSearchGesture = false
-                                dragDistance = 0
                             }
                             
                             onPressAndHold: {
