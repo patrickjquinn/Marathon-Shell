@@ -246,9 +246,9 @@ QtObject {
             return false
         }
         
-        // Check if app is already open
-        var isAppOpen = (UIStore.currentState === "app" && UIStore.currentAppId === appId)
-        console.error("App already open:", isAppOpen, "currentAppId:", UIStore.currentAppId)
+        // Check if THIS specific app is already open
+        var isAppOpen = (UIStore.appWindowOpen && UIStore.currentAppId === appId)
+        console.error("App already open:", isAppOpen, "appWindowOpen:", UIStore.appWindowOpen, "currentAppId:", UIStore.currentAppId)
         
         if (!isAppOpen) {
             // Launch the app first using UIStore
