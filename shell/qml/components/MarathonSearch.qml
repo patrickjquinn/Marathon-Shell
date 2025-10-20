@@ -296,12 +296,16 @@ Item {
     }
     
     function performSearch() {
+        console.log("===== performSearch() called, searchQuery:", searchQuery, "=====")
+        
         if (searchQuery.trim().length === 0) {
             searchResults = []
             return
         }
         
+        console.log("About to call UnifiedSearchService.search()...")
         var results = UnifiedSearchService.search(searchQuery)
+        console.log("Got results:", results.length)
         searchResults = results.slice(0, 20)
         
         Logger.info("Search", "Search performed: '" + searchQuery + "' - " + searchResults.length + " results")

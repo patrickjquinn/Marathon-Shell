@@ -324,4 +324,19 @@ MApp {
             }
         }
     }
+    
+    // Handle deep link requests
+    Connections {
+        target: NavigationRouter
+        function onDeepLinkRequested(appId, route, params) {
+            if (appId === "terminal") {
+                Logger.info("Terminal", "Deep link requested: " + route)
+                
+                // Handle specific routes
+                if (route === "new-tab") {
+                    createNewTab()
+                }
+            }
+        }
+    }
 }
