@@ -88,6 +88,79 @@ Item {
             width: pageView.width
             height: pageView.height
             
+            // FULL-PAGE background gesture area (BEHIND Grid, catches gaps)
+            MouseArea {
+                id: fullPageGesture
+                anchors.fill: parent
+                z: 0  // At same level as Grid, but defined first = behind
+                enabled: !UIStore.searchOpen
+                
+                property real pressX: 0
+                property real pressY: 0
+                property real pressTime: 0
+                property bool isSearchGesture: false
+                property real dragDistance: 0
+                readonly property real pullThreshold: 100
+                readonly property real commitThreshold: 0.35
+                
+                onPressed: (mouse) => {
+                    pressX = mouse.x
+                    pressY = mouse.y
+                    pressTime = Date.now()
+                    isSearchGesture = false
+                    dragDistance = 0
+                    appGrid.searchGestureActive = false
+                    mouse.accepted = false  // Let icons claim if they want
+                }
+                
+                onPositionChanged: (mouse) => {
+                    var deltaX = Math.abs(mouse.x - pressX)
+                    var deltaY = mouse.y - pressY
+                    dragDistance = deltaY
+                    
+                    if (!isSearchGesture && deltaY > 10) {
+                        if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
+                            isSearchGesture = true
+                            pageView.interactive = false
+                            mouse.accepted = true
+                            Logger.info("AppGrid", "Gap search gesture started")
+                        } else if (Math.abs(deltaX) > 10) {
+                            mouse.accepted = false
+                            return
+                        }
+                    }
+                    
+                    if (isSearchGesture && deltaY > 0) {
+                        appGrid.searchGestureActive = true
+                        appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                    }
+                }
+                
+                onReleased: (mouse) => {
+                    appGrid.searchGestureActive = false
+                    pageView.interactive = true
+                    
+                    var deltaTime = Date.now() - pressTime
+                    var velocity = dragDistance / deltaTime
+                    
+                    if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
+                        Logger.info("AppGrid", "Gap search opened")
+                        UIStore.openSearch()
+                        appGrid.searchPullProgress = 0.0
+                    }
+                    
+                    isSearchGesture = false
+                    dragDistance = 0
+                }
+                
+                onCanceled: {
+                    appGrid.searchGestureActive = false
+                    pageView.interactive = true
+                    isSearchGesture = false
+                    dragDistance = 0
+                }
+            }
+            
             Grid {
                 id: iconGrid
                 anchors.fill: parent
@@ -107,78 +180,6 @@ Item {
                             var startIdx = pageView.currentIndex * (appGrid.columns * appGrid.rows)
                             var endIdx = startIdx + (appGrid.columns * appGrid.rows)
                             return index >= startIdx && index < endIdx
-                        }
-                        
-                        // BACKGROUND gesture catcher for THIS icon cell (catches gaps)
-                        MouseArea {
-                            anchors.fill: parent
-                            z: -1  // UNDER the icon content
-                            enabled: !UIStore.searchOpen
-                            
-                            property real pressX: 0
-                            property real pressY: 0
-                            property real pressTime: 0
-                            property bool isSearchGesture: false
-                            property real dragDistance: 0
-                            readonly property real pullThreshold: 100
-                            readonly property real commitThreshold: 0.35
-                            
-                            onPressed: (mouse) => {
-                                pressX = mouse.x
-                                pressY = mouse.y
-                                pressTime = Date.now()
-                                isSearchGesture = false
-                                dragDistance = 0
-                                appGrid.searchGestureActive = false
-                                mouse.accepted = false
-                            }
-                            
-                            onPositionChanged: (mouse) => {
-                                var deltaX = Math.abs(mouse.x - pressX)
-                                var deltaY = mouse.y - pressY
-                                dragDistance = deltaY
-                                
-                                if (!isSearchGesture && deltaY > 10) {
-                                    if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
-                                        isSearchGesture = true
-                                        pageView.interactive = false
-                                        mouse.accepted = true
-                                        Logger.info("AppGrid", "Gap search gesture started")
-                                    } else if (Math.abs(deltaX) > 10) {
-                                        mouse.accepted = false
-                                        return
-                                    }
-                                }
-                                
-                                if (isSearchGesture && deltaY > 0) {
-                                    appGrid.searchGestureActive = true
-                                    appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
-                                }
-                            }
-                            
-                            onReleased: (mouse) => {
-                                appGrid.searchGestureActive = false
-                                pageView.interactive = true
-                                
-                                var deltaTime = Date.now() - pressTime
-                                var velocity = dragDistance / deltaTime
-                                
-                                if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
-                                    Logger.info("AppGrid", "Gap search opened")
-                                    UIStore.openSearch()
-                                    appGrid.searchPullProgress = 0.0
-                                }
-                                
-                                isSearchGesture = false
-                                dragDistance = 0
-                            }
-                            
-                            onCanceled: {
-                                appGrid.searchGestureActive = false
-                                pageView.interactive = true
-                                isSearchGesture = false
-                                dragDistance = 0
-                            }
                         }
                         
                         transform: [
