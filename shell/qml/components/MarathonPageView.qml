@@ -79,6 +79,11 @@ ListView {
                 NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
             }
             
+            // Expose search progress from task switcher
+            onSearchPullProgressChanged: {
+                pageViewContainer.searchPullProgress = searchPullProgress
+            }
+            
             onClosed: {
                 pageView.currentIndex = 2
             }

@@ -9,6 +9,10 @@ Item {
     signal taskSelected(var task)
     signal pullDownToSearch()
     
+    // Track pull-down progress for inline animation
+    property real searchPullProgress: 0.0
+    property bool searchGestureActive: false
+    
     // Gesture area for pull-down to search (only when empty)
     MouseArea {
         anchors.fill: parent
@@ -20,6 +24,8 @@ Item {
         property real currentY: 0
         property bool isDragging: false
         property bool isVertical: false
+        readonly property real pullThreshold: 100
+        readonly property real commitThreshold: 0.35
         
         onPressed: function(mouse) {
             startX = mouse.x
@@ -27,6 +33,7 @@ Item {
             currentY = mouse.y
             isDragging = false
             isVertical = false
+            taskSwitcher.searchGestureActive = false
         }
         
         onPositionChanged: function(mouse) {
@@ -40,6 +47,7 @@ Item {
                     if (Math.abs(deltaY) > deltaX * 3.0 && deltaY > 0) {
                         isVertical = true
                         isDragging = true
+                        taskSwitcher.searchGestureActive = true
                         Logger.info("TaskSwitcher", "Pull-down gesture started")
                     } else {
                         // Too diagonal or wrong direction - reject gesture
@@ -50,29 +58,38 @@ Item {
                 }
             }
             
+            // Update progress in real-time during gesture
             if (isDragging && pressed) {
                 currentY = mouse.y
+                var deltaY = currentY - startY
+                // Update pull progress for inline animation
+                taskSwitcher.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
             }
         }
         
         onReleased: function(mouse) {
             if (isDragging && isVertical) {
                 var deltaY = currentY - startY
+                var deltaTime = Date.now() - startY  // Rough approximation
+                var velocity = deltaY / (deltaTime || 1)
                 
-                // If pulled down more than 80px, open search
-                if (deltaY > 80) {
+                // If pulled down more than threshold OR fast velocity
+                if (taskSwitcher.searchPullProgress > commitThreshold || velocity > 0.25) {
                     Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)")
                     UIStore.openSearch()
+                    taskSwitcher.searchPullProgress = 0.0
                 }
             }
             
             isDragging = false
             isVertical = false
+            taskSwitcher.searchGestureActive = false
         }
         
         onCanceled: {
             isDragging = false
             isVertical = false
+            taskSwitcher.searchGestureActive = false
         }
     }
     
