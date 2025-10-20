@@ -68,9 +68,9 @@ Item {
     MouseArea {
         id: pageGestureArea
         anchors.fill: parent
-        z: 100  // Above ListView (z: default) but below icon MouseAreas (z: 200)
+        z: 250  // ABOVE icon MouseAreas (z: 200) to intercept gestures first
         enabled: !UIStore.searchOpen
-        propagateComposedEvents: true  // Let events through to children
+        propagateComposedEvents: true  // Let tap events through to icon MouseAreas
         
         property real pressX: 0
         property real pressY: 0
@@ -90,7 +90,7 @@ Item {
             isHorizontalGesture = false
             dragDistance = 0
             appGrid.searchGestureActive = false
-            mouse.accepted = false  // Don't claim yet - decide in onPositionChanged
+            mouse.accepted = false  // Don't claim yet - let it propagate for taps
         }
         
         onPositionChanged: (mouse) => {
@@ -104,17 +104,17 @@ Item {
                     // Determine if this is vertical (search) or horizontal (page nav)
                     // STRICT: Vertical must be at least 3x more than horizontal (max ~18° angle)
                     if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
-                        // Vertical down - search gesture
+                        // Vertical down - search gesture - NOW claim it
                         isSearchGesture = true
-                        preventStealing = true  // Prevent ListView from stealing
-                        appGrid.searchGestureActive = true  // Block other interactions IMMEDIATELY
+                        preventStealing = true
+                        appGrid.searchGestureActive = true
                         Logger.info("AppGrid", "Page-wide search gesture started (deltaY: " + deltaY + ", deltaX: " + deltaX + ")")
-                        mouse.accepted = true
+                        mouse.accepted = true  // Claim and block icon taps
                     } else {
                         // Horizontal, up, or too diagonal - let ListView handle
                         isHorizontalGesture = true
                         mouse.accepted = false  // Let ListView take it
-                        return  // Don't process further
+                        return
                     }
                 }
             }
@@ -122,7 +122,7 @@ Item {
             // Update pull progress only if it's our gesture
             if (isSearchGesture && deltaY > 0) {
                 appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
-                mouse.accepted = true  // Keep accepting to block other handlers
+                mouse.accepted = true  // Keep claiming
             }
         }
         
@@ -355,35 +355,17 @@ Item {
                             anchors.fill: parent
                             z: 200
                             
-                            property real pressX: 0
-                            property real pressY: 0
                             property real pressTime: 0
                             
                             onPressed: (mouse) => {
-                                pressX = mouse.x
-                                pressY = mouse.y
                                 pressTime = Date.now()
-                                mouse.accepted = true  // Initially claim the event
-                            }
-                            
-                            onPositionChanged: (mouse) => {
-                                var deltaX = Math.abs(mouse.x - pressX)
-                                var deltaY = mouse.y - pressY
-                                
-                                // If vertical drag detected, release to page gesture
-                                if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 10) {
-                                    mouse.accepted = false  // Let page gesture handle search
-                                    return
-                                }
                             }
                             
                             onReleased: (mouse) => {
                                 var deltaTime = Date.now() - pressTime
-                                var deltaX = Math.abs(mouse.x - pressX)
-                                var deltaY = Math.abs(mouse.y - pressY)
                                 
-                                // Only launch if it was a quick tap (not drag)
-                                if (deltaTime < 500 && deltaX < 15 && deltaY < 15) {
+                                // Only launch if it was a quick tap
+                                if (deltaTime < 500) {
                                     Logger.info("AppGrid", "App launched: " + model.name)
                                     appLaunched({
                                         id: model.id,
