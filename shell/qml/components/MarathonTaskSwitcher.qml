@@ -13,7 +13,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         enabled: TaskModel.taskCount === 0
-        z: 2
+        z: 100  // Above background content
         preventStealing: isDragging
         
         property real startX: 0
