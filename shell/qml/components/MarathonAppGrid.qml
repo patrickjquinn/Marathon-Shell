@@ -88,88 +88,90 @@ Item {
             width: pageView.width
             height: pageView.height
             
-            // BACKGROUND gesture area - catches touches in gaps between icons
-            MouseArea {
-                id: backgroundGestureArea
-                anchors.fill: parent
-                z: -1  // UNDER the grid so icons take priority
-                enabled: !UIStore.searchOpen
-                
-                property real pressX: 0
-                property real pressY: 0
-                property real pressTime: 0
-                property bool isSearchGesture: false
-                property real dragDistance: 0
-                readonly property real pullThreshold: 100
-                readonly property real commitThreshold: 0.35
-                
-                onPressed: (mouse) => {
-                    pressX = mouse.x
-                    pressY = mouse.y
-                    pressTime = Date.now()
-                    isSearchGesture = false
-                    dragDistance = 0
-                    appGrid.searchGestureActive = false
-                    mouse.accepted = false  // Don't claim yet
-                }
-                
-                onPositionChanged: (mouse) => {
-                    var deltaX = Math.abs(mouse.x - pressX)
-                    var deltaY = mouse.y - pressY
-                    dragDistance = deltaY
-                    
-                    // STRICT 3.0x angle requirement
-                    if (!isSearchGesture && deltaY > 10) {
-                        if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
-                            isSearchGesture = true
-                            pageView.interactive = false
-                            mouse.accepted = true  // NOW claim it
-                            Logger.info("AppGrid", "Background search gesture started (deltaY: " + deltaY + ")")
-                        } else if (Math.abs(deltaX) > 10) {
-                            // Horizontal - let ListView handle
-                            mouse.accepted = false
-                            return
-                        }
-                    }
-                    
-                    // Update progress in real-time during gesture
-                    if (isSearchGesture && deltaY > 0) {
-                        appGrid.searchGestureActive = true
-                        appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
-                    }
-                }
-                
-                onReleased: (mouse) => {
-                    appGrid.searchGestureActive = false
-                    pageView.interactive = true
-                    
-                    var deltaTime = Date.now() - pressTime
-                    var velocity = dragDistance / deltaTime
-                    
-                    if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
-                        Logger.info("AppGrid", "Background search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%)")
-                        UIStore.openSearch()
-                        appGrid.searchPullProgress = 0.0
-                    }
-                    
-                    isSearchGesture = false
-                    dragDistance = 0
-                }
-                
-                onCanceled: {
-                    appGrid.searchGestureActive = false
-                    pageView.interactive = true
-                    isSearchGesture = false
-                    dragDistance = 0
-                }
-            }
-            
             Grid {
+                id: iconGrid
                 anchors.fill: parent
                 anchors.margins: 12
                 columns: appGrid.columns
                 rows: appGrid.rows
                 spacing: Constants.spacingMedium
+                
+                // BACKGROUND gesture area - INSIDE grid, UNDER icons
+                MouseArea {
+                    id: backgroundGestureArea
+                    anchors.fill: parent
+                    anchors.margins: -12  // Extend to cover parent's margins
+                    z: -1  // UNDER the icon items
+                    enabled: !UIStore.searchOpen
+                    
+                    property real pressX: 0
+                    property real pressY: 0
+                    property real pressTime: 0
+                    property bool isSearchGesture: false
+                    property real dragDistance: 0
+                    readonly property real pullThreshold: 100
+                    readonly property real commitThreshold: 0.35
+                    
+                    onPressed: (mouse) => {
+                        pressX = mouse.x
+                        pressY = mouse.y
+                        pressTime = Date.now()
+                        isSearchGesture = false
+                        dragDistance = 0
+                        appGrid.searchGestureActive = false
+                        mouse.accepted = false  // Don't claim yet
+                    }
+                    
+                    onPositionChanged: (mouse) => {
+                        var deltaX = Math.abs(mouse.x - pressX)
+                        var deltaY = mouse.y - pressY
+                        dragDistance = deltaY
+                        
+                        // STRICT 3.0x angle requirement
+                        if (!isSearchGesture && deltaY > 10) {
+                            if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
+                                isSearchGesture = true
+                                pageView.interactive = false
+                                mouse.accepted = true  // NOW claim it
+                                Logger.info("AppGrid", "Background search gesture started (deltaY: " + deltaY + ")")
+                            } else if (Math.abs(deltaX) > 10) {
+                                // Horizontal - let ListView handle
+                                mouse.accepted = false
+                                return
+                            }
+                        }
+                        
+                        // Update progress in real-time during gesture
+                        if (isSearchGesture && deltaY > 0) {
+                            appGrid.searchGestureActive = true
+                            appGrid.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+                        }
+                    }
+                    
+                    onReleased: (mouse) => {
+                        appGrid.searchGestureActive = false
+                        pageView.interactive = true
+                        
+                        var deltaTime = Date.now() - pressTime
+                        var velocity = dragDistance / deltaTime
+                        
+                        if (isSearchGesture && (appGrid.searchPullProgress > commitThreshold || velocity > 0.25)) {
+                            Logger.info("AppGrid", "Background search opened (progress: " + (appGrid.searchPullProgress * 100).toFixed(0) + "%)")
+                            UIStore.openSearch()
+                            appGrid.searchPullProgress = 0.0
+                        }
+                        
+                        isSearchGesture = false
+                        dragDistance = 0
+                    }
+                    
+                    onCanceled: {
+                        appGrid.searchGestureActive = false
+                        pageView.interactive = true
+                        isSearchGesture = false
+                        dragDistance = 0
+                    }
+                }
                 
                 Repeater {
                     model: AppModel
