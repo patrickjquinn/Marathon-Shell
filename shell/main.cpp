@@ -75,7 +75,7 @@ static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &con
         stream.flush();
     }
     
-    // Also output to stderr for development
+    // ALWAYS output to stderr for terminal visibility
     fprintf(stderr, "%s\n", qPrintable(logMessage));
     
     // For fatal errors, close log file before abort
