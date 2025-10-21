@@ -1,4 +1,5 @@
 build/
+build-apps/
 .vscode/
 *.user
 *.autosave
