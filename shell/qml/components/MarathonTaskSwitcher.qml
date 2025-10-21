@@ -556,12 +556,12 @@ Item {
                                                     format: ShaderEffectSource.RGBA
                                                     samples: 0
                                                     
-                                                    // Debug: Log when sourceItem is null
+                                                    // Debug: Log when sourceItem is null (expected for inactive apps)
                                                     onSourceItemChanged: {
                                                         if (!sourceItem) {
-                                                            Logger.warn("TaskSwitcher", "❌ NULL sourceItem for: " + model.appId + " (type: " + model.type + ")")
+                                                            Logger.debug("TaskSwitcher", "NULL sourceItem for: " + model.appId + " (inactive app)")
                                                         } else {
-                                                            Logger.info("TaskSwitcher", "✓ Preview source set for: " + model.appId)
+                                                            Logger.debug("TaskSwitcher", "✓ Preview source set for: " + model.appId)
                                                         }
                                                     }
                                                     

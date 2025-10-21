@@ -8,6 +8,7 @@ Rectangle {
     
     property var toggleData: ({})
     property real tileWidth: 160
+    property bool isAvailable: toggleData.available !== undefined ? toggleData.available : true
     
     signal tapped()
     signal longPressed()
@@ -17,9 +18,10 @@ Rectangle {
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
     border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
-    color: MColors.surface
+    color: isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
     antialiasing: Constants.enableAntialiasing
     scale: isPressed ? 0.98 : 1.0
+    opacity: isAvailable ? 1.0 : 0.5
     
     Behavior on scale {
         enabled: Constants.enableAnimations
@@ -80,7 +82,7 @@ Rectangle {
             
             Icon {
                 name: toggleData.icon || "grid"
-                color: toggleData.active ? MColors.accentBright : MColors.text
+                color: !isAvailable ? MColors.textSecondary : (toggleData.active ? MColors.accentBright : MColors.text)
                 size: Constants.iconSizeMedium
                 anchors.centerIn: parent
                 
@@ -132,6 +134,7 @@ Rectangle {
     MouseArea {
         id: toggleMouseArea
         anchors.fill: parent
+        enabled: isAvailable
         
         onPressed: function(mouse) {
             isPressed = true
@@ -148,10 +151,15 @@ Rectangle {
         }
         
         onClicked: {
+            if (!isAvailable) {
+                Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + toggleData.id)
+                return
+            }
             tile.tapped()
         }
         
         onPressAndHold: {
+            if (!isAvailable) return
             HapticService.medium()
             tile.longPressed()
         }

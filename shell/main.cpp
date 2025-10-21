@@ -310,6 +310,9 @@ int main(int argc, char *argv[])
     // Load apps from registry into AppModel
     appModel->loadFromRegistry(appRegistry);
     
+    // Sort all apps alphabetically after loading both native and Marathon apps
+    appModel->sortAppsByName();
+    
     // Add QML import paths for modules
     engine.addImportPath("qrc:/");
     engine.addImportPath(":/");
