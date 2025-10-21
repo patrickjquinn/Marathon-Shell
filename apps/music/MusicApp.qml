@@ -18,11 +18,15 @@ MApp {
     property bool isPlaying: audioPlayer.playbackState === MediaPlayer.PlayingState
     property bool shuffle: false
     property string repeatMode: "off"
-    property var playlist: typeof MusicLibraryManager !== 'undefined' ? MusicLibraryManager.getAllTracks() : []
+    property var playlist  // No initial binding - set by library scan
     
     Component.onCompleted: {
+        // Initialize playlist
         if (typeof MusicLibraryManager !== 'undefined') {
+            playlist = MusicLibraryManager.getAllTracks()
             MusicLibraryManager.scanLibrary()
+        } else {
+            playlist = []  // Fallback to empty
         }
     }
     

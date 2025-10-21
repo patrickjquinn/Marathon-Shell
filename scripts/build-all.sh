@@ -20,14 +20,31 @@ if [ ! -d "build" ]; then
     echo "Creating build directory..."
     mkdir -p build
     cd build
+    
+    # Detect OS and set Qt path
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        QT_PATH="/opt/homebrew/opt/qt@6"
+    else
+        QT_PATH="/usr"
+    fi
+    
     cmake .. \
-        -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@6" \
+        -G Ninja \
+        -DCMAKE_PREFIX_PATH="$QT_PATH" \
         -DCMAKE_BUILD_TYPE=Release
     cd ..
 fi
 
 cd build
-cmake --build . --parallel $(sysctl -n hw.ncpu)
+
+# Detect CPU cores for parallel build
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    CORES=$(sysctl -n hw.ncpu)
+else
+    CORES=$(nproc)
+fi
+
+cmake --build . --parallel $CORES
 cd ..
 
 echo ""

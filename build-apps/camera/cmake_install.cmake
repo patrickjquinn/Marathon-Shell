@@ -1,4 +1,4 @@
-# Install script for directory: /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/camera
+# Install script for directory: /home/patrickquinn/Developer/Marathon-Shell/apps/camera
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -27,6 +27,11 @@ if(NOT CMAKE_INSTALL_COMPONENT)
   endif()
 endif()
 
+# Install shared libraries without execute permission?
+if(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
+  set(CMAKE_INSTALL_SO_NO_EXE "0")
+endif()
+
 # Is this installation the result of a crosscompile?
 if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "FALSE")
@@ -34,60 +39,60 @@ endif()
 
 # Set path to fallback-tool for dependency-resolution.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/objdump")
+  set(CMAKE_OBJDUMP "/usr/bin/objdump")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/camera/")
+   "/home/patrickquinn/.local/share/marathon-apps/camera/")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/camera" TYPE DIRECTORY FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/camera/" FILES_MATCHING REGEX "/[^/]*\\.qml$" REGEX "/[^/]*\\.json$" REGEX "/qmldir$" REGEX "/[^/]*\\.svg$" REGEX "/[^/]*\\.png$" REGEX "/[^/]*\\.jpg$")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/camera" TYPE DIRECTORY FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/camera/" FILES_MATCHING REGEX "/[^/]*\\.qml$" REGEX "/[^/]*\\.json$" REGEX "/qmldir$" REGEX "/[^/]*\\.svg$" REGEX "/[^/]*\\.png$" REGEX "/[^/]*\\.jpg$")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/camera/manifest.json")
+   "/home/patrickquinn/.local/share/marathon-apps/camera/manifest.json")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/camera" TYPE FILE FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/camera/manifest.json")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/camera" TYPE FILE FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/camera/manifest.json")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/camera/qmldir")
+   "/home/patrickquinn/.local/share/marathon-apps/camera/qmldir")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/camera" TYPE FILE FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/camera/qmldir")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/camera" TYPE FILE FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/camera/qmldir")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/camera/assets")
+   "/home/patrickquinn/.local/share/marathon-apps/camera/assets")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/camera" TYPE DIRECTORY FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/camera/assets")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/camera" TYPE DIRECTORY FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/camera/assets")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/camera/install_local_manifest.txt"
+  file(WRITE "/home/patrickquinn/Developer/Marathon-Shell/build-apps/camera/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

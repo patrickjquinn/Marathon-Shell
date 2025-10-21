@@ -34,8 +34,17 @@ cd "$BUILD_DIR"
 # Only reconfigure if CMakeLists.txt changed or build directory is empty
 if [ ! -f "CMakeCache.txt" ] || [ "$PROJECT_ROOT/apps/CMakeLists.txt" -nt "CMakeCache.txt" ]; then
     echo "Configuring CMake..."
+    
+    # Detect OS and set Qt path
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        QT_PATH="/opt/homebrew/opt/qt@6"
+    else
+        QT_PATH="/usr"
+    fi
+    
     cmake "$PROJECT_ROOT/apps" \
-        -DCMAKE_PREFIX_PATH="/opt/homebrew/opt/qt@6" \
+        -G Ninja \
+        -DCMAKE_PREFIX_PATH="$QT_PATH" \
         -DCMAKE_BUILD_TYPE=Release \
         -DMARATHON_APPS_DIR="$INSTALL_DIR"
 else
@@ -49,7 +58,15 @@ find "$PROJECT_ROOT/apps" -name "*.qml" -exec qmllint {} \; 2>/dev/null || {
 }
 
 echo "Building apps..."
-cmake --build . --parallel $(sysctl -n hw.ncpu)
+
+# Detect CPU cores for parallel build
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    CORES=$(sysctl -n hw.ncpu)
+else
+    CORES=$(nproc)
+fi
+
+cmake --build . --parallel $CORES
 
 echo ""
 echo "Installing apps to $INSTALL_DIR..."

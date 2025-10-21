@@ -35,6 +35,8 @@ QVariant AppModel::data(const QModelIndex& index, int role) const
         return app->icon();
     case TypeRole:
         return app->type();
+    case ExecRole:
+        return app->exec();
     default:
         return QVariant();
     }
@@ -47,6 +49,7 @@ QHash<int, QByteArray> AppModel::roleNames() const
     roles[NameRole] = "name";
     roles[IconRole] = "icon";
     roles[TypeRole] = "type";
+    roles[ExecRole] = "exec";
     return roles;
 }
 
@@ -62,7 +65,7 @@ App* AppModel::getAppAtIndex(int index)
     return m_apps.at(index);
 }
 
-void AppModel::addApp(const QString& id, const QString& name, const QString& icon, const QString& type)
+void AppModel::addApp(const QString& id, const QString& name, const QString& icon, const QString& type, const QString& exec)
 {
     // Check if app already exists
     if (m_appIndex.contains(id)) {
@@ -88,7 +91,7 @@ void AppModel::addApp(const QString& id, const QString& name, const QString& ico
     }
 
     beginInsertRows(QModelIndex(), m_apps.count(), m_apps.count());
-    App* app = new App(id, name, icon, type, this);
+    App* app = new App(id, name, icon, type, exec, this);
     m_apps.append(app);
     m_appIndex[id] = app;
     endInsertRows();

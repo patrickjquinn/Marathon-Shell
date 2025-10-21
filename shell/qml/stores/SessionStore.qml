@@ -5,7 +5,7 @@ import MarathonOS.Shell
 QtObject {
     id: sessionStore
     
-    property bool isLocked: SessionManager.screenLocked
+    property bool isLocked: true  // Managed imperatively by signal handlers
     property var lastUnlockTime: null
     property int sessionTimeout: SessionManager.idleTimeout
     

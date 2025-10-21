@@ -6,7 +6,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 1338,
+                        "durationMicroseconds": 266,
                         "errorMessage": "Cannot generate efficient code for storing an array in a non-sequence type",
                         "functionName": "tabs",
                         "line": 16
@@ -14,8 +14,8 @@
                     {
                         "codegenSuccessful": false,
                         "column": 5,
-                        "durationMicroseconds": 203,
-                        "errorMessage": "Cannot load property length from (component in /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/TerminalApp.qml)::tabs with type QVariant.",
+                        "durationMicroseconds": 139,
+                        "errorMessage": "Cannot load property length from (component in /home/patrickquinn/Developer/Marathon-Shell/apps/terminal/TerminalApp.qml)::tabs with type QVariant.",
                         "functionName": "createNewTab",
                         "line": 19
                     },
@@ -30,7 +30,7 @@
                     {
                         "codegenSuccessful": true,
                         "column": 28,
-                        "durationMicroseconds": 73,
+                        "durationMicroseconds": 43,
                         "errorMessage": "",
                         "functionName": "onCompleted",
                         "line": 53
@@ -38,7 +38,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 16,
-                        "durationMicroseconds": 96,
+                        "durationMicroseconds": 121,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 60
@@ -46,7 +46,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 23,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 5,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "fill",
                         "line": 59
@@ -54,7 +54,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 36,
-                        "durationMicroseconds": 29,
+                        "durationMicroseconds": 35,
                         "errorMessage": "method start cannot be resolved.",
                         "functionName": "onCompleted",
                         "line": 66
@@ -62,7 +62,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 27,
-                        "durationMicroseconds": 3,
+                        "durationMicroseconds": 5,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "fill",
                         "line": 72
@@ -70,7 +70,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 6,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "width",
                         "line": 78
@@ -78,7 +78,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 75,
+                        "durationMicroseconds": 105,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 80
@@ -86,7 +86,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 28,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 6,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "width",
                         "line": 84
@@ -94,7 +94,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 28,
-                        "durationMicroseconds": 73,
+                        "durationMicroseconds": 122,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 86
@@ -102,7 +102,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 37,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 8,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "bottom",
                         "line": 83
@@ -118,7 +118,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 41,
-                        "durationMicroseconds": 74,
+                        "durationMicroseconds": 100,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "leftMargin",
                         "line": 92
@@ -126,7 +126,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 42,
-                        "durationMicroseconds": 71,
+                        "durationMicroseconds": 99,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "rightMargin",
                         "line": 93
@@ -190,7 +190,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 37,
-                        "durationMicroseconds": 12,
+                        "durationMicroseconds": 19,
                         "errorMessage": "Cannot access value for name tabScrollView",
                         "functionName": "height",
                         "line": 109
@@ -198,7 +198,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 38,
-                        "durationMicroseconds": 110,
+                        "durationMicroseconds": 140,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "spacing",
                         "line": 110
@@ -206,7 +206,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 40,
-                        "durationMicroseconds": 13,
+                        "durationMicroseconds": 15,
                         "errorMessage": "Cannot access value for name terminalApp",
                         "functionName": "model",
                         "line": 113
@@ -214,7 +214,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 40,
-                        "durationMicroseconds": 15,
+                        "durationMicroseconds": 17,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "y",
                         "line": 119
@@ -222,7 +222,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 44,
-                        "durationMicroseconds": 174,
+                        "durationMicroseconds": 224,
                         "errorMessage": "Cannot access value for name index",
                         "functionName": "color",
                         "line": 120
@@ -230,7 +230,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 45,
-                        "durationMicroseconds": 81,
+                        "durationMicroseconds": 123,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "radius",
                         "line": 121
@@ -238,7 +238,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 44,
-                        "durationMicroseconds": 17,
+                        "durationMicroseconds": 19,
                         "errorMessage": "Cannot access value for name tabMouseArea",
                         "functionName": "scale",
                         "line": 125
@@ -246,7 +246,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 51,
-                        "durationMicroseconds": 159,
+                        "durationMicroseconds": 198,
                         "errorMessage": "Cannot access value for name index",
                         "functionName": "color",
                         "line": 123
@@ -254,7 +254,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 50,
-                        "durationMicroseconds": 28,
+                        "durationMicroseconds": 35,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "enabled",
                         "line": 128
@@ -262,7 +262,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 50,
-                        "durationMicroseconds": 25,
+                        "durationMicroseconds": 37,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "enabled",
                         "line": 133
@@ -270,7 +270,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 68,
-                        "durationMicroseconds": 42,
+                        "durationMicroseconds": 54,
                         "errorMessage": "Cannot access value for name MMotion",
                         "functionName": "duration",
                         "line": 134
@@ -278,7 +278,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 50,
-                        "durationMicroseconds": 103,
+                        "durationMicroseconds": 132,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "spacing",
                         "line": 141
@@ -286,7 +286,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 55,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 10,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "fill",
                         "line": 138
@@ -294,7 +294,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 61,
-                        "durationMicroseconds": 95,
+                        "durationMicroseconds": 129,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "leftMargin",
                         "line": 139
@@ -302,7 +302,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 62,
-                        "durationMicroseconds": 92,
+                        "durationMicroseconds": 115,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "rightMargin",
                         "line": 140
@@ -326,7 +326,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 51,
-                        "durationMicroseconds": 275,
+                        "durationMicroseconds": 309,
                         "errorMessage": "Cannot access value for name terminalApp",
                         "functionName": "text",
                         "line": 152
@@ -334,7 +334,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 52,
-                        "durationMicroseconds": 344,
+                        "durationMicroseconds": 432,
                         "errorMessage": "Cannot access value for name index",
                         "functionName": "color",
                         "line": 156
@@ -342,7 +342,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 52,
-                        "durationMicroseconds": 91,
+                        "durationMicroseconds": 109,
                         "errorMessage": "Cannot access value for name Text",
                         "functionName": "elide",
                         "line": 157
@@ -350,7 +350,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 69,
-                        "durationMicroseconds": 6,
+                        "durationMicroseconds": 9,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "verticalCenter",
                         "line": 151
@@ -358,7 +358,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 61,
-                        "durationMicroseconds": 143,
+                        "durationMicroseconds": 193,
                         "errorMessage": "Cannot access value for name MTypography",
                         "functionName": "pixelSize",
                         "line": 153
@@ -366,7 +366,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 58,
-                        "durationMicroseconds": 379,
+                        "durationMicroseconds": 518,
                         "errorMessage": "Cannot access value for name index",
                         "functionName": "weight",
                         "line": 154
@@ -374,7 +374,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 58,
-                        "durationMicroseconds": 134,
+                        "durationMicroseconds": 181,
                         "errorMessage": "Cannot access value for name MTypography",
                         "functionName": "family",
                         "line": 155
@@ -382,7 +382,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 52,
-                        "durationMicroseconds": 250,
+                        "durationMicroseconds": 335,
                         "errorMessage": "Cannot access value for name closeMouseArea",
                         "functionName": "color",
                         "line": 166
@@ -390,7 +390,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 54,
-                        "durationMicroseconds": 17,
+                        "durationMicroseconds": 21,
                         "errorMessage": "Cannot access value for name terminalApp",
                         "functionName": "visible",
                         "line": 167
@@ -398,7 +398,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 69,
-                        "durationMicroseconds": 8,
+                        "durationMicroseconds": 7,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "verticalCenter",
                         "line": 162
@@ -422,7 +422,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 60,
-                        "durationMicroseconds": 109,
+                        "durationMicroseconds": 142,
                         "errorMessage": "Cannot access value for name terminalApp",
                         "functionName": "onClicked",
                         "line": 179
@@ -430,7 +430,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 63,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 6,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "fill",
                         "line": 178
@@ -438,7 +438,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 52,
-                        "durationMicroseconds": 219,
+                        "durationMicroseconds": 292,
                         "errorMessage": "Cannot access value for name index",
                         "functionName": "onClicked",
                         "line": 189
@@ -446,7 +446,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 55,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 7,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "fill",
                         "line": 188
@@ -454,7 +454,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 32,
-                        "durationMicroseconds": 228,
+                        "durationMicroseconds": 330,
                         "errorMessage": "Cannot access value for name newTabMouseArea",
                         "functionName": "color",
                         "line": 208
@@ -462,7 +462,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 40,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 8,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "right",
                         "line": 203
@@ -470,7 +470,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 49,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 5,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "verticalCenter",
                         "line": 204
@@ -478,7 +478,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 39,
-                        "durationMicroseconds": 67,
+                        "durationMicroseconds": 93,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 210
@@ -486,7 +486,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 38,
-                        "durationMicroseconds": 26,
+                        "durationMicroseconds": 38,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "enabled",
                         "line": 213
@@ -494,7 +494,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 56,
-                        "durationMicroseconds": 39,
+                        "durationMicroseconds": 55,
                         "errorMessage": "Cannot access value for name MMotion",
                         "functionName": "duration",
                         "line": 214
@@ -518,7 +518,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 40,
-                        "durationMicroseconds": 142,
+                        "durationMicroseconds": 185,
                         "errorMessage": "Cannot access value for name terminalApp",
                         "functionName": "onClicked",
                         "line": 228
@@ -526,7 +526,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 43,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 6,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "fill",
                         "line": 226
@@ -534,7 +534,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 7,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "width",
                         "line": 240
@@ -542,7 +542,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 25,
-                        "durationMicroseconds": 22,
+                        "durationMicroseconds": 25,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "height",
                         "line": 241
@@ -550,7 +550,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 68,
+                        "durationMicroseconds": 91,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 242
@@ -622,7 +622,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 7,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "width",
                         "line": 270
@@ -630,7 +630,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 24,
-                        "durationMicroseconds": 65,
+                        "durationMicroseconds": 92,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 272
@@ -638,7 +638,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 28,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 5,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "width",
                         "line": 276
@@ -646,7 +646,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 28,
-                        "durationMicroseconds": 65,
+                        "durationMicroseconds": 94,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 278
@@ -654,7 +654,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 34,
-                        "durationMicroseconds": 4,
+                        "durationMicroseconds": 5,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "top",
                         "line": 275
@@ -662,7 +662,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 30,
-                        "durationMicroseconds": 94,
+                        "durationMicroseconds": 129,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "spacing",
                         "line": 285
@@ -678,7 +678,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 41,
-                        "durationMicroseconds": 91,
+                        "durationMicroseconds": 139,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "leftMargin",
                         "line": 283
@@ -686,7 +686,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 42,
-                        "durationMicroseconds": 91,
+                        "durationMicroseconds": 130,
                         "errorMessage": "Cannot access value for name Constants",
                         "functionName": "rightMargin",
                         "line": 284
@@ -694,7 +694,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 32,
-                        "durationMicroseconds": 123,
+                        "durationMicroseconds": 167,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 290
@@ -702,7 +702,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 49,
-                        "durationMicroseconds": 5,
+                        "durationMicroseconds": 6,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "verticalCenter",
                         "line": 288
@@ -710,7 +710,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 41,
-                        "durationMicroseconds": 145,
+                        "durationMicroseconds": 194,
                         "errorMessage": "Cannot access value for name MTypography",
                         "functionName": "pixelSize",
                         "line": 292
@@ -718,7 +718,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 38,
-                        "durationMicroseconds": 87,
+                        "durationMicroseconds": 118,
                         "errorMessage": "Cannot access value for name Font",
                         "functionName": "weight",
                         "line": 293
@@ -726,7 +726,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 32,
-                        "durationMicroseconds": 11,
+                        "durationMicroseconds": 14,
                         "errorMessage": "Cannot access value for name parent",
                         "functionName": "width",
                         "line": 299
@@ -734,7 +734,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 32,
-                        "durationMicroseconds": 182,
+                        "durationMicroseconds": 259,
                         "errorMessage": "Cannot access value for name MColors",
                         "functionName": "color",
                         "line": 300
@@ -742,7 +742,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 44,
-                        "durationMicroseconds": 172,
+                        "durationMicroseconds": 230,
                         "errorMessage": "Cannot access value for name TextInput",
                         "functionName": "verticalAlignment",
                         "line": 304
@@ -750,7 +750,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 37,
-                        "durationMicroseconds": 37,
+                        "durationMicroseconds": 51,
                         "errorMessage": "Cannot access value for name text",
                         "functionName": "onAccepted",
                         "line": 306
@@ -766,7 +766,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 41,
-                        "durationMicroseconds": 181,
+                        "durationMicroseconds": 272,
                         "errorMessage": "Cannot access value for name MTypography",
                         "functionName": "pixelSize",
                         "line": 302
@@ -774,7 +774,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 41,
-                        "durationMicroseconds": 436,
+                        "durationMicroseconds": 556,
                         "errorMessage": "Cannot access value for name Qt",
                         "functionName": "onPressed",
                         "line": 313
@@ -782,7 +782,7 @@
                     {
                         "codegenSuccessful": true,
                         "column": 41,
-                        "durationMicroseconds": 62,
+                        "durationMicroseconds": 48,
                         "errorMessage": "",
                         "functionName": "onPressed",
                         "line": 313
@@ -790,7 +790,7 @@
                     {
                         "codegenSuccessful": false,
                         "column": 17,
-                        "durationMicroseconds": 38,
+                        "durationMicroseconds": 43,
                         "errorMessage": "Cannot access value for name NavigationRouter",
                         "functionName": "target",
                         "line": 330
@@ -804,7 +804,7 @@
                         "line": 331
                     }
                 ],
-                "filePath": "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/TerminalApp.qml"
+                "filePath": "/home/patrickquinn/Developer/Marathon-Shell/apps/terminal/TerminalApp.qml"
             }
         ],
         "moduleId": "Terminal(terminal-plugin)"

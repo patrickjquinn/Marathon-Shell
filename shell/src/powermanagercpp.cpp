@@ -70,7 +70,7 @@ void PowerManagerCpp::setupDBusConnections()
     if (!m_hasUPower) return;
     
     // Connect to UPower device changes
-    QDBusConnection::systemBus().connect(
+    bool connected = QDBusConnection::systemBus().connect(
         "org.freedesktop.UPower",
         "/org/freedesktop/UPower",
         "org.freedesktop.UPower",
@@ -78,6 +78,10 @@ void PowerManagerCpp::setupDBusConnections()
         this,
         SLOT(queryBatteryState())
     );
+    
+    if (!connected) {
+        qDebug() << "[PowerManagerCpp] UPower signal connection failed (service may not be running)";
+    }
 }
 
 void PowerManagerCpp::queryBatteryState()

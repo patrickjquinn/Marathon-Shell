@@ -59,7 +59,7 @@ void NetworkManagerCpp::setupDBusConnections()
     if (!m_hasNetworkManager) return;
     
     // Connect to NetworkManager state changes
-    QDBusConnection::systemBus().connect(
+    bool connected = QDBusConnection::systemBus().connect(
         "org.freedesktop.NetworkManager",
         "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager",
@@ -67,6 +67,10 @@ void NetworkManagerCpp::setupDBusConnections()
         this,
         SLOT(queryWifiState())
     );
+    
+    if (!connected) {
+        qDebug() << "[NetworkManagerCpp] NetworkManager signal connection failed (service may not be running)";
+    }
 }
 
 void NetworkManagerCpp::queryWifiState()

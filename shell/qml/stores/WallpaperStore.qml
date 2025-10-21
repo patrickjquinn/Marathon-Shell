@@ -6,7 +6,7 @@ QtObject {
     id: wallpaperStore
     
     property string path: "qrc:/wallpapers/resources/wallpapers/wallpaper.jpg"
-    property string currentWallpaper: path
+    property string currentWallpaper: "qrc:/wallpapers/resources/wallpapers/wallpaper.jpg"
     property bool isDark: true
     
     property var wallpapers: [
