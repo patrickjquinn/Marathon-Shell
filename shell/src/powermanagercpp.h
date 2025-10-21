@@ -37,10 +37,15 @@ signals:
     void estimatedBatteryTimeChanged();
     void criticalBattery();
     void powerError(const QString& message);
+    void aboutToSleep();      // Emitted before system suspends
+    void resumedFromSleep();  // Emitted after system resumes
+
+private slots:
+    void queryBatteryState();
+    void onPrepareForSleep(bool beforeSleep);
 
 private:
     void setupDBusConnections();
-    void queryBatteryState();
     void simulateBatteryUpdate();
 
     QDBusInterface* m_upowerInterface;

@@ -12,6 +12,14 @@ set(SOURCES
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
     src/powermanagercpp.cpp
+    src/displaymanagercpp.h
+    src/displaymanagercpp.cpp
+    src/audiomanagercpp.h
+    src/audiomanagercpp.cpp
+    src/modemmanagercpp.h
+    src/modemmanagercpp.cpp
+    src/sensormanagercpp.h
+    src/sensormanagercpp.cpp
     src/notificationservice.h
     src/notificationservice.cpp
     src/settingsmanager.h
