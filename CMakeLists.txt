@@ -87,3 +87,52 @@ message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "==================")
 
+# Installation for production Linux mobile deployment
+include(GNUInstallDirs)
+
+# Install session launcher script
+install(PROGRAMS marathon-shell-session
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Install Wayland session file
+install(FILES marathon.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions
+)
+
+# Install systemd user service
+install(FILES systemd/marathon-shell.service
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/user
+)
+
+# Install polkit policy
+install(FILES polkit/org.marathonos.shell.policy
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions
+)
+
+# Install XDG autostart
+install(FILES xdg-autostart/marathon-notification-service.desktop
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/xdg/autostart
+)
+
+# Install udev rules
+install(FILES udev/70-marathon-shell.rules
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/udev/rules.d
+)
+
+# Install greetd configuration example
+install(FILES marathon-shell.toml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/greetd
+    RENAME marathon-shell-example.toml
+)
+
+# Install documentation
+install(FILES README.md
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+)
+
+install(DIRECTORY docs/
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+    FILES_MATCHING PATTERN "*.md"
+)
+

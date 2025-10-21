@@ -24,8 +24,14 @@ depends="
 	pipewire
 	pipewire-pulse
 	wireplumber
+	pulseaudio-utils
 	greetd
 	dbus
+	networkmanager
+	modemmanager
+	upower
+	polkit
+	bluez
 	"
 makedepends="
 	cmake
@@ -45,8 +51,6 @@ install=""
 subpackages="$pkgname-doc"
 source="
 	$pkgname-$pkgver.tar.gz
-	marathon.desktop
-	marathon-shell.toml
 	"
 builddir="$srcdir/$pkgname-$pkgver"
 
@@ -78,28 +82,11 @@ check() {
 package() {
 	cd "$builddir"
 	
-	# Install main shell
+	# Install main shell (includes binary, session files, systemd, polkit, etc.)
 	DESTDIR="$pkgdir" cmake --install build
 	
 	# Install apps
 	DESTDIR="$pkgdir" cmake --install build-apps
-	
-	# Install launcher script
-	install -Dm755 run.sh "$pkgdir"/usr/bin/marathon-shell
-	
-	# Install Wayland session file
-	install -Dm644 "$srcdir"/marathon.desktop \
-		"$pkgdir"/usr/share/wayland-sessions/marathon.desktop
-	
-	# Install greetd configuration example
-	install -Dm644 "$srcdir"/marathon-shell.toml \
-		"$pkgdir"/usr/share/greetd/marathon-shell.toml
-	
-	# Install documentation
-	install -Dm644 README.md \
-		"$pkgdir"/usr/share/doc/$pkgname/README.md
-	install -Dm644 docs/*.md \
-		"$pkgdir"/usr/share/doc/$pkgname/
 }
 
 sha512sums="
