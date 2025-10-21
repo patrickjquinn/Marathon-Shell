@@ -46,13 +46,14 @@ NetworkManagerCpp::NetworkManagerCpp(QObject* parent)
         qInfo() << "[NetworkManagerCpp] Initial state - WiFi:" << m_wifiConnected << "Ethernet:" << m_ethernetConnected;
     } else {
         qInfo() << "[NetworkManagerCpp] ❌ NetworkManager D-Bus not available:" << m_nmInterface->lastError().message();
-        qInfo() << "[NetworkManagerCpp] Using mock mode (WiFi fallback)";
+        qInfo() << "[NetworkManagerCpp] Using mock mode (no hardware available)";
         // Fallback to simulated mode - no hardware available
         m_wifiAvailable = false;
         m_bluetoothAvailable = false;
-        m_wifiConnected = true;
-        m_wifiSsid = "Home Network";
-        m_wifiSignalStrength = 85;
+        m_wifiEnabled = false;
+        m_wifiConnected = false;
+        m_wifiSsid = "No WiFi";
+        m_wifiSignalStrength = 0;
     }
     
     // Setup signal strength monitor
