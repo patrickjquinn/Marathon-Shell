@@ -1,4 +1,4 @@
-# Install script for directory: /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/music
+# Install script for directory: /home/patrickquinn/Developer/Marathon-Shell/apps/music
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -27,6 +27,11 @@ if(NOT CMAKE_INSTALL_COMPONENT)
   endif()
 endif()
 
+# Install shared libraries without execute permission?
+if(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
+  set(CMAKE_INSTALL_SO_NO_EXE "0")
+endif()
+
 # Is this installation the result of a crosscompile?
 if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "FALSE")
@@ -34,60 +39,60 @@ endif()
 
 # Set path to fallback-tool for dependency-resolution.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/objdump")
+  set(CMAKE_OBJDUMP "/usr/bin/objdump")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/music/")
+   "/home/patrickquinn/.local/share/marathon-apps/music/")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/music" TYPE DIRECTORY FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/music/" FILES_MATCHING REGEX "/[^/]*\\.qml$" REGEX "/[^/]*\\.json$" REGEX "/qmldir$" REGEX "/[^/]*\\.svg$" REGEX "/[^/]*\\.png$" REGEX "/[^/]*\\.jpg$")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/music" TYPE DIRECTORY FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/music/" FILES_MATCHING REGEX "/[^/]*\\.qml$" REGEX "/[^/]*\\.json$" REGEX "/qmldir$" REGEX "/[^/]*\\.svg$" REGEX "/[^/]*\\.png$" REGEX "/[^/]*\\.jpg$")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/music/manifest.json")
+   "/home/patrickquinn/.local/share/marathon-apps/music/manifest.json")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/music" TYPE FILE FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/music/manifest.json")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/music" TYPE FILE FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/music/manifest.json")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/music/qmldir")
+   "/home/patrickquinn/.local/share/marathon-apps/music/qmldir")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/music" TYPE FILE FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/music/qmldir")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/music" TYPE FILE FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/music/qmldir")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
   list(APPEND CMAKE_ABSOLUTE_DESTINATION_FILES
-   "/Users/patrick.quinn/.local/share/marathon-apps/music/assets")
+   "/home/patrickquinn/.local/share/marathon-apps/music/assets")
   if(CMAKE_WARN_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(WARNING "ABSOLUTE path INSTALL DESTINATION : ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
   if(CMAKE_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION)
     message(FATAL_ERROR "ABSOLUTE path INSTALL DESTINATION forbidden (by caller): ${CMAKE_ABSOLUTE_DESTINATION_FILES}")
   endif()
-  file(INSTALL DESTINATION "/Users/patrick.quinn/.local/share/marathon-apps/music" TYPE DIRECTORY FILES "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/music/assets")
+  file(INSTALL DESTINATION "/home/patrickquinn/.local/share/marathon-apps/music" TYPE DIRECTORY FILES "/home/patrickquinn/Developer/Marathon-Shell/apps/music/assets")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/music/install_local_manifest.txt"
+  file(WRITE "/home/patrickquinn/Developer/Marathon-Shell/build-apps/music/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

@@ -1,5 +1,5 @@
 --resource
-/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qmake_Terminal.qrc
+/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.qt/rcc/qmake_Terminal.qrc
 --resource
-/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/terminal-plugin_raw_qml_0.qrc
+/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.qt/rcc/terminal-plugin_raw_qml_0.qrc
 /qt/qml/Terminal/TerminalApp.qml

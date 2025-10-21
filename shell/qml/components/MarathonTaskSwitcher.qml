@@ -13,6 +13,9 @@ Item {
     property real searchPullProgress: 0.0
     property bool searchGestureActive: false
     
+    // Compositor reference for closing native apps
+    property var compositor: null
+    
     // Gesture area for pull-down to search (only when empty)
     MouseArea {
         anchors.fill: parent
@@ -259,9 +262,21 @@ Item {
                             
                             ScriptAction {
                                 script: {
-                                    if (typeof AppLifecycleManager !== 'undefined') {
-                                        AppLifecycleManager.closeApp(model.appId)
+                                    Logger.info("TaskSwitcher", "Closing task: " + model.appId + " type: " + model.type + " surfaceId: " + model.surfaceId)
+                                    
+                                    // For native apps, we need to close the Wayland surface and kill the process
+                                    if (model.type === "native") {
+                                        if (typeof compositor !== 'undefined' && compositor && model.surfaceId >= 0) {
+                                            Logger.info("TaskSwitcher", "Closing native app via compositor, surfaceId: " + model.surfaceId)
+                                            compositor.closeWindow(model.surfaceId)
+                                        }
+                                    } else {
+                                        // For Marathon apps, use lifecycle manager
+                                        if (typeof AppLifecycleManager !== 'undefined') {
+                                            AppLifecycleManager.closeApp(model.appId)
+                                        }
                                     }
+                                    
                                     TaskModel.closeTask(model.id)
                                     cardRoot.closing = false
                                 }
@@ -371,15 +386,16 @@ Item {
                             var appId = model.appId
                             var appTitle = model.title
                             var appIcon = model.icon
+                            var appType = model.type
                             
                             // Defer to avoid blocking
                             Qt.callLater(function() {
-                                // CRITICAL: Tell AppLifecycleManager to restore app lifecycle first
-                                if (typeof AppLifecycleManager !== 'undefined') {
+                                // For Marathon apps, restore through lifecycle manager
+                                if (appType !== "native" && typeof AppLifecycleManager !== 'undefined') {
                                     AppLifecycleManager.restoreApp(appId)
                                 }
                                 
-                                // Then update UI state
+                                // Then update UI state (this triggers the restoration in MarathonShell.qml)
                                 UIStore.restoreApp(appId, appTitle, appIcon)
                                 closed()
                             })
@@ -470,11 +486,58 @@ Item {
                                             Item {
                                                 id: previewContainer
                                                 anchors.fill: parent
-                                                visible: model.type === "marathon"
+                                                visible: true  // Show for all app types (Marathon and native)
                                                 clip: true
                                                 
-                                                property var liveApp: typeof AppLifecycleManager !== 'undefined' ? 
-                                                    AppLifecycleManager.getAppInstance(model.appId) : null
+                                                property var liveApp: null
+                                                property string trackedAppId: ""  // Track which app this delegate is showing
+                                                
+                                                // Update liveApp reference
+                                                function updateLiveApp() {
+                                                    Logger.info("TaskSwitcher", "updateLiveApp called for: " + model.appId + " (tracked: " + trackedAppId + ")")
+                                                    
+                                                    // Clear if delegate was recycled
+                                                    if (trackedAppId !== "" && trackedAppId !== model.appId) {
+                                                        Logger.info("TaskSwitcher", "🔄 DELEGATE RECYCLED: " + trackedAppId + " → " + model.appId)
+                                                        liveApp = null
+                                                    }
+                                                    
+                                                    trackedAppId = model.appId
+                                                    
+                                                    if (typeof AppLifecycleManager === 'undefined') {
+                                                        Logger.warn("TaskSwitcher", "AppLifecycleManager not available")
+                                                        liveApp = null
+                                                        return
+                                                    }
+                                                    
+                                                    var instance = AppLifecycleManager.getAppInstance(model.appId)
+                                                    if (!instance) {
+                                                        Logger.warn("TaskSwitcher", "❌ NO INSTANCE for: " + model.appId + " (type: " + model.type + ", title: " + model.title + ")")
+                                                    } else {
+                                                        Logger.info("TaskSwitcher", "✓ Found live app for: " + model.appId)
+                                                    }
+                                                    liveApp = instance
+                                                }
+                                                
+                                                // Watch model.appId directly - this detects delegate recycling
+                                                property string watchedAppId: model.appId
+                                                onWatchedAppIdChanged: {
+                                                    Logger.info("TaskSwitcher", "watchedAppId changed to: " + watchedAppId)
+                                                    updateLiveApp()
+                                                }
+                                                
+                                                Component.onCompleted: {
+                                                    Logger.info("TaskSwitcher", "Preview delegate created for: " + model.appId)
+                                                    updateLiveApp()
+                                                }
+                                                
+                                                // Re-check periodically in case app registers late
+                                                Timer {
+                                                    interval: 100
+                                                    repeat: true
+                                                    running: previewContainer.liveApp === null && model.type !== "native"
+                                                    onTriggered: previewContainer.updateLiveApp()
+                                                }
                                                 
                                                 // Live preview using ShaderEffectSource with forced updates
                                                 ShaderEffectSource {
@@ -492,6 +555,15 @@ Item {
                                                     smooth: false
                                                     format: ShaderEffectSource.RGBA
                                                     samples: 0
+                                                    
+                                                    // Debug: Log when sourceItem is null
+                                                    onSourceItemChanged: {
+                                                        if (!sourceItem) {
+                                                            Logger.warn("TaskSwitcher", "❌ NULL sourceItem for: " + model.appId + " (type: " + model.type + ")")
+                                                        } else {
+                                                            Logger.info("TaskSwitcher", "✓ Preview source set for: " + model.appId)
+                                                        }
+                                                    }
                                                     
                                                     // Force multiple updates to catch all content
                                                     Timer {
@@ -513,6 +585,48 @@ Item {
                                                     onVisibleChanged: {
                                                         if (visible) {
                                                             liveSnapshot.scheduleUpdate()
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Fallback: Show app icon when live preview unavailable
+                                                Rectangle {
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    visible: previewContainer.liveApp === null
+                                                    color: MColors.backgroundDark
+                                                    
+                                                    Column {
+                                                        anchors.centerIn: parent
+                                                        spacing: 16
+                                                        
+                                                        Image {
+                                                            width: 80
+                                                            height: 80
+                                                            source: model.icon || "qrc:/images/icons/lucide/grid.svg"
+                                                            sourceSize.width: 80
+                                                            sourceSize.height: 80
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                            smooth: true
+                                                            fillMode: Image.PreserveAspectFit
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: model.title || model.appId
+                                                            color: MColors.textSecondary
+                                                            font.pixelSize: 14
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: "Preview unavailable"
+                                                            color: MColors.textTertiary
+                                                            font.pixelSize: 11
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
                                                         }
                                                     }
                                                 }
@@ -580,28 +694,6 @@ Item {
                                                         elide: Text.ElideRight
                                                         width: parent.width - Constants.spacingMedium * 2
                                                         horizontalAlignment: Text.AlignHCenter
-                                                    }
-                                                }
-                                            }
-                                            
-                                            Loader {
-                                                anchors.top: parent.top
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                active: model.type === "native"
-                                                source: model.type === "native" ? "../apps/native/NativeAppWindow.qml" : ""
-                                                visible: status === Loader.Ready
-                                                
-                                                // Scale to FULL WIDTH, let height extend as needed
-                                                property real scaleFactor: parent.width / Constants.screenWidth
-                                                
-                                                width: Constants.screenWidth * scaleFactor
-                                                height: Constants.screenHeight * scaleFactor
-                                                
-                                                onLoaded: {
-                                                    if (item && model.surfaceId >= 0) {
-                                                        item.surfaceId = model.surfaceId
-                                                        item.nativeAppId = model.appId
-                                                        item.nativeTitle = model.title
                                                     }
                                                 }
                                             }

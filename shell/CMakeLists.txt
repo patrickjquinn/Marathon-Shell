@@ -40,6 +40,11 @@ set(SOURCES
     src/musiclibrarymanager.cpp
 )
 
+list(APPEND SOURCES
+    src/waylandcompositormanager.h
+    src/waylandcompositormanager.cpp
+)
+
 if(TARGET Qt6::WaylandCompositor)
     list(APPEND SOURCES
         src/waylandcompositor.h
@@ -118,6 +123,7 @@ set(QML_FILES
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
     qml/apps/template/TemplateApp.qml
+    qml/apps/native/NativeAppWindow.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml

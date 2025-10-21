@@ -103,7 +103,12 @@ void BluetoothManager::initializeAdapter() {
     QDBusReply<QMap<QDBusObjectPath, QVariantMap>> reply = manager.call("GetManagedObjects");
     
     if (!reply.isValid()) {
-        qWarning() << "[BluetoothManager] Failed to get managed objects:" << reply.error().message();
+        // Log once only - bluez may not be running in VM or on systems without Bluetooth
+        static bool hasLogged = false;
+        if (!hasLogged) {
+            qDebug() << "[BluetoothManager] Bluetooth not available (bluez service not running or no hardware)";
+            hasLogged = true;
+        }
         m_available = false;
         emit availableChanged();
         return;
@@ -125,7 +130,7 @@ void BluetoothManager::initializeAdapter() {
         }
     }
     
-    qWarning() << "[BluetoothManager] No Bluetooth adapter found";
+    qDebug() << "[BluetoothManager] No Bluetooth adapter found (no hardware detected)";
     m_available = false;
     emit availableChanged();
 }

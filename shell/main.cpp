@@ -29,9 +29,12 @@
 #include "src/smsservice.h"
 #include "src/medialibrarymanager.h"
 #include "src/musiclibrarymanager.h"
+#include "src/waylandcompositormanager.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
+#include <QWaylandSurface>
+#include <QWaylandXdgShell>
 #endif
 
 #ifdef HAVE_WEBENGINE
@@ -42,6 +45,19 @@
 static QFile *logFile = nullptr;
 static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
+    // Only suppress truly harmless warnings (not in debug mode)
+    QString debugEnv = qgetenv("MARATHON_DEBUG");
+    bool debugMode = (debugEnv == "1" || debugEnv.toLower() == "true");
+    
+    if (!debugMode && type == QtWarningMsg) {
+        // In non-debug mode, suppress known benign warnings
+        if ((msg.contains("Could not connect") && 
+             (msg.contains("NetworkManager") || msg.contains("UPower"))) ||
+            msg.contains("Failed to initialize EGL display")) {
+            return;
+        }
+    }
+    
     QString logLevel;
     switch (type) {
     case QtDebugMsg:
@@ -91,18 +107,46 @@ static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &con
 
 int main(int argc, char *argv[])
 {
-    // Configure Qt logging - filter out noisy categories
-    QLoggingCategory::setFilterRules(
-        "*.debug=false\n"
-        "*.info=false\n"           // Disable info by default
-        "*.warning=true\n"
-        "*.error=true\n"
-        "qt.qpa.*=false\n"         // Disable Qt Platform Abstraction spam (mouse, cursor, etc.)
-        "qt.pointer.*=false\n"     // Disable pointer/mouse tracking spam
-        "qt.quick.*=false\n"       // Disable Qt Quick internal spam
-        "qt.scenegraph.*=false\n"  // Disable scene graph warnings (pen interceptors, etc.)
-        "marathon.*.info=true\n"   // Enable info for our own categories
-    );
+    // Check debug mode FIRST before setting any logging rules
+    QString debugEnv = qgetenv("MARATHON_DEBUG");
+    bool debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
+    
+    // Configure Qt logging based on debug mode
+    if (debugEnabled) {
+        // Debug mode: enable OUR logs but suppress Qt internal spam
+        QLoggingCategory::setFilterRules(
+            "*.debug=false\n"           // Disable debug by default (too spammy)
+            "*.info=true\n"
+            "*.warning=true\n"
+            "*.error=true\n"
+            // Suppress Qt internal spam
+            "qt.qpa.*=false\n"
+            "qt.pointer.*=false\n"
+            "qt.quick.*=false\n"
+            "qt.scenegraph.*=false\n"
+            "qt.qml.connections=false\n"  // Suppress only QML connections spam
+            "qt.qml.binding=false\n"      // Suppress only QML binding spam
+            "qt.core.*=false\n"
+            "qt.rhi.*=false\n"            // Disable RHI (rendering) spam
+            "qml=true\n"                  // ENABLE console.log() from QML
+            "default.info=true\n"
+            "default.warning=true\n"
+            "js.info=true\n"
+        );
+    } else {
+        // Production mode: filter out noisy categories
+        QLoggingCategory::setFilterRules(
+            "*.debug=false\n"
+            "*.info=false\n"
+            "*.warning=true\n"
+            "*.error=true\n"
+            "qt.qpa.*=false\n"
+            "qt.pointer.*=false\n"
+            "qt.quick.*=false\n"
+            "qt.scenegraph.*=false\n"
+            "marathon.*.info=true\n"
+        );
+    }
     
     QGuiApplication::setApplicationName("Marathon Shell");
     QGuiApplication::setOrganizationName("Marathon OS");
@@ -133,21 +177,29 @@ int main(int argc, char *argv[])
     
     QQuickStyle::setStyle("Basic");
     
-    // Enable debug logging via environment variable
-    QString debugEnv = qgetenv("MARATHON_DEBUG");
-    bool debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
+    // Debug mode was already checked at the start
     if (debugEnabled) {
         qDebug() << "Debug mode enabled via MARATHON_DEBUG";
     }
     
 #ifdef HAVE_WAYLAND
-    qmlRegisterType<WaylandCompositor>("MarathonOS.Wayland", 1, 0, "WaylandCompositor");
-    qDebug() << "Wayland Compositor support enabled";
+    // Register types needed for signal marshalling to QML
+    qmlRegisterUncreatableType<QWaylandSurface>("MarathonOS.Wayland", 1, 0, "WaylandSurface",
+                                                  "WaylandSurface cannot be created from QML");
+    qmlRegisterUncreatableType<QWaylandXdgSurface>("MarathonOS.Wayland", 1, 0, "WaylandXdgSurface",
+                                                     "WaylandXdgSurface cannot be created from QML");
+    qmlRegisterUncreatableType<WaylandCompositor>("MarathonOS.Wayland", 1, 0, "WaylandCompositor",
+                                                    "WaylandCompositor is created in C++");
+    qInfo() << "Wayland Compositor support enabled";
 #else
-    qDebug() << "Wayland Compositor support disabled (not available on this platform)";
+    qInfo() << "Wayland Compositor support disabled (not available on this platform)";
 #endif
     
     QQmlApplicationEngine engine;
+    
+    // Register compositor manager (available on all platforms, returns null on unsupported platforms)
+    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(&app);
+    engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
     
     // Set debug mode context property
     engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
@@ -221,13 +273,22 @@ int main(int argc, char *argv[])
     // Note: Marathon apps are auto-initialized in AppModel constructor
     
     // Scan for native apps and add to AppModel
-    QStringList searchPaths = {"/usr/share/applications", "/usr/local/share/applications", 
-                               QDir::homePath() + "/.local/share/applications"};
+    QStringList searchPaths = {
+        "/usr/share/applications",
+        "/usr/local/share/applications",
+        QDir::homePath() + "/.local/share/applications",
+        "/var/lib/flatpak/exports/share/applications",  // System Flatpak apps
+        QDir::homePath() + "/.local/share/flatpak/exports/share/applications"  // User Flatpak apps
+    };
+    qDebug() << "[Marathon] Scanning for native apps in:" << searchPaths;
     QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths);
+    qDebug() << "[Marathon] Found" << nativeApps.count() << "native apps";
     for (const QVariant& appVariant : nativeApps) {
         QVariantMap app = appVariant.toMap();
         appModel->addApp(app["id"].toString(), app["name"].toString(), 
-                       app["icon"].toString(), app["type"].toString());
+                       app["icon"].toString(), app["type"].toString(), app["exec"].toString());
+        qDebug() << "[Marathon] Added app:" << app["name"].toString() 
+                 << "(" << app["id"].toString() << ") exec:" << app["exec"].toString();
     }
     
     // Scan for Marathon apps

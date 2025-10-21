@@ -8,10 +8,10 @@ QtObject {
     // RESPONSIVE SIZING SYSTEM
     // =========================================================================
     
-    // Base screen dimensions (set by shell on startup)
+    // Base screen dimensions (set by shell on startup via updateScreenSize)
     property real screenWidth: 720
     property real screenHeight: 1280
-    property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
+    property real screenDiagonal: 1477.53  // Updated by updateScreenSize()
     property real dpi: 320
     
     // Responsive scaling - scale everything based on screen height

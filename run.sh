@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Marathon Shell - Build and Run Script
-# ALWAYS does clean rebuild to ensure AOT-compiled QML is up to date
+# Incremental builds only (much faster). Run with CLEAN=1 for clean rebuild.
 
 set -e
 
@@ -17,13 +17,19 @@ fi
 
 echo "💻 Detected $CORES CPU cores"
 
+# Clean build if requested
+if [ "$CLEAN" = "1" ]; then
+    echo "🧹 Clean build requested, removing build directories..."
+    rm -rf build build-apps
+fi
+
 # Kill any existing instances first
 echo "🛑 Killing any running Marathon Shell instances..."
 pkill -9 marathon-shell 2>/dev/null || true
 
 echo ""
 echo "============================================"
-echo "Marathon OS Complete Build"
+echo "Marathon OS Incremental Build"
 echo "============================================"
 echo ""
 
@@ -63,8 +69,17 @@ if [ $? -eq 0 ]; then
     export QT_QUICK_CONTROLS_UNIVERSAL_THEME=""
     export QT_QUICK_CONTROLS_UNIVERSAL_VARIANT=""
     
-    # Run the app (macOS .app bundle)
-    ./build/shell/marathon-shell.app/Contents/MacOS/marathon-shell
+    # Set QML import path for MarathonUI modules
+    export QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$QML_IMPORT_PATH"
+    
+    # Run the app (detect OS)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS .app bundle
+        ./build/shell/marathon-shell.app/Contents/MacOS/marathon-shell
+    else
+        # Linux executable
+        ./build/shell/marathon-shell
+    fi
 else
     echo "❌ Build failed!"
     exit 1

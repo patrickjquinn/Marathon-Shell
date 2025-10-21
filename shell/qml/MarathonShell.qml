@@ -56,18 +56,43 @@ Item {
         forceActiveFocus()
         Logger.info("Shell", "Marathon Shell initialized")
         
-        try {
+        // Request compositor initialization from C++
+        console.log("========== COMPOSITOR INITIALIZATION ==========")
+        console.log("  WaylandCompositorManager defined?", typeof WaylandCompositorManager !== 'undefined')
+        
+        if (typeof WaylandCompositorManager !== 'undefined') {
+            console.log("  Getting Window.window...")
             var rootWindow = Window.window
+            console.log("  rootWindow:", rootWindow)
+            
             if (rootWindow) {
-                compositor = Qt.createQmlObject('import QtQuick; import MarathonOS.Wayland 1.0; WaylandCompositor {}', shell, "compositor")
+                console.log("  Calling WaylandCompositorManager.createCompositor...")
+                compositor = WaylandCompositorManager.createCompositor(rootWindow)
+                console.log("  compositor returned:", compositor)
+                
                 if (compositor) {
-                    compositor.parent = rootWindow
+                    console.log("  compositor.socketName:", compositor.socketName)
                     Logger.info("Shell", "Wayland Compositor initialized: " + compositor.socketName)
+                } else {
+                    console.log("  compositor is NULL")
+                    Logger.info("Shell", "Wayland Compositor not available on this platform")
                 }
+            } else {
+                console.log("  rootWindow is NULL!")
             }
-        } catch (e) {
+        } else {
+            console.log("  WaylandCompositorManager is UNDEFINED")
             Logger.info("Shell", "Wayland Compositor not available on this platform (expected on macOS)")
             compositor = null
+        }
+        Logger.info("Shell", compositor ? "Compositor created successfully" : "Compositor is NULL")
+        
+        // Test if compositor signals are connected
+        if (compositor) {
+            Logger.info("Shell", "Testing compositor signal connection...")
+            compositor.surfaceCreated.connect(function(surface, surfaceId, xdgSurface) {
+                Logger.info("Shell", "!!!!! DIRECT SIGNAL CONNECTION FIRED - surfaceId: " + surfaceId)
+            })
         }
     }
     
@@ -255,12 +280,25 @@ Item {
                 anchors.fill: parent
                 z: Constants.zIndexMainContent + 10
                 isGestureActive: navBar.isAppOpen && shell.isTransitioningToActiveFrames
+                compositor: shell.compositor  // Pass compositor for native app management
                 
                 onCurrentPageChanged: {
                     Logger.nav("page" + shell.currentPage, "page" + currentPage, "navigation")
-                    shell.currentPage = currentPage
+                    // If we're on an app grid page (currentPage >= 0), use the internal page
                     if (currentPage >= 0) {
+                        shell.currentPage = pageView.internalAppGridPage
                         shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16))
+                    } else {
+                        // For Hub (-2) and Task Switcher (-1), use the regular currentPage
+                        shell.currentPage = currentPage
+                    }
+                }
+                
+                onInternalAppGridPageChanged: {
+                    // Update shell's current page when internal app grid page changes
+                    if (pageView.currentPage >= 0) {
+                        shell.currentPage = pageView.internalAppGridPage
+                        Logger.debug("Shell", "Internal app grid page changed to: " + pageView.internalAppGridPage)
                     }
                 }
                 
@@ -270,6 +308,13 @@ Item {
                     if (app.type === "native") {
                         if (compositor) {
                             shell.pendingNativeApp = app
+                            
+                            // Show splash screen IMMEDIATELY (before surface connects)
+                            UIStore.openApp(app.id, app.name, app.icon)
+                            appWindow.show(app.id, app.name, app.icon, "native", null, -1)
+                            Logger.info("Shell", "Showing splash screen for native app: " + app.name)
+                            
+                            // Now launch the app (surface will connect later)
                             compositor.launchApp(app.exec)
                         } else {
                             Logger.warn("Shell", "Cannot launch native app - compositor not available")
@@ -319,6 +364,13 @@ Item {
                         if (app.type === "native") {
                             if (compositor) {
                                 shell.pendingNativeApp = app
+                                
+                                // Show splash screen IMMEDIATELY (before surface connects)
+                                UIStore.openApp(app.id, app.name, app.icon)
+                                appWindow.show(app.id, app.name, app.icon, "native", null, -1)
+                                Logger.info("Shell", "Showing splash screen for native app: " + app.name)
+                                
+                                // Now launch the app (surface will connect later)
                                 compositor.launchApp(app.exec)
                             } else {
                                 Logger.warn("Shell", "Cannot launch native app - compositor not available")
@@ -504,6 +556,24 @@ Item {
             function onCurrentAppIdChanged() {
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
                     Logger.info("Shell", "App ID changed, showing: " + UIStore.currentAppId)
+                    
+                    // Check TaskModel for app type - if native, get surface
+                    var task = TaskModel.getTaskByAppId(UIStore.currentAppId)
+                    if (task && task.appType === "native") {
+                        Logger.info("Shell", "Restoring native app from task switcher")
+                        if (compositor) {
+                            var surface = compositor.getSurfaceById(task.surfaceId)
+                            if (surface) {
+                                // Pass surface so native app renders correctly
+                                appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId)
+                                return
+                            } else {
+                                Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId)
+                            }
+                        }
+                    }
+                    
+                    // Default: Marathon app or native app fallback
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon")
                 }
             }
@@ -512,6 +582,24 @@ Item {
                 // Also trigger when appWindowOpen becomes true (covers case where appId hasn't changed)
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
                     Logger.info("Shell", "App window opened, showing: " + UIStore.currentAppId)
+                    
+                    // Check TaskModel for app type - if native, get surface
+                    var task = TaskModel.getTaskByAppId(UIStore.currentAppId)
+                    if (task && task.appType === "native") {
+                        Logger.info("Shell", "Restoring native app from app window open")
+                        if (compositor) {
+                            var surface = compositor.getSurfaceById(task.surfaceId)
+                            if (surface) {
+                                // Pass surface so native app renders correctly
+                                appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId)
+                                return
+                            } else {
+                                Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId)
+                            }
+                        }
+                    }
+                    
+                    // Default: Marathon app or native app fallback
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon")
                 }
             }
@@ -1043,35 +1131,55 @@ Item {
     Connections {
         target: compositor
         
-        function onSurfaceCreated(surface) {
-            Logger.info("Shell", "Native app surface created")
+        function onSurfaceCreated(surface, surfaceId, xdgSurface) {
+            Logger.info("Shell", "========== onSurfaceCreated HANDLER FIRED ==========")
+            Logger.info("Shell", "Native app surface created, surfaceId: " + surfaceId)
+            Logger.info("Shell", "pendingNativeApp: " + (shell.pendingNativeApp ? shell.pendingNativeApp.name : "NULL"))
             
             if (shell.pendingNativeApp) {
                 var app = shell.pendingNativeApp
-                var surfaceId = surface.property("surfaceId")
+                Logger.info("Shell", "Surface connected for: " + app.name + " (surfaceId: " + surfaceId + ")")
                 
-                Logger.info("Shell", "Showing native app window: " + app.name + " (surfaceId: " + surfaceId + ")")
+                // Store xdgSurface and toplevel on surface for NativeAppWindow to access
+                surface.xdgSurface = xdgSurface
+                surface.toplevel = xdgSurface.toplevel
                 
-                UIStore.openApp(app.id, app.name, app.icon)
-                appWindow.show(app.id, app.name, app.icon, "native", surface, surfaceId)
-                
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    AppLifecycleManager.bringToForeground(app.id)
+                // Only create a task for the FIRST surface (main window), not for popups/subsurfaces
+                // Check if a task already exists for this app
+                var existingTask = TaskModel.getTaskByAppId(app.id)
+                if (!existingTask) {
+                    TaskModel.launchTask(app.id, app.name, app.icon, "native", surfaceId)
+                    Logger.info("Shell", "Added native app to TaskModel: " + app.name + " (surfaceId: " + surfaceId + ")")
+                } else {
+                    Logger.info("Shell", "Native app already has task, skipping (surfaceId: " + surfaceId + " is a subsurface/popup)")
                 }
+                
+                // Update the existing window (already showing splash) with the actual surface
+                Logger.info("Shell", "Updating window with connected surface")
+                appWindow.show(app.id, app.name, app.icon, "native", surface, surfaceId)
+                Logger.info("Shell", "Surface attached to window, splash should hide")
+                
+                // NOTE: Native apps are not registered with AppLifecycleManager
+                // They are managed via the Wayland compositor instead
+                // UIStore already handles bringing the window to foreground
                 
                 shell.pendingNativeApp = null
             }
+        }
+        
+        function onAppClosed(pid) {
+            Logger.info("Shell", "Native app process closed, PID: " + pid)
+            // The window will close automatically via surfaceDestroyed handler
         }
         
         function onAppLaunched(command, pid) {
             Logger.info("Shell", "Native app process started: " + command + " (PID: " + pid + ")")
         }
         
-        function onSurfaceDestroyed(surface) {
-            Logger.info("Shell", "Native app surface destroyed")
+        function onSurfaceDestroyed(surface, surfaceId) {
+            Logger.info("Shell", "Native app surface destroyed, surfaceId: " + surfaceId)
             
             if (UIStore.appWindowOpen && appWindow.appType === "native") {
-                var surfaceId = surface.property("surfaceId")
                 if (appWindow.surfaceId === surfaceId) {
                     Logger.info("Shell", "Closing native app window due to surface destruction")
                     UIStore.closeApp()

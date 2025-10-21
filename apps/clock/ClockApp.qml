@@ -13,7 +13,7 @@ MApp {
     appName: "Clock"
     // appIcon loaded from registry - don't override here
     
-    property var alarms: []
+    property var alarms  // No initial binding - set by loadAlarms()
     property int nextAlarmId: 1
     
     Component.onCompleted: {
@@ -32,7 +32,7 @@ MApp {
                 }
             } catch (e) {
                 Logger.error("ClockApp", "Failed to load alarms: " + e)
-                alarms = []
+                alarms = []  // Fallback to empty array on error
             }
         }
         alarmsChanged()

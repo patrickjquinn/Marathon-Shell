@@ -1,35 +1,35 @@
 {
-	"BUILD_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen",
-	"CMAKE_BINARY_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps",
-	"CMAKE_CURRENT_BINARY_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal",
-	"CMAKE_CURRENT_SOURCE_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal",
-	"CMAKE_EXECUTABLE" : "/opt/homebrew/bin/cmake",
+	"BUILD_DIR" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen",
+	"CMAKE_BINARY_DIR" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps",
+	"CMAKE_CURRENT_BINARY_DIR" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal",
+	"CMAKE_CURRENT_SOURCE_DIR" : "/home/patrickquinn/Developer/Marathon-Shell/apps/terminal",
+	"CMAKE_EXECUTABLE" : "/usr/bin/cmake",
 	"CMAKE_LIST_FILES" : 
 	[
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/CMakeLists.txt",
-		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in",
-		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Qml/Qt6QmlPluginTemplate.cpp.in",
-		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Qml/Qt6QmlModuleDirMappingTemplate.qrc.in",
-		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in",
-		"/opt/homebrew/opt/qt@6/lib/cmake/Qt6Qml/Qt6qmldirTemplate.cmake.in",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_TerminalPlugin_in.cpp"
+		"/home/patrickquinn/Developer/Marathon-Shell/apps/terminal/CMakeLists.txt",
+		"/usr/lib64/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in",
+		"/usr/lib64/cmake/Qt6Qml/Qt6QmlPluginTemplate.cpp.in",
+		"/usr/lib64/cmake/Qt6Qml/Qt6QmlModuleDirMappingTemplate.qrc.in",
+		"/usr/lib64/cmake/Qt6Core/Qt6CoreConfigureFileTemplate.in",
+		"/usr/lib64/cmake/Qt6Qml/Qt6qmldirTemplate.cmake.in",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-pluginplugin_TerminalPlugin_in.cpp"
 	],
-	"CMAKE_SOURCE_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps",
+	"CMAKE_SOURCE_DIR" : "/home/patrickquinn/Developer/Marathon-Shell/apps",
 	"CROSS_CONFIG" : false,
-	"DEP_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/deps",
+	"DEP_FILE" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/deps",
 	"DEP_FILE_RULE_NAME" : "terminal-plugin_autogen/timestamp",
 	"HEADERS" : 
 	[
 		[
-			"/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/src/TerminalEngine.h",
+			"/home/patrickquinn/Developer/Marathon-Shell/apps/terminal/src/TerminalEngine.h",
 			"MU",
 			"UVLADIE3JM/moc_TerminalEngine.cpp",
 			null
 		]
 	],
 	"HEADER_EXTENSIONS" : [ "h", "hh", "h++", "hm", "hpp", "hxx", "in", "txx" ],
-	"INCLUDE_DIR" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/include",
-	"MOC_COMPILATION_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/mocs_compilation.cpp",
+	"INCLUDE_DIR" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/include",
+	"MOC_COMPILATION_FILE" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/mocs_compilation.cpp",
 	"MOC_DEFINITIONS" : 
 	[
 		"QT_CORE_LIB",
@@ -54,38 +54,26 @@
 	],
 	"MOC_INCLUDES" : 
 	[
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/src",
-		"/opt/homebrew/opt/qt@6/lib/QtQml.framework/Versions/A/Headers/6.9.3",
-		"/opt/homebrew/opt/qt@6/lib/QtQml.framework/Versions/A/Headers/6.9.3/QtQml",
-		"/opt/homebrew/opt/qt@6/lib/QtCore.framework/Versions/A/Headers/6.9.3",
-		"/opt/homebrew/opt/qt@6/lib/QtCore.framework/Versions/A/Headers/6.9.3/QtCore",
-		"/opt/homebrew/opt/qt@6/lib/QtCore.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtCore.framework",
-		"/opt/homebrew/opt/qt@6/share/qt/mkspecs/macx-clang",
-		"/opt/homebrew/opt/qt@6/include",
-		"/opt/homebrew/opt/qt@6/lib/QtQml.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtQml.framework",
-		"/opt/homebrew/opt/qt@6/include/QtQmlIntegration",
-		"/opt/homebrew/opt/qt@6/lib/QtNetwork.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtNetwork.framework",
-		"/opt/homebrew/opt/qt@6/lib/QtQuick.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtQuick.framework",
-		"/opt/homebrew/opt/qt@6/lib/QtGui.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtGui.framework",
-		"/opt/homebrew/opt/qt@6/lib/QtQmlMeta.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtQmlMeta.framework",
-		"/opt/homebrew/opt/qt@6/lib/QtQmlModels.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtQmlModels.framework",
-		"/opt/homebrew/opt/qt@6/lib/QtQmlWorkerScript.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtQmlWorkerScript.framework",
-		"/opt/homebrew/opt/qt@6/lib/QtOpenGL.framework/Headers",
-		"/opt/homebrew/opt/qt@6/lib/QtOpenGL.framework",
-		"/Users/patrick.quinn/.wasmedge/include",
-		"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include/c++/v1",
-		"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include",
-		"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk/usr/include",
-		"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include"
+		"/home/patrickquinn/Developer/Marathon-Shell/apps/terminal",
+		"/home/patrickquinn/Developer/Marathon-Shell/apps/terminal/src",
+		"/usr/include/qt6/QtQml",
+		"/usr/include/qt6",
+		"/usr/include/qt6/QtCore",
+		"/usr/lib64/qt6/mkspecs/linux-g++",
+		"/usr/include/qt6/QtQmlIntegration",
+		"/usr/include/qt6/QtNetwork",
+		"/usr/include/qt6/QtQuick",
+		"/usr/include/qt6/QtGui",
+		"/usr/include/qt6/QtQmlMeta",
+		"/usr/include/qt6/QtQmlModels",
+		"/usr/include/qt6/QtQmlWorkerScript",
+		"/usr/include/qt6/QtOpenGL",
+		"/usr/include",
+		"/usr/include/c++/15",
+		"/usr/include/c++/15/aarch64-redhat-linux",
+		"/usr/include/c++/15/backward",
+		"/usr/lib/gcc/aarch64-redhat-linux/15/include",
+		"/usr/local/include"
 	],
 	"MOC_MACRO_NAMES" : 
 	[
@@ -100,35 +88,35 @@
 	"MOC_PATH_PREFIX" : false,
 	"MOC_PREDEFS_CMD" : 
 	[
-		"/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++",
+		"/usr/bin/c++",
 		"-std=gnu++17",
 		"-dM",
 		"-E",
 		"-c",
-		"/opt/homebrew/share/cmake/Modules/CMakeCXXCompilerABI.cpp"
+		"/usr/share/cmake/Modules/CMakeCXXCompilerABI.cpp"
 	],
-	"MOC_PREDEFS_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/moc_predefs.h",
+	"MOC_PREDEFS_FILE" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_autogen/moc_predefs.h",
 	"MOC_RELAXED_MODE" : false,
 	"MOC_SKIP" : 
 	[
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_qmake_Terminal.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_terminal-plugin_raw_qml_0.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_TerminalApp_qml.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_qmlcache_loader.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_qmltyperegistrations.cpp"
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_qmake_Terminal.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_terminal-plugin_raw_qml_0.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_TerminalApp_qml.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_qmlcache_loader.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_qmltyperegistrations.cpp"
 	],
 	"MULTI_CONFIG" : false,
-	"PARALLEL" : 10,
-	"PARSE_CACHE_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/CMakeFiles/terminal-plugin_autogen.dir/ParseCache.txt",
-	"QT_MOC_EXECUTABLE" : "/opt/homebrew/opt/qt@6/share/qt/libexec/moc",
+	"PARALLEL" : 1,
+	"PARSE_CACHE_FILE" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/CMakeFiles/terminal-plugin_autogen.dir/ParseCache.txt",
+	"QT_MOC_EXECUTABLE" : "/usr/lib64/qt6/libexec/moc",
 	"QT_UIC_EXECUTABLE" : "",
 	"QT_VERSION_MAJOR" : 6,
 	"QT_VERSION_MINOR" : 9,
-	"SETTINGS_FILE" : "/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/CMakeFiles/terminal-plugin_autogen.dir/AutogenUsed.txt",
+	"SETTINGS_FILE" : "/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/CMakeFiles/terminal-plugin_autogen.dir/AutogenUsed.txt",
 	"SOURCES" : 
 	[
 		[
-			"/Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/terminal/src/TerminalEngine.cpp",
+			"/home/patrickquinn/Developer/Marathon-Shell/apps/terminal/src/TerminalEngine.cpp",
 			"MU",
 			null
 		]
@@ -137,11 +125,11 @@
 	"UIC_SEARCH_PATHS" : [],
 	"UIC_SKIP" : 
 	[
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_qmake_Terminal.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_terminal-plugin_raw_qml_0.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_TerminalApp_qml.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_qmlcache_loader.cpp",
-		"/Users/patrick.quinn/Developer/personal/Marathon-Shell/build-apps/terminal/terminal-plugin_qmltyperegistrations.cpp"
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_qmake_Terminal.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.qt/rcc/qrc_terminal-plugin_raw_qml_0.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_TerminalApp_qml.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/.rcc/qmlcache/terminal-plugin_qmlcache_loader.cpp",
+		"/home/patrickquinn/Developer/Marathon-Shell/build-apps/terminal/terminal-plugin_qmltyperegistrations.cpp"
 	],
 	"UIC_UI_FILES" : [],
 	"USE_BETTER_GRAPH" : true,

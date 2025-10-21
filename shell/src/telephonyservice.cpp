@@ -18,10 +18,14 @@ TelephonyService::TelephonyService(QObject *parent)
 #else
     connectToModemManager();
     
-    // Setup reconnect timer for modem detection
-    m_reconnectTimer->setInterval(5000);
+    // Setup reconnect timer for modem detection (longer interval to reduce spam in VMs)
+    m_reconnectTimer->setInterval(30000);  // Changed from 5s to 30s
+    m_reconnectTimer->setSingleShot(false);
     connect(m_reconnectTimer, &QTimer::timeout, this, &TelephonyService::checkModemStatus);
-    m_reconnectTimer->start();
+    // Only start timer if we have a chance of finding a modem
+    if (QDBusConnection::systemBus().isConnected()) {
+        m_reconnectTimer->start();
+    }
 #endif
     
     qDebug() << "[TelephonyService] Initialized";
@@ -222,9 +226,18 @@ void TelephonyService::connectToModemManager()
             setupDBusConnections();
         }
     } else {
-        qWarning() << "[TelephonyService] Failed to get modems:" << reply.error().message();
+        // Reduce log spam - only log once or when status changes
+        static bool hasLogged = false;
+        if (!hasLogged) {
+            qDebug() << "[TelephonyService] No modem detected (running in VM or no hardware)";
+            hasLogged = true;
+        }
         m_hasModem = false;
         emit modemChanged(false);
+        // Stop polling if consistently failing
+        if (m_reconnectTimer && m_reconnectTimer->isActive()) {
+            m_reconnectTimer->stop();
+        }
     }
 #endif
 }

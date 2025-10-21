@@ -6,7 +6,7 @@ Window {
     width: 720
     height: 720
     visible: true
-    title: "Marathon OS - BlackBerry Passport"
+    title: "Marathon OS - Bandit"
     color: "#000000"
     
     MarathonShell {

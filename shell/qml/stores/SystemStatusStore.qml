@@ -30,8 +30,8 @@ QtObject {
     property real storageTotal: 128.0
     
     property date currentTime: new Date()
-    property string timeString: Qt.formatTime(currentTime, "h:mm")
-    property string dateString: Qt.formatDate(currentTime, "dddd, MMMM d")
+    property string timeString: Qt.formatTime(new Date(), "h:mm")  // Updated by timer
+    property string dateString: Qt.formatDate(new Date(), "dddd, MMMM d")  // Updated by timer
     
     property var notifications: []
     property int notificationCount: NotificationService.unreadCount

@@ -110,9 +110,9 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath)
         return QVariantMap();
     }
     
-    // Generate ID from filename
+    // Generate ID from filename (use completeBaseName to keep full name like "org.gnome.Calendar")
     QFileInfo fileInfo(filePath);
-    QString id = fileInfo.baseName(); // Remove .desktop extension
+    QString id = fileInfo.completeBaseName(); // Remove only .desktop extension, keep dots
     app["id"] = id;
     
     file.close();
@@ -180,6 +180,68 @@ QString DesktopFileParser::cleanExecLine(const QString &exec)
     QString cleaned = exec;
     QRegularExpression re("%[fFuUdDnNickvm]");
     cleaned.remove(re);
-    return cleaned.trimmed();
+    cleaned = cleaned.trimmed();
+    
+    // Convert "gapplication launch org.gnome.AppName" to direct binary execution
+    // This bypasses D-Bus activation which would launch apps in host session
+    if (cleaned.startsWith("gapplication launch ")) {
+        QString appId = cleaned.mid(20).trimmed(); // Extract app ID after "gapplication launch "
+        
+        // Convert app ID to binary name: org.gnome.Weather -> gnome-weather
+        QStringList parts = appId.split('.');
+        if (parts.size() >= 2) {
+            QString binaryName = parts.last().toLower();
+            // Add vendor prefix if it exists (e.g., gnome-, kde-)
+            if (parts.size() >= 3) {
+                QString vendor = parts[parts.size() - 2].toLower();
+                binaryName = vendor + "-" + binaryName;
+            }
+            
+            qInfo() << "[DesktopFileParser] *** CONVERTING gapplication launch" << appId << "to binary:" << binaryName;
+            return binaryName;
+        } else {
+            qWarning() << "[DesktopFileParser] Failed to parse gapplication app ID:" << appId;
+            return cleaned; // Return as-is if we can't parse
+        }
+    }
+    
+    // Handle --gapplication-service flag (background services, should be filtered out by NoDisplay)
+    if (cleaned.contains("--gapplication-service")) {
+        qDebug() << "[DesktopFileParser] Skipping gapplication service:" << cleaned;
+        return QString(); // Return empty to filter out
+    }
+    
+    // Handle Flatpak applications
+    if (cleaned.startsWith("flatpak run ")) {
+        qDebug() << "[DesktopFileParser] Detected Flatpak app, adding Wayland permissions:" << cleaned;
+        // Note: Marathon compositor socket name and path will be added at launch time
+        // For now, just mark it for special handling
+        cleaned = "FLATPAK:" + cleaned;
+        return cleaned;
+    }
+    
+    // Handle Snap applications
+    if (cleaned.startsWith("snap run ") || cleaned.startsWith("/snap/bin/")) {
+        qDebug() << "[DesktopFileParser] Detected Snap app:" << cleaned;
+        // Note: Snap wayland interface must be connected: snap connect APP:wayland :wayland
+        // Mark for special handling
+        cleaned = "SNAP:" + cleaned;
+        return cleaned;
+    }
+    
+    // Strip absolute paths to just binary name (for better compatibility)
+    // /usr/bin/firefox -> firefox
+    if (cleaned.startsWith('/')) {
+        QStringList parts = cleaned.split(' ', Qt::SkipEmptyParts);
+        if (!parts.isEmpty()) {
+            QString binaryPath = parts.first();
+            QFileInfo fileInfo(binaryPath);
+            parts[0] = fileInfo.fileName();
+            cleaned = parts.join(' ');
+            qDebug() << "[DesktopFileParser] Simplified absolute path to:" << cleaned;
+        }
+    }
+    
+    return cleaned;
 }
 

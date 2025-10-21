@@ -281,7 +281,7 @@ Item {
                                     // STRICT: Vertical must be at least 3x horizontal (max ~18° angle)
                                     if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
                                         isSearchGesture = true
-                                        pageView.interactive = false  // Disable page scrolling
+                                        // interactive is automatically disabled via binding when searchGestureActive becomes true
                                         Logger.info("AppGrid", "Icon search gesture started (deltaY: " + deltaY + ", angle ratio: " + (Math.abs(deltaY) / (deltaX || 1)).toFixed(1) + ")")
                                     }
                                 }
@@ -295,7 +295,7 @@ Item {
                             
                             onReleased: (mouse) => {
                                 appGrid.searchGestureActive = false
-                                pageView.interactive = true  // Re-enable page scrolling
+                                // interactive is automatically re-enabled via binding when searchGestureActive becomes false
                                 
                                 var deltaTime = Date.now() - pressTime
                                 var velocity = dragDistance / deltaTime
@@ -312,14 +312,18 @@ Item {
                                 
                                 // Normal tap - launch app (only if not a search gesture)
                                 if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
+                                    console.log("[AppGrid] CLICK DETECTED - Launching app:", model.name, "type:", model.type, "exec:", model.exec)
                                     Logger.info("AppGrid", "App launched: " + model.name)
                                     appLaunched({
                                         id: model.id,
                                         name: model.name,
                                         icon: model.icon,
-                                        type: model.type
+                                        type: model.type,
+                                        exec: model.exec
                                     })
                                     HapticService.medium()
+                                } else {
+                                    console.log("[AppGrid] Click rejected - isSearchGesture:", isSearchGesture, "dragDistance:", dragDistance, "deltaTime:", deltaTime)
                                 }
                                 
                                 isSearchGesture = false
@@ -383,7 +387,7 @@ Item {
                         if (Math.abs(deltaY) > Math.abs(deltaX) * 3.0 && deltaY > 0) {
                             // This is a downward swipe - claim it
                             isDownwardSwipe = true
-                            pageView.interactive = false
+                            // interactive is automatically disabled via binding when searchGestureActive becomes true
                             mouse.accepted = true
                             Logger.info("AppGrid", "Mask caught downward swipe in gap")
                         } else {
@@ -404,7 +408,7 @@ Item {
                 onReleased: (mouse) => {
                     if (isDownwardSwipe) {
                         appGrid.searchGestureActive = false
-                        pageView.interactive = true
+                        // interactive is automatically re-enabled via binding when searchGestureActive becomes false
                         
                         var deltaTime = Date.now() - pressTime
                         var velocity = dragDistance / deltaTime
@@ -423,7 +427,7 @@ Item {
                 
                 onCanceled: {
                     appGrid.searchGestureActive = false
-                    pageView.interactive = true
+                    // interactive is automatically re-enabled via binding when searchGestureActive becomes false
                     isDownwardSwipe = false
                     dragDistance = 0
                 }
@@ -431,8 +435,9 @@ Item {
         }
         
         onCurrentIndexChanged: {
-            currentPage = currentIndex
+            appGrid.currentPage = currentIndex
             pageChanged(currentPage, pageCount)
+            Logger.debug("AppGrid", "Internal page changed to: " + currentIndex)
         }
     }
     
