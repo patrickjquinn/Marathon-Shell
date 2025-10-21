@@ -16,6 +16,10 @@
 #include "src/notificationmodel.h"
 #include "src/networkmanagercpp.h"
 #include "src/powermanagercpp.h"
+#include "src/displaymanagercpp.h"
+#include "src/audiomanagercpp.h"
+#include "src/modemmanagercpp.h"
+#include "src/sensormanagercpp.h"
 #include "src/notificationservice.h"
 #include "src/settingsmanager.h"
 #include "src/bluetoothmanager.h"
@@ -231,11 +235,19 @@ int main(int argc, char *argv[])
     // Register C++ services
     NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
     PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
+    DisplayManagerCpp *displayManager = new DisplayManagerCpp(&app);
+    AudioManagerCpp *audioManager = new AudioManagerCpp(&app);
+    ModemManagerCpp *modemManager = new ModemManagerCpp(&app);
+    SensorManagerCpp *sensorManager = new SensorManagerCpp(&app);
     SettingsManager *settingsManager = new SettingsManager(&app);
     BluetoothManager *bluetoothManager = new BluetoothManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
     engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
+    engine.rootContext()->setContextProperty("DisplayManagerCpp", displayManager);
+    engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
+    engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
+    engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     
