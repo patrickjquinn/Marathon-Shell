@@ -8,16 +8,20 @@ QtObject {
     property bool wifiConnected: NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : true
     property string wifiSsid: NetworkManagerCpp ? NetworkManagerCpp.wifiSsid : "Home Network"
     property int wifiSignalStrength: NetworkManagerCpp ? NetworkManagerCpp.wifiSignalStrength : 85
+    property bool ethernetConnected: NetworkManagerCpp ? NetworkManagerCpp.ethernetConnected : false
+    property string ethernetConnectionName: NetworkManagerCpp ? NetworkManagerCpp.ethernetConnectionName : ""
+    property bool wifiAvailable: NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false
+    property bool bluetoothAvailable: NetworkManagerCpp ? NetworkManagerCpp.bluetoothAvailable : false
     property string wifiSecurity: "WPA2"
     property string wifiIpAddress: "192.168.1.100"
     
-    property bool cellularEnabled: true
-    property bool cellularConnected: true
-    property string cellularOperator: "Carrier"
-    property string cellularTechnology: "LTE"
-    property int cellularSignalStrength: 75
-    property bool cellularRoaming: false
-    property bool cellularDataEnabled: true
+    property bool cellularEnabled: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.modemEnabled : false
+    property bool cellularConnected: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.registered : false
+    property string cellularOperator: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.operatorName : ""
+    property string cellularTechnology: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.networkType : "Unknown"
+    property int cellularSignalStrength: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.signalStrength : 0
+    property bool cellularRoaming: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.roaming : false
+    property bool cellularDataEnabled: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.dataEnabled : false
     
     property bool bluetoothEnabled: NetworkManagerCpp ? NetworkManagerCpp.bluetoothEnabled : false
     property int bluetoothConnectedDevices: 0

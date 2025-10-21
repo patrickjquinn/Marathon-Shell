@@ -1,6 +1,7 @@
 #include "appmodel.h"
 #include "marathonappregistry.h"
 #include <QDebug>
+#include <algorithm>
 
 AppModel::AppModel(QObject* parent)
     : QAbstractListModel(parent)
@@ -220,5 +221,20 @@ void AppModel::cleanupMissingApps(const QStringList& registryAppIds)
             removeApp(hardcodedId);
         }
     }
+}
+
+void AppModel::sortAppsByName()
+{
+    qDebug() << "[AppModel] Sorting all apps alphabetically by name...";
+    
+    // Sort the apps vector by name (case-insensitive)
+    std::sort(m_apps.begin(), m_apps.end(), [](const App* a, const App* b) {
+        return a->name().toLower() < b->name().toLower();
+    });
+    
+    // Notify the view that the data has changed
+    emit dataChanged(index(0), index(m_apps.count() - 1));
+    
+    qDebug() << "[AppModel] Sorted" << m_apps.count() << "apps alphabetically";
 }
 

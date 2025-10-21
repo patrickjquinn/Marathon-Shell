@@ -89,11 +89,11 @@ Item {
         }
         
         Icon {
-            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            name: SystemStatusStore.ethernetConnected ? "cable" : StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            opacity: SystemStatusStore.ethernetConnected ? 1.0 : StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
         }
     }
 }

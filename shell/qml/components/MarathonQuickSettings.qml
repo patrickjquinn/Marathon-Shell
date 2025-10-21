@@ -16,6 +16,38 @@ Rectangle {
     property real dragStartY: 0
     property bool isDragging: false
     
+    // Reactive properties for tile updates
+    property string networkSubtitle: SystemStatusStore.ethernetConnected ? 
+        (NetworkManager.ethernetConnectionName || "Wired") : 
+        (SystemStatusStore.wifiNetwork || "Not connected")
+    property string networkIcon: SystemStatusStore.ethernetConnected ? "cable" : "wifi"
+    property string networkLabel: SystemStatusStore.ethernetConnected ? "Ethernet" : "Wi-Fi"
+    property string cellularSubtitle: (typeof CellularManager !== 'undefined' ? CellularManager.operatorName : "") || "No service"
+    property string batterySubtitle: "Battery " + SystemStatusStore.batteryLevel + "%"
+    
+    // Force model updates when key properties change
+    property int updateTrigger: 0
+    
+    Connections {
+        target: SystemControlStore
+        function onIsWifiOnChanged() { updateTrigger++ }
+        function onIsBluetoothOnChanged() { updateTrigger++ }
+        function onIsAirplaneModeOnChanged() { updateTrigger++ }
+        function onIsCellularOnChanged() { updateTrigger++ }
+    }
+    
+    Connections {
+        target: SystemStatusStore
+        function onWifiNetworkChanged() { updateTrigger++ }
+        function onEthernetConnectedChanged() { updateTrigger++ }
+        function onBatteryLevelChanged() { updateTrigger++ }
+    }
+    
+    Connections {
+        target: NetworkManager
+        function onEthernetConnectionNameChanged() { updateTrigger++ }
+    }
+    
     MouseArea {
         anchors.fill: parent
         z: -1
@@ -96,14 +128,14 @@ Rectangle {
                             
                             Repeater {
                                 model: [
-                                    { id: "settings", icon: "settings", label: "Settings", active: false },
-                                    { id: "lock", icon: "lock", label: "Lock device", active: false },
-                                    { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked },
-                                    { id: "wifi", icon: "wifi", label: "Wi-Fi", active: SystemControlStore.isWifiOn, subtitle: SystemStatusStore.wifiNetwork || "" },
-                                    { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn },
-                                    { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn },
-                                    { id: "torch", icon: "sun", label: "Torch", active: SystemControlStore.isFlashlightOn },
-                                    { id: "alarm", icon: "clock", label: "Alarm", active: SystemControlStore.isAlarmOn }
+                                    { id: "settings", icon: "settings", label: "Settings", active: false, available: true, trigger: updateTrigger },
+                                    { id: "lock", icon: "lock", label: "Lock device", active: false, available: true, trigger: updateTrigger },
+                                    { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked, available: true, trigger: updateTrigger },
+                                    { id: "wifi", icon: networkIcon, label: networkLabel, active: SystemControlStore.isWifiOn || SystemStatusStore.ethernetConnected, available: NetworkManager.wifiAvailable || SystemStatusStore.ethernetConnected, subtitle: networkSubtitle, trigger: updateTrigger },
+                                    { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn, available: NetworkManager.bluetoothAvailable, trigger: updateTrigger },
+                                    { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn, available: true, trigger: updateTrigger },
+                                    { id: "torch", icon: "sun", label: "Torch", active: SystemControlStore.isFlashlightOn, available: false, trigger: updateTrigger },
+                                    { id: "alarm", icon: "clock", label: "Alarm", active: SystemControlStore.isAlarmOn, available: true, trigger: updateTrigger }
                                 ]
                                 
                                 delegate: QuickSettingsTile {
@@ -129,10 +161,10 @@ Rectangle {
                             
                             Repeater {
                                 model: [
-                                    { id: "cellular", icon: "signal", label: "Mobile network", active: SystemControlStore.isCellularOn, subtitle: (typeof CellularManager !== 'undefined' ? CellularManager.operatorName : "") || "No service" },
-                                    { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, subtitle: "Normal" },
-                                    { id: "battery", icon: "battery", label: "Battery saving", active: SystemControlStore.isLowPowerMode },
-                                    { id: "monitor", icon: "info", label: "Device monitor", active: false, subtitle: "Battery " + SystemStatusStore.batteryLevel + "%" }
+                                    { id: "cellular", icon: "signal", label: "Mobile network", active: SystemControlStore.isCellularOn, available: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable), subtitle: cellularSubtitle, trigger: updateTrigger },
+                                    { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, available: true, subtitle: SystemControlStore.isDndMode ? "Silent" : "Normal", trigger: updateTrigger },
+                                    { id: "battery", icon: "battery", label: "Battery saving", active: SystemControlStore.isLowPowerMode, available: true, trigger: updateTrigger },
+                                    { id: "monitor", icon: "info", label: "Device monitor", active: false, available: true, subtitle: batterySubtitle, trigger: updateTrigger }
                                 ]
                                 
                                 delegate: QuickSettingsTile {

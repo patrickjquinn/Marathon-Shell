@@ -64,6 +64,7 @@ public:
     Q_INVOKABLE QString getAppName(const QString& appId);
     Q_INVOKABLE QString getAppIcon(const QString& appId);
     Q_INVOKABLE bool isNativeApp(const QString& appId);
+    Q_INVOKABLE void sortAppsByName();
     
     Q_INVOKABLE void loadFromRegistry(QObject* registryObj);
 
