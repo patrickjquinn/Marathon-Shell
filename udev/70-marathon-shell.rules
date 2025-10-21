@@ -1,0 +1,39 @@
+# Marathon Shell udev rules
+# Provides proper permissions for hardware access on mobile devices
+
+# Graphics devices (DRM/KMS)
+KERNEL=="card[0-9]*", TAG+="uaccess", TAG+="seat"
+SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="uaccess"
+
+# Input devices (touch, keyboard, etc.)
+KERNEL=="event[0-9]*", SUBSYSTEM=="input", TAG+="uaccess"
+SUBSYSTEM=="input", TAG+="uaccess"
+
+# Backlight control
+SUBSYSTEM=="backlight", RUN+="/bin/chmod 0666 /sys/class/backlight/%k/brightness"
+
+# LEDs (notification LED, torch, etc.)
+SUBSYSTEM=="leds", RUN+="/bin/chmod 0666 /sys/class/leds/%k/brightness"
+
+# Video devices (camera)
+SUBSYSTEM=="video4linux", TAG+="uaccess"
+
+# Sound devices
+SUBSYSTEM=="sound", TAG+="uaccess"
+
+# Power supply (battery, charger)
+SUBSYSTEM=="power_supply", TAG+="uaccess"
+
+# Sensors (accelerometer, gyroscope, proximity, light, etc.)
+SUBSYSTEM=="iio", TAG+="uaccess"
+
+# Modem devices
+SUBSYSTEM=="usb", ENV{ID_MM_DEVICE_IGNORE}!="1", TAG+="uaccess"
+SUBSYSTEM=="tty", SUBSYSTEMS=="usb", TAG+="uaccess"
+
+# Bluetooth devices
+SUBSYSTEM=="bluetooth", TAG+="uaccess"
+
+# GPS devices
+KERNEL=="ttyUSB*", TAG+="uaccess"
+KERNEL=="ttyACM*", TAG+="uaccess"

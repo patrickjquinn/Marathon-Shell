@@ -1,0 +1,26 @@
+[Unit]
+Description=Marathon Shell Wayland Compositor
+Documentation=https://github.com/patrickjquinn/Marathon-Shell
+After=graphical-session-pre.target
+PartOf=graphical-session.target
+Before=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/marathon-shell-session
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+
+# Environment
+Environment=XDG_SESSION_TYPE=wayland
+Environment=XDG_CURRENT_DESKTOP=marathon
+Environment=QT_QPA_PLATFORM=wayland
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=marathon-shell
+
+[Install]
+WantedBy=graphical-session.target

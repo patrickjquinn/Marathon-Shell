@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Marathon OS</vendor>
+  <vendor_url>https://github.com/patrickjquinn/Marathon-Shell</vendor_url>
+
+  <!-- Allow brightness control without password -->
+  <action id="org.marathonos.shell.control-brightness">
+    <description>Control screen brightness</description>
+    <message>Authentication is required to change screen brightness</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/marathon-shell-bin</annotate>
+  </action>
+
+  <!-- Allow power management without password -->
+  <action id="org.marathonos.shell.power-management">
+    <description>Power management operations</description>
+    <message>Authentication is required for power management</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Allow network management for active sessions -->
+  <action id="org.marathonos.shell.network-control">
+    <description>Control network connections</description>
+    <message>Authentication is required to modify network settings</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Allow bluetooth management -->
+  <action id="org.marathonos.shell.bluetooth-control">
+    <description>Control Bluetooth</description>
+    <message>Authentication is required to modify Bluetooth settings</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

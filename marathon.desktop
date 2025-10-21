@@ -1,7 +1,12 @@
 [Desktop Entry]
 Name=Marathon Shell
-Comment=Marathon Shell Wayland Compositor
-Exec=/usr/bin/marathon-shell
+Comment=Marathon OS Mobile Shell with Wayland compositor
+Exec=marathon-shell-session
+TryExec=marathon-shell-session
 Type=Application
-DesktopNames=Marathon
+DesktopNames=marathon
+Keywords=wayland;compositor;shell;mobile;
+Categories=System;
 
+# Session information
+X-Marathon-Version=1.0
