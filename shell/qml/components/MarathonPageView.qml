@@ -30,10 +30,14 @@ ListView {
     maximumFlickVelocity: 2000
     currentIndex: 2
     boundsBehavior: Flickable.StopAtBounds
-    highlightMoveDuration: 100
+    highlightMoveDuration: 0  // Instant transitions for better performance
     preferredHighlightBegin: 0
     preferredHighlightEnd: width
     cacheBuffer: width * 3
+    
+    // Performance optimizations
+    pixelAligned: true
+    reuseItems: true
     
     property int currentPage: currentIndex - 2
     property bool isGestureActive: false

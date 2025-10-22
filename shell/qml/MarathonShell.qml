@@ -1081,7 +1081,13 @@ Item {
     }
     
     Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_Escape) {
+        // Power button - lock the device
+        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            Logger.info("Shell", "Power button pressed - locking device")
+            SessionStore.lock()
+            HapticService.medium()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Escape) {
             Logger.debug("Shell", "Escape key pressed")
             if (showPinScreen) {
                 showPinScreen = false
