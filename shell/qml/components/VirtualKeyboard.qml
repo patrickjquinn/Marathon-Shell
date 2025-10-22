@@ -39,7 +39,7 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.12)
         z: -1
-        visible: keyboard.status === Loader.Ready
+        visible: inputPanel.active
     }
 }
 
