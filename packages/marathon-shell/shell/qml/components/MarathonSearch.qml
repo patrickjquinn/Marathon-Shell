@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -309,11 +308,22 @@ Item {
     }
     
     function selectResult(result) {
+        // Prevent double execution
+        if (searchOverlay.opacity < 1.0 || !active) {
+            return
+        }
+        
         Logger.info("Search", "Result selected: " + result.title)
         UnifiedSearchService.addToRecentSearches(searchQuery)
-        UnifiedSearchService.executeSearchResult(result)
-        resultSelected(result)
+        
+        // Close first to prevent double-tap through
         close()
+        
+        // Execute after a brief delay to ensure search is closed
+        Qt.callLater(function() {
+            UnifiedSearchService.executeSearchResult(result)
+            resultSelected(result)
+        })
     }
     
     onActiveChanged: {

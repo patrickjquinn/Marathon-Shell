@@ -126,10 +126,11 @@ QtObject {
     }
     
     function restoreApp(appId, appName, appIcon) {
-        currentAppId = appId
+        // CRITICAL: Set appWindowOpen BEFORE currentAppId so signal handlers see correct state
+        appWindowOpen = true
         currentAppName = appName
         currentAppIcon = appIcon
-        appWindowOpen = true
+        currentAppId = appId  // Set last so onCurrentAppIdChanged fires with appWindowOpen=true
         
         // Also set settingsOpen for Settings app
         if (appId === "settings") {

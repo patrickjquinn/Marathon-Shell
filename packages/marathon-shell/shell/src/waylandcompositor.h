@@ -30,8 +30,8 @@ public:
 
 signals:
     void surfacesChanged();
-    void surfaceCreated(QWaylandSurface *surface);
-    void surfaceDestroyed(QWaylandSurface *surface);
+    void surfaceCreated(QWaylandSurface *surface, int surfaceId, QObject *xdgSurface);
+    void surfaceDestroyed(QWaylandSurface *surface, int surfaceId);
     void appLaunched(const QString &command, int pid);
     void appClosed(int pid);
 

@@ -35,12 +35,6 @@ import MarathonOS.Shell
 Item {
     id: root
     
-    // Enable layer rendering for proper ShaderEffectSource capture in task switcher
-    layer.enabled: true
-    layer.smooth: true
-    layer.mipmap: false
-    layer.samples: 0
-    
     // App metadata
     property string appId: ""
     property string appName: ""

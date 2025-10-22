@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtMultimedia
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Controls
@@ -13,29 +14,129 @@ MApp {
     appName: "Music"
     appIcon: "assets/icon.svg"
     
-    property var currentTrack: {
-        "title": "Midnight Drive",
-        "artist": "The Weekend Vibes",
-        "album": "Neon Nights",
-        "duration": 243,
-        "position": 67
-    }
-    
-    property bool isPlaying: false
+    property var currentTrack: null
+    property bool isPlaying: audioPlayer.playbackState === MediaPlayer.PlayingState
     property bool shuffle: false
     property string repeatMode: "off"
+    property var playlist  // No initial binding - set by library scan
     
-    property var playlist: [
-        { title: "Midnight Drive", artist: "The Weekend Vibes", album: "Neon Nights", duration: 243 },
-        { title: "Starlight Symphony", artist: "Luna Eclipse", album: "Cosmic Dreams", duration: 198 },
-        { title: "Urban Rhythm", artist: "City Beats", album: "Street Stories", duration: 215 },
-        { title: "Ocean Waves", artist: "Ambient Collective", album: "Nature Sounds", duration: 312 },
-        { title: "Electric Dreams", artist: "Synthwave Masters", album: "Retro Future", duration: 267 }
-    ]
+    Component.onCompleted: {
+        // Initialize playlist
+        if (typeof MusicLibraryManager !== 'undefined') {
+            playlist = MusicLibraryManager.getAllTracks()
+            MusicLibraryManager.scanLibrary()
+        } else {
+            playlist = []  // Fallback to empty
+        }
+    }
+    
+    Connections {
+        target: typeof MusicLibraryManager !== 'undefined' ? MusicLibraryManager : null
+        function onScanComplete(trackCount) {
+            Logger.info("Music", "Library scan complete: " + trackCount + " tracks")
+            playlist = MusicLibraryManager.getAllTracks()
+            if (playlist.length > 0 && !currentTrack) {
+                currentTrack = playlist[0]
+            }
+        }
+    }
+    
+    MediaPlayer {
+        id: audioPlayer
+        audioOutput: AudioOutput {
+            id: audioOutput
+        }
+        
+        onPositionChanged: {
+            if (currentTrack && currentTrack.duration) {
+                var newPos = position / 1000
+                if (!isNaN(newPos) && isFinite(newPos)) {
+                    currentTrack.position = newPos
+                }
+            }
+        }
+        
+        onDurationChanged: {
+            if (currentTrack && duration > 0) {
+                var newDur = duration / 1000
+                if (!isNaN(newDur) && isFinite(newDur)) {
+                    currentTrack.duration = newDur
+                }
+            }
+        }
+        
+        onPlaybackStateChanged: {
+            if (playbackState === MediaPlayer.StoppedState && currentTrack) {
+                playNext()
+            }
+        }
+        
+        onErrorOccurred: function(error, errorString) {
+            Logger.error("Music", "Playback error: " + errorString)
+        }
+    }
+    
+    function playTrack(track) {
+        if (!track) return
+        
+        currentTrack = track
+        currentTrack.position = 0
+        audioPlayer.source = track.path
+        audioPlayer.play()
+        Logger.info("Music", "Playing: " + track.title + " by " + track.artist)
+    }
+    
+        function playNext() {
+            if (playlist.length === 0) return
+
+            var currentIndex = -1
+            for (var i = 0; i < playlist.length; i++) {
+                if (playlist[i].id === currentTrack.id) {
+                    currentIndex = i
+                    break
+                }
+            }
+
+            var nextIndex
+            if (shuffle) {
+                // True random shuffle - exclude current track
+                do {
+                    nextIndex = Math.floor(Math.random() * playlist.length)
+                } while (nextIndex === currentIndex && playlist.length > 1)
+            } else {
+                nextIndex = (currentIndex + 1) % playlist.length
+            }
+
+            if (repeatMode === "off" && nextIndex <= currentIndex && !shuffle) {
+                audioPlayer.stop()
+                return
+            }
+            
+            if (repeatMode === "single") {
+                playTrack(currentTrack)
+            } else {
+                playTrack(playlist[nextIndex])
+            }
+        }
+    
+    function playPrevious() {
+        if (playlist.length === 0) return
+        
+        var currentIndex = -1
+        for (var i = 0; i < playlist.length; i++) {
+            if (playlist[i].id === currentTrack.id) {
+                currentIndex = i
+                break
+            }
+        }
+        
+        var prevIndex = (currentIndex - 1 + playlist.length) % playlist.length
+        playTrack(playlist[prevIndex])
+    }
     
     function formatTime(seconds) {
         var mins = Math.floor(seconds / 60)
-        var secs = seconds % 60
+        var secs = Math.floor(seconds % 60)
         return mins + ":" + (secs < 10 ? "0" : "") + secs
     }
     
@@ -98,7 +199,7 @@ MApp {
                             
                             Text {
                                 width: parent.width
-                                text: currentTrack.title
+                                text: currentTrack ? currentTrack.title : "No Track"
                                 font.pixelSize: Constants.fontSizeXLarge
                                 font.weight: Font.Bold
                                 color: MColors.text
@@ -108,7 +209,7 @@ MApp {
                             
                             Text {
                                 width: parent.width
-                                text: currentTrack.artist
+                                text: currentTrack ? currentTrack.artist : "Select a track"
                                 font.pixelSize: Constants.fontSizeLarge
                                 color: MColors.textSecondary
                                 horizontalAlignment: Text.AlignHCenter
@@ -117,7 +218,7 @@ MApp {
                             
                             Text {
                                 width: parent.width
-                                text: currentTrack.album
+                                text: currentTrack ? currentTrack.album : ""
                                 font.pixelSize: Constants.fontSizeMedium
                                 color: MColors.textTertiary
                                 horizontalAlignment: Text.AlignHCenter
@@ -134,10 +235,12 @@ MApp {
                                MSlider {
                                    width: parent.width
                                    from: 0
-                                   to: currentTrack.duration
-                                   value: currentTrack.position
+                                   to: (currentTrack && currentTrack.duration) ? currentTrack.duration : 100
+                                   value: (currentTrack && currentTrack.position) ? currentTrack.position : 0
                                    onMoved: {
-                                       currentTrack.position = value
+                                       if (currentTrack && currentTrack.duration) {
+                                           audioPlayer.position = value * 1000
+                                       }
                                    }
                                }
 
@@ -145,7 +248,7 @@ MApp {
                                    width: parent.width
 
                                    Text {
-                                       text: formatTime(currentTrack.position)
+                                       text: formatTime(currentTrack ? currentTrack.position : 0)
                                        font.pixelSize: Constants.fontSizeSmall
                                        color: MColors.textSecondary
                                    }
@@ -156,7 +259,7 @@ MApp {
                                    }
 
                                    Text {
-                                       text: formatTime(currentTrack.duration)
+                                       text: formatTime(currentTrack ? currentTrack.duration : 0)
                                        font.pixelSize: Constants.fontSizeSmall
                                        color: MColors.textSecondary
                                    }
@@ -262,7 +365,14 @@ MApp {
                                         parent.scale = 1.0
                                     }
                                     onClicked: {
-                                        isPlaying = !isPlaying
+                                        if (isPlaying) {
+                                            audioPlayer.pause()
+                                        } else {
+                                            if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState) {
+                                                audioPlayer.source = currentTrack.path
+                                            }
+                                            audioPlayer.play()
+                                        }
                                     }
                                 }
                                 
@@ -347,6 +457,7 @@ MApp {
                     width: parent.width
                     height: parent.height
                     clip: true
+                    topMargin: Constants.spacingMedium
                     
                     model: playlist
                     

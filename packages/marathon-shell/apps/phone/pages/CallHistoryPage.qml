@@ -12,6 +12,7 @@ Rectangle {
         anchors.margins: Constants.spacingMedium
         spacing: Constants.spacingSmall
         clip: true
+        topMargin: Constants.spacingMedium
         
         model: phoneApp.callHistory
         

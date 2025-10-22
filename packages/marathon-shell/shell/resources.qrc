@@ -14,7 +14,6 @@
         <file alias="notes.svg">resources/images/notes.svg</file>
     </qresource>
     <qresource prefix="/wallpapers">
-        <file>resources/wallpapers/marathon-logo.jpg</file>
         <file>resources/wallpapers/wallpaper.jpg</file>
         <file>resources/wallpapers/wallpaper2.jpg</file>
         <file>resources/wallpapers/wallpaper3.jpg</file>
@@ -126,6 +125,7 @@
         <file alias="star-off.svg">resources/images/icons/lucide/star-off.svg</file>
         <file alias="send.svg">resources/images/icons/lucide/send.svg</file>
         <file alias="message-circle.svg">resources/images/icons/lucide/message-circle.svg</file>
+        <file alias="cable.svg">resources/images/icons/lucide/cable.svg</file>
     </qresource>
     <qresource prefix="/sounds">
         <file>resources/sounds/alarms/alarm_antelope.wav</file>

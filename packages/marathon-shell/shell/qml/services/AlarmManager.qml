@@ -310,11 +310,11 @@ QtObject {
         }
     }
     
-    Timer {
+    property var checkTimer: Timer {
         id: checkTimer
         repeat: true
         running: true
-        interval: 60000  // Check every minute
+        interval: 60000
         onTriggered: {
             _checkAlarms()
             _scheduleNextAlarm()

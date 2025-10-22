@@ -1,12 +1,14 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Effects
 
 Rectangle {
     id: tile
     
     property var toggleData: ({})
     property real tileWidth: 160
+    property bool isAvailable: toggleData.available !== undefined ? toggleData.available : true
     
     signal tapped()
     signal longPressed()
@@ -16,10 +18,19 @@ Rectangle {
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
     border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
-    color: MColors.surface
+    color: isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
     antialiasing: Constants.enableAntialiasing
+    scale: isPressed ? 0.98 : 1.0
+    opacity: isAvailable ? 1.0 : 0.5
     
-    // NO scale animation - BB10 style
+    Behavior on scale {
+        enabled: Constants.enableAnimations
+        SpringAnimation { 
+            spring: MMotion.springMedium
+            damping: MMotion.dampingMedium
+            epsilon: MMotion.epsilon
+        }
+    }
     
     Behavior on border.color {
         ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
@@ -53,6 +64,12 @@ Rectangle {
         antialiasing: Constants.enableAntialiasing
     }
     
+    // Ripple effect
+    MRipple {
+        id: rippleEffect
+        rippleColor: toggleData.active ? Qt.rgba(0.078, 0.722, 0.651, 0.2) : MColors.ripple
+    }
+    
     Row {
         anchors.fill: parent
         anchors.margins: 14
@@ -65,7 +82,7 @@ Rectangle {
             
             Icon {
                 name: toggleData.icon || "grid"
-                color: toggleData.active ? MColors.accentBright : MColors.text
+                color: !isAvailable ? MColors.textSecondary : (toggleData.active ? MColors.accentBright : MColors.text)
                 size: Constants.iconSizeMedium
                 anchors.centerIn: parent
                 
@@ -117,9 +134,11 @@ Rectangle {
     MouseArea {
         id: toggleMouseArea
         anchors.fill: parent
+        enabled: isAvailable
         
-        onPressed: {
+        onPressed: function(mouse) {
             isPressed = true
+            rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
             HapticService.light()
         }
         
@@ -132,10 +151,15 @@ Rectangle {
         }
         
         onClicked: {
+            if (!isAvailable) {
+                Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + toggleData.id)
+                return
+            }
             tile.tapped()
         }
         
         onPressAndHold: {
+            if (!isAvailable) return
             HapticService.medium()
             tile.longPressed()
         }

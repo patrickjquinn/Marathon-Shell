@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
-import "./pages"
-import "./components"
+import "pages"
+import "components"
 
 MApp {
     id: settingsApp
@@ -263,8 +263,18 @@ MApp {
     // Listen for deep link navigation
     Connections {
         target: NavigationRouter
+        
+        // Modern deep link handler
+        function onDeepLinkRequested(appId, route, params) {
+            if (appId === "settings") {
+                Logger.info("SettingsApp", "Deep link requested: " + route)
+                navigateToSettingsPage(route, params)
+            }
+        }
+        
+        // Legacy handler (deprecated but kept for compatibility)
         function onSettingsNavigationRequested(page, subpage, params) {
-            Logger.info("SettingsApp", "Deep link navigation: " + page)
+            Logger.info("SettingsApp", "Legacy navigation: " + page)
             navigateToSettingsPage(page, params)
         }
     }

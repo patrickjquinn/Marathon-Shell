@@ -1,6 +1,7 @@
 #include "appmodel.h"
 #include "marathonappregistry.h"
 #include <QDebug>
+#include <algorithm>
 
 AppModel::AppModel(QObject* parent)
     : QAbstractListModel(parent)
@@ -35,6 +36,8 @@ QVariant AppModel::data(const QModelIndex& index, int role) const
         return app->icon();
     case TypeRole:
         return app->type();
+    case ExecRole:
+        return app->exec();
     default:
         return QVariant();
     }
@@ -47,6 +50,7 @@ QHash<int, QByteArray> AppModel::roleNames() const
     roles[NameRole] = "name";
     roles[IconRole] = "icon";
     roles[TypeRole] = "type";
+    roles[ExecRole] = "exec";
     return roles;
 }
 
@@ -62,7 +66,7 @@ App* AppModel::getAppAtIndex(int index)
     return m_apps.at(index);
 }
 
-void AppModel::addApp(const QString& id, const QString& name, const QString& icon, const QString& type)
+void AppModel::addApp(const QString& id, const QString& name, const QString& icon, const QString& type, const QString& exec)
 {
     // Check if app already exists
     if (m_appIndex.contains(id)) {
@@ -70,8 +74,25 @@ void AppModel::addApp(const QString& id, const QString& name, const QString& ico
         return;
     }
 
+    // Validate inputs
+    if (name.isEmpty()) {
+        qWarning() << "[AppModel] Invalid app: empty name for ID:" << id;
+        return;
+    }
+
+    if (icon.isEmpty()) {
+        qWarning() << "[AppModel] Invalid app: empty icon for ID:" << id;
+        return;
+    }
+
+    // Validate type is one of: "native", "marathon", "system"
+    if (type != "native" && type != "marathon" && type != "system") {
+        qWarning() << "[AppModel] Invalid app type:" << type << "for ID:" << id;
+        return;
+    }
+
     beginInsertRows(QModelIndex(), m_apps.count(), m_apps.count());
-    App* app = new App(id, name, icon, type, this);
+    App* app = new App(id, name, icon, type, exec, this);
     m_apps.append(app);
     m_appIndex[id] = app;
     endInsertRows();
@@ -200,5 +221,20 @@ void AppModel::cleanupMissingApps(const QStringList& registryAppIds)
             removeApp(hardcodedId);
         }
     }
+}
+
+void AppModel::sortAppsByName()
+{
+    qDebug() << "[AppModel] Sorting all apps alphabetically by name...";
+    
+    // Sort the apps vector by name (case-insensitive)
+    std::sort(m_apps.begin(), m_apps.end(), [](const App* a, const App* b) {
+        return a->name().toLower() < b->name().toLower();
+    });
+    
+    // Notify the view that the data has changed
+    emit dataChanged(index(0), index(m_apps.count() - 1));
+    
+    qDebug() << "[AppModel] Sorted" << m_apps.count() << "apps alphabetically";
 }
 

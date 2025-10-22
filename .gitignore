@@ -1,60 +1,79 @@
-# Marathon OS .gitignore
+# Marathon OS - Git Ignore File
 
-# Build outputs
+# Build artifacts and logs
+*.log
+*.pid
+build/
+build-*/
+.cache/
+
+# Temporary debug/test files
+*.txt
+!BUILD_INSTRUCTIONS.txt
+!CONTRIBUTING.txt
+
+# Package build artifacts
+packages/*/build/
+packages/*/pkg/
+packages/*/src/
+packages/*/*.tar.gz
+!packages/marathon-shell/marathon-shell-1.0.0.tar.gz
+
+# Output images (too large for git)
 out/
 *.img
-*.zip
-*.tar.gz
-*.tar.xz
+*.iso
 
-# Temporary build files
-*.o
-*.ko
-*.mod
-*.mod.c
-*.a
-*.so
-*.so.*
-.tmp_versions/
-modules.order
-Module.symvers
-*.dwo
-
-# Alpine/pmbootstrap
-.abuild/
-*.apk
-*.APKINDEX.tar.gz
+# pmbootstrap cache and chroots
+.pmbootstrap/
+chroot_*/
 
 # Kernel build artifacts
-.config.old
-.version
-vmlinux
-System.map
-*.dtb
-*.dtbo
+*.o
+*.ko
+*.mod.c
+.tmp_versions/
+Module.symvers
+modules.order
 
-# Editor files
+# Editor and IDE files
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
-.*.swp
-.*.swo
-.vscode/
-.idea/
-*.sublime-*
 .DS_Store
 
-# Logs
-*.log
-*.log.*
-
-# Cached files
+# Python
 __pycache__/
-*.pyc
-*.pyo
-.cache/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
 
-# Plan files (optional - uncomment if you don't want to track plans)
-# *.plan.md
+# Backup files
+*.bak
+*.backup
+*-old
+*-backup
 
+# Temporary files
+tmp/
+temp/
+*.tmp
 
+# Marathon Shell embedded repo (if present)
+packages/marathon-shell/shell/
+packages/marathon-shell/apps/
+packages/marathon-shell/.git/
+packages/marathon-shell/build/
+packages/marathon-shell/build-apps/
+
+# oneplus-enchilada pmaports (if copied)
+oneplus-enchilada/
+
+# Shared/mounted directories
+mnt-share/
+personal/

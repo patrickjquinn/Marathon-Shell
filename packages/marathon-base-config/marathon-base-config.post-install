@@ -5,6 +5,16 @@ echo "Reloading systemd and udev configurations..."
 
 if [ -x /bin/systemctl ]; then
 	systemctl daemon-reload || true
+	
+	# Enable essential services
+	echo "Enabling NetworkManager..."
+	systemctl enable NetworkManager || true
+	
+	echo "Enabling ModemManager..."
+	systemctl enable ModemManager || true
+	
+	echo "Enabling zram..."
+	systemctl enable systemd-zram-setup@zram0.service || true
 fi
 
 if [ -x /bin/udevadm ]; then
@@ -17,6 +27,7 @@ if [ -x /sbin/sysctl ]; then
 	sysctl --system || true
 fi
 
+echo "Marathon OS base configuration complete."
 exit 0
 
 

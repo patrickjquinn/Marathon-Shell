@@ -2,24 +2,76 @@ pragma Singleton
 import QtQuick
 import MarathonOS.Shell
 
+/**
+ * @singleton
+ * @brief Handles Marathon URI scheme navigation and deep linking
+ * 
+ * NavigationRouter provides a centralized system for navigating between
+ * apps and pages using Marathon URIs (marathon://app/page?params).
+ * Supports deep linking, navigation history, and app launching.
+ * 
+ * URI Format: `marathon://appId/page?param1=value1&param2=value2`
+ * 
+ * @example
+ * // Navigate to settings WiFi page
+ * NavigationRouter.navigate("marathon://settings/wifi")
+ * 
+ * @example
+ * // Open browser with URL
+ * NavigationRouter.navigate("marathon://browser/view?url=https://example.com")
+ * 
+ * @example
+ * // Quick launch shortcut
+ * NavigationRouter.quickLaunch("camera")
+ */
 QtObject {
     id: router
     
-    // Current navigation state
+    /**
+     * @brief Currently active app ID
+     * @type {string}
+     */
     property string currentApp: ""
+    
+    /**
+     * @brief Currently active page within the app
+     * @type {string}
+     */
     property string currentPage: ""
+    
+    /**
+     * @brief Current navigation parameters
+     * @type {Object}
+     */
     property var currentParams: ({})
     
-    // Navigation history
+    /**
+     * @brief Navigation history stack
+     * @type {Array<Object>}
+     */
     property var history: []
     
+    /**
+     * @brief Emitted when navigation succeeds
+     * @param {string} uri - The URI that was navigated to
+     */
     signal navigated(string uri)
+    
+    /**
+     * @brief Emitted when navigation fails
+     * @param {string} uri - The URI that failed
+     * @param {string} error - Error message
+     */
     signal navigationFailed(string uri, string error)
     
     /**
-     * Navigate to a Marathon URI
-     * @param uri {string} - Full Marathon URI (marathon://app/page?params)
-     * @returns {bool} - Success status
+     * @brief Navigates to a Marathon URI
+     * 
+     * @param {string} uri - Full Marathon URI (marathon://app/page?params)
+     * @returns {bool} Success status
+     * 
+     * @example
+     * NavigationRouter.navigate("marathon://settings/display")
      */
     function navigate(uri) {
         Logger.info("NavigationRouter", "Navigate to: " + uri)
@@ -155,9 +207,9 @@ QtObject {
         Logger.info("NavigationRouter", "Routing to Browser")
         
         var url = parsed.params.url || ""
-        AppStore.launchApp("browser")
         
-        // TODO: Pass URL to browser when app integration is complete
+        // Launch browser with URL parameter
+        deepLinkRequested("browser", "", { url: url })
         
         navigated("marathon://browser")
         return true
@@ -184,27 +236,33 @@ QtObject {
     function navigateToDeepLink(appId, route, params) {
         Logger.info("NavigationRouter", "Deep link requested: " + appId + " → " + route)
         
-        // Launch app if not already open
+        // Get app info
         var appInfo = typeof MarathonAppRegistry !== 'undefined' ? 
                       MarathonAppRegistry.getApp(appId) : null
         
-        if (appInfo) {
-            // Launch the app first
-            AppStore.launchApp(appId)
-            
-            // Emit deep link signal for app to handle
-            deepLinkRequested(appId, route, params || {})
-            
-            // Legacy: Settings still uses old signal
-            if (appId === "settings") {
-                settingsNavigationRequested(route, "", params || {})
-            }
-            
-            return true
+        if (!appInfo) {
+            Logger.error("NavigationRouter", "App not found for deep link: " + appId)
+            return false
         }
         
-        Logger.error("NavigationRouter", "App not found for deep link: " + appId)
-        return false
+        // Check if THIS specific app is already open
+        var isAppOpen = (UIStore.appWindowOpen && UIStore.currentAppId === appId)
+        
+        if (!isAppOpen) {
+            // Launch the app first using UIStore
+            UIStore.openApp(appId, appInfo.name, appInfo.icon)
+        }
+        
+        // Emit deep link signal for app to handle (after a small delay if we just opened it)
+        if (isAppOpen) {
+            deepLinkRequested(appId, route, params || {})
+        } else {
+            Qt.callLater(function() {
+                deepLinkRequested(appId, route, params || {})
+            })
+        }
+        
+        return true
     }
     
     Component.onCompleted: {

@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -41,7 +41,6 @@ source="
 	60-marathon-cpufreq.rules
 	60-marathon-iosched.rules
 	60-gpu-acceleration.rules
-	50-marathon-sleep.conf
 	50-marathon-limits.conf
 	50-pipewire-priority.conf
 	50-modemmanager-priority.conf
@@ -59,8 +58,6 @@ package() {
 		"$pkgdir/etc/udev/rules.d/60-marathon-iosched.rules"
 	install -Dm644 "$srcdir/60-gpu-acceleration.rules" \
 		"$pkgdir/etc/udev/rules.d/60-gpu-acceleration.rules"
-	install -Dm644 "$srcdir/50-marathon-sleep.conf" \
-		"$pkgdir/etc/systemd/sleep.conf.d/50-marathon.conf"
 	install -Dm644 "$srcdir/50-marathon-limits.conf" \
 		"$pkgdir/etc/security/limits.d/50-marathon.conf"
 	install -d "$pkgdir"/etc/systemd/system/pipewire.service.d
@@ -82,7 +79,6 @@ sha512sums="
 1e67bd4c3535b35518b2677202a079be9ea3b12dee3d047ca86dde4e2b75d034b48712c0df9c2ab8ac000b014221f1dd3c0d84656e835a3cc4dde7b2d31b6002  60-marathon-cpufreq.rules
 36582312335aa3f821e4e474cebabb6735e83a2241187830eff03e8006a95b025184bd3eb9f00211976aec7e9ebfde16efccf8c58d0e59e3d159bcaa681b6f7d  60-marathon-iosched.rules
 7161cf7d0921688f038df7cee8df0367f656eb58bfcd3835043e0abb72a04a01478e4a850d5b42f813cdedafada29eec3dfe827396db836053c6e7cf280e00d7  60-gpu-acceleration.rules
-93865b797c877973f7d7f552be8adc14d942ddff34e7fc15c4ac84b59d6fb3ba21a1d2f3f1a2cede173c0235d5537431d31837f8c66c8af0cca96a6b4cf6815b  50-marathon-sleep.conf
 c749d2bc17b8330d9461a94b2b7ca8103c58f5f5130a8c50d67093c6f8fad461c6a3b6971f08d9fc989e29dd1ad951d6be2a65d04e998b3ea4dea581dcaa2f9b  50-marathon-limits.conf
 80d4b35fc079fe96d3fe6672427765b7c884481551cf09af6da7c1de095ecd0aba8bacdf53f8c3b4f9c69ccfcb6ceea8a3dc44fa4ce9f98c8880384145edcf5b  50-pipewire-priority.conf
 eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339aaf6d34ec664b0d41b0f2e823ba37a5bdc3d8e2f8285fcdf  50-modemmanager-priority.conf

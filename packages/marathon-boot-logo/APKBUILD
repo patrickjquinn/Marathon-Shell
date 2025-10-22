@@ -1,0 +1,31 @@
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-boot-logo
+pkgver=1.0.0
+pkgrel=0
+pkgdesc="Marathon OS boot logo for unl0kr"
+url="https://github.com/patrickjquinn/Marathon-Image"
+arch="all"
+license="MIT"
+depends="unl0kr"
+options="!check"
+source="marathon-logo.png"
+
+package() {
+	# Install Marathon logo for unl0kr boot splash
+	install -Dm644 "$srcdir/marathon-logo.png" \
+		"$pkgdir/usr/share/unl0kr/marathon-logo.png"
+	
+	# Create unl0kr config to use Marathon logo
+	install -Dm644 /dev/stdin "$pkgdir/etc/unl0kr.conf" <<-EOF
+	[general]
+	backend = fbdev
+	animations = true
+	
+	[theme]
+	background = /usr/share/unl0kr/marathon-logo.png
+	EOF
+}
+
+sha512sums="11150b37277bebc91826c05a7a26a3ea483640c85ea00b3e20658116570230f238aed6be9c47db820eff6ae3ad0a3857c32d50e34ed981898c609507f23cca01  marathon-logo.png"
+

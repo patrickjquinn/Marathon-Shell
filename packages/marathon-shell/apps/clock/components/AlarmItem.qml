@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Controls
+import MarathonUI.Theme
 
 Item {
     id: alarmItem
@@ -14,6 +16,7 @@ Item {
     
     signal toggled()
     signal deleted()
+    signal clicked()
     
     function formatTime(hour, minute) {
         var h = hour
@@ -32,6 +35,11 @@ Item {
         anchors.rightMargin: Constants.spacingLarge
         color: "transparent"
         
+        MouseArea {
+            anchors.fill: parent
+            onClicked: alarmItem.clicked()
+        }
+        
         Row {
             anchors.fill: parent
             anchors.margins: Constants.spacingMedium
@@ -44,49 +52,24 @@ Item {
                 
                 Text {
                     text: formatTime(alarmHour, alarmMinute)
-                    color: alarmEnabled ? Colors.text : Colors.textSecondary
+                    color: alarmEnabled ? MColors.text : MColors.textSecondary
                     font.pixelSize: Constants.fontSizeXLarge
                     font.weight: Font.Bold
                 }
                 
                 Text {
                     text: alarmLabel
-                    color: Colors.textSecondary
+                    color: MColors.textSecondary
                     font.pixelSize: Constants.fontSizeSmall
                 }
             }
             
-            Rectangle {
+            MToggle {
                 id: toggleSwitch
                 anchors.verticalCenter: parent.verticalCenter
-                width: Constants.touchTargetMedium
-                height: Constants.touchTargetMinimum - Constants.spacingMedium
-                radius: height / 2
-                color: alarmEnabled ? Colors.accent : Colors.surfaceLight
-                
-                Behavior on color {
-                    ColorAnimation { duration: 200 }
-                }
-                
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: alarmEnabled ? parent.width - width - Constants.spacingXSmall : Constants.spacingXSmall
-                    width: parent.height - Constants.spacingXSmall * 2
-                    height: width
-                    radius: width / 2
-                    color: Colors.background
-                    
-                    Behavior on x {
-                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
-                    }
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticService.light()
-                        alarmItem.toggled()
-                    }
+                checked: alarmEnabled
+                onToggled: {
+                    alarmItem.toggled()
                 }
             }
         }
@@ -98,7 +81,7 @@ Item {
             anchors.leftMargin: Constants.spacingMedium
             anchors.rightMargin: Constants.spacingMedium
             height: Constants.borderWidthThin
-            color: Colors.border
+            color: MColors.border
         }
     }
 }

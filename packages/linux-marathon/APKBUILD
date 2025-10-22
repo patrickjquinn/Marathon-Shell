@@ -6,35 +6,36 @@
 _device="${device:-enchilada}"
 
 pkgname=linux-marathon
-pkgver=6.17.3
+pkgver=6.14_rc5
 pkgrel=0
-pkgdesc="Marathon OS optimized Linux kernel for ARM64 mobile devices ($_device)"
-url="https://kernel.org"
+pkgdesc="Marathon OS optimized Linux kernel for SDM845 devices with PREEMPT_RT"
+url="https://gitlab.com/sdm845-mainline/linux"
 arch="aarch64"
+_carch="arm64"
 license="GPL-2.0-only"
 depends="initramfs-generator"
 provides="linux"
 replaces="linux-postmarketos-qcom-sdm845 postmarketos-qcom-sdm845"
 provider_priority=100
 makedepends="
+	bash
 	bison
 	findutils
 	flex
-	gmp-dev
-	mpc1-dev
-	mpfr-dev
+	installkernel
 	openssl-dev
 	perl
-	postmarketos-installkernel
-	rsync
-	xz
+	python3
+	zstd
 "
-options="!strip !check !tracedeps"
+options="!strip !check !tracedeps
+	pmb:cross-native"
+_tag="sdm845-6.14-rc5-r2"
 source="
-	https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$pkgver.tar.xz
-	config-marathon-complete.aarch64
+	linux-$_tag.tar.gz::https://gitlab.com/sdm845-mainline/linux/-/archive/$_tag/linux-$_tag.tar.gz
+	config-marathon-sdm845-preempt-rt.aarch64
 "
-builddir="$srcdir/linux-$pkgver"
+builddir="$srcdir/linux-$_tag"
 
 # Add device-specific config fragment if it exists
 if [ -f "../../devices/$_device/kernel-config.fragment" ]; then
@@ -45,13 +46,21 @@ fi
 prepare() {
 	default_prepare
 	
-	# Use complete Marathon config (no merge needed)
-	msg "Using complete Marathon kernel config..."
-	cp "$srcdir/config-marathon-complete.aarch64" .config
+	# Use Marathon config with PREEMPT_RT enabled
+	msg "Using Marathon kernel config with PREEMPT_RT..."
+	cp "$srcdir/config-marathon-sdm845-preempt-rt.aarch64" .config
 	
-	# Verify MSM drivers are in config
+	# Verify PREEMPT_RT is enabled
+	msg "Verifying PREEMPT_RT configuration:"
+	grep -E "CONFIG_PREEMPT_RT=y" .config || msg "WARNING: PREEMPT_RT not enabled!"
+	
+	# Verify Marathon optimizations
+	msg "Verifying Marathon optimizations:"
+	grep -E "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=|CONFIG_DEFAULT_KYBER=" .config || msg "WARNING: Marathon optimizations not found!"
+	
+	# Verify critical drivers are in config
 	msg "Verifying MSM drivers in config:"
-	grep -E "CONFIG_DRM_MSM|CONFIG_QCOM_LLCC|CONFIG_QCOM_OCMEM" .config || msg "WARNING: MSM drivers not found in config!"
+	grep -E "CONFIG_DRM_MSM=|CONFIG_QCOM_LLCC=|CONFIG_QCOM_OCMEM=" .config || msg "WARNING: MSM drivers not found in config!"
 	
 	# Let kconfig resolve any missing options
 	make ARCH=arm64 olddefconfig
@@ -60,29 +69,43 @@ prepare() {
 
 build() {
 	unset LDFLAGS
-	make ARCH=arm64 \
-		KBUILD_BUILD_VERSION="$((pkgrel + 1))-Marathon-$_device"
+	make ARCH="$_carch" CC="${CC:-gcc}" \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1))-Marathon"
 }
 
 package() {
-	mkdir -p "$pkgdir"/boot
-	make -j1 ARCH=arm64 \
+	if [ -e "$builddir/arch/$_carch/boot/vmlinuz.efi" ]; then
+		# ZBOOT EFI decompressor for EFI booting
+		install -Dm644 "$builddir/arch/$_carch/boot/vmlinuz.efi" \
+			"$pkgdir/boot/linux.efi"
+
+		# Old GZIP'd kernel image for boot.img compatibility
+		install -Dm644 "$builddir/arch/$_carch/boot/vmlinuz" \
+			"$pkgdir/boot/vmlinuz"
+	else
+		echo "WARNING: CONFIG_ZBOOT not enabled!"
+		install -Dm644 "$builddir/arch/$_carch/boot/Image.gz" \
+			"$pkgdir/boot/vmlinuz"
+	fi
+
+	make modules_install dtbs_install \
+		ARCH="$_carch" \
+		INSTALL_PATH="$pkgdir"/boot/ \
 		INSTALL_MOD_PATH="$pkgdir" \
 		INSTALL_MOD_STRIP=1 \
-		INSTALL_DTBS_PATH="$pkgdir/boot/dtbs-marathon" \
-		modules_install dtbs_install
-	
-	install -Dm644 arch/arm64/boot/Image \
-		"$pkgdir/boot/vmlinuz-marathon"
-	
-	install -D include/config/kernel.release \
-		"$pkgdir/usr/share/kernel/marathon/kernel.release"
-	
-	# Create symlink for compatibility with postmarketos-qcom-sdm845
-	ln -s vmlinuz-marathon "$pkgdir/boot/vmlinuz-postmarketos-qcom-sdm845"
+		INSTALL_DTBS_PATH="$pkgdir"/boot/dtbs-tmp
+
+	mkdir -p "$pkgdir"/boot/dtbs/qcom
+	cp -r "$pkgdir"/boot/dtbs-tmp/qcom/sdm8* "$pkgdir"/boot/dtbs/qcom
+	rm -rf "$pkgdir"/boot/dtbs-tmp
+
+	rm -f "$pkgdir"/lib/modules/*/build "$pkgdir"/lib/modules/*/source
+
+	install -D "$builddir"/include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/marathon/kernel.release
 }
 
 sha512sums="
-b2c77d3d0bee221a970dd020f71d10843275994538a98584129887db20854bcceb5da3f5fa057ebc42d8d8714cb9bcb36239716ea59a70c56c8f9d2a16421fa6  linux-6.17.3.tar.xz
-0fc9edef2ef69bbfa452a0ad935c42d6273aba32fa5249a22cd8b50da84d214f2664f0255002e76a858444b750b5fb4968e09f5d0d3566eb45ddea790328df15  config-marathon-base.aarch64
+e68ab4fbb912882bffb1630ebb6d90bed58ec89645e60b395672b94850bbeb8cfa98b4bf646624729ac462777544b6682554864e0fc24f9c994ea39c2feb524b  linux-sdm845-6.14-rc5-r2.tar.gz
+b8bc9d5ee07dd1d2aeb8759b9ea07cfa139ffecb7ec165d8ab1867cd4ccf5550b70ee1d8ef2addc7177cb7d890d2821b15f370b81a5d06e43c86a85516955cc3  config-marathon-sdm845-preempt-rt.aarch64
 "

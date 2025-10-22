@@ -9,6 +9,8 @@ Item {
     property alias isGestureActive: pageView.isGestureActive
     property alias count: pageView.count
     property real searchPullProgress: 0.0  // Exposed to Shell for search overlay
+    property int internalAppGridPage: 0  // Track the internal page within app grid
+    property var compositor: null  // Wayland compositor reference for native apps
     
     signal hubVisible(bool visible)
     signal framesVisible(bool visible)
@@ -74,9 +76,15 @@ ListView {
         
         MarathonTaskSwitcher {
             opacity: (pageView.currentIndex === 1) && !pageView.isGestureActive ? 1.0 : 0.0
+            compositor: pageViewContainer.compositor  // Pass compositor reference
             
             Behavior on opacity {
                 NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+            }
+            
+            // Expose search progress from task switcher
+            onSearchPullProgressChanged: {
+                pageViewContainer.searchPullProgress = searchPullProgress
             }
             
             onClosed: {
@@ -100,11 +108,18 @@ ListView {
                 Logger.info("PageView", "App launched: " + app.name)
                 pageViewContainer.appLaunched(app)
             }
+            
+            // Propagate internal page changes up to the parent
+            onCurrentPageChanged: {
+                // Track the internal app grid page
+                pageViewContainer.internalAppGridPage = currentPage
+                Logger.debug("PageView", "App grid internal page changed to: " + currentPage)
+            }
         }
     }
     
     onCurrentIndexChanged: {
-        currentPage = currentIndex - 2
+        // currentPage is automatically updated via binding on line 37
         Logger.debug("PageView", "Page changed to index: " + currentIndex + ", page: " + currentPage)
         
         pageViewContainer.hubVisible(currentIndex === 0)

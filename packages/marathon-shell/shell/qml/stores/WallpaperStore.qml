@@ -5,12 +5,11 @@ import MarathonOS.Shell
 QtObject {
     id: wallpaperStore
     
-    property string path: "qrc:/wallpapers/resources/wallpapers/marathon-logo.jpg"
-    property string currentWallpaper: path
-    property bool isDark: false
+    property string path: "qrc:/wallpapers/resources/wallpapers/wallpaper.jpg"
+    property string currentWallpaper: "qrc:/wallpapers/resources/wallpapers/wallpaper.jpg"
+    property bool isDark: true
     
     property var wallpapers: [
-        { name: "Marathon Logo", path: "qrc:/wallpapers/resources/wallpapers/marathon-logo.jpg", isDark: false },
         { name: "Gradient 1", path: "qrc:/wallpapers/resources/wallpapers/wallpaper.jpg", isDark: true },
         { name: "Gradient 2", path: "qrc:/wallpapers/resources/wallpapers/wallpaper2.jpg", isDark: true },
         { name: "Gradient 3", path: "qrc:/wallpapers/resources/wallpapers/wallpaper3.jpg", isDark: true },

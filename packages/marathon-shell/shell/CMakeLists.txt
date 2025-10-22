@@ -12,6 +12,14 @@ set(SOURCES
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
     src/powermanagercpp.cpp
+    src/displaymanagercpp.h
+    src/displaymanagercpp.cpp
+    src/audiomanagercpp.h
+    src/audiomanagercpp.cpp
+    src/modemmanagercpp.h
+    src/modemmanagercpp.cpp
+    src/sensormanagercpp.h
+    src/sensormanagercpp.cpp
     src/notificationservice.h
     src/notificationservice.cpp
     src/settingsmanager.h
@@ -26,6 +34,23 @@ set(SOURCES
     src/marathonapploader.cpp
     src/marathonappinstaller.h
     src/marathonappinstaller.cpp
+    src/contactsmanager.h
+    src/contactsmanager.cpp
+    src/telephonyservice.h
+    src/telephonyservice.cpp
+    src/callhistorymanager.h
+    src/callhistorymanager.cpp
+    src/smsservice.h
+    src/smsservice.cpp
+    src/medialibrarymanager.h
+    src/medialibrarymanager.cpp
+    src/musiclibrarymanager.h
+    src/musiclibrarymanager.cpp
+)
+
+list(APPEND SOURCES
+    src/waylandcompositormanager.h
+    src/waylandcompositormanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -44,6 +69,7 @@ set(QML_FILES
     qml/MarathonUI/Theme/MSpacing.qml
     qml/MarathonUI/Theme/MRadius.qml
     qml/MarathonUI/Theme/MElevation.qml
+    qml/MarathonUI/Theme/MMotion.qml
     qml/MarathonUI/Core/qmldir
     qml/MarathonUI/Core/MButton.qml
     qml/MarathonUI/Core/MIconButton.qml
@@ -57,7 +83,6 @@ set(QML_FILES
     qml/MarathonUI/Containers/MSection.qml
     qml/MarathonUI/Containers/MLayer.qml
     qml/MarathonUI/Lists/qmldir
-    qml/MarathonUI/Lists/MListItem.qml
     qml/MarathonUI/Lists/MSectionHeader.qml
     qml/MarathonUI/Lists/MDivider.qml
     qml/MarathonUI/Feedback/qmldir
@@ -106,6 +131,7 @@ set(QML_FILES
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
     qml/apps/template/TemplateApp.qml
+    qml/apps/native/NativeAppWindow.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
@@ -261,7 +287,6 @@ qt6_add_qml_module(marathon-ui-lists
     URI MarathonUI.Lists
     VERSION 1.0
     QML_FILES
-        qml/MarathonUI/Lists/MListItem.qml
         qml/MarathonUI/Lists/MSectionHeader.qml
         qml/MarathonUI/Lists/MDivider.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Lists
@@ -309,6 +334,7 @@ qt6_add_qml_module(marathon-ui-effects
     QML_FILES
         qml/MarathonUI/Effects/MInset.qml
         qml/MarathonUI/Effects/MOutset.qml
+        qml/MarathonUI/Effects/MRipple.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Effects
 )
 
@@ -339,6 +365,9 @@ if(TARGET Qt6::WaylandCompositor)
     target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND)
 endif()
 
+# Link QtDBus and QtSql for telephony and media services
+target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
+
 if(HAVE_WEBENGINE)
     target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(marathon-shell PRIVATE HAVE_WEBENGINE)
@@ -347,6 +376,7 @@ endif()
 set_target_properties(marathon-shell PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
+    OUTPUT_NAME marathon-shell-bin
 )
 
 install(TARGETS marathon-shell

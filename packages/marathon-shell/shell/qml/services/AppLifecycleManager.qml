@@ -3,30 +3,61 @@ import QtQuick
 import MarathonOS.Shell
 
 /**
- * AppLifecycleManager - Centralized app lifecycle management
+ * @singleton
+ * @brief Centralized app lifecycle management
+ * 
+ * AppLifecycleManager tracks running apps, manages their state transitions,
+ * and coordinates system events (back gesture, minimize, close). Works with
+ * MApp components to provide Android/iOS-like app lifecycle.
  * 
  * Responsibilities:
- * - Track running apps and their state
+ * - Track running apps and their state (active, paused, minimized)
  * - Handle app lifecycle events (launch, pause, resume, close)
  * - Manage app stack (foreground, background)
- * - Route system events to apps (back gesture, minimize, etc.)
+ * - Route system events to apps (back gesture, home button, etc.)
  * - Coordinate with UIStore and TaskModel
+ * 
+ * @example
+ * // Bring app to foreground
+ * AppLifecycleManager.bringToForeground("messages")
+ * 
+ * @example
+ * // Check if app is running
+ * if (AppLifecycleManager.isAppRunning("settings")) {
+ *     AppLifecycleManager.bringToForeground("settings")
+ * } else {
+ *     // Launch new instance
+ * }
  */
 QtObject {
     id: lifecycleManager
     
-    // Current foreground app
+    /**
+     * @brief Current foreground app instance
+     * @type {Object}
+     */
     property var foregroundApp: null
     
-    // App registry (appId -> app instance)
+    /**
+     * @brief Registry of running app instances (appId -> app instance)
+     * @type {Object}
+     */
     property var appRegistry: ({})
     
-    // App state (appId -> state object)
+    /**
+     * @brief App state tracking (appId -> state object)
+     * @type {Object}
+     */
     property var appStates: ({})
     
     /**
-     * Register an app instance
-     * Called automatically by MApp on creation
+     * @brief Registers an app instance with the lifecycle manager
+     * 
+     * Called automatically by MApp on Component.onCompleted.
+     * Apps must register to receive lifecycle events.
+     * 
+     * @param {string} appId - Unique app identifier
+     * @param {Object} appInstance - The MApp instance
      */
     function registerApp(appId, appInstance) {
         Logger.info("AppLifecycle", "Registering app: " + appId)
@@ -44,9 +75,10 @@ QtObject {
         }
         
         // If this app was waiting to be brought to foreground, do it now
-        if (pendingForegroundApp === appId) {
+        if (pendingForegroundApps.indexOf(appId) !== -1) {
             Logger.info("AppLifecycle", "App registered, applying pending foreground")
-            pendingForegroundApp = ""
+            var index = pendingForegroundApps.indexOf(appId)
+            pendingForegroundApps.splice(index, 1)
             bringToForeground(appId)
         }
     }
@@ -108,11 +140,11 @@ QtObject {
         } else {
             Logger.warn("AppLifecycle", "App not in registry yet, deferring foreground")
             // App will register itself shortly, set foreground then
-            pendingForegroundApp = appId
+            pendingForegroundApps.push(appId)
         }
     }
     
-    property string pendingForegroundApp: ""
+    property var pendingForegroundApps: []
     
     /**
      * Restore app from task switcher

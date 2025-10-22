@@ -1,0 +1,47 @@
+#!/bin/bash
+# Marathon Shell Wayland Session Startup Script
+# Sets up environment and launches the shell
+
+# Set session name
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=marathon
+export XDG_CURRENT_DESKTOP=marathon
+
+# Marathon-specific paths
+export MARATHON_PREFIX=/usr
+export MARATHON_APPS_DIR=~/.local/share/marathon-apps
+
+# Qt/QML environment
+export QT_QPA_PLATFORM=wayland
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QML_IMPORT_PATH=/usr/lib/qml:$QML_IMPORT_PATH
+export QML2_IMPORT_PATH=/usr/lib/qml:$QML2_IMPORT_PATH
+
+# Wayland environment
+export WAYLAND_DISPLAY=wayland-0
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+
+# D-Bus session
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# Enable debug logging if requested
+if [ "$MARATHON_DEBUG" = "1" ]; then
+    export QT_LOGGING_RULES="*.debug=true;marathon.*.info=true"
+else
+    export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
+fi
+
+# Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
+export NO_AT_BRIDGE=1
+export GTK_A11Y=none
+export QT_ACCESSIBILITY=0
+
+# GIO/GSettings - use memory backend if no dconf
+export GIO_USE_VFS=local
+export GSETTINGS_BACKEND=memory
+
+# Start the compositor
+exec /usr/bin/marathon-shell-bin "$@"

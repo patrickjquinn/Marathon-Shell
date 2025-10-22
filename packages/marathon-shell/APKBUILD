@@ -1,5 +1,5 @@
-# Contributor: Patrick Quinn <patrick@jquinn.com>
-# Maintainer: Patrick Quinn <patrick@jquinn.com>
+# Contributor: Patrick Quinn <patrick@example.com>
+# Maintainer: Patrick Quinn <patrick@example.com>
 pkgname=marathon-shell
 pkgver=1.0.0
 pkgrel=0
@@ -14,6 +14,8 @@ depends="
 	qt6-qtwebengine
 	qt6-qtmultimedia
 	qt6-qtsvg
+	qt6-qtlocation
+	qt6-qtpositioning
 	wayland
 	wayland-protocols
 	mesa
@@ -24,8 +26,14 @@ depends="
 	pipewire
 	pipewire-pulse
 	wireplumber
+	pulseaudio-utils
 	greetd
 	dbus
+	networkmanager
+	modemmanager
+	upower
+	polkit
+	bluez
 	"
 makedepends="
 	cmake
@@ -36,6 +44,8 @@ makedepends="
 	qt6-qtwebengine-dev
 	qt6-qtmultimedia-dev
 	qt6-qtsvg-dev
+	qt6-qtlocation-dev
+	qt6-qtpositioning-dev
 	wayland-dev
 	wayland-protocols
 	mesa-dev
@@ -44,25 +54,9 @@ makedepends="
 install=""
 subpackages="$pkgname-doc"
 source="
-	marathon.desktop
-	marathon-shell.toml
+	$pkgname-$pkgver.tar.gz
 	"
-builddir="$srcdir/marathon-shell"
-
-prepare() {
-	default_prepare
-	
-	# Copy specific files and directories to build directory
-	cp -r "$srcdir/shell" "$builddir/"
-	cp -r "$srcdir/apps" "$builddir/"
-	cp -r "$srcdir/scripts" "$builddir/" 2>/dev/null || true
-	cp -r "$srcdir/docs" "$builddir/" 2>/dev/null || true
-	cp "$srcdir/CMakeLists.txt" "$builddir/" 2>/dev/null || true
-	cp "$srcdir/run.sh" "$builddir/" 2>/dev/null || true
-	
-	# Ensure proper permissions
-	chmod -R +x "$builddir/scripts/" 2>/dev/null || true
-}
+builddir="$srcdir/$pkgname-$pkgver"
 
 build() {
 	cd "$builddir"
@@ -72,13 +66,20 @@ build() {
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
+		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
 	cmake --build build
 	
-	# Build apps
+	# Build apps - install to /usr/share for system-wide access
 	cmake -B build-apps -S apps -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DMARATHON_APPS_DIR=/usr/share/marathon-apps \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
+		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
 	cmake --build build-apps
 }
@@ -92,30 +93,14 @@ check() {
 package() {
 	cd "$builddir"
 	
-	# Install main shell
+	# Install main shell (includes binary, session files, systemd, polkit, etc.)
 	DESTDIR="$pkgdir" cmake --install build
 	
 	# Install apps
 	DESTDIR="$pkgdir" cmake --install build-apps
-	
-	# Install launcher script
-	install -Dm755 run.sh "$pkgdir"/usr/bin/marathon-shell
-	
-	# Install Wayland session file
-	install -Dm644 "$srcdir"/marathon.desktop \
-		"$pkgdir"/usr/share/wayland-sessions/marathon.desktop
-	
-	# Install greetd configuration example
-	install -Dm644 "$srcdir"/marathon-shell.toml \
-		"$pkgdir"/usr/share/greetd/marathon-shell.toml
-	
-	# Install documentation
-	install -Dm644 README.md \
-		"$pkgdir"/usr/share/doc/$pkgname/README.md
-	install -Dm644 docs/*.md \
-		"$pkgdir"/usr/share/doc/$pkgname/
 }
 
 sha512sums="
+e0364882ac6f50e26f1c16bf11f0a7894107c98172f853d7feeb749ecc6c108754990d9f003ca708b8d42a1c397743fe662c1dfb92c0a254ca2740f297d2d450  marathon-shell-1.0.0.tar.gz
 "
 

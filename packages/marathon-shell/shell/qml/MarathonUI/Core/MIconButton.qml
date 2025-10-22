@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Effects
 
 Rectangle {
     id: root
@@ -9,8 +10,9 @@ Rectangle {
     property string iconName: ""
     property var size: Constants.touchTargetMedium
     property bool disabled: false
-    property string variant: "ghost"
-    property string shape: "square"
+    property string variant: "ghost"      // ghost, primary, secondary, solid
+    property string shape: "square"       // square, circular
+    property color iconColor: variant === "primary" || variant === "solid" ? MColors.textOnAccent : MColors.text
     
     signal clicked()
     
@@ -24,36 +26,63 @@ Rectangle {
     width: getSize()
     height: width
     radius: shape === "circular" ? width / 2 : Constants.borderRadiusSharp
+    scale: mouseArea.pressed ? 0.95 : 1.0
     
     color: {
         if (disabled) return "transparent"
         if (mouseArea.pressed) {
-            if (variant === "primary" || variant === "solid") return MColors.accentHover
-            return MColors.glass
+            if (variant === "primary" || variant === "solid") return MColors.accentPressed
+            if (variant === "secondary") return MColors.glass
+            return MColors.hover
         }
         if (variant === "primary" || variant === "solid") return MColors.accent
-        if (variant === "secondary") return MColors.surface
+        if (variant === "secondary") return MColors.glass
         return "transparent"
     }
     
     border.width: variant === "primary" ? Constants.borderWidthMedium : Constants.borderWidthThin
-    border.color: variant === "primary" ? MColors.accentDark : MColors.borderOuter
+    border.color: {
+        if (variant === "primary") return MColors.accentBright
+        if (variant === "secondary") return MColors.glassBorder
+        return "transparent"
+    }
     antialiasing: shape === "circular" ? true : Constants.enableAntialiasing
     
     Behavior on color { 
         enabled: Constants.enableAnimations
-        ColorAnimation { duration: Constants.animationFast } 
+        ColorAnimation { duration: MMotion.quick } 
     }
     
-    // Inner border for depth (shell pattern)
+    Behavior on scale {
+        enabled: Constants.enableAnimations
+        SpringAnimation { 
+            spring: MMotion.springMedium
+            damping: MMotion.dampingMedium
+            epsilon: MMotion.epsilon
+        }
+    }
+    
+    // Inner border for depth
     Rectangle {
         anchors.fill: parent
         anchors.margins: 1
-        radius: Constants.borderRadiusSharp
+        radius: parent.radius
         color: "transparent"
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderInner
-        antialiasing: Constants.enableAntialiasing
+        border.color: variant === "primary" ? MColors.borderHighlight : MColors.borderInner
+        antialiasing: parent.antialiasing
+        visible: variant === "primary" || variant === "secondary" || variant === "solid"
+        
+        Behavior on border.color {
+            enabled: Constants.enableAnimations
+            ColorAnimation { duration: MMotion.quick }
+        }
+    }
+    
+    // Ripple effect
+    MRipple {
+        id: rippleEffect
+        rippleColor: variant === "primary" || variant === "solid" ? Qt.rgba(1, 1, 1, 0.2) : MColors.ripple
     }
     
     function getIconSize() {
@@ -65,14 +94,11 @@ Rectangle {
         return 24
     }
     
-    Image {
-        source: iconName !== "" ? "qrc:/images/icons/lucide/" + iconName + ".svg" : ""
-        width: getIconSize()
-        height: width
-        fillMode: Image.PreserveAspectFit
+    Icon {
+        name: iconName
+        size: getIconSize()
+        color: disabled ? MColors.textDisabled : root.iconColor
         anchors.centerIn: parent
-        smooth: true
-        antialiasing: true
     }
     
     MouseArea {
@@ -80,6 +106,10 @@ Rectangle {
         anchors.fill: parent
         enabled: !disabled
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+        onPressed: function(mouse) {
+            rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
+            HapticService.light()
+        }
         onClicked: root.clicked()
     }
 }

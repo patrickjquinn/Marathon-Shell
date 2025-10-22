@@ -14,11 +14,51 @@ Rectangle {
     property var waylandSurface: null
     property int surfaceId: -1
     property var pendingAppInstance: null
+    property bool isLoadingComponent: false
     
     signal closed()
     signal minimized()
     
+    // Loading splash (shown while component is loading)
+    Rectangle {
+        id: loadingSplash
+        anchors.fill: parent
+        color: Colors.background
+        visible: appWindow.isLoadingComponent
+        z: 1000
+        
+        Column {
+            anchors.centerIn: parent
+            spacing: 24
+            
+            Image {
+                width: 128
+                height: 128
+                source: appWindow.appIcon || "qrc:/images/icons/lucide/grid.svg"
+                sourceSize.width: 128
+                sourceSize.height: 128
+                fillMode: Image.PreserveAspectFit
+                anchors.horizontalCenter: parent.horizontalCenter
+                smooth: true
+            }
+            
+            Text {
+                text: "Loading " + (appWindow.appName || "app") + "..."
+                color: Colors.textSecondary
+                font.pixelSize: 16
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+        }
+    }
+    
     function show(id, name, icon, type, surface, sid) {
+        console.log("=============== SHOW() CALLED ===============")
+        console.log("  id:", id)
+        console.log("  name:", name)
+        console.log("  type:", type)
+        console.log("  surface:", surface)
+        console.log("  sid:", sid)
+        
         appId = id
         appName = name
         appIcon = icon
@@ -26,6 +66,7 @@ Rectangle {
         waylandSurface = surface || null
         surfaceId = sid || -1
         
+        console.log("  appType set to:", appType)
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
         
         // CRITICAL: Cleanup connections and unparent the current app instance BEFORE switching
@@ -43,13 +84,62 @@ Rectangle {
         }
         
         if (appType === "native") {
-            // Load native Wayland app
-            appContentLoader.setSource("../apps/native/NativeAppWindow.qml", {
-                "nativeAppId": id,
-                "nativeTitle": name,
-                "waylandSurface": surface,
-                "surfaceId": sid
-            })
+            // Check if native app instance already exists in lifecycle manager
+            var existingNativeInstance = null
+            if (typeof AppLifecycleManager !== 'undefined') {
+                existingNativeInstance = AppLifecycleManager.getAppInstance(id)
+            }
+            
+            if (existingNativeInstance) {
+                // Reuse existing native app instance - just reparent it
+                console.log("[NATIVE APP] Reusing existing instance:", id)
+                Logger.info("AppWindow", "Reusing existing native app instance: " + id)
+                existingNativeInstance.visible = true
+                appWindow.pendingAppInstance = existingNativeInstance
+                // FORCE reload by clearing first
+                appContentLoader.sourceComponent = undefined
+                appContentLoader.sourceComponent = appInstanceContainer
+            } else {
+                // Create new native app instance using dynamic loading
+                console.log("[NATIVE APP] Creating new instance:", id)
+                Logger.info("AppWindow", "Creating new native app instance: " + id)
+                
+                appWindow.isLoadingComponent = true
+                Logger.info("AppWindow", "Showing loading splash...")
+                
+                var component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous)
+                
+                function finishCreation() {
+                    if (component.status === Component.Ready) {
+                        var nativeInstance = component.createObject(null, {
+                            "nativeAppId": id,
+                            "nativeTitle": name,
+                            "nativeAppIcon": icon,
+                            "waylandSurface": surface,
+                            "surfaceId": sid
+                        })
+                        if (nativeInstance) {
+                            appWindow.pendingAppInstance = nativeInstance
+                            appContentLoader.sourceComponent = undefined
+                            appContentLoader.sourceComponent = appInstanceContainer
+                            appWindow.isLoadingComponent = false
+                            Logger.info("AppWindow", "Native app instance created successfully: " + id)
+                        } else {
+                            appWindow.isLoadingComponent = false
+                            Logger.error("AppWindow", "Failed to create native app instance: " + id)
+                        }
+                    } else if (component.status === Component.Error) {
+                        appWindow.isLoadingComponent = false
+                        Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString())
+                    }
+                }
+                
+                if (component.status === Component.Ready) {
+                    finishCreation()
+                } else {
+                    component.statusChanged.connect(finishCreation)
+                }
+            }
         } else {
             // Check if app exists in registry
             var appInfo = MarathonAppRegistry.getApp(id)
@@ -160,18 +250,23 @@ Rectangle {
                     // Capture values to avoid accessing potentially destroyed appWindow later
                     var capturedAppName = appWindow.appName
                     var capturedAppId = appWindow.appId
+                    var capturedWindow = appWindow  // Capture window reference
                     
                     if (appInstance.minimizeRequested) {
                         minimizeConnection = appInstance.minimizeRequested.connect(function() {
                             Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName)
-                            appWindow.minimized()
+                            if (capturedWindow) {
+                                capturedWindow.minimized()
+                            }
                         })
                     }
                     
                     if (appInstance.closed) {
                         closedConnection = appInstance.closed.connect(function() {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName)
-                            appWindow.hide()
+                            if (capturedWindow) {
+                                capturedWindow.hide()
+                            }
                         })
                     }
                     
@@ -195,7 +290,7 @@ Rectangle {
     Loader {
         id: appContentLoader
         anchors.fill: parent
-        asynchronous: true
+        asynchronous: false  // Changed to synchronous to reduce app launch latency
         visible: status === Loader.Ready && item !== null
         opacity: status === Loader.Ready ? 1.0 : 0.0
         

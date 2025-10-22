@@ -7,6 +7,94 @@ Item {
     
     signal closed()
     signal taskSelected(var task)
+    signal pullDownToSearch()
+    
+    // Track pull-down progress for inline animation
+    property real searchPullProgress: 0.0
+    property bool searchGestureActive: false
+    
+    // Compositor reference for closing native apps
+    property var compositor: null
+    
+    // Gesture area for pull-down to search (only when empty)
+    MouseArea {
+        anchors.fill: parent
+        enabled: TaskModel.taskCount === 0
+        z: 2
+        
+        property real startX: 0
+        property real startY: 0
+        property real currentY: 0
+        property bool isDragging: false
+        property bool isVertical: false
+        readonly property real pullThreshold: 100
+        readonly property real commitThreshold: 0.35
+        
+        onPressed: function(mouse) {
+            startX = mouse.x
+            startY = mouse.y
+            currentY = mouse.y
+            isDragging = false
+            isVertical = false
+            taskSwitcher.searchGestureActive = false
+        }
+        
+        onPositionChanged: function(mouse) {
+            if (pressed && !isDragging && !isVertical) {
+                var deltaX = Math.abs(mouse.x - startX)
+                var deltaY = mouse.y - startY
+                
+                // Decide gesture direction after 10px threshold
+                if (deltaX > 10 || Math.abs(deltaY) > 10) {
+                    // STRICT: Vertical must be at least 3x more than horizontal (max ~18° angle)
+                    if (Math.abs(deltaY) > deltaX * 3.0 && deltaY > 0) {
+                        isVertical = true
+                        isDragging = true
+                        taskSwitcher.searchGestureActive = true
+                        Logger.info("TaskSwitcher", "Pull-down gesture started")
+                    } else {
+                        // Too diagonal or wrong direction - reject gesture
+                        isVertical = false
+                        isDragging = false
+                        return
+                    }
+                }
+            }
+            
+            // Update progress in real-time during gesture
+            if (isDragging && pressed) {
+                currentY = mouse.y
+                var deltaY = currentY - startY
+                // Update pull progress for inline animation
+                taskSwitcher.searchPullProgress = Math.min(1.0, deltaY / pullThreshold)
+            }
+        }
+        
+        onReleased: function(mouse) {
+            if (isDragging && isVertical) {
+                var deltaY = currentY - startY
+                var deltaTime = Date.now() - startY  // Rough approximation
+                var velocity = deltaY / (deltaTime || 1)
+                
+                // If pulled down more than threshold OR fast velocity
+                if (taskSwitcher.searchPullProgress > commitThreshold || velocity > 0.25) {
+                    Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)")
+                    UIStore.openSearch()
+                    taskSwitcher.searchPullProgress = 0.0
+                }
+            }
+            
+            isDragging = false
+            isVertical = false
+            taskSwitcher.searchGestureActive = false
+        }
+        
+        onCanceled: {
+            isDragging = false
+            isVertical = false
+            taskSwitcher.searchGestureActive = false
+        }
+    }
     
     // No component definitions needed - we'll reference live app instances from AppLifecycleManager
     
@@ -104,15 +192,17 @@ Item {
         flickDeceleration: 8000
         maximumFlickVelocity: 3000
         
-        // Custom page snapping
-        onMovementEnded: {
+        // Snap to page helper function
+        function snapToPage() {
             var page = Math.round(contentY / height)
             var targetY = page * height
             snapAnimation.to = targetY
             snapAnimation.start()
         }
         
-        onFlickEnded: onMovementEnded()
+        // Custom page snapping
+        onMovementEnded: snapToPage()
+        onFlickEnded: snapToPage()
         
         NumberAnimation {
             id: snapAnimation
@@ -172,9 +262,21 @@ Item {
                             
                             ScriptAction {
                                 script: {
-                                    if (typeof AppLifecycleManager !== 'undefined') {
-                                        AppLifecycleManager.closeApp(model.appId)
+                                    Logger.info("TaskSwitcher", "Closing task: " + model.appId + " type: " + model.type + " surfaceId: " + model.surfaceId)
+                                    
+                                    // For native apps, we need to close the Wayland surface and kill the process
+                                    if (model.type === "native") {
+                                        if (typeof compositor !== 'undefined' && compositor && model.surfaceId >= 0) {
+                                            Logger.info("TaskSwitcher", "Closing native app via compositor, surfaceId: " + model.surfaceId)
+                                            compositor.closeWindow(model.surfaceId)
+                                        }
+                                    } else {
+                                        // For Marathon apps, use lifecycle manager
+                                        if (typeof AppLifecycleManager !== 'undefined') {
+                                            AppLifecycleManager.closeApp(model.appId)
+                                        }
                                     }
+                                    
                                     TaskModel.closeTask(model.id)
                                     cardRoot.closing = false
                                 }
@@ -284,15 +386,16 @@ Item {
                             var appId = model.appId
                             var appTitle = model.title
                             var appIcon = model.icon
+                            var appType = model.type
                             
                             // Defer to avoid blocking
                             Qt.callLater(function() {
-                                // CRITICAL: Tell AppLifecycleManager to restore app lifecycle first
-                                if (typeof AppLifecycleManager !== 'undefined') {
+                                // For Marathon apps, restore through lifecycle manager
+                                if (appType !== "native" && typeof AppLifecycleManager !== 'undefined') {
                                     AppLifecycleManager.restoreApp(appId)
                                 }
                                 
-                                // Then update UI state
+                                // Then update UI state (this triggers the restoration in MarathonShell.qml)
                                 UIStore.restoreApp(appId, appTitle, appIcon)
                                 closed()
                             })
@@ -383,11 +486,58 @@ Item {
                                             Item {
                                                 id: previewContainer
                                                 anchors.fill: parent
-                                                visible: model.type === "marathon"
+                                                visible: true  // Show for all app types (Marathon and native)
                                                 clip: true
                                                 
-                                                property var liveApp: typeof AppLifecycleManager !== 'undefined' ? 
-                                                    AppLifecycleManager.getAppInstance(model.appId) : null
+                                                property var liveApp: null
+                                                property string trackedAppId: ""  // Track which app this delegate is showing
+                                                
+                                                // Update liveApp reference
+                                                function updateLiveApp() {
+                                                    Logger.info("TaskSwitcher", "updateLiveApp called for: " + model.appId + " (tracked: " + trackedAppId + ")")
+                                                    
+                                                    // Clear if delegate was recycled
+                                                    if (trackedAppId !== "" && trackedAppId !== model.appId) {
+                                                        Logger.info("TaskSwitcher", "🔄 DELEGATE RECYCLED: " + trackedAppId + " → " + model.appId)
+                                                        liveApp = null
+                                                    }
+                                                    
+                                                    trackedAppId = model.appId
+                                                    
+                                                    if (typeof AppLifecycleManager === 'undefined') {
+                                                        Logger.warn("TaskSwitcher", "AppLifecycleManager not available")
+                                                        liveApp = null
+                                                        return
+                                                    }
+                                                    
+                                                    var instance = AppLifecycleManager.getAppInstance(model.appId)
+                                                    if (!instance) {
+                                                        Logger.warn("TaskSwitcher", "❌ NO INSTANCE for: " + model.appId + " (type: " + model.type + ", title: " + model.title + ")")
+                                                    } else {
+                                                        Logger.info("TaskSwitcher", "✓ Found live app for: " + model.appId)
+                                                    }
+                                                    liveApp = instance
+                                                }
+                                                
+                                                // Watch model.appId directly - this detects delegate recycling
+                                                property string watchedAppId: model.appId
+                                                onWatchedAppIdChanged: {
+                                                    Logger.info("TaskSwitcher", "watchedAppId changed to: " + watchedAppId)
+                                                    updateLiveApp()
+                                                }
+                                                
+                                                Component.onCompleted: {
+                                                    Logger.info("TaskSwitcher", "Preview delegate created for: " + model.appId)
+                                                    updateLiveApp()
+                                                }
+                                                
+                                                // Re-check periodically in case app registers late
+                                                Timer {
+                                                    interval: 100
+                                                    repeat: true
+                                                    running: previewContainer.liveApp === null && model.type !== "native"
+                                                    onTriggered: previewContainer.updateLiveApp()
+                                                }
                                                 
                                                 // Live preview using ShaderEffectSource with forced updates
                                                 ShaderEffectSource {
@@ -405,6 +555,15 @@ Item {
                                                     smooth: false
                                                     format: ShaderEffectSource.RGBA
                                                     samples: 0
+                                                    
+                                                    // Debug: Log when sourceItem is null (expected for inactive apps)
+                                                    onSourceItemChanged: {
+                                                        if (!sourceItem) {
+                                                            Logger.debug("TaskSwitcher", "NULL sourceItem for: " + model.appId + " (inactive app)")
+                                                        } else {
+                                                            Logger.debug("TaskSwitcher", "✓ Preview source set for: " + model.appId)
+                                                        }
+                                                    }
                                                     
                                                     // Force multiple updates to catch all content
                                                     Timer {
@@ -426,6 +585,48 @@ Item {
                                                     onVisibleChanged: {
                                                         if (visible) {
                                                             liveSnapshot.scheduleUpdate()
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Fallback: Show app icon when live preview unavailable
+                                                Rectangle {
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    visible: previewContainer.liveApp === null
+                                                    color: MColors.backgroundDark
+                                                    
+                                                    Column {
+                                                        anchors.centerIn: parent
+                                                        spacing: 16
+                                                        
+                                                        Image {
+                                                            width: 80
+                                                            height: 80
+                                                            source: model.icon || "qrc:/images/icons/lucide/grid.svg"
+                                                            sourceSize.width: 80
+                                                            sourceSize.height: 80
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                            smooth: true
+                                                            fillMode: Image.PreserveAspectFit
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: model.title || model.appId
+                                                            color: MColors.textSecondary
+                                                            font.pixelSize: 14
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: "Preview unavailable"
+                                                            color: MColors.textTertiary
+                                                            font.pixelSize: 11
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
                                                         }
                                                     }
                                                 }
@@ -493,28 +694,6 @@ Item {
                                                         elide: Text.ElideRight
                                                         width: parent.width - Constants.spacingMedium * 2
                                                         horizontalAlignment: Text.AlignHCenter
-                                                    }
-                                                }
-                                            }
-                                            
-                                            Loader {
-                                                anchors.top: parent.top
-                                                anchors.horizontalCenter: parent.horizontalCenter
-                                                active: model.type === "native"
-                                                source: model.type === "native" ? "../apps/native/NativeAppWindow.qml" : ""
-                                                visible: status === Loader.Ready
-                                                
-                                                // Scale to FULL WIDTH, let height extend as needed
-                                                property real scaleFactor: parent.width / Constants.screenWidth
-                                                
-                                                width: Constants.screenWidth * scaleFactor
-                                                height: Constants.screenHeight * scaleFactor
-                                                
-                                                onLoaded: {
-                                                    if (item && model.surfaceId >= 0) {
-                                                        item.surfaceId = model.surfaceId
-                                                        item.nativeAppId = model.appId
-                                                        item.nativeTitle = model.title
                                                     }
                                                 }
                                             }

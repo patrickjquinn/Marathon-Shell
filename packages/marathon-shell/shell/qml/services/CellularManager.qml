@@ -41,7 +41,7 @@ QtObject {
     signal networkLost()
     signal dataConnectionChanged(bool connected)
     signal signalStrengthChanged(int strength)
-    signal roamingChanged(bool roaming)
+    signal roamingStatusChanged(bool roaming)
     
     // Modem control
     function enableModem() {
@@ -175,7 +175,7 @@ QtObject {
         stateTimer.start()
     }
     
-    Timer {
+    property var stateTimer: Timer {
         id: stateTimer
         interval: 10000
         repeat: true

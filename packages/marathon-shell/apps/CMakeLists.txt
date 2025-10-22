@@ -57,32 +57,83 @@ function(add_marathon_app APP_NAME)
         # App with C++ plugin
         qt6_add_library(${APP_NAME}-plugin SHARED ${ARG_SOURCES})
         
+        # Add source directory and subdirectories to include paths so headers can be found
+        target_include_directories(${APP_NAME}-plugin PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+        )
+        
+        # Set RPATH so plugin can find the base library
+        # Use $ORIGIN on Linux, @loader_path on macOS
+        if(APPLE)
+            set(RPATH_VALUE "@loader_path")
+        else()
+            set(RPATH_VALUE "$ORIGIN")
+        endif()
+        set_target_properties(${APP_NAME}-plugin PROPERTIES
+            INSTALL_RPATH "${RPATH_VALUE}"
+            BUILD_WITH_INSTALL_RPATH TRUE
+        )
+        
         target_link_libraries(${APP_NAME}-plugin PRIVATE
             Qt6::Core
             Qt6::Qml
             Qt6::Quick
         )
         
+        # Set Qt policy for resource prefix
+        qt_policy(SET QTP0001 NEW)
+        
+        # Create proper output directory matching module URI
+        string(REPLACE "." "/" MODULE_PATH "${ARG_URI}")
+        set(MODULE_OUTPUT_DIR "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/${MODULE_PATH}")
+        
         qt6_add_qml_module(${APP_NAME}-plugin
             URI ${ARG_URI}
             VERSION ${ARG_VERSION}
             QML_FILES ${ARG_QML_FILES}
             RESOURCES ${ARG_RESOURCES}
-            OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/apps/${APP_NAME}"
+            OUTPUT_DIRECTORY "${MODULE_OUTPUT_DIR}"
             NO_PLUGIN_OPTIONAL
         )
         
-        # Install plugin library
+        # Install base plugin library (the actual compiled code)
         install(TARGETS ${APP_NAME}-plugin
             LIBRARY DESTINATION "${INSTALL_DIR}"
             RUNTIME DESTINATION "${INSTALL_DIR}"
         )
         
-        # Install QML module files
-        install(DIRECTORY "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/"
-            DESTINATION "${INSTALL_DIR}"
-            FILES_MATCHING PATTERN "*.qml" PATTERN "qmldir"
+        # Install QML app files to app root (from source directory)
+        foreach(QML_FILE ${ARG_QML_FILES})
+            install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/${QML_FILE}"
+                DESTINATION "${INSTALL_DIR}"
+            )
+        endforeach()
+        
+        # Install QML module files and plugin wrapper from module output directory
+        install(DIRECTORY "${MODULE_OUTPUT_DIR}/"
+            DESTINATION "${INSTALL_DIR}/${MODULE_PATH}"
+            FILES_MATCHING 
+            PATTERN "qmldir"
+            PATTERN "*.dylib"
+            PATTERN "*.so"
+            PATTERN "*.dll"
+            PATTERN "*.qmltypes"
         )
+        
+        # Fix rpath in the plugin wrapper on macOS
+        # Plugin is in Terminal/ subdirectory but needs to find base lib in parent
+        if(APPLE)
+            install(CODE "
+                execute_process(
+                    COMMAND install_name_tool 
+                        -delete_rpath \"${CMAKE_BINARY_DIR}/terminal\"
+                        -add_rpath \"@loader_path/..\"
+                        \"${INSTALL_DIR}/${MODULE_PATH}/lib${APP_NAME}-pluginplugin.dylib\"
+                    ERROR_QUIET
+                )
+            ")
+        endif()
     else()
         # Pure QML app - just copy files
         install(DIRECTORY "${APP_DIR}/"
@@ -124,6 +175,7 @@ add_subdirectory(camera)
 add_subdirectory(gallery)
 add_subdirectory(music)
 add_subdirectory(maps)
+add_subdirectory(terminal)
 
 message(STATUS "==========================================")
 message(STATUS "Marathon Apps Build Configuration")

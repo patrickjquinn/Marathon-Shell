@@ -76,7 +76,7 @@ Item {
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            visible: StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
+            visible: NetworkManager.bluetoothAvailable && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
         
         Icon {
@@ -85,15 +85,16 @@ Item {
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
-            visible: SystemStatusStore.cellularStrength > 0
+            visible: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) && SystemStatusStore.cellularStrength > 0
         }
         
         Icon {
-            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            name: SystemStatusStore.ethernetConnected ? "cable" : StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            opacity: SystemStatusStore.ethernetConnected ? 1.0 : StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            visible: SystemStatusStore.ethernetConnected || NetworkManager.wifiAvailable
         }
     }
 }
