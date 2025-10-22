@@ -385,7 +385,7 @@ install(TARGETS marathon-shell
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Install QML modules
+# Install QML modules (libraries and plugins)
 install(TARGETS 
     marathon-ui-theme
     marathon-ui-containers
@@ -400,10 +400,12 @@ install(TARGETS
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Install QML module files
+# Install QML module files (QML files, qmldir, and plugin libraries)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/qt6/qml
     FILES_MATCHING 
     PATTERN "*.qml"
     PATTERN "qmldir"
+    PATTERN "*.so"
+    PATTERN "*.qmltypes"
 )
