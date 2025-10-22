@@ -20,6 +20,7 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_alarmSound("qrc:/sounds/alarms/alarm_sunrise.wav")
     , m_screenTimeout(120000)  // 2 minutes default
     , m_autoBrightness(false)
+    , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
 {
     qDebug() << "[SettingsManager] Initialized";
@@ -48,6 +49,7 @@ void SettingsManager::load() {
     // Display
     m_screenTimeout = m_settings.value("display/screenTimeout", 120000).toInt();
     m_autoBrightness = m_settings.value("display/autoBrightness", false).toBool();
+    m_statusBarClockPosition = m_settings.value("display/statusBarClockPosition", "center").toString();
     
     // Notifications
     m_showNotificationsOnLockScreen = m_settings.value("notifications/showOnLockScreen", true).toBool();
@@ -77,6 +79,7 @@ void SettingsManager::save() {
     // Display
     m_settings.setValue("display/screenTimeout", m_screenTimeout);
     m_settings.setValue("display/autoBrightness", m_autoBrightness);
+    m_settings.setValue("display/statusBarClockPosition", m_statusBarClockPosition);
     
     // Notifications
     m_settings.setValue("notifications/showOnLockScreen", m_showNotificationsOnLockScreen);
@@ -192,6 +195,19 @@ void SettingsManager::setAutoBrightness(bool enabled) {
     save();
     emit autoBrightnessChanged();
     qDebug() << "[SettingsManager] Auto-brightness changed to" << enabled;
+}
+
+void SettingsManager::setStatusBarClockPosition(const QString &position) {
+    if (m_statusBarClockPosition == position) return;
+    // Validate input
+    if (position != "left" && position != "center" && position != "right") {
+        qWarning() << "[SettingsManager] Invalid clock position:" << position << "- using 'center'";
+        return;
+    }
+    m_statusBarClockPosition = position;
+    save();
+    emit statusBarClockPositionChanged();
+    qDebug() << "[SettingsManager] Status bar clock position changed to" << position;
 }
 
 // Notification setters
