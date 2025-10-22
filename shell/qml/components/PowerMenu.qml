@@ -53,9 +53,9 @@ Rectangle {
             Text {
                 text: "Power Options"
                 color: MColors.text
-                font.pixelSize: MTypography.sizeTitle3
+                font.pixelSize: Constants.fontSizeLarge
                 font.weight: Font.Bold
-                font.family: MTypography.fontFamily
+                font.family: Typography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
             }
             

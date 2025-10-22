@@ -14,11 +14,16 @@ QtObject {
     property real screenDiagonal: 1477.53  // Updated by updateScreenSize()
     property real dpi: 320
     
-    // Responsive scaling - scale everything based on screen height
-    // Base: 800px height (optimized for Passport 720x720)
-    readonly property real baseHeight: 800
+    // Responsive scaling - scale everything based on ACTUAL DPI
+    // Base DPI: 160 (standard Android MDPI baseline)
+    // This ensures UI elements are the same PHYSICAL size across all screens
+    readonly property real baseDPI: 160
     property real userScaleFactor: 1.0  // User preference (0.75, 1.0, 1.25, 1.5)
-    readonly property real scaleFactor: (screenHeight / baseHeight) * userScaleFactor
+    readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
+    
+    // Legacy height-based scaling (for apps that still use baseHeight)
+    readonly property real baseHeight: 800
+    readonly property real heightScaleFactor: screenHeight / baseHeight
     
     // Aspect ratio detection
     readonly property bool isTallScreen: screenHeight / screenWidth > 1.2

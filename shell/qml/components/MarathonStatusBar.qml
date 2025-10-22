@@ -33,7 +33,7 @@ Item {
         Icon {
             name: "zap"
             color: MColors.success
-            size: Constants.iconSizeXSmall
+            size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.isCharging
         }
@@ -133,11 +133,11 @@ Item {
             visible: NetworkManager.bluetoothAvailable && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
         
-        // Cellular - always show, wifi-off when unavailable
+        // Cellular - always show, signal-off (crossed antenna) when unavailable
         Icon {
             name: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) 
                   ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
-                  : "wifi-off"
+                  : "smartphone"
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
