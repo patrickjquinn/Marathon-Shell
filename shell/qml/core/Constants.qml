@@ -119,11 +119,15 @@ QtObject {
     readonly property real lockScreenShortcutSize: Math.round(64 * scaleFactor)
     
     // =========================================================================
-    // SCROLLING PERFORMANCE (physics-based)
+    // SCROLLING PERFORMANCE (physics-based, tuned for touch)
     // =========================================================================
     
     readonly property int flickDecelerationFast: 8000
-    readonly property int flickVelocityMax: 2000
+    readonly property int flickVelocityMax: 5000  // Higher for responsive touch
+    
+    // Touch-optimized flick physics
+    readonly property int touchFlickDeceleration: 25000  // Snappy page transitions
+    readonly property int touchFlickVelocity: 8000  // Responsive to fast flicks
     
     // =========================================================================
     // BB10 TOUCH TARGETS (responsive)
