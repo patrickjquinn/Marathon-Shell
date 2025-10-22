@@ -28,16 +28,16 @@ Item {
     Item {
         id: phoneShortcut
         anchors.left: parent.left
-        anchors.leftMargin: 30
+        anchors.leftMargin: Constants.spacingXLarge
         anchors.verticalCenter: parent.verticalCenter
-        width: 48
-        height: 48
+        width: Constants.touchTargetSmall
+        height: Constants.touchTargetSmall
         z: 10
         
         Image {
             source: "qrc:/images/phone.svg"
-            width: 32
-            height: 32
+            width: Constants.iconSizeMedium
+            height: Constants.iconSizeMedium
             fillMode: Image.PreserveAspectFit
             anchors.centerIn: parent
             asynchronous: true
@@ -67,8 +67,8 @@ Item {
         visible: bottomBar.showPageIndicators
         
         Rectangle {
-            width: bottomBar.currentPage === -2 ? 40 : 20
-            height: bottomBar.currentPage === -2 ? 40 : 20
+            width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: Colors.cornerRadiusCircle  // BB10: True circle
             color: bottomBar.currentPage === -2 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
@@ -79,8 +79,8 @@ Item {
             
             Image {
                 source: bottomBar.currentPage === -2 ? "qrc:/images/icons/lucide/inbox-black.svg" : "qrc:/images/icons/lucide/inbox.svg"
-                width: bottomBar.currentPage === -2 ? 20 : 14
-                height: bottomBar.currentPage === -2 ? 20 : 14
+                width: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
+                height: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 fillMode: Image.PreserveAspectFit
                 anchors.centerIn: parent
                 smooth: true
@@ -92,8 +92,8 @@ Item {
         }
         
         Rectangle {
-            width: bottomBar.currentPage === -1 ? 40 : 20
-            height: bottomBar.currentPage === -1 ? 40 : 20
+            width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: Colors.cornerRadiusCircle  // BB10: True circle
             color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
@@ -104,8 +104,8 @@ Item {
             
             Image {
                 source: bottomBar.currentPage === -1 ? "qrc:/images/icons/lucide/grid-black.svg" : "qrc:/images/icons/lucide/grid.svg"
-                width: bottomBar.currentPage === -1 ? 20 : 14
-                height: bottomBar.currentPage === -1 ? 20 : 14
+                width: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
+                height: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 fillMode: Image.PreserveAspectFit
                 anchors.centerIn: parent
                 smooth: true
@@ -120,8 +120,8 @@ Item {
             model: bottomBar.totalPages
             
             Rectangle {
-                width: index === bottomBar.currentPage ? 28 : 16
-                height: index === bottomBar.currentPage ? 28 : 16
+                width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
+                height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 radius: Colors.cornerRadiusCircle  // BB10: True circle
                 color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
                 anchors.verticalCenter: parent.verticalCenter
@@ -133,7 +133,7 @@ Item {
                 Text {
                     text: (index + 1).toString()
                     color: index === bottomBar.currentPage ? "#000000" : "#FFFFFF"
-                    font.pixelSize: index === bottomBar.currentPage ? 14 : 10
+                    font.pixelSize: index === bottomBar.currentPage ? Constants.fontSizeSmall : Constants.fontSizeXSmall
                     font.weight: Font.Medium
                     anchors.centerIn: parent
                     
@@ -151,16 +151,16 @@ Item {
     Item {
         id: cameraShortcut
         anchors.right: parent.right
-        anchors.rightMargin: 30
+        anchors.rightMargin: Constants.spacingXLarge
         anchors.verticalCenter: parent.verticalCenter
-        width: 48
-        height: 48
+        width: Constants.touchTargetSmall
+        height: Constants.touchTargetSmall
         z: 10
         
         Image {
             source: "qrc:/images/camera.svg"
-            width: 32
-            height: 32
+            width: Constants.iconSizeMedium
+            height: Constants.iconSizeMedium
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true

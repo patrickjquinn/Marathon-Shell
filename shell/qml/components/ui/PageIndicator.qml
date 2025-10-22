@@ -15,15 +15,15 @@ Row {
     
     Rectangle {
         visible: showHubIcon
-        width: 32
-        height: 32
-        radius: 4
+        width: Constants.iconSizeMedium
+        height: Constants.iconSizeMedium
+        radius: Constants.borderRadiusSmall
         color: currentPage === -2 ? "#FFFFFF" : "#666666"
         
         Image {
             source: "qrc:/images/icons/lucide/bell.svg"
-            width: 18
-            height: 18
+            width: Constants.iconSizeSmall
+            height: Constants.iconSizeSmall
             fillMode: Image.PreserveAspectFit
             anchors.centerIn: parent
         }
@@ -36,15 +36,15 @@ Row {
     
     Rectangle {
         visible: showTaskSwitcherIcon
-        width: 32
-        height: 32
-        radius: 4
+        width: Constants.iconSizeMedium
+        height: Constants.iconSizeMedium
+        radius: Constants.borderRadiusSmall
         color: currentPage === -1 ? "#FFFFFF" : "#666666"
         
         Image {
             source: "qrc:/images/icons/lucide/grid.svg"
-            width: 18
-            height: 18
+            width: Constants.iconSizeSmall
+            height: Constants.iconSizeSmall
             fillMode: Image.PreserveAspectFit
             anchors.centerIn: parent
         }
@@ -59,9 +59,9 @@ Row {
         model: totalPages
         
         Rectangle {
-            width: 8
-            height: 8
-            radius: 4
+            width: Constants.pageIndicatorSizeInactive / 2
+            height: Constants.pageIndicatorSizeInactive / 2
+            radius: Constants.pageIndicatorSizeInactive / 4
             color: index === currentPage ? "#FFFFFF" : "#666666"
             anchors.verticalCenter: parent.verticalCenter
             

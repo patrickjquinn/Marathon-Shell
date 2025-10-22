@@ -55,7 +55,7 @@ Item {
             Text {
                 text: SystemStatusStore.timeString
                 color: MColors.text
-                font.pixelSize: 96
+                font.pixelSize: Constants.fontSizeGigantic
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
                 
