@@ -92,11 +92,19 @@ Rectangle {
         }
         
         Icon {
-            name: "message-square"
-            size: Constants.iconSizeSmall - 4
+            name: "key"
+            size: Constants.iconSizeSmall - 2
             color: navBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent
-            opacity: 0.7
+            opacity: navBar.keyboardVisible ? 1.0 : 0.6
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+            
+            Behavior on color {
+                ColorAnimation { duration: 150 }
+            }
         }
         
         MouseArea {
