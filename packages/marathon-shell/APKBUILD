@@ -2,6 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@example.com>
 pkgname=marathon-shell
 pkgver=1.0.0
+_commit=HEAD
 pkgrel=0
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
@@ -50,13 +51,12 @@ makedepends="
 	wayland-protocols
 	mesa-dev
 	dbus-dev
+	git
 	"
 install=""
 subpackages="$pkgname-doc"
-source="
-	$pkgname-$pkgver.tar.gz
-	"
-builddir="$srcdir/$pkgname-$pkgver"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/refs/heads/main.tar.gz"
+builddir="$srcdir/Marathon-Shell-main"
 
 build() {
 	cd "$builddir"
@@ -100,7 +100,5 @@ package() {
 	DESTDIR="$pkgdir" cmake --install build-apps
 }
 
-sha512sums="
-e0364882ac6f50e26f1c16bf11f0a7894107c98172f853d7feeb749ecc6c108754990d9f003ca708b8d42a1c397743fe662c1dfb92c0a254ca2740f297d2d450  marathon-shell-1.0.0.tar.gz
-"
+sha512sums="SKIP"
 

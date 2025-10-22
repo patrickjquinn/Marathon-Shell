@@ -17,7 +17,6 @@ packages/*/build/
 packages/*/pkg/
 packages/*/src/
 packages/*/*.tar.gz
-!packages/marathon-shell/marathon-shell-1.0.0.tar.gz
 
 # Output images (too large for git)
 out/

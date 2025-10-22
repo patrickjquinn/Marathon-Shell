@@ -46,40 +46,9 @@ fi
 
 echo ""
 
-# Step 2: Create fresh tarball for Marathon Shell
-echo "═══ STEP 2: Creating Marathon Shell Source Tarball ═══"
-echo ""
-
-cd "$MARATHON_SHELL_DIR"
-
-# Clean build artifacts
-echo "Cleaning build artifacts..."
-rm -rf build build-apps .cache
-
-# Create tarball
-echo "Creating tarball..."
-cd ..
-tar czf "$MARATHON_IMAGE_DIR/packages/marathon-shell/marathon-shell-1.0.0.tar.gz" \
-    --exclude='.git' \
-    --exclude='build*' \
-    --exclude='.cache' \
-    --exclude='*.o' \
-    --exclude='*.so' \
-    --exclude='moc_*' \
-    --exclude='qrc_*' \
-    --transform 's,^Marathon-Shell,marathon-shell-1.0.0,' \
-    Marathon-Shell/
-
-TARBALL_SIZE=$(ls -lh "$MARATHON_IMAGE_DIR/packages/marathon-shell/marathon-shell-1.0.0.tar.gz" | awk '{print $5}')
-echo "✅ Tarball created: $TARBALL_SIZE"
-
-# Update checksums
-echo ""
-echo "Updating package checksums..."
-cd "$MARATHON_IMAGE_DIR/packages/marathon-shell"
-pmbootstrap checksum marathon-shell
-
-echo "✅ Checksums updated"
+# Step 2: APKBUILD now pulls directly from GitHub - no tarball needed
+echo "═══ STEP 2: APKBUILD configured to pull from GitHub ═══"
+echo "✅ Marathon Shell will be fetched directly from GitHub during build"
 echo ""
 
 # Step 3: Build Marathon Shell package
