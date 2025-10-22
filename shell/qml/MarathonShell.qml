@@ -357,12 +357,14 @@ Item {
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
-                    keyboardVisible: virtualKeyboard.keyboard.active
+                    keyboardVisible: false  // Updated by Connections below
                     
                     onToggleKeyboard: {
-                        virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
-                        HapticService.light()
-                        Logger.info("Shell", "Keyboard toggled: " + virtualKeyboard.keyboard.active)
+                        if (virtualKeyboard && virtualKeyboard.keyboard) {
+                            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+                            HapticService.light()
+                            Logger.info("Shell", "Keyboard toggled: " + virtualKeyboard.keyboard.active)
+                        }
                     }
                     
                     onAppLaunched: (app) => {
@@ -1085,6 +1087,14 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+    }
+    
+    // Sync keyboard visibility to bottomBar after virtualKeyboard is loaded
+    Connections {
+        target: virtualKeyboard.keyboard
+        function onActiveChanged() {
+            bottomBar.keyboardVisible = virtualKeyboard.keyboard.active
+        }
     }
     
     Keys.onPressed: (event) => {
