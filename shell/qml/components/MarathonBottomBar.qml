@@ -10,8 +10,10 @@ Item {
     property int totalPages: 1
     property bool showNotifications: currentPage >= 0
     property bool showPageIndicators: true
+    property bool keyboardVisible: false  // Set by parent
     
     signal appLaunched(var app)
+    signal toggleKeyboard()
     
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
     
@@ -178,6 +180,53 @@ Item {
             onClicked: {
                 var app = { id: "camera", name: "Camera", icon: "qrc:/images/camera.svg" }
                 appLaunched(app)
+            }
+        }
+    }
+    
+    Item {
+        id: keyboardShortcut
+        anchors.right: parent.right
+        anchors.rightMargin: Constants.spacingXLarge
+        anchors.verticalCenter: parent.verticalCenter
+        width: Constants.touchTargetSmall
+        height: Constants.touchTargetSmall
+        z: 10
+        
+        Rectangle {
+            anchors.fill: parent
+            radius: Constants.borderRadiusSmall
+            color: bottomBar.keyboardVisible ? Colors.accentPrimary : "transparent"
+            opacity: bottomBar.keyboardVisible ? 0.2 : 0
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+        }
+        
+        Icon {
+            name: "keyboard"
+            size: Constants.iconSizeMedium
+            color: bottomBar.keyboardVisible ? Colors.accentPrimary : Colors.textPrimary
+            anchors.centerIn: parent
+            opacity: keyboardMouseArea.pressed ? 0.6 : 1.0
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+            
+            Behavior on color {
+                ColorAnimation { duration: 150 }
+            }
+        }
+        
+        MouseArea {
+            id: keyboardMouseArea
+            anchors.fill: parent
+            anchors.margins: -Constants.spacingSmall  // Larger tap target
+            onClicked: {
+                HapticService.light()
+                bottomBar.toggleKeyboard()
             }
         }
     }
