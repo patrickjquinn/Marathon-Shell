@@ -409,11 +409,15 @@ Item {
         anchors.right: parent.right
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-        keyboardVisible: virtualKeyboard.keyboard ? virtualKeyboard.keyboard.active : false
+        keyboardVisible: virtualKeyboard && virtualKeyboard.keyboard ? virtualKeyboard.keyboard.active : false
         
         onToggleKeyboard: {
+            Logger.info("Shell", "Keyboard button clicked")
             if (virtualKeyboard && virtualKeyboard.keyboard) {
                 virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+                Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.keyboard.active)
+            } else {
+                Logger.warn("Shell", "Virtual keyboard not available")
             }
         }
             
