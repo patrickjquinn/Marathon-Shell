@@ -17,13 +17,16 @@ Marathon Shell is a modern, touch-optimized Wayland compositor and shell environ
 
 ### Qt6 Requirements (MINIMUM Qt 6.5.0)
 **Essential Qt6 Modules:**
-- qt6-qtbase-devel
-- qt6-qtdeclarative-devel (QML engine)
-- qt6-qtwayland-devel (Wayland compositor support)
-- qt6-qtmultimedia-devel (audio/video)
+- qt6-qtbase-devel (Core, Gui, Widgets)
+- qt6-qtdeclarative-devel (QML engine, Quick, QuickControls2)
+- qt6-qtwayland-devel (Wayland client support)
+- qt6-qtmultimedia-devel (audio/video playback)
 - qt6-qtsvg-devel (SVG icon rendering)
 - qt6-qtsql (SQLite for app databases)
 - qt6-qtvirtualkeyboard (on-screen keyboard)
+- qt6-qtwebengine-devel (CRITICAL for Browser app - Chromium-based web engine)
+- qt6-qtpositioning-devel (GPS, location services for Maps app)
+- qt6-qtlocation-devel (Maps and location-based services)
 
 **Qt6 Wayland Compositor Dependencies:**
 - qt6-qtwaylandcompositor-devel (CRITICAL for native app embedding)
@@ -46,11 +49,33 @@ Marathon Shell is a modern, touch-optimized Wayland compositor and shell environ
 **System Integration:**
 - systemd-devel (for logind integration)
 - dbus-devel (for D-Bus system services)
-- NetworkManager-devel
-- upower-devel
-- ModemManager-devel
-- geoclue2-devel (location services)
-- bluez-libs-devel
+- NetworkManager-devel (WiFi, Ethernet, cellular data)
+- upower-devel (battery, power management)
+- ModemManager-devel (cellular modem)
+- geoclue2-devel (location services for native apps)
+- bluez-libs-devel (Bluetooth)
+- iio-sensor-proxy (accelerometer, ambient light, proximity)
+
+**Terminal & Core Utilities (Runtime):**
+- bash or zsh (shell)
+- coreutils (ls, cp, mv, etc.)
+- util-linux (mount, kill, etc.)
+- procps-ng (ps, top, etc.)
+
+**WebEngine Dependencies:**
+- ffmpeg-free (video codecs for browser)
+- gstreamer1-plugins-base (multimedia framework)
+- gstreamer1-plugins-good (additional codecs)
+- pipewire (modern audio/video routing)
+- pipewire-pulse (PulseAudio compatibility)
+- wireplumber (PipeWire session manager)
+
+**Development & Debug Tools:**
+- gdb (GNU debugger)
+- strace (system call tracer)
+- valgrind (memory profiler)
+- perf (performance analyzer)
+- htop (process monitor)
 
 ---
 
@@ -64,7 +89,9 @@ sudo dnf install cmake ninja-build gcc-c++ pkg-config git
 # Qt6 Core
 sudo dnf install qt6-qtbase-devel qt6-qtdeclarative-devel \
                  qt6-qtwayland-devel qt6-qtmultimedia-devel \
-                 qt6-qtsvg-devel qt6-qtsql qt6-qtvirtualkeyboard
+                 qt6-qtsvg-devel qt6-qtsql qt6-qtvirtualkeyboard \
+                 qt6-qtwebengine-devel qt6-qtpositioning-devel \
+                 qt6-qtlocation-devel
 
 # Qt6 Wayland Compositor (CRITICAL!)
 sudo dnf install qt6-qtwaylandcompositor-devel
@@ -77,10 +104,19 @@ sudo dnf install wayland-devel wayland-protocols-devel \
 # System Services
 sudo dnf install systemd-devel dbus-devel \
                  NetworkManager-devel upower-devel \
-                 ModemManager-devel geoclue2-devel bluez-libs-devel
+                 ModemManager-devel geoclue2-devel bluez-libs-devel \
+                 iio-sensor-proxy
 
-# Audio
-sudo dnf install pulseaudio-libs-devel alsa-lib-devel
+# Audio & Video
+sudo dnf install pulseaudio-libs-devel alsa-lib-devel \
+                 pipewire pipewire-pulseaudio wireplumber \
+                 ffmpeg-free gstreamer1-plugins-base gstreamer1-plugins-good
+
+# Terminal & Core Utils (Runtime)
+sudo dnf install bash coreutils util-linux procps-ng
+
+# Debug Tools (Optional but Recommended)
+sudo dnf install gdb strace valgrind perf htop
 ```
 
 ### postmarketOS / Alpine Linux (Target Device)
@@ -88,17 +124,19 @@ sudo dnf install pulseaudio-libs-devel alsa-lib-devel
 ```apk
 makedepends="
     cmake
-    ninja
+    samurai
     qt6-qtbase-dev
     qt6-qtdeclarative-dev
     qt6-qtwayland-dev
+    qt6-qtwebengine-dev
     qt6-qtmultimedia-dev
     qt6-qtsvg-dev
-    qt6-qtsql-dev
-    qt6-qtvirtualkeyboard-dev
+    qt6-qtpositioning-dev
+    qt6-qtlocation-dev
     wayland-dev
     wayland-protocols
     mesa-dev
+    dbus-dev
     eudev-dev
     libinput-dev
 "
@@ -110,15 +148,36 @@ depends="
     qt6-qtbase
     qt6-qtdeclarative
     qt6-qtwayland
+    qt6-qtwebengine
     qt6-qtmultimedia
     qt6-qtsvg
     qt6-qtsql
     qt6-qtvirtualkeyboard
+    qt6-qtpositioning
+    qt6-qtlocation
+    wayland
+    wayland-protocols
+    mesa
+    mesa-gbm
+    mesa-egl
+    mesa-dri-gallium
+    mesa-gles
+    pipewire
+    pipewire-pulse
+    wireplumber
+    pulseaudio-utils
     networkmanager
     upower
     modemmanager
     geoclue
-    pulseaudio
+    bluez
+    iio-sensor-proxy
+    bash
+    coreutils
+    util-linux
+    dbus
+    polkit
+    greetd
 "
 ```
 
@@ -126,7 +185,8 @@ depends="
 ```bash
 sudo apt install cmake ninja-build build-essential pkg-config git \
                  qt6-base-dev qt6-declarative-dev qt6-wayland-dev \
-                 qt6-multimedia-dev qt6-svg-dev libqt6sql6 \
+                 qt6-webengine-dev qt6-multimedia-dev qt6-svg-dev \
+                 qt6-positioning-dev qt6-location-dev libqt6sql6 \
                  qtvirtualkeyboard-plugin \
                  libwayland-dev wayland-protocols \
                  libegl1-mesa-dev libgl1-mesa-dev \
@@ -134,7 +194,11 @@ sudo apt install cmake ninja-build build-essential pkg-config git \
                  libsystemd-dev libdbus-1-dev \
                  network-manager-dev libupower-glib-dev \
                  modemmanager-dev libgeoclue-2-dev libbluetooth-dev \
-                 libpulse-dev libasound2-dev
+                 libpulse-dev libasound2-dev \
+                 pipewire pipewire-pulse wireplumber \
+                 ffmpeg gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+                 iio-sensor-proxy bash coreutils util-linux procps \
+                 gdb strace valgrind linux-tools-generic htop
 ```
 
 ---
@@ -276,6 +340,22 @@ Marathon-Shell/
    - SQLite driver for app storage
    - Call history, SMS, contacts, media libraries
 
+6. **QtWebEngineQuick** - Web browser engine (CRITICAL for Browser app)
+   - Chromium-based web rendering
+   - HTML5, CSS3, JavaScript support
+   - Video/audio codec support via ffmpeg/gstreamer
+   - Requires significant disk space (~200MB)
+
+7. **QtPositioning/QtLocation** - Location services (Maps app)
+   - GPS coordinate handling
+   - Location-based services
+   - Map rendering and geocoding
+
+8. **QtQuickControls2** - Modern UI controls
+   - Material, Universal, Imagine styles
+   - Touch-optimized controls
+   - Required by many QML apps
+
 ### D-Bus System Integration
 Marathon Shell integrates with system services via D-Bus:
 - **NetworkManager** - WiFi, Ethernet, cellular data management
@@ -305,13 +385,37 @@ Marathon Shell acts as a Wayland compositor, meaning:
 ### Issue: "module QtQuick.VirtualKeyboard is not installed"
 **Solution:** Install qt6-qtvirtualkeyboard or qtvirtualkeyboard-plugin
 
+### Issue: "module QtWebEngine not found" or "Browser will use mockup UI"
+**Solution:** Install qt6-qtwebengine-devel (Fedora) or qt6-webengine-dev (Ubuntu/Debian)
+**Note:** WebEngine is LARGE (~200MB) and requires Chromium dependencies
+
+### Issue: "QtPositioning/QtLocation not found"
+**Solution:** Install qt6-qtpositioning-devel and qt6-qtlocation-devel (Fedora) or qt6-positioning-dev and qt6-location-dev (Ubuntu)
+
 ### Issue: "No EGL_WL_bind_wayland_display extension"
 **Solution:** This is a warning, not an error. It means software rendering is used instead of GPU acceleration. Can be ignored in VMs.
 
 ### Issue: "NetworkManager/UPower/ModemManager not available"
 **Solution:** Install respective development packages and ensure services are running:
 ```bash
-sudo systemctl start NetworkManager ModemManager
+sudo systemctl start NetworkManager ModemManager upower
+```
+
+### Issue: "Terminal app libterminal-plugin.so not found"
+**Solution:** Ensure terminal plugin is built and installed:
+```bash
+cmake --build build --target terminal-plugin
+sudo cmake --install build-apps
+```
+
+### Issue: Browser shows blank or crashes loading pages
+**Solution:** Install codec dependencies:
+```bash
+# Fedora
+sudo dnf install ffmpeg-free gstreamer1-plugins-{base,good,bad-free}
+
+# Ubuntu
+sudo apt install ffmpeg gstreamer1.0-plugins-{base,good,bad}
 ```
 
 ---
@@ -408,6 +512,10 @@ When helping with Marathon Shell development:
 6. **Virtual keyboard requires separate package** - Often not included in base Qt install
 7. **postmarketOS uses Alpine packages** - Different names than Fedora/Ubuntu
 8. **Mock mode is intentional** - Shell gracefully handles missing hardware
+9. **WebEngine is optional but critical** - Browser app needs qt6-qtwebengine (~200MB)
+10. **Terminal needs bash/shell** - TerminalEngine spawns QProcess for shell
+11. **Sensors require iio-sensor-proxy** - For accelerometer, ambient light, etc.
+12. **PipeWire is preferred over PulseAudio** - Modern audio routing
 
 ### Common Development Tasks
 - **Adding new apps:** See `apps/` directory, each app has its own `CMakeLists.txt`
