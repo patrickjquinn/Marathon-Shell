@@ -205,7 +205,7 @@ Item {
         }
         
         Icon {
-            name: "type"
+            name: "file-text"
             size: Constants.iconSizeMedium
             color: bottomBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent
