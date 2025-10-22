@@ -128,6 +128,7 @@ set(QML_FILES
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
     qml/components/VirtualKeyboard.qml
+    qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
     qml/apps/template/TemplateApp.qml
