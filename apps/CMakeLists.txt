@@ -64,9 +64,16 @@ function(add_marathon_app APP_NAME)
         )
         
         # Set RPATH so plugin can find the base library
+        # Use $ORIGIN on Linux, @loader_path on macOS
+        if(APPLE)
+            set(RPATH_VALUE "@loader_path")
+        else()
+            set(RPATH_VALUE "$ORIGIN")
+        endif()
         set_target_properties(${APP_NAME}-plugin PROPERTIES
-            INSTALL_RPATH "@loader_path"
-            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "${RPATH_VALUE}"
+            BUILD_WITH_INSTALL_RPATH FALSE
+            SKIP_BUILD_RPATH FALSE
         )
         
         target_link_libraries(${APP_NAME}-plugin PRIVATE
