@@ -29,6 +29,15 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
         }
         
+        // Charging indicator (bolt icon overlay)
+        Icon {
+            name: "zap"
+            color: MColors.success
+            size: Constants.iconSizeXSmall
+            anchors.verticalCenter: parent.verticalCenter
+            visible: SystemStatusStore.isCharging
+        }
+        
         Text {
             text: SystemStatusStore.batteryLevel + "%"
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
@@ -124,22 +133,28 @@ Item {
             visible: NetworkManager.bluetoothAvailable && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
         
+        // Cellular - always show, wifi-off when unavailable
         Icon {
-            name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
+            name: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) 
+                  ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
+                  : "wifi-off"
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
-            visible: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) && SystemStatusStore.cellularStrength > 0
+            opacity: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) 
+                     ? StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
+                     : 0.3
         }
         
+        // WiFi - always show, wifi-off when unavailable
         Icon {
-            name: SystemStatusStore.ethernetConnected ? "cable" : StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
+            name: SystemStatusStore.ethernetConnected ? "cable" : 
+                  (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength) : "wifi-off")
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: SystemStatusStore.ethernetConnected ? 1.0 : StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength)
-            visible: SystemStatusStore.ethernetConnected || NetworkManager.wifiAvailable
+            opacity: SystemStatusStore.ethernetConnected ? 1.0 : 
+                     (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength) : 0.3)
         }
     }
 }

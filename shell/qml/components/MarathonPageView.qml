@@ -26,11 +26,11 @@ ListView {
     snapMode: ListView.SnapOneItem
     highlightRangeMode: ListView.StrictlyEnforceRange
     interactive: true
-    flickDeceleration: 8000
-    maximumFlickVelocity: 2000
+    flickDeceleration: 15000  // Much faster snap - more responsive
+    maximumFlickVelocity: 4000  // Faster flick velocity
     currentIndex: 2
     boundsBehavior: Flickable.StopAtBounds
-    highlightMoveDuration: 0  // Instant transitions for better performance
+    highlightMoveDuration: 0  // Instant transitions - no animation delay
     preferredHighlightBegin: 0
     preferredHighlightEnd: width
     cacheBuffer: width * 3

@@ -84,7 +84,7 @@ Rectangle {
         z: 300  // Above gesture area
         
         Icon {
-            name: "type"
+            name: "file-text"
             size: Constants.iconSizeMedium
             color: navBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent

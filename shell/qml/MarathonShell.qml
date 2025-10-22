@@ -1060,6 +1060,37 @@ Item {
             UIStore.closeSearch()
             shell.forceActiveFocus()
         }
+        
+        onResultSelected: (result) => {
+            Logger.info("Shell", "Search result selected: " + result.name + " (type: " + result.type + ")")
+            
+            // Launch the app based on type
+            if (result.type === "native") {
+                if (compositor) {
+                    shell.pendingNativeApp = result
+                    
+                    // Show splash screen IMMEDIATELY
+                    UIStore.openApp(result.id, result.name, result.icon)
+                    appWindow.show(result.id, result.name, result.icon, "native", null, -1)
+                    Logger.info("Shell", "Showing splash screen for native app from search: " + result.name)
+                    
+                    // Launch via compositor
+                    compositor.launchApp(result.exec)
+                    Logger.info("Shell", "Launched native app from search: " + result.name)
+                }
+            } else {
+                // Marathon app - use AppLifecycleManager
+                if (AppLifecycleManager.canLaunchApp(result.id)) {
+                    AppLifecycleManager.launchApp(result.id, result.name, result.icon)
+                    Logger.info("Shell", "Launched Marathon app from search: " + result.name)
+                } else {
+                    Logger.error("Shell", "Cannot launch app from search: " + result.name)
+                }
+            }
+            
+            // Close search
+            UIStore.closeSearch()
+        }
     }
     
     ScreenshotPreview {
@@ -1089,20 +1120,35 @@ Item {
         anchors.bottom: parent.bottom
     }
     
-    // Sync keyboard visibility to bottomBar after virtualKeyboard is loaded
+    // Sync keyboard visibility to bottomBar when keyboard loads
     Connections {
-        target: virtualKeyboard.keyboard
-        function onActiveChanged() {
-            bottomBar.keyboardVisible = virtualKeyboard.keyboard.active
+        target: virtualKeyboard
+        enabled: virtualKeyboard.keyboard !== null
+        function onKeyboardChanged() {
+            if (virtualKeyboard.keyboard) {
+                virtualKeyboard.keyboard.onActiveChanged.connect(function() {
+                    bottomBar.keyboardVisible = virtualKeyboard.keyboard.active
+                })
+            }
+        }
+    }
+    
+    // Power button press timer for long-press detection
+    Timer {
+        id: powerButtonTimer
+        interval: 800  // 800ms for long press
+        onTriggered: {
+            Logger.info("Shell", "Power button LONG PRESS detected - showing power menu")
+            powerMenu.show()
         }
     }
     
     Keys.onPressed: (event) => {
-        // Power button - lock the device
+        // Power button - start timer for long press
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
-            Logger.info("Shell", "Power button pressed - locking device")
-            SessionStore.lock()
-            HapticService.medium()
+            if (!powerButtonTimer.running) {
+                powerButtonTimer.start()
+            }
             event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
             Logger.debug("Shell", "Escape key pressed")
@@ -1219,6 +1265,40 @@ Item {
                     appWindow.hide()
                 }
             }
+        }
+    }
+    
+    Keys.onReleased: (event) => {
+        // Power button released - if timer still running, it's a short press (lock)
+        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            if (powerButtonTimer.running) {
+                // Short press - lock the device
+                Logger.info("Shell", "Power button SHORT PRESS - locking device")
+                powerButtonTimer.stop()
+                SessionStore.lock()
+                HapticService.medium()
+            }
+            event.accepted = true
+        }
+    }
+    
+    PowerMenu {
+        id: powerMenu
+        
+        onSleepRequested: {
+            Logger.info("Shell", "Sleep requested from power menu")
+            SessionStore.lock()  // Lock first
+            PowerManager.sleep()  // Then sleep
+        }
+        
+        onRebootRequested: {
+            Logger.info("Shell", "Reboot requested from power menu")
+            PowerManager.reboot()
+        }
+        
+        onShutdownRequested: {
+            Logger.info("Shell", "Shutdown requested from power menu")
+            PowerManager.shutdown()
         }
     }
 }
