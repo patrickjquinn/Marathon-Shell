@@ -21,16 +21,42 @@ Item {
     z: Constants.zIndexKeyboard
     visible: active
     
+    // Guard flag to prevent bidirectional binding loops
+    property bool updatingFromInputPanel: false
+    
     // Sync our active property to InputPanel with safety checks
     onActiveChanged: {
-        Logger.info("VirtualKeyboard", "Active changed to: " + active)
+        if (updatingFromInputPanel) {
+            return  // Don't write back if we're syncing FROM InputPanel
+        }
+        
+        Logger.info("VirtualKeyboard", "Active changed externally to: " + active)
         if (inputPanel) {
-            inputPanel.active = active
+            // Defer the update to avoid crash during InputPanel destruction
+            Qt.callLater(function() {
+                if (inputPanel) {
+                    inputPanel.active = active
+                }
+            })
         }
     }
     
     Behavior on height {
         NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+    }
+    
+    // Use Connections to safely monitor InputPanel without bidirectional binding
+    Connections {
+        target: inputPanel
+        
+        function onActiveChanged() {
+            if (inputPanel && inputPanel.active !== keyboardContainer.active) {
+                Logger.info("VirtualKeyboard", "InputPanel dismissed via button, syncing to: " + inputPanel.active)
+                updatingFromInputPanel = true
+                keyboardContainer.active = inputPanel.active
+                updatingFromInputPanel = false
+            }
+        }
     }
     
     InputPanel {
@@ -39,13 +65,6 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         active: false
-        
-        // Sync InputPanel state back to container
-        onActiveChanged: {
-            if (active !== keyboardContainer.active) {
-                keyboardContainer.active = active
-            }
-        }
         
         Component.onCompleted: {
             Logger.info("VirtualKeyboard", "InputPanel created")
