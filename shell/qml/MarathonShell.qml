@@ -1111,6 +1111,16 @@ Item {
             UIStore.toggleSearch()
             HapticService.light()
             event.accepted = true
+        } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
+            Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard")
+            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            HapticService.light()
+            event.accepted = true
+        } else if (event.key === Qt.Key_Menu) {
+            Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard")
+            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            HapticService.light()
+            event.accepted = true
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
             Logger.debug("Shell", "Cmd+Shift+3 pressed - Taking Screenshot")
             ScreenshotService.captureScreen(shell)

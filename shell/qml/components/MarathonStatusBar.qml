@@ -39,11 +39,56 @@ Item {
     }
     
     Text {
-        anchors.centerIn: parent
+        id: clockText
         text: SystemStatusStore.timeString
         color: MColors.text
         font.pixelSize: Constants.fontSizeMedium
         font.weight: Font.Medium
+        anchors.verticalCenter: parent.verticalCenter
+        
+        // Dynamic position based on setting
+        property string position: (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.statusBarClockPosition) ? SettingsManagerCpp.statusBarClockPosition : "center"
+        
+        states: [
+            State {
+                name: "left"
+                when: clockText.position === "left"
+                AnchorChanges {
+                    target: clockText
+                    anchors.horizontalCenter: undefined
+                    anchors.left: parent.left
+                    anchors.right: undefined
+                }
+                PropertyChanges {
+                    target: clockText
+                    anchors.leftMargin: parent.width * 0.15  // After battery indicators
+                }
+            },
+            State {
+                name: "center"
+                when: clockText.position === "center" || !clockText.position
+                AnchorChanges {
+                    target: clockText
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.left: undefined
+                    anchors.right: undefined
+                }
+            },
+            State {
+                name: "right"
+                when: clockText.position === "right"
+                AnchorChanges {
+                    target: clockText
+                    anchors.horizontalCenter: undefined
+                    anchors.left: undefined
+                    anchors.right: parent.right
+                }
+                PropertyChanges {
+                    target: clockText
+                    anchors.rightMargin: parent.width * 0.15  // Before network icons
+                }
+            }
+        ]
     }
     
     Row {

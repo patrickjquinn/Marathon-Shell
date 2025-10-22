@@ -103,6 +103,24 @@ SettingsPageTemplate {
             }
             
             Section {
+                title: "Status Bar"
+                width: parent.width - 48
+                
+                SettingsListItem {
+                    title: "Clock Position"
+                    subtitle: "Choose where the clock appears"
+                    value: {
+                        var pos = SettingsManagerCpp.statusBarClockPosition || "center"
+                        return pos.charAt(0).toUpperCase() + pos.slice(1)
+                    }
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(clockPositionPageComponent)
+                    }
+                }
+            }
+            
+            Section {
                 title: "Interface"
                 width: parent.width - 48
                 
@@ -146,6 +164,72 @@ SettingsPageTemplate {
     Component {
         id: screenTimeoutPageComponent
         ScreenTimeoutPage {
+            onNavigateBack: displayPage.parent.pop()
+        }
+    }
+    
+    Component {
+        id: clockPositionPageComponent
+        SettingsPageTemplate {
+            pageTitle: "Clock Position"
+            
+            content: Flickable {
+                contentHeight: clockPositionContent.height + 40
+                clip: true
+                
+                Column {
+                    id: clockPositionContent
+                    width: parent.width
+                    spacing: Constants.spacingXLarge
+                    leftPadding: 24
+                    rightPadding: 24
+                    topPadding: 24
+                    
+                    Section {
+                        title: "Choose clock position"
+                        subtitle: "Useful for devices with notches or punch-holes"
+                        width: parent.width - 48
+                        
+                        Column {
+                            width: parent.width
+                            spacing: 0
+                            
+                            SettingsListItem {
+                                title: "Left"
+                                subtitle: "Best for right-side notches"
+                                rightIconName: (SettingsManagerCpp.statusBarClockPosition === "left") ? "check" : ""
+                                onSettingClicked: {
+                                    SettingsManagerCpp.statusBarClockPosition = "left"
+                                    HapticService.light()
+                                }
+                            }
+                            
+                            SettingsListItem {
+                                title: "Center"
+                                subtitle: "Default position"
+                                rightIconName: (!SettingsManagerCpp.statusBarClockPosition || SettingsManagerCpp.statusBarClockPosition === "center") ? "check" : ""
+                                onSettingClicked: {
+                                    SettingsManagerCpp.statusBarClockPosition = "center"
+                                    HapticService.light()
+                                }
+                            }
+                            
+                            SettingsListItem {
+                                title: "Right"
+                                subtitle: "Best for left-side notches"
+                                rightIconName: (SettingsManagerCpp.statusBarClockPosition === "right") ? "check" : ""
+                                onSettingClicked: {
+                                    SettingsManagerCpp.statusBarClockPosition = "right"
+                                    HapticService.light()
+                                }
+                            }
+                        }
+                    }
+                    
+                    Item { height: Constants.navBarHeight }
+                }
+            }
+            
             onNavigateBack: displayPage.parent.pop()
         }
     }

@@ -271,7 +271,14 @@ SettingsPageTemplate {
                                 onClicked: {
                                     HapticService.light()
                                     Logger.info("WiFiPage", "Connect to: " + modelData.ssid)
-                                    NetworkManager.connectToWifi(modelData.ssid)
+                                    
+                                    // If network is secured, show password dialog
+                                    if (modelData.secure) {
+                                        wifiPasswordDialog.show(modelData.ssid, modelData.security || "WPA2")
+                                    } else {
+                                        // Open network - connect directly
+                                        NetworkManager.connectToWifi(modelData.ssid, "")
+                                    }
                                 }
                             }
                         }
@@ -333,6 +340,21 @@ SettingsPageTemplate {
             }
             
             Item { height: Constants.navBarHeight }
+        }
+    }
+    
+    WiFiPasswordDialog {
+        id: wifiPasswordDialog
+        
+        onCanceled: {
+            Logger.info("WiFiPage", "Password dialog canceled")
+            wifiPasswordDialog.hide()
+        }
+        
+        onConfirmed: (password) => {
+            Logger.info("WiFiPage", "Connecting to " + wifiPasswordDialog.networkSsid + " with password")
+            NetworkManager.connectToWifi(wifiPasswordDialog.networkSsid, password)
+            wifiPasswordDialog.hide()
         }
     }
     
