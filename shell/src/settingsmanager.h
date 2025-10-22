@@ -28,6 +28,7 @@ class SettingsManager : public QObject {
     // Display properties
     Q_PROPERTY(int screenTimeout READ screenTimeout WRITE setScreenTimeout NOTIFY screenTimeoutChanged)
     Q_PROPERTY(bool autoBrightness READ autoBrightness WRITE setAutoBrightness NOTIFY autoBrightnessChanged)
+    Q_PROPERTY(QString statusBarClockPosition READ statusBarClockPosition WRITE setStatusBarClockPosition NOTIFY statusBarClockPositionChanged)
     
     // Notification properties
     Q_PROPERTY(bool showNotificationsOnLockScreen READ showNotificationsOnLockScreen WRITE setShowNotificationsOnLockScreen NOTIFY showNotificationsOnLockScreenChanged)
@@ -56,6 +57,7 @@ public:
     // Display getters
     int screenTimeout() const { return m_screenTimeout; }
     bool autoBrightness() const { return m_autoBrightness; }
+    QString statusBarClockPosition() const { return m_statusBarClockPosition; }
     
     // Notification getters
     bool showNotificationsOnLockScreen() const { return m_showNotificationsOnLockScreen; }
@@ -80,6 +82,7 @@ public:
     // Display setters
     void setScreenTimeout(int ms);
     void setAutoBrightness(bool enabled);
+    void setStatusBarClockPosition(const QString &position);
     
     // Notification setters
     void setShowNotificationsOnLockScreen(bool enabled);
@@ -118,6 +121,7 @@ signals:
     // Display signals
     void screenTimeoutChanged();
     void autoBrightnessChanged();
+    void statusBarClockPositionChanged();
     
     // Notification signals
     void showNotificationsOnLockScreenChanged();
@@ -148,6 +152,7 @@ private:
     // Display members
     int m_screenTimeout;
     bool m_autoBrightness;
+    QString m_statusBarClockPosition;
     
     // Notification members
     bool m_showNotificationsOnLockScreen;
