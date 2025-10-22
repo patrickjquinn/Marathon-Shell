@@ -494,7 +494,7 @@ Item {
                                                 
                                                 // Update liveApp reference
                                                 function updateLiveApp() {
-                                                    Logger.info("TaskSwitcher", "updateLiveApp called for: " + model.appId + " (tracked: " + trackedAppId + ")")
+                                                    Logger.debug("TaskSwitcher", "updateLiveApp called for: " + model.appId + " (type: " + model.type + ", tracked: " + trackedAppId + ")")
                                                     
                                                     // Clear if delegate was recycled
                                                     if (trackedAppId !== "" && trackedAppId !== model.appId) {
@@ -504,6 +504,13 @@ Item {
                                                     
                                                     trackedAppId = model.appId
                                                     
+                                                    // Native apps don't have MApp instances - they're managed via Wayland surfaces
+                                                    if (model.type === "native") {
+                                                        Logger.debug("TaskSwitcher", "Native app - no live preview (use surface rendering instead)")
+                                                        liveApp = null
+                                                        return
+                                                    }
+                                                    
                                                     if (typeof AppLifecycleManager === 'undefined') {
                                                         Logger.warn("TaskSwitcher", "AppLifecycleManager not available")
                                                         liveApp = null
@@ -512,9 +519,9 @@ Item {
                                                     
                                                     var instance = AppLifecycleManager.getAppInstance(model.appId)
                                                     if (!instance) {
-                                                        Logger.warn("TaskSwitcher", "❌ NO INSTANCE for: " + model.appId + " (type: " + model.type + ", title: " + model.title + ")")
+                                                        Logger.debug("TaskSwitcher", "No instance yet for Marathon app: " + model.appId + " (may register soon)")
                                                     } else {
-                                                        Logger.info("TaskSwitcher", "✓ Found live app for: " + model.appId)
+                                                        Logger.debug("TaskSwitcher", "✓ Found live app for: " + model.appId)
                                                     }
                                                     liveApp = instance
                                                 }
@@ -531,14 +538,13 @@ Item {
                                                     updateLiveApp()
                                                 }
                                                 
-                                // Re-check periodically in case app registers late
-                                // Works for both Marathon and native apps
-                                Timer {
-                                    interval: 100
-                                    repeat: true
-                                    running: previewContainer.liveApp === null
-                                    onTriggered: previewContainer.updateLiveApp()
-                                }
+                                                // Re-check periodically in case app registers late
+                                                Timer {
+                                                    interval: 100
+                                                    repeat: true
+                                                    running: previewContainer.liveApp === null && model.type !== "native"
+                                                    onTriggered: previewContainer.updateLiveApp()
+                                                }
                                                 
                                                 // Live preview using ShaderEffectSource with forced updates
                                                 ShaderEffectSource {
