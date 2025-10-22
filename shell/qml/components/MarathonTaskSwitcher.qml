@@ -1,4 +1,5 @@
 import QtQuick
+import QtWayland.Compositor
 import MarathonOS.Shell
 import "."
 
@@ -596,13 +597,35 @@ Item {
                                                     }
                                                 }
                                                 
+                                                // Native app surface rendering
+                                                Loader {
+                                                    id: nativeSurfaceLoader
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    visible: model.type === "native" && model.waylandSurface
+                                                    active: visible
+                                                    asynchronous: true
+                                                    
+                                                    sourceComponent: ShellSurfaceItem {
+                                                        anchors.fill: parent
+                                                        shellSurface: model.waylandSurface ? model.waylandSurface.xdgSurface : null
+                                                        touchEventsEnabled: false
+                                                        
+                                                        Component.onCompleted: {
+                                                            Logger.debug("TaskSwitcher", "Native surface preview loaded for: " + model.appId)
+                                                        }
+                                                    }
+                                                }
+                                                
                                                 // Fallback: Show app icon when live preview unavailable
                                                 Rectangle {
                                                     anchors.top: parent.top
                                                     anchors.horizontalCenter: parent.horizontalCenter
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                                    visible: previewContainer.liveApp === null
+                                                    visible: previewContainer.liveApp === null && (model.type !== "native" || !model.waylandSurface)
                                                     color: MColors.backgroundDark
                                                     
                                                     Column {

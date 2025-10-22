@@ -1,7 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
 import QtQuick.Controls
-import MarathonUI.Theme
 
 Slider {
     id: root

@@ -1,7 +1,5 @@
 import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Effects
 
 Rectangle {
     id: tile
@@ -64,11 +62,8 @@ Rectangle {
         antialiasing: Constants.enableAntialiasing
     }
     
-    // Ripple effect
-    MRipple {
-        id: rippleEffect
-        rippleColor: toggleData.active ? Qt.rgba(0.078, 0.722, 0.651, 0.2) : MColors.ripple
-    }
+    // Ripple effect removed - MarathonUI.Effects not available
+    // TODO: Add back when MarathonUI is available
     
     Row {
         anchors.fill: parent

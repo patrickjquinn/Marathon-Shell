@@ -1,5 +1,4 @@
 import QtQuick
-import MarathonUI.Theme
 
 Rectangle {
     id: root

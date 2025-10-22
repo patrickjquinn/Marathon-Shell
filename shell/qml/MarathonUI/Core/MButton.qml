@@ -1,8 +1,5 @@
 import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Effects
-import MarathonUI.Feedback
 
 Rectangle {
     id: root
@@ -102,10 +99,6 @@ Rectangle {
     }
     
     // Ripple effect
-    MRipple {
-        id: rippleEffect
-        rippleColor: variant === "primary" ? Qt.rgba(1, 1, 1, 0.2) : MColors.ripple
-    }
     
     Row {
         id: contentRow
@@ -140,13 +133,8 @@ Rectangle {
         }
     }
     
-    // Loading spinner
-    MActivityIndicator {
-        anchors.centerIn: parent
-        size: root.size === "small" ? 20 : (root.size === "large" ? 32 : 24)
-        visible: root.state === "loading"
-        color: variant === "primary" ? MColors.textOnAccent : MColors.accent
-    }
+    // Loading spinner - MActivityIndicator removed (MarathonUI.Effects not available)
+    // TODO: Add back when MarathonUI is available
     
     // Success icon
     Icon {

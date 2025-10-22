@@ -1,6 +1,5 @@
 import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 
 Column {
     id: root

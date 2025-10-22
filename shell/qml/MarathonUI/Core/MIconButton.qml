@@ -1,7 +1,5 @@
 import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Effects
 
 Rectangle {
     id: root
@@ -80,10 +78,6 @@ Rectangle {
     }
     
     // Ripple effect
-    MRipple {
-        id: rippleEffect
-        rippleColor: variant === "primary" || variant === "solid" ? Qt.rgba(1, 1, 1, 0.2) : MColors.ripple
-    }
     
     function getIconSize() {
         if (typeof root.size === "number") {

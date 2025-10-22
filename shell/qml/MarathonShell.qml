@@ -357,15 +357,6 @@ Item {
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
-                    keyboardVisible: false  // Updated by Connections below
-                    
-                    onToggleKeyboard: {
-                        if (virtualKeyboard && virtualKeyboard.keyboard) {
-                            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
-                            HapticService.light()
-                            Logger.info("Shell", "Keyboard toggled: " + virtualKeyboard.keyboard.active)
-                        }
-                    }
                     
                     onAppLaunched: (app) => {
                         Logger.info("Shell", "Bottom bar launched: " + app.name + " (type: " + app.type + ")")
@@ -411,22 +402,29 @@ Item {
         z: Constants.zIndexStatusBarApp
     }
     
-    MarathonNavBar {
+    Comp.MarathonNavBar {
         id: navBar
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-            
-            onSwipeLeft: {
-                if (pageView.currentIndex < pageView.count - 1) {
-                    pageView.incrementCurrentIndex()
-                    Router.navigateLeft()
-                }
-            }
+        keyboardVisible: virtualKeyboard.keyboard ? virtualKeyboard.keyboard.active : false
         
-            onSwipeRight: {
+        onToggleKeyboard: {
+            if (virtualKeyboard && virtualKeyboard.keyboard) {
+                virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            }
+        }
+            
+        onSwipeLeft: {
+            if (pageView.currentIndex < pageView.count - 1) {
+                pageView.incrementCurrentIndex()
+                Router.navigateLeft()
+            }
+        }
+    
+        onSwipeRight: {
                 // Check if app can handle forward navigation first
                 if (UIStore.appWindowOpen && typeof AppLifecycleManager !== 'undefined') {
                     var handled = AppLifecycleManager.handleSystemForward()
@@ -1120,18 +1118,7 @@ Item {
         anchors.bottom: parent.bottom
     }
     
-    // Sync keyboard visibility to bottomBar when keyboard loads
-    Connections {
-        target: virtualKeyboard
-        enabled: virtualKeyboard.keyboard !== null
-        function onKeyboardChanged() {
-            if (virtualKeyboard.keyboard) {
-                virtualKeyboard.keyboard.onActiveChanged.connect(function() {
-                    bottomBar.keyboardVisible = virtualKeyboard.keyboard.active
-                })
-            }
-        }
-    }
+    // Keyboard visibility now managed by navBar.keyboardVisible binding
     
     // Power button press timer for long-press detection
     Timer {
