@@ -1,44 +1,33 @@
 import QtQuick
+import QtQuick.VirtualKeyboard
 import MarathonOS.Shell
 
 Item {
     id: keyboardContainer
     
-    // Expose keyboard as a property for easy access
-    property alias keyboard: keyboard
-    property bool keyboardAvailable: keyboard.status === Loader.Ready
+    // Expose keyboard directly
+    property alias keyboard: inputPanel
+    property bool keyboardAvailable: true  // Always true since we import the module
     
     width: parent ? parent.width : 0
-    height: keyboardAvailable && keyboard.item ? keyboard.item.height : 0
+    height: inputPanel.active ? inputPanel.height : 0
     y: parent ? parent.height - height : 0
     z: Constants.zIndexKeyboard
-    visible: keyboardAvailable && keyboard.item && keyboard.item.active
+    visible: inputPanel.active
     
     Behavior on height {
         NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
     }
     
-    Loader {
-        id: keyboard
+    InputPanel {
+        id: inputPanel
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        active: true  // Try to load on startup
-        asynchronous: true
+        active: false
         
-        source: "qrc:/qt-project.org/imports/QtQuick/VirtualKeyboard/InputPanel.qml"
-        
-        onStatusChanged: {
-            if (status === Loader.Error) {
-                Logger.warn("VirtualKeyboard", "Qt VirtualKeyboard module not available")
-                Logger.info("VirtualKeyboard", "Install qt6-virtualkeyboard package or set QT_IM_MODULE=qtvirtualkeyboard")
-            } else if (status === Loader.Ready) {
-                Logger.info("VirtualKeyboard", "Qt VirtualKeyboard loaded successfully")
-            }
-        }
-        
-        onLoaded: {
-            Logger.info("VirtualKeyboard", "InputPanel loaded, initial active state: " + (item ? item.active : "N/A"))
+        Component.onCompleted: {
+            Logger.info("VirtualKeyboard", "InputPanel created, initial active: " + active)
         }
     }
     
