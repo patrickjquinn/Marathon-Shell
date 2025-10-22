@@ -14,6 +14,7 @@ depends="
 	qt6-qtwebengine
 	qt6-qtmultimedia
 	qt6-qtsvg
+	qt6-qtsql
 	wayland
 	wayland-protocols
 	mesa
@@ -32,6 +33,7 @@ depends="
 	upower
 	polkit
 	bluez
+	geoclue
 	"
 makedepends="
 	cmake

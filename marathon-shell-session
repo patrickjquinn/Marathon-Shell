@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Marathon Shell Wayland Session Startup Script
 # Sets up environment and launches the shell
 
@@ -11,12 +11,19 @@ export XDG_CURRENT_DESKTOP=marathon
 export MARATHON_PREFIX=/usr
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
 
-# Qt/QML environment
-export QT_QPA_PLATFORM=wayland
+# Qt/QML environment - DO NOT set QT_QPA_PLATFORM for a Wayland compositor
+# The shell IS the compositor, not a client. Qt will auto-select the correct backend.
+# export QT_QPA_PLATFORM=wayland  # WRONG - causes crash
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export QT_QUICK_CONTROLS_STYLE=Basic
 export QML_IMPORT_PATH=/usr/lib/qml:$QML_IMPORT_PATH
 export QML2_IMPORT_PATH=/usr/lib/qml:$QML2_IMPORT_PATH
+
+# Display scaling for OnePlus 6 (1080x2280, ~402 DPI)
+export QT_SCALE_FACTOR=1
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_SCREEN_SCALE_FACTORS=1
+export QT_ENABLE_HIGHDPI_SCALING=0
 
 # Wayland environment
 export WAYLAND_DISPLAY=wayland-0

@@ -29,8 +29,12 @@ else()
     set(HAVE_WEBENGINE FALSE)
 endif()
 
-# Installation directory
-set(MARATHON_APPS_DIR "$ENV{HOME}/.local/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
+# Installation directory - system-wide for production, user-local for dev
+if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
+    set(MARATHON_APPS_DIR "${CMAKE_INSTALL_PREFIX}/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
+else()
+    set(MARATHON_APPS_DIR "$ENV{HOME}/.local/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
+endif()
 
 # Function to create a Marathon app module
 function(add_marathon_app APP_NAME)
