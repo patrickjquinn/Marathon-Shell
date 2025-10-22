@@ -604,13 +604,13 @@ Item {
                                                     anchors.horizontalCenter: parent.horizontalCenter
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                                    visible: model.type === "native" && model.waylandSurface
+                                                    visible: model.type === "native" && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
                                                     active: visible
                                                     asynchronous: true
                                                     
                                                     sourceComponent: ShellSurfaceItem {
                                                         anchors.fill: parent
-                                                        shellSurface: model.waylandSurface ? model.waylandSurface.xdgSurface : null
+                                                        shellSurface: (typeof model.waylandSurface !== 'undefined' && model.waylandSurface) ? model.waylandSurface.xdgSurface : null
                                                         touchEventsEnabled: false
                                                         
                                                         Component.onCompleted: {

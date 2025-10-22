@@ -182,51 +182,5 @@ Item {
         }
     }
     
-    Item {
-        id: keyboardShortcut
-        anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingXLarge
-        anchors.verticalCenter: parent.verticalCenter
-        width: Constants.touchTargetSmall
-        height: Constants.touchTargetSmall
-        z: 10
-        
-        Rectangle {
-            anchors.fill: parent
-            radius: Constants.borderRadiusSmall
-            color: bottomBar.keyboardVisible ? MColors.accent : "transparent"
-            opacity: bottomBar.keyboardVisible ? 0.2 : 0
-            
-            Behavior on opacity {
-                NumberAnimation { duration: 150 }
-            }
-        }
-        
-        Icon {
-            name: "message-square"
-            size: Constants.iconSizeMedium
-            color: bottomBar.keyboardVisible ? MColors.accent : MColors.text
-            anchors.centerIn: parent
-            opacity: keyboardMouseArea.pressed ? 0.6 : 1.0
-            
-            Behavior on opacity {
-                NumberAnimation { duration: 150 }
-            }
-            
-            Behavior on color {
-                ColorAnimation { duration: 150 }
-            }
-        }
-        
-        MouseArea {
-            id: keyboardMouseArea
-            anchors.fill: parent
-            anchors.margins: -Constants.spacingSmall  // Larger tap target
-            onClicked: {
-                HapticService.light()
-                bottomBar.toggleKeyboard()
-            }
-        }
-    }
 }
 

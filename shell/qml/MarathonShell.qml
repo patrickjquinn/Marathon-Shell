@@ -1078,11 +1078,14 @@ Item {
                 }
             } else {
                 // Marathon app - use AppLifecycleManager
-                if (AppLifecycleManager.canLaunchApp(result.id)) {
-                    AppLifecycleManager.launchApp(result.id, result.name, result.icon)
-                    Logger.info("Shell", "Launched Marathon app from search: " + result.name)
+                // Check if app is already running
+                if (AppLifecycleManager.isAppRunning(result.id)) {
+                    AppLifecycleManager.bringToForeground(result.id)
+                    Logger.info("Shell", "Brought running app to foreground: " + result.name)
                 } else {
-                    Logger.error("Shell", "Cannot launch app from search: " + result.name)
+                    UIStore.openApp(result.id, result.name, result.icon)
+                    appWindow.show(result.id, result.name, result.icon, "marathon")
+                    Logger.info("Shell", "Launched Marathon app from search: " + result.name)
                 }
             }
             

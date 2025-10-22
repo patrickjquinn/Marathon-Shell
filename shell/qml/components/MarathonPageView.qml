@@ -26,8 +26,12 @@ ListView {
     snapMode: ListView.SnapOneItem
     highlightRangeMode: ListView.StrictlyEnforceRange
     interactive: true
-    flickDeceleration: 15000  // Much faster snap - more responsive
-    maximumFlickVelocity: 4000  // Faster flick velocity
+    
+    // PHYSICS TUNING for smooth, snappy flick
+    flickDeceleration: 25000  // Very high deceleration = snappy snap to page
+    maximumFlickVelocity: 8000  // High velocity = responsive to fast flicks
+    flickableDirection: Flickable.HorizontalFlick
+    
     currentIndex: 2
     boundsBehavior: Flickable.StopAtBounds
     highlightMoveDuration: 0  // Instant transitions - no animation delay
@@ -35,9 +39,10 @@ ListView {
     preferredHighlightEnd: width
     cacheBuffer: width * 3
     
-    // Performance optimizations
+    // PERFORMANCE OPTIMIZATIONS for touch fluidity
     pixelAligned: true
     reuseItems: true
+    synchronousDrag: false  // Async dragging for better performance
     
     property int currentPage: currentIndex - 2
     property bool isGestureActive: false
