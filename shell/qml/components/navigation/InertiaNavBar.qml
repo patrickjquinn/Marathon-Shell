@@ -29,9 +29,9 @@ Rectangle {
     Rectangle {
         id: indicator
         anchors.centerIn: parent
-        width: 80
-        height: 4
-        radius: 2
+        width: Constants.cardBannerHeight
+        height: Constants.spacingXSmall
+        radius: Constants.borderRadiusSmall
         color: "#FFFFFF"
         opacity: 0.8
         

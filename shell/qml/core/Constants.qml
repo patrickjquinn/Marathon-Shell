@@ -165,6 +165,7 @@ QtObject {
     readonly property real fontSizeXLarge: Math.round(24 * scaleFactor)
     readonly property real fontSizeXXLarge: Math.round(32 * scaleFactor)
     readonly property real fontSizeHuge: Math.round(48 * scaleFactor)
+    readonly property real fontSizeGigantic: Math.round(96 * scaleFactor)  // Lock screen clock
     
     // =========================================================================
     // SPACING SYSTEM (responsive)

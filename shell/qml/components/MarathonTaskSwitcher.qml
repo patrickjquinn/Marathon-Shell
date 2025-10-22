@@ -846,12 +846,12 @@ Item {
             model: pageIndicator.pageCount
             
             Rectangle {
-                width: 6
+                width: Constants.spacingSmall / 2
                 height: {
                     var isActive = index === pageIndicator.currentPage
-                    return isActive ? 32 : 16
+                    return isActive ? Constants.iconSizeMedium : Constants.pageIndicatorSizeInactive
                 }
-                radius: 3
+                radius: Constants.spacingSmall / 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 
                 color: {
