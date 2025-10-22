@@ -409,12 +409,12 @@ Item {
         anchors.right: parent.right
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-        keyboardVisible: virtualKeyboard.keyboard.active
+        keyboardVisible: virtualKeyboard.active
         
         onToggleKeyboard: {
-            Logger.info("Shell", "Keyboard button clicked")
-            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
-            Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.keyboard.active)
+            Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active)
+            virtualKeyboard.active = !virtualKeyboard.active
+            Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.active)
         }
             
         onSwipeLeft: {
@@ -1166,12 +1166,12 @@ Item {
             event.accepted = true
         } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard")
-            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            virtualKeyboard.active = !virtualKeyboard.active
             HapticService.light()
             event.accepted = true
         } else if (event.key === Qt.Key_Menu) {
             Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard")
-            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            virtualKeyboard.active = !virtualKeyboard.active
             HapticService.light()
             event.accepted = true
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {

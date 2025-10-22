@@ -324,13 +324,15 @@ Item {
             if (isDragging) {
                 swipeCenterX = mouse.x / width
                 swipeCenterY = mouse.y / height
-                swipeProgress = Math.min(1.0, distance / (height * 0.6))
+                // FIXED: Reduced from 0.6 (60%) to 0.25 (25%) - much more reasonable!
+                swipeProgress = Math.min(1.0, distance / (height * 0.25))
                 dissolveCanvas.requestPaint()
             }
         }
         
         onReleased: (mouse) => {
-            if (isDragging && swipeProgress > 0.4) {
+            // FIXED: Reduced threshold from 0.4 to 0.3 (30% of the new 25% distance = ~7.5% of screen)
+            if (isDragging && swipeProgress > 0.3) {
                 swipeProgress = 1.0
                 dissolveCanvas.requestPaint()
                 unlockTimer.start()
