@@ -75,10 +75,10 @@ if [ $? -eq 0 ]; then
     # Run the app (detect OS)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS .app bundle
-        ./build/shell/marathon-shell.app/Contents/MacOS/marathon-shell
+        ./build/shell/marathon-shell.app/Contents/MacOS/marathon-shell-bin
     else
         # Linux executable
-        ./build/shell/marathon-shell
+        ./build/shell/marathon-shell-bin
     fi
 else
     echo "❌ Build failed!"
