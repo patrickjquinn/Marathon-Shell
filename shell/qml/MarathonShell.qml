@@ -1282,7 +1282,7 @@ Item {
         }
     }
     
-    PowerMenu {
+    Components.PowerMenu {
         id: powerMenu
         
         onSleepRequested: {
