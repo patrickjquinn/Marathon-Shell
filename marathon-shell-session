@@ -41,6 +41,14 @@ else
     export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
 fi
 
+# Performance: Disable QML AOT compilation (causes slowdowns and excessive temp files)
+export QML_DISABLE_DISK_CACHE=0
+export QT_QUICK_CONTROLS_IMAGINE_PATH=""
+export QML_DISABLE_OPTIMIZER=0
+
+# Use QML cache for faster startup
+export QML_FORCE_DISK_CACHE=1
+
 # Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
 export NO_AT_BRIDGE=1
 export GTK_A11Y=none
