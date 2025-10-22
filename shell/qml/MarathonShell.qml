@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Window
-import "./components"
+import "./components" as Comp
 import MarathonOS.Shell
 
 Item {
@@ -1282,7 +1282,7 @@ Item {
         }
     }
     
-    Components.PowerMenu {
+    Comp.PowerMenu {
         id: powerMenu
         
         onSleepRequested: {
