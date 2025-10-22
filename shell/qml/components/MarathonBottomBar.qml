@@ -196,7 +196,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: Constants.borderRadiusSmall
-            color: bottomBar.keyboardVisible ? Colors.accentPrimary : "transparent"
+            color: bottomBar.keyboardVisible ? MColors.accent : "transparent"
             opacity: bottomBar.keyboardVisible ? 0.2 : 0
             
             Behavior on opacity {
@@ -205,9 +205,9 @@ Item {
         }
         
         Icon {
-            name: "keyboard"
+            name: "type"
             size: Constants.iconSizeMedium
-            color: bottomBar.keyboardVisible ? Colors.accentPrimary : Colors.textPrimary
+            color: bottomBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent
             opacity: keyboardMouseArea.pressed ? 0.6 : 1.0
             
