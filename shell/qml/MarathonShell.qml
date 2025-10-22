@@ -409,23 +409,12 @@ Item {
         anchors.right: parent.right
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
-        keyboardVisible: virtualKeyboard.keyboardAvailable && virtualKeyboard.keyboard.item ? virtualKeyboard.keyboard.item.active : false
+        keyboardVisible: virtualKeyboard.keyboard.active
         
         onToggleKeyboard: {
             Logger.info("Shell", "Keyboard button clicked")
-            
-            if (!virtualKeyboard.keyboardAvailable) {
-                Logger.warn("Shell", "Virtual keyboard not available - Qt VirtualKeyboard module not loaded")
-                Logger.info("Shell", "Install: sudo dnf install qt6-qtvirtualkeyboard (Fedora) or sudo apt install qtvirtualkeyboard-plugin (Ubuntu)")
-                return
-            }
-            
-            if (virtualKeyboard.keyboard.item) {
-                virtualKeyboard.keyboard.item.active = !virtualKeyboard.keyboard.item.active
-                Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.keyboard.item.active)
-            } else {
-                Logger.error("Shell", "Keyboard loaded but item is null!")
-            }
+            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.keyboard.active)
         }
             
         onSwipeLeft: {
@@ -1177,17 +1166,13 @@ Item {
             event.accepted = true
         } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard")
-            if (virtualKeyboard.keyboardAvailable && virtualKeyboard.keyboard.item) {
-                virtualKeyboard.keyboard.item.active = !virtualKeyboard.keyboard.item.active
-                HapticService.light()
-            }
+            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            HapticService.light()
             event.accepted = true
         } else if (event.key === Qt.Key_Menu) {
             Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard")
-            if (virtualKeyboard.keyboardAvailable && virtualKeyboard.keyboard.item) {
-                virtualKeyboard.keyboard.item.active = !virtualKeyboard.keyboard.item.active
-                HapticService.light()
-            }
+            virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+            HapticService.light()
             event.accepted = true
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
             Logger.debug("Shell", "Cmd+Shift+3 pressed - Taking Screenshot")
