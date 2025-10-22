@@ -101,8 +101,6 @@ Rectangle {
                     verticalAlignment: TextInput.AlignVCenter
                     selectByMouse: true
                     
-                    placeholderText: "Enter password"
-                    
                     Text {
                         anchors.fill: parent
                         text: "Enter password"

@@ -21,6 +21,7 @@ Rectangle {
     signal longSwipeUp()
     signal minimizeApp()
     signal startPageTransition()
+    signal toggleKeyboard()
     
     property real startX: 0
     property real startY: 0
@@ -67,6 +68,37 @@ Rectangle {
     
     property bool isAppOpen: false
     property real gestureProgress: 0
+    property bool keyboardVisible: false  // Set by parent
+    
+    // Keyboard toggle button (bottom right)
+    Rectangle {
+        id: keyboardButton
+        anchors.right: parent.right
+        anchors.rightMargin: Constants.spacingLarge
+        anchors.verticalCenter: parent.verticalCenter
+        width: Constants.touchTargetSmall
+        height: Constants.touchTargetSmall
+        radius: Constants.borderRadiusSmall
+        color: navBar.keyboardVisible ? MColors.accent : "transparent"
+        opacity: navBar.keyboardVisible ? 0.2 : 0.6
+        z: 300  // Above gesture area
+        
+        Icon {
+            name: "keyboard"
+            size: Constants.iconSizeMedium
+            color: navBar.keyboardVisible ? MColors.accent : MColors.text
+            anchors.centerIn: parent
+        }
+        
+        MouseArea {
+            anchors.fill: parent
+            anchors.margins: -Constants.spacingSmall  // Larger tap target
+            onClicked: {
+                HapticService.light()
+                navBar.toggleKeyboard()
+            }
+        }
+    }
     
     MouseArea {
         id: navMouseArea

@@ -357,6 +357,13 @@ Item {
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
+                    keyboardVisible: virtualKeyboard.keyboard.active
+                    
+                    onToggleKeyboard: {
+                        virtualKeyboard.keyboard.active = !virtualKeyboard.keyboard.active
+                        HapticService.light()
+                        Logger.info("Shell", "Keyboard toggled: " + virtualKeyboard.keyboard.active)
+                    }
                     
                     onAppLaunched: (app) => {
                         Logger.info("Shell", "Bottom bar launched: " + app.name + " (type: " + app.type + ")")
