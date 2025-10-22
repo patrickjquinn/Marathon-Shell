@@ -531,13 +531,14 @@ Item {
                                                     updateLiveApp()
                                                 }
                                                 
-                                                // Re-check periodically in case app registers late
-                                                Timer {
-                                                    interval: 100
-                                                    repeat: true
-                                                    running: previewContainer.liveApp === null && model.type !== "native"
-                                                    onTriggered: previewContainer.updateLiveApp()
-                                                }
+                                // Re-check periodically in case app registers late
+                                // Works for both Marathon and native apps
+                                Timer {
+                                    interval: 100
+                                    repeat: true
+                                    running: previewContainer.liveApp === null
+                                    onTriggered: previewContainer.updateLiveApp()
+                                }
                                                 
                                                 // Live preview using ShaderEffectSource with forced updates
                                                 ShaderEffectSource {
