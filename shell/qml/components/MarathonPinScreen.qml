@@ -1,6 +1,5 @@
 import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 
 // PIN Entry Screen - shown after swipe-up unlock
 Rectangle {

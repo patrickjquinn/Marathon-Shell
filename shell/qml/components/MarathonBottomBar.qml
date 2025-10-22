@@ -10,10 +10,8 @@ Item {
     property int totalPages: 1
     property bool showNotifications: currentPage >= 0
     property bool showPageIndicators: true
-    property bool keyboardVisible: false  // Set by parent
     
     signal appLaunched(var app)
-    signal toggleKeyboard()
     
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
     

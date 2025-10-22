@@ -1,6 +1,5 @@
 import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 
 Rectangle {
     id: navBar
@@ -68,6 +67,47 @@ Rectangle {
     
     property bool isAppOpen: false
     property real gestureProgress: 0
+    property bool keyboardVisible: false
+    
+    // Keyboard button (small, bottom right of nav bar)
+    Item {
+        id: keyboardButton
+        anchors.right: parent.right
+        anchors.rightMargin: Constants.spacingSmall
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 2
+        width: Constants.iconSizeSmall + 4
+        height: Constants.iconSizeSmall + 4
+        z: 300
+        
+        Rectangle {
+            anchors.fill: parent
+            radius: Constants.borderRadiusSmall
+            color: navBar.keyboardVisible ? MColors.accent : MColors.surface
+            opacity: navBar.keyboardVisible ? 0.3 : 0.15
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+        }
+        
+        Icon {
+            name: "message-square"
+            size: Constants.iconSizeSmall - 4
+            color: navBar.keyboardVisible ? MColors.accent : MColors.text
+            anchors.centerIn: parent
+            opacity: 0.7
+        }
+        
+        MouseArea {
+            anchors.fill: parent
+            anchors.margins: -4
+            onClicked: {
+                HapticService.light()
+                navBar.toggleKeyboard()
+            }
+        }
+    }
     
     MouseArea {
         id: navMouseArea

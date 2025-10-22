@@ -15,9 +15,9 @@ QtObject {
     property real dpi: 320
     
     // Responsive scaling - scale everything based on ACTUAL DPI
-    // Base DPI: 160 (standard Android MDPI baseline)
+    // Base DPI: 96 (standard desktop/web baseline - lower = larger UI)
     // This ensures UI elements are the same PHYSICAL size across all screens
-    readonly property real baseDPI: 160
+    readonly property real baseDPI: 96
     property real userScaleFactor: 1.0  // User preference (0.75, 1.0, 1.25, 1.5)
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
     

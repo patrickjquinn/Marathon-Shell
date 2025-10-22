@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import MarathonUI.Theme
 
 Item {
     id: root
