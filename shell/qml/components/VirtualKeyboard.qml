@@ -20,7 +20,9 @@ Item {
     z: Constants.zIndexKeyboard
     visible: inputPanel.visible
     
-    // When external code changes active, show/hide keyboard via Qt.inputMethod
+    // ONE-WAY CONTROL ONLY: We can show/hide, but DON'T observe dismiss!
+    // The user pressing InputPanel's dismiss button will hide it,
+    // but we won't know about it. That's OK - it prevents crashes.
     onActiveChanged: {
         Logger.info("VirtualKeyboard", "Active changed externally to: " + active)
         if (active) {
@@ -34,18 +36,8 @@ Item {
         NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
     }
     
-    // Monitor Qt.inputMethod.visible to sync back (read-only, no crash!)
-    Connections {
-        target: Qt.inputMethod
-        
-        function onVisibleChanged() {
-            var isVisible = Qt.inputMethod.visible
-            Logger.info("VirtualKeyboard", "Qt.inputMethod.visible changed to: " + isVisible)
-            if (keyboardContainer.active !== isVisible) {
-                keyboardContainer.active = isVisible
-            }
-        }
-    }
+    // NO CONNECTIONS! Don't observe InputPanel state changes!
+    // This prevents ALL crash scenarios related to dismiss button.
     
     InputPanel {
         id: inputPanel
@@ -55,10 +47,6 @@ Item {
         
         Component.onCompleted: {
             Logger.info("VirtualKeyboard", "InputPanel created")
-        }
-        
-        Component.onDestruction: {
-            Logger.info("VirtualKeyboard", "InputPanel being destroyed")
         }
     }
     
