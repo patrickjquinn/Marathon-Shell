@@ -110,8 +110,18 @@ Rectangle {
         MouseArea {
             anchors.fill: parent
             anchors.margins: -4
+            z: 500  // Ensure it's on top of everything!
+            
+            Component.onCompleted: {
+                Logger.info("NavBar", "Keyboard button MouseArea created! x=" + x + " y=" + y + " width=" + width + " height=" + height)
+            }
+            
+            onPressed: {
+                Logger.info("NavBar", "Keyboard button PRESSED!")
+            }
+            
             onClicked: {
-                Logger.info("NavBar", "Keyboard button clicked!")
+                Logger.info("NavBar", "Keyboard button CLICKED!")
                 HapticService.light()
                 navBar.toggleKeyboard()
             }
