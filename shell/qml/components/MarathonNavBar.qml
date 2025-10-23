@@ -92,7 +92,7 @@ Rectangle {
         }
         
         Icon {
-            name: "key"
+            name: "keyboard"
             size: Constants.iconSizeSmall - 2
             color: navBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent
