@@ -61,9 +61,6 @@ if [ $? -eq 0 ]; then
         export QT_LOGGING_RULES="*.debug=false;*.info=false;*.warning=false"
     fi
     
-    # Virtual Keyboard configuration (CRITICAL!)
-    export QT_IM_MODULE=qtvirtualkeyboard
-    
     # Additional Qt environment variables to reduce verbosity
     export QT_QUICK_CONTROLS_STYLE=""
     export QT_QUICK_CONTROLS_IMAGEPROVIDER=""

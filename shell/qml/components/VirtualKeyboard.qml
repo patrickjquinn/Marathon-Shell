@@ -7,79 +7,84 @@ Item {
     
     // Expose properties for external control
     property bool keyboardAvailable: true
+    property bool active: false
+    readonly property real keyboardHeight: inputPanel.y
     
-    // IMPORTANT: Read-only! We READ inputPanel.active, we DON'T control it!
-    // InputPanel manages its own active state based on Qt.inputMethod
-    readonly property bool active: inputPanel.active
+    // CRITICAL: Guard flag to prevent bidirectional binding loop
+    property bool _syncInProgress: false
     
-    // Proxy for external code (backward compatibility)
+    // CRITICAL: Don't expose inputPanel directly, use controlled properties
     readonly property QtObject keyboard: QtObject {
-        readonly property bool active: inputPanel.active
+        property bool active: keyboardContainer.active
     }
     
-    // CRITICAL: Only occupy space when active! Otherwise it blocks all clicks!
-    anchors.left: parent ? parent.left : undefined
-    anchors.right: parent ? parent.right : undefined
-    anchors.bottom: parent ? parent.bottom : undefined
-    // Height must be 0 when hidden, otherwise it blocks nav bar even when disabled!
-    height: inputPanel.active ? inputPanel.height : 0
+    width: parent ? parent.width : 0
+    height: active ? inputPanel.height : 0
+    y: parent ? parent.height - height : 0
     z: Constants.zIndexKeyboard
+    visible: active
     
-    // When keyboard is hidden, don't block mouse events
-    enabled: inputPanel.active
-    
-    // Debug
-    onHeightChanged: Logger.info("VirtualKeyboard", "Container height changed to: " + height + " (active: " + inputPanel.active + ")")
-    
-    /*  Virtual Keyboard Input Panel
-        
-        Following the official Qt VirtualKeyboard example pattern:
-        - InputPanel manages its own 'active' state based on Qt.inputMethod
-        - We NEVER write to inputPanel.active (it breaks internal state management)
-        - We use y-positioning with States to show/hide based on inputPanel.active
-        - External code uses Qt.inputMethod.show()/hide() to control visibility
-        
-        See: https://github.com/qt/qtvirtualkeyboard/blob/dev/examples/virtualkeyboard/basic/Basic.qml
-    */
-    InputPanel {
-        id: inputPanel
-        z: 89
-        x: 0
-        width: parent.width
-        y: yPositionWhenHidden
-        
-        property real yPositionWhenHidden: parent.height
-        
-        states: State {
-            name: "visible"
-            // READ inputPanel.active, don't WRITE to it!
-            when: inputPanel.active
-            PropertyChanges {
-                target: inputPanel
-                y: inputPanel.yPositionWhenHidden - inputPanel.height
-            }
+    // Sync our active property to InputPanel with safety checks
+    onActiveChanged: {
+        if (_syncInProgress) {
+            return  // CRITICAL: Prevent loop when sync originated from InputPanel
         }
         
-        transitions: Transition {
-            from: ""
-            to: "visible"
-            reversible: true
-            NumberAnimation {
-                properties: "y"
-                duration: 250
-                easing.type: Easing.InOutQuad
+        Logger.info("VirtualKeyboard", "Container active changed to: " + active)
+        _syncInProgress = true
+        
+        if (inputPanel) {
+            inputPanel.active = active
+        }
+        
+        _syncInProgress = false
+    }
+    
+    Behavior on height {
+        NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+    }
+    
+    InputPanel {
+        id: inputPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        active: false
+        
+        // Sync InputPanel state back to container (when dismiss button clicked)
+        onActiveChanged: {
+            if (keyboardContainer._syncInProgress) {
+                return  // CRITICAL: Prevent loop when sync originated from container
             }
+            
+            Logger.info("VirtualKeyboard", "InputPanel active changed to: " + active + " (dismiss button clicked?)")
+            keyboardContainer._syncInProgress = true
+            
+            if (active !== keyboardContainer.active) {
+                keyboardContainer.active = active
+            }
+            
+            keyboardContainer._syncInProgress = false
         }
         
         Component.onCompleted: {
-            Logger.info("VirtualKeyboard", "InputPanel created. Initial active: " + active)
-            // Ensure keyboard starts hidden
-            Qt.inputMethod.hide()
+            Logger.info("VirtualKeyboard", "InputPanel created")
         }
         
-        onActiveChanged: {
-            Logger.info("VirtualKeyboard", "InputPanel.active changed to: " + active)
+        Component.onDestruction: {
+            Logger.info("VirtualKeyboard", "InputPanel being destroyed")
         }
+    }
+    
+    Rectangle {
+        anchors.fill: parent
+        anchors.topMargin: -4
+        color: Qt.rgba(15, 15, 15, 0.98)
+        radius: 0
+        border.width: 1
+        border.color: Qt.rgba(255, 255, 255, 0.12)
+        z: -1
+        visible: keyboardContainer.active
     }
 }
 
