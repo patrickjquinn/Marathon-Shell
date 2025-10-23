@@ -94,6 +94,8 @@
         <file alias="eye-off.svg">resources/images/icons/lucide/eye-off.svg</file>
         <file alias="shield.svg">resources/images/icons/lucide/shield.svg</file>
         <file alias="key.svg">resources/images/icons/lucide/key.svg</file>
+        <file alias="keyboard.svg">resources/images/icons/lucide/keyboard.svg</file>
+        <file alias="keyboard-off.svg">resources/images/icons/lucide/keyboard-off.svg</file>
         <file alias="package.svg">resources/images/icons/lucide/package.svg</file>
         <file alias="timer.svg">resources/images/icons/lucide/timer.svg</file>
         <file alias="stopwatch.svg">resources/images/icons/lucide/stopwatch.svg</file>
