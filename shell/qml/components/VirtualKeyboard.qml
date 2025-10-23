@@ -21,11 +21,15 @@ Item {
     anchors.left: parent ? parent.left : undefined
     anchors.right: parent ? parent.right : undefined
     anchors.bottom: parent ? parent.bottom : undefined
-    height: inputPanel.height
+    // Height must be 0 when hidden, otherwise it blocks nav bar even when disabled!
+    height: inputPanel.active ? inputPanel.height : 0
     z: Constants.zIndexKeyboard
     
     // When keyboard is hidden, don't block mouse events
     enabled: inputPanel.active
+    
+    // Debug
+    onHeightChanged: Logger.info("VirtualKeyboard", "Container height changed to: " + height + " (active: " + inputPanel.active + ")")
     
     /*  Virtual Keyboard Input Panel
         
