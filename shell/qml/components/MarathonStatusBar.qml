@@ -147,7 +147,7 @@ Item {
         
         // WiFi - always show, wifi-off when unavailable
         Icon {
-            name: SystemStatusStore.ethernetConnected ? "cable" : 
+            name: SystemStatusStore.ethernetConnected ? "plug-zap" : 
                   (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength) : "wifi-off")
             color: MColors.text
             size: Constants.iconSizeSmall

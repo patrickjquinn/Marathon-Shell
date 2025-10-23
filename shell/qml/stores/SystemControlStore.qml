@@ -33,23 +33,18 @@ QtObject {
     
     function toggleWifi() {
         NetworkManager.toggleWifi()
-        isWifiOn = NetworkManager.wifiEnabled
-        Logger.info("SystemControl", "WiFi: " + isWifiOn)
+        Logger.info("SystemControl", "WiFi toggled to: " + NetworkManager.wifiEnabled)
     }
     
     function toggleBluetooth() {
         NetworkManager.toggleBluetooth()
-        isBluetoothOn = NetworkManager.bluetoothEnabled
-        Logger.info("SystemControl", "Bluetooth: " + isBluetoothOn)
+        Logger.info("SystemControl", "Bluetooth toggled to: " + NetworkManager.bluetoothEnabled)
     }
     
     function toggleAirplaneMode() {
         var newMode = !isAirplaneModeOn
         NetworkManager.setAirplaneMode(newMode)
-        isAirplaneModeOn = newMode
-        isWifiOn = NetworkManager.wifiEnabled
-        isBluetoothOn = NetworkManager.bluetoothEnabled
-        Logger.info("SystemControl", "Airplane mode: " + isAirplaneModeOn)
+        Logger.info("SystemControl", "Airplane mode toggled to: " + newMode)
     }
     
     function toggleRotationLock() {
@@ -86,8 +81,7 @@ QtObject {
     function toggleDndMode() {
         var newMode = !isDndMode
         AudioManager.setDoNotDisturb(newMode)
-        isDndMode = newMode
-        Logger.info("SystemControl", "DND mode: " + isDndMode)
+        Logger.info("SystemControl", "DND mode toggled to: " + newMode)
     }
     
     function toggleAlarm() {
@@ -97,8 +91,7 @@ QtObject {
     function toggleLowPowerMode() {
         var newMode = !isLowPowerMode
         PowerManager.setPowerSaveMode(newMode)
-        isLowPowerMode = newMode
-        Logger.info("SystemControl", "Low power mode: " + isLowPowerMode)
+        Logger.info("SystemControl", "Low power mode toggled to: " + newMode)
     }
     
     function setBrightness(value) {
@@ -128,18 +121,8 @@ QtObject {
         PowerManager.restart()
     }
     
-    property Connections networkManagerConnections: Connections {
-        target: NetworkManager
-        function onWifiEnabledChanged() {
-            isWifiOn = NetworkManager.wifiEnabled
-        }
-        function onBluetoothEnabledChanged() {
-            isBluetoothOn = NetworkManager.bluetoothEnabled
-        }
-        function onAirplaneModeEnabledChanged() {
-            isAirplaneModeOn = NetworkManager.airplaneModeEnabled
-        }
-    }
+    // Bindings automatically update from NetworkManager properties (lines 8-10)
+    // No need for Connections - the property bindings handle updates
     
     property Connections displayManagerConnections: Connections {
         target: DisplayManager
@@ -155,12 +138,7 @@ QtObject {
         }
     }
     
-    property Connections powerManagerConnections: Connections {
-        target: PowerManager
-        function onIsPowerSaveModeChanged() {
-            isLowPowerMode = PowerManager.isPowerSaveMode
-        }
-    }
+    // Binding automatically updates from PowerManager.isPowerSaveMode (line 32)
     
     Component.onCompleted: {
         console.log("[SystemControlStore] Initialized with real services")

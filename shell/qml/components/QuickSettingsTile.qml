@@ -133,7 +133,6 @@ Rectangle {
         
         onPressed: function(mouse) {
             isPressed = true
-            rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
             HapticService.light()
         }
         
