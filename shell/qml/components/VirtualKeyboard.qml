@@ -15,14 +15,14 @@ Item {
     }
     
     width: parent ? parent.width : 0
-    height: inputPanel.visible ? inputPanel.height : 0
+    // NEVER read inputPanel.visible! It causes crashes!
+    // Use our own state tracking instead
+    height: active ? 300 : 0  // Fixed height when shown
     y: parent ? parent.height - height : 0
     z: Constants.zIndexKeyboard
-    visible: inputPanel.visible
+    visible: active
     
     // ONE-WAY CONTROL ONLY: We can show/hide, but DON'T observe dismiss!
-    // The user pressing InputPanel's dismiss button will hide it,
-    // but we won't know about it. That's OK - it prevents crashes.
     onActiveChanged: {
         Logger.info("VirtualKeyboard", "Active changed externally to: " + active)
         if (active) {
@@ -36,17 +36,19 @@ Item {
         NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
     }
     
-    // NO CONNECTIONS! Don't observe InputPanel state changes!
-    // This prevents ALL crash scenarios related to dismiss button.
+    // NO CONNECTIONS! Don't observe InputPanel at all!
     
     InputPanel {
         id: inputPanel
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+        visible: keyboardContainer.active
         
+        // CRITICAL: Start hidden! Don't auto-show on creation!
         Component.onCompleted: {
-            Logger.info("VirtualKeyboard", "InputPanel created")
+            Logger.info("VirtualKeyboard", "InputPanel created, forcing hide")
+            Qt.inputMethod.hide()
         }
     }
     
@@ -58,7 +60,7 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.12)
         z: -1
-        visible: inputPanel.visible
+        visible: keyboardContainer.active
     }
 }
 
