@@ -14,39 +14,22 @@ Item {
         property bool active: keyboardContainer.active
     }
     
-    // Use y-positioning to show/hide, not visible property!
-    // This allows InputPanel's dismiss button to work
     width: parent ? parent.width : 0
-    height: parent ? parent.height : 0
-    y: 0
+    height: 0  // No height, InputPanel manages itself
     z: Constants.zIndexKeyboard
     
-    // Control keyboard via Qt.inputMethod (proper API)
-    onActiveChanged: {
-        Logger.info("VirtualKeyboard", "Active changed externally to: " + active)
-        if (active) {
-            Qt.inputMethod.show()
-        } else {
-            Qt.inputMethod.hide()
-        }
-    }
-    
-    // InputPanel - let it manage itself!
+    // InputPanel - bind active property directly to our state!
+    // This is the official Qt way per documentation
     InputPanel {
         id: inputPanel
         anchors.left: parent.left
         anchors.right: parent.right
-        // Use y-positioning for show/hide animation
-        y: inputPanel.active ? parent.height - inputPanel.height : parent.height
-        
-        Behavior on y {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
+        anchors.bottom: parent.parent.bottom
+        // CRITICAL: Directly bind active to our state
+        active: keyboardContainer.active
         
         Component.onCompleted: {
-            Logger.info("VirtualKeyboard", "InputPanel created")
-            // Force hide on startup
-            Qt.inputMethod.hide()
+            Logger.info("VirtualKeyboard", "InputPanel created with active binding")
         }
     }
 }

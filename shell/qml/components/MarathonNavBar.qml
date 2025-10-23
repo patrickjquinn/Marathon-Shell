@@ -92,9 +92,9 @@ Rectangle {
         }
         
         Icon {
-            name: "type"  // Use 'type' icon (doesn't exist either, fallback to message-square)
+            name: "keyboard"
             size: Constants.iconSizeSmall - 2
-            color: navBar.keyboardVisible ? MColors.accent : MColors.textPrimary
+            color: navBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent
             opacity: navBar.keyboardVisible ? 1.0 : 0.7
             
