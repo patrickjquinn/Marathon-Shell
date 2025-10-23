@@ -8,36 +8,25 @@ Item {
     // Expose properties for external control
     property bool keyboardAvailable: true
     property bool active: false
-    readonly property real keyboardHeight: inputPanel.y
     
-    // CRITICAL: Don't expose inputPanel directly, use controlled properties
+    // Proxy for external code - read-only
     readonly property QtObject keyboard: QtObject {
         property bool active: keyboardContainer.active
     }
     
     width: parent ? parent.width : 0
-    height: active ? inputPanel.height : 0
+    height: inputPanel.visible ? inputPanel.height : 0
     y: parent ? parent.height - height : 0
     z: Constants.zIndexKeyboard
-    visible: active
+    visible: inputPanel.visible
     
-    // Guard flag to prevent bidirectional binding loops
-    property bool updatingFromInputPanel: false
-    
-    // Sync our active property to InputPanel with safety checks
+    // When external code changes active, show/hide keyboard via Qt.inputMethod
     onActiveChanged: {
-        if (updatingFromInputPanel) {
-            return  // Don't write back if we're syncing FROM InputPanel
-        }
-        
         Logger.info("VirtualKeyboard", "Active changed externally to: " + active)
-        if (inputPanel) {
-            // Defer the update to avoid crash during InputPanel destruction
-            Qt.callLater(function() {
-                if (inputPanel) {
-                    inputPanel.active = active
-                }
-            })
+        if (active) {
+            Qt.inputMethod.show()
+        } else {
+            Qt.inputMethod.hide()
         }
     }
     
@@ -45,16 +34,15 @@ Item {
         NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
     }
     
-    // Use Connections to safely monitor InputPanel without bidirectional binding
+    // Monitor Qt.inputMethod.visible to sync back (read-only, no crash!)
     Connections {
-        target: inputPanel
+        target: Qt.inputMethod
         
-        function onActiveChanged() {
-            if (inputPanel && inputPanel.active !== keyboardContainer.active) {
-                Logger.info("VirtualKeyboard", "InputPanel dismissed via button, syncing to: " + inputPanel.active)
-                updatingFromInputPanel = true
-                keyboardContainer.active = inputPanel.active
-                updatingFromInputPanel = false
+        function onVisibleChanged() {
+            var isVisible = Qt.inputMethod.visible
+            Logger.info("VirtualKeyboard", "Qt.inputMethod.visible changed to: " + isVisible)
+            if (keyboardContainer.active !== isVisible) {
+                keyboardContainer.active = isVisible
             }
         }
     }
@@ -64,7 +52,6 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        active: false
         
         Component.onCompleted: {
             Logger.info("VirtualKeyboard", "InputPanel created")
@@ -83,7 +70,7 @@ Item {
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.12)
         z: -1
-        visible: keyboardContainer.active
+        visible: inputPanel.visible
     }
 }
 
