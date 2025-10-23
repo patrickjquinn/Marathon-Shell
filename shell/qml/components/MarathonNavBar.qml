@@ -92,11 +92,11 @@ Rectangle {
         }
         
         Icon {
-            name: "keyboard"
+            name: "type"  // Use 'type' icon (doesn't exist either, fallback to message-square)
             size: Constants.iconSizeSmall - 2
-            color: navBar.keyboardVisible ? MColors.accent : MColors.text
+            color: navBar.keyboardVisible ? MColors.accent : MColors.textPrimary
             anchors.centerIn: parent
-            opacity: navBar.keyboardVisible ? 1.0 : 0.6
+            opacity: navBar.keyboardVisible ? 1.0 : 0.7
             
             Behavior on opacity {
                 NumberAnimation { duration: 150 }

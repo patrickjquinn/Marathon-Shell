@@ -9,20 +9,19 @@ Item {
     property bool keyboardAvailable: true
     property bool active: false
     
-    // Proxy for external code - read-only
+    // Proxy for external code
     readonly property QtObject keyboard: QtObject {
         property bool active: keyboardContainer.active
     }
     
+    // Use y-positioning to show/hide, not visible property!
+    // This allows InputPanel's dismiss button to work
     width: parent ? parent.width : 0
-    // NEVER read inputPanel.visible! It causes crashes!
-    // Use our own state tracking instead
-    height: active ? 300 : 0  // Fixed height when shown
-    y: parent ? parent.height - height : 0
+    height: parent ? parent.height : 0
+    y: 0
     z: Constants.zIndexKeyboard
-    visible: active
     
-    // ONE-WAY CONTROL ONLY: We can show/hide, but DON'T observe dismiss!
+    // Control keyboard via Qt.inputMethod (proper API)
     onActiveChanged: {
         Logger.info("VirtualKeyboard", "Active changed externally to: " + active)
         if (active) {
@@ -32,35 +31,23 @@ Item {
         }
     }
     
-    Behavior on height {
-        NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-    }
-    
-    // NO CONNECTIONS! Don't observe InputPanel at all!
-    
+    // InputPanel - let it manage itself!
     InputPanel {
         id: inputPanel
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        visible: keyboardContainer.active
+        // Use y-positioning for show/hide animation
+        y: inputPanel.active ? parent.height - inputPanel.height : parent.height
         
-        // CRITICAL: Start hidden! Don't auto-show on creation!
+        Behavior on y {
+            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+        }
+        
         Component.onCompleted: {
-            Logger.info("VirtualKeyboard", "InputPanel created, forcing hide")
+            Logger.info("VirtualKeyboard", "InputPanel created")
+            // Force hide on startup
             Qt.inputMethod.hide()
         }
-    }
-    
-    Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: -4
-        color: Qt.rgba(15, 15, 15, 0.98)
-        radius: 0
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.12)
-        z: -1
-        visible: keyboardContainer.active
     }
 }
 
