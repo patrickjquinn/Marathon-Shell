@@ -97,9 +97,9 @@ Rectangle {
             Text {
                 text: SystemStatusStore.dateString
                 color: MColors.text
-                font.pixelSize: MTypography.sizeBody
-                font.weight: MTypography.weightNormal
-                font.family: MTypography.fontFamily
+                font.pixelSize: Constants.fontSizeMedium
+                font.weight: Font.Normal
+                font.family: Typography.fontFamily
                 anchors.left: parent.left
             }
             
@@ -111,7 +111,7 @@ Rectangle {
                 SwipeView {
                     id: toggleSwipeView
                     width: parent.width
-                    height: Constants.isTallScreen ? 450 : 340
+                    height: Math.round((Constants.hubHeaderHeight * 4) + (Constants.spacingSmall * 3))
                     clip: true
                     interactive: true
                     
@@ -139,7 +139,7 @@ Rectangle {
                                 ]
                                 
                                 delegate: QuickSettingsTile {
-                                    tileWidth: (toggleSwipeView.width - 12) / 2
+                                    tileWidth: (toggleSwipeView.width - Constants.spacingSmall) / 2
                                     toggleData: modelData
                                     onTapped: handleToggleTap(modelData.id)
                                     onLongPressed: handleLongPress(modelData.id)
@@ -156,8 +156,8 @@ Rectangle {
                         Grid {
                             anchors.fill: parent
                             columns: 2
-                            columnSpacing: 12
-                            rowSpacing: 12
+                            columnSpacing: Constants.spacingSmall
+                            rowSpacing: Constants.spacingSmall
                             
                             Repeater {
                                 model: [
@@ -168,7 +168,7 @@ Rectangle {
                                 ]
                                 
                                 delegate: QuickSettingsTile {
-                                    tileWidth: (toggleSwipeView.width - 12) / 2
+                                    tileWidth: (toggleSwipeView.width - Constants.spacingSmall) / 2
                                     toggleData: modelData
                                     onTapped: handleToggleTap(modelData.id)
                                     onLongPressed: handleLongPress(modelData.id)
@@ -213,14 +213,14 @@ Rectangle {
             // Brightness Slider
             Column {
                 width: parent.width
-                spacing: MSpacing.md
+                spacing: Constants.spacingSmall
                 
                 Text {
                     text: "Brightness"
                     color: MColors.text
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: MTypography.weightMedium
-                    font.family: MTypography.fontFamily
+                    font.pixelSize: Constants.fontSizeMedium
+                    font.weight: Font.Medium
+                    font.family: Typography.fontFamily
                 }
                 
                 MSlider {
@@ -237,14 +237,14 @@ Rectangle {
             // Volume Slider
             Column {
                 width: parent.width
-                spacing: MSpacing.md
+                spacing: Constants.spacingSmall
                 
                 Text {
                     text: "Volume"
                     color: MColors.text
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: MTypography.weightMedium
-                    font.family: MTypography.fontFamily
+                    font.pixelSize: Constants.fontSizeMedium
+                    font.weight: Font.Medium
+                    font.family: Typography.fontFamily
                 }
                 
                 MSlider {

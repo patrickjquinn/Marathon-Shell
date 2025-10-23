@@ -67,11 +67,11 @@ Rectangle {
     
     Row {
         anchors.fill: parent
-        anchors.margins: 14
+        anchors.margins: Constants.spacingMedium
         spacing: Constants.spacingMedium
         
         Item {
-            width: 44
+            width: Constants.iconSizeMedium + Constants.spacingSmall
             height: Constants.statusBarHeight
             anchors.verticalCenter: parent.verticalCenter
             
@@ -89,13 +89,13 @@ Rectangle {
         
         Column {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 3
-            width: parent.width - 68
+            spacing: Constants.spacingXSmall
+            width: parent.width - (Constants.iconSizeMedium + Constants.spacingMedium * 3)
             
             Text {
                 text: toggleData.label || ""
                 color: MColors.text
-                font.pixelSize: Typography.sizeBody
+                font.pixelSize: Constants.fontSizeMedium
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
                 width: parent.width
@@ -105,7 +105,7 @@ Rectangle {
                 visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
                 text: toggleData.subtitle || ""
                 color: MColors.textSecondary
-                font.pixelSize: Typography.sizeXSmall
+                font.pixelSize: Constants.fontSizeXSmall
                 elide: Text.ElideRight
                 width: parent.width
                 opacity: 0.7
