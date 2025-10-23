@@ -412,15 +412,9 @@ Item {
         keyboardVisible: virtualKeyboard.active
         
         onToggleKeyboard: {
-            Logger.info("Shell", "Keyboard button clicked, current visible: " + virtualKeyboard.active)
-            // Use Qt.inputMethod to control keyboard (official Qt way)
-            // InputPanel manages its own 'active' state - we just request show/hide
-            if (virtualKeyboard.active) {
-                Qt.inputMethod.hide()
-            } else {
-                Qt.inputMethod.show()
-            }
-            Logger.info("Shell", "Keyboard toggle requested")
+            Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active)
+            virtualKeyboard.active = !virtualKeyboard.active
+            Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.active)
         }
             
         onSwipeLeft: {
@@ -1122,6 +1116,9 @@ Item {
     
     VirtualKeyboard {
         id: virtualKeyboard
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
     }
     
     // Keyboard visibility now managed by navBar.keyboardVisible binding
@@ -1169,20 +1166,12 @@ Item {
             event.accepted = true
         } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard")
-            if (virtualKeyboard.active) {
-                Qt.inputMethod.hide()
-            } else {
-                Qt.inputMethod.show()
-            }
+            virtualKeyboard.active = !virtualKeyboard.active
             HapticService.light()
             event.accepted = true
         } else if (event.key === Qt.Key_Menu) {
             Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard")
-            if (virtualKeyboard.active) {
-                Qt.inputMethod.hide()
-            } else {
-                Qt.inputMethod.show()
-            }
+            virtualKeyboard.active = !virtualKeyboard.active
             HapticService.light()
             event.accepted = true
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {

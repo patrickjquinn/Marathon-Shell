@@ -92,11 +92,11 @@ Rectangle {
         }
         
         Icon {
-            name: "keyboard"
+            name: "key"
             size: Constants.iconSizeSmall - 2
             color: navBar.keyboardVisible ? MColors.accent : MColors.text
             anchors.centerIn: parent
-            opacity: navBar.keyboardVisible ? 1.0 : 0.7
+            opacity: navBar.keyboardVisible ? 1.0 : 0.6
             
             Behavior on opacity {
                 NumberAnimation { duration: 150 }
@@ -110,22 +110,9 @@ Rectangle {
         MouseArea {
             anchors.fill: parent
             anchors.margins: -4
-            z: 500  // Ensure it's on top of everything!
-            
-            Component.onCompleted: {
-                Logger.info("NavBar", "Keyboard button MouseArea created! x=" + x + " y=" + y + " width=" + width + " height=" + height)
-            }
-            
-            onPressed: (mouse) => {
-                Logger.info("NavBar", "Keyboard button PRESSED!")
-                mouse.accepted = true  // Consume the event!
-            }
-            
-            onClicked: (mouse) => {
-                Logger.info("NavBar", "Keyboard button CLICKED!")
+            onClicked: {
                 HapticService.light()
                 navBar.toggleKeyboard()
-                mouse.accepted = true  // Consume the event!
             }
         }
     }
@@ -135,7 +122,6 @@ Rectangle {
         anchors.fill: parent
         anchors.topMargin: 0
         z: 200
-        propagateComposedEvents: true  // Allow clicks to reach items on top!
         
         property real velocityX: 0
         property real lastX: 0
@@ -143,19 +129,6 @@ Rectangle {
         property bool isVerticalGesture: false
         
         onPressed: (mouse) => {
-            // Check if click is in keyboard button area - if so, don't consume it!
-            var kbBtnX = keyboardButton.x
-            var kbBtnY = keyboardButton.y
-            var kbBtnW = keyboardButton.width
-            var kbBtnH = keyboardButton.height
-            
-            if (mouse.x >= kbBtnX && mouse.x <= kbBtnX + kbBtnW &&
-                mouse.y >= kbBtnY && mouse.y <= kbBtnY + kbBtnH) {
-                Logger.info("NavBar", "Click in keyboard button area, propagating!")
-                mouse.accepted = false  // Let it propagate!
-                return
-            }
-            
             startX = mouse.x
             startY = mouse.y
             lastX = mouse.x
@@ -165,18 +138,6 @@ Rectangle {
         }
         
         onPositionChanged: (mouse) => {
-            // If we're in keyboard button area, don't handle gestures
-            var kbBtnX = keyboardButton.x
-            var kbBtnY = keyboardButton.y
-            var kbBtnW = keyboardButton.width
-            var kbBtnH = keyboardButton.height
-            
-            if (mouse.x >= kbBtnX && mouse.x <= kbBtnX + kbBtnW &&
-                mouse.y >= kbBtnY && mouse.y <= kbBtnY + kbBtnH) {
-                mouse.accepted = false
-                return
-            }
-            
             var now = Date.now()
             var dt = now - lastTime
             if (dt > 0) {
@@ -222,18 +183,6 @@ Rectangle {
         }
         
         onReleased: (mouse) => {
-            // If we're in keyboard button area, don't handle
-            var kbBtnX = keyboardButton.x
-            var kbBtnY = keyboardButton.y
-            var kbBtnW = keyboardButton.width
-            var kbBtnH = keyboardButton.height
-            
-            if (mouse.x >= kbBtnX && mouse.x <= kbBtnX + kbBtnW &&
-                mouse.y >= kbBtnY && mouse.y <= kbBtnY + kbBtnH) {
-                mouse.accepted = false
-                return
-            }
-            
             var diffX = mouse.x - startX
             var diffY = startY - mouse.y
             
