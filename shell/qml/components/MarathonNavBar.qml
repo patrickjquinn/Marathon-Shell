@@ -111,6 +111,7 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: -4
             onClicked: {
+                Logger.info("NavBar", "Keyboard button clicked!")
                 HapticService.light()
                 navBar.toggleKeyboard()
             }
