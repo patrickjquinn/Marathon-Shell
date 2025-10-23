@@ -1122,9 +1122,6 @@ Item {
     
     VirtualKeyboard {
         id: virtualKeyboard
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
     }
     
     // Keyboard visibility now managed by navBar.keyboardVisible binding
@@ -1172,12 +1169,20 @@ Item {
             event.accepted = true
         } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard")
-            virtualKeyboard.active = !virtualKeyboard.active
+            if (virtualKeyboard.active) {
+                Qt.inputMethod.hide()
+            } else {
+                Qt.inputMethod.show()
+            }
             HapticService.light()
             event.accepted = true
         } else if (event.key === Qt.Key_Menu) {
             Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard")
-            virtualKeyboard.active = !virtualKeyboard.active
+            if (virtualKeyboard.active) {
+                Qt.inputMethod.hide()
+            } else {
+                Qt.inputMethod.show()
+            }
             HapticService.light()
             event.accepted = true
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {

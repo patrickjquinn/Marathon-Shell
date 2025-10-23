@@ -17,9 +17,15 @@ Item {
         readonly property bool active: inputPanel.active
     }
     
-    width: parent ? parent.width : 0
-    height: parent ? parent.height : 0
+    // CRITICAL: Only occupy space when active! Otherwise it blocks all clicks!
+    anchors.left: parent ? parent.left : undefined
+    anchors.right: parent ? parent.right : undefined
+    anchors.bottom: parent ? parent.bottom : undefined
+    height: inputPanel.height
     z: Constants.zIndexKeyboard
+    
+    // When keyboard is hidden, don't block mouse events
+    enabled: inputPanel.active
     
     /*  Virtual Keyboard Input Panel
         
