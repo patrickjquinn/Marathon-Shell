@@ -412,9 +412,15 @@ Item {
         keyboardVisible: virtualKeyboard.active
         
         onToggleKeyboard: {
-            Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active)
-            virtualKeyboard.active = !virtualKeyboard.active
-            Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.active)
+            Logger.info("Shell", "Keyboard button clicked, current visible: " + virtualKeyboard.active)
+            // Use Qt.inputMethod to control keyboard (official Qt way)
+            // InputPanel manages its own 'active' state - we just request show/hide
+            if (virtualKeyboard.active) {
+                Qt.inputMethod.hide()
+            } else {
+                Qt.inputMethod.show()
+            }
+            Logger.info("Shell", "Keyboard toggle requested")
         }
             
         onSwipeLeft: {
