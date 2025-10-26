@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../components"
+import "components"
 
 SettingsPageTemplate {
     id: storagePage
@@ -38,7 +38,7 @@ SettingsPageTemplate {
                         spacing: Constants.spacingSmall
                         
                         Text {
-                            text: "12.5 GB used of 64 GB"
+                            text: StorageManager.usedSpaceString + " used of " + StorageManager.totalSpaceString
                             color: Colors.text
                             font.pixelSize: Typography.sizeLarge
                             font.weight: Font.Bold
@@ -54,10 +54,14 @@ SettingsPageTemplate {
                             anchors.horizontalCenter: parent.horizontalCenter
                             
                             Rectangle {
-                                width: parent.width * 0.2
+                                width: parent.width * StorageManager.usedPercentage
                                 height: parent.height
                                 radius: parent.radius
-                                color: Qt.rgba(20, 184, 166, 0.8)
+                                color: {
+                                    if (StorageManager.usedPercentage > 0.9) return Qt.rgba(255, 59, 48, 0.8)      // Red when >90%
+                                    if (StorageManager.usedPercentage > 0.75) return Qt.rgba(255, 149, 0, 0.8)    // Orange when >75%
+                                    return Qt.rgba(20, 184, 166, 0.8)  // Teal when <75%
+                                }
                             }
                         }
                     }
@@ -65,22 +69,22 @@ SettingsPageTemplate {
             }
             
             Section {
-                title: "Storage by Category"
+                title: "Storage Details"
                 width: parent.width - 48
                 
                 SettingsListItem {
-                    title: "Apps"
-                    value: "4.2 GB"
+                    title: "Used"
+                    value: StorageManager.usedSpaceString
                 }
                 
                 SettingsListItem {
-                    title: "Media"
-                    value: "6.8 GB"
+                    title: "Available"
+                    value: StorageManager.availableSpaceString
                 }
                 
                 SettingsListItem {
-                    title: "System"
-                    value: "1.5 GB"
+                    title: "Total Capacity"
+                    value: StorageManager.totalSpaceString
                 }
             }
             

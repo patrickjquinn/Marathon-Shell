@@ -34,6 +34,8 @@
 #include "src/medialibrarymanager.h"
 #include "src/musiclibrarymanager.h"
 #include "src/waylandcompositormanager.h"
+#include "src/marathoninputmethodengine.h"
+#include "src/storagemanager.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -223,6 +225,11 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("MarathonAppLoader", appLoader);
     engine.rootContext()->setContextProperty("MarathonAppInstaller", appInstaller);
     
+    // Register Marathon Input Method Engine
+    MarathonInputMethodEngine *inputMethodEngine = new MarathonInputMethodEngine(&app);
+    engine.rootContext()->setContextProperty("InputMethodEngine", inputMethodEngine);
+    qInfo() << "Input Method Engine initialized";
+    
     // Register C++ models
     AppModel *appModel = new AppModel(&app);
     TaskModel *taskModel = new TaskModel(&app);
@@ -240,6 +247,7 @@ int main(int argc, char *argv[])
     ModemManagerCpp *modemManager = new ModemManagerCpp(&app);
     SensorManagerCpp *sensorManager = new SensorManagerCpp(&app);
     SettingsManager *settingsManager = new SettingsManager(&app);
+    StorageManager *storageManager = new StorageManager(&app);
     BluetoothManager *bluetoothManager = new BluetoothManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
@@ -249,6 +257,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
     engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
+    engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     
     // Register Telephony & Messaging services

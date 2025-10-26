@@ -14,10 +14,11 @@ QtObject {
     property real screenDiagonal: 1477.53  // Updated by updateScreenSize()
     property real dpi: 320
     
-    // Responsive scaling - scale everything based on ACTUAL DPI
-    // Base DPI: 96 (standard desktop/web baseline - lower = larger UI)
-    // This ensures UI elements are the same PHYSICAL size across all screens
-    readonly property real baseDPI: 96
+    // Responsive scaling - scale everything based on ACTUAL DPI  
+    // Base DPI: 110 is a balanced middle ground
+    // On 128 DPI screens: gives 1.16x scale (slightly larger, comfortable)
+    // On 320 DPI screens: gives 2.9x scale (good for high-DPI)
+    readonly property real baseDPI: 120
     property real userScaleFactor: 1.0  // User preference (0.75, 1.0, 1.25, 1.5)
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
     
@@ -88,6 +89,13 @@ QtObject {
     
     // Debug mode - controlled by MARATHON_DEBUG environment variable
     property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
+    
+    // =========================================================================
+    // KEYBOARD CONFIGURATION
+    // =========================================================================
+    
+    readonly property bool keyboardAutoShow: true
+    readonly property bool keyboardAutoDismiss: true
     
     // =========================================================================
     // LAYOUT DIMENSIONS (responsive)

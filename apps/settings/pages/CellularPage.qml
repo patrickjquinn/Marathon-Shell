@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../components"
+import "components"
 
 SettingsPageTemplate {
     id: cellularPage
@@ -60,7 +60,7 @@ SettingsPageTemplate {
                 
                 SettingsListItem {
                     title: "Data Roaming"
-                    subtitle: CellularManager.roaming ? "Currently roaming" : "Use data when traveling"
+                    subtitle: (typeof CellularManager !== 'undefined' && CellularManager.roaming) ? "Currently roaming" : "Use data when traveling"
                     showToggle: true
                     toggleValue: typeof CellularManager !== 'undefined' ? CellularManager.roaming : false
                     visible: typeof CellularManager !== 'undefined'

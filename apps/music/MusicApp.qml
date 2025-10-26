@@ -161,6 +161,7 @@ MApp {
                     Column {
                         anchors.fill: parent
                         anchors.margins: Constants.spacingXLarge
+                        anchors.bottomMargin: Constants.navBarHeight + Constants.spacingXLarge  // Account for system nav bar
                         spacing: Constants.spacingLarge
                         
                         Item { height: Constants.spacingLarge }
