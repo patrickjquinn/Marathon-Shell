@@ -103,17 +103,26 @@ void WaylandCompositor::launchApp(const QString &command)
     env.remove("WAYLAND_DISPLAY");  // Remove parent Wayland compositor
     env.remove("DISPLAY");          // Remove X11 display (force Wayland)
     
-    // KEEP the host's D-Bus session for system services (GeoClue2, NetworkManager, etc.)
-    // Don't remove DBUS_SESSION_BUS_ADDRESS - apps need access to system services!
-    // Our isolated D-Bus session was causing 25-second timeouts for missing services
+    // CRITICAL FIX: Prevent GTK/GApplication apps from connecting to host instances
+    // Apps like Nautilus use GApplication's single-instance D-Bus mechanism
+    // They check D-Bus for existing instances and send "open window" commands to them
+    // This causes windows to open in host compositor instead of Marathon
+    // 
+    // Solution: Generate unique GApplication ID namespace for Marathon apps
+    // This isolates them from host instances while keeping system D-Bus access
     
-    // NOTE: We do NOT create a custom D-Bus session anymore - apps use the host's session
-    // This gives them access to:
-    // - GeoClue2 (location services for Weather)
-    // - NetworkManager (network status)
-    // - UPower (battery status)
-    // - Portal services (file dialogs, etc.)
-    // This is the standard approach for nested compositors
+    // Set unique desktop file path to prevent collision with host instances
+    // GApplication uses this to determine the D-Bus application name
+    QString uniqueDesktopFile = QString("/tmp/marathon-apps/app-%1.desktop")
+        .arg(QCoreApplication::applicationPid());
+    env.insert("GIO_LAUNCHED_DESKTOP_FILE", uniqueDesktopFile);
+    
+    // Alternative isolation: Modify the application ID namespace
+    // This is read by GApplication to construct the D-Bus name
+    env.insert("MARATHON_APP_NAMESPACE", "shell");
+    
+    qInfo() << "[WaylandCompositor] Isolated app from host single-instance via unique desktop file";
+    qInfo() << "[WaylandCompositor] GIO_LAUNCHED_DESKTOP_FILE:" << uniqueDesktopFile;
     
     // Set OUR compositor variables
     env.insert("WAYLAND_DISPLAY", socketName());

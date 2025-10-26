@@ -182,6 +182,25 @@ QString DesktopFileParser::cleanExecLine(const QString &exec)
     cleaned.remove(re);
     cleaned = cleaned.trimmed();
     
+    // CRITICAL FIX: Remove flags that cause apps to open in separate windows
+    // These flags bypass the Wayland compositor and open in host/parent compositor
+    QStringList windowFlags = {
+        "--new-window",
+        "-new-window",
+        "--new-tab",
+        "-new-tab",
+        "--new-instance",
+        "-new-instance"
+    };
+    
+    for (const QString &flag : windowFlags) {
+        if (cleaned.contains(flag)) {
+            cleaned.remove(flag);
+            cleaned = cleaned.trimmed();
+            qInfo() << "[DesktopFileParser] *** REMOVED window control flag:" << flag << "to enable compositor embedding";
+        }
+    }
+    
     // Convert "gapplication launch org.gnome.AppName" to direct binary execution
     // This bypasses D-Bus activation which would launch apps in host session
     if (cleaned.startsWith("gapplication launch ")) {
