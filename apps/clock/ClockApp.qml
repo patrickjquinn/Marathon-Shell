@@ -4,8 +4,8 @@ import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
-import "./pages"
-import "./components" as ClockComponents
+import "pages"
+import "components" as ClockComponents
 
 MApp {
     id: clockApp

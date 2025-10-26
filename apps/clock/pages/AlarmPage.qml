@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
-import "../components"
-import "../components" as ClockComponents
+import "components"
+import "components" as ClockComponents
 
 Item {
     id: alarmPage

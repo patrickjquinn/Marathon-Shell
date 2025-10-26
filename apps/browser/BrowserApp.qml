@@ -6,8 +6,8 @@ import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Feedback
-import "./components"
-import "./pages"
+import "components"
+import "pages"
 
 MApp {
     id: browserApp

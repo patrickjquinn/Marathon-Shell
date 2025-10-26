@@ -57,7 +57,7 @@ Rectangle {
                 width: parent.width
                 text: "Connect to WiFi"
                 color: MColors.text
-                font.pixelSize: MTypography.sizeHeading3
+                font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.Medium
                 font.family: MTypography.fontFamily
             }
@@ -77,7 +77,7 @@ Rectangle {
                 width: parent.width
                 text: networkSecurity || "Open Network"
                 color: MColors.textTertiary
-                font.pixelSize: MTypography.sizeCaption
+                font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
             }
             
@@ -195,7 +195,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: "Connect"
-                        color: MColors.textInverse
+                        color: MColors.text
                         font.pixelSize: MTypography.sizeBody
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily

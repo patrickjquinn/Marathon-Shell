@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
-import "../components"
+import "components"
 
 SettingsPageTemplate {
     id: bluetoothPage

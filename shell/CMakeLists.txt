@@ -24,10 +24,14 @@ set(SOURCES
     src/notificationservice.cpp
     src/settingsmanager.h
     src/settingsmanager.cpp
+    src/storagemanager.h
+    src/storagemanager.cpp
     src/bluetoothmanager.h
     src/bluetoothmanager.cpp
     src/marathonappregistry.h
     src/marathonappregistry.cpp
+    src/marathoninputmethodengine.h
+    src/marathoninputmethodengine.cpp
     src/marathonappscanner.h
     src/marathonappscanner.cpp
     src/marathonapploader.h
@@ -128,6 +132,21 @@ set(QML_FILES
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
     qml/components/VirtualKeyboard.qml
+        qml/keyboard/Core/qmldir
+        qml/keyboard/Core/MarathonKeyboard.qml
+        qml/keyboard/Core/KeyboardPerformance.qml
+    qml/keyboard/UI/qmldir
+    qml/keyboard/UI/Key.qml
+    qml/keyboard/UI/PredictionBar.qml
+    qml/keyboard/UI/LongPressPopup.qml
+    qml/keyboard/Layouts/qmldir
+    qml/keyboard/Layouts/QwertyLayout.qml
+    qml/keyboard/Layouts/SymbolLayout.qml
+    qml/keyboard/Input/qmldir
+    qml/keyboard/Input/InputContext.qml
+    qml/keyboard/Data/qmldir
+    qml/keyboard/Data/Dictionary.qml
+    qml/keyboard/Data/AutoCorrect.qml
     qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml

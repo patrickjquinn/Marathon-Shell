@@ -1,5 +1,4 @@
 import QtQuick
-import QtWayland.Compositor
 import MarathonOS.Shell
 import "."
 
@@ -605,16 +604,19 @@ Item {
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                                     visible: model.type === "native" && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
-                                                    active: visible
+                                                    active: visible && Platform.hasWaylandCompositor
                                                     asynchronous: true
                                                     
-                                                    sourceComponent: ShellSurfaceItem {
+                                                    sourceComponent: Rectangle {
                                                         anchors.fill: parent
-                                                        shellSurface: (typeof model.waylandSurface !== 'undefined' && model.waylandSurface) ? model.waylandSurface.xdgSurface : null
-                                                        touchEventsEnabled: false
+                                                        color: MColors.surface2
                                                         
-                                                        Component.onCompleted: {
-                                                            Logger.debug("TaskSwitcher", "Native surface preview loaded for: " + model.appId)
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "Native App\n(Preview not available on macOS)"
+                                                            color: MColors.textSecondary
+                                                            font.pixelSize: MTypography.sizeSmall
+                                                            horizontalAlignment: Text.AlignHCenter
                                                         }
                                                     }
                                                 }

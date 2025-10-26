@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../components" as ClockComponents
+import "components" as ClockComponents
 
 Item {
     id: clockPage
@@ -35,11 +35,13 @@ Item {
         anchors.fill: parent
         color: Colors.background
         
-        // Main analog clock - centered and large
+        // Main analog clock - centered and large, accounting for alarm bar
         Item {
             anchors.centerIn: parent
             width: Math.min(parent.width * 0.85, parent.height * 0.7)
             height: width
+            // Account for alarm bar when centering
+            anchors.verticalCenterOffset: clockApp.alarms.length > 0 ? -Constants.actionBarHeight / 2 : 0
             
             // Squircle clock face (super-ellipse shape) - larger frame ONLY
             Rectangle {

@@ -3,7 +3,7 @@ import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
-import "../components"
+import "components"
 
 Rectangle {
     id: tabsPage

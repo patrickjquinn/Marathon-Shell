@@ -42,10 +42,12 @@
         <file alias="chevron-down.svg">resources/images/icons/lucide/chevron-down.svg</file>
         <file alias="chevron-left.svg">resources/images/icons/lucide/chevron-left.svg</file>
         <file alias="chevron-right.svg">resources/images/icons/lucide/chevron-right.svg</file>
+        <file alias="chevrons-up.svg">resources/images/icons/lucide/chevrons-up.svg</file>
         <file alias="search.svg">resources/images/icons/lucide/search.svg</file>
         <file alias="grid.svg">resources/images/icons/lucide/grid.svg</file>
         <file alias="home.svg">resources/images/icons/lucide/home.svg</file>
         <file alias="info.svg">resources/images/icons/lucide/info.svg</file>
+        <file alias="list.svg">resources/images/icons/lucide/list.svg</file>
         <file alias="trash-2.svg">resources/images/icons/lucide/trash-2.svg</file>
         <file alias="link.svg">resources/images/icons/lucide/link.svg</file>
         <file alias="file-text.svg">resources/images/icons/lucide/file-text.svg</file>
@@ -126,6 +128,9 @@
         <file alias="send.svg">resources/images/icons/lucide/send.svg</file>
         <file alias="message-circle.svg">resources/images/icons/lucide/message-circle.svg</file>
         <file alias="cable.svg">resources/images/icons/lucide/cable.svg</file>
+        <file alias="keyboard.svg">resources/images/icons/lucide/keyboard.svg</file>
+        <file alias="keyboard-off.svg">resources/images/icons/lucide/keyboard-off.svg</file>
+        <file alias="corner-down-left.svg">resources/images/icons/lucide/corner-down-left.svg</file>
     </qresource>
     <qresource prefix="/sounds">
         <file>resources/sounds/alarms/alarm_antelope.wav</file>

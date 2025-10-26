@@ -1,7 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 
-// PIN Entry Screen - shown after swipe-up unlock
+// Modern PIN Entry Screen - Marathon Design System
 Rectangle {
     id: pinScreen
     anchors.fill: parent
@@ -17,27 +17,20 @@ Rectangle {
     
     // Fade and scale in
     opacity: entryProgress
-    scale: 0.95 + (entryProgress * 0.05)
+    scale: 0.97 + (entryProgress * 0.03)
     
     Behavior on opacity {
         NumberAnimation {
-            duration: 300
+            duration: MMotion.moderate
             easing.type: Easing.OutCubic
         }
     }
     
     Behavior on scale {
         NumberAnimation {
-            duration: 300
-            easing.type: Easing.OutBack
-            easing.overshoot: 1.1
+            duration: MMotion.moderate
+            easing.type: Easing.OutCubic
         }
-    }
-    
-    Rectangle {
-        anchors.fill: parent
-        color: MColors.background
-        opacity: 0.95
     }
     
     Keys.onPressed: function(event) {
@@ -56,43 +49,83 @@ Rectangle {
     
     Column {
         anchors.centerIn: parent
-        spacing: Constants.spacingXXLarge
+        spacing: Math.round(40 * Constants.scaleFactor)
         
-        Text {
+        // Header section
+        Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Enter PIN"
-            color: MColors.text
-            font.pixelSize: Typography.sizeXLarge
-            font.weight: Font.Medium
+            spacing: Math.round(20 * Constants.scaleFactor)
+            
+            // Lock icon using Lucide
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Math.round(64 * Constants.scaleFactor)
+                height: Math.round(64 * Constants.scaleFactor)
+                radius: Constants.borderRadiusMedium
+                color: MColors.surface2
+                border.width: Constants.borderWidthMedium
+                border.color: MColors.borderOuter
+                antialiasing: Constants.enableAntialiasing
+                
+                // Inner border for depth
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius
+                    color: "transparent"
+                    border.width: Constants.borderWidthThin
+                    border.color: MColors.borderInner
+                    antialiasing: parent.antialiasing
+                }
+                
+                Icon {
+                    name: "lock"
+                    size: Math.round(32 * Constants.scaleFactor)
+                    color: MColors.accentBright
+                    anchors.centerIn: parent
+                }
+            }
+            
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Enter PIN"
+                color: MColors.text
+                font.pixelSize: Math.round(22 * Constants.scaleFactor)
+                font.weight: Font.DemiBold
+            }
         }
         
-        // PIN dots indicator
+        // PIN dots indicator - modern filled circles
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingMedium
+            spacing: Math.round(12 * Constants.scaleFactor)
             
             Repeater {
                 model: 6
                 
                 Rectangle {
-                    width: 16
-                    height: 16
-                    radius: Constants.borderRadiusSharp
-                    color: index < pin.length ? MColors.accentBright : "transparent"
-                    border.color: MColors.text
-                    border.width: 2
-                    antialiasing: Constants.enableAntialiasing
+                    width: Math.round(10 * Constants.scaleFactor)
+                    height: Math.round(10 * Constants.scaleFactor)
+                    radius: Math.round(5 * Constants.scaleFactor)
+                    color: index < pin.length ? MColors.accentBright : MColors.surface1
+                    border.width: index < pin.length ? 0 : 1
+                    border.color: MColors.borderLight
+                    antialiasing: true
                     
                     Behavior on color {
-                        ColorAnimation { duration: 150 }
+                        ColorAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
+                    }
+                    
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
+                        }
                     }
                     
                     // Pulse animation when filled
-                    SequentialAnimation on scale {
-                        running: index === pin.length - 1 && pin.length > 0
-                        NumberAnimation { to: 1.3; duration: 100 }
-                        NumberAnimation { to: 1.0; duration: 100 }
-                    }
+                    scale: (index === pin.length - 1 && pin.length > 0) ? 1.4 : 1.0
                 }
             }
         }
@@ -101,270 +134,234 @@ Rectangle {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: error
-            color: MColors.error
-            font.pixelSize: Typography.sizeBody
+            color: MColors.errorBright
+            font.pixelSize: Math.round(14 * Constants.scaleFactor)
+            font.weight: Font.Medium
             visible: error !== ""
-            height: visible ? implicitHeight : 0
+            height: Math.round(20 * Constants.scaleFactor)
+            opacity: error !== "" ? 1.0 : 0.0
+            
+            Behavior on opacity {
+                NumberAnimation { duration: MMotion.quick }
+            }
             
             // Shake animation on error
             SequentialAnimation on x {
                 running: error !== ""
-                loops: 3
-                NumberAnimation { to: 10; duration: 50 }
-                NumberAnimation { to: -10; duration: 50 }
+                NumberAnimation { to: 6; duration: 50 }
+                NumberAnimation { to: -6; duration: 50 }
+                NumberAnimation { to: 3; duration: 50 }
+                NumberAnimation { to: -3; duration: 50 }
                 NumberAnimation { to: 0; duration: 50 }
             }
         }
         
-        // Number pad
+        // Marathon-style number pad
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingLarge
+            spacing: Math.round(12 * Constants.scaleFactor)
             
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
-                columnSpacing: 20
-                rowSpacing: 20
+                columnSpacing: Math.round(12 * Constants.scaleFactor)
+                rowSpacing: Math.round(12 * Constants.scaleFactor)
                 
                 Repeater {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
                     
                     Rectangle {
-                        width: 80
-                        height: Constants.hubHeaderHeight
+                        id: numButton
+                        width: Math.round(64 * Constants.scaleFactor)
+                        height: Math.round(64 * Constants.scaleFactor)
                         radius: Constants.borderRadiusSharp
-                        color: MColors.surface
+                        color: MColors.surface1
                         border.width: Constants.borderWidthMedium
-                        border.color: MColors.borderOuter
+                        border.color: numMouseArea.pressed ? MColors.borderHighlight : MColors.borderOuter
                         antialiasing: Constants.enableAntialiasing
                         
                         Behavior on border.color {
-                            ColorAnimation { duration: 200 }
+                            ColorAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
                         }
                         
                         // Inner border for depth
                         Rectangle {
                             anchors.fill: parent
                             anchors.margins: 1
-                            radius: Constants.borderRadiusSharp
+                            radius: parent.radius - 1
                             color: "transparent"
                             border.width: Constants.borderWidthThin
-                            border.color: MColors.borderInner
-                            antialiasing: Constants.enableAntialiasing
+                            border.color: numMouseArea.pressed ? MColors.accentSubtle : MColors.borderInner
+                            antialiasing: parent.antialiasing
                         }
                         
                         Text {
                             anchors.centerIn: parent
                             text: modelData
                             color: MColors.text
-                            font.pixelSize: Constants.fontSizeXXLarge
+                            font.pixelSize: Math.round(24 * Constants.scaleFactor)
                             font.weight: Font.Light
-                            opacity: numMouseArea.pressed ? 1.0 : 0.9
-                            
-                            Behavior on opacity {
-                                NumberAnimation { duration: 200 }
-                            }
                         }
                         
-                        transform: [
-                            Scale {
-                                origin.x: 40
-                                origin.y: 40
-                                xScale: numMouseArea.pressed ? 0.88 : 1.0
-                                yScale: numMouseArea.pressed ? 0.88 : 1.0
-                                
-                                Behavior on xScale {
-                                    NumberAnimation { 
-                                        duration: 200
-                                        easing.type: Easing.OutCubic
-                                    }
-                                }
-                                Behavior on yScale {
-                                    NumberAnimation { 
-                                        duration: 200
-                                        easing.type: Easing.OutCubic
-                                    }
-                                }
+                        scale: numMouseArea.pressed ? 0.92 : 1.0
+                        
+                        Behavior on scale {
+                            SpringAnimation { 
+                                spring: MMotion.springMedium
+                                damping: MMotion.dampingMedium
+                                epsilon: MMotion.epsilon
                             }
-                        ]
+                        }
                         
                         MouseArea {
                             id: numMouseArea
                             anchors.fill: parent
-                            
-                            
-                            onClicked: handleInput(modelData)
+                            onClicked: {
+                                HapticService.light()
+                                handleInput(modelData)
+                            }
                         }
                     }
                 }
             }
             
+            // Bottom row: 0 and backspace
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingLarge
+                spacing: Math.round(12 * Constants.scaleFactor)
                 
-                Item { width: 80; height: Constants.hubHeaderHeight }
+                // Empty space for alignment
+                Item { 
+                    width: Math.round(64 * Constants.scaleFactor)
+                    height: Math.round(64 * Constants.scaleFactor)
+                }
                 
+                // Zero button
                 Rectangle {
-                    width: 80
-                    height: Constants.hubHeaderHeight
+                    width: Math.round(64 * Constants.scaleFactor)
+                    height: Math.round(64 * Constants.scaleFactor)
                     radius: Constants.borderRadiusSharp
-                    color: MColors.surface
+                    color: MColors.surface1
                     border.width: Constants.borderWidthMedium
-                    border.color: MColors.borderOuter
+                    border.color: zeroMouseArea.pressed ? MColors.borderHighlight : MColors.borderOuter
                     antialiasing: Constants.enableAntialiasing
                     
                     Behavior on border.color {
-                        ColorAnimation { duration: 200 }
+                        ColorAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
                     }
                     
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
-                        radius: Constants.borderRadiusSharp
+                        radius: parent.radius - 1
                         color: "transparent"
                         border.width: Constants.borderWidthThin
-                        border.color: MColors.borderInner
-                        antialiasing: Constants.enableAntialiasing
+                        border.color: zeroMouseArea.pressed ? MColors.accentSubtle : MColors.borderInner
+                        antialiasing: parent.antialiasing
                     }
                     
                     Text {
                         anchors.centerIn: parent
                         text: "0"
                         color: MColors.text
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: Math.round(24 * Constants.scaleFactor)
                         font.weight: Font.Light
-                        opacity: zeroMouseArea.pressed ? 1.0 : 0.9
-                        
-                        Behavior on opacity {
-                            NumberAnimation { duration: 200 }
-                        }
                     }
                     
-                    transform: [
-                        Scale {
-                            origin.x: 40
-                            origin.y: 40
-                            xScale: zeroMouseArea.pressed ? 0.88 : 1.0
-                            yScale: zeroMouseArea.pressed ? 0.88 : 1.0
-                            
-                            Behavior on xScale {
-                                NumberAnimation { 
-                                    duration: 200
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
-                            Behavior on yScale {
-                                NumberAnimation { 
-                                    duration: 200
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
+                    scale: zeroMouseArea.pressed ? 0.92 : 1.0
+                    
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
                         }
-                    ]
+                    }
                     
                     MouseArea {
                         id: zeroMouseArea
                         anchors.fill: parent
-                        
-                        
-                        onClicked: handleInput("0")
+                        onClicked: {
+                            HapticService.light()
+                            handleInput("0")
+                        }
                     }
                 }
                 
+                // Backspace button
                 Rectangle {
-                    width: 80
-                    height: Constants.hubHeaderHeight
+                    width: Math.round(64 * Constants.scaleFactor)
+                    height: Math.round(64 * Constants.scaleFactor)
                     radius: Constants.borderRadiusSharp
                     color: MColors.surface1
                     border.width: Constants.borderWidthMedium
-                    border.color: MColors.borderOuter
+                    border.color: clearMouseArea.pressed ? MColors.borderHighlight : MColors.borderOuter
                     antialiasing: Constants.enableAntialiasing
                     
                     Behavior on border.color {
-                        ColorAnimation { duration: 200 }
+                        ColorAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
                     }
                     
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
-                        radius: Constants.borderRadiusSharp
+                        radius: parent.radius - 1
                         color: "transparent"
                         border.width: Constants.borderWidthThin
-                        border.color: MColors.borderInner
-                        antialiasing: Constants.enableAntialiasing
+                        border.color: clearMouseArea.pressed ? MColors.accentSubtle : MColors.borderInner
+                        antialiasing: parent.antialiasing
                     }
                     
-                    Text {
+                    Icon {
+                        name: "delete"
+                        size: Math.round(20 * Constants.scaleFactor)
+                        color: MColors.textSecondary
                         anchors.centerIn: parent
-                        text: "←"
-                        color: MColors.text
-                        font.pixelSize: 26
-                        font.weight: Font.Light
-                        opacity: clearMouseArea.pressed ? 1.0 : 0.8
-                        
-                        Behavior on opacity {
-                            NumberAnimation { duration: 200 }
-                        }
                     }
                     
-                    transform: [
-                        Scale {
-                            origin.x: 40
-                            origin.y: 40
-                            xScale: clearMouseArea.pressed ? 0.88 : 1.0
-                            yScale: clearMouseArea.pressed ? 0.88 : 1.0
-                            
-                            Behavior on xScale {
-                                NumberAnimation { 
-                                    duration: 200
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
-                            Behavior on yScale {
-                                NumberAnimation { 
-                                    duration: 200
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
+                    scale: clearMouseArea.pressed ? 0.92 : 1.0
+                    
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
                         }
-                    ]
+                    }
                     
                     MouseArea {
                         id: clearMouseArea
                         anchors.fill: parent
-                        
-                        
                         onClicked: {
+                            HapticService.light()
                             pin = ""
                             error = ""
                         }
                     }
                 }
             }
+        }
+        
+        // Cancel button
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Cancel"
+            color: MColors.textSecondary
+            font.pixelSize: Math.round(15 * Constants.scaleFactor)
+            font.weight: Font.Normal
+            opacity: cancelMouseArea.pressed ? 0.5 : 0.7
             
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 0
-                
-                Text {
-                    text: "Cancel"
-                    color: MColors.text
-                    font.pixelSize: Typography.sizeBody
-                    font.weight: Font.Normal
-                    opacity: cancelMouseArea.pressed ? 0.5 : 0.7
-                    
-                    Behavior on opacity {
-                        NumberAnimation { duration: Constants.animationDurationFast }
-                    }
-                    
-                    MouseArea {
-                        id: cancelMouseArea
-                        anchors.fill: parent
-                        anchors.margins: -20
-                        onClicked: cancelled()
-                    }
+            Behavior on opacity {
+                NumberAnimation { duration: MMotion.quick }
+            }
+            
+            MouseArea {
+                id: cancelMouseArea
+                anchors.fill: parent
+                anchors.margins: Math.round(-12 * Constants.scaleFactor)
+                onClicked: {
+                    HapticService.light()
+                    cancelled()
                 }
             }
         }
@@ -417,4 +414,3 @@ Rectangle {
         }
     }
 }
-

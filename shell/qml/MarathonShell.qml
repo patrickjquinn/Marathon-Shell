@@ -404,9 +404,9 @@ Item {
     
     Comp.MarathonNavBar {
         id: navBar
-        anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.bottom: parent.bottom  // ALWAYS at bottom
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
@@ -460,12 +460,28 @@ Item {
         }
         
             onShortSwipeUp: {
+                // Dismiss keyboard if visible, otherwise go home
+                if (virtualKeyboard.active) {
+                    Logger.info("NavBar", "Dismissing keyboard with short swipe up")
+                    HapticService.light()
+                    virtualKeyboard.active = false
+                    return
+                }
+                
                 Logger.gesture("NavBar", "shortSwipeUp", {target: "home"})
                 pageView.currentIndex = 2
                 Router.goToAppPage(0)
             }
         
         onLongSwipeUp: {
+            // Dismiss keyboard if visible, otherwise task switcher
+            if (virtualKeyboard.active) {
+                Logger.info("NavBar", "Dismissing keyboard with long swipe up")
+                HapticService.light()
+                virtualKeyboard.active = false
+                return
+            }
+            
             Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
         
             if (UIStore.appWindowOpen && !UIStore.settingsOpen) {
@@ -1119,6 +1135,25 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+    }
+    
+    // Auto-dismiss keyboard when clicking above it (user request)
+    MouseArea {
+        id: keyboardDismissArea
+        anchors.fill: parent
+        anchors.bottomMargin: virtualKeyboard.height
+        z: Constants.zIndexKeyboard - 1
+        visible: virtualKeyboard.active
+        enabled: virtualKeyboard.active
+        
+        onClicked: {
+            Logger.info("Shell", "Click outside keyboard - auto-dismissing")
+            HapticService.light()
+            virtualKeyboard.active = false
+        }
+        
+        // Don't propagate to items below
+        propagateComposedEvents: false
     }
     
     // Keyboard visibility now managed by navBar.keyboardVisible binding

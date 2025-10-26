@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../components"
+import "components"
 
 SettingsPageTemplate {
     id: wifiPage
@@ -31,52 +31,53 @@ SettingsPageTemplate {
                 border.width: 1
                 border.color: Qt.rgba(255, 255, 255, 0.08)
                 
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: Constants.spacingMedium
+                Icon {
+                    id: wifiIcon
+                    name: "wifi"
+                    size: Constants.iconSizeMedium
+                    color: Colors.text
+                    anchors.left: parent.left
+                    anchors.leftMargin: 16
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                
+                Column {
+                    anchors.left: wifiIcon.right
+                    anchors.leftMargin: Constants.spacingMedium
+                    anchors.right: wifiToggle.left
+                    anchors.rightMargin: Constants.spacingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
                     
-                    Icon {
-                        name: "wifi"
-                        size: Constants.iconSizeMedium
+                    Text {
+                        text: "WiFi"
                         color: Colors.text
-                        anchors.verticalCenter: parent.verticalCenter
+                        font.pixelSize: Typography.sizeBody
+                        font.weight: Font.DemiBold
+                        font.family: Typography.fontFamily
                     }
                     
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 4
-                        width: parent.width - 120
-                        
-                        Text {
-                            text: "WiFi"
-                            color: Colors.text
-                            font.pixelSize: Typography.sizeBody
-                            font.weight: Font.DemiBold
-                            font.family: Typography.fontFamily
-                        }
-                        
-                        Text {
-                            text: NetworkManager.wifiEnabled ? "Enabled" : "Disabled"
-                            color: Colors.textSecondary
-                            font.pixelSize: Typography.sizeSmall
-                            font.family: Typography.fontFamily
-                        }
+                    Text {
+                        text: NetworkManager.wifiEnabled ? "Enabled" : "Disabled"
+                        color: Colors.textSecondary
+                        font.pixelSize: Typography.sizeSmall
+                        font.family: Typography.fontFamily
                     }
-                    
-                    Item { width: 1; height: 1 } // Spacer
-                    
-                    MarathonToggle {
-                        checked: NetworkManager.wifiEnabled
-                        anchors.verticalCenter: parent.verticalCenter
-                        onToggled: {
-                            NetworkManager.toggleWifi()
-                            if (NetworkManager.wifiEnabled) {
-                                // Start scanning when WiFi is turned on
-                                Qt.callLater(() => {
-                                    NetworkManager.scanWifi()
-                                })
-                            }
+                }
+                
+                MarathonToggle {
+                    id: wifiToggle
+                    anchors.right: parent.right
+                    anchors.rightMargin: Constants.spacingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    checked: NetworkManager.wifiEnabled
+                    onToggled: {
+                        NetworkManager.toggleWifi()
+                        if (NetworkManager.wifiEnabled) {
+                            // Start scanning when WiFi is turned on
+                            Qt.callLater(() => {
+                                NetworkManager.scanWifi()
+                            })
                         }
                     }
                 }

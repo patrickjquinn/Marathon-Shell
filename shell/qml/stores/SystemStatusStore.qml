@@ -70,12 +70,8 @@ QtObject {
     
     property Connections powerManagerConnections: Connections {
         target: PowerManager
-        function onBatteryLevelChanged() {
-            batteryLevel = PowerManager.batteryLevel
-        }
-        function onIsChargingChanged() {
-            isCharging = PowerManager.isCharging
-        }
+        // batteryLevel and isCharging are already bound directly (line 8-9)
+        // No need to update them here - direct bindings are more efficient
     }
     
     property Connections networkManagerConnections: Connections {

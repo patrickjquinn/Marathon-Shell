@@ -1,90 +1,76 @@
 import QtQuick
-import QtQuick.VirtualKeyboard
 import MarathonOS.Shell
+import "../keyboard/Core"
 
+// Virtual Keyboard Container - Marathon Custom Keyboard
 Item {
     id: keyboardContainer
     
-    // Expose properties for external control
     property bool keyboardAvailable: true
     property bool active: false
-    readonly property real keyboardHeight: inputPanel.y
     
-    // CRITICAL: Guard flag to prevent bidirectional binding loop
-    property bool _syncInProgress: false
-    
-    // CRITICAL: Don't expose inputPanel directly, use controlled properties
-    readonly property QtObject keyboard: QtObject {
-        property bool active: keyboardContainer.active
-    }
+    // Let keyboard determine its own height dynamically
+    readonly property real keyboardHeight: marathonKeyboard.implicitHeight
     
     width: parent ? parent.width : 0
-    height: active ? inputPanel.height : 0
-    y: parent ? parent.height - height : 0
+    height: active ? keyboardHeight : 0
+    
+    // Proper Qt anchoring - ABOVE nav bar
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.bottomMargin: Constants.navBarHeight  // Position above nav bar
+    
     z: Constants.zIndexKeyboard
     visible: active
     
-    // Sync our active property to InputPanel with safety checks
+    // Watch for external active changes and show/hide keyboard
     onActiveChanged: {
-        if (_syncInProgress) {
-            return  // CRITICAL: Prevent loop when sync originated from InputPanel
+        Logger.info("VirtualKeyboard", "Container active set to: " + active)
+        if (active) {
+            marathonKeyboard.show()
+        } else {
+            marathonKeyboard.hide()
         }
-        
-        Logger.info("VirtualKeyboard", "Container active changed to: " + active)
-        _syncInProgress = true
-        
-        if (inputPanel) {
-            inputPanel.active = active
-        }
-        
-        _syncInProgress = false
     }
     
     Behavior on height {
         NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
     }
     
-    InputPanel {
-        id: inputPanel
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        active: false
+    // Marathon Custom Keyboard (dismiss button integrated into layout)
+    MarathonKeyboard {
+        id: marathonKeyboard
+        anchors.fill: parent
         
-        // Sync InputPanel state back to container (when dismiss button clicked)
-        onActiveChanged: {
-            if (keyboardContainer._syncInProgress) {
-                return  // CRITICAL: Prevent loop when sync originated from container
-            }
-            
-            Logger.info("VirtualKeyboard", "InputPanel active changed to: " + active + " (dismiss button clicked?)")
-            keyboardContainer._syncInProgress = true
-            
-            if (active !== keyboardContainer.active) {
-                keyboardContainer.active = active
-            }
-            
-            keyboardContainer._syncInProgress = false
+        // Wire to C++ Input Method Engine for proper text input
+        onKeyPressed: function(text) {
+            Logger.info("VirtualKeyboard", "Key pressed: " + text)
+            // Use C++ IME backend for reliable text input
+            InputMethodEngine.commitText(text)
+        }
+        
+        onBackspace: function() {
+            Logger.info("VirtualKeyboard", "Backspace pressed")
+            // Use C++ IME backend
+            InputMethodEngine.sendBackspace()
+        }
+        
+        onEnter: function() {
+            Logger.info("VirtualKeyboard", "Enter pressed")
+            // Use C++ IME backend
+            InputMethodEngine.sendEnter()
+        }
+        
+        // Handle dismiss button click from keyboard
+        onDismissRequested: {
+            HapticService.light()
+            keyboardContainer.active = false
+            Logger.info("VirtualKeyboard", "Keyboard dismissed via dismiss button")
         }
         
         Component.onCompleted: {
-            Logger.info("VirtualKeyboard", "InputPanel created")
+            Logger.info("VirtualKeyboard", "MarathonKeyboard created")
         }
-        
-        Component.onDestruction: {
-            Logger.info("VirtualKeyboard", "InputPanel being destroyed")
-        }
-    }
-    
-    Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: -4
-        color: Qt.rgba(15, 15, 15, 0.98)
-        radius: 0
-        border.width: 1
-        border.color: Qt.rgba(255, 255, 255, 0.12)
-        z: -1
-        visible: keyboardContainer.active
     }
 }
-
