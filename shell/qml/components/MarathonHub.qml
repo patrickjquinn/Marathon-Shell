@@ -12,15 +12,26 @@ Rectangle {
     property int selectedTabIndex: 0
     property bool isInPeekMode: false  // Set by parent (MarathonPeek vs MarathonPageView)
     
+    // Cache frequently-used properties for performance
+    readonly property int cachedSafeAreaTop: Constants.safeAreaTop
+    readonly property int cachedTouchTargetSmall: Constants.touchTargetSmall
+    readonly property int cachedBorderRadiusSharp: Constants.borderRadiusSharp
+    readonly property int cachedBorderWidthThin: Constants.borderWidthThin
+    readonly property color cachedAccentBright: MColors.accentBright
+    readonly property color cachedSurface: MColors.surface
+    readonly property color cachedSurface2: MColors.surface2
+    readonly property color cachedBorderOuter: MColors.borderOuter
+    readonly property color cachedBorderInner: MColors.borderInner
+    
     Column {
         anchors.fill: parent
-        anchors.topMargin: hub.isInPeekMode ? Constants.safeAreaTop : 0
+        anchors.topMargin: hub.isInPeekMode ? hub.cachedSafeAreaTop : 0
         spacing: 0
                     
         Row {
             id: hubTabs
             width: parent.width
-            height: Constants.touchTargetSmall
+            height: hub.cachedTouchTargetSmall
             z: 0
             
             Repeater {
@@ -34,15 +45,15 @@ Rectangle {
                 
                 Item {
                     width: hub.width / 5
-                    height: Constants.touchTargetSmall
+                    height: hub.cachedTouchTargetSmall
                     
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 4
-                        radius: Constants.borderRadiusSharp
-                        color: index === hub.selectedTabIndex ? MColors.surface2 : MColors.surface
-                        border.width: Constants.borderWidthThin
-                        border.color: index === hub.selectedTabIndex ? MColors.accentBright : MColors.borderOuter
+                        radius: hub.cachedBorderRadiusSharp
+                        color: index === hub.selectedTabIndex ? hub.cachedSurface2 : hub.cachedSurface
+                        border.width: hub.cachedBorderWidthThin
+                        border.color: index === hub.selectedTabIndex ? hub.cachedAccentBright : hub.cachedBorderOuter
                         antialiasing: Constants.enableAntialiasing
                         
                         transform: Translate {
@@ -64,10 +75,10 @@ Rectangle {
                         Rectangle {
                             anchors.fill: parent
                             anchors.margins: 1
-                            radius: Constants.borderRadiusSharp
+                            radius: hub.cachedBorderRadiusSharp
                             color: "transparent"
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.borderInner
+                            border.width: hub.cachedBorderWidthThin
+                            border.color: hub.cachedBorderInner
                             antialiasing: Constants.enableAntialiasing
                         }
                         
@@ -78,7 +89,7 @@ Rectangle {
                             Icon {
                                 name: modelData.icon
                                 size: Constants.iconSizeSmall
-                                color: index === hub.selectedTabIndex ? MColors.accentBright : MColors.textSecondary
+                                color: index === hub.selectedTabIndex ? hub.cachedAccentBright : MColors.textSecondary
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.6)
                                 
@@ -89,7 +100,7 @@ Rectangle {
                             
                             Text {
                                 text: modelData.name
-                                color: index === hub.selectedTabIndex ? MColors.accentBright : MColors.textSecondary
+                                color: index === hub.selectedTabIndex ? hub.cachedAccentBright : MColors.textSecondary
                                 font.pixelSize: Typography.sizeXSmall
                                 font.family: Typography.fontFamily
                                 font.weight: index === hub.selectedTabIndex ? Font.DemiBold : Font.Normal
