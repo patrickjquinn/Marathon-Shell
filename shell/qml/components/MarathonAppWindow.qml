@@ -52,6 +52,8 @@ Rectangle {
     }
     
     function show(id, name, icon, type, surface, sid) {
+        var launchStartTime = Date.now()  // Performance measurement
+        
         console.log("=============== SHOW() CALLED ===============")
         console.log("  id:", id)
         console.log("  name:", name)
@@ -199,6 +201,10 @@ Rectangle {
         visible = true
         forceActiveFocus()
         slideIn.start()
+        
+        // Performance logging - measure total time to visible
+        var totalTime = Date.now() - launchStartTime
+        Logger.info("AppWindow", "⚡ " + name + " launched in " + totalTime + "ms")
     }
     
     function hide() {

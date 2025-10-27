@@ -585,9 +585,9 @@ Item {
                                                         }
                                                     }
                                                     
-                                                // Force multiple updates to catch all content (OPTIMIZED: paused during scrolling)
+                                                // Active Frames live preview throttling (10 FPS per spec)
                                                 Timer {
-                                                    interval: 50
+                                                    interval: 100  // 10 FPS (was 50ms/20fps) - per Marathon OS spec section 5.2
                                                     repeat: true
                                                     running: liveSnapshot.visible && !taskGrid.moving && !taskGrid.dragging
                                                     onTriggered: liveSnapshot.scheduleUpdate()

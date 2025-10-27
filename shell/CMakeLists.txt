@@ -36,6 +36,12 @@ set(SOURCES
     src/marathonappscanner.cpp
     src/marathonapploader.h
     src/marathonapploader.cpp
+    src/marathoninputmethodengine.h
+    src/marathoninputmethodengine.cpp
+    src/storagemanager.h
+    src/storagemanager.cpp
+    src/rtscheduler.h
+    src/rtscheduler.cpp
     src/marathonappinstaller.h
     src/marathonappinstaller.cpp
     src/contactsmanager.h

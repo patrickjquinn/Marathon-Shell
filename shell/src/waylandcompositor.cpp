@@ -3,6 +3,11 @@
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 
+#ifdef Q_OS_LINUX
+#include <sched.h>
+#include <pthread.h>
+#endif
+
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     : QWaylandCompositor()
     , m_window(window)
@@ -33,6 +38,9 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     
     qDebug() << "[WaylandCompositor] Initialized on socket:" << socketName()
              << "output size:" << m_output->window()->size();
+    
+    // Set RT priority for compositor rendering thread (Priority 75 per spec)
+    setCompositorRealtimePriority();
     
     // NOTE: We no longer create a custom D-Bus session - apps use the host's session
     // This prevents 25-second timeouts waiting for system services (GeoClue2, etc.)
@@ -361,6 +369,23 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
     
     m_processes.remove(process);
     process->deleteLater();
+}
+
+void WaylandCompositor::setCompositorRealtimePriority()
+{
+#ifdef Q_OS_LINUX
+    // Set RT priority 75 for compositor render thread (per Marathon OS spec section 3)
+    struct sched_param param;
+    param.sched_priority = 75;
+    
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
+        qInfo() << "[WaylandCompositor] ✓ Compositor thread set to RT priority 75 (SCHED_FIFO)";
+    } else {
+        qWarning() << "[WaylandCompositor] ⚠ Failed to set RT priority (need CAP_SYS_NICE or limits.conf)";
+    }
+#else
+    qDebug() << "[WaylandCompositor] RT scheduling not available (not Linux)";
+#endif
 }
 
 void WaylandCompositor::handleProcessError(QProcess::ProcessError error)

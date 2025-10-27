@@ -10,6 +10,11 @@
 #include <QStandardPaths>
 #include <QLoggingCategory>
 
+#ifdef Q_OS_LINUX
+#include <sched.h>
+#include <pthread.h>
+#endif
+
 #include "src/desktopfileparser.h"
 #include "src/appmodel.h"
 #include "src/taskmodel.h"
@@ -36,6 +41,7 @@
 #include "src/waylandcompositormanager.h"
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
+#include "src/rtscheduler.h"
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -163,6 +169,19 @@ int main(int argc, char *argv[])
     
     QGuiApplication app(argc, argv);
     
+    // Set RT priority for input handling (Priority 85 per Marathon OS spec)
+#ifdef Q_OS_LINUX
+    struct sched_param param;
+    param.sched_priority = 85;
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
+        qInfo() << "[MarathonShell] ✓ Main thread (input handling) set to RT priority 85 (SCHED_FIFO)";
+    } else {
+        qWarning() << "[MarathonShell] ⚠ Failed to set RT priority for input handling";
+        qInfo() << "[MarathonShell]   Configure /etc/security/limits.d/99-marathon.conf:";
+        qInfo() << "[MarathonShell]     @marathon-users  -  rtprio  90";
+    }
+#endif
+    
     // Initialize logging
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/.marathon";
     QDir logDir(logPath);
@@ -259,6 +278,15 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
+    
+    // Register RT Scheduler for thread priority management
+    RTScheduler *rtScheduler = new RTScheduler(&app);
+    engine.rootContext()->setContextProperty("RTScheduler", rtScheduler);
+    if (rtScheduler->isRealtimeKernel()) {
+        qInfo() << "[MarathonShell] RT Scheduler initialized (PREEMPT_RT kernel detected)";
+        qInfo() << "[MarathonShell]   Current policy:" << rtScheduler->getCurrentPolicy() 
+                << "Priority:" << rtScheduler->getCurrentPriority();
+    }
     
     // Register Telephony & Messaging services
     ContactsManager *contactsManager = new ContactsManager(&app);
