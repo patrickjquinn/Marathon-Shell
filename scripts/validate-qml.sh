@@ -45,8 +45,9 @@ check_qml_file() {
         ((ERRORS++))
     fi
     
-    if grep -q "import.*\./.*" "$file"; then
-        echo "  ⚠️  Consider using 'import \"components\"' instead of 'import \"./components\"'"
+    # Check for unnecessary './' prefix (but '../' is valid for parent directory imports)
+    if grep -q 'import "\./[^.]*"' "$file"; then
+        echo "  ⚠️  Consider removing './' prefix from same-directory imports"
         ((WARNINGS++))
     fi
 }
