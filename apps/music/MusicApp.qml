@@ -21,13 +21,21 @@ MApp {
     property var playlist  // No initial binding - set by library scan
     
     Component.onCompleted: {
-        // Initialize playlist
-        if (typeof MusicLibraryManager !== 'undefined') {
-            playlist = MusicLibraryManager.getAllTracks()
-            MusicLibraryManager.scanLibrary()
-        } else {
-            playlist = []  // Fallback to empty
-        }
+        // Initialize with empty playlist first (instant load)
+        playlist = []
+        
+        // Defer heavy operations to avoid blocking app launch
+        Qt.callLater(function() {
+            if (typeof MusicLibraryManager !== 'undefined') {
+                // Get cached tracks first (fast)
+                playlist = MusicLibraryManager.getAllTracks()
+                if (playlist.length > 0) {
+                    currentTrack = playlist[0]
+                }
+                // Then scan in background (slow, non-blocking)
+                MusicLibraryManager.scanLibrary()
+            }
+        })
     }
     
     Connections {

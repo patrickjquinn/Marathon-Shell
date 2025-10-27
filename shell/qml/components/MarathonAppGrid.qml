@@ -87,27 +87,29 @@ Item {
             width: pageView.width
             height: pageView.height
             
-            Grid {
-                id: iconGrid
-                anchors.fill: parent
-                anchors.margins: 12
-                columns: appGrid.columns
-                rows: appGrid.rows
-                spacing: Constants.spacingMedium
-                
-                Repeater {
-                    model: AppModel
+                Grid {
+                    id: iconGrid
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    columns: appGrid.columns
+                    rows: appGrid.rows
+                    spacing: Constants.spacingMedium
                     
-                    Item {
-                        width: (iconGrid.width - (appGrid.columns - 1) * iconGrid.spacing) / appGrid.columns
-                        height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.spacing) / appGrid.rows
+                    // Calculate visible range once per page
+                    readonly property int pageStartIdx: pageView.currentIndex * (appGrid.columns * appGrid.rows)
+                    readonly property int pageEndIdx: pageStartIdx + (appGrid.columns * appGrid.rows)
+                    
+                    Repeater {
+                        model: AppModel
                         
-                        visible: {
-                            var startIdx = pageView.currentIndex * (appGrid.columns * appGrid.rows)
-                            var endIdx = startIdx + (appGrid.columns * appGrid.rows)
-                            return index >= startIdx && index < endIdx
-                        }
+                        Item {
+                            width: (iconGrid.width - (appGrid.columns - 1) * iconGrid.spacing) / appGrid.columns
+                            height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.spacing) / appGrid.rows
+                            
+                            // Optimized visibility: calculate once per page change
+                            visible: index >= iconGrid.pageStartIdx && index < iconGrid.pageEndIdx
                         
+                        // Optimized transform: NumberAnimation instead of SpringAnimation for press effects
                         transform: [
                             Scale {
                                 origin.x: width / 2
@@ -117,18 +119,16 @@ Item {
                                 
                                 Behavior on xScale {
                                     enabled: Constants.enableAnimations
-                                    SpringAnimation {
-                                        spring: MMotion.springMedium
-                                        damping: MMotion.dampingMedium
-                                        epsilon: MMotion.epsilon
+                                    NumberAnimation {
+                                        duration: 120
+                                        easing.type: Easing.OutCubic
                                     }
                                 }
                                 Behavior on yScale {
                                     enabled: Constants.enableAnimations
-                                    SpringAnimation {
-                                        spring: MMotion.springMedium
-                                        damping: MMotion.dampingMedium
-                                        epsilon: MMotion.epsilon
+                                    NumberAnimation {
+                                        duration: 120
+                                        easing.type: Easing.OutCubic
                                     }
                                 }
                             },
@@ -137,10 +137,9 @@ Item {
                                 
                                 Behavior on y {
                                     enabled: Constants.enableAnimations
-                                    SpringAnimation {
-                                        spring: MMotion.springMedium
-                                        damping: MMotion.dampingMedium
-                                        epsilon: MMotion.epsilon
+                                    NumberAnimation {
+                                        duration: 120
+                                        easing.type: Easing.OutCubic
                                     }
                                 }
                             }
@@ -150,62 +149,58 @@ Item {
                             anchors.centerIn: parent
                             spacing: Constants.spacingSmall
                             
-                            Item {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: Constants.appIconSize
-                                height: Constants.appIconSize
-                                
-                                Rectangle {
-                                    id: pressGlow
-                                    anchors.centerIn: parent
-                                    width: parent.width * 1.4
-                                    height: parent.height * 1.4
-                                    radius: width / 2
-                                    color: "transparent"
-                                    opacity: iconMouseArea.pressed ? 0.4 : 0.0
+                                Item {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: Constants.appIconSize
+                                    height: Constants.appIconSize
                                     
-                                    border.width: iconMouseArea.pressed ? 20 : 0
-                                    border.color: MColors.accentBright
-                                    
-                                    Behavior on opacity {
-                                        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                                    // Press glow behind everything
+                                    Rectangle {
+                                        id: pressGlow
+                                        anchors.centerIn: parent
+                                        width: parent.width * 1.2
+                                        height: parent.height * 1.2
+                                        radius: width / 2
+                                        color: MColors.accentBright
+                                        opacity: iconMouseArea.pressed ? 0.2 : 0.0
+                                        visible: iconMouseArea.pressed
+                                        z: 0
+                                        
+                                        Behavior on opacity {
+                                            NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
+                                        }
                                     }
                                     
-                                    Behavior on border.width {
-                                        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                                    // Performant drop shadow (single dark layer, no blur)
+                                    Image {
+                                        anchors.centerIn: parent
+                                        anchors.verticalCenterOffset: 4
+                                        source: model.icon
+                                        width: parent.width
+                                        height: parent.height
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: false
+                                        asynchronous: true
+                                        cache: true
+                                        sourceSize: Qt.size(width, height)
+                                        opacity: 0.4
+                                        z: 1
                                     }
                                     
-                                    layer.enabled: true
-                                    layer.effect: MultiEffect {
-                                        blurEnabled: true
-                                        blur: 1.0
-                                        blurMax: 64
+                                    // Actual icon on top
+                                    Image {
+                                        id: appIcon
+                                        anchors.centerIn: parent
+                                        source: model.icon
+                                        width: parent.width
+                                        height: parent.height
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        asynchronous: true
+                                        cache: true
+                                        sourceSize: Qt.size(width, height)
+                                        z: 2
                                     }
-                                }
-                                
-                                Image {
-                                    id: appIcon
-                                    anchors.centerIn: parent
-                                    source: model.icon
-                                    width: parent.width
-                                    height: parent.height
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize: Qt.size(width, height)
-                                    z: 1
-                                    
-                                    layer.enabled: true
-                                    layer.effect: MultiEffect {
-                                        shadowEnabled: true
-                                        shadowHorizontalOffset: 0
-                                        shadowVerticalOffset: 4
-                                        shadowBlur: 0.5
-                                        shadowScale: 1.05
-                                        shadowColor: Qt.rgba(0, 0, 0, 0.3)
-                                    }
-                                }
                                 
                                 Rectangle {
                                     anchors.top: parent.top

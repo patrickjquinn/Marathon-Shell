@@ -538,12 +538,25 @@ Item {
                                                     updateLiveApp()
                                                 }
                                                 
-                                                // Re-check periodically in case app registers late
+                                                // Re-check periodically in case app registers late (max 5 seconds)
                                                 Timer {
+                                                    id: lateRegistrationTimer
                                                     interval: 100
                                                     repeat: true
                                                     running: previewContainer.liveApp === null && model.type !== "native"
-                                                    onTriggered: previewContainer.updateLiveApp()
+                                                    triggeredOnStart: false
+                                                    property int attempts: 0
+                                                    readonly property int maxAttempts: 50 // 5 seconds
+                                                    onTriggered: {
+                                                        previewContainer.updateLiveApp()
+                                                        attempts++
+                                                        if (attempts >= maxAttempts) {
+                                                            stop()
+                                                        }
+                                                    }
+                                                    onRunningChanged: {
+                                                        if (running) attempts = 0
+                                                    }
                                                 }
                                                 
                                                 // Live preview using ShaderEffectSource with forced updates
@@ -572,13 +585,13 @@ Item {
                                                         }
                                                     }
                                                     
-                                                    // Force multiple updates to catch all content
-                                                    Timer {
-                                                        interval: 50
-                                                        repeat: true
-                                                        running: liveSnapshot.visible
-                                                        onTriggered: liveSnapshot.scheduleUpdate()
-                                                    }
+                                                // Force multiple updates to catch all content (OPTIMIZED: paused during scrolling)
+                                                Timer {
+                                                    interval: 50
+                                                    repeat: true
+                                                    running: liveSnapshot.visible && !taskGrid.moving && !taskGrid.dragging
+                                                    onTriggered: liveSnapshot.scheduleUpdate()
+                                                }
                                                     
                                                     // Force update after content loads
                                                     Connections {

@@ -1,6 +1,8 @@
 #include "marathonapploader.h"
 #include <QDebug>
 #include <QFileInfo>
+#include <QEventLoop>
+#include <QTimer>
 
 MarathonAppLoader::MarathonAppLoader(MarathonAppRegistry *registry, QQmlEngine *engine, QObject *parent)
     : QObject(parent)
@@ -59,12 +61,41 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
     
     qDebug() << "  Loading from:" << entryPointPath;
     
-    // Create component from file URL
-    QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
-    QQmlComponent *component = new QQmlComponent(m_engine, fileUrl, this);
+    // Check if we already have this component cached
+    QQmlComponent *component = m_components.value(appId, nullptr);
+    bool isNewComponent = false;
     
-    if (component->isLoading()) {
-        qDebug() << "  Component is loading asynchronously...";
+    if (!component) {
+        // Create component ASYNCHRONOUSLY for non-blocking load
+        QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
+        component = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
+        isNewComponent = true;
+        
+        // Cache immediately (even if loading)
+        m_components.insert(appId, component);
+        
+        qDebug() << "  Component created asynchronously, status:" << component->status();
+    } else {
+        qDebug() << "  Using cached component, status:" << component->status();
+    }
+    
+    // Wait for async loading to complete (only on first load)
+    if (component->status() == QQmlComponent::Loading) {
+        qDebug() << "  Waiting for component to finish loading...";
+        
+        // Create event loop to wait for statusChanged signal
+        QEventLoop loop;
+        connect(component, &QQmlComponent::statusChanged, &loop, [&loop, component](QQmlComponent::Status status) {
+            if (status == QQmlComponent::Ready || status == QQmlComponent::Error) {
+                loop.quit();
+            }
+        });
+        
+        // Wait with timeout
+        QTimer::singleShot(5000, &loop, &QEventLoop::quit);
+        loop.exec();
+        
+        qDebug() << "  Component loaded, status:" << component->status();
     }
     
     if (component->isError()) {
@@ -87,7 +118,7 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
     if (!appInstance) {
         qWarning() << "[MarathonAppLoader] Failed to create app instance:" << component->errorString();
         emit loadError(appId, component->errorString());
-        delete component;
+        // Don't delete component - keep it cached for retry
         return nullptr;
     }
     
@@ -101,13 +132,7 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
         }
     }
     
-    // Don't cache instances - each launch gets a fresh instance
-    // Component can be reused though
-    if (!m_components.contains(appId)) {
-        m_components.insert(appId, component);
-    } else {
-        delete component; // Already have this component cached
-    }
+    // Component is already cached above, no need to cache again
     
     qDebug() << "[MarathonAppLoader] Successfully loaded app:" << appId;
     emit appLoaded(appId);
