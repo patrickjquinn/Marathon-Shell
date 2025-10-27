@@ -44,6 +44,7 @@ private slots:
     void handleProcessError(QProcess::ProcessError error);
 
 private:
+    void setCompositorRealtimePriority();
     QWaylandXdgShell *m_xdgShell;
     QWaylandWlShell *m_wlShell;
     QWaylandQuickOutput *m_output;
