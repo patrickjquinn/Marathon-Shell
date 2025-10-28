@@ -319,7 +319,7 @@ Rectangle {
     Keys.onPressed: (event) => {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
             console.log("[AppWindow] Back/Escape key pressed")
-            AppStore.closeApp(appId)
+            MarathonAppLoader.unloadApp(appId)
             hide()
             event.accepted = true
         }

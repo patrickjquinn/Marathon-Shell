@@ -1,0 +1,57 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.marathon.NotificationService">
+    <method name="CreateNotification">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="title" type="s" direction="in"/>
+      <arg name="body" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="id" type="u" direction="out"/>
+    </method>
+    <method name="UpdateNotification">
+      <arg name="id" type="u" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="DismissNotification">
+      <arg name="id" type="u" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="ClearAppNotifications">
+      <arg name="appId" type="s" direction="in"/>
+    </method>
+    <method name="ClearAllNotifications"/>
+    <method name="GetAllNotifications">
+      <arg name="notifications" type="aa{sv}" direction="out"/>
+    </method>
+    <method name="GetAppNotifications">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="notifications" type="aa{sv}" direction="out"/>
+    </method>
+    <method name="MarkAsRead">
+      <arg name="id" type="u" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="InvokeAction">
+      <arg name="id" type="u" direction="in"/>
+      <arg name="actionKey" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <signal name="NotificationCreated">
+      <arg name="id" type="u"/>
+      <arg name="appId" type="s"/>
+    </signal>
+    <signal name="NotificationUpdated">
+      <arg name="id" type="u"/>
+    </signal>
+    <signal name="NotificationDismissed">
+      <arg name="id" type="u"/>
+    </signal>
+    <signal name="ActionInvoked">
+      <arg name="id" type="u"/>
+      <arg name="actionKey" type="s"/>
+    </signal>
+  </interface>
+</node>
+
