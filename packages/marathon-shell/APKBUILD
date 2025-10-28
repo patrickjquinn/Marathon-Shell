@@ -10,11 +10,13 @@ arch="aarch64 x86_64"
 license="MIT"
 depends="
 	qt6-qtbase
+	qt6-qtbase-sqlite
 	qt6-qtdeclarative
 	qt6-qtwayland
 	qt6-qtwebengine
 	qt6-qtmultimedia
 	qt6-qtsvg
+	qt6-qtvirtualkeyboard
 	qt6-qtlocation
 	qt6-qtpositioning
 	wayland
@@ -28,13 +30,21 @@ depends="
 	pipewire-pulse
 	wireplumber
 	pulseaudio-utils
-	greetd
-	dbus
 	networkmanager
-	modemmanager
 	upower
-	polkit
+	modemmanager
+	geoclue
 	bluez
+	iio-sensor-proxy
+	bash
+	coreutils
+	util-linux
+	dbus
+	polkit
+	greetd
+	ffmpeg
+	gst-plugins-base
+	gst-plugins-good
 	"
 makedepends="
 	cmake
@@ -51,11 +61,13 @@ makedepends="
 	wayland-protocols
 	mesa-dev
 	dbus-dev
+	eudev-dev
+	libinput-dev
 	git
 	"
 install=""
 subpackages="$pkgname-doc"
-source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/refs/heads/main.tar.gz"
+source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
 builddir="$srcdir/Marathon-Shell-main"
 
 build() {
