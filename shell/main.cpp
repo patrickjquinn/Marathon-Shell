@@ -42,6 +42,13 @@
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
+#include "src/dbus/marathonapplicationservice.h"
+#include "src/dbus/marathonsystemservice.h"
+#include "src/dbus/marathonnotificationservice.h"
+#include "src/dbus/notificationdatabase.h"
+#include "src/dbus/marathonstorageservice.h"
+#include "src/dbus/marathonsettingsservice.h"
+#include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -286,6 +293,55 @@ int main(int argc, char *argv[])
         qInfo() << "[MarathonShell] RT Scheduler initialized (PREEMPT_RT kernel detected)";
         qInfo() << "[MarathonShell]   Current policy:" << rtScheduler->getCurrentPolicy() 
                 << "Priority:" << rtScheduler->getCurrentPriority();
+    }
+    
+    // Initialize Marathon D-Bus Services
+    qInfo() << "[MarathonShell] Initializing Marathon Service Bus (D-Bus)...";
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
+    } else {
+        qInfo() << "[MarathonShell] ✓ Connected to D-Bus session bus";
+        
+        // Initialize NotificationDatabase
+        NotificationDatabase *notifDb = new NotificationDatabase(&app);
+        if (!notifDb->initialize()) {
+            qWarning() << "[MarathonShell] Failed to initialize notification database";
+        }
+        
+        // Register ApplicationService
+        MarathonApplicationService *appService = new MarathonApplicationService(
+            appRegistry, appLoader, taskModel, &app);
+        if (appService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ ApplicationService registered";
+        }
+        
+        // Register SystemService
+        MarathonSystemService *systemService = new MarathonSystemService(
+            powerManager, networkManager, displayManager, audioManager, &app);
+        if (systemService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ SystemService registered";
+        }
+        
+        // Register NotificationService
+        MarathonNotificationService *notifService = new MarathonNotificationService(notifDb, &app);
+        if (notifService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ NotificationService registered";
+        }
+        
+        // Register StorageService
+        MarathonStorageService *storageService = new MarathonStorageService(storageManager, &app);
+        if (storageService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ StorageService registered";
+        }
+        
+        // Register SettingsService
+        MarathonSettingsService *settingsService = new MarathonSettingsService(settingsManager, &app);
+        if (settingsService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ SettingsService registered";
+        }
+        
+        qInfo() << "[MarathonShell] Service bus ready (5 services active)";
     }
     
     // Register Telephony & Messaging services

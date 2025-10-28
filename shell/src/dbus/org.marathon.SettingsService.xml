@@ -1,0 +1,59 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.marathon.SettingsService">
+    <method name="GetSetting">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="defaultValue" type="v" direction="in"/>
+      <arg name="value" type="v" direction="out"/>
+    </method>
+    <method name="SetSetting">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="RemoveSetting">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="HasSetting">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="exists" type="b" direction="out"/>
+    </method>
+    <method name="GetAllSettings">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="settings" type="a{sv}" direction="out"/>
+    </method>
+    <method name="ClearAppSettings">
+      <arg name="appId" type="s" direction="in"/>
+    </method>
+    <method name="GetSettingKeys">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="keys" type="as" direction="out"/>
+    </method>
+    <method name="GetSystemSetting">
+      <arg name="key" type="s" direction="in"/>
+      <arg name="defaultValue" type="v" direction="in"/>
+      <arg name="value" type="v" direction="out"/>
+    </method>
+    <method name="SetSystemSetting">
+      <arg name="key" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <signal name="SettingChanged">
+      <arg name="appId" type="s"/>
+      <arg name="key" type="s"/>
+      <arg name="value" type="v"/>
+    </signal>
+    <signal name="SystemSettingChanged">
+      <arg name="key" type="s"/>
+      <arg name="value" type="v"/>
+    </signal>
+  </interface>
+</node>
+
