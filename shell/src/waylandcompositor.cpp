@@ -1,5 +1,7 @@
 #include "waylandcompositor.h"
 #include <QDebug>
+#include <QTimer>
+#include <QDateTime>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 
@@ -111,26 +113,32 @@ void WaylandCompositor::launchApp(const QString &command)
     env.remove("WAYLAND_DISPLAY");  // Remove parent Wayland compositor
     env.remove("DISPLAY");          // Remove X11 display (force Wayland)
     
-    // CRITICAL FIX: Prevent GTK/GApplication apps from connecting to host instances
-    // Apps like Nautilus use GApplication's single-instance D-Bus mechanism
+    // CRITICAL FIX: Prevent GTK/GApplication apps from connecting to host/previous instances
+    // Apps like Nautilus/Clocks use GApplication's single-instance D-Bus mechanism
     // They check D-Bus for existing instances and send "open window" commands to them
-    // This causes windows to open in host compositor instead of Marathon
+    // This causes windows to open in host compositor OR connect to stale D-Bus names
     // 
-    // Solution: Generate unique GApplication ID namespace for Marathon apps
-    // This isolates them from host instances while keeping system D-Bus access
+    // Solution: Generate UNIQUE GApplication ID per app launch (not just per Marathon instance!)
+    // This isolates each launch from host AND previous Marathon launches
     
-    // Set unique desktop file path to prevent collision with host instances
+    // CRITICAL: Use timestamp + command hash for uniqueness per launch
     // GApplication uses this to determine the D-Bus application name
-    QString uniqueDesktopFile = QString("/tmp/marathon-apps/app-%1.desktop")
-        .arg(QCoreApplication::applicationPid());
+    qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
+    uint commandHash = qHash(actualCommand);
+    QString uniqueDesktopFile = QString("/tmp/marathon-apps/app-%1-%2.desktop")
+        .arg(timestamp)
+        .arg(commandHash);
     env.insert("GIO_LAUNCHED_DESKTOP_FILE", uniqueDesktopFile);
     
-    // Alternative isolation: Modify the application ID namespace
-    // This is read by GApplication to construct the D-Bus name
-    env.insert("MARATHON_APP_NAMESPACE", "shell");
+    // Also set unique application ID to prevent D-Bus collision
+    QString uniqueAppId = QString("marathon.app.%1.%2")
+        .arg(timestamp)
+        .arg(commandHash);
+    env.insert("GIO_LAUNCHED_DESKTOP_FILE_PID", QString::number(QCoreApplication::applicationPid()));
     
     qInfo() << "[WaylandCompositor] Isolated app from host single-instance via unique desktop file";
     qInfo() << "[WaylandCompositor] GIO_LAUNCHED_DESKTOP_FILE:" << uniqueDesktopFile;
+    qInfo() << "[WaylandCompositor] Unique App ID:" << uniqueAppId;
     
     // Set OUR compositor variables
     env.insert("WAYLAND_DISPLAY", socketName());
@@ -196,28 +204,68 @@ void WaylandCompositor::launchApp(const QString &command)
 
 void WaylandCompositor::closeWindow(int surfaceId)
 {
-    if (m_surfaceMap.contains(surfaceId)) {
-        QWaylandSurface *surface = m_surfaceMap[surfaceId];
-        if (surface) {
-            QWaylandClient *client = surface->client();
-            if (client) {
-                qDebug() << "[WaylandCompositor] Terminating client for surface ID:" << surfaceId;
-                client->close();
-                
-                for (auto it = m_processes.begin(); it != m_processes.end(); ++it) {
-                    QProcess *process = it.key();
-                    if (process && process->state() != QProcess::NotRunning) {
-                        process->terminate();
-                        if (!process->waitForFinished(1000)) {
-                            qDebug() << "[WaylandCompositor] Force killing process for surface ID:" << surfaceId;
-                            process->kill();
-                        }
-                        break;
-                    }
-                }
-            }
+    if (!m_surfaceMap.contains(surfaceId)) {
+        qWarning() << "[WaylandCompositor] closeWindow called for unknown surface ID:" << surfaceId;
+        return;
+    }
+    
+    QWaylandSurface *surface = m_surfaceMap[surfaceId];
+    if (!surface) {
+        qWarning() << "[WaylandCompositor] Surface is null for ID:" << surfaceId;
+        return;
+    }
+    
+    // Send polite close request to the Wayland client
+    QWaylandClient *client = surface->client();
+    if (!client) {
+        qWarning() << "[WaylandCompositor] No client for surface ID:" << surfaceId;
+        return;
+    }
+    
+    qInfo() << "[WaylandCompositor] Sending close request to surface ID:" << surfaceId;
+    client->close();
+    
+    // Find the specific process for this surface (by PID mapping)
+    qint64 pid = m_surfaceIdToPid.value(surfaceId, -1);
+    if (pid <= 0) {
+        qDebug() << "[WaylandCompositor] No PID mapping for surface ID:" << surfaceId;
+        return;  // Let the surface close naturally
+    }
+    
+    // Find the process for this PID
+    QProcess *targetProcess = nullptr;
+    for (auto it = m_processes.begin(); it != m_processes.end(); ++it) {
+        QProcess *process = it.key();
+        if (process && process->processId() == pid) {
+            targetProcess = process;
+            break;
         }
     }
+    
+    if (!targetProcess) {
+        qDebug() << "[WaylandCompositor] No process found for PID:" << pid;
+        return;  // Process already exited or doesn't exist
+    }
+    
+    // Give the app time to close gracefully (most apps will close within 2-3 seconds)
+    qDebug() << "[WaylandCompositor] Waiting for PID" << pid << "to exit gracefully...";
+    QTimer::singleShot(3000, this, [this, targetProcess, surfaceId, pid]() {
+        // Check if process is still running after 3 seconds
+        if (targetProcess && targetProcess->state() != QProcess::NotRunning) {
+            qWarning() << "[WaylandCompositor] Process" << pid << "didn't exit gracefully, sending SIGTERM";
+            targetProcess->terminate();
+            
+            // Last resort: kill after 2 more seconds
+            QTimer::singleShot(2000, this, [targetProcess, pid]() {
+                if (targetProcess && targetProcess->state() != QProcess::NotRunning) {
+                    qWarning() << "[WaylandCompositor] Force killing process" << pid;
+                    targetProcess->kill();
+                }
+            });
+        } else {
+            qInfo() << "[WaylandCompositor] Process" << pid << "exited gracefully for surface ID:" << surfaceId;
+        }
+    });
 }
 
 QObject* WaylandCompositor::getSurfaceById(int surfaceId)

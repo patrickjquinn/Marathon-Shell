@@ -124,7 +124,7 @@ cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
 ACTION=="add|change", KERNEL=="sd[a-z]|mmcblk[0-9]*|nvme[0-9]*", ATTR{queue/scheduler}="kyber"
 EOF
 echo "  ✓ Created /etc/udev/rules.d/60-ioschedulers.rules"
-udevadm control --reload-rules
+udevadm control --reload-rules 2>/dev/null || echo "  ⚠ udevadm control requires root"
 echo "  ✓ Reloaded udev rules"
 
 # Done
@@ -133,9 +133,15 @@ echo "=== Configuration Complete ==="
 echo ""
 echo "⚠️  IMPORTANT: You must REBOOT for RT limits to take effect"
 echo ""
-echo "After reboot, verify with:"
-echo "  ulimit -r   # Should show 90"
-echo "  cat /sys/kernel/realtime   # Should show 1"
-echo "  ps -eLo pid,tid,class,rtprio,comm | grep marathon   # Check RT priorities"
+echo "After reboot, verify Marathon RT scheduling with:"
+echo "  ulimit -r                                          # Should show 90"
+echo "  cat /sys/kernel/realtime                           # Should show 1"
+echo "  ps -eLo pid,tid,class,rtprio,comm | grep marathon  # Check RT priorities"
+echo ""
+echo "Expected RT priorities:"
+echo "  - Priority 85: Input handling thread (instant touch response)"
+echo "  - Priority 75: Compositor render thread (smooth 60fps)"
+echo "  - Priority 88: PipeWire audio (low latency audio)"
+echo "  - Priority 90: ModemManager (cellular voice priority)"
 echo ""
 
