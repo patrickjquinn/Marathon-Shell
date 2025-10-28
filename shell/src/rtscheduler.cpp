@@ -7,8 +7,8 @@
 #include <sched.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <sys/capability.h>
 #include <errno.h>
+#include <cstring>  // for strerror
 #endif
 
 RTScheduler::RTScheduler(QObject *parent)
