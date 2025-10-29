@@ -1,0 +1,56 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.marathon.SystemService">
+    <property name="BatteryLevel" type="i" access="read"/>
+    <property name="BatteryCharging" type="b" access="read"/>
+    <property name="BatteryState" type="s" access="read"/>
+    <property name="NetworkConnected" type="b" access="read"/>
+    <property name="NetworkType" type="s" access="read"/>
+    <property name="SignalStrength" type="i" access="read"/>
+    <property name="DisplayBrightness" type="i" access="readwrite"/>
+    <property name="DisplayAutoRotate" type="b" access="readwrite"/>
+    <property name="DisplayOrientation" type="i" access="read"/>
+    <method name="GetDeviceModel">
+      <arg name="model" type="s" direction="out"/>
+    </method>
+    <method name="GetOSVersion">
+      <arg name="version" type="s" direction="out"/>
+    </method>
+    <method name="GetUptime">
+      <arg name="uptime" type="i" direction="out"/>
+    </method>
+    <method name="GetCPUUsage">
+      <arg name="usage" type="i" direction="out"/>
+    </method>
+    <method name="GetMemoryUsage">
+      <arg name="usage" type="i" direction="out"/>
+    </method>
+    <method name="GetTotalMemory">
+      <arg name="total" type="i" direction="out"/>
+    </method>
+    <method name="SetDisplayBrightness">
+      <arg name="brightness" type="i" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="SetDisplayAutoRotate">
+      <arg name="enabled" type="b" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="HapticFeedback">
+      <arg name="type" type="s" direction="in"/>
+    </method>
+    <signal name="BatteryChanged">
+      <arg name="level" type="i"/>
+      <arg name="charging" type="b"/>
+    </signal>
+    <signal name="NetworkChanged">
+      <arg name="connected" type="b"/>
+      <arg name="type" type="s"/>
+    </signal>
+    <signal name="DisplayOrientationChanged">
+      <arg name="orientation" type="i"/>
+    </signal>
+  </interface>
+</node>
+

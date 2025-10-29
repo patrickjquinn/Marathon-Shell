@@ -31,6 +31,9 @@ MApp {
     property bool isDrawerOpen: false
     property bool isDragging: false
     
+    // Reference to drawer component (set after drawer is created)
+    property var drawerRef: null
+    
     property var lastLoadedUrl: ""
     property int consecutiveLoadAttempts: 0
     property var lastLoadTime: 0
@@ -282,7 +285,7 @@ MApp {
             return -1
         }
         
-        var defaultUrl = drawer && drawer.settingsPage ? drawer.settingsPage.homepage : "https://www.google.com"
+        var defaultUrl = drawerRef && drawerRef.settingsPage ? drawerRef.settingsPage.homepage : "https://www.google.com"
         
         var newTab = {
             id: nextTabId++,
@@ -358,7 +361,7 @@ MApp {
             if (url.includes(".") && !url.includes(" ")) {
                 url = "https://" + url
             } else {
-                var searchEngineUrl = drawer.settingsPage.searchEngineUrl || "https://www.google.com/search?q="
+                var searchEngineUrl = (drawerRef && drawerRef.settingsPage) ? drawerRef.settingsPage.searchEngineUrl : "https://www.google.com/search?q="
                 url = searchEngineUrl + encodeURIComponent(url)
             }
         }
@@ -1005,6 +1008,9 @@ MApp {
                 anchors.fill: parent
                 
                 Component.onCompleted: {
+                    // Store reference for safe access from other components
+                    browserApp.drawerRef = drawer
+                    
                     if (drawer.tabsPage) {
                         drawer.tabsPage.tabs = Qt.binding(function() { return browserApp.tabs })
                         drawer.tabsPage.currentTabId = Qt.binding(function() {

@@ -1,4 +1,5 @@
 import QtQuick
+import QtWayland.Compositor
 import MarathonOS.Shell
 import "."
 
@@ -179,6 +180,11 @@ Item {
         cellHeight: height / 2
         clip: true
         
+        Component.onCompleted: {
+            console.log("[TaskSwitcher] GridView created, model count:", count)
+            Logger.info("TaskSwitcher", "GridView created with " + count + " tasks")
+        }
+        
         // Only allow vertical scrolling
         flickableDirection: Flickable.VerticalFlick
         interactive: TaskModel.taskCount > 4  // Only scrollable if more than 1 page
@@ -220,6 +226,11 @@ Item {
                 delegate: Item {
                     width: GridView.view.cellWidth
                     height: GridView.view.cellHeight
+                    
+                    Component.onCompleted: {
+                        console.log("[TaskSwitcher] Delegate created for:", model.appId, "type:", model.type)
+                        Logger.info("TaskSwitcher", "Delegate created for: " + model.appId + " type: " + model.type)
+                    }
                     
                     Rectangle {
                         id: cardRoot
@@ -585,9 +596,9 @@ Item {
                                                         }
                                                     }
                                                     
-                                                // Force multiple updates to catch all content (OPTIMIZED: paused during scrolling)
+                                                // Active Frames live preview throttling (10 FPS per spec)
                                                 Timer {
-                                                    interval: 50
+                                                    interval: 100  // 10 FPS (was 50ms/20fps) - per Marathon OS spec section 5.2
                                                     repeat: true
                                                     running: liveSnapshot.visible && !taskGrid.moving && !taskGrid.dragging
                                                     onTriggered: liveSnapshot.scheduleUpdate()
@@ -609,7 +620,7 @@ Item {
                                                     }
                                                 }
                                                 
-                                                // Native app surface rendering
+                                                // Native app surface rendering with ShellSurfaceItem
                                                 Loader {
                                                     id: nativeSurfaceLoader
                                                     anchors.top: parent.top
@@ -617,19 +628,36 @@ Item {
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                                     visible: model.type === "native" && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
-                                                    active: visible && Platform.hasWaylandCompositor
+                                                    active: visible
                                                     asynchronous: true
                                                     
-                                                    sourceComponent: Rectangle {
+                                                    property var surfaceObj: typeof model.waylandSurface !== 'undefined' ? model.waylandSurface : null
+                                                    
+                                                    sourceComponent: ShellSurfaceItem {
                                                         anchors.fill: parent
-                                                        color: MColors.surface2
+                                                        // CRITICAL FIX: Access xdgSurface property DIRECTLY (not via .property() method)
+                                                        // The property was stored in C++ via surface->setProperty("xdgSurface", ...)
+                                                        // In QML, we access it as a direct property: surface.xdgSurface
+                                                        shellSurface: nativeSurfaceLoader.surfaceObj && nativeSurfaceLoader.surfaceObj.xdgSurface 
+                                                                      ? nativeSurfaceLoader.surfaceObj.xdgSurface
+                                                                      : null
                                                         
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "Native App\n(Preview not available on macOS)"
-                                                            color: MColors.textSecondary
-                                                            font.pixelSize: MTypography.sizeSmall
-                                                            horizontalAlignment: Text.AlignHCenter
+                                                        onSurfaceDestroyed: {
+                                                            Logger.info("TaskSwitcher", "Native surface destroyed in preview for: " + model.appId)
+                                                        }
+                                                        
+                                                        // Fallback if shellSurface is null
+                                                        Rectangle {
+                                                            anchors.fill: parent
+                                                            color: MColors.surface2
+                                                            visible: !parent.shellSurface
+                                                            
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "Connecting..."
+                                                                color: MColors.textSecondary
+                                                                font.pixelSize: MTypography.sizeSmall
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -723,24 +751,9 @@ Item {
                                                     }
                                                 }
                                                 
-                                                Rectangle {
-                                                    anchors.centerIn: parent
-                                                    width: Math.min(parent.width * 0.8, parent.width - Constants.spacingLarge * 2)
-                                                    height: Constants.touchTargetMedium
-                                                    color: Colors.surface
-                                                    radius: Constants.borderRadiusSmall
-                                                    visible: previewContainer.liveApp === null
-                                                    
-                                                    Text {
-                                                        anchors.centerIn: parent
-                                                        text: model.title
-                                                        color: Colors.text
-                                                        font.pixelSize: Typography.sizeSmall
-                                                        elide: Text.ElideRight
-                                                        width: parent.width - Constants.spacingMedium * 2
-                                                        horizontalAlignment: Text.AlignHCenter
-                                                    }
-                                                }
+                                                // REMOVED: Banner overlay that was showing app title
+                                                // This was always visible for native apps since they don't have liveApp instances
+                                                // Native apps use Wayland surfaces (ShellSurfaceItem) instead
                                             }
                                         }
                                     }
