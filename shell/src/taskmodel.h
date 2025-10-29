@@ -6,6 +6,7 @@
 #include <QString>
 #include <QDateTime>
 #include <QImage>
+#include <QPointer>
 
 class Task : public QObject
 {
@@ -16,14 +17,17 @@ class Task : public QObject
     Q_PROPERTY(QString icon READ icon CONSTANT)
     Q_PROPERTY(QString appType READ appType CONSTANT)
     Q_PROPERTY(int surfaceId READ surfaceId CONSTANT)
+    Q_PROPERTY(QObject* waylandSurface READ waylandSurface NOTIFY waylandSurfaceChanged)
     Q_PROPERTY(qint64 timestamp READ timestamp CONSTANT)
     Q_PROPERTY(QImage snapshot READ snapshot NOTIFY snapshotChanged)
 
 public:
     explicit Task(const QString& id, const QString& appId, const QString& title, 
-                  const QString& icon, const QString& appType, int surfaceId, QObject* parent = nullptr)
+                  const QString& icon, const QString& appType, int surfaceId, 
+                  QObject* waylandSurface = nullptr, QObject* parent = nullptr)
         : QObject(parent), m_id(id), m_appId(appId), m_title(title), 
-          m_icon(icon), m_appType(appType), m_surfaceId(surfaceId), m_timestamp(QDateTime::currentMSecsSinceEpoch()) {}
+          m_icon(icon), m_appType(appType), m_surfaceId(surfaceId), 
+          m_waylandSurface(waylandSurface), m_timestamp(QDateTime::currentMSecsSinceEpoch()) {}
 
     QString id() const { return m_id; }
     QString appId() const { return m_appId; }
@@ -31,6 +35,7 @@ public:
     QString icon() const { return m_icon; }
     QString appType() const { return m_appType; }
     int surfaceId() const { return m_surfaceId; }
+    QObject* waylandSurface() const { return m_waylandSurface.data(); }
     qint64 timestamp() const { return m_timestamp; }
     QImage snapshot() const { return m_snapshot; }
     
@@ -38,9 +43,17 @@ public:
         m_snapshot = snapshot;
         emit snapshotChanged();
     }
+    
+    void setWaylandSurface(QObject* surface) {
+        if (m_waylandSurface != surface) {
+            m_waylandSurface = surface;
+            emit waylandSurfaceChanged();
+        }
+    }
 
 signals:
     void snapshotChanged();
+    void waylandSurfaceChanged();
 
 private:
     QString m_id;
@@ -49,6 +62,7 @@ private:
     QString m_icon;
     QString m_appType;
     int m_surfaceId;
+    QPointer<QObject> m_waylandSurface; // Use QPointer for safe lifecycle management
     qint64 m_timestamp;
     QImage m_snapshot;
 };
@@ -66,6 +80,7 @@ public:
         IconRole,
         AppTypeRole,
         SurfaceIdRole,
+        WaylandSurfaceRole,
         TimestampRole,
         SnapshotRole
     };
@@ -80,11 +95,13 @@ public:
     int taskCount() const { return m_tasks.count(); }
 
     Q_INVOKABLE void launchTask(const QString& appId, const QString& appName, 
-                                const QString& appIcon, const QString& appType, int surfaceId = -1);
+                                const QString& appIcon, const QString& appType, 
+                                int surfaceId = -1, QObject* waylandSurface = nullptr);
     Q_INVOKABLE void closeTask(const QString& taskId);
     Q_INVOKABLE Task* getTask(const QString& taskId);
     Q_INVOKABLE Task* getTaskByAppId(const QString& appId);
     Q_INVOKABLE void updateTaskSnapshot(const QString& appId, const QImage& snapshot);
+    Q_INVOKABLE void updateTaskSurface(const QString& appId, QObject* surface);
     Q_INVOKABLE void clear();
 
 signals:

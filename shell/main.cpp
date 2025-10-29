@@ -147,10 +147,12 @@ int main(int argc, char *argv[])
             "qt.qml.binding=false\n"      // Suppress only QML binding spam
             "qt.core.*=false\n"
             "qt.rhi.*=false\n"            // Disable RHI (rendering) spam
-            "qml=true\n"                  // ENABLE console.log() from QML
+            // CRITICAL: Enable console.log() from QML (uses QtDebugMsg)
+            "qml.debug=true\n"            // Enable QML console.log()
+            "js.debug=true\n"             // Enable JS console.log()
+            "default.debug=true\n"        // Enable default category debug
             "default.info=true\n"
             "default.warning=true\n"
-            "js.info=true\n"
         );
     } else {
         // Production mode: filter out noisy categories
@@ -222,6 +224,12 @@ int main(int argc, char *argv[])
                                                      "WaylandXdgSurface cannot be created from QML");
     qmlRegisterUncreatableType<WaylandCompositor>("MarathonOS.Wayland", 1, 0, "WaylandCompositor",
                                                     "WaylandCompositor is created in C++");
+    
+    // CRITICAL: Register pointer types for signal/slot marshalling across C++/QML boundary
+    qRegisterMetaType<QWaylandSurface*>("QWaylandSurface*");
+    qRegisterMetaType<QWaylandXdgSurface*>("QWaylandXdgSurface*");
+    qRegisterMetaType<QObject*>("QObject*");
+    
     qInfo() << "Wayland Compositor support enabled";
 #else
     qInfo() << "Wayland Compositor support disabled (not available on this platform)";

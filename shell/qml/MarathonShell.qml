@@ -85,14 +85,22 @@ Item {
             Logger.info("Shell", "Wayland Compositor not available on this platform (expected on macOS)")
             compositor = null
         }
+        console.log("[DEBUG] Compositor object:", compositor)
+        console.log("[DEBUG] Compositor is null?", compositor === null)
+        console.log("[DEBUG] Compositor socketName:", compositor ? compositor.socketName : "N/A")
         Logger.info("Shell", compositor ? "Compositor created successfully" : "Compositor is NULL")
         
         // Test if compositor signals are connected
         if (compositor) {
+            console.log("[DEBUG] About to connect surfaceCreated signal...")
             Logger.info("Shell", "Testing compositor signal connection...")
             compositor.surfaceCreated.connect(function(surface, surfaceId, xdgSurface) {
+                console.log("[DEBUG] !!!!! DIRECT SIGNAL FIRED - surfaceId:", surfaceId)
                 Logger.info("Shell", "!!!!! DIRECT SIGNAL CONNECTION FIRED - surfaceId: " + surfaceId)
             })
+            console.log("[DEBUG] Signal connected successfully")
+        } else {
+            console.log("[DEBUG] Compositor is null, cannot connect signal")
         }
     }
     
@@ -1252,10 +1260,12 @@ Item {
                 // Check if a task already exists for this app
                 var existingTask = TaskModel.getTaskByAppId(app.id)
                 if (!existingTask) {
-                    TaskModel.launchTask(app.id, app.name, app.icon, "native", surfaceId)
-                    Logger.info("Shell", "Added native app to TaskModel: " + app.name + " (surfaceId: " + surfaceId + ")")
+                    TaskModel.launchTask(app.id, app.name, app.icon, "native", surfaceId, surface)
+                    Logger.info("Shell", "Added native app to TaskModel: " + app.name + " (surfaceId: " + surfaceId + ") with surface")
                 } else {
-                    Logger.info("Shell", "Native app already has task, skipping (surfaceId: " + surfaceId + " is a subsurface/popup)")
+                    // Update existing task with surface (for subsurfaces/popups)
+                    TaskModel.updateTaskSurface(app.id, surface)
+                    Logger.info("Shell", "Native app already has task, updated surface (surfaceId: " + surfaceId + " is a subsurface/popup)")
                 }
                 
                 // Update the existing window (already showing splash) with the actual surface

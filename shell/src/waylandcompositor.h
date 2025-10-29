@@ -6,6 +6,7 @@
 #include <QWaylandSurface>
 #include <QWaylandQuickSurface>
 #include <QWaylandXdgShell>
+#include <QWaylandXdgSurface>
 #include <QWaylandWlShell>
 #include <QWaylandQuickOutput>
 #include <QWaylandClient>
@@ -30,7 +31,7 @@ public:
 
 signals:
     void surfacesChanged();
-    void surfaceCreated(QWaylandSurface *surface, int surfaceId, QObject *xdgSurface);
+    void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     void surfaceDestroyed(QWaylandSurface *surface, int surfaceId);
     void appLaunched(const QString &command, int pid);
     void appClosed(int pid);
@@ -51,10 +52,11 @@ private:
     QQuickWindow *m_window;
     
     QList<QObject*> m_surfaces;
-    QMap<int, QWaylandSurface*> m_surfaceMap;  // surfaceId -> surface
-    QMap<QProcess*, QString> m_processes;      // process -> command
-    QMap<qint64, int> m_pidToSurfaceId;        // PID -> surfaceId
-    QMap<int, qint64> m_surfaceIdToPid;        // surfaceId -> PID
+    QMap<int, QWaylandSurface*> m_surfaceMap;      // surfaceId -> surface
+    QMap<int, QWaylandXdgSurface*> m_xdgSurfaceMap; // surfaceId -> xdgSurface (for graceful close)
+    QMap<QProcess*, QString> m_processes;          // process -> command
+    QMap<qint64, int> m_pidToSurfaceId;            // PID -> surfaceId
+    QMap<int, qint64> m_surfaceIdToPid;            // surfaceId -> PID
     
     int m_nextSurfaceId;
 };

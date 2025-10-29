@@ -95,15 +95,17 @@ QtObject {
     }
     
     function setBrightness(value) {
-        brightness = Math.max(0, Math.min(100, value))
-        DisplayManager.setBrightness(brightness / 100.0)
-        Logger.debug("SystemControl", "Brightness: " + brightness)
+        var clamped = Math.max(0, Math.min(100, value))
+        DisplayManager.setBrightness(clamped / 100.0)
+        Logger.debug("SystemControl", "Brightness: " + clamped)
+        // Don't set brightness property here - let the binding update from DisplayManager
     }
     
     function setVolume(value) {
-        volume = Math.max(0, Math.min(100, value))
-        AudioManager.setVolume(volume / 100.0)
-        Logger.debug("SystemControl", "Volume: " + volume)
+        var clamped = Math.max(0, Math.min(100, value))
+        AudioManager.setVolume(clamped / 100.0)
+        Logger.debug("SystemControl", "Volume: " + clamped)
+        // Don't set volume property here - let the binding update from AudioManager
     }
     
     function sleep() {

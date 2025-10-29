@@ -1,6 +1,7 @@
 #include "waylandcompositor.h"
 #include <QDebug>
 #include <QTimer>
+#include <QPointer>
 #include <QDateTime>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
@@ -167,22 +168,27 @@ void WaylandCompositor::launchApp(const QString &command)
     process->setProcessChannelMode(QProcess::SeparateChannels);
     
     // Capture stdout for debugging (only in verbose mode)
-    connect(process, &QProcess::readyReadStandardOutput, this, [process, command]() {
-        QString output = QString::fromLocal8Bit(process->readAllStandardOutput());
+    // Use QPointer for safe process access
+    QPointer<QProcess> safeProcess(process);
+    connect(process, &QProcess::readyReadStandardOutput, this, [safeProcess, command]() {
+        if (!safeProcess) return;
+        QString output = QString::fromLocal8Bit(safeProcess->readAllStandardOutput());
         QString debugEnv = qgetenv("MARATHON_DEBUG");
         bool debugMode = (debugEnv == "1" || debugEnv.toLower() == "true");
         if (debugMode && !output.trimmed().isEmpty()) {
             qDebug() << "[WaylandCompositor] App stdout:" << command << "->" << output.trimmed();
         }
-    });
+    }, Qt::UniqueConnection);
     
     // Always capture stderr for error reporting
-    connect(process, &QProcess::readyReadStandardError, this, [process, command]() {
-        QString error = QString::fromLocal8Bit(process->readAllStandardError());
+    // Use QPointer for safe process access
+    connect(process, &QProcess::readyReadStandardError, this, [safeProcess, command]() {
+        if (!safeProcess) return;
+        QString error = QString::fromLocal8Bit(safeProcess->readAllStandardError());
         if (!error.trimmed().isEmpty()) {
             qWarning() << "[WaylandCompositor] App stderr:" << command << "->" << error.trimmed();
         }
-    });
+    }, Qt::UniqueConnection);
     
     m_processes[process] = actualCommand;
     
@@ -215,15 +221,23 @@ void WaylandCompositor::closeWindow(int surfaceId)
         return;
     }
     
-    // Send polite close request to the Wayland client
-    QWaylandClient *client = surface->client();
-    if (!client) {
-        qWarning() << "[WaylandCompositor] No client for surface ID:" << surfaceId;
-        return;
-    }
+    // CRITICAL FIX: Use XDG shell protocol's sendClose() for graceful shutdown
+    // This sends WM_DELETE_WINDOW equivalent, allowing app to save state
+    // DO NOT use client->close() - that forcefully kills the connection!
     
-    qInfo() << "[WaylandCompositor] Sending close request to surface ID:" << surfaceId;
-    client->close();
+    // Get XDG surface from our map (stored in handleXdgToplevelCreated)
+    QWaylandXdgSurface *xdgSurface = m_xdgSurfaceMap.value(surfaceId, nullptr);
+    if (xdgSurface && xdgSurface->toplevel()) {
+        qInfo() << "[WaylandCompositor] Sending graceful close request (XDG protocol) to surface ID:" << surfaceId;
+        xdgSurface->toplevel()->sendClose();
+    } else {
+        // Fallback: If not XDG shell, close client connection
+        QWaylandClient *client = surface->client();
+        if (client) {
+            qWarning() << "[WaylandCompositor] No XDG toplevel found, falling back to client close for surface ID:" << surfaceId;
+            client->close();
+        }
+    }
     
     // Find the specific process for this surface (by PID mapping)
     qint64 pid = m_surfaceIdToPid.value(surfaceId, -1);
@@ -247,19 +261,27 @@ void WaylandCompositor::closeWindow(int surfaceId)
         return;  // Process already exited or doesn't exist
     }
     
-    // Give the app time to close gracefully (most apps will close within 2-3 seconds)
+    // Give the app time to close gracefully (most apps will close within 3-5 seconds)
+    // Use QPointer for safe pointer checking (process might be deleted if it exits)
+    QPointer<QProcess> safeProcessPtr(targetProcess);
+    
     qDebug() << "[WaylandCompositor] Waiting for PID" << pid << "to exit gracefully...";
-    QTimer::singleShot(3000, this, [this, targetProcess, surfaceId, pid]() {
-        // Check if process is still running after 3 seconds
-        if (targetProcess && targetProcess->state() != QProcess::NotRunning) {
-            qWarning() << "[WaylandCompositor] Process" << pid << "didn't exit gracefully, sending SIGTERM";
-            targetProcess->terminate();
+    QTimer::singleShot(5000, this, [this, safeProcessPtr, surfaceId, pid]() {
+        // Check if process object still exists and is still running
+        if (!safeProcessPtr) {
+            qInfo() << "[WaylandCompositor] Process" << pid << "exited gracefully (object deleted) for surface ID:" << surfaceId;
+            return;
+        }
+        
+        if (safeProcessPtr->state() != QProcess::NotRunning) {
+            qWarning() << "[WaylandCompositor] Process" << pid << "didn't exit after 5s, sending SIGTERM";
+            safeProcessPtr->terminate();
             
-            // Last resort: kill after 2 more seconds
-            QTimer::singleShot(2000, this, [targetProcess, pid]() {
-                if (targetProcess && targetProcess->state() != QProcess::NotRunning) {
+            // Last resort: kill after 3 more seconds
+            QTimer::singleShot(3000, this, [safeProcessPtr, pid]() {
+                if (safeProcessPtr && safeProcessPtr->state() != QProcess::NotRunning) {
                     qWarning() << "[WaylandCompositor] Force killing process" << pid;
-                    targetProcess->kill();
+                    safeProcessPtr->kill();
                 }
             });
         } else {
@@ -314,24 +336,32 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel, 
         surface->setProperty("appId", toplevel->appId());
         
         int surfaceId = surface->property("surfaceId").toInt();
+        // CRITICAL: Store xdgSurface for graceful close via sendClose()
+        m_xdgSurfaceMap[surfaceId] = xdgSurface;
         qInfo() << "[WaylandCompositor] Stored xdgSurface on surface, surfaceId:" << surfaceId;
         
         // NOW emit surfaceCreated with surfaceId, xdgSurface AND toplevel
         emit surfaceCreated(surface, surfaceId, xdgSurface);
         
-        // Connect signals WITHOUT Qt::UniqueConnection and QPointer - use direct pointers
-        // The 'this' context ensures proper cleanup when compositor is destroyed
-        bool titleConnected = connect(toplevel, &QWaylandXdgToplevel::titleChanged, this, [surface, toplevel]() {
-            surface->setProperty("title", toplevel->title());
-            qInfo() << "[WaylandCompositor] *** Title updated to:" << (toplevel->title().isEmpty() ? "(empty)" : toplevel->title());
-        });
+        // Connect signals with QPointer for safe access to toplevel
+        QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
+        QPointer<QWaylandSurface> safeSurface(surface);
         
-        bool appIdConnected = connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, [surface, toplevel]() {
-            surface->setProperty("appId", toplevel->appId());
-            qInfo() << "[WaylandCompositor] *** App ID updated to:" << (toplevel->appId().isEmpty() ? "(empty)" : toplevel->appId());
-        });
+        connect(toplevel, &QWaylandXdgToplevel::titleChanged, this, [this, safeToplevel, safeSurface]() {
+            if (safeToplevel && safeSurface) {
+                safeSurface->setProperty("title", safeToplevel->title());
+                qInfo() << "[WaylandCompositor] *** Title updated to:" << (safeToplevel->title().isEmpty() ? "(empty)" : safeToplevel->title());
+            }
+        }, Qt::UniqueConnection);
         
-        qInfo() << "[WaylandCompositor] Signal handlers connected: titleChanged=" << titleConnected << "appIdChanged=" << appIdConnected;
+        connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, [this, safeToplevel, safeSurface]() {
+            if (safeToplevel && safeSurface) {
+                safeSurface->setProperty("appId", safeToplevel->appId());
+                qInfo() << "[WaylandCompositor] *** App ID updated to:" << (safeToplevel->appId().isEmpty() ? "(empty)" : safeToplevel->appId());
+            }
+        }, Qt::UniqueConnection);
+        
+        qInfo() << "[WaylandCompositor] Signal handlers connected for surfaceId:" << surfaceId;
     }
 }
 
@@ -341,13 +371,18 @@ void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlSh
     
     QWaylandSurface *surface = wlShellSurface->surface();
     if (surface) {
+        int surfaceId = surface->property("surfaceId").toInt();
         surface->setProperty("wlShellSurface", QVariant::fromValue(wlShellSurface));
         surface->setProperty("title", wlShellSurface->title());
         
-        // Connect signal with direct pointers - 'this' context ensures cleanup
-        connect(wlShellSurface, &QWaylandWlShellSurface::titleChanged, this, [surface, wlShellSurface]() {
-            surface->setProperty("title", wlShellSurface->title());
-        });
+        // Connect signal with QPointer for safe access
+        QPointer<QWaylandWlShellSurface> safeWlShell(wlShellSurface);
+        QPointer<QWaylandSurface> safeSurface(surface);
+        connect(wlShellSurface, &QWaylandWlShellSurface::titleChanged, this, [this, safeWlShell, safeSurface]() {
+            if (safeWlShell && safeSurface) {
+                safeSurface->setProperty("title", safeWlShell->title());
+            }
+        }, Qt::UniqueConnection);
     }
 }
 
@@ -367,6 +402,7 @@ void WaylandCompositor::handleSurfaceDestroyed()
     }
     
     m_surfaceMap.remove(surfaceId);
+    m_xdgSurfaceMap.remove(surfaceId);  // Clean up XDG surface mapping too
     m_surfaces.removeAll(surface);
     
     emit surfacesChanged();
