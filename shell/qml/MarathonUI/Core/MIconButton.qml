@@ -101,7 +101,6 @@ Rectangle {
         enabled: !disabled
         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
         onPressed: function(mouse) {
-            rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
             HapticService.light()
         }
         onClicked: root.clicked()

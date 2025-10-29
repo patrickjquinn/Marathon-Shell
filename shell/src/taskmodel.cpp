@@ -39,6 +39,10 @@ QVariant TaskModel::data(const QModelIndex& index, int role) const
         return task->appType();
     case SurfaceIdRole:
         return task->surfaceId();
+    case WaylandSurfaceRole:
+        qInfo() << "[TaskModel] Accessing waylandSurface for" << task->appId() 
+                << "- surface:" << (task->waylandSurface() ? "PRESENT" : "NULL");
+        return QVariant::fromValue(task->waylandSurface());
     case TimestampRole:
         return task->timestamp();
     case SnapshotRole:
@@ -57,13 +61,15 @@ QHash<int, QByteArray> TaskModel::roleNames() const
     roles[IconRole] = "icon";
     roles[AppTypeRole] = "type";
     roles[SurfaceIdRole] = "surfaceId";
+    roles[WaylandSurfaceRole] = "waylandSurface";
     roles[TimestampRole] = "timestamp";
     roles[SnapshotRole] = "snapshot";
     return roles;
 }
 
 void TaskModel::launchTask(const QString& appId, const QString& appName, 
-                           const QString& appIcon, const QString& appType, int surfaceId)
+                           const QString& appIcon, const QString& appType, 
+                           int surfaceId, QObject* waylandSurface)
 {
     // Check if task for this app already exists
     if (m_appIndex.contains(appId)) {
@@ -74,7 +80,7 @@ void TaskModel::launchTask(const QString& appId, const QString& appName,
     QString taskId = "task_" + QString::number(QDateTime::currentMSecsSinceEpoch());
 
     beginInsertRows(QModelIndex(), m_tasks.count(), m_tasks.count());
-    Task* task = new Task(taskId, appId, appName, appIcon, appType, surfaceId, this);
+    Task* task = new Task(taskId, appId, appName, appIcon, appType, surfaceId, waylandSurface, this);
     m_tasks.append(task);
     m_taskIndex[taskId] = task;
     m_appIndex[appId] = task;
@@ -82,7 +88,8 @@ void TaskModel::launchTask(const QString& appId, const QString& appName,
 
     emit taskCountChanged();
     emit taskLaunched(taskId);
-    qDebug() << "[TaskModel] Launched task:" << appName << "(" << appType << "), ID:" << taskId;
+    qDebug() << "[TaskModel] Launched task:" << appName << "(" << appType << "), ID:" << taskId 
+             << "surface:" << (waylandSurface ? "present" : "NULL");
 }
 
 void TaskModel::closeTask(const QString& taskId)
@@ -137,6 +144,25 @@ void TaskModel::updateTaskSnapshot(const QString& appId, const QImage& snapshot)
         QModelIndex modelIndex = createIndex(index, 0);
         emit dataChanged(modelIndex, modelIndex, {SnapshotRole});
         qDebug() << "[TaskModel] Updated snapshot for:" << appId << "size:" << snapshot.width() << "x" << snapshot.height();
+    }
+}
+
+void TaskModel::updateTaskSurface(const QString& appId, QObject* surface)
+{
+    Task* task = m_appIndex.value(appId, nullptr);
+    if (!task) {
+        qDebug() << "[TaskModel] Cannot update surface: Task not found for app:" << appId;
+        return;
+    }
+    
+    task->setWaylandSurface(surface);
+    
+    // Notify model that this task's data changed
+    int index = m_tasks.indexOf(task);
+    if (index >= 0) {
+        QModelIndex modelIndex = createIndex(index, 0);
+        emit dataChanged(modelIndex, modelIndex, {WaylandSurfaceRole});
+        qDebug() << "[TaskModel] Updated wayland surface for:" << appId;
     }
 }
 

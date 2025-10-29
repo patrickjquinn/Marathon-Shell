@@ -10,6 +10,11 @@
 #include <QStandardPaths>
 #include <QLoggingCategory>
 
+#ifdef Q_OS_LINUX
+#include <sched.h>
+#include <pthread.h>
+#endif
+
 #include "src/desktopfileparser.h"
 #include "src/appmodel.h"
 #include "src/taskmodel.h"
@@ -36,6 +41,14 @@
 #include "src/waylandcompositormanager.h"
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
+#include "src/rtscheduler.h"
+#include "src/dbus/marathonapplicationservice.h"
+#include "src/dbus/marathonsystemservice.h"
+#include "src/dbus/marathonnotificationservice.h"
+#include "src/dbus/notificationdatabase.h"
+#include "src/dbus/marathonstorageservice.h"
+#include "src/dbus/marathonsettingsservice.h"
+#include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
 #include "src/waylandcompositor.h"
@@ -134,10 +147,12 @@ int main(int argc, char *argv[])
             "qt.qml.binding=false\n"      // Suppress only QML binding spam
             "qt.core.*=false\n"
             "qt.rhi.*=false\n"            // Disable RHI (rendering) spam
-            "qml=true\n"                  // ENABLE console.log() from QML
+            // CRITICAL: Enable console.log() from QML (uses QtDebugMsg)
+            "qml.debug=true\n"            // Enable QML console.log()
+            "js.debug=true\n"             // Enable JS console.log()
+            "default.debug=true\n"        // Enable default category debug
             "default.info=true\n"
             "default.warning=true\n"
-            "js.info=true\n"
         );
     } else {
         // Production mode: filter out noisy categories
@@ -162,6 +177,19 @@ int main(int argc, char *argv[])
 #endif
     
     QGuiApplication app(argc, argv);
+    
+    // Set RT priority for input handling (Priority 85 per Marathon OS spec)
+#ifdef Q_OS_LINUX
+    struct sched_param param;
+    param.sched_priority = 85;
+    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
+        qInfo() << "[MarathonShell] ✓ Main thread (input handling) set to RT priority 85 (SCHED_FIFO)";
+    } else {
+        qWarning() << "[MarathonShell] ⚠ Failed to set RT priority for input handling";
+        qInfo() << "[MarathonShell]   Configure /etc/security/limits.d/99-marathon.conf:";
+        qInfo() << "[MarathonShell]     @marathon-users  -  rtprio  90";
+    }
+#endif
     
     // Initialize logging
     QString logPath = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + "/.marathon";
@@ -196,6 +224,12 @@ int main(int argc, char *argv[])
                                                      "WaylandXdgSurface cannot be created from QML");
     qmlRegisterUncreatableType<WaylandCompositor>("MarathonOS.Wayland", 1, 0, "WaylandCompositor",
                                                     "WaylandCompositor is created in C++");
+    
+    // CRITICAL: Register pointer types for signal/slot marshalling across C++/QML boundary
+    qRegisterMetaType<QWaylandSurface*>("QWaylandSurface*");
+    qRegisterMetaType<QWaylandXdgSurface*>("QWaylandXdgSurface*");
+    qRegisterMetaType<QObject*>("QObject*");
+    
     qInfo() << "Wayland Compositor support enabled";
 #else
     qInfo() << "Wayland Compositor support disabled (not available on this platform)";
@@ -259,6 +293,64 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
+    
+    // Register RT Scheduler for thread priority management
+    RTScheduler *rtScheduler = new RTScheduler(&app);
+    engine.rootContext()->setContextProperty("RTScheduler", rtScheduler);
+    if (rtScheduler->isRealtimeKernel()) {
+        qInfo() << "[MarathonShell] RT Scheduler initialized (PREEMPT_RT kernel detected)";
+        qInfo() << "[MarathonShell]   Current policy:" << rtScheduler->getCurrentPolicy() 
+                << "Priority:" << rtScheduler->getCurrentPriority();
+    }
+    
+    // Initialize Marathon D-Bus Services
+    qInfo() << "[MarathonShell] Initializing Marathon Service Bus (D-Bus)...";
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected()) {
+        qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
+    } else {
+        qInfo() << "[MarathonShell] ✓ Connected to D-Bus session bus";
+        
+        // Initialize NotificationDatabase
+        NotificationDatabase *notifDb = new NotificationDatabase(&app);
+        if (!notifDb->initialize()) {
+            qWarning() << "[MarathonShell] Failed to initialize notification database";
+        }
+        
+        // Register ApplicationService
+        MarathonApplicationService *appService = new MarathonApplicationService(
+            appRegistry, appLoader, taskModel, &app);
+        if (appService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ ApplicationService registered";
+        }
+        
+        // Register SystemService
+        MarathonSystemService *systemService = new MarathonSystemService(
+            powerManager, networkManager, displayManager, audioManager, &app);
+        if (systemService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ SystemService registered";
+        }
+        
+        // Register NotificationService
+        MarathonNotificationService *notifService = new MarathonNotificationService(notifDb, &app);
+        if (notifService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ NotificationService registered";
+        }
+        
+        // Register StorageService
+        MarathonStorageService *storageService = new MarathonStorageService(storageManager, &app);
+        if (storageService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ StorageService registered";
+        }
+        
+        // Register SettingsService
+        MarathonSettingsService *settingsService = new MarathonSettingsService(settingsManager, &app);
+        if (settingsService->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ SettingsService registered";
+        }
+        
+        qInfo() << "[MarathonShell] Service bus ready (5 services active)";
+    }
     
     // Register Telephony & Messaging services
     ContactsManager *contactsManager = new ContactsManager(&app);

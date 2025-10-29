@@ -1,0 +1,48 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.marathon.ApplicationService">
+    <method name="LaunchApp">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="params" type="a{sv}" direction="in"/>
+      <arg name="result" type="s" direction="out"/>
+    </method>
+    <method name="ListApps">
+      <arg name="filter" type="a{sv}" direction="in"/>
+      <arg name="apps" type="aa{sv}" direction="out"/>
+    </method>
+    <method name="GetAppInfo">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="info" type="a{sv}" direction="out"/>
+    </method>
+    <method name="CloseApp">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="FocusApp">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="RunningApps">
+      <arg name="apps" type="as" direction="out"/>
+    </method>
+    <method name="PreloadApp">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <signal name="AppLaunched">
+      <arg name="appId" type="s"/>
+    </signal>
+    <signal name="AppClosed">
+      <arg name="appId" type="s"/>
+    </signal>
+    <signal name="AppFocused">
+      <arg name="appId" type="s"/>
+    </signal>
+    <signal name="Error">
+      <arg name="appId" type="s"/>
+      <arg name="message" type="s"/>
+    </signal>
+  </interface>
+</node>
+

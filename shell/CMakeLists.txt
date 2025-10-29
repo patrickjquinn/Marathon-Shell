@@ -36,6 +36,24 @@ set(SOURCES
     src/marathonappscanner.cpp
     src/marathonapploader.h
     src/marathonapploader.cpp
+    src/marathoninputmethodengine.h
+    src/marathoninputmethodengine.cpp
+    src/storagemanager.h
+    src/storagemanager.cpp
+    src/rtscheduler.h
+    src/rtscheduler.cpp
+    src/dbus/marathonapplicationservice.h
+    src/dbus/marathonapplicationservice.cpp
+    src/dbus/marathonsystemservice.h
+    src/dbus/marathonsystemservice.cpp
+    src/dbus/marathonnotificationservice.h
+    src/dbus/marathonnotificationservice.cpp
+    src/dbus/notificationdatabase.h
+    src/dbus/notificationdatabase.cpp
+    src/dbus/marathonstorageservice.h
+    src/dbus/marathonstorageservice.cpp
+    src/dbus/marathonsettingsservice.h
+    src/dbus/marathonsettingsservice.cpp
     src/marathonappinstaller.h
     src/marathonappinstaller.cpp
     src/contactsmanager.h
@@ -374,6 +392,8 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::DBus
     Qt6::Multimedia
 )
+
+# Link additional conditional dependencies
 
 if(TARGET Qt6::VirtualKeyboard)
     target_link_libraries(marathon-shell PRIVATE Qt6::VirtualKeyboard)

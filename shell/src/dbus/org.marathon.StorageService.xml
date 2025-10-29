@@ -1,0 +1,70 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.marathon.StorageService">
+    <method name="ReadFile">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="content" type="s" direction="out"/>
+    </method>
+    <method name="WriteFile">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="content" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="DeleteFile">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="FileExists">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="exists" type="b" direction="out"/>
+    </method>
+    <method name="ListDirectory">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="entries" type="as" direction="out"/>
+    </method>
+    <method name="CreateDirectory">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="success" type="b" direction="out"/>
+    </method>
+    <method name="GetFileInfo">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="in"/>
+      <arg name="info" type="a{sv}" direction="out"/>
+    </method>
+    <method name="GetAppDataPath">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="path" type="s" direction="out"/>
+    </method>
+    <method name="GetXDGPath">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="type" type="s" direction="in"/>
+      <arg name="path" type="s" direction="out"/>
+    </method>
+    <method name="ShowFilePicker">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="paths" type="as" direction="out"/>
+    </method>
+    <method name="ShowSaveDialog">
+      <arg name="appId" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="path" type="s" direction="out"/>
+    </method>
+    <signal name="FileChanged">
+      <arg name="appId" type="s"/>
+      <arg name="path" type="s"/>
+    </signal>
+    <signal name="Error">
+      <arg name="appId" type="s"/>
+      <arg name="message" type="s"/>
+    </signal>
+  </interface>
+</node>
+
