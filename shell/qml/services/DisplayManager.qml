@@ -175,8 +175,10 @@ QtObject {
     }
     
     function _platformSetScreenState(on) {
-        if (Platform.isLinux) {
-            console.log("[DisplayManager] Screen state via DPMS:", on)
+        if (Platform.isLinux && typeof DisplayManagerCpp !== 'undefined') {
+            DisplayManagerCpp.setScreenState(on)
+        } else if (Platform.isMacOS) {
+            console.log("[DisplayManager] macOS screen state:", on)
         }
     }
     

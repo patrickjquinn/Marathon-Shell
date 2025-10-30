@@ -103,3 +103,21 @@ void DisplayManagerCpp::setBrightness(double brightness)
     }
 }
 
+void DisplayManagerCpp::setScreenState(bool on)
+{
+    QString blankPath = "/sys/class/graphics/fb0/blank";
+    QFile file(blankPath);
+    
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream stream(&file);
+        // 0 = unblank (screen on), 4 = powerdown (screen off)
+        stream << (on ? "0" : "4");
+        file.close();
+        qInfo() << "[DisplayManagerCpp] Screen" << (on ? "ON" : "OFF") << "via" << blankPath;
+    } else {
+        qWarning() << "[DisplayManagerCpp] Failed to set screen state: permission denied or device not found";
+        qDebug() << "[DisplayManagerCpp]   Path:" << blankPath;
+        qDebug() << "[DisplayManagerCpp]   This requires write access to framebuffer blank control";
+    }
+}
+

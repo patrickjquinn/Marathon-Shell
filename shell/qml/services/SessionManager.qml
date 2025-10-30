@@ -31,6 +31,7 @@ QtObject {
         screenLocked = true
         sessionState = "locked"
         sessionLocked()
+        DisplayManager.turnScreenOff()  // Turn off screen when locking
         _platformLock()
     }
     
@@ -39,6 +40,7 @@ QtObject {
         screenLocked = false
         sessionState = "active"
         lastActivityTime = Date.now()
+        DisplayManager.turnScreenOn()  // Turn on screen when unlocking
         sessionUnlocked()
         _platformUnlock()
     }
