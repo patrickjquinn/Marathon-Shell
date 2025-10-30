@@ -202,5 +202,8 @@
         <file>resources/sounds/bbm/reflect.wav</file>
         <file>resources/sounds/bbm/sparkle.wav</file>
     </qresource>
+    <qresource prefix="/">
+        <file alias="marathon-config.json">../marathon-config.json</file>
+    </qresource>
 </RCC>
 

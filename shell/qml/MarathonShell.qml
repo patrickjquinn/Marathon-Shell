@@ -17,9 +17,9 @@ Item {
     property int currentPage: 0
     property int totalPages: 1
     
-    // Dynamic Quick Settings sizing
+    // Dynamic Quick Settings sizing (threshold from config)
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
-    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * 0.30  // 30% threshold (easier to dismiss)
+    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.cfg("gestures", "quickSettingsDismissThreshold", 0.30)
     
     // Handle deep link requests from NavigationRouter
     Connections {

@@ -42,6 +42,7 @@
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
+#include "src/configmanager.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
@@ -236,6 +237,12 @@ int main(int argc, char *argv[])
 #endif
     
     QQmlApplicationEngine engine;
+    
+    // Load Marathon Configuration (marathon-config.json)
+    ConfigManager *configManager = new ConfigManager(&app);
+    configManager->loadConfig(":/marathon-config.json");
+    engine.rootContext()->setContextProperty("MarathonConfig", configManager);
+    qInfo() << "[MarathonShell] ✓ Configuration loaded from marathon-config.json";
     
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
     WaylandCompositorManager *compositorManager = new WaylandCompositorManager(&app);
