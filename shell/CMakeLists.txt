@@ -68,6 +68,8 @@ set(SOURCES
     src/medialibrarymanager.cpp
     src/musiclibrarymanager.h
     src/musiclibrarymanager.cpp
+    src/configmanager.h
+    src/configmanager.cpp
 )
 
 list(APPEND SOURCES
