@@ -50,11 +50,11 @@ if [ $? -eq 0 ]; then
         echo ""
     fi
     
-    # Check for device DPI simulation (OnePlus 6: ~2.5x scale)
+    # Check for device DPI simulation (OnePlus 6: ~1.25x scale for 50% window)
     if [ "$DEVICE_DPI" = "1" ] || [ "$DEVICE_DPI" = "oneplus6" ]; then
-        export QT_SCALE_FACTOR=2.5
-        echo "📱 Device DPI simulation enabled (OnePlus 6: 2.5x scale)"
-        echo "   Resolution: 1080x2280, DPI: ~402 ppi"
+        export QT_SCALE_FACTOR=1.25
+        echo "📱 Device DPI simulation enabled (OnePlus 6: 1.25x scale)"
+        echo "   Window: 540x1140 (50% of 1080x2280), DPI: ~402 ppi"
         echo ""
     fi
     

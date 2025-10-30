@@ -3,10 +3,12 @@ import QtQuick.Window
 
 Window {
     id: window
-    width: 1080
-    height: 2280
+    // OnePlus 6 aspect ratio (9:19) scaled to 50% for desktop debugging
+    // Actual device: 1080×2280, Debug window: 540×1140
+    width: 540
+    height: 1140
     visible: true
-    title: "Marathon OS - Bandit"
+    title: "Marathon OS - Bandit (OnePlus 6 - 50% scale)"
     color: "#000000"
     
     MarathonShell {
