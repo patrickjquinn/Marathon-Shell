@@ -19,7 +19,7 @@ Item {
     
     // Dynamic Quick Settings sizing
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
-    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * 0.43  // 43% threshold
+    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * 0.30  // 30% threshold (easier to dismiss)
     
     // Handle deep link requests from NavigationRouter
     Connections {

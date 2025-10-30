@@ -27,9 +27,9 @@ ListView {
     highlightRangeMode: ListView.StrictlyEnforceRange
     interactive: true
     
-    // PHYSICS TUNING for smooth, snappy flick (OPTIMIZED for natural feel)
-    flickDeceleration: 16000  // Balanced: fast but smooth deceleration
-    maximumFlickVelocity: 8000  // High velocity = responsive to fast flicks
+    // PHYSICS TUNING for smooth, snappy flick (EASIER swiping)
+    flickDeceleration: 20000  // Faster deceleration = easier to trigger page change
+    maximumFlickVelocity: 10000  // Higher velocity = more responsive to lighter flicks
     flickableDirection: Flickable.HorizontalFlick
     
     currentIndex: 2

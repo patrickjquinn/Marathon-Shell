@@ -1,6 +1,6 @@
 pragma Singleton
 import QtQuick
-import "."
+import MarathonOS.Shell
 
 QtObject {
     readonly property string fontFamily: Qt.platform.os === "osx" ? 
