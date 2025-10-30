@@ -15,6 +15,7 @@ Item {
     }
     
     Row {
+        id: leftIconGroup
         anchors.left: parent.left
         anchors.leftMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
@@ -69,7 +70,8 @@ Item {
                 }
                 PropertyChanges {
                     target: clockText
-                    anchors.leftMargin: parent.width * 0.15  // After battery indicators
+                    // Properly position after left icons (actual width + spacing + margin)
+                    anchors.leftMargin: leftIconGroup.x + leftIconGroup.width + Constants.spacingLarge
                 }
             },
             State {
@@ -93,13 +95,15 @@ Item {
                 }
                 PropertyChanges {
                     target: clockText
-                    anchors.rightMargin: parent.width * 0.15  // Before network icons
+                    // Properly position before right icons (actual width + spacing + margin)
+                    anchors.rightMargin: rightIconGroup.width + rightIconGroup.anchors.rightMargin + Constants.spacingLarge
                 }
             }
         ]
     }
     
     Row {
+        id: rightIconGroup
         anchors.right: parent.right
         anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
