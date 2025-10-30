@@ -83,75 +83,74 @@ Rectangle {
         width: parent.width
         implicitHeight: qwertyLayout.visible ? qwertyLayout.implicitHeight : symbolLayout.implicitHeight
         visible: keyboard.active
+        
+        // QWERTY layout
+        QwertyLayout {
+            id: qwertyLayout
+            anchors.fill: parent
+            anchors.margins: 0  // Edge-to-edge
+            visible: keyboard.currentLayout === "qwerty"
+            shifted: keyboard.shifted
+            capsLock: keyboard.capsLock
             
-            // QWERTY layout
-            QwertyLayout {
-                id: qwertyLayout
-                anchors.fill: parent
-                anchors.margins: 0  // Edge-to-edge
-                visible: keyboard.currentLayout === "qwerty"
-                shifted: keyboard.shifted
-                capsLock: keyboard.capsLock
-                
-                onKeyClicked: function(text) {
-                    keyboard.handleKeyPress(text)
-                }
-                
-                onBackspaceClicked: {
-                    keyboard.handleBackspace()
-                }
-                
-                onEnterClicked: {
-                    keyboard.handleEnter()
-                }
-                
-                onShiftClicked: {
-                    keyboard.handleShift()
-                }
-                
-                onSpaceClicked: {
-                    keyboard.handleSpace()
-                }
-                
-                onLayoutSwitchClicked: function(layout) {
-                    keyboard.currentLayout = layout
-                }
-                
-                onDismissClicked: {
-                    keyboard.dismissRequested()
-                }
+            onKeyClicked: function(text) {
+                keyboard.handleKeyPress(text)
             }
             
-            // Symbol layout
-            SymbolLayout {
-                id: symbolLayout
-                anchors.fill: parent
-                anchors.margins: 0  // Edge-to-edge
-                visible: keyboard.currentLayout === "symbols"
-                
-                onKeyClicked: function(text) {
-                    keyboard.handleKeyPress(text)
-                }
-                
-                onBackspaceClicked: {
-                    keyboard.handleBackspace()
-                }
-                
-                onEnterClicked: {
-                    keyboard.handleEnter()
-                }
-                
-                onSpaceClicked: {
-                    keyboard.handleSpace()
-                }
-                
-                onLayoutSwitchClicked: function(layout) {
-                    keyboard.currentLayout = layout
-                }
-                
-                onDismissClicked: {
-                    keyboard.dismissRequested()
-                }
+            onBackspaceClicked: {
+                keyboard.handleBackspace()
+            }
+            
+            onEnterClicked: {
+                keyboard.handleEnter()
+            }
+            
+            onShiftClicked: {
+                keyboard.handleShift()
+            }
+            
+            onSpaceClicked: {
+                keyboard.handleSpace()
+            }
+            
+            onLayoutSwitchClicked: function(layout) {
+                keyboard.currentLayout = layout
+            }
+            
+            onDismissClicked: {
+                keyboard.dismissRequested()
+            }
+        }
+        
+        // Symbol layout
+        SymbolLayout {
+            id: symbolLayout
+            anchors.fill: parent
+            anchors.margins: 0  // Edge-to-edge
+            visible: keyboard.currentLayout === "symbols"
+            
+            onKeyClicked: function(text) {
+                keyboard.handleKeyPress(text)
+            }
+            
+            onBackspaceClicked: {
+                keyboard.handleBackspace()
+            }
+            
+            onEnterClicked: {
+                keyboard.handleEnter()
+            }
+            
+            onSpaceClicked: {
+                keyboard.handleSpace()
+            }
+            
+            onLayoutSwitchClicked: function(layout) {
+                keyboard.currentLayout = layout
+            }
+            
+            onDismissClicked: {
+                keyboard.dismissRequested()
             }
         }
     }
