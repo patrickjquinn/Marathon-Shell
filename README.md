@@ -194,6 +194,80 @@ Marathon includes a comprehensive design system with:
 
 All components are themeable and responsive.
 
+## ⚙️ Configuration System
+
+Marathon Shell uses a centralized **build-time configuration system** (`marathon-config.json`) that acts like Android's `build.xml`, providing a single source of truth for all shell parameters.
+
+### What's Configurable
+
+**Everything** can be customized without touching code:
+
+- **Responsive Sizing**: Base DPI, scale factors, screen breakpoints
+- **Z-Index Layering**: UI component stacking order
+- **Gesture Physics**: Swipe thresholds, flick velocities, inertia
+- **Animation Timing**: Durations for all transitions
+- **Layout Dimensions**: Status bar, nav bar, action bar heights
+- **Typography**: Font sizes, families (Inter, JetBrains Mono)
+- **Spacing System**: XS/S/M/L/XL/XXL spacing values
+- **Touch Targets**: BB10-inspired sizes (large/medium/small)
+- **App Grid**: Columns, rows, breakpoints for phone/tablet/desktop
+- **Quick Settings**: Tile sizes, grid layout, max width
+- **Bottom Bar**: Icon margins, shortcut visibility
+- **Feature Flags**: Enable/disable Wayland, Bluetooth, WiFi, etc.
+
+### Customizing at Build Time
+
+1. Edit `marathon-config.json` in the project root:
+   ```json
+   {
+     "animations": {
+       "fast": 100,
+       "normal": 150,
+       "slow": 250
+     },
+     "gestures": {
+       "quickSettingsDismissThreshold": 0.25
+     },
+     "appGrid": {
+       "columnsPhone": 4,
+       "rowsPhone": 5
+     }
+   }
+   ```
+
+2. Rebuild:
+   ```bash
+   ./run.sh
+   ```
+
+3. Your changes take effect immediately!
+
+### Benefits
+
+- **No code changes** needed for common UI tweaks
+- **Uniform scaling** across all form factors
+- **Easy A/B testing** of gesture thresholds
+- **Device-specific builds** (phone vs tablet vs desktop)
+- **Sane defaults** with graceful fallbacks
+- **Self-documenting** (JSON has descriptions)
+
+### Advanced: Device-Specific Configs
+
+Create device profiles:
+```bash
+# OnePlus 6 (high-DPI phone)
+cp marathon-config.json marathon-config-oneplus6.json
+# Edit for 2280x1080, 402 DPI
+
+# PinePhone (low-DPI phone)  
+cp marathon-config.json marathon-config-pinephone.json
+# Edit for 1440x720, 270 DPI
+
+# Build with specific config:
+cp marathon-config-oneplus6.json marathon-config.json
+./run.sh
+```
+
 ## 🔧 Development
 
 ### Creating a Marathon App
