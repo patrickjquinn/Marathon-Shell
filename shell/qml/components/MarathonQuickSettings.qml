@@ -78,7 +78,7 @@ Rectangle {
     }
     
     Component.onCompleted: {
-        Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px, max shade width: 800px)")
+        Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)")
     }
     
     MouseArea {
@@ -109,14 +109,15 @@ Rectangle {
         }
     }
     
-    // Center container for max width constraint on ultra-wide screens
+    // Center container for responsive layout
     Item {
         anchors.fill: parent
         
         Item {
             id: contentContainer
             anchors.centerIn: parent
-            width: Math.min(parent.width, 800)  // Max 800px for ultra-wide screens
+            // Use full width on mobile (< 1200px), max 800px on tablets/desktop
+            width: Constants.screenWidth < 1200 ? parent.width : Math.min(parent.width, 800)
             height: parent.height
             
             Flickable {
