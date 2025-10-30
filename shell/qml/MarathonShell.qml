@@ -692,7 +692,7 @@ Item {
                 id: appWindow
                 anchors.fill: parent
                 anchors.topMargin: Constants.safeAreaTop
-                anchors.bottomMargin: Constants.safeAreaBottom
+                anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
                 visible: true
         
         onMinimized: {
