@@ -53,19 +53,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.userScaleFactor)
+                                height: Math.round(28 * Constants.userScaleFactor)
+                                radius: Math.round(14 * Constants.userScaleFactor)
                                 color: Constants.userScaleFactor === 0.75 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.userScaleFactor)
                                 border.color: Constants.userScaleFactor === 0.75 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 0.75
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.userScaleFactor)
+                                    height: Math.round(12 * Constants.userScaleFactor)
+                                    radius: Math.round(6 * Constants.userScaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -115,19 +115,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.userScaleFactor)
+                                height: Math.round(28 * Constants.userScaleFactor)
+                                radius: Math.round(14 * Constants.userScaleFactor)
                                 color: Constants.userScaleFactor === 1.0 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.userScaleFactor)
                                 border.color: Constants.userScaleFactor === 1.0 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 1.0
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.userScaleFactor)
+                                    height: Math.round(12 * Constants.userScaleFactor)
+                                    radius: Math.round(6 * Constants.userScaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -177,19 +177,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.userScaleFactor)
+                                height: Math.round(28 * Constants.userScaleFactor)
+                                radius: Math.round(14 * Constants.userScaleFactor)
                                 color: Constants.userScaleFactor === 1.25 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.userScaleFactor)
                                 border.color: Constants.userScaleFactor === 1.25 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 1.25
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.userScaleFactor)
+                                    height: Math.round(12 * Constants.userScaleFactor)
+                                    radius: Math.round(6 * Constants.userScaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -239,19 +239,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.userScaleFactor)
+                                height: Math.round(28 * Constants.userScaleFactor)
+                                radius: Math.round(14 * Constants.userScaleFactor)
                                 color: Constants.userScaleFactor === 1.5 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.userScaleFactor)
                                 border.color: Constants.userScaleFactor === 1.5 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 1.5
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.userScaleFactor)
+                                    height: Math.round(12 * Constants.userScaleFactor)
+                                    radius: Math.round(6 * Constants.userScaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }

@@ -32,11 +32,11 @@ Rectangle {
             spacing: 24
             
             Image {
-                width: 128
-                height: 128
+                width: Math.round(128 * Constants.scaleFactor)
+                height: Math.round(128 * Constants.scaleFactor)
                 source: appWindow.appIcon || "qrc:/images/icons/lucide/grid.svg"
-                sourceSize.width: 128
-                sourceSize.height: 128
+                sourceSize.width: Math.round(128 * Constants.scaleFactor)
+                sourceSize.height: Math.round(128 * Constants.scaleFactor)
                 fillMode: Image.PreserveAspectFit
                 anchors.horizontalCenter: parent.horizontalCenter
                 smooth: true
@@ -45,7 +45,8 @@ Rectangle {
             Text {
                 text: "Loading " + (appWindow.appName || "app") + "..."
                 color: Colors.textSecondary
-                font.pixelSize: 16
+                font.pixelSize: Typography.sizeBody
+                font.family: Typography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }
