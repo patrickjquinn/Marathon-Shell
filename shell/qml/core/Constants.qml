@@ -9,10 +9,10 @@ QtObject {
     // =========================================================================
     
     // Base screen dimensions (set by shell on startup via updateScreenSize)
-    property real screenWidth: 720
-    property real screenHeight: 1280
-    property real screenDiagonal: 1477.53  // Updated by updateScreenSize()
-    property real dpi: 320
+    property real screenWidth: 540  // OnePlus 6 50% scale (actual: 1080)
+    property real screenHeight: 1140  // OnePlus 6 50% scale (actual: 2280)
+    property real screenDiagonal: 1263.15  // Updated by updateScreenSize()
+    property real dpi: 120  // Matches baseDPI for 1:1 scaling in desktop testing (device: 320)
     
     // Responsive scaling - scale everything based on ACTUAL DPI  
     // Base DPI: 110 is a balanced middle ground
