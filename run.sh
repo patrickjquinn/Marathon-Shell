@@ -50,6 +50,14 @@ if [ $? -eq 0 ]; then
         echo ""
     fi
     
+    # Check for device DPI simulation (OnePlus 6: ~2.5x scale)
+    if [ "$DEVICE_DPI" = "1" ] || [ "$DEVICE_DPI" = "oneplus6" ]; then
+        export QT_SCALE_FACTOR=2.5
+        echo "📱 Device DPI simulation enabled (OnePlus 6: 2.5x scale)"
+        echo "   Resolution: 1080x2280, DPI: ~402 ppi"
+        echo ""
+    fi
+    
     # Enable QML validation in debug mode
     if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
         export QML_DISABLE_DISK_CACHE=1
