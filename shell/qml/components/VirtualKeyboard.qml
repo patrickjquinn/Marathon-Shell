@@ -35,7 +35,7 @@ Item {
     }
     
     Behavior on height {
-        NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
     }
     
     // Marathon Custom Keyboard (dismiss button integrated into layout)
