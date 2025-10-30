@@ -9,8 +9,12 @@ Item {
     signal appLaunched(var app)
     signal longPress()
     
-    property int columns: 4
-    property int rows: 4
+    // Responsive grid layout based on screen width
+    // Phone (< 700px): 4 columns × 5 rows
+    // Small tablet (700-900px): 5 columns × 4 rows  
+    // Large tablet/desktop (> 900px): 6 columns × 4 rows
+    property int columns: Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6)
+    property int rows: Constants.screenWidth < 700 ? 5 : 4
     property int currentPage: 0
     property int pageCount: Math.ceil(AppModel.count / (columns * rows))
     property real searchPullProgress: 0.0  // 0.0 to 1.0, tracks pull-down gesture
