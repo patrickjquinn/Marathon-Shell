@@ -15,6 +15,7 @@ public:
     bool available() const { return m_available; }
     
     Q_INVOKABLE void setBrightness(double brightness);
+    Q_INVOKABLE void setScreenState(bool on);
 
 signals:
     void availableChanged();

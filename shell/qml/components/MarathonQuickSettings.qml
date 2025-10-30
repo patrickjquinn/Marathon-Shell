@@ -116,8 +116,8 @@ Rectangle {
         Item {
             id: contentContainer
             anchors.centerIn: parent
-            // Use full width on mobile (< 1200px), max 800px on tablets/desktop
-            width: Constants.screenWidth < 1200 ? parent.width : Math.min(parent.width, 800)
+            // Use full width on mobile (<= 1080px), max 800px on tablets/desktop
+            width: Constants.screenWidth <= 1080 ? parent.width : Math.min(parent.width, 800)
             height: parent.height
             
             Flickable {
