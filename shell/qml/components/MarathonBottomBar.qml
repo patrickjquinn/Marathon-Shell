@@ -28,7 +28,7 @@ Item {
     Item {
         id: phoneShortcut
         anchors.left: parent.left
-        anchors.leftMargin: Constants.spacingXLarge
+        anchors.leftMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
@@ -151,7 +151,7 @@ Item {
     Item {
         id: cameraShortcut
         anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingXLarge
+        anchors.rightMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
