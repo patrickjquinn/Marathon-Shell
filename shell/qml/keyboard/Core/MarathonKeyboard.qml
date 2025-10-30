@@ -63,8 +63,8 @@ Rectangle {
     // Dimensions
     width: parent ? parent.width : 0
     
-    // Let Column determine height naturally, then expose as implicitHeight
-    implicitHeight: contentColumn.implicitHeight
+    // Let keyboard layout determine height (prediction bar overlays, doesn't affect height)
+    implicitHeight: keyboardLayoutContainer.implicitHeight
     height: active ? implicitHeight : 0
     
     color: "#1a1a1a"  // Dark grey background for entire keyboard
@@ -72,40 +72,17 @@ Rectangle {
     
     Behavior on height {
         NumberAnimation { 
-            duration: MMotion.moderate
-            easing.type: Easing.OutCubic
+            duration: 120
+            easing.type: Easing.OutQuad
         }
     }
     
-    // Main content
-    Column {
-        id: contentColumn
+    // Keyboard layout container (determines keyboard height)
+    Item {
+        id: keyboardLayoutContainer
         width: parent.width
+        implicitHeight: qwertyLayout.visible ? qwertyLayout.implicitHeight : symbolLayout.implicitHeight
         visible: keyboard.active
-        spacing: 0
-        
-        // Prediction bar - ONLY include if visible (no reserved space)
-        Loader {
-            id: predictionLoader
-            width: parent.width
-            // Height: use implicitHeight from loaded item when active and visible
-            height: (active && item && item.visible) ? (item.implicitHeight || 0) : 0
-            active: keyboard.currentWord.length > 0
-            sourceComponent: PredictionBar {
-                width: parent.width
-                currentWord: keyboard.currentWord
-                predictions: keyboard.currentPredictions  // Bind to keyboard's predictions
-                
-                onPredictionSelected: function(word) {
-                    keyboard.acceptPrediction(word)
-                }
-            }
-        }
-        
-        // Keyboard layout container
-        Item {
-            width: parent.width
-            implicitHeight: qwertyLayout.visible ? qwertyLayout.implicitHeight : symbolLayout.implicitHeight
             
             // QWERTY layout
             QwertyLayout {
@@ -176,6 +153,33 @@ Rectangle {
                     keyboard.dismissRequested()
                 }
             }
+        }
+    }
+    
+    // Prediction bar - overlays keyboard, doesn't affect height
+    Loader {
+        id: predictionLoader
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: keyboardLayoutContainer.top
+        height: (active && item) ? item.implicitHeight : 0
+        active: keyboard.currentWord.length > 0
+        visible: active
+        z: 100
+        
+        sourceComponent: PredictionBar {
+            width: parent.width
+            currentWord: keyboard.currentWord
+            predictions: keyboard.currentPredictions
+            
+            onPredictionSelected: function(word) {
+                keyboard.acceptPrediction(word)
+            }
+        }
+        
+        // Smooth height transition
+        Behavior on height {
+            NumberAnimation { duration: 100; easing.type: Easing.OutQuad }
         }
     }
     
