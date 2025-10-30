@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Symlink Marathon greetd config (relative path)
+ln -sf marathon-config.toml /etc/greetd/config.toml
+
+# Enable services
+systemctl enable greetd
+systemctl enable NetworkManager
+systemctl enable ModemManager
+systemctl enable upower
+systemctl enable iwd
+systemctl enable bluetooth
+systemctl enable pipewire
+systemctl enable pipewire-pulse
+systemctl enable wireplumber
+
+exit 0
+

@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-boot-logo
 pkgver=1.0.0
-pkgrel=0
+pkgrel=1
 pkgdesc="Marathon OS boot logo for unl0kr"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -17,7 +17,8 @@ package() {
 		"$pkgdir/usr/share/unl0kr/marathon-logo.png"
 	
 	# Create unl0kr config to use Marathon logo
-	install -Dm644 /dev/stdin "$pkgdir/etc/unl0kr.conf" <<-EOF
+	mkdir -p "$pkgdir/etc/unl0kr.conf.d"
+	cat > "$pkgdir/etc/unl0kr.conf.d/90-marathon.conf" <<-EOF
 	[general]
 	backend = fbdev
 	animations = true

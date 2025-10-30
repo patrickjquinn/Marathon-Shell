@@ -2,11 +2,10 @@
 # Maintainer: Patrick Quinn <patrick@example.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-_commit=HEAD
-pkgrel=0
+pkgrel=8
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
-arch="aarch64 x86_64"
+arch="aarch64"
 license="MIT"
 depends="
 	qt6-qtbase
@@ -24,6 +23,7 @@ depends="
 	mesa
 	mesa-gbm
 	mesa-egl
+	mesa-gl
 	mesa-dri-gallium
 	mesa-gles
 	pipewire
@@ -69,48 +69,70 @@ install=""
 subpackages="$pkgname-doc"
 source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
 builddir="$srcdir/Marathon-Shell-main"
+options="!check"
+
+prepare() {
+	default_prepare
+	
+	# Disable QML cache generation to save memory during build
+	# Add NO_CACHEGEN to all qt6_add_qml_module calls
+	sed -i '/qt6_add_qml_module/,/^)/ { /^)/i\    NO_CACHEGEN
+	}' "$builddir/shell/CMakeLists.txt"
+	
+	# Fix timestamps from GitHub archive
+	find "$builddir" -exec touch {} +
+}
 
 build() {
 	cd "$builddir"
 	
-	# Build main shell
-	cmake -B build -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
+	# Clean any existing build directories
+	rm -rf build build-apps
+	
+	# Disable QML cache to reduce memory usage during build
+	export QML_DISABLE_DISK_CACHE=1
+	export QT_DISABLE_QML_CACHE=1
+	
+	# Build main shell with SINGLE CORE and MinSizeRel to reduce memory
+	cmake -B build \
+		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
 		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
-		-DQt6_DIR=/usr/lib/cmake/Qt6
-	cmake --build build
+		-DQt6_DIR=/usr/lib/cmake/Qt6 \
+		-DQT_QMAKE_EXECUTABLE=/usr/bin/qmake6
 	
-	# Build apps - install to /usr/share for system-wide access
-	cmake -B build-apps -S apps -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
+	# Build with single job to minimize memory
+	cmake --build build -j1
+	
+	# Build apps with single core
+	cmake -B build-apps -S apps \
+		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DMARATHON_APPS_DIR=/usr/share/marathon-apps \
 		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
-	cmake --build build-apps
-}
-
-check() {
-	cd "$builddir"
-	# Add tests when available
-	true
+	cmake --build build-apps -j1
 }
 
 package() {
 	cd "$builddir"
 	
-	# Install main shell (includes binary, session files, systemd, polkit, etc.)
+	# Install main shell
 	DESTDIR="$pkgdir" cmake --install build
 	
 	# Install apps
 	DESTDIR="$pkgdir" cmake --install build-apps
+	
+	# Fix session script to use -platform eglfs flag
+	sed -i 's|exec /usr/bin/marathon-shell-bin "$@"|exec /usr/bin/marathon-shell-bin -platform eglfs "$@"|' \
+		"$pkgdir/usr/bin/marathon-shell-session"
 }
 
-sha512sums="SKIP"
-
+sha512sums="
+e79882cf9d4f4cf19a39e4bb89a133bbdf6be97a61d637175a7c5500eae261cc9f44e1ab6b06116fc02c290065aaac7bba2afe57bd7a794398f7ceeb4324cdd8  marathon-shell-1.0.0.tar.gz
+"

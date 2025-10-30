@@ -1,0 +1,59 @@
+# Reference: <https://postmarketos.org/devicepkg>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+
+pkgname=device-oneplus-enchilada-marathon
+pkgdesc="OnePlus 6 - Marathon OS Edition"
+pkgver=1.0.0
+pkgrel=4
+url="https://github.com/patrickjquinn/Marathon-Image"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+depends="
+	device-oneplus-enchilada
+	marathon-shell
+	marathon-base-config
+	marathon-boot-logo
+	greetd
+	greetd-agreety
+	networkmanager
+	networkmanager-wifi
+	networkmanager-cli
+	modemmanager
+	upower
+	iwd
+	wireless-tools
+	wpa_supplicant
+	bluez
+	pipewire
+	pipewire-pulse
+	wireplumber
+	pulseaudio-utils
+"
+makedepends=""
+install="$pkgname.post-install"
+source="
+	greetd-marathon.toml
+	logind.conf
+	greetd.service
+	"
+
+package() {
+	# Install greetd config for Marathon Shell autologin
+	install -Dm644 "$srcdir/greetd-marathon.toml" \
+		"$pkgdir/etc/greetd/marathon-config.toml"
+	
+	# Install logind config to let Marathon Shell handle power button
+	install -Dm644 "$srcdir/logind.conf" \
+		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
+	
+	# Install greetd systemd service file
+	install -Dm644 "$srcdir/greetd.service" \
+		"$pkgdir/usr/lib/systemd/system/greetd.service"
+}
+
+sha512sums="
+0a80840c1d3022cb94adab3fcd09a3bcda9485da8798fb17e5a6ecf0aa96729bdbea9e7fef529074dcf72a292b6a4b373620eb4171cee0def45ddb78b76a3644  greetd-marathon.toml
+334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
+"
+
