@@ -324,15 +324,15 @@ Item {
             if (isDragging) {
                 swipeCenterX = mouse.x / width
                 swipeCenterY = mouse.y / height
-                // FIXED: Reduced from 0.6 (60%) to 0.25 (25%) - much more reasonable!
-                swipeProgress = Math.min(1.0, distance / (height * 0.25))
+                // Easier unlock: only need to swipe 20% of screen height
+                swipeProgress = Math.min(1.0, distance / (height * 0.20))
                 dissolveCanvas.requestPaint()
             }
         }
         
         onReleased: (mouse) => {
-            // FIXED: Reduced threshold from 0.4 to 0.3 (30% of the new 25% distance = ~7.5% of screen)
-            if (isDragging && swipeProgress > 0.3) {
+            // Lower threshold: 25% progress (5% of screen height)
+            if (isDragging && swipeProgress > 0.25) {
                 swipeProgress = 1.0
                 dissolveCanvas.requestPaint()
                 unlockTimer.start()
@@ -348,12 +348,12 @@ Item {
     
     Behavior on swipeProgress {
         enabled: swipeProgress < 1.0
-        NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
     }
     
     Timer {
         id: unlockTimer
-        interval: 300
+        interval: 150
         onTriggered: {
             Logger.state("LockScreen", "dissolveComplete", "unlocking")
             unlockRequested()
