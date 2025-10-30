@@ -3,8 +3,8 @@ import QtQuick.Window
 
 Window {
     id: window
-    width: 720
-    height: 720
+    width: 1080
+    height: 2280
     visible: true
     title: "Marathon OS - Bandit"
     color: "#000000"
