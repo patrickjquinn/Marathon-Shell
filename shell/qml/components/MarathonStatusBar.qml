@@ -152,12 +152,12 @@ Item {
         // WiFi - always show, wifi-off when unavailable
         Icon {
             name: SystemStatusStore.ethernetConnected ? "plug-zap" : 
-                  (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength) : "wifi-off")
+                  (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManager.wifiConnected) : "wifi-off")
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: SystemStatusStore.ethernetConnected ? 1.0 : 
-                     (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength) : 0.3)
+                     (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManager.wifiConnected) : 0.3)
         }
     }
 }

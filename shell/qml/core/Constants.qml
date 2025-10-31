@@ -267,6 +267,14 @@ QtObject {
         screenWidth = width
         screenHeight = height
         screenDiagonal = Math.sqrt(width * width + height * height)
-        dpi = deviceDpi || 320
+        
+        // For desktop testing with scaled-down windows (< 800px wide),
+        // use baseDPI to get 1:1 rendering. User can adjust with userScaleFactor in settings.
+        if (width < 800) {
+            dpi = baseDPI  // Desktop testing: 160 DPI for 1:1 rendering
+            console.log("[Constants] Desktop mode: Using baseDPI=" + baseDPI + " for 1:1 scaling")
+        } else {
+            dpi = deviceDpi || 320  // Real device: Use actual screen DPI
+        }
     }
 }
