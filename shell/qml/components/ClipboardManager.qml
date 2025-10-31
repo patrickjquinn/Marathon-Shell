@@ -31,7 +31,7 @@ Rectangle {
         
         Row {
             width: parent.width
-            height: 40
+            height: Constants.touchTargetMinimum
             
             Text {
                 text: "Clipboard History"
@@ -45,11 +45,11 @@ Rectangle {
             Item { width: parent.width - 200 }
             
             Rectangle {
-                width: 80
-                height: 36
-                radius: 4
+                width: Math.round(80 * Constants.scaleFactor)
+                height: Math.round(36 * Constants.scaleFactor)
+                radius: Constants.borderRadiusSmall
                 color: Qt.rgba(255, 255, 255, 0.08)
-                border.width: 1
+                border.width: Constants.borderWidthThin
                 border.color: Qt.rgba(255, 255, 255, 0.12)
                 
                 Text {
@@ -81,9 +81,9 @@ Rectangle {
             delegate: Rectangle {
                 width: ListView.view.width
                 height: Constants.hubHeaderHeight
-                radius: 4
+                radius: Constants.borderRadiusSmall
                 color: Qt.rgba(255, 255, 255, 0.05)
-                border.width: 1
+                border.width: Constants.borderWidthThin
                 border.color: itemMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
                 layer.enabled: true
                 
@@ -106,9 +106,9 @@ Rectangle {
                     spacing: Constants.spacingMedium
                     
                     Column {
-                        width: parent.width - 52
+                        width: parent.width - Math.round(52 * Constants.scaleFactor)
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
+                        spacing: Math.round(6 * Constants.scaleFactor)
                         
                         Text {
                             text: modelData.text
@@ -133,9 +133,9 @@ Rectangle {
                     }
                     
                     Rectangle {
-                        width: 40
-                        height: 40
-                        radius: 4
+                        width: Constants.touchTargetMinimum
+                        height: Constants.touchTargetMinimum
+                        radius: Constants.borderRadiusSmall
                         color: deleteMouseArea.pressed ? Qt.rgba(230, 57, 70, 0.2) : Qt.rgba(255, 255, 255, 0.05)
                         anchors.verticalCenter: parent.verticalCenter
                         
@@ -164,7 +164,7 @@ Rectangle {
                 MouseArea {
                     id: itemMouseArea
                     anchors.fill: parent
-                    anchors.rightMargin: 52
+                    anchors.rightMargin: Math.round(52 * Constants.scaleFactor)
                     onClicked: {
                         Logger.info("ClipboardManager", "Selected item: " + modelData.text.substring(0, 30))
                         ClipboardService.copyToClipboard(modelData.text)

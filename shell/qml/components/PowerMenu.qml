@@ -46,7 +46,7 @@ Rectangle {
             width: parent.width - 48
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: 24
+            anchors.topMargin: Constants.spacingLarge
             spacing: Constants.spacingMedium
             
             Text {
@@ -61,7 +61,7 @@ Rectangle {
             // Sleep
             Rectangle {
                 width: parent.width
-                height: 60
+                height: Constants.touchTargetSmall
                 radius: Constants.borderRadiusSmall
                 color: sleepMouseArea.pressed ? MColors.surfaceDark : "transparent"
                 border.width: 1
@@ -101,7 +101,7 @@ Rectangle {
             // Reboot
             Rectangle {
                 width: parent.width
-                height: 60
+                height: Constants.touchTargetSmall
                 radius: Constants.borderRadiusSmall
                 color: rebootMouseArea.pressed ? MColors.surfaceDark : "transparent"
                 border.width: 1
@@ -141,7 +141,7 @@ Rectangle {
             // Shutdown
             Rectangle {
                 width: parent.width
-                height: 60
+                height: Constants.touchTargetSmall
                 radius: Constants.borderRadiusSmall
                 color: shutdownMouseArea.pressed ? MColors.surfaceDark : "transparent"
                 border.width: 1
@@ -181,7 +181,7 @@ Rectangle {
             // Cancel button
             Rectangle {
                 width: parent.width
-                height: 50
+                height: Constants.touchTargetIndicator
                 radius: Constants.borderRadiusSmall
                 color: cancelMouseArea.pressed ? MColors.accentDark : MColors.accent
                 

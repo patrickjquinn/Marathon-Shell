@@ -31,7 +31,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 400
+        height: Math.round(400 * Constants.scaleFactor)
         radius: Constants.borderRadiusMedium
         color: Qt.rgba(15, 15, 15, 0.98)
         border.width: 1
@@ -62,7 +62,7 @@ Item {
             
             Row {
                 width: parent.width
-                height: 40
+                height: Constants.touchTargetMinimum
                 
                 Text {
                     text: "Share"
@@ -74,14 +74,14 @@ Item {
                 }
                 
                 Item {
-                    width: parent.width - 100
-                    height: 1
+                    width: parent.width - Math.round(100 * Constants.scaleFactor)
+                    height: Constants.dividerHeight
                 }
                 
                 Rectangle {
-                    width: 40
-                    height: 40
-                    radius: 4
+                    width: Constants.touchTargetMinimum
+                    height: Constants.touchTargetMinimum
+                    radius: Constants.borderRadiusSmall
                     color: Qt.rgba(255, 255, 255, 0.08)
                     
                     Icon {
@@ -122,9 +122,9 @@ Item {
                         
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: 56
-                            height: 56
-                            radius: 4
+                            width: Math.round(56 * Constants.scaleFactor)
+                            height: Math.round(56 * Constants.scaleFactor)
+                            radius: Constants.borderRadiusSmall
                             color: Qt.rgba(255, 255, 255, 0.05)
                             border.width: 1
                             border.color: targetMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
