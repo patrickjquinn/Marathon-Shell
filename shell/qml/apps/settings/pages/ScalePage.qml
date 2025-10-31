@@ -52,19 +52,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.scaleFactor)
+                                height: Math.round(28 * Constants.scaleFactor)
+                                radius: Math.round(14 * Constants.scaleFactor)
                                 color: Constants.userScaleFactor === 0.75 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.scaleFactor)
                                 border.color: Constants.userScaleFactor === 0.75 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 0.75
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.scaleFactor)
+                                    height: Math.round(12 * Constants.scaleFactor)
+                                    radius: Math.round(6 * Constants.scaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -72,7 +72,7 @@ SettingsPageTemplate {
                             
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
+                                spacing: Constants.spacingXSmall
                                 
                                 Text {
                                     text: "75% - Compact"
@@ -114,19 +114,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.scaleFactor)
+                                height: Math.round(28 * Constants.scaleFactor)
+                                radius: Math.round(14 * Constants.scaleFactor)
                                 color: Constants.userScaleFactor === 1.0 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.scaleFactor)
                                 border.color: Constants.userScaleFactor === 1.0 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 1.0
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.scaleFactor)
+                                    height: Math.round(12 * Constants.scaleFactor)
+                                    radius: Math.round(6 * Constants.scaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -134,7 +134,7 @@ SettingsPageTemplate {
                             
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
+                                spacing: Constants.spacingXSmall
                                 
                                 Text {
                                     text: "100% - Default"
@@ -176,19 +176,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.scaleFactor)
+                                height: Math.round(28 * Constants.scaleFactor)
+                                radius: Math.round(14 * Constants.scaleFactor)
                                 color: Constants.userScaleFactor === 1.25 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.scaleFactor)
                                 border.color: Constants.userScaleFactor === 1.25 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 1.25
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.scaleFactor)
+                                    height: Math.round(12 * Constants.scaleFactor)
+                                    radius: Math.round(6 * Constants.scaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -196,7 +196,7 @@ SettingsPageTemplate {
                             
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
+                                spacing: Constants.spacingXSmall
                                 
                                 Text {
                                     text: "125% - Comfortable"
@@ -238,19 +238,19 @@ SettingsPageTemplate {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 28
-                                height: 28
-                                radius: 14
+                                width: Math.round(28 * Constants.scaleFactor)
+                                height: Math.round(28 * Constants.scaleFactor)
+                                radius: Math.round(14 * Constants.scaleFactor)
                                 color: Constants.userScaleFactor === 1.5 ? Colors.accent : "transparent"
-                                border.width: 2
+                                border.width: Math.round(2 * Constants.scaleFactor)
                                 border.color: Constants.userScaleFactor === 1.5 ? Colors.accent : Colors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
                                     visible: Constants.userScaleFactor === 1.5
-                                    width: 12
-                                    height: 12
-                                    radius: 6
+                                    width: Math.round(12 * Constants.scaleFactor)
+                                    height: Math.round(12 * Constants.scaleFactor)
+                                    radius: Math.round(6 * Constants.scaleFactor)
                                     color: Colors.backgroundDark
                                     anchors.centerIn: parent
                                 }
@@ -258,7 +258,7 @@ SettingsPageTemplate {
                             
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
+                                spacing: Constants.spacingXSmall
                                 
                                 Text {
                                     text: "150% - Large"
