@@ -24,11 +24,11 @@ SettingsPageTemplate {
             
             // WiFi toggle
             Rectangle {
-                width: parent.width - 48
+                width: parent.width - Math.round(48 * Constants.scaleFactor)
                 height: Constants.appIconSize
-                radius: 4
+                radius: Constants.borderRadiusSmall
                 color: Qt.rgba(255, 255, 255, 0.04)
-                border.width: 1
+                border.width: Constants.borderWidthThin
                 border.color: Qt.rgba(255, 255, 255, 0.08)
                 
                 Row {
@@ -45,8 +45,8 @@ SettingsPageTemplate {
                     
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 4
-                        width: parent.width - 120
+                        spacing: Constants.spacingXSmall
+                        width: parent.width - Math.round(120 * Constants.scaleFactor)
                         
                         Text {
                             text: "WiFi"
@@ -91,9 +91,9 @@ SettingsPageTemplate {
                 Rectangle {
                     width: parent.width
                     height: Constants.hubHeaderHeight
-                    radius: 4
+                    radius: Constants.borderRadiusSmall
                     color: Qt.rgba(20, 184, 166, 0.08)
-                    border.width: 1
+                    border.width: Constants.borderWidthThin
                     border.color: Qt.rgba(20, 184, 166, 0.3)
                     
                     Row {
@@ -110,8 +110,8 @@ SettingsPageTemplate {
                         
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 4
-                            width: parent.width - 100
+                            spacing: Constants.spacingXSmall
+                            width: parent.width - Math.round(100 * Constants.scaleFactor)
                             
                             Text {
                                 text: NetworkManager.wifiSsid || "Connected"
@@ -161,14 +161,14 @@ SettingsPageTemplate {
                 // Scanning indicator
                 Row {
                     width: parent.width
-                    height: 48
+                    height: Constants.inputHeight
                     spacing: Constants.spacingMedium
                     visible: NetworkManager.isScanning
                     
                     BusyIndicator {
                         running: parent.visible
-                        width: 32
-                        height: 32
+                        width: Constants.iconSizeMedium
+                        height: Constants.iconSizeMedium
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     
@@ -193,9 +193,9 @@ SettingsPageTemplate {
                         Rectangle {
                             width: parent.width
                             height: Constants.appIconSize
-                            radius: 4
+                            radius: Constants.borderRadiusSmall
                             color: Qt.rgba(255, 255, 255, 0.04)
-                            border.width: 1
+                            border.width: Constants.borderWidthThin
                             border.color: Qt.rgba(255, 255, 255, 0.08)
                             
                             Row {
@@ -216,8 +216,8 @@ SettingsPageTemplate {
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 4
-                                    width: parent.width - 100
+                                    spacing: Constants.spacingXSmall
+                                    width: parent.width - Math.round(100 * Constants.scaleFactor)
                                     
                                     Text {
                                         text: modelData.ssid
@@ -294,10 +294,10 @@ SettingsPageTemplate {
                 // Rescan button
                 Rectangle {
                     width: parent.width
-                    height: 48
-                    radius: 4
+                    height: Constants.inputHeight
+                    radius: Constants.borderRadiusSmall
                     color: Qt.rgba(20, 184, 166, 0.12)
-                    border.width: 1
+                    border.width: Constants.borderWidthThin
                     border.color: Qt.rgba(20, 184, 166, 0.3)
                     visible: !NetworkManager.isScanning
                     

@@ -42,8 +42,8 @@ SettingsPageTemplate {
                             x: parent.leftPadding
                             y: parent.topPadding + parent.availableHeight / 2 - height / 2
                             width: parent.availableWidth
-                            height: 6
-                            radius: 2
+                            height: Math.round(6 * Constants.scaleFactor)
+                            radius: Math.round(2 * Constants.scaleFactor)
                             color: Qt.rgba(255, 255, 255, 0.1)
                             
                             Rectangle {
@@ -57,11 +57,11 @@ SettingsPageTemplate {
                         handle: Rectangle {
                             x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width)
                             y: parent.topPadding + parent.availableHeight / 2 - height / 2
-                            width: 24
-                            height: 24
-                            radius: 3
+                            width: Math.round(24 * Constants.scaleFactor)
+                            height: Math.round(24 * Constants.scaleFactor)
+                            radius: Math.round(3 * Constants.scaleFactor)
                             color: Qt.rgba(20, 184, 166, 0.9)
-                            border.width: 1
+                            border.width: Constants.borderWidthThin
                             border.color: Qt.rgba(255, 255, 255, 0.2)
                         }
                     }

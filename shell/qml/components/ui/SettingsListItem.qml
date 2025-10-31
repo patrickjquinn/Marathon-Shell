@@ -24,9 +24,9 @@ Rectangle {
         anchors.fill: parent
         color: Qt.rgba(255, 255, 255, 0.02)
         opacity: mouseArea.pressed ? 1 : 0
-        border.width: 1
+        border.width: Constants.borderWidthThin
         border.color: Qt.rgba(255, 255, 255, 0.04)
-        radius: 4
+        radius: Constants.borderRadiusSmall
         
         Behavior on opacity {
             NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
@@ -38,7 +38,7 @@ Rectangle {
         anchors.fill: parent
         color: Colors.accent
         opacity: mouseArea.pressed ? 0.05 : 0
-        radius: 4
+        radius: Constants.borderRadiusSmall
         
         Behavior on opacity {
             NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
@@ -65,7 +65,7 @@ Rectangle {
             id: iconImage
             visible: iconName !== ""
             name: iconName
-            size: 24
+            size: Constants.iconSizeMedium
             color: Colors.text
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
@@ -74,11 +74,11 @@ Rectangle {
         Column {
             id: titleColumn
             anchors.left: iconImage.visible ? iconImage.right : parent.left
-            anchors.leftMargin: iconImage.visible ? 16 : 0
+            anchors.leftMargin: iconImage.visible ? Constants.spacingMedium : 0
             anchors.right: rightContent.left
             anchors.rightMargin: Constants.spacingMedium
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 4
+            spacing: Constants.spacingXSmall
             
             Text {
                 text: title
@@ -128,7 +128,7 @@ Rectangle {
                 visible: showToggle
                 checked: toggleValue
                 width: Constants.touchTargetSmall
-                height: 32
+                height: Math.round(32 * Constants.scaleFactor)
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 
@@ -141,8 +141,8 @@ Rectangle {
                 id: chevronImage
                 visible: showChevron && !showToggle
                 source: "qrc:/images/icons/lucide/chevron-down.svg"
-                width: 20
-                height: Constants.navBarHeight
+                width: Constants.iconButtonSize
+                height: Constants.iconButtonSize
                 rotation: -90
                 fillMode: Image.PreserveAspectFit
                 anchors.right: parent.right
@@ -155,8 +155,8 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: iconName !== "" ? 56 : 16
-        height: 1
+        anchors.leftMargin: iconName !== "" ? Math.round(56 * Constants.scaleFactor) : Constants.spacingMedium
+        height: Constants.dividerHeight
         color: Qt.rgba(255, 255, 255, 0.08)
     }
     

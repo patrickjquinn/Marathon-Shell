@@ -158,6 +158,14 @@ QtObject {
     readonly property real touchTargetIndicator: Math.round(50 * scaleFactor)
     readonly property real touchTargetMinimum: Math.max(44, Math.round(45 * scaleFactor))
     
+    // Common component dimensions (responsive)
+    readonly property real inputHeight: Math.round(48 * scaleFactor)  // Standard text input
+    readonly property real listItemHeight: Math.round(56 * scaleFactor)  // Standard list item
+    readonly property real iconButtonSize: Math.round(20 * scaleFactor)  // Small icon button
+    readonly property real smallIndicatorSize: Math.round(8 * scaleFactor)  // Small dots/indicators
+    readonly property real mediumIndicatorSize: Math.round(12 * scaleFactor)  // Medium indicators
+    readonly property real dividerHeight: Math.max(1, Math.round(1 * scaleFactor))  // Divider lines
+    
     // =========================================================================
     // BB10 ACTION BAR (responsive)
     // =========================================================================
@@ -211,14 +219,14 @@ QtObject {
     // =========================================================================
     
     readonly property real borderRadiusSharp: 0
-    readonly property real borderRadiusSmall: 4
-    readonly property real borderRadiusMedium: 8
-    readonly property real borderRadiusLarge: 12
+    readonly property real borderRadiusSmall: Math.round(4 * scaleFactor)
+    readonly property real borderRadiusMedium: Math.round(8 * scaleFactor)
+    readonly property real borderRadiusLarge: Math.round(12 * scaleFactor)
     readonly property real borderRadiusXLarge: Math.round(20 * scaleFactor)
     
-    readonly property real borderWidthThin: 1
-    readonly property real borderWidthMedium: 2
-    readonly property real borderWidthThick: 3
+    readonly property real borderWidthThin: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real borderWidthMedium: Math.max(1, Math.round(2 * scaleFactor))
+    readonly property real borderWidthThick: Math.max(2, Math.round(3 * scaleFactor))
     
     readonly property bool enableAntialiasing: true
     
