@@ -36,9 +36,9 @@ Item {
     
     Rectangle {
         id: menu
-        width: 180
-        height: menuColumn.height + 16
-        radius: 4
+        width: Math.round(180 * Constants.scaleFactor)
+        height: menuColumn.height + Constants.spacingMedium
+        radius: Constants.borderRadiusSmall
         color: Qt.rgba(15, 15, 15, 0.98)
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.15)
@@ -58,13 +58,13 @@ Item {
         Column {
             id: menuColumn
             anchors.centerIn: parent
-            width: parent.width - 16
+            width: parent.width - Constants.spacingMedium
             spacing: 0
             
             Rectangle {
                 width: parent.width
-                height: 48
-                radius: 4
+                height: Constants.inputHeight
+                radius: Constants.borderRadiusSmall
                 color: infoMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
                 
                 Behavior on color {
@@ -107,14 +107,14 @@ Item {
             
             Rectangle {
                 width: parent.width
-                height: 1
+                height: Constants.dividerHeight
                 color: Qt.rgba(255, 255, 255, 0.05)
             }
             
             Rectangle {
                 width: parent.width
-                height: 48
-                radius: 4
+                height: Constants.inputHeight
+                radius: Constants.borderRadiusSmall
                 color: uninstallMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
                 
                 Behavior on color {

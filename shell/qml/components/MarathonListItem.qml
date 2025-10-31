@@ -30,8 +30,8 @@ Rectangle {
         
         Rectangle {
             anchors.verticalCenter: parent.verticalCenter
-            width: 48
-            height: 48
+            width: Math.round(48 * Constants.scaleFactor)
+            height: Math.round(48 * Constants.scaleFactor)
             radius: Colors.cornerRadiusCircle
             color: iconColor
             opacity: 0.2
@@ -39,8 +39,8 @@ Rectangle {
             Image {
                 anchors.centerIn: parent
                 source: iconSource
-                width: 28
-                height: 28
+                width: Math.round(28 * Constants.scaleFactor)
+                height: Math.round(28 * Constants.scaleFactor)
                 fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true
@@ -50,8 +50,8 @@ Rectangle {
         
         Column {
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - 48 - 100 - 32
-            spacing: 4
+            width: parent.width - Math.round((48 + 100 + 32) * Constants.scaleFactor)
+            spacing: Constants.spacingXSmall
             
             Text {
                 text: title
@@ -84,8 +84,8 @@ Rectangle {
         Rectangle {
             visible: showDelete
             anchors.verticalCenter: parent.verticalCenter
-            width: 40
-            height: 40
+            width: Constants.touchTargetMinimum
+            height: Constants.touchTargetMinimum
             color: "transparent"
             
             Icon {
@@ -105,7 +105,7 @@ Rectangle {
     Rectangle {
         anchors.bottom: parent.bottom
         width: parent.width
-        height: 1
+        height: Constants.dividerHeight
         color: Colors.border
     }
     

@@ -105,8 +105,8 @@ Item {
                 model: Math.min(NotificationModel.count, 4)
                 
                 Item {
-                    width: expandedNotificationId === modelData.id ? 300 : 48
-                    height: 48
+                    width: expandedNotificationId === modelData.id ? Math.round(300 * Constants.scaleFactor) : Math.round(48 * Constants.scaleFactor)
+                    height: Math.round(48 * Constants.scaleFactor)
                     
                     Behavior on width {
                         NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
@@ -128,11 +128,11 @@ Item {
                             spacing: Constants.spacingMedium
                             
                             Rectangle {
-                                width: 40
-                                height: 40
-                                radius: 20
+                                width: Constants.touchTargetMinimum
+                                height: Constants.touchTargetMinimum
+                                radius: Math.round(20 * Constants.scaleFactor)
                                 color: expandedNotificationId === modelData.id ? MColors.surface2 : "transparent"
-                                border.width: expandedNotificationId === modelData.id ? 0 : 1
+                                border.width: expandedNotificationId === modelData.id ? 0 : Constants.borderWidthThin
                                 border.color: MColors.borderOuter
                                 anchors.verticalCenter: parent.verticalCenter
                                 antialiasing: Constants.enableAntialiasing
@@ -146,8 +146,8 @@ Item {
                                 
                                 Image {
                                     source: modelData.icon
-                                    width: 24
-                                    height: 24
+                                    width: Math.round(24 * Constants.scaleFactor)
+                                    height: Math.round(24 * Constants.scaleFactor)
                                     fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true
@@ -158,10 +158,10 @@ Item {
                                     visible: !modelData.read
                                     anchors.right: parent.right
                                     anchors.top: parent.top
-                                    anchors.rightMargin: -4
-                                    anchors.topMargin: -4
-                                    width: 18
-                                    height: 18
+                                    anchors.rightMargin: Math.round(-4 * Constants.scaleFactor)
+                                    anchors.topMargin: Math.round(-4 * Constants.scaleFactor)
+                                    width: Math.round(18 * Constants.scaleFactor)
+                                    height: Math.round(18 * Constants.scaleFactor)
                                     radius: Constants.borderRadiusSharp
                                     color: MColors.error
                                     antialiasing: Constants.enableAntialiasing
@@ -179,8 +179,8 @@ Item {
     Column {
                                 visible: expandedNotificationId === modelData.id
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - 68
-                                spacing: 2
+                                width: parent.width - Math.round(68 * Constants.scaleFactor)
+                                spacing: Math.round(2 * Constants.scaleFactor)
         
         Text {
                                     text: modelData.title
