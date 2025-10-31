@@ -36,10 +36,10 @@ Rectangle {
         
         Rectangle {
             width: parent.width
-            height: 48
-            radius: 4
+            height: Constants.inputHeight
+            radius: Constants.borderRadiusSmall
             color: "#1A1A1A"
-            border.width: 2
+            border.width: Constants.borderWidthMedium
             border.color: {
                 if (hasError) return "#CC0000"
                 if (textInput.activeFocus) return "#006666"

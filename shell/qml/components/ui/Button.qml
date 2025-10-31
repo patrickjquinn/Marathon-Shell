@@ -21,9 +21,9 @@ Rectangle {
     signal pressed()
     signal released()
     
-    width: Math.max(120, buttonText.width + 32)
+    width: Math.max(Math.round(120 * Constants.scaleFactor), buttonText.width + Math.round(32 * Constants.scaleFactor))
     height: Constants.touchTargetMedium  // BB10: 70px minimum
-    radius: 4
+    radius: Constants.borderRadiusSmall
     
     color: {
         if (disabled) return "#333333"

@@ -475,7 +475,7 @@ Item {
                             
                             Rectangle {
                                 anchors.fill: parent
-                                anchors.bottomMargin: 50
+                                anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
                                 color: Colors.backgroundDark
                                 radius: parent.parent.radius
                                 
@@ -673,13 +673,13 @@ Item {
                                                     
                                                     Column {
                                                         anchors.centerIn: parent
-                                                        spacing: 16
+                                                        spacing: Constants.spacingMedium
                                                         
                                                         Image {
-                                                            width: 80
-                                                            height: 80
+                                                            width: Math.round(80 * Constants.scaleFactor)
+                                                            height: Math.round(80 * Constants.scaleFactor)
                                                             source: model.icon || "qrc:/images/icons/lucide/grid.svg"
-                                                            sourceSize.width: 80
+                                                            sourceSize.width: Math.round(80 * Constants.scaleFactor)
                                                             sourceSize.height: 80
                                                             anchors.horizontalCenter: parent.horizontalCenter
                                                             smooth: true
@@ -689,7 +689,7 @@ Item {
                                                         Text {
                                                             text: model.title || model.appId
                                                             color: MColors.textSecondary
-                                                            font.pixelSize: 14
+                                                            font.pixelSize: Typography.sizeSmall
                                                             font.family: MTypography.fontFamily
                                                             anchors.horizontalCenter: parent.horizontalCenter
                                                         }
@@ -697,7 +697,7 @@ Item {
                                                         Text {
                                                             text: "Preview unavailable"
                                                             color: MColors.textTertiary
-                                                            font.pixelSize: 11
+                                                            font.pixelSize: Typography.sizeXSmall
                                                             font.family: MTypography.fontFamily
                                                             anchors.horizontalCenter: parent.horizontalCenter
                                                         }
@@ -719,9 +719,9 @@ Item {
                                                         anchors.top: parent.top
                                                         anchors.left: parent.left
                                                         anchors.right: parent.right
-                                                        height: 50
+                                                        height: Math.round(50 * Constants.scaleFactor)
                                                         color: MColors.surface
-                                                        border.width: 1
+                                                        border.width: Constants.borderWidthThin
                                                         border.color: Qt.rgba(255, 255, 255, 0.1)
                                                         
                                                         Text {
@@ -764,7 +764,7 @@ Item {
                                 anchors.bottom: parent.bottom
                                 anchors.left: parent.left
                                 anchors.right: parent.right
-                                height: 50
+                                height: Math.round(50 * Constants.scaleFactor)
                         color: Colors.surfaceLight
                                 radius: 0
                                 
@@ -777,8 +777,8 @@ Item {
                                     Image {
                                         anchors.verticalCenter: parent.verticalCenter
                                 source: model.icon
-                                        width: 32
-                                        height: 32
+                                        width: Constants.iconSizeMedium
+                                        height: Constants.iconSizeMedium
                                         fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true
@@ -788,8 +788,8 @@ Item {
                                     
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - 80
-                                        spacing: 2
+                                        width: parent.width - Math.round(80 * Constants.scaleFactor)
+                                        spacing: Math.round(2 * Constants.scaleFactor)
                                         
                                         Text {
                                     text: model.title
@@ -813,14 +813,14 @@ Item {
                                     Item {
                                         id: closeButtonContainer
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 32
-                                        height: 32
+                                        width: Constants.iconSizeMedium
+                                        height: Constants.iconSizeMedium
                                         
                                         Rectangle {
                                             id: closeButtonRect
                                             anchors.centerIn: parent
-                                            width: 28
-                                            height: 28
+                                            width: Math.round(28 * Constants.scaleFactor)
+                                            height: Math.round(28 * Constants.scaleFactor)
                                     radius: Colors.cornerRadiusSmall
                                     color: Colors.surfaceLight
                                             

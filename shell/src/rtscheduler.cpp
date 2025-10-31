@@ -33,7 +33,9 @@ void RTScheduler::detectKernelCapabilities()
         if (m_isRealtimeKernel) {
             qInfo() << "[RTScheduler] ✓ PREEMPT_RT kernel detected";
         } else {
-            qInfo() << "[RTScheduler] ⚠ Not running on PREEMPT_RT kernel";
+            qCritical() << "[RTScheduler] ✗ NOT running on PREEMPT_RT kernel!";
+            qCritical() << "[RTScheduler]   This WILL cause performance issues on mobile devices.";
+            qCritical() << "[RTScheduler]   Rebuild kernel with CONFIG_PREEMPT_RT=y";
         }
     } else {
         // Fallback: check uname for "PREEMPT_RT"
@@ -58,11 +60,32 @@ void RTScheduler::detectKernelCapabilities()
         qInfo() << "[RTScheduler] ✓ RT scheduling permissions available";
     } else {
         m_hasRTPermissions = false;
-        qDebug() << "[RTScheduler] RT scheduling not available (using default scheduler)";
-        qDebug() << "[RTScheduler]   This is optional. To enable: grant CAP_SYS_NICE or configure /etc/security/limits.conf";
-        // Only log error details if errno is not EPERM or ENOSYS (expected on non-RT systems)
+        qCritical() << "╔════════════════════════════════════════════════════════════╗";
+        qCritical() << "║ [RTScheduler] ⚠ RT SCHEDULING NOT AVAILABLE               ║";
+        qCritical() << "╠════════════════════════════════════════════════════════════╣";
+        qCritical() << "║ IMPACT: Shell will run with DEGRADED performance          ║";
+        qCritical() << "║         - Touch latency may be higher                     ║";
+        qCritical() << "║         - Compositor may drop frames                      ║";
+        qCritical() << "║         - Audio/video may stutter                         ║";
+        qCritical() << "╠════════════════════════════════════════════════════════════╣";
+        qCritical() << "║ REQUIRED FOR: postmarketOS / Mobile device deployment     ║";
+        qCritical() << "║ OPTIONAL FOR: Desktop testing only                        ║";
+        qCritical() << "╠════════════════════════════════════════════════════════════╣";
+        qCritical() << "║ FIX (Option 1): Grant CAP_SYS_NICE capability             ║";
+        qCritical() << "║   sudo setcap cap_sys_nice+ep /usr/bin/marathon-shell     ║";
+        qCritical() << "║                                                            ║";
+        qCritical() << "║ FIX (Option 2): Configure /etc/security/limits.conf       ║";
+        qCritical() << "║   username  -  rtprio  99                                 ║";
+        qCritical() << "║   username  -  nice    -20                                ║";
+        qCritical() << "╠════════════════════════════════════════════════════════════╣";
+        qCritical() << "║ KERNEL REQUIREMENT: CONFIG_PREEMPT_RT=y                   ║";
+        qCritical() << "║ Check: cat /sys/kernel/realtime                           ║";
+        qCritical() << "║ Expected: 1 (PREEMPT_RT enabled)                          ║";
+        qCritical() << "║ Current kernel: " << (m_isRealtimeKernel ? "PREEMPT_RT ✓" : "STANDARD (missing RT!) ✗");
+        qCritical() << "╚════════════════════════════════════════════════════════════╝";
+        
         if (errno != EPERM && errno != ENOSYS) {
-            qDebug() << "[RTScheduler]   Error:" << strerror(errno);
+            qCritical() << "[RTScheduler] System error:" << strerror(errno);
         }
     }
 #else
@@ -74,7 +97,7 @@ bool RTScheduler::setRealtimePriority(int priority)
 {
 #ifdef Q_OS_LINUX
     if (!m_hasRTPermissions) {
-        qDebug() << "[RTScheduler] Cannot set RT priority without permissions (using default scheduler)";
+        qWarning() << "[RTScheduler] Cannot set RT priority - permissions not available (shell running with degraded performance)";
         return false;
     }
     

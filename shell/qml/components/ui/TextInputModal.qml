@@ -15,10 +15,10 @@ Modal {
         
         Rectangle {
             width: parent.width
-            height: 48
+            height: Constants.inputHeight
             color: Colors.backgroundDark
-            radius: 4
-            border.width: textInput.activeFocus ? 2 : 1
+            radius: Constants.borderRadiusSmall
+            border.width: textInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
             border.color: textInput.activeFocus ? Colors.accent : Qt.rgba(255, 255, 255, 0.1)
             
             Behavior on border.color {
@@ -56,8 +56,8 @@ Modal {
                 width: (parent.width - 12) / 2
                 height: Constants.statusBarHeight
                 color: Colors.surfaceLight
-                radius: 4
-                border.width: 1
+                radius: Constants.borderRadiusSmall
+                border.width: Constants.borderWidthThin
                 border.color: Qt.rgba(255, 255, 255, 0.08)
                 
                 transform: Translate {
@@ -90,10 +90,10 @@ Modal {
             }
             
             Rectangle {
-                width: (parent.width - 12) / 2
+                width: (parent.width - Constants.spacingSmall) / 2
                 height: Constants.statusBarHeight
-                radius: 4
-                border.width: 1
+                radius: Constants.borderRadiusSmall
+                border.width: Constants.borderWidthThin
                 border.color: Qt.rgba(20, 184, 166, 0.4)
                 
                 gradient: Gradient {

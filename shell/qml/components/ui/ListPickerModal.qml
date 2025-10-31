@@ -11,16 +11,16 @@ Modal {
     
     Column {
         width: parent.width
-        spacing: 0
+        spacing: 0  // No spacing between list items
         
         Repeater {
             model: options
             
             Rectangle {
                 width: parent.width
-                height: 56
+                height: Constants.listItemHeight
                 color: "transparent"
-                radius: 4
+                radius: Constants.borderRadiusSmall
                 
                 // Glass morphism hover effect
                 Rectangle {
@@ -73,16 +73,16 @@ Modal {
                     
                     Rectangle {
                         visible: index === selectedIndex
-                        width: 20
-                        height: Constants.navBarHeight
-                        radius: 4
+                        width: Constants.iconButtonSize
+                        height: Constants.iconButtonSize
+                        radius: Constants.borderRadiusSmall
                         color: Colors.accent
                         anchors.verticalCenter: parent.verticalCenter
                         
                         Rectangle {
-                            width: 8
-                            height: 8
-                            radius: 4
+                            width: Constants.smallIndicatorSize
+                            height: Constants.smallIndicatorSize
+                            radius: Constants.borderRadiusSmall
                             color: Colors.text
                             anchors.centerIn: parent
                         }
@@ -95,7 +95,7 @@ Modal {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.leftMargin: Constants.spacingMedium
-                    height: 1
+                    height: Constants.dividerHeight
                     color: Qt.rgba(255, 255, 255, 0.08)
                 }
                 

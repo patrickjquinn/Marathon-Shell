@@ -37,8 +37,8 @@ Modal {
             
             Rectangle {
                 width: parent.width
-                height: 8
-                radius: 4
+                height: Constants.smallIndicatorSize
+                radius: Constants.borderRadiusSmall
                 color: Colors.backgroundDark
                 
                 Rectangle {
@@ -74,9 +74,9 @@ Modal {
                         spacing: Constants.spacingMedium
                         
                         Rectangle {
-                            width: 12
-                            height: 12
-                            radius: 2
+                            width: Constants.mediumIndicatorSize
+                            height: Constants.mediumIndicatorSize
+                            radius: Math.round(2 * Constants.scaleFactor)
                             color: modelData.color
                             anchors.verticalCenter: parent.verticalCenter
                         }
