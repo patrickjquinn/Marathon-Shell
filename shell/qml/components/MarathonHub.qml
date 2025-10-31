@@ -84,7 +84,7 @@ Rectangle {
                         
                         Column {
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: Constants.spacingXSmall
                             
                             Icon {
                                 name: modelData.icon
@@ -148,7 +148,7 @@ Rectangle {
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
-                    height: 1
+                    height: Constants.dividerHeight
                     color: MColors.borderOuter
                 }
                 
@@ -158,9 +158,9 @@ Rectangle {
                     spacing: Constants.spacingMedium
                     
                     Rectangle {
-                        width: 48
-                        height: 48
-                        radius: 24
+                        width: Math.round(48 * Constants.scaleFactor)
+                        height: Math.round(48 * Constants.scaleFactor)
+                        radius: Math.round(24 * Constants.scaleFactor)
                         color: MColors.accentDim
                         anchors.verticalCenter: parent.verticalCenter
                         antialiasing: Constants.enableAntialiasing
@@ -176,7 +176,7 @@ Rectangle {
                     Column {
                         width: parent.width - 120
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 4
+                        spacing: Constants.spacingXSmall
                         
                         Row {
                             width: parent.width
@@ -215,8 +215,8 @@ Rectangle {
                         
                         Rectangle {
                             visible: !model.isRead
-                            width: 10
-                            height: 10
+                            width: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
+                            height: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
                             radius: Constants.borderRadiusSharp
                             color: MColors.accentBright
                             anchors.right: parent.right
