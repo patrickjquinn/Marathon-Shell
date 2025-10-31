@@ -58,8 +58,12 @@ void RTScheduler::detectKernelCapabilities()
         qInfo() << "[RTScheduler] ✓ RT scheduling permissions available";
     } else {
         m_hasRTPermissions = false;
-        qWarning() << "[RTScheduler] ⚠ No RT scheduling permissions (CAP_SYS_NICE or limits.conf required)";
-        qWarning() << "[RTScheduler]   Error:" << strerror(errno);
+        qDebug() << "[RTScheduler] RT scheduling not available (using default scheduler)";
+        qDebug() << "[RTScheduler]   This is optional. To enable: grant CAP_SYS_NICE or configure /etc/security/limits.conf";
+        // Only log error details if errno is not EPERM or ENOSYS (expected on non-RT systems)
+        if (errno != EPERM && errno != ENOSYS) {
+            qDebug() << "[RTScheduler]   Error:" << strerror(errno);
+        }
     }
 #else
     qInfo() << "[RTScheduler] Not on Linux, RT scheduling disabled";
@@ -70,7 +74,7 @@ bool RTScheduler::setRealtimePriority(int priority)
 {
 #ifdef Q_OS_LINUX
     if (!m_hasRTPermissions) {
-        qWarning() << "[RTScheduler] Cannot set RT priority without permissions";
+        qDebug() << "[RTScheduler] Cannot set RT priority without permissions (using default scheduler)";
         return false;
     }
     

@@ -8,6 +8,9 @@
 ModemManagerCpp::ModemManagerCpp(QObject* parent)
     : QObject(parent)
     , m_mmInterface(nullptr)
+    , m_stateMonitor(nullptr)
+    , m_dbusRetryTimer(nullptr)
+    , m_dbusRetryCount(0)
     , m_hasModemManager(false)
     , m_modemAvailable(false)
     , m_modemEnabled(false)
@@ -22,6 +25,41 @@ ModemManagerCpp::ModemManagerCpp(QObject* parent)
 {
     qDebug() << "[ModemManagerCpp] Initializing";
     
+    // Setup state monitor (will start when D-Bus connects)
+    m_stateMonitor = new QTimer(this);
+    m_stateMonitor->setInterval(5000); // Poll every 5 seconds
+    connect(m_stateMonitor, &QTimer::timeout, this, &ModemManagerCpp::queryModemState);
+    
+    // Setup D-Bus retry timer
+    m_dbusRetryTimer = new QTimer(this);
+    m_dbusRetryTimer->setSingleShot(true);
+    connect(m_dbusRetryTimer, &QTimer::timeout, this, &ModemManagerCpp::retryDBusConnection);
+    
+    // Initial connection attempt
+    initializeDBusConnection();
+}
+
+void ModemManagerCpp::initializeDBusConnection()
+{
+    // Check if system bus is available
+    if (!QDBusConnection::systemBus().isConnected()) {
+        qWarning() << "[ModemManagerCpp] D-Bus system bus not connected, will retry...";
+        
+        // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms, 3200ms, then 5s max
+        const int maxRetries = 10;
+        if (m_dbusRetryCount < maxRetries) {
+            int delay = qMin(100 * (1 << m_dbusRetryCount), 5000);
+            m_dbusRetryCount++;
+            qDebug() << "[ModemManagerCpp] Retry" << m_dbusRetryCount << "of" << maxRetries << "in" << delay << "ms";
+            m_dbusRetryTimer->start(delay);
+        } else {
+            qWarning() << "[ModemManagerCpp] Failed to connect to D-Bus after" << maxRetries << "retries";
+            qInfo() << "[ModemManagerCpp] Using mock mode (no cellular hardware)";
+        }
+        return;
+    }
+    
+    // Create ModemManager D-Bus interface
     m_mmInterface = new QDBusInterface(
         "org.freedesktop.ModemManager1",
         "/org/freedesktop/ModemManager1",
@@ -32,21 +70,32 @@ ModemManagerCpp::ModemManagerCpp(QObject* parent)
     
     if (m_mmInterface->isValid()) {
         m_hasModemManager = true;
-        qInfo() << "[ModemManagerCpp] Connected to ModemManager D-Bus";
+        m_dbusRetryCount = 0;  // Reset retry count on success
+        qInfo() << "[ModemManagerCpp] ✓ Connected to ModemManager D-Bus";
         setupDBusConnections();
         discoverModem();
-    } else {
-        qDebug() << "[ModemManagerCpp] ModemManager D-Bus not available:" << m_mmInterface->lastError().message();
-        qInfo() << "[ModemManagerCpp] Using mock mode (no cellular hardware)";
-    }
-    
-    // Setup state monitor
-    m_stateMonitor = new QTimer(this);
-    m_stateMonitor->setInterval(5000); // Poll every 5 seconds
-    connect(m_stateMonitor, &QTimer::timeout, this, &ModemManagerCpp::queryModemState);
-    if (m_hasModemManager) {
         m_stateMonitor->start();
+    } else {
+        qDebug() << "[ModemManagerCpp] ModemManager service not available:" << m_mmInterface->lastError().message();
+        
+        // Retry with exponential backoff
+        const int maxRetries = 10;
+        if (m_dbusRetryCount < maxRetries) {
+            int delay = qMin(100 * (1 << m_dbusRetryCount), 5000);
+            m_dbusRetryCount++;
+            qDebug() << "[ModemManagerCpp] Retry" << m_dbusRetryCount << "of" << maxRetries << "in" << delay << "ms";
+            m_dbusRetryTimer->start(delay);
+        } else {
+            qWarning() << "[ModemManagerCpp] ModemManager not available after" << maxRetries << "retries";
+            qInfo() << "[ModemManagerCpp] Using mock mode (no cellular hardware)";
+        }
     }
+}
+
+void ModemManagerCpp::retryDBusConnection()
+{
+    qDebug() << "[ModemManagerCpp] Retrying D-Bus connection...";
+    initializeDBusConnection();
 }
 
 void ModemManagerCpp::setupDBusConnections()

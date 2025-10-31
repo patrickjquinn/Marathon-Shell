@@ -57,13 +57,17 @@ signals:
 private slots:
     void discoverModem();
     void queryModemState();
+    void retryDBusConnection();
 
 private:
     void setupDBusConnections();
+    void initializeDBusConnection();
     QString networkTypeFromAccessTech(uint accessTech);
     
     QDBusInterface* m_mmInterface;
     QTimer* m_stateMonitor;
+    QTimer* m_dbusRetryTimer;
+    int m_dbusRetryCount;
     
     bool m_hasModemManager;
     bool m_modemAvailable;
