@@ -45,7 +45,7 @@ Item {
                     
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: 4
+                        spacing: Constants.spacingXSmall
                         
                         Text {
                             text: modelData.title
@@ -65,8 +65,8 @@ Item {
         }
         
         Rectangle {
-            width: 40
-            height: 40
+            width: Constants.touchTargetMinimum
+            height: Constants.touchTargetMinimum
             radius: Constants.borderRadiusXLarge
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
