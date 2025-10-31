@@ -14,13 +14,13 @@
         <file alias="notes.svg">resources/images/notes.svg</file>
     </qresource>
     <qresource prefix="/wallpapers">
-        <file>resources/wallpapers/wallpaper.jpg</file>
-        <file>resources/wallpapers/wallpaper2.jpg</file>
-        <file>resources/wallpapers/wallpaper3.jpg</file>
-        <file>resources/wallpapers/wallpaper4.jpg</file>
-        <file>resources/wallpapers/wallpaper5.jpg</file>
-        <file>resources/wallpapers/wallpaper6.jpg</file>
-        <file>resources/wallpapers/wallpaper7.jpg</file>
+        <file alias="wallpaper.jpg">resources/wallpapers/wallpaper.jpg</file>
+        <file alias="wallpaper2.jpg">resources/wallpapers/wallpaper2.jpg</file>
+        <file alias="wallpaper3.jpg">resources/wallpapers/wallpaper3.jpg</file>
+        <file alias="wallpaper4.jpg">resources/wallpapers/wallpaper4.jpg</file>
+        <file alias="wallpaper5.jpg">resources/wallpapers/wallpaper5.jpg</file>
+        <file alias="wallpaper6.jpg">resources/wallpapers/wallpaper6.jpg</file>
+        <file alias="wallpaper7.jpg">resources/wallpapers/wallpaper7.jpg</file>
     </qresource>
     <qresource prefix="/images/icons/lucide">
         <file alias="wifi.svg">resources/images/icons/lucide/wifi.svg</file>

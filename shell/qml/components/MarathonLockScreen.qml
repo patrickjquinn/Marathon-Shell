@@ -48,7 +48,7 @@ Item {
         
         Column {
             anchors.centerIn: parent
-            anchors.verticalCenterOffset: -80
+            anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
             spacing: Constants.spacingSmall
             
             Text {

@@ -37,19 +37,19 @@ Rectangle {
     
     Rectangle {
         anchors.centerIn: parent
-        width: Math.min(parent.width - 48, 400)
-        height: contentColumn.height + 48
+        width: Math.min(parent.width - Math.round(48 * Constants.scaleFactor), Math.round(400 * Constants.scaleFactor))
+        height: contentColumn.height + Math.round(48 * Constants.scaleFactor)
         radius: Constants.borderRadiusLarge
-        color: MColors.surface
-        border.width: 1
-        border.color: MColors.borderOuter
+        color: MColors.surface || MColors.background
+        border.width: Math.round(Constants.borderWidthThin)
+        border.color: MColors.borderOuter || MColors.border
         
         Column {
             id: contentColumn
-            width: parent.width - 48
+            width: parent.width - Math.round(48 * Constants.scaleFactor)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            anchors.topMargin: 24
+            anchors.topMargin: Math.round(24 * Constants.scaleFactor)
             spacing: Constants.spacingLarge
             
             // Title
@@ -84,10 +84,10 @@ Rectangle {
             // Password input
             Rectangle {
                 width: parent.width
-                height: 48
+                height: Math.round(48 * Constants.scaleFactor)
                 radius: Constants.borderRadiusSmall
-                color: MColors.backgroundLight
-                border.width: passwordInput.activeFocus ? 2 : 1
+                color: MColors.backgroundLight || Qt.darker(MColors.background, 1.05)
+                border.width: passwordInput.activeFocus ? Math.round(2 * Constants.scaleFactor) : Math.round(Constants.borderWidthThin)
                 border.color: passwordInput.activeFocus ? MColors.accent : MColors.border
                 
                 TextInput {
@@ -153,7 +153,7 @@ Rectangle {
             // Buttons
             Row {
                 width: parent.width
-                height: 48
+                height: Math.round(48 * Constants.scaleFactor)
                 spacing: Constants.spacingMedium
                 
                 // Cancel button

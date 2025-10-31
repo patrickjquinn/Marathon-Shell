@@ -1304,13 +1304,19 @@ Item {
     }
     
     Keys.onReleased: (event) => {
-        // Power button released - if timer still running, it's a short press (lock)
+        // Power button released - if timer still running, it's a short press (lock/wake)
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             if (powerButtonTimer.running) {
-                // Short press - lock the device
-                Logger.info("Shell", "Power button SHORT PRESS - locking device")
+                // Short press - toggle lock/wake
+                if (SessionStore.isLocked) {
+                    Logger.info("Shell", "Power button SHORT PRESS - waking device")
+                    // Turn screen on and show lock screen (user must swipe/PIN to unlock)
+                    DisplayManager.turnScreenOn()
+                } else {
+                    Logger.info("Shell", "Power button SHORT PRESS - locking device")
+                    SessionStore.lock()
+                }
                 powerButtonTimer.stop()
-                SessionStore.lock()
                 HapticService.medium()
             }
             event.accepted = true
