@@ -178,7 +178,7 @@ void WaylandCompositor::launchApp(const QString &command)
         if (debugMode && !output.trimmed().isEmpty()) {
             qDebug() << "[WaylandCompositor] App stdout:" << command << "->" << output.trimmed();
         }
-    }, Qt::UniqueConnection);
+    });
     
     // Always capture stderr for error reporting
     // Use QPointer for safe process access
@@ -188,7 +188,7 @@ void WaylandCompositor::launchApp(const QString &command)
         if (!error.trimmed().isEmpty()) {
             qWarning() << "[WaylandCompositor] App stderr:" << command << "->" << error.trimmed();
         }
-    }, Qt::UniqueConnection);
+    });
     
     m_processes[process] = actualCommand;
     
@@ -352,14 +352,14 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel, 
                 safeSurface->setProperty("title", safeToplevel->title());
                 qInfo() << "[WaylandCompositor] *** Title updated to:" << (safeToplevel->title().isEmpty() ? "(empty)" : safeToplevel->title());
             }
-        }, Qt::UniqueConnection);
+        });
         
         connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, [this, safeToplevel, safeSurface]() {
             if (safeToplevel && safeSurface) {
                 safeSurface->setProperty("appId", safeToplevel->appId());
                 qInfo() << "[WaylandCompositor] *** App ID updated to:" << (safeToplevel->appId().isEmpty() ? "(empty)" : safeToplevel->appId());
             }
-        }, Qt::UniqueConnection);
+        });
         
         qInfo() << "[WaylandCompositor] Signal handlers connected for surfaceId:" << surfaceId;
     }
@@ -382,7 +382,7 @@ void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlSh
             if (safeWlShell && safeSurface) {
                 safeSurface->setProperty("title", safeWlShell->title());
             }
-        }, Qt::UniqueConnection);
+        });
     }
 }
 
