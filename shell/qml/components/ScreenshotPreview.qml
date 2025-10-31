@@ -28,9 +28,9 @@ Item {
         anchors.right: parent.right
         anchors.bottomMargin: Constants.navBarHeight + Constants.bottomBarHeight + 16
         anchors.rightMargin: Constants.spacingMedium
-        width: 160
+        width: Math.round(160 * Constants.scaleFactor)
         height: Constants.touchTargetLarge
-        radius: 4
+        radius: Constants.borderRadiusSmall
         color: Qt.rgba(15, 15, 15, 0.98)
         border.width: 1
         border.color: Qt.rgba(255, 255, 255, 0.15)
@@ -49,13 +49,13 @@ Item {
         
         Column {
             anchors.fill: parent
-            anchors.margins: 8
-            spacing: 6
+            anchors.margins: Math.round(8 * Constants.scaleFactor)
+            spacing: Math.round(6 * Constants.scaleFactor)
             
             Rectangle {
                 width: parent.width
-                height: parent.height - 20
-                radius: 2
+                height: parent.height - Math.round(20 * Constants.scaleFactor)
+                radius: Math.round(2 * Constants.scaleFactor)
                 color: "#000000"
                 clip: true
                 
@@ -70,7 +70,7 @@ Item {
             Text {
                 text: "Screenshot saved"
                 color: Colors.text
-                font.pixelSize: 10
+                font.pixelSize: Typography.sizeXSmall
                 font.family: Typography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
             }
