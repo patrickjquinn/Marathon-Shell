@@ -653,8 +653,8 @@ Item {
             id: cardBorder
             anchors.fill: parent
             color: "transparent"
-            radius: 4
-            border.width: appWindowContainer.showCardFrame ? 1 : 0
+            radius: Constants.borderRadiusSmall
+            border.width: appWindowContainer.showCardFrame ? Constants.borderWidthThin : 0
             border.color: Qt.rgba(255, 255, 255, 0.12)
             layer.enabled: appWindowContainer.showCardFrame
             clip: true
@@ -722,7 +722,7 @@ Item {
             
             Rectangle {
                 width: parent.width
-                height: 6
+                height: Math.round(6 * Constants.scaleFactor)
                 color: parent.color
                 anchors.top: parent.top
             }
@@ -743,8 +743,8 @@ Item {
                 Image {
                     anchors.verticalCenter: parent.verticalCenter
                     source: appWindow.appIcon
-                    width: 32
-                    height: 32
+                    width: Constants.iconSizeMedium
+                    height: Constants.iconSizeMedium
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
                     cache: true
@@ -753,8 +753,8 @@ Item {
                 
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - 80
-                    spacing: 2
+                    width: parent.width - Math.round(80 * Constants.scaleFactor)
+                    spacing: Math.round(2 * Constants.scaleFactor)
                     
                     Text {
                         text: appWindow.appName
@@ -777,13 +777,13 @@ Item {
                 
                 Item {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 32
-                    height: 32
+                    width: Constants.iconSizeMedium
+                    height: Constants.iconSizeMedium
                     
                     Rectangle {
                         anchors.centerIn: parent
-                        width: 28
-                        height: 28
+                        width: Math.round(28 * Constants.scaleFactor)
+                        height: Math.round(28 * Constants.scaleFactor)
                         radius: Colors.cornerRadiusSmall
                         color: Colors.surfaceLight
                         
