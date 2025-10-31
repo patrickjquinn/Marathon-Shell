@@ -48,12 +48,16 @@ QtObject {
         return 1.0
     }
     
-    function getWifiIcon(isEnabled, strength) {
+    function getWifiIcon(isEnabled, strength, isConnected) {
+        // Show wifi-off icon when not connected or disabled
+        if (!isEnabled || !isConnected || strength <= 0) {
+            return "wifi-off"
+        }
         return "wifi"
     }
     
-    function getWifiOpacity(isEnabled, strength) {
-        if (!isEnabled) return 0.3
+    function getWifiOpacity(isEnabled, strength, isConnected) {
+        if (!isEnabled || !isConnected) return 0.3
         
         if (strength <= 0) return 0.3
         if (strength <= 25) return 0.5

@@ -965,6 +965,18 @@ Item {
             startY = 0
             Logger.gesture("QuickSettings", "overlayDragEnd", {height: UIStore.quickSettingsHeight})
         }
+        
+        onCanceled: {
+            // Handle drag cancellation (e.g. touch/mouse leaves area)
+            UIStore.quickSettingsDragging = false
+            if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
+                UIStore.openQuickSettings()
+            } else {
+                UIStore.closeQuickSettings()
+            }
+            startY = 0
+            Logger.gesture("QuickSettings", "overlayDragCanceled", {height: UIStore.quickSettingsHeight})
+        }
     }
     
     // Lock Screen
