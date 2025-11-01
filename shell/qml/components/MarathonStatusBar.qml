@@ -149,15 +149,23 @@ Item {
                      : 0.3
         }
         
-        // WiFi - always show, wifi-off when unavailable
+        // Ethernet - only show when connected
         Icon {
-            name: SystemStatusStore.ethernetConnected ? "plug-zap" : 
-                  (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManager.wifiConnected) : "wifi-off")
+            name: "cable"  // Using cable icon instead of plug-zap to avoid confusion with power
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: SystemStatusStore.ethernetConnected ? 1.0 : 
-                     (NetworkManager.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManager.wifiConnected) : 0.3)
+            visible: SystemStatusStore.ethernetConnected
+            opacity: 1.0
+        }
+        
+        // WiFi - always show, wifi-off when unavailable
+        Icon {
+            name: NetworkManager.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManager.wifiConnected) : "wifi-off"
+            color: MColors.text
+            size: Constants.iconSizeSmall
+            anchors.verticalCenter: parent.verticalCenter
+            opacity: NetworkManager.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManager.wifiConnected) : 0.3
         }
     }
 }

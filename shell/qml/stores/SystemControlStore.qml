@@ -26,8 +26,23 @@ QtObject {
         return false
     }
     
-    property int brightness: Math.round(DisplayManager.brightness * 100)
-    property int volume: Math.round(AudioManager.volume * 100)
+    property int brightness: 50  // Managed by binding below
+    property int volume: 50  // Managed by binding below
+    
+    // Two-way bindings with restore mode (as properties)
+    property Binding brightnessBinding: Binding {
+        target: systemControl
+        property: "brightness"
+        value: Math.round(DisplayManager.brightness * 100)
+        restoreMode: Binding.RestoreBinding
+    }
+    
+    property Binding volumeBinding: Binding {
+        target: systemControl
+        property: "volume"
+        value: Math.round(AudioManager.volume * 100)
+        restoreMode: Binding.RestoreBinding
+    }
     
     property bool isLowPowerMode: PowerManager.isPowerSaveMode
     
@@ -47,11 +62,18 @@ QtObject {
         Logger.info("SystemControl", "Airplane mode toggled to: " + newMode)
     }
     
+    // Two-way binding for rotation lock (as property)
+    property Binding rotationLockBinding: Binding {
+        target: systemControl
+        property: "isRotationLocked"
+        value: DisplayManager.rotationLocked
+        restoreMode: Binding.RestoreBinding
+    }
+    
     function toggleRotationLock() {
         var newLock = !isRotationLocked
         DisplayManager.setRotationLock(newLock)
-        isRotationLocked = newLock
-        Logger.info("SystemControl", "Rotation lock: " + isRotationLocked)
+        Logger.info("SystemControl", "Rotation lock: " + newLock)
     }
     
     function toggleFlashlight() {
@@ -123,22 +145,8 @@ QtObject {
         PowerManager.restart()
     }
     
-    // Bindings automatically update from NetworkManager properties (lines 8-10)
-    // No need for Connections - the property bindings handle updates
-    
-    property Connections displayManagerConnections: Connections {
-        target: DisplayManager
-        function onBrightnessSet(value) {
-            brightness = Math.round(value * 100)
-        }
-    }
-    
-    property Connections audioManagerConnections: Connections {
-        target: AudioManager
-        function onVolumeSet(value) {
-            volume = Math.round(value * 100)
-        }
-    }
+    // Bindings automatically update from NetworkManager properties and Binding objects above
+    // No need for Connections - the Binding objects with restoreMode handle everything
     
     // Binding automatically updates from PowerManager.isPowerSaveMode (line 32)
     

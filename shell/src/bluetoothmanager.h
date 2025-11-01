@@ -8,6 +8,8 @@
 #include <QDBusPendingCallWatcher>
 #include <QTimer>
 
+class BluetoothAgent;
+
 class BluetoothDevice : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString address READ address CONSTANT)
@@ -101,6 +103,10 @@ signals:
     void availableChanged();
     void pairingFailed(const QString &address, const QString &error);
     void pairingSucceeded(const QString &address);
+    // Pairing interaction signals (forwarded from agent)
+    void pinRequested(const QString &address, const QString &deviceName);
+    void passkeyRequested(const QString &address, const QString &deviceName);
+    void passkeyConfirmation(const QString &address, const QString &deviceName, quint32 passkey);
 
 private slots:
     void onDeviceAdded(const QString &path);
@@ -127,5 +133,6 @@ private:
     bool m_available = false;
     QList<QObject*> m_devices;
     QTimer *m_scanTimer = nullptr;
+    BluetoothAgent *m_agent = nullptr;
 };
 

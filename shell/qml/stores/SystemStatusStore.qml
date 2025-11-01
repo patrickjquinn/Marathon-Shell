@@ -31,21 +31,37 @@ QtObject {
     property real storageTotal: 128.0
     
     property date currentTime: new Date()
-    property string timeString: Qt.formatTime(new Date(), "h:mm")  // Updated by timer
-    property string dateString: Qt.formatDate(new Date(), "dddd, MMMM d")  // Updated by timer
+    property string timeString  // Updated by timer, initialized on first tick
+    property string dateString  // Updated by timer, initialized on first tick
     
     property var notifications: []
     property int notificationCount: NotificationService.unreadCount
     
     property Timer updateTimer: Timer {
-        interval: 1000
+        interval: 16  // 60fps for immediate first update
         running: true
         repeat: true
+        triggeredOnStart: true
         onTriggered: {
-            systemStatus.currentTime = new Date()
-            systemStatus.timeString = Qt.formatTime(systemStatus.currentTime, "h:mm")
-            systemStatus.dateString = Qt.formatDate(systemStatus.currentTime, "dddd, MMMM d")
+            updateTime()
+            if (interval === 16) {
+                interval = 1000  // Switch to 1s updates after first tick
+            }
         }
+    }
+    
+    // Listen for time format changes using Connections (proper lifetime management)
+    property Connections timeFormatConnection: Connections {
+        target: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp : null
+        function onTimeFormatChanged() {
+            updateTime()
+        }
+    }
+    
+    function updateTime() {
+        systemStatus.currentTime = new Date()
+        systemStatus.timeString = Qt.formatTime(systemStatus.currentTime, SettingsManagerCpp.timeFormat === "24h" ? "HH:mm" : "h:mm AP")
+        systemStatus.dateString = Qt.formatDate(systemStatus.currentTime, "dddd, MMMM d")
     }
     
     function addNotification(title, message, app) {

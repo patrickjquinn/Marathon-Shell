@@ -219,20 +219,23 @@ Item {
         }
     }
     
-    // Store connection for cleanup
-    property var minimizeConnection: null
+    // Lifecycle management using Connections (proper lifetime management)
+    property Connections lifecycleConnection: Connections {
+        target: root
+        enabled: appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined'
+        
+        function onMinimizeRequested() {
+            if (typeof AppLifecycleManager !== 'undefined') {
+                AppLifecycleManager.minimizeForegroundApp()
+            }
+        }
+    }
     
-    // Lifecycle management
     Component.onCompleted: {
         // Only register with lifecycle manager if NOT in preview mode
         if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {
             AppLifecycleManager.registerApp(appId, root)
             Logger.info("MApp", appId + " registered with AppLifecycleManager")
-            
-            // Connect minimize signal to lifecycle manager (store for cleanup)
-            minimizeConnection = minimizeRequested.connect(function() {
-                AppLifecycleManager.minimizeForegroundApp()
-            })
         }
         
         appCreated()
@@ -249,11 +252,7 @@ Item {
     }
     
     Component.onDestruction: {
-        // Disconnect signals before unregistering
-        if (minimizeConnection) {
-            minimizeRequested.disconnect(minimizeConnection)
-            minimizeConnection = null
-        }
+        // Connections object automatically disconnects when destroyed
         
         // Only unregister if NOT in preview mode
         if (appId && !isPreviewMode && typeof AppLifecycleManager !== 'undefined') {

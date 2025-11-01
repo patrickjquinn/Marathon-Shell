@@ -294,13 +294,10 @@ void TelephonyService::checkModemStatus()
         return;
     }
     
-    // Get list of modems - use correct DBus type
-    typedef QMap<QString, QVariantMap> InterfaceList;
-    typedef QMap<QDBusObjectPath, InterfaceList> ManagedObjectList;
-    
-    QDBusMessage msg = m_modemManager->call("GetManagedObjects");
-    if (msg.type() == QDBusMessage::ErrorMessage) {
-        qDebug() << "[TelephonyService] Failed to get modems:" << msg.errorMessage();
+    // Get list of modems
+    QDBusReply<QVariantMap> reply = m_modemManager->call("GetManagedObjects");
+    if (!reply.isValid()) {
+        qDebug() << "[TelephonyService] Failed to get modems:" << reply.error().message();
         if (m_hasModem) {
             m_hasModem = false;
             emit modemChanged(false);
@@ -308,14 +305,12 @@ void TelephonyService::checkModemStatus()
         return;
     }
     
-    const QDBusArgument arg = msg.arguments().at(0).value<QDBusArgument>();
-    ManagedObjectList objects;
-    arg >> objects;
+    QVariantMap objects = reply.value();
     
     // Find first modem with Voice capability
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString path = it.key().path();
-        InterfaceList interfaces = it.value();
+        QString path = it.key();
+        QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
         
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Voice")) {
             if (m_modemPath != path) {

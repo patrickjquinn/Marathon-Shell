@@ -1,7 +1,7 @@
 pragma Singleton
 import QtQuick
 
-QtObject {
+Item {
     id: networkManager
     
     property bool wifiEnabled: NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : true
@@ -33,7 +33,7 @@ QtObject {
     readonly property bool isOnline: wifiConnected || cellularConnected
     readonly property bool hasInternet: isOnline && !airplaneModeEnabled
     
-    property var availableWifiNetworks: []
+    property var availableWifiNetworks: NetworkManagerCpp ? NetworkManagerCpp.availableNetworks : []
     property var pairedBluetoothDevices: []
     
     property bool isScanning: false
@@ -41,6 +41,29 @@ QtObject {
     
     signal networkListUpdated()
     signal connectionError(string error)
+    signal connectionSuccess()
+    signal connectionFailed(string message)
+    
+    // Forward signals from C++ backend
+    Connections {
+        target: NetworkManagerCpp
+        
+        function onAvailableNetworksChanged() {
+            networkListUpdated()
+        }
+        
+        function onConnectionSuccess() {
+            connectionSuccess()
+        }
+        
+        function onConnectionFailed(message) {
+            connectionFailed(message)
+        }
+        
+        function onNetworkError(message) {
+            connectionError(message)
+        }
+    }
     
     function enableWifi() {
         if (typeof NetworkManagerCpp !== 'undefined') {

@@ -54,6 +54,30 @@ bool DisplayManagerCpp::detectBacklightDevice()
     return false;
 }
 
+double DisplayManagerCpp::getBrightness()
+{
+    if (!m_available) {
+        return 0.5; // Default 50%
+    }
+    
+    QString brightnessPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+    
+    QFile file(brightnessPath);
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QString value = file.readAll().trimmed();
+        int currentValue = value.toInt();
+        file.close();
+        
+        // Convert to 0.0-1.0 range
+        double brightness = static_cast<double>(currentValue) / m_maxBrightness;
+        qDebug() << "[DisplayManagerCpp] Current brightness:" << currentValue << "/" << m_maxBrightness << "=" << (brightness * 100) << "%";
+        return brightness;
+    }
+    
+    qWarning() << "[DisplayManagerCpp] Failed to read brightness";
+    return 0.5; // Default fallback
+}
+
 void DisplayManagerCpp::setBrightness(double brightness)
 {
     if (!m_available) {
@@ -115,9 +139,9 @@ void DisplayManagerCpp::setScreenState(bool on)
         file.close();
         qInfo() << "[DisplayManagerCpp] Screen" << (on ? "ON" : "OFF") << "via" << blankPath;
     } else {
-        qWarning() << "[DisplayManagerCpp] Failed to set screen state: permission denied or device not found";
-        qDebug() << "[DisplayManagerCpp]   Path:" << blankPath;
-        qDebug() << "[DisplayManagerCpp]   This requires write access to framebuffer blank control";
+        // Silently fail in VM/desktop environments where framebuffer doesn't exist
+        // This is expected behavior and will work on real hardware
+        qDebug() << "[DisplayManagerCpp] Framebuffer control not available (expected in VM/desktop)";
     }
 }
 
