@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: clipboardManager
@@ -36,9 +37,9 @@ Rectangle {
             Text {
                 text: "Clipboard History"
                 color: Colors.text
-                font.pixelSize: Typography.sizeLarge
+                font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.DemiBold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 anchors.verticalCenter: parent.verticalCenter
             }
             
@@ -55,8 +56,8 @@ Rectangle {
                 Text {
                     text: "Clear"
                     color: Colors.text
-                    font.pixelSize: Typography.sizeSmall
-                    font.family: Typography.fontFamily
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
                     anchors.centerIn: parent
                 }
                 
@@ -113,8 +114,8 @@ Rectangle {
                         Text {
                             text: modelData.text
                             color: Colors.text
-                            font.pixelSize: Typography.sizeBody
-                            font.family: Typography.fontFamily
+                            font.pixelSize: MTypography.sizeBody
+                            font.family: MTypography.fontFamily
                             elide: Text.ElideRight
                             maximumLineCount: 2
                             wrapMode: Text.WordWrap
@@ -127,8 +128,8 @@ Rectangle {
                                 return Qt.formatDateTime(date, "hh:mm AP")
                             }
                             color: Colors.textTertiary
-                            font.pixelSize: Typography.sizeXSmall
-                            font.family: Typography.fontFamily
+                            font.pixelSize: MTypography.sizeXSmall
+                            font.family: MTypography.fontFamily
                         }
                     }
                     
@@ -178,8 +179,8 @@ Rectangle {
                 visible: parent.count === 0
                 text: "No clipboard history"
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 anchors.centerIn: parent
             }
         }

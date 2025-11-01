@@ -70,7 +70,56 @@ cmake --build . --parallel $CORES
 
 echo ""
 echo "Installing apps to $INSTALL_DIR..."
-cmake --install .
+# Install apps - if cmake install fails due to permission issues, manually copy apps
+set +e  # Temporarily allow errors
+cmake --install . 2>&1 | tee /tmp/cmake_install.log
+INSTALL_EXIT_CODE=${PIPESTATUS[0]}  # Get exit code of cmake, not tee
+set -e  # Re-enable error exit
+
+if [ $INSTALL_EXIT_CODE -ne 0 ]; then
+    echo "⚠️  CMake install failed (likely permission denied for system binary)"
+    echo "   Manually copying apps to $INSTALL_DIR..."
+    
+    # Manually copy each app directory from build to install
+    mkdir -p "$INSTALL_DIR"
+    
+    for app_src in "$PROJECT_ROOT/apps"/*; do
+        if [ -d "$app_src" ]; then
+            app_name=$(basename "$app_src")
+            app_dest="$INSTALL_DIR/$app_name"
+            
+            echo "   📦 Installing $app_name..."
+            mkdir -p "$app_dest"
+            
+            # Copy QML files, manifest, assets, qmldir
+            find "$app_src" -maxdepth 1 \( -name "*.qml" -o -name "manifest.json" -o -name "qmldir" \) -exec cp {} "$app_dest/" \; 2>/dev/null
+            
+            # Copy subdirectories (components, pages, assets)
+            for subdir in components pages assets; do
+                if [ -d "$app_src/$subdir" ]; then
+                    cp -r "$app_src/$subdir" "$app_dest/"
+                fi
+            done
+            
+            # Copy compiled plugins if they exist
+            if [ -f "$BUILD_DIR/$app_name/lib${app_name}-plugin.so" ]; then
+                cp "$BUILD_DIR/$app_name/lib${app_name}-plugin.so" "$app_dest/"
+            fi
+            if [ -f "$BUILD_DIR/$app_name/lib${app_name}-plugin.dylib" ]; then
+                cp "$BUILD_DIR/$app_name/lib${app_name}-plugin.dylib" "$app_dest/"
+            fi
+            
+            # Copy QML module directories (Terminal, etc)
+            for module_dir in "$BUILD_DIR/$app_name"/*; do
+                if [ -d "$module_dir" ] && [[ "$(basename "$module_dir")" =~ ^[A-Z] ]]; then
+                    cp -r "$module_dir" "$app_dest/"
+                fi
+            done
+        fi
+    done
+    
+    echo "   ✅ Manual app installation complete"
+fi
 
 # Add warning file to installed apps directory
 echo "📝 Adding DO NOT EDIT warning..."

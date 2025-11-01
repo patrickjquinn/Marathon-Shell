@@ -64,9 +64,9 @@ Modal {
                     Text {
                         text: modelData
                         color: Colors.text
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: index === selectedIndex ? Font.DemiBold : Font.Normal
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 28
                     }

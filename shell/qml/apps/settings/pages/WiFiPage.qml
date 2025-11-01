@@ -51,16 +51,16 @@ SettingsPageTemplate {
                         Text {
                             text: "WiFi"
                             color: Colors.text
-                            font.pixelSize: Typography.sizeBody
+                            font.pixelSize: MTypography.sizeBody
                             font.weight: Font.DemiBold
-                            font.family: Typography.fontFamily
+                            font.family: MTypography.fontFamily
                         }
                         
                         Text {
                             text: NetworkManager.wifiEnabled ? "Enabled" : "Disabled"
                             color: Colors.textSecondary
-                            font.pixelSize: Typography.sizeSmall
-                            font.family: Typography.fontFamily
+                            font.pixelSize: MTypography.sizeSmall
+                            font.family: MTypography.fontFamily
                         }
                     }
                     
@@ -116,9 +116,9 @@ SettingsPageTemplate {
                             Text {
                                 text: NetworkManager.wifiSsid || "Connected"
                                 color: Colors.text
-                                font.pixelSize: Typography.sizeBody
+                                font.pixelSize: MTypography.sizeBody
                                 font.weight: Font.DemiBold
-                                font.family: Typography.fontFamily
+                                font.family: MTypography.fontFamily
                                 elide: Text.ElideRight
                                 width: parent.width
                             }
@@ -126,8 +126,8 @@ SettingsPageTemplate {
                             Text {
                                 text: "Connected • " + NetworkManager.wifiSignalStrength + "% signal"
                                 color: Colors.textSecondary
-                                font.pixelSize: Typography.sizeSmall
-                                font.family: Typography.fontFamily
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
                             }
                         }
                         
@@ -175,8 +175,8 @@ SettingsPageTemplate {
                     Text {
                         text: "Scanning for networks..."
                         color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -222,9 +222,9 @@ SettingsPageTemplate {
                                     Text {
                                         text: modelData.ssid
                                         color: Colors.text
-                                        font.pixelSize: Typography.sizeBody
+                                        font.pixelSize: MTypography.sizeBody
                                         font.weight: Font.Medium
-                                        font.family: Typography.fontFamily
+                                        font.family: MTypography.fontFamily
                                         elide: Text.ElideRight
                                         width: parent.width
                                     }
@@ -235,22 +235,22 @@ SettingsPageTemplate {
                                         Text {
                                             text: modelData.security || "Open"
                                             color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            font.family: Typography.fontFamily
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                         }
                                         
                                         Text {
                                             text: "•"
                                             color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
                                             visible: modelData.frequency
                                         }
                                         
                                         Text {
                                             text: modelData.frequency ? (modelData.frequency + " GHz") : ""
                                             color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            font.family: Typography.fontFamily
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                             visible: modelData.frequency
                                         }
                                     }
@@ -283,8 +283,8 @@ SettingsPageTemplate {
                     width: parent.width
                     text: "No networks found"
                     color: Colors.textSecondary
-                    font.pixelSize: Typography.sizeBody
-                    font.family: Typography.fontFamily
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 24
                     bottomPadding: 24
@@ -315,9 +315,9 @@ SettingsPageTemplate {
                         Text {
                             text: "Scan for networks"
                             color: Qt.rgba(20, 184, 166, 1.0)
-                            font.pixelSize: Typography.sizeBody
+                            font.pixelSize: MTypography.sizeBody
                             font.weight: Font.Medium
-                            font.family: Typography.fontFamily
+                            font.family: MTypography.fontFamily
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }

@@ -24,8 +24,8 @@ SettingsPageTemplate {
             Text {
                 text: "Adjust the size of text and UI elements. Changes take effect immediately."
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
                 width: parent.width - Constants.spacingLarge * 2
             }
@@ -77,16 +77,16 @@ SettingsPageTemplate {
                                 Text {
                                     text: "75% - Compact"
                                     color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "More content, smaller text"
                                     color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -139,16 +139,16 @@ SettingsPageTemplate {
                                 Text {
                                     text: "100% - Default"
                                     color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "Recommended for most users"
                                     color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -201,16 +201,16 @@ SettingsPageTemplate {
                                 Text {
                                     text: "125% - Comfortable"
                                     color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "Larger text, easier to read"
                                     color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -263,16 +263,16 @@ SettingsPageTemplate {
                                 Text {
                                     text: "150% - Large"
                                     color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "Maximum readability"
                                     color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -291,8 +291,8 @@ SettingsPageTemplate {
             Text {
                 text: "Current: " + Math.round(Constants.scaleFactor * 100) + "% (Base: " + Math.round((Constants.screenHeight / Constants.baseHeight) * 100) + "% × User: " + Math.round(Constants.userScaleFactor * 100) + "%)"
                 color: Colors.textTertiary
-                font.pixelSize: Typography.sizeSmall
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 width: parent.width - Constants.spacingLarge * 2
                 wrapMode: Text.WordWrap
             }

@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import QtMultimedia 6.0
 import MarathonOS.Shell
 
 QtObject {
@@ -176,10 +177,78 @@ QtObject {
         _platformPlaySound(soundType)
     }
     
+    function playRingtone() {
+        if (dndEnabled) {
+            Logger.info("AudioManager", "Ringtone suppressed (DND enabled)")
+            return
+        }
+        
+        Logger.info("AudioManager", "Playing ringtone: " + currentRingtone)
+        ringtonePlayer.source = currentRingtone
+        ringtonePlayer.volume = ringtoneVolume
+        ringtonePlayer.loops = Audio.Infinite
+        ringtonePlayer.play()
+    }
+    
+    function stopRingtone() {
+        Logger.info("AudioManager", "Stopping ringtone")
+        ringtonePlayer.stop()
+    }
+    
+    function playNotificationSound() {
+        if (dndEnabled) {
+            Logger.info("AudioManager", "Notification sound suppressed (DND enabled)")
+            return
+        }
+        
+        Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound)
+        notificationPlayer.source = currentNotificationSound
+        notificationPlayer.volume = notificationVolume
+        notificationPlayer.play()
+    }
+    
+    function playAlarmSound() {
+        Logger.info("AudioManager", "Playing alarm sound: " + currentAlarmSound)
+        alarmPlayer.source = currentAlarmSound
+        alarmPlayer.volume = alarmVolume
+        alarmPlayer.loops = Audio.Infinite
+        alarmPlayer.play()
+    }
+    
+    function stopAlarmSound() {
+        Logger.info("AudioManager", "Stopping alarm sound")
+        alarmPlayer.stop()
+    }
+    
     function vibrate(pattern) {
         if (!vibrationEnabled) return
         console.log("[AudioManager] Vibrating:", pattern)
         _platformVibrate(pattern)
+    }
+    
+    // Audio players for ringtones, notifications, and alarms (Qt6 MediaPlayer + AudioOutput)
+    property var ringtonePlayer: MediaPlayer {
+        id: ringtoneAudio
+        audioOutput: AudioOutput {
+            volume: audioManager.ringtoneVolume
+        }
+        loops: MediaPlayer.Infinite
+    }
+
+    property var notificationPlayer: MediaPlayer {
+        id: notificationAudio
+        audioOutput: AudioOutput {
+            volume: audioManager.notificationVolume
+        }
+        loops: MediaPlayer.Once
+    }
+
+    property var alarmPlayer: MediaPlayer {
+        id: alarmAudio
+        audioOutput: AudioOutput {
+            volume: audioManager.alarmVolume
+        }
+        loops: MediaPlayer.Infinite
     }
     
     function _platformSetVolume(value) {

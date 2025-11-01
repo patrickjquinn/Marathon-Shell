@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: listItem
@@ -56,9 +57,9 @@ Rectangle {
             Text {
                 text: title
                 color: Colors.text
-                font.pixelSize: Typography.sizeBody
+                font.pixelSize: MTypography.sizeBody
                 font.weight: Font.DemiBold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 elide: Text.ElideRight
                 width: parent.width
             }
@@ -66,8 +67,8 @@ Rectangle {
             Text {
                 text: subtitle
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeSmall
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 elide: Text.ElideRight
                 width: parent.width
             }
@@ -77,8 +78,8 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             text: time
             color: Colors.textTertiary
-            font.pixelSize: Typography.sizeSmall
-            font.family: Typography.fontFamily
+            font.pixelSize: MTypography.sizeSmall
+            font.family: MTypography.fontFamily
         }
         
         Rectangle {

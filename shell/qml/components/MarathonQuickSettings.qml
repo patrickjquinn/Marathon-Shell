@@ -4,6 +4,7 @@ import MarathonOS.Shell
 import "../MarathonUI/Theme"
 import "../MarathonUI/Controls"
 import "."
+import MarathonUI.Theme
 
 Rectangle {
     id: quickSettings
@@ -143,7 +144,7 @@ Rectangle {
                 color: MColors.text
                 font.pixelSize: Constants.fontSizeMedium
                 font.weight: Font.Normal
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 anchors.left: parent.left
             }
             
@@ -234,7 +235,7 @@ Rectangle {
                     color: MColors.text
                     font.pixelSize: Constants.fontSizeMedium
                     font.weight: Font.Medium
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                 }
                 
                 MSlider {
@@ -258,7 +259,7 @@ Rectangle {
                     color: MColors.text
                     font.pixelSize: Constants.fontSizeMedium
                     font.weight: Font.Medium
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                 }
                 
                 MSlider {

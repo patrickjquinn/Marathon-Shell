@@ -20,17 +20,17 @@ Item {
         Text {
             text: title
             color: Colors.text
-            font.pixelSize: Typography.sizeLarge
+            font.pixelSize: MTypography.sizeLarge
             font.weight: Font.DemiBold
-            font.family: Typography.fontFamily
+            font.family: MTypography.fontFamily
         }
         
         Text {
             visible: subtitle !== ""
             text: subtitle
             color: Colors.textSecondary
-            font.pixelSize: Typography.sizeSmall
-            font.family: Typography.fontFamily
+            font.pixelSize: MTypography.sizeSmall
+            font.family: MTypography.fontFamily
             wrapMode: Text.WordWrap
             width: parent.width
             opacity: 0.7

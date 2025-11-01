@@ -210,5 +210,17 @@
     <qresource prefix="/">
         <file alias="marathon-config.json">../marathon-config.json</file>
     </qresource>
+    <qresource prefix="/fonts">
+        <file alias="Slate-Light.ttf">resources/fonts/SlateLight.TTF</file>
+        <file alias="Slate-LightItalic.ttf">resources/fonts/SlateLightIt.TTF</file>
+        <file alias="Slate-Book.ttf">resources/fonts/SlateBook.TTF</file>
+        <file alias="Slate-BookItalic.ttf">resources/fonts/SlateBookIt.TTF</file>
+        <file alias="Slate-Regular.ttf">resources/fonts/SlateRg.TTF</file>
+        <file alias="Slate-RegularItalic.ttf">resources/fonts/SlateRgIt.TTF</file>
+        <file alias="Slate-Medium.ttf">resources/fonts/SlateMedium.TTF</file>
+        <file alias="Slate-MediumItalic.ttf">resources/fonts/SlateMedIt.TTF</file>
+        <file alias="Slate-Bold.ttf">resources/fonts/SlateBold.TTF</file>
+        <file alias="Slate-BoldItalic.ttf">resources/fonts/SlateBoldIt.TTF</file>
+    </qresource>
 </RCC>
 

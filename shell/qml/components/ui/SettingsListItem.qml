@@ -83,9 +83,9 @@ Rectangle {
             Text {
                 text: title
                 color: Colors.text
-                font.pixelSize: Typography.sizeBody
+                font.pixelSize: MTypography.sizeBody
                 font.weight: Font.DemiBold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 elide: Text.ElideRight
                 width: parent.width
             }
@@ -94,8 +94,8 @@ Rectangle {
                 visible: subtitle !== ""
                 text: subtitle
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeSmall
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 elide: Text.ElideRight
                 width: parent.width
                 wrapMode: Text.WordWrap
@@ -116,8 +116,8 @@ Rectangle {
                 visible: value !== "" && !showToggle
                 text: value
                 color: Colors.textTertiary
-                font.pixelSize: Typography.sizeSmall
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 anchors.right: chevronImage.visible ? chevronImage.left : parent.right
                 anchors.rightMargin: chevronImage.visible ? 16 : 0
                 anchors.verticalCenter: parent.verticalCenter

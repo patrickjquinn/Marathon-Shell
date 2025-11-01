@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import "."
+import MarathonUI.Theme
 
 Item {
     id: messagingHub
@@ -50,14 +51,14 @@ Item {
                         Text {
                             text: modelData.title
                             color: Colors.text
-                            font.pixelSize: Typography.sizeBody
+                            font.pixelSize: MTypography.sizeBody
                             font.weight: Font.Bold
                         }
                         
                         Text {
                             text: modelData.content
                             color: Colors.textSecondary
-                            font.pixelSize: Typography.sizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                         }
                     }
                 }

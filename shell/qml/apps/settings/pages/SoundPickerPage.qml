@@ -37,8 +37,8 @@ SettingsPageTemplate {
             Text {
                 text: "Tap a sound to preview it"
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 width: parent.width - Constants.spacingLarge * 2
             }
             
@@ -90,8 +90,8 @@ SettingsPageTemplate {
                                     width: parent.width - Constants.iconSizeMedium - Constants.iconSizeMedium - Constants.spacingMedium * 4
                                     text: SettingsManagerCpp.formatSoundName(modelData)
                                     color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
-                                    font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeBody
+                                    font.family: MTypography.fontFamily
                                     font.weight: soundPickerPage.currentSound === modelData ? Font.DemiBold : Font.Normal
                                     elide: Text.ElideRight
                                 }

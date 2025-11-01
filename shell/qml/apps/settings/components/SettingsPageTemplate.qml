@@ -43,9 +43,9 @@ Page {
             Text {
                 text: pageTemplate.pageTitle
                 color: Colors.text
-                font.pixelSize: Typography.sizeBody
+                font.pixelSize: MTypography.sizeBody
                 font.weight: Font.DemiBold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 anchors.verticalCenter: parent.verticalCenter
             }
         }

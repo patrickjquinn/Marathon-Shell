@@ -31,7 +31,7 @@ Rectangle {
             color: hasError ? "#CC0000" : "#FFFFFF"
             font.pixelSize: Constants.fontSizeSmall
             font.weight: Font.Medium
-            font.family: Typography.fontFamily
+            font.family: MTypography.fontFamily
         }
         
         Rectangle {
@@ -56,7 +56,7 @@ Rectangle {
                 anchors.margins: 12
                 color: disabled ? "#666666" : "#FFFFFF"
                 font.pixelSize: Constants.fontSizeMedium
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 echoMode: password ? TextInput.Password : TextInput.Normal
                 enabled: !disabled
                 verticalAlignment: TextInput.AlignVCenter
@@ -83,7 +83,7 @@ Rectangle {
             text: errorText
             color: "#CC0000"
             font.pixelSize: Constants.fontSizeSmall
-            font.family: Typography.fontFamily
+            font.family: MTypography.fontFamily
         }
     }
 }

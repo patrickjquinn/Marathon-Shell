@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: appGrid
@@ -231,7 +232,7 @@ Item {
                                         color: MColors.text
                                         font.pixelSize: 10
                                         font.weight: Font.Bold
-                                        font.family: Typography.fontFamily
+                                        font.family: MTypography.fontFamily
                                         anchors.centerIn: parent
                                     }
                                 }
@@ -241,8 +242,8 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: model.name
                                 color: WallpaperStore.isDark ? MColors.text : "#000000"
-                                font.pixelSize: Typography.sizeSmall
-                                font.family: Typography.fontFamily
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
                                 font.weight: Font.DemiBold
                             }
                         }

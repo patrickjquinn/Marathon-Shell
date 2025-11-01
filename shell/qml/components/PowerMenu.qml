@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: powerMenu
@@ -54,7 +55,7 @@ Rectangle {
                 color: MColors.text
                 font.pixelSize: Constants.fontSizeLarge
                 font.weight: Font.Bold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
             }
             

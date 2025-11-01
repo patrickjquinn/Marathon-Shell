@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import "."
+import MarathonUI.Theme
 
 Item {
     id: bottomBar
@@ -52,9 +53,24 @@ Item {
         MouseArea {
             id: phoneMouseArea
             anchors.fill: parent
-            onClicked: {
-                var app = { id: "phone", name: "Phone", icon: "qrc:/images/phone.svg" }
-                appLaunched(app)
+            propagateComposedEvents: true
+            preventStealing: false
+            
+            property real startY: 0
+            
+            onPressed: (mouse) => {
+                startY = mouse.y
+            }
+            
+            onReleased: (mouse) => {
+                // Only trigger click if no significant vertical movement (not a swipe)
+                const deltaY = Math.abs(mouse.y - startY)
+                if (deltaY < 10) {
+                    var app = { id: "phone", name: "Phone", icon: "qrc:/images/phone.svg" }
+                    appLaunched(app)
+                } else {
+                    mouse.accepted = false
+                }
             }
         }
     }
@@ -175,9 +191,24 @@ Item {
         MouseArea {
             id: cameraMouseArea
             anchors.fill: parent
-            onClicked: {
-                var app = { id: "camera", name: "Camera", icon: "qrc:/images/camera.svg" }
-                appLaunched(app)
+            propagateComposedEvents: true
+            preventStealing: false
+            
+            property real startY: 0
+            
+            onPressed: (mouse) => {
+                startY = mouse.y
+            }
+            
+            onReleased: (mouse) => {
+                // Only trigger click if no significant vertical movement (not a swipe)
+                const deltaY = Math.abs(mouse.y - startY)
+                if (deltaY < 10) {
+                    var app = { id: "camera", name: "Camera", icon: "qrc:/images/camera.svg" }
+                    appLaunched(app)
+                } else {
+                    mouse.accepted = false
+                }
             }
         }
     }

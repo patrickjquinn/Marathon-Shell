@@ -47,6 +47,7 @@
 #include "src/rotationmanager.h"
 #include "src/locationmanager.h"
 #include "src/hapticmanager.h"
+#include "src/audioroutingmanager.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
@@ -303,6 +304,7 @@ int main(int argc, char *argv[])
     RotationManager *rotationManager = new RotationManager(&app);
     LocationManager *locationManager = new LocationManager(&app);
     HapticManager *hapticManager = new HapticManager(&app);
+    AudioRoutingManager *audioRoutingManager = new AudioRoutingManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
     engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
@@ -316,6 +318,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("RotationManager", rotationManager);
     engine.rootContext()->setContextProperty("LocationManager", locationManager);
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
+    engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
     
     // Register RT Scheduler for thread priority management
     RTScheduler *rtScheduler = new RTScheduler(&app);
@@ -396,6 +399,63 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("CallHistoryManager", callHistoryManager);
     engine.rootContext()->setContextProperty("SMSService", smsService);
     
+    // Wire AudioRoutingManager to TelephonyService for call audio routing
+    QObject::connect(telephonyService, &TelephonyService::callStateChanged, 
+                     audioRoutingManager, [audioRoutingManager](const QString& state) {
+        if (state == "active" || state == "incoming") {
+            audioRoutingManager->startCallAudio();
+        } else if (state == "idle" || state == "terminated") {
+            audioRoutingManager->stopCallAudio();
+        }
+    });
+    qInfo() << "[MarathonShell] ✓ Audio routing wired to telephony";
+    
+    // Wire CallHistoryManager to TelephonyService for call logging
+    // Track call start time and calculate duration
+    static qint64 callStartTime = 0;
+    static QString lastCalledNumber;
+    static bool wasIncoming = false;
+    
+    QObject::connect(telephonyService, &TelephonyService::incomingCall, 
+                     [](const QString& number) {
+        callStartTime = QDateTime::currentMSecsSinceEpoch();
+        lastCalledNumber = number;
+        wasIncoming = true;
+    });
+    
+    QObject::connect(telephonyService, &TelephonyService::callStateChanged, 
+                     callHistoryManager, [callHistoryManager, telephonyService](const QString& state) {
+        if (state == "active" && callStartTime == 0) {
+            // Outgoing call started
+            callStartTime = QDateTime::currentMSecsSinceEpoch();
+            lastCalledNumber = telephonyService->activeNumber();
+            wasIncoming = false;
+        } else if (state == "idle" || state == "terminated") {
+            // Call ended - calculate duration and log it
+            if (callStartTime > 0 && !lastCalledNumber.isEmpty()) {
+                qint64 endTime = QDateTime::currentMSecsSinceEpoch();
+                int duration = (endTime - callStartTime) / 1000; // seconds
+                
+                QString callType;
+                if (wasIncoming) {
+                    // If duration > 0, call was answered, otherwise it was missed
+                    callType = (duration > 0) ? "incoming" : "missed";
+                } else {
+                    callType = "outgoing";
+                }
+                
+                callHistoryManager->addCall(lastCalledNumber, callType, callStartTime, duration);
+                qInfo() << "[MarathonShell] ✓ Call logged:" << callType << lastCalledNumber << duration << "s";
+                
+                // Reset tracking
+                callStartTime = 0;
+                lastCalledNumber.clear();
+                wasIncoming = false;
+            }
+        }
+    });
+    qInfo() << "[MarathonShell] ✓ Call history wired to telephony";
+    
     // Register Media Library services
     MediaLibraryManager *mediaLibraryManager = new MediaLibraryManager(&app);
     MusicLibraryManager *musicLibraryManager = new MusicLibraryManager(&app);
@@ -403,14 +463,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("MediaLibraryManager", mediaLibraryManager);
     engine.rootContext()->setContextProperty("MusicLibraryManager", musicLibraryManager);
     
-    // Register notification service (D-Bus daemon)
-    NotificationService *notificationService = new NotificationService(notificationModel, &app);
-    bool notificationServiceRegistered = notificationService->registerService();
-    if (notificationServiceRegistered) {
-        qDebug() << "Notification service registered successfully";
-    } else {
-        qDebug() << "Failed to register notification service (may already be running)";
-    }
+    // Note: org.freedesktop.Notifications is handled by FreedesktopNotifications (line 367)
+    // Note: org.marathon.NotificationService is handled by MarathonNotificationService (line 361)
+    // Legacy NotificationService removed to avoid DBus path conflict
     
     // Note: Marathon apps are auto-initialized in AppModel constructor
     

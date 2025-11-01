@@ -39,9 +39,9 @@ SettingsPageTemplate {
                         Text {
                             text: "12.5 GB used of 64 GB"
                             color: Colors.text
-                            font.pixelSize: Typography.sizeLarge
+                            font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Bold
-                            font.family: Typography.fontFamily
+                            font.family: MTypography.fontFamily
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                         

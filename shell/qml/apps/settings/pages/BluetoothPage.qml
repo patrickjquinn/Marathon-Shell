@@ -51,16 +51,16 @@ SettingsPageTemplate {
                     Text {
                         text: "Bluetooth"
                         color: Colors.text
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                     }
                     
                     Text {
                         text: BluetoothManagerCpp.enabled ? (BluetoothManagerCpp.scanning ? "Scanning..." : "Enabled") : "Disabled"
                         color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
                     }
                 }
                 
@@ -126,8 +126,8 @@ SettingsPageTemplate {
                                         width: parent.width
                                         text: modelData.alias || modelData.name || modelData.address
                                         color: Colors.text
-                                        font.pixelSize: Typography.sizeBody
-                                        font.family: Typography.fontFamily
+                                        font.pixelSize: MTypography.sizeBody
+                                        font.family: MTypography.fontFamily
                                         elide: Text.ElideRight
                                     }
                                     
@@ -135,8 +135,8 @@ SettingsPageTemplate {
                                         width: parent.width
                                         text: modelData.connected ? "Connected" : "Not connected"
                                         color: modelData.connected ? Colors.accent : Colors.textSecondary
-                                        font.pixelSize: Typography.sizeSmall
-                                        font.family: Typography.fontFamily
+                                        font.pixelSize: MTypography.sizeSmall
+                                        font.family: MTypography.fontFamily
                                     }
                                 }
                                 
@@ -232,8 +232,8 @@ SettingsPageTemplate {
                                             width: parent.width
                                             text: modelData.alias || modelData.name || modelData.address
                                             color: Colors.text
-                                            font.pixelSize: Typography.sizeBody
-                                            font.family: Typography.fontFamily
+                                            font.pixelSize: MTypography.sizeBody
+                                            font.family: MTypography.fontFamily
                                             elide: Text.ElideRight
                                         }
                                         
@@ -241,8 +241,8 @@ SettingsPageTemplate {
                                             width: parent.width
                                             text: modelData.rssi ? "Signal: " + modelData.rssi + " dBm" : "Available"
                                             color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            font.family: Typography.fontFamily
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                         }
                                     }
                                 }
@@ -263,8 +263,8 @@ SettingsPageTemplate {
                         width: parent.width
                         text: BluetoothManagerCpp.scanning ? "Scanning for devices..." : "No devices found"
                         color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         horizontalAlignment: Text.AlignHCenter
                         topPadding: Constants.spacingLarge
                         bottomPadding: Constants.spacingLarge

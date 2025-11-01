@@ -67,9 +67,9 @@ Item {
                 Text {
                     text: "Share"
                     color: Colors.text
-                    font.pixelSize: Typography.sizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.DemiBold
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 
@@ -144,8 +144,8 @@ Item {
                         Text {
                             text: modelData.name
                             color: Colors.text
-                            font.pixelSize: Typography.sizeSmall
-                            font.family: Typography.fontFamily
+                            font.pixelSize: MTypography.sizeSmall
+                            font.family: MTypography.fontFamily
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }

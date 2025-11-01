@@ -24,8 +24,8 @@ SettingsPageTemplate {
             Text {
                 text: "Choose a wallpaper for your home screen"
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 width: parent.width - Constants.spacingLarge * 2
             }
             
@@ -131,8 +131,8 @@ SettingsPageTemplate {
                                 anchors.margins: Constants.spacingSmall
                                 text: modelData.name
                                 color: Colors.text
-                                font.pixelSize: Typography.sizeCaption
-                                font.family: Typography.fontFamily
+                                font.pixelSize: MTypography.sizeCaption
+                                font.family: MTypography.fontFamily
                                 font.weight: WallpaperStore.currentWallpaper === modelData.path ? Font.Bold : Font.Normal
                                 horizontalAlignment: Text.AlignHCenter
                                 

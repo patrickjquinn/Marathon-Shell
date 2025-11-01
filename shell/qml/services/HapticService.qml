@@ -86,12 +86,46 @@ QtObject {
         console.log("[HapticService] Vibration pattern:", durations)
     }
     
+    /**
+     * @brief Vibrate with a repeating pattern
+     * @param {Array<int>} pattern - [vibrate_ms, pause_ms]
+     * @param {int} repeat - Number of repetitions (-1 for infinite)
+     */
+    function vibratePattern(durations, repeat) {
+        if (!enabled || !isAvailable) return
+        
+        console.log("[HapticService] Vibration pattern:", durations, "repeat:", repeat)
+        
+        // For now, just do a single vibration
+        // In production, this would be wired to HapticManagerCpp
+        if (typeof HapticManagerCpp !== 'undefined') {
+            HapticManagerCpp.vibratePattern(durations, repeat)
+        } else {
+            vibrate(durations[0] || 500)
+        }
+    }
+    
+    /**
+     * @brief Stop any ongoing vibration
+     */
+    function stopVibration() {
+        if (!isAvailable) return
+        
+        console.log("[HapticService] Stopping vibration")
+        
+        if (typeof HapticManagerCpp !== 'undefined') {
+            HapticManagerCpp.stopVibration()
+        }
+    }
+    
     function vibrate(duration) {
         if (!enabled || !isAvailable) return
         
         console.log("[HapticService] Vibrate:", duration + "ms")
         
-        if (Platform.isLinux) {
+        if (typeof HapticManagerCpp !== 'undefined') {
+            HapticManagerCpp.vibrate(duration)
+        } else if (Platform.isLinux) {
             _vibrateLinux(duration)
         } else if (Platform.isAndroid) {
             _vibrateAndroid(duration)

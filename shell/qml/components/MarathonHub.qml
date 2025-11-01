@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import "."
+import MarathonUI.Theme
 
 Rectangle {
     id: hub
@@ -101,8 +102,8 @@ Rectangle {
                             Text {
                                 text: modelData.name
                                 color: index === hub.selectedTabIndex ? hub.cachedAccentBright : MColors.textSecondary
-                                font.pixelSize: Typography.sizeXSmall
-                                font.family: Typography.fontFamily
+                                font.pixelSize: MTypography.sizeXSmall
+                                font.family: MTypography.fontFamily
                                 font.weight: index === hub.selectedTabIndex ? Font.DemiBold : Font.Normal
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.7)
@@ -194,9 +195,9 @@ Rectangle {
                             Text {
                                 text: model.title
                                 color: model.isRead ? MColors.textSecondary : MColors.text
-                                font.pixelSize: Typography.sizeBody
+                                font.pixelSize: MTypography.sizeBody
                                 font.weight: model.isRead ? Font.Normal : Font.Bold
-                                font.family: Typography.fontFamily
+                                font.family: MTypography.fontFamily
                                 elide: Text.ElideRight
                                 width: parent.width
                             }
@@ -204,8 +205,8 @@ Rectangle {
                             Text {
                                 text: model.body || ""
                                 color: MColors.textSecondary
-                                font.pixelSize: Typography.sizeSmall
-                                font.family: Typography.fontFamily
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
                                 width: parent.width
                                 elide: Text.ElideRight
                                 maximumLineCount: 2
@@ -221,8 +222,8 @@ Rectangle {
                             Text {
                                 text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
                                 color: MColors.textSecondary
-                                font.pixelSize: Typography.sizeXSmall
-                                font.family: Typography.fontFamily
+                                font.pixelSize: MTypography.sizeXSmall
+                                font.family: MTypography.fontFamily
                                 anchors.right: parent.right
                             }
                             
@@ -280,9 +281,9 @@ Rectangle {
                                         return modelData
                                     }
                                     color: MColors.text
-                                    font.pixelSize: Typography.sizeSmall
+                                    font.pixelSize: MTypography.sizeSmall
                                     font.weight: Font.Medium
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                     anchors.centerIn: parent
                                 }
                                 
@@ -346,7 +347,7 @@ Rectangle {
                 visible: notificationsList.count === 0
                 text: "No notifications"
                 color: MColors.textSecondary
-                font.pixelSize: Typography.sizeBody
+                font.pixelSize: MTypography.sizeBody
                 anchors.centerIn: parent
             }
         }

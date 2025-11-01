@@ -16,7 +16,6 @@ singleton Router 1.0 core/Router.qml
 # Singletons from theme
 singleton Theme 1.0 theme/Theme.qml
 singleton Colors 1.0 theme/Colors.qml
-singleton Typography 1.0 theme/Typography.qml
 
 # Singletons from services
 singleton AlarmManager 1.0 services/AlarmManager.qml
@@ -50,4 +49,5 @@ MarathonOOBE 1.0 components/MarathonOOBE.qml
 WiFiPasswordDialog 1.0 components/WiFiPasswordDialog.qml
 BluetoothPairDialog 1.0 components/BluetoothPairDialog.qml
 ErrorToast 1.0 components/ErrorToast.qml
+IncomingCallOverlay 1.0 components/IncomingCallOverlay.qml
 

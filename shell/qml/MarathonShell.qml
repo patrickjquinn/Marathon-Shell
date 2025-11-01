@@ -2,10 +2,18 @@ import QtQuick
 import QtQuick.Window
 import "./components" as Comp
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: shell
     focus: true  // Enable keyboard input
+    
+    // Slate Font Family - bundled font resources
+    FontLoader { id: slateLight; source: "qrc:/fonts/Slate-Light.ttf" }
+    FontLoader { id: slateBook; source: "qrc:/fonts/Slate-Book.ttf" }
+    FontLoader { id: slateRegular; source: "qrc:/fonts/Slate-Regular.ttf" }
+    FontLoader { id: slateMedium; source: "qrc:/fonts/Slate-Medium.ttf" }
+    FontLoader { id: slateBold; source: "qrc:/fonts/Slate-Bold.ttf" }
     
     property var compositor: null
     property var pendingNativeApp: null
@@ -38,6 +46,99 @@ Item {
                 }
             } else {
                 Logger.warn("Shell", "App not found for deep link: " + appId)
+            }
+        }
+    }
+    
+    // Handle notification clicks (deep linking)
+    Connections {
+        target: NotificationService
+        
+        function onNotificationClicked(id) {
+            Logger.info("Shell", "Notification clicked: " + id)
+            
+            // Find the notification
+            var notification = null
+            for (var i = 0; i < NotificationService.notifications.length; i++) {
+                if (NotificationService.notifications[i].id === id) {
+                    notification = NotificationService.notifications[i]
+                    break
+                }
+            }
+            
+            if (!notification) {
+                Logger.warn("Shell", "Notification not found: " + id)
+                return
+            }
+            
+            // Handle deep link based on notification type
+            var appId = notification.appId
+            
+            if (appId === "phone") {
+                // Open phone app
+                NavigationRouter.navigate(appId, "history", {})
+            } else if (appId === "messages") {
+                // Extract conversation ID from notification ID if it's an SMS
+                var notifId = notification.id
+                if (typeof notifId === "string" && notifId.startsWith("sms_")) {
+                    var parts = notifId.split("_")
+                    if (parts.length >= 2) {
+                        var phoneNumber = parts[1]
+                        NavigationRouter.navigate(appId, "conversation", { number: phoneNumber })
+                    } else {
+                        NavigationRouter.navigate(appId, "", {})
+                    }
+                } else {
+                    NavigationRouter.navigate(appId, "", {})
+                }
+            } else {
+                // Generic app launch
+                NavigationRouter.navigate(appId, "", {})
+            }
+            
+            // Mark notification as read
+            NotificationService.dismissNotification(id)
+        }
+        
+        function onNotificationActionTriggered(id, action) {
+            Logger.info("Shell", "Notification action: " + action + " for ID: " + id)
+            
+            // Find the notification
+            var notification = null
+            for (var i = 0; i < NotificationService.notifications.length; i++) {
+                if (NotificationService.notifications[i].id === id) {
+                    notification = NotificationService.notifications[i]
+                    break
+                }
+            }
+            
+            if (!notification) {
+                Logger.warn("Shell", "Notification not found: " + id)
+                return
+            }
+            
+            // Handle specific actions
+            if (notification.appId === "phone") {
+                if (action === "call_back") {
+                    // Extract number and initiate call
+                    var number = notification.body.replace("From: ", "")
+                    if (typeof TelephonyService !== 'undefined') {
+                        TelephonyService.dial(number)
+                    }
+                    NavigationRouter.navigate("phone", "", {})
+                } else if (action === "message") {
+                    // Open messages app with this contact
+                    var number2 = notification.body.replace("From: ", "")
+                    NavigationRouter.navigate("messages", "conversation", { number: number2 })
+                }
+            } else if (notification.appId === "messages") {
+                if (action === "reply") {
+                    // Open messages app to reply
+                    NavigationRouter.navigate("messages", "", {})
+                } else if (action === "mark_read") {
+                    // Mark as read without opening app
+                    NotificationService.dismissNotification(id)
+                }
             }
         }
     }
@@ -139,13 +240,19 @@ Item {
                 lockScreen.enabled: true
                 lockScreen.opacity: 1.0
             }
+            // ALWAYS render PIN screen underneath when locked (will show if session invalid)
+            // Opacity fades in with swipe when session invalid, hidden when valid
             PropertyChanges {
-                pinScreen.visible: false
+                pinScreen.visible: true
                 pinScreen.enabled: false
+                pinScreen.opacity: SessionStore.checkSession() ? 0.0 : Math.pow(lockScreen.swipeProgress, 0.7)
             }
+            // Hide launcher completely when session invalid (to prevent flicker)
+            // Show and fade in when session valid (opacity fades with swipe)
             PropertyChanges {
-                mainContent.visible: false
+                mainContent.visible: SessionStore.checkSession()
                 mainContent.enabled: false
+                mainContent.opacity: SessionStore.checkSession() ? Math.pow(lockScreen.swipeProgress, 0.7) : 0.0
             }
             PropertyChanges {
                 appWindow.visible: false
@@ -157,15 +264,18 @@ Item {
         State {
             name: "pinEntry"
             PropertyChanges {
-                lockScreen.visible: false
+                lockScreen.visible: true
                 lockScreen.enabled: false
+                lockScreen.opacity: 0.0
             }
             PropertyChanges {
                 pinScreen.visible: true
                 pinScreen.enabled: true
+                pinScreen.opacity: 1.0
             }
+            // Keep mainContent rendered behind PIN screen
             PropertyChanges {
-                mainContent.visible: false
+                mainContent.visible: true
                 mainContent.enabled: false
             }
             PropertyChanges {
@@ -185,10 +295,12 @@ Item {
             PropertyChanges {
                 pinScreen.visible: false
                 pinScreen.enabled: false
+                pinScreen.opacity: 0.0
             }
             PropertyChanges {
                 mainContent.visible: true
                 mainContent.enabled: true
+                mainContent.opacity: 1.0
             }
             PropertyChanges {
                 appWindow.visible: false
@@ -245,6 +357,41 @@ Item {
             }
         },
         Transition {
+            from: "locked"
+            to: "pinEntry"
+            ParallelAnimation {
+                NumberAnimation {
+                    target: lockScreen
+                    property: "opacity"
+                    to: 0
+                    duration: 200
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: pinScreen
+                    property: "opacity"
+                    to: 1.0
+                    duration: 200
+                    easing.type: Easing.InCubic
+                }
+                PropertyAction {
+                    target: lockScreen
+                    property: "visible"
+                    value: false
+                }
+                PropertyAction {
+                    target: lockScreen
+                    property: "enabled"
+                    value: false
+                }
+                PropertyAction {
+                    target: pinScreen
+                    property: "enabled"
+                    value: true
+                }
+            }
+        },
+        Transition {
             from: "pinEntry"
             to: "home"
             SequentialAnimation {
@@ -277,13 +424,7 @@ Item {
         anchors.fill: parent
         z: Constants.zIndexMainContent
         
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 400
-                easing.type: Easing.InCubic
-            }
-        }
-        
+        // Fade in as lock screen fades out during swipe (if session valid)
         Item {
             width: parent.width
             height: Constants.statusBarHeight
@@ -770,9 +911,9 @@ Item {
                     Text {
                         text: appWindow.appName
                         color: Colors.text
-                        font.pixelSize: Typography.sizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         elide: Text.ElideRight
                         width: parent.width
                     }
@@ -780,8 +921,8 @@ Item {
                     Text {
                         text: "Running"
                         color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeXSmall
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeXSmall
+                        font.family: MTypography.fontFamily
                         opacity: 0.7
                     }
                 }
@@ -802,7 +943,7 @@ Item {
                             anchors.centerIn: parent
                             text: "×"
                             color: Colors.text
-                            font.pixelSize: Typography.sizeLarge
+                            font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Bold
                         }
                         
@@ -1008,8 +1149,37 @@ Item {
         }
         
         onCameraLaunched: {
-            Logger.info("LockScreen", "Camera launched")
+            Logger.info("LockScreen", "Camera quick action - unlocking and launching camera")
+            
+            // Unlock device first
+            if (SessionStore.checkSession()) {
+                // Session is valid, just unlock
+                SessionStore.unlock()
+            } else {
+                // Need PIN - skip PIN for quick actions (security exception for camera)
+                SessionStore.unlock()
+            }
+            
+            // Launch camera app
             UIStore.openApp("camera", "Camera", "")
+            HapticService.medium()
+        }
+        
+        onPhoneLaunched: {
+            Logger.info("LockScreen", "Phone quick action - unlocking and launching phone")
+            
+            // Unlock device first
+            if (SessionStore.checkSession()) {
+                // Session is valid, just unlock
+                SessionStore.unlock()
+            } else {
+                // Need PIN - skip PIN for quick actions (security exception for quick dial)
+                SessionStore.unlock()
+            }
+            
+            // Launch phone app
+            UIStore.openApp("phone", "Phone", "")
+            HapticService.medium()
         }
         
         onNotificationTapped: (id) => {
@@ -1526,6 +1696,174 @@ Item {
                     Logger.info("Shell", "No paired Bluetooth devices found")
                 }
             }
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // TELEPHONY & SMS INTEGRATION
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Track call state for missed call detection
+    property string lastCallState: "idle"
+    property string lastCallerNumber: ""
+    property bool callWasAnswered: false
+    
+    // Incoming Call Overlay (shows over lock screen and all content)
+    Loader {
+        id: incomingCallOverlayLoader
+        anchors.fill: parent
+        z: Constants.zIndexModalOverlay + 100
+        active: false
+        source: "qrc:/MarathonOS/Shell/qml/components/IncomingCallOverlay.qml"
+        
+        property var incomingCallOverlay: item
+        
+        Connections {
+            target: incomingCallOverlayLoader.item
+            function onAnswered() {
+                callWasAnswered = true
+                Logger.info("Shell", "Call answered by user")
+            }
+            
+            function onDeclined() {
+                callWasAnswered = false
+                Logger.info("Shell", "Call declined by user")
+            }
+        }
+    }
+    
+    // TelephonyService Integration (C++ backend)
+    Connections {
+        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
+        
+        function onIncomingCall(number) {
+            Logger.info("Shell", "📞 INCOMING CALL from: " + number)
+            
+            lastCallerNumber = number
+            callWasAnswered = false
+            
+            // Wake device and turn on screen
+            WakeManager.wake("call")
+            DisplayManager.turnScreenOn()
+            
+            // Show incoming call overlay over lock screen
+            var contactName = resolveContactName(number)
+            incomingCallOverlayLoader.active = true
+            if (incomingCallOverlayLoader.item) {
+                incomingCallOverlayLoader.item.show(number, contactName)
+            }
+            
+            // Haptic feedback - continuous vibration
+            if (typeof HapticService !== 'undefined') {
+                HapticService.vibratePattern([1000, 500], -1) // Continuous
+            }
+        }
+        
+        function onCallStateChanged(state) {
+            Logger.info("Shell", "📞 Call state changed: " + state)
+            
+            // Detect missed call (went from "incoming" to "idle"/"terminated" without being answered)
+            if (lastCallState === "incoming" && (state === "idle" || state === "terminated")) {
+                if (!callWasAnswered) {
+                    Logger.info("Shell", "📞 MISSED CALL from: " + lastCallerNumber)
+                    createMissedCallNotification(lastCallerNumber)
+                }
+            }
+            
+            // Hide incoming call overlay when call ends or is answered
+            if (state === "active" || state === "idle" || state === "terminated") {
+                if (incomingCallOverlayLoader.item && incomingCallOverlayLoader.item.visible) {
+                    incomingCallOverlayLoader.item.hide()
+                    incomingCallOverlayLoader.active = false
+                }
+                
+                // Stop vibration
+                if (typeof HapticService !== 'undefined') {
+                    HapticService.stopVibration()
+                }
+            }
+            
+            lastCallState = state
+        }
+    }
+    
+    // SMSService Integration (C++ backend)
+    Connections {
+        target: typeof SMSService !== 'undefined' ? SMSService : null
+        
+        function onMessageReceived(sender, text, timestamp) {
+            Logger.info("Shell", "💬 SMS RECEIVED from: " + sender)
+            
+            // Wake device briefly
+            WakeManager.wake("notification")
+            
+            // Create notification
+            var contactName = resolveContactName(sender)
+            NotificationService.addNotification({
+                id: "sms_" + sender + "_" + timestamp,
+                appId: "messages",
+                appName: "Messages",
+                title: contactName,
+                body: text,
+                icon: "message-circle",
+                timestamp: timestamp,
+                actions: [
+                    { id: "reply", label: "Reply" },
+                    { id: "mark_read", label: "Mark Read" }
+                ],
+                priority: "high",
+                category: "message"
+            })
+            
+            // Haptic feedback
+            if (typeof HapticService !== 'undefined') {
+                HapticService.medium()
+            }
+            
+            // Play notification sound
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playNotificationSound()
+            }
+        }
+    }
+    
+    // Helper function: Resolve contact name from phone number
+    function resolveContactName(number) {
+        // Try to get contact name from ContactsManager
+        if (typeof ContactsManager !== 'undefined') {
+            var contact = ContactsManager.getContactByNumber(number)
+            if (contact) {
+                return contact.name
+            }
+        }
+        
+        // Fallback to number
+        return number
+    }
+    
+    // Helper function: Create missed call notification
+    function createMissedCallNotification(number) {
+        var contactName = resolveContactName(number)
+        
+        NotificationService.addNotification({
+            id: "missed_call_" + number + "_" + Date.now(),
+            appId: "phone",
+            appName: "Phone",
+            title: "Missed Call",
+            body: "From: " + contactName,
+            icon: "phone-missed",
+            timestamp: Date.now(),
+            actions: [
+                { id: "call_back", label: "Call Back" },
+                { id: "message", label: "Message" }
+            ],
+            priority: "high",
+            category: "call"
+        })
+        
+        // Haptic feedback for missed call
+        if (typeof HapticService !== 'undefined') {
+            HapticService.heavy()
         }
     }
 }

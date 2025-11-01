@@ -67,7 +67,7 @@ Rectangle {
             color: disabled ? "#666666" : "#FFFFFF"
             font.pixelSize: Constants.fontSizeMedium
             font.weight: Font.Medium
-            font.family: Typography.fontFamily
+            font.family: MTypography.fontFamily
             anchors.verticalCenter: parent.verticalCenter
         }
     }

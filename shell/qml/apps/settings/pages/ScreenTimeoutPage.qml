@@ -24,8 +24,8 @@ SettingsPageTemplate {
             Text {
                 text: "Choose how long before your screen turns off"
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 width: parent.width - Constants.spacingLarge * 2
                 wrapMode: Text.WordWrap
             }
@@ -91,8 +91,8 @@ SettingsPageTemplate {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData
                                     color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
-                                    font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeBody
+                                    font.family: MTypography.fontFamily
                                     font.weight: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Font.DemiBold : Font.Normal
                                 }
                             }

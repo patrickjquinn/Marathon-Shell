@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: statusBar
@@ -42,7 +43,7 @@ Item {
             text: SystemStatusStore.batteryLevel + "%"
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
             font.pixelSize: Constants.fontSizeSmall
-            font.family: Typography.fontFamily
+            font.family: MTypography.fontFamily
             anchors.verticalCenter: parent.verticalCenter
         }
     }
