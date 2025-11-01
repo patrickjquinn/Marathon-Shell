@@ -43,9 +43,14 @@
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
 #include "src/configmanager.h"
+#include "src/mpris2controller.h"
+#include "src/rotationmanager.h"
+#include "src/locationmanager.h"
+#include "src/hapticmanager.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
+#include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
 #include "src/dbus/marathonstorageservice.h"
 #include "src/dbus/marathonsettingsservice.h"
@@ -244,6 +249,11 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("MarathonConfig", configManager);
     qInfo() << "[MarathonShell] ✓ Configuration loaded from marathon-config.json";
     
+    // Initialize MPRIS2 Controller (media player control)
+    MPRIS2Controller *mpris2Controller = new MPRIS2Controller(&app);
+    engine.rootContext()->setContextProperty("MPRIS2Controller", mpris2Controller);
+    qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
+    
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
     WaylandCompositorManager *compositorManager = new WaylandCompositorManager(&app);
     engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
@@ -290,6 +300,9 @@ int main(int argc, char *argv[])
     SettingsManager *settingsManager = new SettingsManager(&app);
     StorageManager *storageManager = new StorageManager(&app);
     BluetoothManager *bluetoothManager = new BluetoothManager(&app);
+    RotationManager *rotationManager = new RotationManager(&app);
+    LocationManager *locationManager = new LocationManager(&app);
+    HapticManager *hapticManager = new HapticManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
     engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
@@ -300,6 +313,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
+    engine.rootContext()->setContextProperty("RotationManager", rotationManager);
+    engine.rootContext()->setContextProperty("LocationManager", locationManager);
+    engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     
     // Register RT Scheduler for thread priority management
     RTScheduler *rtScheduler = new RTScheduler(&app);
@@ -344,6 +360,12 @@ int main(int argc, char *argv[])
             qInfo() << "[MarathonShell]   ✓ NotificationService registered";
         }
         
+        // Register freedesktop.org Notifications (standard interface for 3rd-party apps)
+        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, &app);
+        if (freedesktopNotif->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
+        }
+        
         // Register StorageService
         MarathonStorageService *storageService = new MarathonStorageService(storageManager, &app);
         if (storageService->registerService()) {
@@ -356,7 +378,7 @@ int main(int argc, char *argv[])
             qInfo() << "[MarathonShell]   ✓ SettingsService registered";
         }
         
-        qInfo() << "[MarathonShell] Service bus ready (5 services active)";
+        qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
     
     // Register Telephony & Messaging services

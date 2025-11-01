@@ -44,7 +44,7 @@ Item {
     
     Component.onCompleted: {
         // Load persisted settings
-        Constants.userScaleFactor = SettingsManagerCpp.userScaleFactor
+        // userScaleFactor is now managed by Binding in Constants.qml
         WallpaperStore.currentWallpaper = SettingsManagerCpp.wallpaperPath
         
         // Initialize responsive sizing system
@@ -90,18 +90,26 @@ Item {
         console.log("[DEBUG] Compositor socketName:", compositor ? compositor.socketName : "N/A")
         Logger.info("Shell", compositor ? "Compositor created successfully" : "Compositor is NULL")
         
-        // Test if compositor signals are connected
+        // Compositor signals are handled by Connections object below
         if (compositor) {
-            console.log("[DEBUG] About to connect surfaceCreated signal...")
-            Logger.info("Shell", "Testing compositor signal connection...")
-            compositor.surfaceCreated.connect(function(surface, surfaceId, xdgSurface) {
-                console.log("[DEBUG] !!!!! DIRECT SIGNAL FIRED - surfaceId:", surfaceId)
-                Logger.info("Shell", "!!!!! DIRECT SIGNAL CONNECTION FIRED - surfaceId: " + surfaceId)
-            })
-            console.log("[DEBUG] Signal connected successfully")
+            Logger.info("Shell", "Compositor initialized successfully")
         } else {
-            console.log("[DEBUG] Compositor is null, cannot connect signal")
+            Logger.warn("Shell", "Compositor is null")
         }
+        
+        // Start Bluetooth auto-reconnect timer
+        if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
+            bluetoothReconnectTimer.start()
+        }
+        
+        // Log system services status
+        Logger.info("Shell", "System Services:")
+        Logger.info("Shell", "  - NetworkManager: " + (typeof NetworkManagerCpp !== 'undefined' ? "✓" : "✗"))
+        Logger.info("Shell", "  - PowerManager: " + (typeof PowerManagerCpp !== 'undefined' ? "✓" : "✗"))
+        Logger.info("Shell", "  - AudioManager: " + (typeof AudioManagerCpp !== 'undefined' ? "✓" : "✗"))
+        Logger.info("Shell", "  - BluetoothManager: " + (typeof BluetoothManagerCpp !== 'undefined' ? "✓" : "✗"))
+        Logger.info("Shell", "  - ModemManager: " + (typeof ModemManagerCpp !== 'undefined' ? "✓" : "✗"))
+        Logger.info("Shell", "  - MPRIS2Controller: " + (typeof MPRIS2Controller !== 'undefined' ? "✓" : "✗"))
     }
     
     // Handle window resize (for desktop/tablet)
@@ -117,8 +125,11 @@ Item {
     }
     
     // State-based navigation using centralized stores
-    state: SessionStore.isLocked ? (showPinScreen ? "pinEntry" : "locked") : 
-           (UIStore.appWindowOpen ? "app" : "home")
+    // Don't show lock screen until OOBE is complete
+    state: SettingsManagerCpp.firstRunComplete ? 
+           (SessionStore.isLocked ? (showPinScreen ? "pinEntry" : "locked") : 
+            (UIStore.appWindowOpen ? "app" : "home")) : 
+           "home"
     
     states: [
         State {
@@ -1134,6 +1145,22 @@ Item {
         id: screenshotPreview
     }
     
+    // Wire screenshot service to preview
+    Connections {
+        target: ScreenshotService
+        
+        function onScreenshotCaptured(filePath, thumbnail) {
+            Logger.info("Shell", "Screenshot captured: " + filePath)
+            screenshotPreview.show(filePath, thumbnail)
+            HapticService.medium()
+        }
+        
+        function onScreenshotFailed(error) {
+            Logger.error("Shell", "Screenshot failed: " + error)
+            // TODO: Show error toast
+        }
+    }
+    
     ShareSheet {
         id: shareSheet
     }
@@ -1148,6 +1175,119 @@ Item {
     
     ConnectionToast {
         id: connectionToast
+    }
+    
+    // Error toast for system-wide error notifications
+    ErrorToast {
+        id: errorToast
+    }
+    
+    // Wire network manager to connection toast
+    Connections {
+        target: NetworkManager
+        
+        function onWifiConnectedChanged() {
+            if (NetworkManager.wifiConnected) {
+                connectionToast.show("Connected to Wi-Fi", "wifi")
+            } else if (NetworkManager.wifiEnabled && !NetworkManager.wifiConnected) {
+                connectionToast.show("Wi-Fi disconnected", "wifi-off")
+            }
+        }
+        
+        function onEthernetConnectedChanged() {
+            if (NetworkManager.ethernetConnected) {
+                connectionToast.show("Connected to Ethernet", "plug-zap")
+            } else if (!NetworkManager.ethernetConnected && !NetworkManager.wifiConnected) {
+                connectionToast.show("No network connection", "wifi-off")
+            }
+        }
+    }
+    
+    // Battery warning state tracking
+    property int lastBatteryWarningLevel: 100
+    property bool hasShownCriticalWarning: false
+    
+    // Battery level monitoring for warnings
+    Connections {
+        target: typeof PowerManager !== 'undefined' ? PowerManager : null
+        
+        function onBatteryLevelChanged() {
+            let level = PowerManager.batteryLevel
+            let isCharging = PowerManager.isCharging
+            
+            // Don't show warnings while charging
+            if (isCharging) {
+                lastBatteryWarningLevel = 100
+                hasShownCriticalWarning = false
+                return
+            }
+            
+            // Critical battery (3%) - Emergency shutdown
+            if (level <= 3 && !hasShownCriticalWarning) {
+                Logger.critical("Battery", "Critical battery level: " + level + "% - Initiating emergency shutdown")
+                errorToast.show("Critical Battery", "Device will shutdown in 10 seconds to prevent data loss", "battery-warning")
+                HapticService.heavy()
+                hasShownCriticalWarning = true
+                
+                // Countdown to shutdown
+                criticalBatteryShutdownTimer.start()
+            }
+            // Battery warnings at threshold crossings (prevent spam)
+            else if (level <= 5 && lastBatteryWarningLevel > 5) {
+                Logger.warn("Battery", "Very low battery: " + level + "%")
+                errorToast.show("Very Low Battery", level + "% remaining. Connect charger immediately.", "battery-warning")
+                HapticService.heavy()
+                lastBatteryWarningLevel = 5
+            }
+            else if (level <= 10 && lastBatteryWarningLevel > 10) {
+                Logger.warn("Battery", "Low battery: " + level + "%")
+                errorToast.show("Low Battery", level + "% remaining. Connect charger soon.", "battery")
+                HapticService.medium()
+                lastBatteryWarningLevel = 10
+            }
+            else if (level <= 20 && lastBatteryWarningLevel > 20) {
+                Logger.info("Battery", "Battery getting low: " + level + "%")
+                errorToast.show("Battery Low", level + "% remaining", "battery")
+                HapticService.light()
+                lastBatteryWarningLevel = 20
+            }
+        }
+    }
+    
+    // Critical battery shutdown timer
+    Timer {
+        id: criticalBatteryShutdownTimer
+        interval: 10000 // 10 seconds
+        repeat: false
+        onTriggered: {
+            Logger.critical("Battery", "Emergency shutdown due to critical battery")
+            if (PowerManager) {
+                PowerManager.shutdown()
+            }
+        }
+    }
+    
+    Comp.MarathonAlarmOverlay {
+        id: alarmOverlay
+    }
+    
+    // Out-of-Box Experience (OOBE) - First-run setup
+    MarathonOOBE {
+        id: oobeWizard
+        onSetupComplete: {
+            Logger.info("Shell", "OOBE setup completed")
+        }
+    }
+    
+    // Wire alarm manager to overlay
+    Connections {
+        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
+        
+        function onAlarmTriggered(alarm) {
+            Logger.info("Shell", "Alarm triggered: " + alarm.title)
+            alarmOverlay.show(alarm)
+            HapticService.heavy()
+        }
     }
     
     VirtualKeyboard {
@@ -1352,6 +1492,40 @@ Item {
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu")
             PowerManager.shutdown()
+        }
+    }
+    
+    // Bluetooth auto-reconnect timer (delayed to let system settle)
+    Timer {
+        id: bluetoothReconnectTimer
+        interval: 5000 // Wait 5 seconds after boot
+        repeat: false
+        onTriggered: {
+            if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
+                Logger.info("Shell", "Attempting Bluetooth auto-reconnect...")
+                
+                // Get list of paired devices
+                var pairedDevices = BluetoothManagerCpp.pairedDevices
+                
+                if (pairedDevices && pairedDevices.length > 0) {
+                    Logger.info("Shell", "Found " + pairedDevices.length + " paired devices, attempting reconnect")
+                    
+                    // Try to reconnect to each paired device
+                    for (var i = 0; i < pairedDevices.length; i++) {
+                        var device = pairedDevices[i]
+                        
+                        // Only reconnect if device is not already connected
+                        if (!device.connected) {
+                            Logger.info("Shell", "Reconnecting to: " + device.name + " (" + device.address + ")")
+                            BluetoothManagerCpp.connectDevice(device.address)
+                        } else {
+                            Logger.info("Shell", "Device already connected: " + device.name)
+                        }
+                    }
+                } else {
+                    Logger.info("Shell", "No paired Bluetooth devices found")
+                }
+            }
         }
     }
 }

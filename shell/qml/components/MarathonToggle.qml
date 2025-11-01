@@ -64,8 +64,9 @@ Item {
         anchors.fill: parent
         anchors.margins: -8
         onClicked: {
-            checked = !checked
-            toggled(checked)
+            // Emit signal without breaking binding
+            // Parent should handle the state change
+            toggled(!checked)
         }
     }
 }

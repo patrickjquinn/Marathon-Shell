@@ -9,7 +9,15 @@ QtObject {
     property real minBrightness: 0.1
     property real maxBrightness: 1.0
     
-    property bool autoBrightnessEnabled: SettingsManagerCpp.autoBrightness
+    property bool autoBrightnessEnabled: false  // Managed by binding below
+    
+    // Two-way binding with restore mode (as property)
+    property Binding autoBrightnessBinding: Binding {
+        target: displayManager
+        property: "autoBrightnessEnabled"
+        value: SettingsManagerCpp.autoBrightness
+        restoreMode: Binding.RestoreBinding
+    }
     property bool nightModeEnabled: false
     property int nightModeTemperature: 3400
     

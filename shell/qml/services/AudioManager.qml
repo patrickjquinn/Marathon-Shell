@@ -22,11 +22,11 @@ QtObject {
     property bool headphonesConnected: false
     property bool bluetoothAudioConnected: false
     
-    property real mediaVolume: 0.6
-    property real ringtoneVolume: 0.8
-    property real alarmVolume: 0.9
-    property real notificationVolume: 0.7
-    property real systemVolume: 0.5
+    property real mediaVolume: SettingsManagerCpp.mediaVolume
+    property real ringtoneVolume: SettingsManagerCpp.ringtoneVolume
+    property real alarmVolume: SettingsManagerCpp.alarmVolume
+    property real notificationVolume: SettingsManagerCpp.notificationVolume
+    property real systemVolume: SettingsManagerCpp.systemVolume
     
     // Sound file properties
     property string currentRingtone: SettingsManagerCpp.ringtone
@@ -139,25 +139,36 @@ QtObject {
     function setMediaVolume(value) {
         var clamped = Math.max(minVolume, Math.min(maxVolume, value))
         mediaVolume = clamped
+        SettingsManagerCpp.mediaVolume = clamped
         _platformSetStreamVolume("media", clamped)
     }
     
     function setRingtoneVolume(value) {
         var clamped = Math.max(minVolume, Math.min(maxVolume, value))
         ringtoneVolume = clamped
+        SettingsManagerCpp.ringtoneVolume = clamped
         _platformSetStreamVolume("ringtone", clamped)
     }
     
     function setAlarmVolume(value) {
         var clamped = Math.max(minVolume, Math.min(maxVolume, value))
         alarmVolume = clamped
+        SettingsManagerCpp.alarmVolume = clamped
         _platformSetStreamVolume("alarm", clamped)
     }
     
     function setNotificationVolume(value) {
         var clamped = Math.max(minVolume, Math.min(maxVolume, value))
         notificationVolume = clamped
+        SettingsManagerCpp.notificationVolume = clamped
         _platformSetStreamVolume("notification", clamped)
+    }
+    
+    function setSystemVolume(value) {
+        var clamped = Math.max(minVolume, Math.min(maxVolume, value))
+        systemVolume = clamped
+        SettingsManagerCpp.systemVolume = clamped
+        _platformSetStreamVolume("system", clamped)
     }
     
     function playSound(soundType) {

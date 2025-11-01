@@ -24,6 +24,11 @@ class SettingsManager : public QObject {
     Q_PROPERTY(QString ringtone READ ringtone WRITE setRingtone NOTIFY ringtoneChanged)
     Q_PROPERTY(QString notificationSound READ notificationSound WRITE setNotificationSound NOTIFY notificationSoundChanged)
     Q_PROPERTY(QString alarmSound READ alarmSound WRITE setAlarmSound NOTIFY alarmSoundChanged)
+    Q_PROPERTY(qreal mediaVolume READ mediaVolume WRITE setMediaVolume NOTIFY mediaVolumeChanged)
+    Q_PROPERTY(qreal ringtoneVolume READ ringtoneVolume WRITE setRingtoneVolume NOTIFY ringtoneVolumeChanged)
+    Q_PROPERTY(qreal alarmVolume READ alarmVolume WRITE setAlarmVolume NOTIFY alarmVolumeChanged)
+    Q_PROPERTY(qreal notificationVolume READ notificationVolume WRITE setNotificationVolume NOTIFY notificationVolumeChanged)
+    Q_PROPERTY(qreal systemVolume READ systemVolume WRITE setSystemVolume NOTIFY systemVolumeChanged)
     
     // Display properties
     Q_PROPERTY(int screenTimeout READ screenTimeout WRITE setScreenTimeout NOTIFY screenTimeoutChanged)
@@ -32,6 +37,9 @@ class SettingsManager : public QObject {
     
     // Notification properties
     Q_PROPERTY(bool showNotificationsOnLockScreen READ showNotificationsOnLockScreen WRITE setShowNotificationsOnLockScreen NOTIFY showNotificationsOnLockScreenChanged)
+    
+    // OOBE properties
+    Q_PROPERTY(bool firstRunComplete READ firstRunComplete WRITE setFirstRunComplete NOTIFY firstRunCompleteChanged)
 
 public:
     explicit SettingsManager(QObject *parent = nullptr);
@@ -53,6 +61,11 @@ public:
     QString ringtone() const { return m_ringtone; }
     QString notificationSound() const { return m_notificationSound; }
     QString alarmSound() const { return m_alarmSound; }
+    qreal mediaVolume() const { return m_mediaVolume; }
+    qreal ringtoneVolume() const { return m_ringtoneVolume; }
+    qreal alarmVolume() const { return m_alarmVolume; }
+    qreal notificationVolume() const { return m_notificationVolume; }
+    qreal systemVolume() const { return m_systemVolume; }
     
     // Display getters
     int screenTimeout() const { return m_screenTimeout; }
@@ -61,6 +74,9 @@ public:
     
     // Notification getters
     bool showNotificationsOnLockScreen() const { return m_showNotificationsOnLockScreen; }
+    
+    // OOBE getters
+    bool firstRunComplete() const { return m_firstRunComplete; }
 
     // Existing setters
     void setUserScaleFactor(qreal factor);
@@ -78,6 +94,11 @@ public:
     void setRingtone(const QString &path);
     void setNotificationSound(const QString &path);
     void setAlarmSound(const QString &path);
+    void setMediaVolume(qreal volume);
+    void setRingtoneVolume(qreal volume);
+    void setAlarmVolume(qreal volume);
+    void setNotificationVolume(qreal volume);
+    void setSystemVolume(qreal volume);
     
     // Display setters
     void setScreenTimeout(int ms);
@@ -86,6 +107,9 @@ public:
     
     // Notification setters
     void setShowNotificationsOnLockScreen(bool enabled);
+    
+    // OOBE setters
+    void setFirstRunComplete(bool complete);
 
     // Invokable methods for sound lists
     Q_INVOKABLE QStringList availableRingtones();
@@ -117,6 +141,11 @@ signals:
     void ringtoneChanged();
     void notificationSoundChanged();
     void alarmSoundChanged();
+    void mediaVolumeChanged();
+    void ringtoneVolumeChanged();
+    void alarmVolumeChanged();
+    void notificationVolumeChanged();
+    void systemVolumeChanged();
     
     // Display signals
     void screenTimeoutChanged();
@@ -125,6 +154,9 @@ signals:
     
     // Notification signals
     void showNotificationsOnLockScreenChanged();
+    
+    // OOBE signals
+    void firstRunCompleteChanged();
 
 private:
     void load();
@@ -148,6 +180,11 @@ private:
     QString m_ringtone;
     QString m_notificationSound;
     QString m_alarmSound;
+    qreal m_mediaVolume;
+    qreal m_ringtoneVolume;
+    qreal m_alarmVolume;
+    qreal m_notificationVolume;
+    qreal m_systemVolume;
     
     // Display members
     int m_screenTimeout;
@@ -156,4 +193,7 @@ private:
     
     // Notification members
     bool m_showNotificationsOnLockScreen;
+    
+    // OOBE members
+    bool m_firstRunComplete;
 };

@@ -28,8 +28,17 @@ QtObject {
     
     // Responsive scaling - scale everything based on ACTUAL DPI (from config)
     readonly property real baseDPI: cfg("responsive", "baseDPI", 160)
-    property real userScaleFactor: cfg("responsive", "defaultUserScaleFactor", 1.0)
+    property real userScaleFactor: 1.0  // Initialized from SettingsManagerCpp
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
+    
+    // Two-way binding for userScaleFactor
+    property Binding userScaleFactorBinding: Binding {
+        target: constants
+        property: "userScaleFactor"
+        value: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp.userScaleFactor : cfg("responsive", "defaultUserScaleFactor", 1.0)
+        restoreMode: Binding.RestoreBinding
+        when: typeof SettingsManagerCpp !== 'undefined'
+    }
     
     // Legacy height-based scaling (from config)
     readonly property real baseHeight: cfg("responsive", "baseHeight", 800)
@@ -62,6 +71,7 @@ QtObject {
     readonly property int zIndexQuickSettingsOverlay: cfg("zIndex", "quickSettingsOverlay", 1300)
     readonly property int zIndexNavBarApp: cfg("zIndex", "navBarApp", 1600)
     readonly property int zIndexStatusBarDrag: cfg("zIndex", "statusBarDrag", 1700)
+    readonly property int zIndexModalOverlay: cfg("zIndex", "modalOverlay", 2000)
     readonly property int zIndexKeyboard: cfg("zIndex", "keyboard", 3000)
     
     // =========================================================================

@@ -10,8 +10,6 @@
 #include <QSqlError>
 #include <QStandardPaths>
 #include <QDir>
-#include <QRegularExpression>
-#include <QDateTime>
 
 SMSService::SMSService(QObject *parent)
     : QObject(parent)

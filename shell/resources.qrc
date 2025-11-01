@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/images">
+        <file alias="marathon.png">resources/images/marathon.png</file>
         <file alias="phone.svg">resources/images/phone.svg</file>
         <file alias="messages.svg">resources/images/messages.svg</file>
         <file alias="browser.svg">resources/images/browser.svg</file>
@@ -32,6 +33,7 @@
         <file alias="battery-full.svg">resources/images/icons/lucide/battery-full.svg</file>
         <file alias="signal.svg">resources/images/icons/lucide/signal.svg</file>
         <file alias="plane.svg">resources/images/icons/lucide/plane.svg</file>
+        <file alias="plug-zap.svg">resources/images/icons/lucide/plug-zap.svg</file>
         <file alias="rotate-ccw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
         <file alias="volume-2.svg">resources/images/icons/lucide/volume-2.svg</file>
         <file alias="sun.svg">resources/images/icons/lucide/sun.svg</file>
@@ -77,6 +79,8 @@
         <file alias="check.svg">resources/images/icons/lucide/check.svg</file>
         <file alias="check-check.svg">resources/images/icons/lucide/check-check.svg</file>
         <file alias="arrow-left.svg">resources/images/icons/lucide/arrow-left.svg</file>
+        <file alias="check-circle.svg">resources/images/icons/lucide/check-circle.svg</file>
+        <file alias="alert-circle.svg">resources/images/icons/lucide/alert-circle.svg</file>
         <file alias="bell-off.svg">resources/images/icons/lucide/bell-off.svg</file>
         <file alias="moon.svg">resources/images/icons/lucide/moon.svg</file>
         <file alias="volume-x.svg">resources/images/icons/lucide/volume-x.svg</file>
@@ -86,6 +90,7 @@
         <file alias="wifi-off.svg">resources/images/icons/lucide/wifi-off.svg</file>
         <file alias="bluetooth-off.svg">resources/images/icons/lucide/bluetooth-off.svg</file>
         <file alias="battery-warning.svg">resources/images/icons/lucide/battery-warning.svg</file>
+        <file alias="cable.svg">resources/images/icons/lucide/cable.svg</file>
         <file alias="sliders.svg">resources/images/icons/lucide/sliders.svg</file>
         <file alias="toggle-left.svg">resources/images/icons/lucide/toggle-left.svg</file>
         <file alias="toggle-right.svg">resources/images/icons/lucide/toggle-right.svg</file>

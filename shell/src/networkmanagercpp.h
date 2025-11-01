@@ -21,6 +21,7 @@ class NetworkManagerCpp : public QObject
     Q_PROPERTY(bool bluetoothAvailable READ bluetoothAvailable NOTIFY bluetoothAvailableChanged)
     Q_PROPERTY(bool bluetoothEnabled READ bluetoothEnabled NOTIFY bluetoothEnabledChanged)
     Q_PROPERTY(bool airplaneModeEnabled READ airplaneModeEnabled NOTIFY airplaneModeEnabledChanged)
+    Q_PROPERTY(QVariantList availableNetworks READ availableNetworks NOTIFY availableNetworksChanged)
 
 public:
     explicit NetworkManagerCpp(QObject* parent = nullptr);
@@ -36,6 +37,7 @@ public:
     bool bluetoothAvailable() const { return m_bluetoothAvailable; }
     bool bluetoothEnabled() const { return m_bluetoothEnabled; }
     bool airplaneModeEnabled() const { return m_airplaneModeEnabled; }
+    QVariantList availableNetworks() const { return m_availableNetworks; }
 
     Q_INVOKABLE void enableWifi();
     Q_INVOKABLE void disableWifi();
@@ -49,6 +51,17 @@ public:
     Q_INVOKABLE void toggleBluetooth();
     
     Q_INVOKABLE void setAirplaneMode(bool enabled);
+    
+    // WiFi Hotspot
+    Q_INVOKABLE void createHotspot(const QString& ssid, const QString& password);
+    Q_INVOKABLE void stopHotspot();
+    Q_INVOKABLE bool isHotspotActive() const;
+    
+    // VPN Management
+    Q_INVOKABLE QVariantList getVpnConnections();
+    Q_INVOKABLE void connectVpn(const QString& connectionId);
+    Q_INVOKABLE void disconnectVpn(const QString& connectionId);
+    Q_INVOKABLE bool isVpnConnected(const QString& connectionId);
 
 signals:
     void wifiEnabledChanged();
@@ -62,12 +75,17 @@ signals:
     void bluetoothEnabledChanged();
     void airplaneModeEnabledChanged();
     void networkError(const QString& message);
+    void availableNetworksChanged();
+    void connectionSuccess();
+    void connectionFailed(const QString& message);
 
 private slots:
     void queryWifiState();
     void queryConnectionState();
     void updateWifiSignalStrength();
     void updateWifiDetails();
+    void scanAccessPoints();
+    void processAccessPoint(const QString& apPath);
 
 private:
     void setupDBusConnections();
@@ -90,6 +108,11 @@ private:
     bool m_wifiAvailable;
     bool m_bluetoothAvailable;
     bool m_hasNetworkManager;
+    QVariantList m_availableNetworks;
+    QString m_wifiDevicePath;
+    QTimer* m_scanTimer;
+    QString m_hotspotConnectionPath;
+    bool m_hotspotActive;
 };
 
 #endif // NETWORKMANAGERCPP_H

@@ -141,8 +141,16 @@ Rectangle {
             model: NotificationModel
             
             delegate: Rectangle {
+                id: notificationDelegate
                 width: notificationsList.width
-                height: Constants.bottomBarHeight
+                height: {
+                    var baseHeight = Constants.bottomBarHeight
+                    // Add extra height if notification has actions
+                    if (model.actions && model.actions.length > 0) {
+                        return baseHeight + 60
+                    }
+                    return baseHeight
+                }
                 color: model.isRead ? MColors.backgroundDark : MColors.surface
                 
                 Rectangle {
@@ -152,84 +160,184 @@ Rectangle {
                     color: MColors.borderOuter
                 }
                 
-                Row {
+                Column {
                     anchors.fill: parent
                     anchors.margins: 16
                     spacing: Constants.spacingMedium
                     
-                    Rectangle {
-                        width: Math.round(48 * Constants.scaleFactor)
+                    Row {
+                        width: parent.width
                         height: Math.round(48 * Constants.scaleFactor)
-                        radius: Math.round(24 * Constants.scaleFactor)
-                        color: MColors.accentDim
-                        anchors.verticalCenter: parent.verticalCenter
-                        antialiasing: Constants.enableAntialiasing
+                        spacing: Constants.spacingMedium
                         
-                        Icon {
-                            name: "bell"
-                            size: Constants.iconSizeMedium
-                            color: MColors.text
-                            anchors.centerIn: parent
+                        Rectangle {
+                            width: Math.round(48 * Constants.scaleFactor)
+                            height: Math.round(48 * Constants.scaleFactor)
+                            radius: Math.round(24 * Constants.scaleFactor)
+                            color: MColors.accentDim
+                            anchors.verticalCenter: parent.verticalCenter
+                            antialiasing: Constants.enableAntialiasing
+                            
+                            Icon {
+                                name: model.icon || "bell"
+                                size: Constants.iconSizeMedium
+                                color: MColors.text
+                                anchors.centerIn: parent
+                            }
                         }
-                    }
-                    
-                    Column {
-                        width: parent.width - 120
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Constants.spacingXSmall
                         
-                        Row {
-                            width: parent.width
-                            spacing: Constants.spacingSmall
+                        Column {
+                            width: parent.width - Math.round(48 * Constants.scaleFactor) - Math.round(72 * Constants.scaleFactor) - Constants.spacingMedium * 2
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Constants.spacingXSmall
                             
                             Text {
                                 text: model.title
                                 color: model.isRead ? MColors.textSecondary : MColors.text
                                 font.pixelSize: Typography.sizeBody
                                 font.weight: model.isRead ? Font.Normal : Font.Bold
+                                font.family: Typography.fontFamily
                                 elide: Text.ElideRight
+                                width: parent.width
+                            }
+                            
+                            Text {
+                                text: model.body || ""
+                                color: MColors.textSecondary
+                                font.pixelSize: Typography.sizeSmall
+                                font.family: Typography.fontFamily
+                                width: parent.width
+                                elide: Text.ElideRight
+                                maximumLineCount: 2
+                                wrapMode: Text.WordWrap
                             }
                         }
                         
-                        Text {
-                            text: model.body || ""
-                            color: MColors.textSecondary
-                            font.pixelSize: Typography.sizeSmall
-                            width: parent.width
-                            elide: Text.ElideRight
-                            maximumLineCount: 2
-                            wrapMode: Text.WordWrap
+                        Column {
+                            width: Math.round(72 * Constants.scaleFactor)
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Constants.spacingSmall
+                            
+                            Text {
+                                text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
+                                color: MColors.textSecondary
+                                font.pixelSize: Typography.sizeXSmall
+                                font.family: Typography.fontFamily
+                                anchors.right: parent.right
+                            }
+                            
+                            Rectangle {
+                                visible: !model.isRead
+                                width: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
+                                height: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
+                                radius: Constants.borderRadiusSharp
+                                color: MColors.accentBright
+                                anchors.right: parent.right
+                                antialiasing: Constants.enableAntialiasing
+                            }
                         }
                     }
                     
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
+                    // Action buttons row
+                    Row {
+                        width: parent.width
+                        height: 40
                         spacing: Constants.spacingSmall
+                        visible: model.actions && model.actions.length > 0
                         
-                        Text {
-                            text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
-                            color: MColors.textSecondary
-                            font.pixelSize: Typography.sizeXSmall
-                            anchors.right: parent.right
-                        }
-                        
-                        Rectangle {
-                            visible: !model.isRead
-                            width: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
-                            height: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
-                            radius: Constants.borderRadiusSharp
-                            color: MColors.accentBright
-                            anchors.right: parent.right
-                            antialiasing: Constants.enableAntialiasing
+                        Repeater {
+                            model: notificationDelegate.ListView.view.model.getNotificationActions ? 
+                                   notificationDelegate.ListView.view.model.getNotificationActions(index) : 
+                                   (notificationDelegate.ListView.view.model.get(index).actions || [])
+                            
+                            Rectangle {
+                                property int actionCount: notificationDelegate.ListView.view.model.getNotificationActions ? 
+                                                          notificationDelegate.ListView.view.model.getNotificationActions(index).length : 
+                                                          (notificationDelegate.ListView.view.model.get(index).actions ? notificationDelegate.ListView.view.model.get(index).actions.length : 0)
+                                
+                                width: actionCount > 0 ? (parent.width - (actionCount - 1) * Constants.spacingSmall) / actionCount : 0
+                                height: 40
+                                radius: Constants.borderRadiusSmall
+                                color: actionBtnMouseArea.pressed ? MColors.accentPressed : (actionBtnMouseArea.containsMouse ? MColors.accentHover : MColors.accent)
+                                border.width: Constants.borderWidthThin
+                                border.color: Qt.rgba(255, 255, 255, 0.15)
+                                antialiasing: Constants.enableAntialiasing
+                                
+                                Behavior on color {
+                                    ColorAnimation { duration: Constants.animationDurationFast }
+                                }
+                                
+                                Text {
+                                    text: {
+                                        var action = modelData.toLowerCase()
+                                        if (action === "reply") return "Reply"
+                                        if (action === "snooze") return "Snooze"
+                                        if (action === "view") return "View"
+                                        if (action === "dismiss") return "Dismiss"
+                                        if (action === "open") return "Open"
+                                        if (action === "archive") return "Archive"
+                                        if (action === "delete") return "Delete"
+                                        return modelData
+                                    }
+                                    color: MColors.text
+                                    font.pixelSize: Typography.sizeSmall
+                                    font.weight: Font.Medium
+                                    font.family: Typography.fontFamily
+                                    anchors.centerIn: parent
+                                }
+                                
+                                MouseArea {
+                                    id: actionBtnMouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    
+                                    onClicked: (mouse) => {
+                                        Logger.info("Hub", "Action clicked: " + modelData)
+                                        HapticService.light()
+                                        
+                                        // Get the notification from parent delegate
+                                        var notification = notificationDelegate.ListView.view.model.get(index)
+                                        if (notification) {
+                                            // Trigger the action
+                                            NotificationService.triggerAction(notification.id, modelData)
+                                            
+                                            // Handle specific actions
+                                            if (modelData.toLowerCase() === "reply") {
+                                                Router.launchApp(notification.appId, {"action": "reply", "notificationId": notification.id})
+                                                Router.goHome()
+                                            } else if (modelData.toLowerCase() === "snooze") {
+                                                Logger.info("Hub", "Snoozing notification for 10 minutes")
+                                                NotificationService.dismissNotification(notification.id)
+                                            } else if (modelData.toLowerCase() === "view" || modelData.toLowerCase() === "open") {
+                                                Router.launchApp(notification.appId)
+                                                Router.goHome()
+                                            } else if (modelData.toLowerCase() === "dismiss" || modelData.toLowerCase() === "delete") {
+                                                NotificationService.dismissNotification(notification.id)
+                                            } else if (modelData.toLowerCase() === "archive") {
+                                                NotificationService.dismissNotification(notification.id)
+                                            }
+                                        }
+                                        
+                                        mouse.accepted = true
+                                    }
+                                }
+                            }
                         }
                     }
                 }
                 
                 MouseArea {
                     anchors.fill: parent
+                    z: -1
                     onClicked: {
-                        console.log("Notification clicked:", model.title)
+                        Logger.info("Hub", "Notification clicked: " + model.title)
                         NotificationModel.markAsRead(model.id)
+                        
+                        // Open the app if available
+                        if (model.appId) {
+                            Router.launchApp(model.appId)
+                            Router.goHome()
+                        }
                     }
                 }
             }

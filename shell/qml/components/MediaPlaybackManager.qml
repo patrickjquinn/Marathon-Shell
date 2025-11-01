@@ -15,21 +15,14 @@ Rectangle {
     border.width: Constants.borderWidthThin
     border.color: MColors.borderOuter
     
-    // D-Bus MPRIS2 Integration (TODO: implement MPRISController C++)
-    // For now, scaffolding with placeholder state that will be replaced
-    property bool hasMedia: false  // Will be set by MPRISController
-    property bool isPlaying: false
-    property string trackTitle: "No media playing"
-    property string artist: ""
-    property string albumArt: ""
-    property real progress: 0.0
-    property real duration: 0.0
-    
-    // TODO: Connect to MPRISController when implemented
-    // MPRISController will emit:
-    // - metadataChanged(title, artist, album, artUrl)
-    // - playbackStatusChanged(playing, paused, stopped)
-    // - positionChanged(position, duration)
+    // MPRIS2 Integration - Real media player control
+    readonly property bool hasMedia: MPRIS2Controller ? MPRIS2Controller.hasActivePlayer : false
+    readonly property bool isPlaying: MPRIS2Controller ? MPRIS2Controller.isPlaying : false
+    readonly property string trackTitle: MPRIS2Controller && MPRIS2Controller.hasActivePlayer ? (MPRIS2Controller.trackTitle || "Unknown Track") : "No media playing"
+    readonly property string artist: MPRIS2Controller ? MPRIS2Controller.trackArtist : ""
+    readonly property string albumArt: MPRIS2Controller ? MPRIS2Controller.albumArtUrl : ""
+    readonly property real progress: MPRIS2Controller ? (MPRIS2Controller.position / 1000000.0) : 0.0  // Convert microseconds to seconds
+    readonly property real duration: MPRIS2Controller ? (MPRIS2Controller.trackLength / 1000000.0) : 0.0  // Convert microseconds to seconds
     
     Behavior on height {
         NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
@@ -128,11 +121,13 @@ Rectangle {
                 MouseArea {
                     id: prevMouseArea
                     anchors.fill: parent
-                    enabled: mediaManager.hasMedia
+                    enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious
                     onClicked: {
                         HapticService.light()
-                        // TODO: MPRISController.previous()
-                        Logger.info("MediaPlayback", "Previous track")
+                        if (MPRIS2Controller) {
+                            MPRIS2Controller.previous()
+                            Logger.info("MediaPlayback", "Previous track")
+                        }
                     }
                 }
             }
@@ -160,12 +155,13 @@ Rectangle {
                 MouseArea {
                     id: playMouseArea
                     anchors.fill: parent
-                    enabled: mediaManager.hasMedia
+                    enabled: mediaManager.hasMedia && MPRIS2Controller && (MPRIS2Controller.canPlay || MPRIS2Controller.canPause)
                     onClicked: {
                         HapticService.medium()
-                        mediaManager.isPlaying = !mediaManager.isPlaying
-                        // TODO: MPRISController.playPause()
-                        Logger.info("MediaPlayback", "Play/Pause")
+                        if (MPRIS2Controller) {
+                            MPRIS2Controller.playPause()
+                            Logger.info("MediaPlayback", "Play/Pause")
+                        }
                     }
                 }
             }
@@ -193,11 +189,13 @@ Rectangle {
                 MouseArea {
                     id: nextMouseArea
                     anchors.fill: parent
-                    enabled: mediaManager.hasMedia
+                    enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext
                     onClicked: {
                         HapticService.light()
-                        // TODO: MPRISController.next()
-                        Logger.info("MediaPlayback", "Next track")
+                        if (MPRIS2Controller) {
+                            MPRIS2Controller.next()
+                            Logger.info("MediaPlayback", "Next track")
+                        }
                     }
                 }
             }
@@ -228,25 +226,12 @@ Rectangle {
     }
     
     Component.onCompleted: {
-        Logger.info("MediaPlaybackManager", "Initialized - ready for MPRIS2 integration")
-        // TODO: Connect to MPRISController C++ singleton when implemented:
-        // Connections {
-        //     target: MPRISController
-        //     function onMetadataChanged(title, artist, album, artUrl) {
-        //         mediaManager.trackTitle = title
-        //         mediaManager.artist = artist
-        //         mediaManager.albumArt = artUrl
-        //         mediaManager.hasMedia = true
-        //     }
-        //     function onPlaybackStatusChanged(status) {
-        //         mediaManager.isPlaying = (status === "Playing")
-        //         mediaManager.hasMedia = (status !== "Stopped")
-        //     }
-        //     function onPositionChanged(position, duration) {
-        //         mediaManager.progress = position
-        //         mediaManager.duration = duration
-        //     }
-        // }
+        if (MPRIS2Controller) {
+            Logger.info("MediaPlaybackManager", "✓ Initialized with MPRIS2 integration")
+            Logger.info("MediaPlaybackManager", "Monitoring for media players (Spotify, VLC, Firefox, etc.)")
+        } else {
+            Logger.warn("MediaPlaybackManager", "MPRIS2Controller not available")
+        }
     }
 }
 

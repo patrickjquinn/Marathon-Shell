@@ -273,13 +273,13 @@ SettingsPageTemplate {
                                     HapticService.light()
                                     Logger.info("WiFiPage", "Connect to: " + modelData.ssid)
                                     
-                                    // If network is secured, show password dialog
-                                    if (modelData.secure) {
-                                        wifiPasswordDialog.show(modelData.ssid, modelData.security || "WPA2")
-                                    } else {
-                                        // Open network - connect directly
-                                        NetworkManager.connectToWifi(modelData.ssid, "")
-                                    }
+                                    // Show password dialog (works for both secured and open networks)
+                                    wifiPasswordDialogLoader.show(
+                                        modelData.ssid,
+                                        modelData.strength,
+                                        modelData.security || "Open",
+                                        modelData.secured
+                                    )
                                 }
                             }
                         }
@@ -344,18 +344,56 @@ SettingsPageTemplate {
         }
     }
     
-    WiFiPasswordDialog {
-        id: wifiPasswordDialog
+    // WiFi password dialog loader (using shell component)
+    Loader {
+        id: wifiPasswordDialogLoader
+        anchors.fill: parent
+        active: false
+        z: 1000
         
-        onCanceled: {
-            Logger.info("WiFiPage", "Password dialog canceled")
-            wifiPasswordDialog.hide()
+        sourceComponent: Component {
+            WiFiPasswordDialog {
+                id: passwordDialog
+                anchors.fill: parent
+                
+                // Use direct signal handlers instead of .connect()
+                onConnectRequested: (password) => {
+                    Logger.info("WiFiPage", "Attempting WiFi connection")
+                    NetworkManager.connectToWifi(networkSsid, password)
+                }
+                
+                onCancelled: {
+                    Logger.info("WiFiPage", "WiFi dialog cancelled")
+                }
+            }
         }
         
-        onConfirmed: (password) => {
-            Logger.info("WiFiPage", "Connecting to " + wifiPasswordDialog.networkSsid + " with password")
-            NetworkManager.connectToWifi(wifiPasswordDialog.networkSsid, password)
-            wifiPasswordDialog.hide()
+        function show(ssid, strength, security, secured) {
+            active = true
+            if (item) {
+                item.show(ssid, strength, security, secured)
+            }
+        }
+    }
+    
+    // Wire NetworkManager signals to password dialog
+    Connections {
+        target: NetworkManager
+        
+        function onConnectionSuccess() {
+            Logger.info("WiFiPage", "WiFi connection successful!")
+            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item) {
+                wifiPasswordDialogLoader.item.hide()
+                wifiPasswordDialogLoader.active = false
+            }
+            HapticService.medium()
+        }
+        
+        function onConnectionFailed(message) {
+            Logger.warn("WiFiPage", "WiFi connection failed: " + message)
+            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item) {
+                wifiPasswordDialogLoader.item.showError(message)
+            }
         }
     }
     

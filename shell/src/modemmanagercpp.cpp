@@ -277,14 +277,146 @@ void ModemManagerCpp::disable()
 void ModemManagerCpp::enableData()
 {
     qDebug() << "[ModemManagerCpp] Enabling mobile data";
+    
+    if (!m_hasModemManager || !m_modemAvailable || m_modemPath.isEmpty()) {
+        qWarning() << "[ModemManagerCpp] Cannot enable data: no modem available";
+        return;
+    }
+    
+    // Connect bearer via ModemManager Simple interface
+    QDBusInterface simpleInterface(
+        "org.freedesktop.ModemManager1",
+        m_modemPath,
+        "org.freedesktop.ModemManager1.Modem.Simple",
+        QDBusConnection::systemBus()
+    );
+    
+    if (!simpleInterface.isValid()) {
+        qWarning() << "[ModemManagerCpp] Simple interface not available:" << simpleInterface.lastError().message();
+        return;
+    }
+    
+    // Connect with default APN (empty will use carrier default)
+    QVariantMap properties;
+    properties["apn"] = "";  // Use carrier default APN
+    
+    QDBusReply<void> reply = simpleInterface.call("Connect", properties);
+    if (!reply.isValid()) {
+        qWarning() << "[ModemManagerCpp] Failed to enable data:" << reply.error().message();
+        return;
+    }
+    
     m_dataEnabled = true;
+    m_dataConnected = true;
     emit dataEnabledChanged();
+    emit dataConnectedChanged();
+    
+    qInfo() << "[ModemManagerCpp] ✓ Mobile data enabled";
 }
 
 void ModemManagerCpp::disableData()
 {
     qDebug() << "[ModemManagerCpp] Disabling mobile data";
+    
+    if (!m_hasModemManager || !m_modemAvailable || m_modemPath.isEmpty()) {
+        return;
+    }
+    
+    // Disconnect bearer
+    QDBusInterface simpleInterface(
+        "org.freedesktop.ModemManager1",
+        m_modemPath,
+        "org.freedesktop.ModemManager1.Modem.Simple",
+        QDBusConnection::systemBus()
+    );
+    
+    if (!simpleInterface.isValid()) {
+        return;
+    }
+    
+    // Disconnect all bearers
+    QDBusReply<void> reply = simpleInterface.call("Disconnect", "/");
+    if (!reply.isValid()) {
+        qWarning() << "[ModemManagerCpp] Failed to disable data:" << reply.error().message();
+        return;
+    }
+    
     m_dataEnabled = false;
+    m_dataConnected = false;
     emit dataEnabledChanged();
+    emit dataConnectedChanged();
+    
+    qInfo() << "[ModemManagerCpp] ✓ Mobile data disabled";
+}
+
+void ModemManagerCpp::setApn(const QString& apn, const QString& username, const QString& password)
+{
+    qInfo() << "[ModemManagerCpp] Setting APN:" << apn;
+    
+    m_apn = apn;
+    m_apnUsername = username;
+    m_apnPassword = password;
+    
+    // If data is currently enabled, reconnect with new APN
+    if (m_dataEnabled) {
+        disableData();
+        
+        // Wait a moment for disconnect
+        QTimer::singleShot(500, this, [this, apn, username, password]() {
+            if (!m_hasModemManager || !m_modemAvailable || m_modemPath.isEmpty()) {
+                return;
+            }
+            
+            QDBusInterface simpleInterface(
+                "org.freedesktop.ModemManager1",
+                m_modemPath,
+                "org.freedesktop.ModemManager1.Modem.Simple",
+                QDBusConnection::systemBus()
+            );
+            
+            if (!simpleInterface.isValid()) {
+                return;
+            }
+            
+            // Connect with APN settings
+            QVariantMap properties;
+            properties["apn"] = apn;
+            
+            if (!username.isEmpty()) {
+                properties["user"] = username;
+            }
+            
+            if (!password.isEmpty()) {
+                properties["password"] = password;
+            }
+            
+            QDBusReply<void> reply = simpleInterface.call("Connect", properties);
+            if (!reply.isValid()) {
+                qWarning() << "[ModemManagerCpp] Failed to connect with APN:" << reply.error().message();
+                return;
+            }
+            
+            m_dataEnabled = true;
+            m_dataConnected = true;
+            emit dataEnabledChanged();
+            emit dataConnectedChanged();
+            
+            qInfo() << "[ModemManagerCpp] ✓ Connected with custom APN";
+        });
+    }
+}
+
+QString ModemManagerCpp::getApn() const
+{
+    return m_apn;
+}
+
+QVariantMap ModemManagerCpp::getApnSettings() const
+{
+    QVariantMap settings;
+    settings["apn"] = m_apn;
+    settings["username"] = m_apnUsername;
+    settings["hasPassword"] = !m_apnPassword.isEmpty();
+    return settings;
 }
 

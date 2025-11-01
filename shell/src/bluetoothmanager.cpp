@@ -1,4 +1,5 @@
 #include "bluetoothmanager.h"
+#include "bluetoothagent.h"
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusMetaType>
@@ -92,6 +93,29 @@ BluetoothManager::BluetoothManager(QObject *parent)
     m_scanTimer->setInterval(30000); // Stop scan after 30s
     m_scanTimer->setSingleShot(true);
     connect(m_scanTimer, &QTimer::timeout, this, &BluetoothManager::stopScan);
+    
+    // Create and register Bluetooth pairing agent
+    m_agent = new BluetoothAgent(this);
+    if (!m_agent->registerAgent()) {
+        // This is expected on desktop/VM environments where BlueZ isn't running
+        qDebug() << "[BluetoothManager] Pairing agent not registered (expected without BlueZ)";
+    }
+    
+    // Forward pairing interaction signals from agent to UI
+    connect(m_agent, &BluetoothAgent::pairingPinCodeRequested, this, [this](const QString &devicePath, const QString &deviceName) {
+        QString address = devicePath.section('/', -1);
+        emit pinRequested(address, deviceName);
+    });
+    
+    connect(m_agent, &BluetoothAgent::pairingPasskeyRequested, this, [this](const QString &devicePath, const QString &deviceName) {
+        QString address = devicePath.section('/', -1);
+        emit passkeyRequested(address, deviceName);
+    });
+    
+    connect(m_agent, &BluetoothAgent::pairingConfirmationRequested, this, [this](const QString &devicePath, const QString &deviceName, quint32 passkey) {
+        QString address = devicePath.section('/', -1);
+        emit passkeyConfirmation(address, deviceName, passkey);
+    });
 }
 
 BluetoothManager::~BluetoothManager() {

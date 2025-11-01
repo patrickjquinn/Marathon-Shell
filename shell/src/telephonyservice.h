@@ -39,10 +39,14 @@ signals:
 private slots:
     void onModemManagerPropertiesChanged(const QString& interface, const QVariantMap& changed, const QStringList& invalidated);
     void checkModemStatus();
+    void onCallAdded(const QDBusObjectPath& callPath);
 
 private:
     void connectToModemManager();
     void setupDBusConnections();
+    void setupCallMonitoring(const QString& callPath);
+    void monitorIncomingCalls();
+    QString callStateFromModemManager(uint mmState);
     QString extractNumberFromPath(const QString& path);
     
     QDBusInterface* m_modemManager;
@@ -51,13 +55,8 @@ private:
     bool m_hasModem;
     QString m_activeNumber;
     QString m_modemPath;
+    QString m_activeCallPath;
     QTimer* m_reconnectTimer;
-    
-#ifdef Q_OS_MACOS
-    // Stub mode for macOS development
-    bool m_stubMode;
-    void handleStubDial(const QString& number);
-#endif
 };
 
 #endif // TELEPHONYSERVICE_H

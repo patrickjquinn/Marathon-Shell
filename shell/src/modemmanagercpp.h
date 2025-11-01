@@ -40,6 +40,11 @@ public:
     Q_INVOKABLE void disable();
     Q_INVOKABLE void enableData();
     Q_INVOKABLE void disableData();
+    
+    // APN Configuration
+    Q_INVOKABLE void setApn(const QString& apn, const QString& username = QString(), const QString& password = QString());
+    Q_INVOKABLE QString getApn() const;
+    Q_INVOKABLE QVariantMap getApnSettings() const;
 
 signals:
     void availableChanged();
@@ -81,6 +86,11 @@ private:
     bool m_dataEnabled;
     bool m_dataConnected;
     QString m_modemPath;
+    
+    // APN settings cache
+    QString m_apn;
+    QString m_apnUsername;
+    QString m_apnPassword;
 };
 
 #endif // MODEMMANAGERCPP_H

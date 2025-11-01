@@ -46,4 +46,8 @@ SettingsListItem 1.0 components/ui/SettingsListItem.qml
 Section 1.0 components/layout/Section.qml
 MarathonSearch 1.0 components/MarathonSearch.qml
 MarathonAlarmOverlay 1.0 components/MarathonAlarmOverlay.qml
+MarathonOOBE 1.0 components/MarathonOOBE.qml
+WiFiPasswordDialog 1.0 components/WiFiPasswordDialog.qml
+BluetoothPairDialog 1.0 components/BluetoothPairDialog.qml
+ErrorToast 1.0 components/ErrorToast.qml
 

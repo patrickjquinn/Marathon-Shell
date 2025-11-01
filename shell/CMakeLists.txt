@@ -28,6 +28,8 @@ set(SOURCES
     src/storagemanager.cpp
     src/bluetoothmanager.h
     src/bluetoothmanager.cpp
+    src/bluetoothagent.h
+    src/bluetoothagent.cpp
     src/marathonappregistry.h
     src/marathonappregistry.cpp
     src/marathoninputmethodengine.h
@@ -48,6 +50,8 @@ set(SOURCES
     src/dbus/marathonsystemservice.cpp
     src/dbus/marathonnotificationservice.h
     src/dbus/marathonnotificationservice.cpp
+    src/dbus/freedesktopnotifications.h
+    src/dbus/freedesktopnotifications.cpp
     src/dbus/notificationdatabase.h
     src/dbus/notificationdatabase.cpp
     src/dbus/marathonstorageservice.h
@@ -70,6 +74,14 @@ set(SOURCES
     src/musiclibrarymanager.cpp
     src/configmanager.h
     src/configmanager.cpp
+    src/mpris2controller.h
+    src/mpris2controller.cpp
+    src/rotationmanager.h
+    src/rotationmanager.cpp
+    src/locationmanager.h
+    src/locationmanager.cpp
+    src/hapticmanager.h
+    src/hapticmanager.cpp
 )
 
 list(APPEND SOURCES
@@ -151,6 +163,11 @@ set(QML_FILES
     qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
+    qml/components/MarathonAlarmOverlay.qml
+    qml/components/MarathonOOBE.qml
+    qml/components/WiFiPasswordDialog.qml
+    qml/components/BluetoothPairDialog.qml
+    qml/components/ErrorToast.qml
     qml/components/VirtualKeyboard.qml
         qml/keyboard/Core/qmldir
         qml/keyboard/Core/MarathonKeyboard.qml

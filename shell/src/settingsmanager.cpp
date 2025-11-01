@@ -18,10 +18,16 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_ringtone("qrc:/sounds/phone/bbpro1.wav")
     , m_notificationSound("qrc:/sounds/text/chime.wav")
     , m_alarmSound("qrc:/sounds/alarms/alarm_sunrise.wav")
+    , m_mediaVolume(0.6)
+    , m_ringtoneVolume(0.8)
+    , m_alarmVolume(0.9)
+    , m_notificationVolume(0.7)
+    , m_systemVolume(0.5)
     , m_screenTimeout(120000)  // 2 minutes default
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
+    , m_firstRunComplete(false)
 {
     qDebug() << "[SettingsManager] Initialized";
     qDebug() << "[SettingsManager] Settings file:" << m_settings.fileName();
@@ -45,6 +51,11 @@ void SettingsManager::load() {
     m_ringtone = m_settings.value("audio/ringtone", "qrc:/sounds/phone/bbpro1.wav").toString();
     m_notificationSound = m_settings.value("audio/notificationSound", "qrc:/sounds/text/chime.wav").toString();
     m_alarmSound = m_settings.value("audio/alarmSound", "qrc:/sounds/alarms/alarm_sunrise.wav").toString();
+    m_mediaVolume = m_settings.value("audio/mediaVolume", 0.6).toReal();
+    m_ringtoneVolume = m_settings.value("audio/ringtoneVolume", 0.8).toReal();
+    m_alarmVolume = m_settings.value("audio/alarmVolume", 0.9).toReal();
+    m_notificationVolume = m_settings.value("audio/notificationVolume", 0.7).toReal();
+    m_systemVolume = m_settings.value("audio/systemVolume", 0.5).toReal();
     
     // Display
     m_screenTimeout = m_settings.value("display/screenTimeout", 120000).toInt();
@@ -54,8 +65,12 @@ void SettingsManager::load() {
     // Notifications
     m_showNotificationsOnLockScreen = m_settings.value("notifications/showOnLockScreen", true).toBool();
     
+    // OOBE
+    m_firstRunComplete = m_settings.value("system/firstRunComplete", false).toBool();
+    
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
+    qDebug() << "[SettingsManager] Loaded: firstRunComplete =" << m_firstRunComplete;
 }
 
 void SettingsManager::save() {
@@ -75,6 +90,11 @@ void SettingsManager::save() {
     m_settings.setValue("audio/ringtone", m_ringtone);
     m_settings.setValue("audio/notificationSound", m_notificationSound);
     m_settings.setValue("audio/alarmSound", m_alarmSound);
+    m_settings.setValue("audio/mediaVolume", m_mediaVolume);
+    m_settings.setValue("audio/ringtoneVolume", m_ringtoneVolume);
+    m_settings.setValue("audio/alarmVolume", m_alarmVolume);
+    m_settings.setValue("audio/notificationVolume", m_notificationVolume);
+    m_settings.setValue("audio/systemVolume", m_systemVolume);
     
     // Display
     m_settings.setValue("display/screenTimeout", m_screenTimeout);
@@ -83,6 +103,9 @@ void SettingsManager::save() {
     
     // Notifications
     m_settings.setValue("notifications/showOnLockScreen", m_showNotificationsOnLockScreen);
+    
+    // OOBE
+    m_settings.setValue("system/firstRunComplete", m_firstRunComplete);
     
     m_settings.sync();
     qDebug() << "[SettingsManager] Saved settings";
@@ -180,6 +203,46 @@ void SettingsManager::setAlarmSound(const QString &path) {
     qDebug() << "[SettingsManager] Alarm sound changed to" << path;
 }
 
+void SettingsManager::setMediaVolume(qreal volume) {
+    if (qFuzzyCompare(m_mediaVolume, volume)) return;
+    m_mediaVolume = qBound(0.0, volume, 1.0);
+    save();
+    emit mediaVolumeChanged();
+    qDebug() << "[SettingsManager] Media volume changed to" << m_mediaVolume;
+}
+
+void SettingsManager::setRingtoneVolume(qreal volume) {
+    if (qFuzzyCompare(m_ringtoneVolume, volume)) return;
+    m_ringtoneVolume = qBound(0.0, volume, 1.0);
+    save();
+    emit ringtoneVolumeChanged();
+    qDebug() << "[SettingsManager] Ringtone volume changed to" << m_ringtoneVolume;
+}
+
+void SettingsManager::setAlarmVolume(qreal volume) {
+    if (qFuzzyCompare(m_alarmVolume, volume)) return;
+    m_alarmVolume = qBound(0.0, volume, 1.0);
+    save();
+    emit alarmVolumeChanged();
+    qDebug() << "[SettingsManager] Alarm volume changed to" << m_alarmVolume;
+}
+
+void SettingsManager::setNotificationVolume(qreal volume) {
+    if (qFuzzyCompare(m_notificationVolume, volume)) return;
+    m_notificationVolume = qBound(0.0, volume, 1.0);
+    save();
+    emit notificationVolumeChanged();
+    qDebug() << "[SettingsManager] Notification volume changed to" << m_notificationVolume;
+}
+
+void SettingsManager::setSystemVolume(qreal volume) {
+    if (qFuzzyCompare(m_systemVolume, volume)) return;
+    m_systemVolume = qBound(0.0, volume, 1.0);
+    save();
+    emit systemVolumeChanged();
+    qDebug() << "[SettingsManager] System volume changed to" << m_systemVolume;
+}
+
 // Display setters
 void SettingsManager::setScreenTimeout(int ms) {
     if (m_screenTimeout == ms) return;
@@ -216,6 +279,15 @@ void SettingsManager::setShowNotificationsOnLockScreen(bool enabled) {
     m_showNotificationsOnLockScreen = enabled;
     save();
     emit showNotificationsOnLockScreenChanged();
+}
+
+// OOBE setters
+void SettingsManager::setFirstRunComplete(bool complete) {
+    if (m_firstRunComplete == complete) return;
+    m_firstRunComplete = complete;
+    save();
+    emit firstRunCompleteChanged();
+    qDebug() << "[SettingsManager] First run complete changed to" << complete;
 }
 
 // Sound scanning methods

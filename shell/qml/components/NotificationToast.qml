@@ -36,7 +36,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
         width: Math.min(parent.width - 32, 400)
-        height: Constants.hubHeaderHeight
+        height: notification?.actions?.length > 0 ? Constants.hubHeaderHeight + 60 : Constants.hubHeaderHeight
         radius: Constants.borderRadiusSharp
         color: MColors.surface
         border.width: Constants.borderWidthMedium
@@ -45,6 +45,10 @@ Item {
         visible: false
         
         property var notification: null
+        
+        Behavior on height {
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        }
         
         // Inner border for depth
         Rectangle {
@@ -57,53 +61,135 @@ Item {
             antialiasing: Constants.enableAntialiasing
         }
         
-        Row {
+        Column {
             anchors.fill: parent
             anchors.margins: 12
             spacing: Constants.spacingMedium
             
-            Rectangle {
-                width: MSpacing.touchTargetLarge
+            Row {
+                width: parent.width
                 height: MSpacing.touchTargetLarge
-                radius: Constants.borderRadiusSharp
-                color: MColors.surface1
-                border.width: Constants.borderWidthThin
-                border.color: MColors.borderOuter
-                antialiasing: Constants.enableAntialiasing
-                anchors.verticalCenter: parent.verticalCenter
+                spacing: Constants.spacingMedium
                 
-                Icon {
-                    name: toast.notification?.icon || "bell"
-                    size: Constants.iconSizeMedium
-                    color: MColors.text
-                    anchors.centerIn: parent
+                Rectangle {
+                    width: MSpacing.touchTargetLarge
+                    height: MSpacing.touchTargetLarge
+                    radius: Constants.borderRadiusSharp
+                    color: MColors.surface1
+                    border.width: Constants.borderWidthThin
+                    border.color: MColors.borderOuter
+                    antialiasing: Constants.enableAntialiasing
+                    
+                    Icon {
+                        name: toast.notification?.icon || "bell"
+                        size: Constants.iconSizeMedium
+                        color: MColors.text
+                        anchors.centerIn: parent
+                    }
+                }
+                
+                Column {
+                    width: parent.width - MSpacing.touchTargetLarge - Constants.spacingMedium
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 4
+                    
+                    Text {
+                        text: toast.notification?.title || ""
+                        color: MColors.text
+                        font.pixelSize: Typography.sizeBody
+                        font.weight: Font.DemiBold
+                        font.family: Typography.fontFamily
+                        elide: Text.ElideRight
+                        width: parent.width
+                    }
+                    
+                    Text {
+                        text: toast.notification?.body || ""
+                        color: MColors.textSecondary
+                        font.pixelSize: Typography.sizeSmall
+                        font.family: Typography.fontFamily
+                        elide: Text.ElideRight
+                        maximumLineCount: 2
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
                 }
             }
             
-            Column {
-                width: parent.width - 72
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 4
+            // Action buttons
+            Row {
+                width: parent.width
+                height: 40
+                spacing: Constants.spacingSmall
+                visible: toast.notification?.actions?.length > 0
                 
-                Text {
-                    text: toast.notification?.title || ""
-                    color: MColors.text
-                    font.pixelSize: Typography.sizeBody
-                    font.weight: Font.DemiBold
-                    font.family: Typography.fontFamily
-                    elide: Text.ElideRight
-                    width: parent.width
-                }
-                
-                Text {
-                    text: toast.notification?.body || ""
-                    color: MColors.textSecondary
-                    font.pixelSize: Typography.sizeSmall
-                    font.family: Typography.fontFamily
-                    elide: Text.ElideRight
-                    maximumLineCount: 2
-                    wrapMode: Text.WordWrap
-                    width: parent.width
+                Repeater {
+                    model: toast.notification?.actions || []
+                    
+                    Rectangle {
+                        width: (parent.width - (toast.notification.actions.length - 1) * Constants.spacingSmall) / toast.notification.actions.length
+                        height: 40
+                        radius: Constants.borderRadiusSmall
+                        color: actionMouseArea.pressed ? MColors.accentPressed : (actionMouseArea.containsMouse ? MColors.accentHover : MColors.accent)
+                        border.width: Constants.borderWidthThin
+                        border.color: Qt.rgba(255, 255, 255, 0.2)
+                        antialiasing: Constants.enableAntialiasing
+                        
+                        Behavior on color {
+                            ColorAnimation { duration: Constants.animationDurationFast }
+                        }
+                        
+                        Text {
+                            text: {
+                                var action = modelData.toLowerCase()
+                                if (action === "reply") return "Reply"
+                                if (action === "snooze") return "Snooze"
+                                if (action === "view") return "View"
+                                if (action === "dismiss") return "Dismiss"
+                                if (action === "open") return "Open"
+                                if (action === "archive") return "Archive"
+                                if (action === "delete") return "Delete"
+                                return modelData
+                            }
+                            color: MColors.text
+                            font.pixelSize: Typography.sizeSmall
+                            font.weight: Font.Medium
+                            font.family: Typography.fontFamily
+                            anchors.centerIn: parent
+                        }
+                        
+                        MouseArea {
+                            id: actionMouseArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            
+                            onClicked: {
+                                Logger.info("NotificationToast", "Action clicked: " + modelData + " for notification " + toast.notification.id)
+                                HapticService.light()
+                                
+                                // Trigger the action
+                                NotificationService.triggerAction(toast.notification.id, modelData)
+                                
+                                // Handle specific actions
+                                if (modelData.toLowerCase() === "reply") {
+                                    // Open the app with reply interface
+                                    Router.launchApp(toast.notification.appId, {"action": "reply", "notificationId": toast.notification.id})
+                                } else if (modelData.toLowerCase() === "snooze") {
+                                    // Snooze the notification for 10 minutes
+                                    Logger.info("NotificationToast", "Snoozing notification for 10 minutes")
+                                    // TODO: Implement snooze functionality
+                                } else if (modelData.toLowerCase() === "view" || modelData.toLowerCase() === "open") {
+                                    // Open the app
+                                    Router.launchApp(toast.notification.appId)
+                                } else if (modelData.toLowerCase() === "dismiss") {
+                                    NotificationService.dismissNotification(toast.notification.id)
+                                }
+                                
+                                // Dismiss the toast
+                                dismissToast()
+                            }
+                        }
+                    }
                 }
             }
         }
