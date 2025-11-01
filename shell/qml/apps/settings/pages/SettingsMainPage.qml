@@ -36,9 +36,9 @@ Page {
             Text {
                 text: "Settings"
                 color: Colors.text
-                font.pixelSize: Typography.sizeXLarge
+                font.pixelSize: MTypography.sizeXLarge
                 font.weight: Font.Bold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
             }
             
             // Network & Connectivity

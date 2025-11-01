@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: appWindow
@@ -45,8 +46,8 @@ Rectangle {
             Text {
                 text: "Loading " + (appWindow.appName || "app") + "..."
                 color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }

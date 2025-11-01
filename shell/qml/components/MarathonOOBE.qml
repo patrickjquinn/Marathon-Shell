@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import MarathonOS.Shell
 import "../MarathonUI/Theme"
 import "../MarathonUI/Controls"
+import MarathonUI.Theme
 
 /**
  * Marathon OS - Out-of-Box Experience (OOBE)

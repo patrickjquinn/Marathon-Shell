@@ -105,9 +105,9 @@ Item {
                 Text {
                     text: Math.round(hudValue * 100) + "%"
                     color: Colors.text
-                    font.pixelSize: Typography.sizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.DemiBold
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
             }

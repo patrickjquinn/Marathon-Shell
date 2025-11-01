@@ -20,16 +20,16 @@ Modal {
                 Text {
                     text: "Used"
                     color: Colors.text
-                    font.pixelSize: Typography.sizeBody
-                    font.family: Typography.fontFamily
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
                     width: parent.width / 2
                 }
                 
                 Text {
                     text: "45.2 GB of 64 GB"
                     color: Colors.textSecondary
-                    font.pixelSize: Typography.sizeSmall
-                    font.family: Typography.fontFamily
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
                     horizontalAlignment: Text.AlignRight
                     width: parent.width / 2
                 }
@@ -84,8 +84,8 @@ Modal {
                         Text {
                             text: modelData.name
                             color: Colors.text
-                            font.pixelSize: Typography.sizeBody
-                            font.family: Typography.fontFamily
+                            font.pixelSize: MTypography.sizeBody
+                            font.family: MTypography.fontFamily
                             anchors.verticalCenter: parent.verticalCenter
                             width: parent.width - 100
                         }
@@ -93,8 +93,8 @@ Modal {
                         Text {
                             text: modelData.size
                             color: Colors.textSecondary
-                            font.pixelSize: Typography.sizeSmall
-                            font.family: Typography.fontFamily
+                            font.pixelSize: MTypography.sizeSmall
+                            font.family: MTypography.fontFamily
                             horizontalAlignment: Text.AlignRight
                             anchors.verticalCenter: parent.verticalCenter
                             width: Constants.touchTargetMedium

@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import "../MarathonUI/Theme"
+import MarathonUI.Theme
 
 Item {
     id: toastContainer
@@ -96,9 +97,9 @@ Item {
                     Text {
                         text: toast.notification?.title || ""
                         color: MColors.text
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         elide: Text.ElideRight
                         width: parent.width
                     }
@@ -106,8 +107,8 @@ Item {
                     Text {
                         text: toast.notification?.body || ""
                         color: MColors.textSecondary
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
                         elide: Text.ElideRight
                         maximumLineCount: 2
                         wrapMode: Text.WordWrap
@@ -152,9 +153,9 @@ Item {
                                 return modelData
                             }
                             color: MColors.text
-                            font.pixelSize: Typography.sizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                             font.weight: Font.Medium
-                            font.family: Typography.fontFamily
+                            font.family: MTypography.fontFamily
                             anchors.centerIn: parent
                         }
                         

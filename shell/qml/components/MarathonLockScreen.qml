@@ -1,7 +1,9 @@
 import QtQuick
+import QtQuick.Effects
 import MarathonOS.Shell
 import "."
 import "./ui"
+import MarathonUI.Theme
 
 Item {
     id: lockScreen
@@ -9,47 +11,63 @@ Item {
     
     signal unlockRequested()
     signal cameraLaunched()
+    signal phoneLaunched()
     signal notificationTapped(string id)
     
     property real swipeProgress: 0.0
-    property real swipeCenterX: 0.5
-    property real swipeCenterY: 0.5
     property string expandedNotificationId: ""
     
-    Rectangle {
+    // Hide lockscreen when fully swiped
+    visible: swipeProgress < 0.99
+    
+    // Performance optimization: use layers for static content
+    layer.enabled: true
+    layer.smooth: true
+    
+    Item {
         id: lockContent
         anchors.fill: parent
-        color: MColors.background
-    
-    Image {
-        anchors.fill: parent
-        source: WallpaperStore.path
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: true
-        cache: true
-    }
-    
-    // Dismiss expanded notifications when tapping elsewhere
-    MouseArea {
-        anchors.fill: parent
-        z: 1
-        enabled: expandedNotificationId !== ""
-        onClicked: {
-            expandedNotificationId = ""
-            Logger.info("LockScreen", "Notifications dismissed")
+        
+        // Wallpaper with proper caching
+        Image {
+            anchors.fill: parent
+            source: WallpaperStore.path
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            cache: true
+            smooth: true
+            
+            // GPU-accelerated layer
+            layer.enabled: true
+            layer.smooth: true
         }
-    }
-    
+        
+        // Dismiss expanded notifications when tapping elsewhere
+        MouseArea {
+            anchors.fill: parent
+            z: 1
+            enabled: expandedNotificationId !== ""
+            onClicked: {
+                expandedNotificationId = ""
+                Logger.info("LockScreen", "Notifications dismissed")
+            }
+        }
+        
         MarathonStatusBar {
             id: statusBar
-        width: parent.width
+            width: parent.width
             z: 5
         }
         
+        // Time and Date - centered
         Column {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
             spacing: Constants.spacingSmall
+            
+            // GPU layer for text rendering
+            layer.enabled: true
+            layer.smooth: true
             
             Text {
                 text: SystemStatusStore.timeString
@@ -57,43 +75,37 @@ Item {
                 font.pixelSize: Constants.fontSizeGigantic
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
+                renderType: Text.NativeRendering
                 
-                // Drop shadow using multiple text layers
-                Text {
-                    text: parent.text
-                    color: "#80000000"
-                    font.pixelSize: parent.font.pixelSize
-                    font.weight: parent.font.weight
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: 2
-                    z: -1
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: "#80000000"
+                    shadowBlur: 0.3
+                    shadowVerticalOffset: 2
                 }
             }
             
             Text {
                 text: SystemStatusStore.dateString
                 color: MColors.text
-                font.pixelSize: Typography.sizeLarge
+                font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.Normal
                 anchors.horizontalCenter: parent.horizontalCenter
                 opacity: 0.9
+                renderType: Text.NativeRendering
                 
-                // Drop shadow using multiple text layers
-                Text {
-                    text: parent.text
-                    color: "#80000000"
-                    font.pixelSize: parent.font.pixelSize
-                    font.weight: parent.font.weight
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.verticalCenterOffset: 2
-                    z: -1
-                    opacity: parent.opacity
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: "#80000000"
+                    shadowBlur: 0.3
+                    shadowVerticalOffset: 2
                 }
             }
         }
         
+        // Notifications - left side
         Column {
             anchors.left: parent.left
             anchors.leftMargin: Constants.spacingLarge
@@ -116,7 +128,11 @@ Item {
                         anchors.fill: parent
                         color: expandedNotificationId === modelData.id ? MColors.surface : "transparent"
                         radius: Constants.borderRadiusSharp
-                        antialiasing: Constants.enableAntialiasing
+                        antialiasing: true
+                        
+                        // GPU layer for notification cards
+                        layer.enabled: expandedNotificationId === modelData.id
+                        layer.smooth: true
                         
                         Behavior on color {
                             ColorAnimation { duration: 200 }
@@ -135,7 +151,7 @@ Item {
                                 border.width: expandedNotificationId === modelData.id ? 0 : Constants.borderWidthThin
                                 border.color: MColors.borderOuter
                                 anchors.verticalCenter: parent.verticalCenter
-                                antialiasing: Constants.enableAntialiasing
+                                antialiasing: true
                                 
                                 Behavior on color {
                                     ColorAnimation { duration: 200 }
@@ -149,8 +165,8 @@ Item {
                                     width: Math.round(24 * Constants.scaleFactor)
                                     height: Math.round(24 * Constants.scaleFactor)
                                     fillMode: Image.PreserveAspectFit
-            asynchronous: true
-            cache: true
+                                    asynchronous: true
+                                    cache: true
                                     anchors.centerIn: parent
                                 }
                                 
@@ -164,39 +180,41 @@ Item {
                                     height: Math.round(18 * Constants.scaleFactor)
                                     radius: Constants.borderRadiusSharp
                                     color: MColors.error
-                                    antialiasing: Constants.enableAntialiasing
+                                    antialiasing: true
                                     
                                     Text {
                                         text: "1"
                                         color: MColors.text
-                                        font.pixelSize: Typography.sizeXSmall
+                                        font.pixelSize: MTypography.sizeXSmall
                                         font.weight: Font.Bold
                                         anchors.centerIn: parent
                                     }
                                 }
                             }
                             
-    Column {
+                            Column {
                                 visible: expandedNotificationId === modelData.id
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - Math.round(68 * Constants.scaleFactor)
                                 spacing: Math.round(2 * Constants.scaleFactor)
-        
-        Text {
+                                
+                                Text {
                                     text: modelData.title
                                     color: MColors.text
-                                    font.pixelSize: Typography.sizeSmall
+                                    font.pixelSize: MTypography.sizeSmall
                                     font.weight: Font.Bold
                                     elide: Text.ElideRight
                                     width: parent.width
-        }
-        
-        Text {
+                                    renderType: Text.NativeRendering
+                                }
+                                
+                                Text {
                                     text: modelData.subtitle
                                     color: MColors.textSecondary
-                                    font.pixelSize: Typography.sizeXSmall
+                                    font.pixelSize: MTypography.sizeXSmall
                                     elide: Text.ElideRight
                                     width: parent.width
+                                    renderType: Text.NativeRendering
                                 }
                             }
                         }
@@ -209,11 +227,9 @@ Item {
                             
                             onClicked: {
                                 if (expandedNotificationId === notification.id) {
-                                    // Second tap: dismiss notification
                                     expandedNotificationId = ""
                                     Logger.info("LockScreen", "Notification dismissed: " + notification.title)
                                 } else {
-                                    // First tap: expand notification
                                     expandedNotificationId = notification.id
                                     Logger.info("LockScreen", "Notification expanded: " + notification.title)
                                 }
@@ -224,138 +240,163 @@ Item {
             }
         }
         
+        // Use actual BottomBar component
         MarathonBottomBar {
+            id: lockScreenBottomBar
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             showPageIndicators: false
-        }
-        
-        Canvas {
-            id: dissolveCanvas
-            anchors.fill: parent
-            z: 100
-            visible: swipeProgress > 0
+            z: 10
             
-            onPaint: {
-                var ctx = getContext("2d")
-                ctx.clearRect(0, 0, width, height)
-                
-                ctx.fillStyle = "#000000"
-                ctx.fillRect(0, 0, width, height)
-                
-                ctx.globalCompositeOperation = "destination-out"
-                
-                var centerX = swipeCenterX * width
-                var centerY = swipeCenterY * height
-                var maxDist = Math.sqrt(width * width + height * height)
-                var radius = swipeProgress * maxDist
-                
-                for (var i = 0; i < 20; i++) {
-                    var angle = (i / 20) * Math.PI * 2
-                    var length = radius * (0.9 + Math.random() * 0.2)
-                    
-                    var gradient = ctx.createLinearGradient(
-                        centerX, centerY,
-                        centerX + Math.cos(angle) * length,
-                        centerY + Math.sin(angle) * length
-                    )
-                    gradient.addColorStop(0, "rgba(255,255,255,1)")
-                    gradient.addColorStop(1, "rgba(255,255,255,0)")
-                    
-                    ctx.beginPath()
-                    ctx.moveTo(centerX, centerY)
-                    ctx.lineTo(
-                        centerX + Math.cos(angle) * length,
-                        centerY + Math.sin(angle) * length
-                    )
-                    ctx.lineWidth = 80
-                    ctx.strokeStyle = gradient
-                    ctx.lineCap = "round"
-                    ctx.stroke()
+            onAppLaunched: (app) => {
+                if (app.id === "phone") {
+                    HapticService.medium()
+                    Logger.info("LockScreen", "Phone quick action tapped")
+                    phoneLaunched()
+                } else if (app.id === "camera") {
+                    HapticService.medium()
+                    Logger.info("LockScreen", "Camera quick action tapped")
+                    cameraLaunched()
                 }
-                
-                var radialGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 0.6)
-                radialGrad.addColorStop(0, "rgba(255,255,255,1)")
-                radialGrad.addColorStop(1, "rgba(255,255,255,0)")
-                ctx.fillStyle = radialGrad
-                ctx.beginPath()
-                ctx.arc(centerX, centerY, radius * 0.6, 0, Math.PI * 2)
-                ctx.fill()
             }
         }
         
-        opacity: 1.0 - swipeProgress
+        // Swipe up indicator - vertically centered with bottom bar icons
+        Column {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: lockScreenBottomBar.verticalCenter
+            spacing: Math.round(4 * Constants.scaleFactor)
+            opacity: 0.7
+            z: 11
+            
+            Icon {
+                name: "chevron-up"
+                size: Math.round(24 * Constants.scaleFactor)
+                color: "white"
+                anchors.horizontalCenter: parent.horizontalCenter
+                
+                SequentialAnimation on y {
+                    running: true
+                    loops: Animation.Infinite
+                    NumberAnimation { to: -6; duration: 800; easing.type: Easing.InOutQuad }
+                    NumberAnimation { to: 0; duration: 800; easing.type: Easing.InOutQuad }
+                }
+            }
+            
+            Text {
+                text: "Swipe up to unlock"
+                color: "white"
+                font.pixelSize: MTypography.sizeSmall
+                anchors.horizontalCenter: parent.horizontalCenter
+                renderType: Text.NativeRendering
+            }
+        }
+        
+        // Fade out effect as user swipes
+        opacity: 1.0 - Math.pow(swipeProgress, 0.7)
+        
+        Behavior on opacity {
+            enabled: swipeProgress > 0.5
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        }
     }
     
+    // No overlay needed - content underneath (PIN/launcher) is already visible
+    
+    // Optimized touch handling with momentum
     MouseArea {
         anchors.fill: parent
         z: 5
         propagateComposedEvents: true
         
-        property real startX: 0
         property real startY: 0
+        property real lastY: 0
+        property real velocity: 0
         property bool isDragging: false
+        property real lastTime: 0
         
         onPressed: (mouse) => {
-            startX = mouse.x
             startY = mouse.y
+            lastY = mouse.y
+            velocity = 0
             isDragging = false
-            swipeCenterX = mouse.x / width
-            swipeCenterY = mouse.y / height
-            Logger.debug("LockScreen", "Touch at: " + mouse.x + ", " + mouse.y)
+            lastTime = Date.now()
             
-            // Let notifications handle their own clicks if touch is on them
+            // Let notifications handle their own clicks
             if (mouse.y > height * 0.3 && mouse.y < height * 0.7 && mouse.x < 350) {
                 mouse.accepted = false
+                return
             }
+            // Bottom bar buttons now handle their own events with propagateComposedEvents
+            // No need to block anything - swipes work everywhere including bottom bar
         }
         
         onPositionChanged: (mouse) => {
-            var distance = Math.sqrt(
-                Math.pow(mouse.x - startX, 2) + 
-                Math.pow(mouse.y - startY, 2)
-            )
+            const deltaY = lastY - mouse.y
+            const now = Date.now()
+            const deltaTime = now - lastTime
             
-            if (distance > 10) {
+            if (deltaTime > 0) {
+                velocity = deltaY / deltaTime
+            }
+            
+            lastY = mouse.y
+            lastTime = now
+            
+            // Allow swipes from anywhere on the screen (including swipe indicator area)
+            const totalDelta = startY - mouse.y
+            
+            if (totalDelta > 10) {
                 isDragging = true
             }
             
             if (isDragging) {
-                swipeCenterX = mouse.x / width
-                swipeCenterY = mouse.y / height
-                // Easier unlock: only need to swipe 20% of screen height
-                swipeProgress = Math.min(1.0, distance / (height * 0.20))
-                dissolveCanvas.requestPaint()
+                // Super easy: only need to swipe 15% of screen height
+                const threshold = height * 0.15
+                swipeProgress = Math.max(0, Math.min(1.0, totalDelta / threshold))
+                
+                // Haptic feedback at 50% and 100%
+                if (swipeProgress > 0.5 && swipeProgress < 0.55) {
+                    HapticService.light()
+                }
             }
         }
         
         onReleased: (mouse) => {
-            // Lower threshold: 25% progress (5% of screen height)
-            if (isDragging && swipeProgress > 0.25) {
-                swipeProgress = 1.0
-                dissolveCanvas.requestPaint()
-                unlockTimer.start()
-            } else {
-                swipeProgress = 0
-                if (isDragging) {
+            if (isDragging) {
+                // Very low threshold: 20% progress OR positive velocity
+                if (swipeProgress > 0.20 || velocity > 0.5) {
+                    // Animate to complete
+                    swipeProgress = 1.0
+                    HapticService.medium()
+                    unlockTimer.start()
+                } else {
+                    // Snap back
+                    swipeProgress = 0
                     expandedNotificationId = ""
                 }
             }
+            
             isDragging = false
+            velocity = 0
         }
     }
     
+    // Smooth spring animation for swipe progress
     Behavior on swipeProgress {
         enabled: swipeProgress < 1.0
-        NumberAnimation { duration: 150; easing.type: Easing.OutQuad }
+        SmoothedAnimation { 
+            velocity: 8
+            duration: 150
+        }
     }
     
     Timer {
         id: unlockTimer
-        interval: 150
+        interval: 100
         onTriggered: {
-            Logger.state("LockScreen", "dissolveComplete", "unlocking")
+            Logger.state("LockScreen", "unlocked", "dissolve complete")
             unlockRequested()
         }
     }

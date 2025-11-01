@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 // Media Playback Manager
 // Shows currently playing media with playback controls
@@ -74,7 +75,7 @@ Rectangle {
                     color: mediaManager.hasMedia ? MColors.text : MColors.textSecondary
                     font.pixelSize: Constants.fontSizeMedium
                     font.weight: Font.Medium
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                     elide: Text.ElideRight
                     width: parent.width
                 }
@@ -83,7 +84,7 @@ Rectangle {
                     text: mediaManager.artist || (mediaManager.hasMedia ? "Unknown artist" : "Play music to see controls")
                     color: MColors.textSecondary
                     font.pixelSize: Constants.fontSizeSmall
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                     elide: Text.ElideRight
                     width: parent.width
                 }
@@ -211,7 +212,7 @@ Rectangle {
                 text: formatTime(mediaManager.progress) + " / " + formatTime(mediaManager.duration)
                 color: MColors.textSecondary
                 font.pixelSize: Constants.fontSizeSmall
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 anchors.verticalCenter: parent.verticalCenter
                 visible: mediaManager.duration > 0
             }

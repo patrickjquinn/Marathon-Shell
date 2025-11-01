@@ -82,6 +82,8 @@ set(SOURCES
     src/locationmanager.cpp
     src/hapticmanager.h
     src/hapticmanager.cpp
+    src/audioroutingmanager.h
+    src/audioroutingmanager.cpp
 )
 
 list(APPEND SOURCES
@@ -199,7 +201,6 @@ set(QML_FILES
     qml/core/Logger.qml
     qml/core/Router.qml
     qml/theme/Colors.qml
-    qml/theme/Typography.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -242,7 +243,6 @@ set(SINGLETON_FILES
     qml/core/Logger.qml
     qml/core/Router.qml
     qml/theme/Colors.qml
-    qml/theme/Typography.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -410,6 +410,15 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Svg
     Qt6::DBus
     Qt6::Multimedia
+    marathon-ui-theme
+    marathon-ui-containers
+    marathon-ui-core
+    marathon-ui-controls
+    marathon-ui-lists
+    marathon-ui-navigation
+    marathon-ui-feedback
+    marathon-ui-modals
+    marathon-ui-effects
 )
 
 # Link additional conditional dependencies

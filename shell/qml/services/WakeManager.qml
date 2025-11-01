@@ -292,17 +292,22 @@ QtObject {
         }
     }
     
-    // Handle call states (when TelephonyManager exists)
+    // Handle call states (using real TelephonyService C++ backend)
     Connections {
-        target: typeof TelephonyManager !== 'undefined' ? TelephonyManager : null
+        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
         
-        function onIncomingCall(callId, number) {
+        function onIncomingCall(number) {
+            Logger.info("WakeManager", "Incoming call detected, waking device")
             hasActiveCalls = true
             wake("call")
         }
         
-        function onCallEnded(callId) {
-            hasActiveCalls = false
+        function onCallStateChanged(state) {
+            if (state === "idle" || state === "terminated") {
+                hasActiveCalls = false
+            } else if (state === "incoming" || state === "active" || state === "ringing") {
+                hasActiveCalls = true
+            }
         }
     }
     

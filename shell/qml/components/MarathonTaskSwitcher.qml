@@ -2,6 +2,7 @@ import QtQuick
 import QtWayland.Compositor
 import MarathonOS.Shell
 import "."
+import MarathonUI.Theme
 
 Item {
     id: taskSwitcher
@@ -130,7 +131,7 @@ Item {
         Text {
             text: SystemStatusStore.dateString
             color: MColors.text
-            font.pixelSize: Typography.sizeLarge
+            font.pixelSize: MTypography.sizeLarge
             font.weight: Font.Normal
             anchors.horizontalCenter: parent.horizontalCenter
             opacity: 0.9
@@ -689,7 +690,7 @@ Item {
                                                         Text {
                                                             text: model.title || model.appId
                                                             color: MColors.textSecondary
-                                                            font.pixelSize: Typography.sizeSmall
+                                                            font.pixelSize: MTypography.sizeSmall
                                                             font.family: MTypography.fontFamily
                                                             anchors.horizontalCenter: parent.horizontalCenter
                                                         }
@@ -697,7 +698,7 @@ Item {
                                                         Text {
                                                             text: "Preview unavailable"
                                                             color: MColors.textTertiary
-                                                            font.pixelSize: Typography.sizeXSmall
+                                                            font.pixelSize: MTypography.sizeXSmall
                                                             font.family: MTypography.fontFamily
                                                             anchors.horizontalCenter: parent.horizontalCenter
                                                         }
@@ -728,7 +729,7 @@ Item {
                                                             anchors.centerIn: parent
                                                             text: "Browser"
                                                             color: MColors.text
-                                                            font.pixelSize: Typography.sizeBody
+                                                            font.pixelSize: MTypography.sizeBody
                                                             font.weight: Font.DemiBold
                                                         }
                                                     }
@@ -744,7 +745,7 @@ Item {
                                                             anchors.centerIn: parent
                                                             text: "Web content preview\nnot available"
                                                             color: MColors.textSecondary
-                                                            font.pixelSize: Typography.sizeSmall
+                                                            font.pixelSize: MTypography.sizeSmall
                                                             horizontalAlignment: Text.AlignHCenter
                                                             opacity: 0.7
                                                         }
@@ -794,9 +795,9 @@ Item {
                                         Text {
                                     text: model.title
                                             color: Colors.text
-                                    font.pixelSize: Typography.sizeSmall
+                                    font.pixelSize: MTypography.sizeSmall
                                     font.weight: Font.DemiBold
-                                            font.family: Typography.fontFamily
+                                            font.family: MTypography.fontFamily
                                             elide: Text.ElideRight
                                             width: parent.width
                                         }
@@ -804,8 +805,8 @@ Item {
                                         Text {
                                     text: model.subtitle || "Running"
                                             color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeXSmall
-                                            font.family: Typography.fontFamily
+                                    font.pixelSize: MTypography.sizeXSmall
+                                            font.family: MTypography.fontFamily
                                     opacity: 0.7
                                         }
                                     }
@@ -828,7 +829,7 @@ Item {
                                                 anchors.centerIn: parent
                                                 text: "×"
                                         color: Colors.text
-                                        font.pixelSize: Typography.sizeLarge
+                                        font.pixelSize: MTypography.sizeLarge
                                                 font.weight: Font.Bold
                                             }
                                             

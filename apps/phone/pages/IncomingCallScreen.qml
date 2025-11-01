@@ -14,9 +14,6 @@ Rectangle {
     property string callerNumber: ""
     property string callerName: "Unknown"
     
-    signal answered()
-    signal declined()
-    
     function show(number, name) {
         callerNumber = number
         callerName = name || "Unknown"
@@ -116,7 +113,6 @@ Rectangle {
                         if (typeof TelephonyService !== 'undefined') {
                             TelephonyService.hangup()
                         }
-                        declined()
                         hide()
                     }
                 }
@@ -143,7 +139,6 @@ Rectangle {
                         if (typeof TelephonyService !== 'undefined') {
                             TelephonyService.answer()
                         }
-                        answered()
                         hide()
                     }
                 }

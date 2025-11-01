@@ -121,6 +121,10 @@ void ModemManagerCpp::discoverModem()
 {
     if (!m_hasModemManager) return;
     
+    // Get list of modems - use correct DBus type signature
+    typedef QMap<QString, QVariantMap> InterfaceList;
+    typedef QMap<QDBusObjectPath, InterfaceList> ManagedObjectList;
+    
     QDBusMessage call = QDBusMessage::createMethodCall(
         "org.freedesktop.ModemManager1",
         "/org/freedesktop/ModemManager1",
@@ -128,13 +132,21 @@ void ModemManagerCpp::discoverModem()
         "GetManagedObjects"
     );
     
-    QDBusReply<QVariantMap> reply = QDBusConnection::systemBus().call(call);
-    if (!reply.isValid()) {
-        qDebug() << "[ModemManagerCpp] Failed to get modems:" << reply.error().message();
+    QDBusMessage reply = QDBusConnection::systemBus().call(call);
+    if (reply.type() == QDBusMessage::ErrorMessage) {
+        qDebug() << "[ModemManagerCpp] Failed to get modems:" << reply.errorMessage();
+        if (m_modemAvailable) {
+            m_modemAvailable = false;
+            emit modemAvailableChanged();
+        }
         return;
     }
     
-    QVariantMap objects = reply.value();
+    // Parse the ObjectManager reply with correct signature: a{oa{sa{sv}}}
+    const QDBusArgument arg = reply.arguments().at(0).value<QDBusArgument>();
+    ManagedObjectList objects;
+    arg >> objects;
+    
     if (objects.isEmpty()) {
         if (m_modemAvailable) {
             m_modemAvailable = false;
@@ -144,13 +156,28 @@ void ModemManagerCpp::discoverModem()
         return;
     }
     
-    // Use the first modem found
-    m_modemPath = objects.firstKey();
-    m_modemAvailable = true;
-    emit modemAvailableChanged();
-    qInfo() << "[ModemManagerCpp] Modem found:" << m_modemPath;
+    // Find first modem with Modem interface
+    for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
+        QString path = it.key().path();
+        InterfaceList interfaces = it.value();
+        
+        if (interfaces.contains("org.freedesktop.ModemManager1.Modem")) {
+            m_modemPath = path;
+            m_modemAvailable = true;
+            emit modemAvailableChanged();
+            qInfo() << "[ModemManagerCpp] Modem found:" << m_modemPath;
+            
+            queryModemState();
+            return;
+        }
+    }
     
-    queryModemState();
+    // No valid modem found
+    if (m_modemAvailable) {
+        m_modemAvailable = false;
+        emit modemAvailableChanged();
+        qInfo() << "[ModemManagerCpp] No valid modem found";
+    }
 }
 
 void ModemManagerCpp::queryModemState()

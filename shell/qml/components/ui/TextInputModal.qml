@@ -30,8 +30,8 @@ Modal {
                 anchors.fill: parent
                 anchors.margins: 12
                 color: Colors.text
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 verticalAlignment: TextInput.AlignVCenter
                 selectByMouse: true
                 
@@ -71,8 +71,8 @@ Modal {
                 Text {
                     text: "Cancel"
                     color: Colors.text
-                    font.pixelSize: Typography.sizeBody
-                    font.family: Typography.fontFamily
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
                     anchors.centerIn: parent
                 }
                 
@@ -126,9 +126,9 @@ Modal {
                 Text {
                     text: "Save"
                     color: Colors.text
-                    font.pixelSize: Typography.sizeBody
+                    font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
-                    font.family: Typography.fontFamily
+                    font.family: MTypography.fontFamily
                     anchors.centerIn: parent
                 }
                 

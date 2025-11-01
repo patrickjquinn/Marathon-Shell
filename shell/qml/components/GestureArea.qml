@@ -1,5 +1,6 @@
 import QtQuick
 import "../theme"
+import MarathonUI.Theme
 
 MouseArea {
     id: gestureArea

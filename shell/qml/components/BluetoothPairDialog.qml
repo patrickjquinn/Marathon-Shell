@@ -167,9 +167,9 @@ Item {
 
                     Text {
                         text: bluetoothPairDialog.deviceName
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         elide: Text.ElideRight
                         width: parent.width
@@ -177,8 +177,8 @@ Item {
 
                     Text {
                         text: getPairingModeText(bluetoothPairDialog.pairingMode)
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         width: parent.width
                     }
@@ -216,8 +216,8 @@ Item {
                         visible: pairingMode === "pin"
                         width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
                         maximumLength: 6
@@ -245,8 +245,8 @@ Item {
                         visible: pairingMode === "passkey"
                         width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
                         maximumLength: 6
@@ -287,9 +287,9 @@ Item {
 
                     Text {
                         text: displayedPasskey
-                        font.pixelSize: Typography.sizeGigantic
+                        font.pixelSize: MTypography.sizeGigantic
                         font.weight: Font.Light
-                        font.family: Typography.fontMonospace || "monospace"
+                        font.family: MTypography.fontMonospace || "monospace"
                         font.letterSpacing: 8
                         color: MColors.accent
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -297,8 +297,8 @@ Item {
 
                     Text {
                         text: "Verify this code matches on " + deviceName
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
@@ -331,8 +331,8 @@ Item {
                     Text {
                         id: errorText
                         text: errorMessage
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
                         width: parent.width - Constants.iconSizeSmall - Constants.spacingSmall
@@ -359,8 +359,8 @@ Item {
 
                     Text {
                         text: "Pairing with " + deviceName + "..."
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -385,8 +385,8 @@ Item {
 
                     Text {
                         text: pairingMode === "confirm" ? "Reject" : "Cancel"
-                        font.pixelSize: Typography.sizeLarge
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeLarge
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
@@ -421,9 +421,9 @@ Item {
 
                     Text {
                         text: pairingMode === "confirm" ? "Accept" : "Pair"
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.background
                         anchors.centerIn: parent
                     }
@@ -454,8 +454,8 @@ Item {
             // Help text
             Text {
                 text: getHelpText(pairingMode)
-                font.pixelSize: Typography.sizeXSmall
-                font.family: Typography.fontFamily
+                font.pixelSize: MTypography.sizeXSmall
+                font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width

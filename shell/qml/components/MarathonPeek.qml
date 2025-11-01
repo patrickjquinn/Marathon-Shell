@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import "."
+import MarathonUI.Theme
 
 // Peek & Flow - THE signature BlackBerry 10 feature
 // Swipe from left edge to peek at Hub, continue to open fully

@@ -34,8 +34,27 @@ MApp {
         
         function onCallStateChanged(state) {
             Logger.info("Phone", "Call state changed: " + state)
-            if (state === "idle" && dialedNumber.length > 0) {
-                dialedNumber = ""
+            if (state === "idle") {
+                // Call ended
+                if (dialedNumber.length > 0) {
+                    dialedNumber = ""
+                }
+                if (activeCallPage.visible) {
+                    activeCallPage.hide()
+                }
+                if (incomingCallScreen.visible) {
+                    incomingCallScreen.hide()
+                }
+            } else if (state === "active") {
+                // Call answered - hide incoming screen, show active call screen
+                if (incomingCallScreen.visible) {
+                    incomingCallScreen.hide()
+                }
+                if (!activeCallPage.visible && typeof TelephonyService !== 'undefined') {
+                    var number = TelephonyService.activeNumber
+                    var contactName = resolveContactName(number)
+                    activeCallPage.show(number, contactName)
+                }
             }
         }
     }
@@ -680,17 +699,19 @@ MApp {
             active: false
             z: 999
             
-            sourceComponent: ContactEditorPage {
-                contactId: phoneApp.editingContactId
-                contactName: phoneApp.editingContactName
-                contactPhone: phoneApp.editingContactPhone
-                contactEmail: phoneApp.editingContactEmail
-                
-                onContactSaved: {
-                    contactEditorLoader.active = false
-                }
-                onCancelled: {
-                    contactEditorLoader.active = false
+            sourceComponent: Component {
+                ContactEditorPage {
+                    contactId: phoneApp.editingContactId
+                    contactName: phoneApp.editingContactName
+                    contactPhone: phoneApp.editingContactPhone
+                    contactEmail: phoneApp.editingContactEmail
+                    
+                    onContactSaved: {
+                        contactEditorLoader.active = false
+                    }
+                    onCancelled: {
+                        contactEditorLoader.active = false
+                    }
                 }
             }
         }

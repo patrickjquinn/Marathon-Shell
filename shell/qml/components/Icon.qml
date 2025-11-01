@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import MarathonUI.Theme
 
 Image {
     id: icon

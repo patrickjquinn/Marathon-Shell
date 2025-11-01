@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: contextMenu
@@ -87,8 +88,8 @@ Item {
                     Text {
                         text: "App Info"
                         color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -137,8 +138,8 @@ Item {
                     Text {
                         text: "Uninstall"
                         color: "#E63946"
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }

@@ -1,5 +1,6 @@
 import QtQuick
 import "../theme"
+import MarathonUI.Theme
 
 Item {
     id: gestureHandler
