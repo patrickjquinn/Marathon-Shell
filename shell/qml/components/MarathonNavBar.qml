@@ -1,17 +1,18 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
     id: navBar
     height: Constants.navBarHeight
-    color: MColors.backgroundDark
+    color: MColors.background
     
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: Constants.borderWidthThin
-        color: MColors.borderOuter
+        color: MColors.border
     }
     
     signal swipeLeft()
@@ -227,17 +228,28 @@ Rectangle {
             
             // Only process navigation gestures if search is NOT open
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
-                if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
-                    Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + gestureProgress)
-                    minimizeApp()
-                    gestureProgressResetTimer.start()
-                } else if (diffY > longSwipeThreshold) {
-                    Logger.info("NavBar", "Long swipe up - Task switcher")
+                if (diffY > longSwipeThreshold) {
+                    // Long swipe up - Always go to task switcher
+                    Logger.info("NavBar", "🔥🔥🔥 LONG SWIPE UP TRIGGERED 🔥🔥🔥")
+                    Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + longSwipeThreshold)
+                    Logger.info("NavBar", "  isAppOpen: " + isAppOpen)
+                    Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                    Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
                     longSwipeUp()
                     currentX = 0
                     currentY = 0
                     gestureProgress = 0
+                } else if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
+                    // Short swipe up while app is open - Minimize app
+                    Logger.info("NavBar", "⬆️⬆️⬆️ MINIMIZE GESTURE TRIGGERED ⬆️⬆️⬆️")
+                    Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + gestureProgress)
+                    Logger.info("NavBar", "  isAppOpen: " + isAppOpen)
+                    Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                    Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
+                    minimizeApp()
+                    gestureProgressResetTimer.start()
                 } else if (diffY > shortSwipeThreshold) {
+                    // Short swipe up - Go home
                     Logger.info("NavBar", "Short swipe up - Go home")
                     shortSwipeUp()
                     currentX = 0

@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Theme
 
 Page {
@@ -32,7 +31,7 @@ Page {
                 font.family: MTypography.fontFamily
             }
             
-            Section {
+            MSection {
                 title: "Upcoming Events"
                 subtitle: calendarApp.events.length === 0 ? "No events scheduled. Tap + to create one." : calendarApp.events.length + " event" + (calendarApp.events.length === 1 ? "" : "s")
                 width: parent.width - 48
@@ -40,7 +39,7 @@ Page {
                 Repeater {
                     model: calendarApp.events
                     
-                    SettingsListItem {
+                    MSettingsListItem {
                         title: modelData.title
                         subtitle: modelData.allDay ? Qt.formatDate(new Date(modelData.date), "MMMM d, yyyy") : 
                                   Qt.formatDate(new Date(modelData.date), "MMM d") + " at " + modelData.time

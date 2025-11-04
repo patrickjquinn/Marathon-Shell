@@ -1,11 +1,11 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: bookmarksPage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal bookmarkSelected(string url)
     signal deleteBookmark(string url)
@@ -19,7 +19,7 @@ Rectangle {
         
         model: bookmarksPage.bookmarks
         
-        delegate: SettingsListItem {
+        delegate: MSettingsListItem {
             title: modelData.title || modelData.url
             subtitle: modelData.url
             iconName: "star"

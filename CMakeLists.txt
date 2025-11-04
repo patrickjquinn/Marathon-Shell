@@ -14,6 +14,9 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Enable QML Language Server support for IDE/VS Code
+set(QT_QML_GENERATE_QMLLS_INI ON)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -62,13 +65,19 @@ else()
     set(HAVE_WEBENGINE FALSE)
 endif()
 
+# WaylandCompositor is only available on Linux, skip on macOS
+if(APPLE)
+    message(STATUS "Skipping WaylandCompositor search on macOS (not supported)")
+    set(HAVE_WAYLAND FALSE)
+else()
 find_package(Qt6 6.5 COMPONENTS WaylandCompositor)
 if(TARGET Qt6::WaylandCompositor)
     message(STATUS "Qt WaylandCompositor found - enabling Wayland support")
     set(HAVE_WAYLAND TRUE)
 else()
-    message(STATUS "Qt WaylandCompositor not found - Wayland support disabled (macOS doesn't support it)")
+        message(STATUS "Qt WaylandCompositor not found - Wayland support disabled")
     set(HAVE_WAYLAND FALSE)
+    endif()
 endif()
 
 find_package(Qt6 6.5 COMPONENTS VirtualKeyboard)

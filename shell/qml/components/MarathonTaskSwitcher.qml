@@ -1,11 +1,13 @@
 import QtQuick
-import QtWayland.Compositor
 import MarathonOS.Shell
 import "."
 import MarathonUI.Theme
 
 Item {
     id: taskSwitcher
+    
+    // Expose HAVE_WAYLAND from C++ context
+    readonly property bool haveWayland: typeof HAVE_WAYLAND !== 'undefined' ? HAVE_WAYLAND : false
     
     signal closed()
     signal taskSelected(var task)
@@ -237,10 +239,10 @@ Item {
                         id: cardRoot
                         anchors.fill: parent
                         anchors.margins: 8
-                        color: MColors.glass
+                        color: MColors.glassTitlebar
                         radius: Constants.borderRadiusSharp
                         border.width: Constants.borderWidthThin
-                        border.color: cardDragArea.pressed ? MColors.accentLight : MColors.borderInner
+                        border.color: cardDragArea.pressed ? MColors.marathonTealBright : MColors.borderSubtle
                         antialiasing: Constants.enableAntialiasing
                         
                         property bool closing: false
@@ -477,7 +479,7 @@ Item {
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
-                                color: Colors.backgroundDark
+                                color: MColors.background
                                 radius: parent.parent.radius
                                 
                                 Loader {
@@ -621,44 +623,64 @@ Item {
                                                     }
                                                 }
                                                 
-                                                // Native app surface rendering with ShellSurfaceItem
+                                                // Native app surface rendering - conditionally load Wayland component on Linux
                                                 Loader {
                                                     id: nativeSurfaceLoader
                                                     anchors.top: parent.top
                                                     anchors.horizontalCenter: parent.horizontalCenter
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                                    visible: model.type === "native" && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
-                                                    active: visible
-                                                    asynchronous: true
+                                                    visible: model.type === "native"
+                                                    active: haveWayland && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
+                                                    source: haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                                     
                                                     property var surfaceObj: typeof model.waylandSurface !== 'undefined' ? model.waylandSurface : null
                                                     
-                                                    sourceComponent: ShellSurfaceItem {
-                                                        anchors.fill: parent
-                                                        // CRITICAL FIX: Access xdgSurface property DIRECTLY (not via .property() method)
-                                                        // The property was stored in C++ via surface->setProperty("xdgSurface", ...)
-                                                        // In QML, we access it as a direct property: surface.xdgSurface
-                                                        shellSurface: nativeSurfaceLoader.surfaceObj && nativeSurfaceLoader.surfaceObj.xdgSurface 
-                                                                      ? nativeSurfaceLoader.surfaceObj.xdgSurface
-                                                                      : null
+                                                    onItemChanged: {
+                                                        if (item && surfaceObj) {
+                                                            item.surfaceObj = surfaceObj
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Fallback for native apps when Wayland is not available (macOS)
+                                                        Rectangle {
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    visible: model.type === "native" && !haveWayland
+                                                            color: MColors.elevated
+                                                            
+                                                    Column {
+                                                                anchors.centerIn: parent
+                                                        spacing: Constants.spacingMedium
                                                         
-                                                        onSurfaceDestroyed: {
-                                                            Logger.info("TaskSwitcher", "Native surface destroyed in preview for: " + model.appId)
+                                                        Image {
+                                                            width: Math.round(80 * Constants.scaleFactor)
+                                                            height: Math.round(80 * Constants.scaleFactor)
+                                                            source: model.icon || "qrc:/images/icons/lucide/grid.svg"
+                                                            sourceSize.width: Math.round(80 * Constants.scaleFactor)
+                                                            sourceSize.height: 80
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                            smooth: true
+                                                            fillMode: Image.PreserveAspectFit
                                                         }
                                                         
-                                                        // Fallback if shellSurface is null
-                                                        Rectangle {
-                                                            anchors.fill: parent
-                                                            color: MColors.surface2
-                                                            visible: !parent.shellSurface
-                                                            
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: "Connecting..."
+                                                        Text {
+                                                            text: model.title || model.appId
                                                                 color: MColors.textSecondary
                                                                 font.pixelSize: MTypography.sizeSmall
-                                                            }
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: "Native apps not available on macOS"
+                                                            color: MColors.textTertiary
+                                                            font.pixelSize: MTypography.sizeXSmall
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
                                                         }
                                                     }
                                                 }
@@ -670,7 +692,7 @@ Item {
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                                     visible: previewContainer.liveApp === null && (model.type !== "native" || !model.waylandSurface)
-                                                    color: MColors.backgroundDark
+                                                    color: MColors.background
                                                     
                                                     Column {
                                                         anchors.centerIn: parent
@@ -766,7 +788,7 @@ Item {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 height: Math.round(50 * Constants.scaleFactor)
-                        color: Colors.surfaceLight
+                        color: MColors.surface
                                 radius: 0
                                 
                                 Row {
@@ -794,7 +816,7 @@ Item {
                                         
                                         Text {
                                     text: model.title
-                                            color: Colors.text
+                                                            color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeSmall
                                     font.weight: Font.DemiBold
                                             font.family: MTypography.fontFamily
@@ -804,7 +826,7 @@ Item {
                                         
                                         Text {
                                     text: model.subtitle || "Running"
-                                            color: Colors.textSecondary
+                                                            color: MColors.textSecondary
                                     font.pixelSize: MTypography.sizeXSmall
                                             font.family: MTypography.fontFamily
                                     opacity: 0.7
@@ -822,13 +844,13 @@ Item {
                                             anchors.centerIn: parent
                                             width: Math.round(28 * Constants.scaleFactor)
                                             height: Math.round(28 * Constants.scaleFactor)
-                                    radius: Colors.cornerRadiusSmall
-                                    color: Colors.surfaceLight
+                                    radius: MRadius.sm
+                                    color: MColors.surface
                                             
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: "×"
-                                        color: Colors.text
+                                                            color: MColors.textPrimary
                                         font.pixelSize: MTypography.sizeLarge
                                                 font.weight: Font.Bold
                                             }
@@ -915,7 +937,7 @@ Item {
                 
                 color: {
                     var isActive = index === pageIndicator.currentPage
-                    return isActive ? Colors.accent : Qt.rgba(255, 255, 255, 0.25)
+                    return isActive ? MColors.accent : Qt.rgba(255, 255, 255, 0.25)
                 }
                 
                 border.width: 1

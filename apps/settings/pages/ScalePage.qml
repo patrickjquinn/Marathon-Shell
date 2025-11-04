@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
 import "../components"
 
 SettingsPageTemplate {
@@ -24,14 +25,14 @@ SettingsPageTemplate {
             
             Text {
                 text: "Adjust the size of text and UI elements. Changes take effect immediately."
-                color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
                 width: parent.width - Constants.spacingLarge * 2
             }
             
-            Section {
+            MSection {
                 title: "Scale Options"
                 width: parent.width - Constants.spacingLarge * 2
                 
@@ -56,9 +57,9 @@ SettingsPageTemplate {
                                 width: Math.round(28 * Constants.userScaleFactor)
                                 height: Math.round(28 * Constants.userScaleFactor)
                                 radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 0.75 ? Colors.accent : "transparent"
+                                color: Constants.userScaleFactor === 0.75 ? MColors.marathonTeal : "transparent"
                                 border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 0.75 ? Colors.accent : Colors.textSecondary
+                                border.color: Constants.userScaleFactor === 0.75 ? MColors.marathonTeal : MColors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
@@ -66,7 +67,7 @@ SettingsPageTemplate {
                                     width: Math.round(12 * Constants.userScaleFactor)
                                     height: Math.round(12 * Constants.userScaleFactor)
                                     radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: Colors.backgroundDark
+                                    color: MColors.background
                                     anchors.centerIn: parent
                                 }
                             }
@@ -77,17 +78,17 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     text: "75% - Compact"
-                                    color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    color: MColors.textPrimary
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "More content, smaller text"
-                                    color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -118,9 +119,9 @@ SettingsPageTemplate {
                                 width: Math.round(28 * Constants.userScaleFactor)
                                 height: Math.round(28 * Constants.userScaleFactor)
                                 radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1.0 ? Colors.accent : "transparent"
+                                color: Constants.userScaleFactor === 1.0 ? MColors.marathonTeal : "transparent"
                                 border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1.0 ? Colors.accent : Colors.textSecondary
+                                border.color: Constants.userScaleFactor === 1.0 ? MColors.marathonTeal : MColors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
@@ -128,7 +129,7 @@ SettingsPageTemplate {
                                     width: Math.round(12 * Constants.userScaleFactor)
                                     height: Math.round(12 * Constants.userScaleFactor)
                                     radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: Colors.backgroundDark
+                                    color: MColors.background
                                     anchors.centerIn: parent
                                 }
                             }
@@ -139,17 +140,17 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     text: "100% - Default"
-                                    color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    color: MColors.textPrimary
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "Recommended for most users"
-                                    color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -180,9 +181,9 @@ SettingsPageTemplate {
                                 width: Math.round(28 * Constants.userScaleFactor)
                                 height: Math.round(28 * Constants.userScaleFactor)
                                 radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1.25 ? Colors.accent : "transparent"
+                                color: Constants.userScaleFactor === 1.25 ? MColors.marathonTeal : "transparent"
                                 border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1.25 ? Colors.accent : Colors.textSecondary
+                                border.color: Constants.userScaleFactor === 1.25 ? MColors.marathonTeal : MColors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
@@ -190,7 +191,7 @@ SettingsPageTemplate {
                                     width: Math.round(12 * Constants.userScaleFactor)
                                     height: Math.round(12 * Constants.userScaleFactor)
                                     radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: Colors.backgroundDark
+                                    color: MColors.background
                                     anchors.centerIn: parent
                                 }
                             }
@@ -201,17 +202,17 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     text: "125% - Comfortable"
-                                    color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    color: MColors.textPrimary
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "Larger text, easier to read"
-                                    color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -242,9 +243,9 @@ SettingsPageTemplate {
                                 width: Math.round(28 * Constants.userScaleFactor)
                                 height: Math.round(28 * Constants.userScaleFactor)
                                 radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1.5 ? Colors.accent : "transparent"
+                                color: Constants.userScaleFactor === 1.5 ? MColors.marathonTeal : "transparent"
                                 border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1.5 ? Colors.accent : Colors.textSecondary
+                                border.color: Constants.userScaleFactor === 1.5 ? MColors.marathonTeal : MColors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                                 
                                 Rectangle {
@@ -252,7 +253,7 @@ SettingsPageTemplate {
                                     width: Math.round(12 * Constants.userScaleFactor)
                                     height: Math.round(12 * Constants.userScaleFactor)
                                     radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: Colors.backgroundDark
+                                    color: MColors.background
                                     anchors.centerIn: parent
                                 }
                             }
@@ -263,17 +264,17 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     text: "150% - Large"
-                                    color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
+                                    color: MColors.textPrimary
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    font.family: Typography.fontFamily
+                                    font.family: MTypography.fontFamily
                                 }
                                 
                                 Text {
                                     text: "Maximum readability"
-                                    color: Colors.textSecondary
-                                    font.pixelSize: Typography.sizeSmall
-                                    font.family: Typography.fontFamily
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                 }
                             }
                         }
@@ -291,9 +292,9 @@ SettingsPageTemplate {
             
             Text {
                 text: "Current: " + Math.round(Constants.scaleFactor * 100) + "% (Base: " + Math.round((Constants.screenHeight / Constants.baseHeight) * 100) + "% × User: " + Math.round(Constants.userScaleFactor * 100) + "%)"
-                color: Colors.textTertiary
-                font.pixelSize: Typography.sizeSmall
-                font.family: Typography.fontFamily
+                color: MColors.textTertiary
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 width: parent.width - Constants.spacingLarge * 2
                 wrapMode: Text.WordWrap
             }

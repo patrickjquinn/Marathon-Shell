@@ -1,3 +1,3 @@
-MSectionHeader 1.0 MSectionHeader.qml
+module MarathonUI.Lists
 MDivider 1.0 MDivider.qml
 

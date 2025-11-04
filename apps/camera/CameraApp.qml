@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtMultimedia
 import Qt.labs.platform
 import MarathonOS.Shell
@@ -177,59 +176,21 @@ MApp {
             spacing: Constants.spacingSmall
             z: 10
             
-            Rectangle {
-                width: Constants.touchTargetMedium * 2.5
-                height: Constants.touchTargetMedium
-                radius: Constants.borderRadiusSharp
-                color: currentMode === "photo" ? MColors.accent : "transparent"
-                border.width: Constants.borderWidthThin
-                border.color: currentMode === "photo" ? MColors.accentDark : MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Text {
-                    anchors.centerIn: parent
-                    text: "PHOTO"
-                    font.pixelSize: Constants.fontSizeSmall
-                    font.weight: Font.Bold
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        HapticService.light()
-                    }
-                    onClicked: {
-                        currentMode = "photo"
-                    }
+            MButton {
+                text: "PHOTO"
+                variant: currentMode === "photo" ? "primary" : "secondary"
+                onClicked: {
+                    HapticService.light()
+                    currentMode = "photo"
                 }
             }
             
-            Rectangle {
-                width: Constants.touchTargetMedium * 2.5
-                height: Constants.touchTargetMedium
-                radius: Constants.borderRadiusSharp
-                color: currentMode === "video" ? MColors.accent : "transparent"
-                border.width: Constants.borderWidthThin
-                border.color: currentMode === "video" ? MColors.accentDark : MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Text {
-                    anchors.centerIn: parent
-                    text: "VIDEO"
-                    font.pixelSize: Constants.fontSizeSmall
-                    font.weight: Font.Bold
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        HapticService.light()
-                    }
-                    onClicked: {
-                        currentMode = "video"
-                    }
+            MButton {
+                text: "VIDEO"
+                variant: currentMode === "video" ? "primary" : "secondary"
+                onClicked: {
+                    HapticService.light()
+                    currentMode = "video"
                 }
             }
         }
@@ -243,60 +204,26 @@ MApp {
             spacing: Constants.spacingMedium
             z: 10
             
-            Rectangle {
-                width: Constants.touchTargetMedium
-                height: Constants.touchTargetMedium
-                radius: Constants.borderRadiusSharp
-                color: flashEnabled ? MColors.accent : "transparent"
-                border.width: Constants.borderWidthThin
-                border.color: flashEnabled ? MColors.accentDark : MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: flashEnabled ? "zap" : "zap-off"
-                    size: Constants.iconSizeMedium
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        HapticService.light()
-                    }
-                    onClicked: {
-                        flashEnabled = !flashEnabled
-                        if (camera.cameraDevice && camera.cameraDevice.flashMode !== undefined) {
-                            camera.flashMode = flashEnabled ? Camera.FlashOn : Camera.FlashOff
-                        }
+            MIconButton {
+                iconName: flashEnabled ? "zap" : "zap-off"
+                iconSize: 20
+                variant: flashEnabled ? "primary" : "secondary"
+                onClicked: {
+                    HapticService.light()
+                    flashEnabled = !flashEnabled
+                    if (camera.cameraDevice && camera.cameraDevice.flashMode !== undefined) {
+                        camera.flashMode = flashEnabled ? Camera.FlashOn : Camera.FlashOff
                     }
                 }
             }
             
-            Rectangle {
-                width: Constants.touchTargetMedium
-                height: Constants.touchTargetMedium
-                radius: Constants.borderRadiusSharp
-                color: "transparent"
-                border.width: Constants.borderWidthThin
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: "settings"
-                    size: Constants.iconSizeMedium
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        HapticService.light()
-                    }
-                    onClicked: {
-                        Logger.info("Camera", "Settings clicked")
-                    }
+            MIconButton {
+                iconName: "settings"
+                iconSize: 20
+                variant: "secondary"
+                onClicked: {
+                    HapticService.light()
+                    Logger.info("Camera", "Settings clicked")
                 }
             }
         }
@@ -310,57 +237,14 @@ MApp {
             z: 10
             
             // Gallery button
-            Rectangle {
+            MIconButton {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Constants.touchTargetMedium
-                height: Constants.touchTargetMedium
-                radius: Constants.borderRadiusSharp
-                color: MColors.surface
-                border.width: Constants.borderWidthMedium
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: "image"
-                    size: Constants.iconSizeMedium
-                    color: MColors.accent
-                }
-                
-                Rectangle {
-                    anchors.top: parent.top
-                    anchors.right: parent.right
-                    anchors.margins: -Constants.spacingXSmall
-                    width: Constants.iconSizeSmall + Constants.spacingSmall
-                    height: Constants.iconSizeSmall + Constants.spacingSmall
-                    radius: width / 2
-                    color: MColors.accent
-                    visible: photoCount > 0
-                    
-                    Text {
-                        anchors.centerIn: parent
-                        text: photoCount
-                        font.pixelSize: Constants.fontSizeXSmall
-                        font.weight: Font.Bold
-                        color: MColors.text
-                    }
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        parent.color = MColors.surface2
-                        HapticService.light()
-                    }
-                    onReleased: {
-                        parent.color = MColors.surface
-                    }
-                    onCanceled: {
-                        parent.color = MColors.surface
-                    }
-                    onClicked: {
-                        Logger.info("Camera", "Open gallery")
-                    }
+                iconName: "image"
+                iconSize: 24
+                variant: "secondary"
+                onClicked: {
+                    HapticService.light()
+                    Logger.info("Camera", "Open gallery")
                 }
             }
             
@@ -432,51 +316,27 @@ MApp {
             }
             
             // Camera switch button
-            Rectangle {
+            MIconButton {
                 anchors.verticalCenter: parent.verticalCenter
-                width: Constants.touchTargetMedium
-                height: Constants.touchTargetMedium
-                radius: Constants.borderRadiusSharp
-                color: "transparent"
-                border.width: Constants.borderWidthThin
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: "refresh-cw"
-                    size: Constants.iconSizeMedium
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        parent.color = MColors.surface
-                        HapticService.light()
-                    }
-                    onReleased: {
-                        parent.color = "transparent"
-                    }
-                    onCanceled: {
-                        parent.color = "transparent"
-                    }
-                    onClicked: {
-                        frontCamera = !frontCamera
-                        
-                        // Switch camera device
-                        if (mediaDevices.videoInputs.length > 1) {
-                            var currentIndex = -1
-                            for (var i = 0; i < mediaDevices.videoInputs.length; i++) {
-                                if (mediaDevices.videoInputs[i].id === camera.cameraDevice.id) {
-                                    currentIndex = i
-                                    break
-                                }
+                iconName: "refresh-cw"
+                iconSize: 20
+                variant: "secondary"
+                onClicked: {
+                    HapticService.light()
+                    frontCamera = !frontCamera
+                    
+                    // Switch camera device
+                    if (mediaDevices.videoInputs.length > 1) {
+                        var currentIndex = -1
+                        for (var i = 0; i < mediaDevices.videoInputs.length; i++) {
+                            if (mediaDevices.videoInputs[i].id === camera.cameraDevice.id) {
+                                currentIndex = i
+                                break
                             }
-                            var nextIndex = (currentIndex + 1) % mediaDevices.videoInputs.length
-                            camera.cameraDevice = mediaDevices.videoInputs[nextIndex]
-                            Logger.info("Camera", "Switched to camera: " + camera.cameraDevice.description)
                         }
+                        var nextIndex = (currentIndex + 1) % mediaDevices.videoInputs.length
+                        camera.cameraDevice = mediaDevices.videoInputs[nextIndex]
+                        Logger.info("Camera", "Switched to camera: " + camera.cameraDevice.description)
                     }
                 }
             }

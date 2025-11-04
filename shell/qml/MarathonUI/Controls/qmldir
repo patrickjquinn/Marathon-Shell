@@ -1,3 +1,8 @@
 MToggle 1.0 MToggle.qml
 MSlider 1.0 MSlider.qml
+MCheckbox 1.0 MCheckbox.qml
+MRadioButton 1.0 MRadioButton.qml
+MRadioGroup 1.0 MRadioGroup.qml
+MDropdown 1.0 MDropdown.qml
+MComboBox 1.0 MComboBox.qml
 

@@ -109,26 +109,60 @@ set(QML_FILES
     qml/MarathonUI/Theme/MElevation.qml
     qml/MarathonUI/Theme/MMotion.qml
     qml/MarathonUI/Core/qmldir
+    qml/MarathonUI/Core/Icon.qml
     qml/MarathonUI/Core/MButton.qml
     qml/MarathonUI/Core/MIconButton.qml
+    qml/MarathonUI/Core/MCircularIconButton.qml
     qml/MarathonUI/Core/MTextInput.qml
+    qml/MarathonUI/Core/MTextArea.qml
+    qml/MarathonUI/Core/MLabel.qml
+    qml/MarathonUI/Core/MDateTimePicker.qml
+    qml/MarathonUI/Core/MImageButton.qml
+    qml/MarathonUI/Core/MBreakpoints.qml
+    qml/MarathonUI/Core/MResponsive.qml
+    qml/MarathonUI/Core/MGrid.qml
+    qml/MarathonUI/Core/MContainer.qml
     qml/MarathonUI/Controls/qmldir
-    qml/MarathonUI/Controls/MToggle.qml
     qml/MarathonUI/Controls/MSlider.qml
+    qml/MarathonUI/Controls/MToggle.qml
+    qml/MarathonUI/Controls/MCheckbox.qml
+    qml/MarathonUI/Controls/MRadioButton.qml
+    qml/MarathonUI/Controls/MRadioGroup.qml
+    qml/MarathonUI/Controls/MDropdown.qml
+    qml/MarathonUI/Controls/MComboBox.qml
     qml/MarathonUI/Containers/qmldir
     qml/MarathonUI/Containers/MCard.qml
     qml/MarathonUI/Containers/MPage.qml
     qml/MarathonUI/Containers/MSection.qml
+    qml/MarathonUI/Containers/MListItem.qml
+    qml/MarathonUI/Containers/MApp.qml
     qml/MarathonUI/Containers/MLayer.qml
+    qml/MarathonUI/Containers/MScrollView.qml
+    qml/MarathonUI/Containers/MSectionHeader.qml
+    qml/MarathonUI/Containers/MSwipeDelegate.qml
+    qml/MarathonUI/Containers/MPullToRefresh.qml
+    qml/MarathonUI/Containers/MFormCard.qml
+    qml/MarathonUI/Containers/MFormField.qml
+    qml/MarathonUI/Containers/MListTile.qml
+    qml/MarathonUI/Containers/MPanel.qml
+    qml/MarathonUI/Containers/MSettingsListItem.qml
     qml/MarathonUI/Lists/qmldir
-    qml/MarathonUI/Lists/MSectionHeader.qml
     qml/MarathonUI/Lists/MDivider.qml
-    qml/MarathonUI/Feedback/qmldir
-    qml/MarathonUI/Feedback/MBadge.qml
     qml/MarathonUI/Navigation/qmldir
     qml/MarathonUI/Navigation/MTopBar.qml
     qml/MarathonUI/Navigation/MBottomBar.qml
-    qml/components/Icon.qml
+    qml/MarathonUI/Navigation/MActionBar.qml
+    qml/MarathonUI/Navigation/MNavigationPane.qml
+    qml/MarathonUI/Navigation/MTabBar.qml
+    qml/MarathonUI/Navigation/MSwipeView.qml
+    qml/MarathonUI/Navigation/MPageIndicator.qml
+    qml/MarathonUI/Effects/qmldir
+    qml/MarathonUI/Effects/MRipple.qml
+    qml/MarathonUI/Effects/MHaptics.qml
+    qml/MarathonUI/Feedback/qmldir
+    qml/MarathonUI/Feedback/MBadge.qml
+    qml/MarathonUI/Feedback/MActivityIndicator.qml
+    qml/MarathonUI/Feedback/MProgressBar.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonNavBar.qml
@@ -138,24 +172,20 @@ set(QML_FILES
     qml/components/MarathonQuickSettings.qml
     qml/components/MarathonTaskSwitcher.qml
     qml/components/MarathonPeek.qml
-    qml/components/MarathonToggle.qml
-    qml/components/MarathonCard.qml
-    qml/components/MarathonListItem.qml
     qml/components/MarathonHub.qml
     qml/components/MarathonPinScreen.qml
     qml/components/MarathonAppWindow.qml
     qml/components/MarathonPageView.qml
     qml/components/MarathonSearch.qml
+    qml/components/WaylandShellSurfaceItem.qml
     qml/components/ui/Button.qml
     qml/components/ui/Input.qml
-    qml/components/ui/SettingsListItem.qml
     qml/components/ui/PageIndicator.qml
     qml/components/ui/Modal.qml
     qml/components/ui/TextInputModal.qml
     qml/components/ui/ListPickerModal.qml
     qml/components/ui/StorageDetailsModal.qml
     qml/components/ui/ConfirmDialog.qml
-    qml/components/layout/Section.qml
     qml/components/navigation/InertiaNavBar.qml
     qml/components/NotificationToast.qml
     qml/components/SystemHUD.qml
@@ -200,7 +230,6 @@ set(QML_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/Router.qml
-    qml/theme/Colors.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -233,6 +262,9 @@ set(SINGLETON_FILES
     qml/MarathonUI/Theme/MSpacing.qml
     qml/MarathonUI/Theme/MRadius.qml
     qml/MarathonUI/Theme/MElevation.qml
+    qml/MarathonUI/Theme/MMotion.qml
+    qml/MarathonUI/Core/MBreakpoints.qml
+    qml/MarathonUI/Effects/MHaptics.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
@@ -242,7 +274,6 @@ set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/Router.qml
-    qml/theme/Colors.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -295,6 +326,7 @@ qt6_add_qml_module(marathon-ui-theme
         qml/MarathonUI/Theme/MSpacing.qml
         qml/MarathonUI/Theme/MRadius.qml
         qml/MarathonUI/Theme/MElevation.qml
+        qml/MarathonUI/Theme/MMotion.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Theme
 )
 
@@ -309,6 +341,15 @@ qt6_add_qml_module(marathon-ui-containers
         qml/MarathonUI/Containers/MListItem.qml
         qml/MarathonUI/Containers/MApp.qml
         qml/MarathonUI/Containers/MLayer.qml
+        qml/MarathonUI/Containers/MScrollView.qml
+        qml/MarathonUI/Containers/MSectionHeader.qml
+        qml/MarathonUI/Containers/MSwipeDelegate.qml
+        qml/MarathonUI/Containers/MPullToRefresh.qml
+        qml/MarathonUI/Containers/MFormCard.qml
+        qml/MarathonUI/Containers/MFormField.qml
+        qml/MarathonUI/Containers/MListTile.qml
+        qml/MarathonUI/Containers/MPanel.qml
+        qml/MarathonUI/Containers/MSettingsListItem.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Containers
 )
 
@@ -319,13 +360,17 @@ qt6_add_qml_module(marathon-ui-core
     QML_FILES
         qml/MarathonUI/Core/MButton.qml
         qml/MarathonUI/Core/MIconButton.qml
+        qml/MarathonUI/Core/MCircularIconButton.qml
         qml/MarathonUI/Core/MTextInput.qml
         qml/MarathonUI/Core/MTextArea.qml
         qml/MarathonUI/Core/MLabel.qml
         qml/MarathonUI/Core/MDateTimePicker.qml
-        qml/MarathonUI/Core/MDropDown.qml
         qml/MarathonUI/Core/MImageButton.qml
-        qml/MarathonUI/Core/MRadioButton.qml
+        qml/MarathonUI/Core/Icon.qml
+        qml/MarathonUI/Core/MBreakpoints.qml
+        qml/MarathonUI/Core/MResponsive.qml
+        qml/MarathonUI/Core/MGrid.qml
+        qml/MarathonUI/Core/MContainer.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Core
 )
 
@@ -336,6 +381,11 @@ qt6_add_qml_module(marathon-ui-controls
     QML_FILES
         qml/MarathonUI/Controls/MSlider.qml
         qml/MarathonUI/Controls/MToggle.qml
+        qml/MarathonUI/Controls/MCheckbox.qml
+        qml/MarathonUI/Controls/MRadioButton.qml
+        qml/MarathonUI/Controls/MRadioGroup.qml
+        qml/MarathonUI/Controls/MDropdown.qml
+        qml/MarathonUI/Controls/MComboBox.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Controls
 )
 
@@ -344,7 +394,6 @@ qt6_add_qml_module(marathon-ui-lists
     URI MarathonUI.Lists
     VERSION 1.0
     QML_FILES
-        qml/MarathonUI/Lists/MSectionHeader.qml
         qml/MarathonUI/Lists/MDivider.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Lists
 )
@@ -358,7 +407,9 @@ qt6_add_qml_module(marathon-ui-navigation
         qml/MarathonUI/Navigation/MBottomBar.qml
         qml/MarathonUI/Navigation/MActionBar.qml
         qml/MarathonUI/Navigation/MNavigationPane.qml
-        "qml/MarathonUI/Navigation/MTab Control.qml"
+        qml/MarathonUI/Navigation/MTabBar.qml
+        qml/MarathonUI/Navigation/MSwipeView.qml
+        qml/MarathonUI/Navigation/MPageIndicator.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Navigation
 )
 
@@ -389,16 +440,9 @@ qt6_add_qml_module(marathon-ui-effects
     URI MarathonUI.Effects
     VERSION 1.0
     QML_FILES
-        qml/MarathonUI/Effects/MInset.qml
-        qml/MarathonUI/Effects/MOutset.qml
         qml/MarathonUI/Effects/MRipple.qml
+        qml/MarathonUI/Effects/MHaptics.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Effects
-)
-
-# Add MarathonUI.Containers MScrollView
-qt6_target_qml_sources(marathon-ui-containers
-    QML_FILES
-        qml/MarathonUI/Containers/MScrollView.qml
 )
 
 target_link_libraries(marathon-shell PRIVATE

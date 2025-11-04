@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Containers
 import "../components"
 
 SettingsPageTemplate {
@@ -21,7 +22,7 @@ SettingsPageTemplate {
             rightPadding: 24
             topPadding: 24
             
-            Section {
+            MSection {
                 title: "Brightness"
                 width: parent.width - 48
                 
@@ -68,11 +69,11 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Display Settings"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Rotation Lock"
                     subtitle: "Lock screen orientation"
                     showToggle: true
@@ -82,7 +83,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Auto-Brightness"
                     subtitle: "Adjust brightness automatically"
                     showToggle: true
@@ -92,7 +93,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Screen Timeout"
                     value: DisplayManager.screenTimeoutString
                     showChevron: true
@@ -102,11 +103,11 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Status Bar"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Clock Position"
                     subtitle: "Choose where the clock appears"
                     value: {
@@ -120,11 +121,11 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Interface"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "UI Scale"
                     subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
                     showChevron: true
@@ -133,7 +134,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Wallpaper"
                     subtitle: "Change background image"
                     showChevron: true
@@ -185,7 +186,7 @@ SettingsPageTemplate {
                     rightPadding: 24
                     topPadding: 24
                     
-                    Section {
+                    MSection {
                         title: "Choose clock position"
                         subtitle: "Useful for devices with notches or punch-holes"
                         width: parent.width - 48
@@ -194,7 +195,7 @@ SettingsPageTemplate {
                             width: parent.width
                             spacing: 0
                             
-                            SettingsListItem {
+                            MSettingsListItem {
                                 title: "Left"
                                 subtitle: "Best for right-side notches"
                                 value: (SettingsManagerCpp.statusBarClockPosition === "left") ? "✓" : ""
@@ -204,7 +205,7 @@ SettingsPageTemplate {
                                 }
                             }
                             
-                            SettingsListItem {
+                            MSettingsListItem {
                                 title: "Center"
                                 subtitle: "Default position"
                                 value: (!SettingsManagerCpp.statusBarClockPosition || SettingsManagerCpp.statusBarClockPosition === "center") ? "✓" : ""
@@ -214,7 +215,7 @@ SettingsPageTemplate {
                                 }
                             }
                             
-                            SettingsListItem {
+                            MSettingsListItem {
                                 title: "Right"
                                 subtitle: "Best for left-side notches"
                                 value: (SettingsManagerCpp.statusBarClockPosition === "right") ? "✓" : ""

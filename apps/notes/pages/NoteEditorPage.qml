@@ -143,8 +143,6 @@ Page {
                     height: Math.max(Constants.screenHeight * 0.4, 300)
                     placeholderText: "Start typing..."
                     text: initialContent
-                    maxLength: 10000
-                    showCharCount: true
                 }
             }
         }
@@ -165,7 +163,7 @@ Page {
             hide()
         }
         
-        onAccepted: {
+        onConfirmed: {
             editorPage.deleteNote(noteId)
         }
     }

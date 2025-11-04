@@ -1,5 +1,5 @@
 import QtQuick
-import "../../theme"
+import MarathonOS.Shell
 
 Rectangle {
     id: navBar

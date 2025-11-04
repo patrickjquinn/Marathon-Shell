@@ -1,14 +1,15 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: tabCard
     height: Constants.cardHeight
     radius: Constants.borderRadiusSharp
-    color: isCurrentTab ? MColors.surface2 : MColors.surface
+    color: isCurrentTab ? MColors.elevated : MColors.surface
     border.width: Constants.borderWidthThin
-    border.color: isCurrentTab ? MColors.accentBright : MColors.borderOuter
+    border.color: isCurrentTab ? MColors.accentBright : MColors.border
     antialiasing: Constants.enableAntialiasing
     
     signal clicked()
@@ -23,7 +24,7 @@ Rectangle {
         radius: Constants.borderRadiusSharp
         color: "transparent"
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderInner
+        border.color: MColors.borderSubtle
         antialiasing: Constants.enableAntialiasing
     }
     
@@ -101,9 +102,9 @@ Rectangle {
             width: parent.width
             height: parent.height - Constants.touchTargetSmall - Constants.spacingSmall
             radius: Constants.borderRadiusSmall
-            color: MColors.backgroundDark
+            color: MColors.background
             border.width: Constants.borderWidthThin
-            border.color: MColors.borderOuter
+            border.color: MColors.border
             clip: true
             
             Text {

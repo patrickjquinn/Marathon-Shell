@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Item {
@@ -64,7 +65,7 @@ Item {
                 color: MColors.surface
                 radius: Constants.borderRadiusSharp
                 border.width: searchInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: searchInput.activeFocus ? MColors.accentBright : MColors.borderOuter
+                border.color: searchInput.activeFocus ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
                 
                 Behavior on border.color {
@@ -162,7 +163,7 @@ Item {
             delegate: Rectangle {
                 width: resultsList.width
                 height: Constants.appIconSize
-                color: resultMouseArea.pressed ? MColors.surface2 : 
+                color: resultMouseArea.pressed ? MColors.elevated : 
                        (resultsList.currentIndex === index ? MColors.surface1 : "transparent")
                 radius: Constants.borderRadiusSharp
                 antialiasing: Constants.enableAntialiasing
@@ -218,7 +219,7 @@ Item {
                                 height: Constants.navBarHeight
                                 radius: Constants.borderRadiusSharp
                                 color: {
-                                    if (modelData.type === "app") return MColors.surface2
+                                    if (modelData.type === "app") return MColors.elevated
                                     if (modelData.type === "deeplink") return Qt.rgba(139/255, 92/255, 246/255, 0.15)
                                     return Qt.rgba(59/255, 130/255, 246/255, 0.15)
                                 }

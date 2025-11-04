@@ -5,7 +5,7 @@ import MarathonUI.Theme
 Rectangle {
     id: appWindow
     anchors.fill: parent
-    color: Colors.surface
+    color: MColors.surface
     focus: true
     
     property string appId: ""
@@ -24,7 +24,7 @@ Rectangle {
     Rectangle {
         id: loadingSplash
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         visible: appWindow.isLoadingComponent
         z: 1000
         
@@ -45,7 +45,7 @@ Rectangle {
             
             Text {
                 text: "Loading " + (appWindow.appName || "app") + "..."
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -158,6 +158,13 @@ Rectangle {
                 if (existingInstance) {
                     // Reuse existing instance - just reparent it
                     Logger.info("AppWindow", "Reusing existing app instance: " + id)
+                    console.log("AppWindow: Reusing and re-registering existing instance:", id)
+                    
+                    // Re-register to ensure it's in foreground state
+                    if (typeof AppLifecycleManager !== 'undefined') {
+                        AppLifecycleManager.registerApp(id, existingInstance)
+                    }
+                    
                     existingInstance.visible = true
                     appWindow.pendingAppInstance = existingInstance
                     // FORCE reload by clearing first
@@ -170,6 +177,16 @@ Rectangle {
                     var appInstance = MarathonAppLoader.loadApp(id)
                     
                     if (appInstance) {
+                        console.log("AppWindow: App instance loaded, registering with AppLifecycleManager")
+                        
+                        // IMMEDIATELY register the app with AppLifecycleManager
+                        if (typeof AppLifecycleManager !== 'undefined') {
+                            console.log("AppWindow: Registering app:", id)
+                            AppLifecycleManager.registerApp(id, appInstance)
+                        } else {
+                            console.error("AppWindow: AppLifecycleManager not available!")
+                        }
+                        
                         // Store instance and set component - container will pick it up
                         appWindow.pendingAppInstance = appInstance
                         // FORCE reload by clearing first
@@ -259,6 +276,27 @@ Rectangle {
                     var capturedAppName = appWindow.appName
                     var capturedAppId = appWindow.appId
                     var capturedWindow = appWindow  // Capture window reference
+                    
+                    // Connect to app registration signals
+                    if (appInstance.requestRegister) {
+                        appInstance.requestRegister.connect(function(appId, appInst) {
+                            console.log("AppWindow: App requested registration:", appId)
+                            if (typeof AppLifecycleManager !== 'undefined') {
+                                AppLifecycleManager.registerApp(appId, appInst)
+                            } else {
+                                console.error("AppWindow: AppLifecycleManager not available!")
+                            }
+                        })
+                    }
+                    
+                    if (appInstance.requestUnregister) {
+                        appInstance.requestUnregister.connect(function(appId) {
+                            console.log("AppWindow: App requested unregistration:", appId)
+                            if (typeof AppLifecycleManager !== 'undefined') {
+                                AppLifecycleManager.unregisterApp(appId)
+                            }
+                        })
+                    }
                     
                     if (appInstance.minimizeRequested) {
                         minimizeConnection = appInstance.minimizeRequested.connect(function() {

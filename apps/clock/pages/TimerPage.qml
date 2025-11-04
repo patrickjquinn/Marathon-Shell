@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 
@@ -54,7 +52,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: formatTime(remainingSeconds)
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeHuge * 1.8
                 font.weight: Font.Light
             }
@@ -69,7 +67,7 @@ Item {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Quick Timers"
-                    color: Colors.textSecondary
+                    color: MColors.textSecondary
                     font.pixelSize: Constants.fontSizeMedium
                 }
                 
@@ -82,14 +80,20 @@ Item {
                     Repeater {
                         model: [1, 3, 5, 10, 15, 30]
                         
-                        MButton {
+                        Item {
+                            required property int modelData
                             width: (parent.width - parent.spacing * 2) / 3
-                            text: modelData + " min"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light()
-                                remainingSeconds = modelData * 60
-                                totalSeconds = remainingSeconds
+                            height: parent.height
+                            
+                            MButton {
+                                anchors.fill: parent
+                                text: modelData + " min"
+                                variant: "secondary"
+                                onClicked: {
+                                    HapticService.light()
+                                    remainingSeconds = modelData * 60
+                                    totalSeconds = remainingSeconds
+                                }
                             }
                         }
                     }

@@ -1,31 +1,38 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: root
     
     property string text: ""
-    property string variant: "error"
+    property color badgeColor: MColors.error
+    property int count: 0
     
-    implicitWidth: Math.max(20, badgeText.width + Constants.spacingSmall * 2)
-    implicitHeight: 20
-    radius: MRadius.pill
+    implicitWidth: Math.max(MSpacing.lg, contentText.width + MSpacing.sm * 2)
+    implicitHeight: MSpacing.lg
     
-    color: {
-        if (variant === "success") return MColors.success
-        if (variant === "warning") return MColors.warning
-        if (variant === "info") return MColors.info
-        return MColors.error
+    radius: height / 2
+    color: badgeColor
+    visible: count > 0 || text !== ""
+    
+    scale: visible ? 1.0 : 0.8
+    
+    Behavior on scale {
+        SpringAnimation { 
+            spring: MMotion.springLight
+            damping: MMotion.dampingLight
+            epsilon: MMotion.epsilon
+        }
     }
     
     Text {
-        id: badgeText
-        text: root.text
-        color: MColors.text
-        font.pixelSize: Constants.fontSizeXSmall
-        font.weight: Font.Bold
-        font.family: MTypography.fontFamily
+        id: contentText
         anchors.centerIn: parent
+        text: root.text !== "" ? root.text : (root.count > 99 ? "99+" : root.count.toString())
+        color: MColors.textOnAccent
+        font.pixelSize: MTypography.sizeXSmall
+        font.weight: MTypography.weightDemiBold
+        font.family: MTypography.fontFamily
     }
 }
 

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
@@ -7,7 +6,7 @@ import MarathonUI.Core
 
 Rectangle {
     id: searchEnginePage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal searchEngineSelected(string name, string url)
     signal backRequested()

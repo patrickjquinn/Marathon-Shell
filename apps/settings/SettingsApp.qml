@@ -3,17 +3,16 @@ import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import "pages"
-import "components"
 
 MApp {
     id: settingsApp
     appId: "settings"
     appName: "Settings"
-    appIcon: "qrc:/images/settings.svg"
+    appIcon: "assets/icon.svg"
     
     content: Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
     
     // Navigation stack
     StackView {

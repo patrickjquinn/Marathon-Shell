@@ -1,5 +1,6 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: root
@@ -25,22 +26,22 @@ Rectangle {
             visible: showTopBar
             width: parent.width
             height: 56
-            color: MColors.glass
+            color: MColors.elevated
             border.width: 1
-            border.color: MColors.glassBorder
+            border.color: Qt.rgba(1, 1, 1, 0.08)
             z: 100
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.rightMargin: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
+                spacing: MSpacing.md
                 
                 Icon {
                     visible: showBackButton
                     name: "chevron-left"
-                    size: Constants.iconSizeMedium
-                    color: MColors.text
+                    size: 24
+                    color: MColors.textPrimary
                     anchors.verticalCenter: parent.verticalCenter
                     
                     MouseArea {
@@ -52,9 +53,9 @@ Rectangle {
                 
                 Text {
                     text: root.title
-                    color: MColors.text
-                    font.pixelSize: Constants.fontSizeLarge
-                    font.weight: Font.DemiBold
+                    color: MColors.textPrimary
+                    font.pixelSize: MTypography.sizeLarge
+                    font.weight: MTypography.weightDemiBold
                     font.family: MTypography.fontFamily
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -81,16 +82,16 @@ Rectangle {
             id: bottomBar
             visible: showBottomBar
             width: parent.width
-            height: Constants.appIconSize
-            color: MColors.glass
+            height: 72
+            color: MColors.elevated
             border.width: 1
-            border.color: MColors.glassBorder
+            border.color: Qt.rgba(1, 1, 1, 0.08)
             z: 100
             
             Item {
                 id: bottomBarContainer
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
+                anchors.margins: MSpacing.md
             }
         }
     }

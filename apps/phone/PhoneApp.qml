@@ -1,10 +1,10 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Navigation
 import "pages"
 
 MApp {
@@ -314,106 +314,80 @@ MApp {
                 
                 // Call History Page
                 ListView {
-                    width: parent.width
-                    height: parent.height
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     clip: true
+                    topMargin: MSpacing.md
                     
                     model: callHistory
                     
-                    delegate: Rectangle {
+                    delegate: Item {
                         width: ListView.view.width
-                        height: Constants.touchTargetLarge + Constants.spacingSmall
-                        color: "transparent"
+                        height: card.height + MSpacing.md
                         
-                        Rectangle {
-                            id: deleteButton
+                        MCard {
+                            id: card
+                            anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.margins: Constants.spacingMedium
-                            anchors.topMargin: 0
-                            width: Constants.touchTargetLarge
-                            color: "#E74C3C"
-                            radius: Constants.borderRadiusSharp
-                            visible: callHistoryItem.x < -20
+                            anchors.leftMargin: MSpacing.md
+                            anchors.rightMargin: MSpacing.md
+                            elevation: 1
+                            interactive: true
                             
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "trash"
-                                size: Constants.iconSizeMedium
-                                color: "white"
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    if (typeof CallHistoryManager !== 'undefined') {
-                                        CallHistoryManager.deleteCall(modelData.id)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Rectangle {
-                            id: callHistoryItem
-                            anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            anchors.topMargin: 0
-                            color: MColors.surface
-                            radius: Constants.borderRadiusSharp
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.border
-                            antialiasing: Constants.enableAntialiasing
-                            
-                            Behavior on x {
-                                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                            onClicked: {
+                                dialedNumber = modelData.phone
+                                parent.parent.parent.parent.currentIndex = 0
                             }
                             
                             Row {
-                                anchors.fill: parent
-                                anchors.margins: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                                width: parent.parent.width - MSpacing.md * 2
+                                height: MSpacing.touchTargetLarge
+                                spacing: MSpacing.md
                                 
                                 Icon {
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: modelData.type === "outgoing" ? "phone-outgoing" : 
                                           modelData.type === "incoming" ? "phone-incoming" : "phone-missed"
-                                    size: Constants.iconSizeMedium
+                                    size: 20
                                     color: modelData.type === "missed" ? MColors.error : MColors.accent
                                 }
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - parent.spacing * 2 - Constants.iconSizeMedium * 2
-                                    spacing: Constants.spacingXSmall
+                                    width: parent.width - parent.spacing * 2 - 20 * 2
+                                    spacing: MSpacing.xs
                                     
                                     Text {
                                         width: parent.width
                                         text: modelData.contactName
-                                        font.pixelSize: Constants.fontSizeMedium
-                                        font.weight: Font.DemiBold
+                                        font.pixelSize: MTypography.sizeBody
+                                        font.weight: MTypography.weightDemiBold
+                                        font.family: MTypography.fontFamily
                                         color: MColors.text
                                         elide: Text.ElideRight
                                     }
                                     
                                     Row {
-                                        spacing: Constants.spacingSmall
+                                        spacing: MSpacing.sm
                                         
                                         Text {
                                             text: modelData.phone
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
                                         }
                                         
                                         Text {
                                             text: "•"
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
                                         }
                                         
                                         Text {
                                             text: formatDuration(modelData.duration)
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
                                         }
                                     }
@@ -422,49 +396,9 @@ MApp {
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: formatTimestamp(modelData.timestamp)
-                                    font.pixelSize: Constants.fontSizeSmall
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
                                     color: MColors.textTertiary
-                                }
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                property real startX: 0
-                                
-                                onPressed: {
-                                    startX = mouse.x
-                                    parent.color = MColors.surface2
-                                    HapticService.light()
-                                }
-                                onReleased: {
-                                    parent.color = MColors.surface
-                                    if (callHistoryItem.x < -100) {
-                                        if (typeof CallHistoryManager !== 'undefined') {
-                                            CallHistoryManager.deleteCall(modelData.id)
-                                        }
-                                    } else {
-                                        callHistoryItem.x = 0
-                                    }
-                                }
-                                onCanceled: {
-                                    parent.color = MColors.surface
-                                    callHistoryItem.x = 0
-                                }
-                                onPositionChanged: {
-                                    if (pressed) {
-                                        var delta = mouse.x - startX
-                                        if (delta < 0) {
-                                            callHistoryItem.x = Math.max(delta, -120)
-                                        }
-                                    }
-                                }
-                                onClicked: {
-                                    if (callHistoryItem.x === 0) {
-                                        dialedNumber = modelData.phone
-                                        parent.parent.parent.parent.parent.currentIndex = 0
-                                    } else {
-                                        callHistoryItem.x = 0
-                                    }
                                 }
                             }
                         }
@@ -479,53 +413,62 @@ MApp {
                         id: contactsList
                         anchors.fill: parent
                         clip: true
+                        topMargin: MSpacing.md
                         
                         model: contacts
                         
-                        delegate: Rectangle {
+                        delegate: Item {
                             width: contactsList.width
-                            height: Constants.touchTargetLarge + Constants.spacingSmall
-                            color: "transparent"
+                            height: contactCard.height + MSpacing.md
                             
-                            Rectangle {
-                                anchors.fill: parent
-                                anchors.margins: Constants.spacingMedium
-                                anchors.topMargin: 0
-                                color: MColors.surface
-                                radius: Constants.borderRadiusSharp
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-                                antialiasing: Constants.enableAntialiasing
+                            MCard {
+                                id: contactCard
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.leftMargin: MSpacing.md
+                                anchors.rightMargin: MSpacing.md
+                                elevation: 1
+                                interactive: true
+                                
+                                onClicked: {
+                                    editingContactId = modelData.id || -1
+                                    editingContactName = modelData.name || ""
+                                    editingContactPhone = modelData.phone || ""
+                                    editingContactEmail = modelData.email || ""
+                                    contactEditorLoader.active = true
+                                }
                                 
                                 Row {
-                                    anchors.fill: parent
-                                    anchors.margins: Constants.spacingMedium
-                                    spacing: Constants.spacingMedium
+                                    width: parent.parent.width - MSpacing.md * 2
+                                    height: MSpacing.touchTargetLarge
+                                    spacing: MSpacing.md
                                     
                                     Icon {
                                         anchors.verticalCenter: parent.verticalCenter
                                         name: "user"
-                                        size: Constants.iconSizeMedium
+                                        size: 20
                                         color: MColors.accent
                                     }
                                     
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - parent.spacing * 2 - Constants.iconSizeMedium * 2
-                                        spacing: Constants.spacingXSmall
+                                        width: parent.width - parent.spacing * 2 - 20 * 2
+                                        spacing: MSpacing.xs
                                         
                                         Text {
                                             width: parent.width
                                             text: modelData.name
-                                            font.pixelSize: Constants.fontSizeMedium
-                                            font.weight: Font.DemiBold
+                                            font.pixelSize: MTypography.sizeBody
+                                            font.weight: MTypography.weightDemiBold
+                                            font.family: MTypography.fontFamily
                                             color: MColors.text
                                             elide: Text.ElideRight
                                         }
                                         
                                         Text {
                                             text: modelData.phone
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
                                         }
                                     }
@@ -533,162 +476,48 @@ MApp {
                                     Icon {
                                         anchors.verticalCenter: parent.verticalCenter
                                         name: modelData.favorite ? "star" : "star-off"
-                                        size: Constants.iconSizeMedium
+                                        size: 20
                                         color: modelData.favorite ? MColors.accent : MColors.textTertiary
-                                    }
-                                }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.color = MColors.surface2
-                                        HapticService.light()
-                                    }
-                                    onReleased: {
-                                        parent.color = MColors.surface
-                                    }
-                                    onCanceled: {
-                                        parent.color = MColors.surface
-                                    }
-                                    onClicked: {
-                                        editingContactId = modelData.id || -1
-                                        editingContactName = modelData.name || ""
-                                        editingContactPhone = modelData.phone || ""
-                                        editingContactEmail = modelData.email || ""
-                                        contactEditorLoader.active = true
                                     }
                                 }
                             }
                         }
                     }
                     
-                    Rectangle {
+                    MIconButton {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         anchors.margins: Constants.spacingLarge
-                        width: Constants.touchTargetLarge
-                        height: Constants.touchTargetLarge
-                        radius: Constants.touchTargetLarge / 2
-                        color: MColors.accent
-                        border.width: Constants.borderWidthThick
-                        border.color: MColors.accentDark
-                        antialiasing: true
-                        
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "plus"
-                            size: Constants.iconSizeLarge
-                            color: MColors.text
-                        }
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            onPressed: {
-                                parent.scale = 0.9
-                                HapticService.medium()
-                            }
-                            onReleased: {
-                                parent.scale = 1.0
-                            }
-                            onCanceled: {
-                                parent.scale = 1.0
-                            }
-                            onClicked: {
-                                Logger.info("Phone", "Add new contact")
-                                editingContactId = -1
-                                editingContactName = ""
-                                editingContactPhone = ""
-                                editingContactEmail = ""
-                                contactEditorLoader.active = true
-                            }
-                        }
-                        
-                        Behavior on scale {
-                            NumberAnimation { duration: 100 }
+                        iconName: "plus"
+                        iconSize: 28
+                        variant: "primary"
+                        shape: "circular"
+                        onClicked: {
+                            Logger.info("Phone", "Add new contact")
+                            editingContactId = -1
+                            editingContactName = ""
+                            editingContactPhone = ""
+                            editingContactEmail = ""
+                            contactEditorLoader.active = true
                         }
                     }
                 }
             }
             
-            Rectangle {
+            MTabBar {
                 id: tabBar
                 width: parent.width
-                height: Constants.actionBarHeight
-                color: MColors.surface
+                activeTab: parent.currentIndex
                 
-                Rectangle {
-                    anchors.top: parent.top
-                    width: parent.width
-                    height: Constants.borderWidthThin
-                    color: MColors.border
-                }
+                tabs: [
+                    { label: "Dial", icon: "phone" },
+                    { label: "History", icon: "clock" },
+                    { label: "Contacts", icon: "users" }
+                ]
                 
-                Row {
-                    anchors.fill: parent
-                    spacing: 0
-                    
-                    Repeater {
-                        model: [
-                            { icon: "phone", label: "Dial" },
-                            { icon: "clock", label: "History" },
-                            { icon: "users", label: "Contacts" }
-                        ]
-                        
-                        Rectangle {
-                            width: tabBar.width / 3
-                            height: tabBar.height
-                            color: "transparent"
-                            
-                            Rectangle {
-                                anchors.top: parent.top
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: parent.width * 0.8
-                                height: Constants.borderWidthThick
-                                color: MColors.accent
-                                opacity: tabBar.parent.currentIndex === index ? 1.0 : 0.0
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: Constants.animationFast }
-                                }
-                            }
-                            
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: Constants.spacingXSmall
-                                
-                                Icon {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    name: modelData.icon
-                                    size: Constants.iconSizeMedium
-                                    color: tabBar.parent.currentIndex === index ? MColors.accent : MColors.textSecondary
-                                    
-                                    Behavior on color {
-                                        ColorAnimation { duration: Constants.animationFast }
-                                    }
-                                }
-                                
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.label
-                                    font.pixelSize: Constants.fontSizeXSmall
-                                    color: tabBar.parent.currentIndex === index ? MColors.accent : MColors.textSecondary
-                                    font.weight: tabBar.parent.currentIndex === index ? Font.DemiBold : Font.Normal
-                                    
-                                    Behavior on color {
-                                        ColorAnimation { duration: Constants.animationFast }
-                                    }
-                                }
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticService.light()
-                                    tabBar.parent.currentIndex = index
-                                }
-                            }
-                        }
-                    }
+                onTabSelected: (index) => {
+                    HapticService.light()
+                    tabBar.parent.currentIndex = index
                 }
             }
         }

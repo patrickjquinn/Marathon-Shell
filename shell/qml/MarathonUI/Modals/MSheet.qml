@@ -1,31 +1,30 @@
 import QtQuick
-import MarathonOS.Shell
+import QtQuick.Effects
+import MarathonUI.Theme
 
-Item {
+Rectangle {
     id: root
     
     property string title: ""
-    property alias content: contentItem.children
+    property alias content: contentItem.data
     property bool showing: false
-    property real dragThreshold: 0.3
+    property real sheetHeight: 0.6
     
     signal closed()
-    signal accepted()
     
     anchors.fill: parent
+    color: MColors.overlay
     visible: opacity > 0
     opacity: showing ? 1.0 : 0.0
-    z: Constants.zIndexQuickSettings + 200
+    z: 10000
     
     Behavior on opacity {
-        enabled: Constants.enableAnimations
-        NumberAnimation { duration: Constants.animationNormal }
+        NumberAnimation { duration: MMotion.quick }
     }
     
     MouseArea {
         anchors.fill: parent
-        enabled: root.showing
-        onClicked: root.close()
+        onClicked: root.closed()
     }
     
     Rectangle {
@@ -33,94 +32,80 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: Math.min(parent.height * 0.7, contentColumn.implicitHeight + Constants.spacingXLarge * 2)
+        height: parent.height * root.sheetHeight
         
-        color: MElevation.getSurface(4)
-        radius: 0
+        color: MColors.bb10Elevated
+        radius: MRadius.xl
         
-        transform: Translate {
-            id: sheetTranslate
-            y: root.showing ? 0 : sheetContainer.height
-            
-            Behavior on y {
-                enabled: Constants.enableAnimations
-                SmoothedAnimation { 
-                    velocity: 2000
-                    duration: Constants.animationNormal
-                }
+        y: root.showing ? 0 : height
+        
+        Behavior on y {
+            SpringAnimation { 
+                spring: MMotion.springMedium
+                damping: MMotion.dampingMedium
+                epsilon: MMotion.epsilon
             }
         }
         
+        border.width: 1
+        border.color: MColors.borderGlass
+        
+        // Performant shadow for sheets (upward shadow)
         Rectangle {
             anchors.fill: parent
-            anchors.topMargin: 0
-            color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MElevation.getBorderOuter(4)
-            radius: Constants.borderRadiusSmall
+            anchors.topMargin: -4
+            anchors.leftMargin: -3
+            anchors.rightMargin: -3
+            anchors.bottomMargin: 0
+            z: -1
+            radius: parent.radius
+            opacity: 0.5
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.7) }
+                GradientStop { position: 0.3; color: Qt.rgba(0, 0, 0, 0.3) }
+                GradientStop { position: 1.0; color: "transparent" }
+            }
         }
+        
+        layer.enabled: false
         
         Rectangle {
             anchors.fill: parent
-            anchors.margins: Constants.borderWidthThin
-            anchors.topMargin: Constants.borderWidthThin
+            anchors.margins: 1
+            radius: parent.radius - 1
             color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MElevation.getBorderInner(4)
-            radius: Constants.borderRadiusSmall - Constants.borderWidthThin
+            border.width: 1
+            border.color: MColors.highlightSubtle
+        }
+        
+        Rectangle {
+            id: handle
+            anchors.top: parent.top
+            anchors.topMargin: MSpacing.md
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 40
+            height: 4
+            radius: 2
+            color: MColors.textTertiary
         }
         
         MouseArea {
             anchors.fill: parent
             onClicked: {}
-            
-            property real startY: 0
-            property real startTime: 0
-            
-            onPressed: function(mouse) {
-                startY = mouse.y
-                startTime = Date.now()
-            }
-            
-            onPositionChanged: function(mouse) {
-                if (pressed && mouse.y > startY) {
-                    var delta = mouse.y - startY
-                    sheetTranslate.y = Math.max(0, delta)
-                }
-            }
-            
-            onReleased: function(mouse) {
-                var delta = mouse.y - startY
-                var time = Date.now() - startTime
-                var velocity = delta / time
-                
-                if (delta > sheetContainer.height * root.dragThreshold || velocity > 0.5) {
-                    root.close()
-                } else {
-                    sheetTranslate.y = 0
-                }
-            }
         }
         
         Column {
-            id: contentColumn
             anchors.fill: parent
-            anchors.margins: Constants.spacingLarge
-            spacing: Constants.spacingMedium
-            
-            Rectangle {
-                width: Constants.touchTargetLarge
-                height: 4
-                radius: Constants.borderRadiusSharp
-                color: MColors.borderInner
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
+            anchors.margins: MSpacing.xl
+            anchors.topMargin: MSpacing.xl + MSpacing.lg
+            spacing: MSpacing.lg
             
             Text {
                 text: root.title
-                font.pixelSize: Constants.fontSizeXLarge
-                font.weight: Font.DemiBold
-                color: MColors.text
+                font.pixelSize: MTypography.sizeXLarge
+                font.weight: MTypography.weightDemiBold
+                font.family: MTypography.fontFamily
+                color: MColors.textPrimary
                 visible: root.title !== ""
                 width: parent.width
             }
@@ -128,7 +113,7 @@ Item {
             Item {
                 id: contentItem
                 width: parent.width
-                height: parent.height - (root.title !== "" ? (Constants.fontSizeXLarge + Constants.spacingMedium) : 0) - Constants.spacingMedium - 4
+                height: parent.height - (root.title !== "" ? (MTypography.sizeXLarge + MSpacing.lg) : 0)
             }
         }
     }
@@ -137,9 +122,8 @@ Item {
         showing = true
     }
     
-    function close() {
+    function hide() {
         showing = false
-        Qt.callLater(() => root.closed())
     }
 }
 

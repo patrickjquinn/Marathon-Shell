@@ -5,6 +5,7 @@ import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Navigation
 import "pages"
 
 MApp {
@@ -46,8 +47,8 @@ MApp {
                 currentIndex: parent.currentView
                 
                 ScrollView {
-                    width: parent.width
-                    height: parent.height
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     contentWidth: width
                     clip: true
                     
@@ -59,14 +60,20 @@ MApp {
                         Repeater {
                             model: albums
                             
-                            Rectangle {
+                            MCard {
                                 width: parent.width - parent.padding * 2
                                 height: Constants.touchTargetLarge * 1.5
-                                color: MColors.surface
-                                radius: Constants.borderRadiusSharp
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-                                antialiasing: Constants.enableAntialiasing
+                                elevation: 1
+                                interactive: true
+                                
+                                onClicked: {
+                                    Logger.info("Gallery", "Open album: " + modelData.name)
+                                    selectedAlbum = modelData.id
+                                    if (typeof MediaLibraryManager !== 'undefined') {
+                                        photos = MediaLibraryManager.getPhotos(modelData.id)
+                                    }
+                                    parent.parent.parent.parent.parent.parent.parent.currentView = 1
+                                }
                                 
                                 Row {
                                     anchors.fill: parent
@@ -78,7 +85,7 @@ MApp {
                                         width: Constants.touchTargetLarge
                                         height: Constants.touchTargetLarge
                                         radius: Constants.borderRadiusSharp
-                                        color: MColors.surface2
+                                        color: MColors.elevated
                                         border.width: Constants.borderWidthMedium
                                         border.color: MColors.border
                                         antialiasing: Constants.enableAntialiasing
@@ -117,50 +124,31 @@ MApp {
                                         color: MColors.textTertiary
                                     }
                                 }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.color = MColors.surface2
-                                        HapticService.light()
-                                    }
-                                    onReleased: {
-                                        parent.color = MColors.surface
-                                    }
-                                    onCanceled: {
-                                        parent.color = MColors.surface
-                                    }
-                                    onClicked: {
-                                        Logger.info("Gallery", "Open album: " + modelData.name)
-                                        selectedAlbum = modelData.id
-                                        if (typeof MediaLibraryManager !== 'undefined') {
-                                            photos = MediaLibraryManager.getPhotos(modelData.id)
-                                        }
-                                        parent.parent.parent.parent.parent.parent.parent.currentView = 1
-                                    }
-                                }
                             }
                         }
                     }
                 }
                 
                 GridView {
-                    width: parent.width
-                    height: parent.height
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
                     cellWidth: width / 3
                     cellHeight: cellWidth
                     clip: true
                     
                     model: photos
                     
-                    delegate: Rectangle {
+                    delegate: MCard {
                         width: GridView.view.cellWidth - Constants.spacingXSmall
                         height: GridView.view.cellHeight - Constants.spacingXSmall
-                        color: MColors.surface
-                        radius: Constants.borderRadiusSharp
-                        border.width: Constants.borderWidthThin
-                        border.color: MColors.border
-                        antialiasing: Constants.enableAntialiasing
+                        elevation: 1
+                        interactive: true
+                        
+                        onClicked: {
+                            Logger.info("Gallery", "View photo: " + modelData.id)
+                            photoViewerLoader.active = true
+                            photoViewerLoader.item.show(modelData)
+                        }
                         
                         Image {
                             anchors.fill: parent
@@ -173,7 +161,7 @@ MApp {
                             
                             Rectangle {
                                 anchors.fill: parent
-                                color: MColors.surface2
+                                color: MColors.elevated
                                 radius: Constants.borderRadiusSharp
                                 visible: parent.status === Image.Loading || parent.status === Image.Error
                                 
@@ -185,107 +173,23 @@ MApp {
                                 }
                             }
                         }
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            onPressed: {
-                                parent.color = MColors.surface2
-                                HapticService.light()
-                            }
-                            onReleased: {
-                                parent.color = MColors.surface
-                            }
-                            onCanceled: {
-                                parent.color = MColors.surface
-                            }
-                            onClicked: {
-                                Logger.info("Gallery", "View photo: " + modelData.id)
-                                photoViewerLoader.active = true
-                                photoViewerLoader.item.show(modelData)
-                            }
-                        }
                     }
                 }
             }
             
-            Rectangle {
+            MTabBar {
                 id: tabBar
                 width: parent.width
-                height: Constants.actionBarHeight
-                color: MColors.surface
+                activeTab: parent.currentView
                 
-                Rectangle {
-                    anchors.top: parent.top
-                    width: parent.width
-                    height: Constants.borderWidthThin
-                    color: MColors.border
-                }
+                tabs: [
+                    { label: "Albums", icon: "folder" },
+                    { label: "Photos", icon: "grid" }
+                ]
                 
-                Row {
-                    anchors.fill: parent
-                    spacing: 0
-                    
-                    Repeater {
-                        model: [
-                            { icon: "folder", label: "Albums" },
-                            { icon: "grid", label: "Photos" }
-                        ]
-                        
-                        Rectangle {
-                            width: tabBar.width / 2
-                            height: tabBar.height
-                            color: "transparent"
-                            
-                            Rectangle {
-                                anchors.top: parent.top
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: parent.width * 0.8
-                                height: Constants.borderWidthThick
-                                color: MColors.accent
-                                opacity: tabBar.parent.currentView === index ? 1.0 : 0.0
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: Constants.animationFast }
-                                }
-                            }
-                            
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: Constants.spacingXSmall
-                                
-                                Icon {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    name: modelData.icon
-                                    size: Constants.iconSizeMedium
-                                    color: tabBar.parent.currentView === index ? MColors.accent : MColors.textSecondary
-                                    
-                                    Behavior on color {
-                                        ColorAnimation { duration: Constants.animationFast }
-                                    }
-                                }
-                                
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.label
-                                    font.pixelSize: Constants.fontSizeXSmall
-                                    color: tabBar.parent.currentView === index ? MColors.accent : MColors.textSecondary
-                                    font.weight: tabBar.parent.currentView === index ? Font.DemiBold : Font.Normal
-                                    
-                                    Behavior on color {
-                                        ColorAnimation { duration: Constants.animationFast }
-                                    }
-                                }
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticService.light()
-                                    tabBar.parent.currentView = index
-                                }
-                            }
-                        }
-                    }
+                onTabSelected: (index) => {
+                    HapticService.light()
+                    tabBar.parent.currentView = index
                 }
             }
         }

@@ -1,7 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     color: MColors.background
@@ -42,7 +42,7 @@ Rectangle {
                     width: Constants.iconSizeLarge
                     height: Constants.iconSizeLarge
                     radius: Constants.borderRadiusSharp
-                    color: MColors.surface2
+                    color: MColors.elevated
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
                     antialiasing: Constants.enableAntialiasing
@@ -98,7 +98,7 @@ Rectangle {
             MouseArea {
                 anchors.fill: parent
                 onPressed: {
-                    parent.color = MColors.surface2
+                    parent.color = MColors.elevated
                     HapticService.light()
                 }
                 onReleased: {

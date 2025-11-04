@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import Qt.labs.platform as Platform
-import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
@@ -96,7 +95,7 @@ Rectangle {
                 contentItem: Rectangle {
                     implicitWidth: Constants.scrollBarWidth
                     radius: Constants.borderRadiusSharp
-                    color: parent.pressed ? MColors.accentPressed : (parent.hovered ? MColors.accent : MColors.textTertiary)
+                    color: parent.pressed ? MColors.pressed : (parent.hovered ? MColors.accent : MColors.textTertiary)
                     opacity: parent.active ? 1.0 : 0.5
                     
                     Behavior on color {

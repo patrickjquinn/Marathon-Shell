@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 
 Item {
@@ -78,14 +77,14 @@ Item {
                     
                     Text {
                         text: model.cityName
-                        color: Colors.text
+                        color: MColors.textPrimary
                         font.pixelSize: Constants.fontSizeMedium
                         font.weight: Font.DemiBold
                     }
                     
                     Text {
                         text: model.timeDiff
-                        color: Colors.textSecondary
+                        color: MColors.textSecondary
                         font.pixelSize: Constants.fontSizeSmall
                     }
                 }
@@ -94,7 +93,7 @@ Item {
                     id: timeText
                     anchors.verticalCenter: parent.verticalCenter
                     text: model.cityTime
-                    color: Colors.accent
+                    color: MColors.marathonTeal
                     font.pixelSize: Constants.fontSizeLarge
                     font.weight: Font.Bold
                 }
@@ -107,7 +106,7 @@ Item {
                 anchors.leftMargin: Constants.spacingLarge
                 anchors.rightMargin: Constants.spacingLarge
                 height: Constants.borderWidthThin
-                color: Colors.border
+                color: MColors.border
             }
         }
     }

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
 
@@ -43,7 +42,7 @@ Item {
         
         Rectangle {
             anchors.fill: parent
-            color: mouseArea.pressed ? MColors.surface2 : "transparent"
+            color: mouseArea.pressed ? MColors.elevated : "transparent"
             radius: Constants.borderRadiusSharp
             
             Behavior on color {

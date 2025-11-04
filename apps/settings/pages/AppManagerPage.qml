@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
@@ -29,7 +28,7 @@ SettingsPageTemplate {
                 leftPadding: Constants.spacingLarge
                 rightPadding: Constants.spacingLarge
                 text: "Installed Apps (" + MarathonAppRegistry.count + ")"
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: Constants.fontSizeSmall
             }
             
@@ -78,7 +77,7 @@ SettingsPageTemplate {
                                     
                                     Text {
                                         text: model.name
-                                        color: Colors.text
+                                        color: MColors.textPrimary
                                         font.pixelSize: Constants.fontSizeMedium
                                         font.weight: Font.DemiBold
                                     }
@@ -90,13 +89,13 @@ SettingsPageTemplate {
                                         radius: Constants.borderRadiusSmall
                                         color: "transparent"
                                         border.width: Constants.borderWidthThin
-                                        border.color: Colors.accent
+                                        border.color: MColors.marathonTeal
                                         
                                         Text {
                                             id: systemBadgeText
                                             anchors.centerIn: parent
                                             text: "System"
-                                            color: Colors.accent
+                                            color: MColors.marathonTeal
                                             font.pixelSize: Constants.fontSizeSmall
                                             font.weight: Font.Medium
                                         }
@@ -105,7 +104,7 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     text: "v" + (model.version || "1.0.0")
-                                    color: Colors.textSecondary
+                                    color: MColors.textSecondary
                                     font.pixelSize: Constants.fontSizeSmall
                                     Layout.fillWidth: true
                                 }
@@ -128,7 +127,7 @@ SettingsPageTemplate {
                             anchors.bottom: parent.bottom
                             width: parent.width
                             height: Constants.borderWidthThin
-                            color: Colors.border
+                            color: MColors.border
                         }
                     }
                 }
@@ -143,7 +142,7 @@ SettingsPageTemplate {
         anchors.centerIn: parent
         width: Math.min(Constants.screenWidth * 0.85, parent.width - Constants.spacingXLarge * 2)
         height: dialogContent.height + Constants.spacingXLarge * 2
-        color: Colors.surface
+        color: MColors.surface
         radius: Constants.borderRadiusLarge
         visible: false
         z: 1000
@@ -170,7 +169,7 @@ SettingsPageTemplate {
             Text {
                 Layout.fillWidth: true
                 text: "Uninstall " + uninstallDialog.appName + "?"
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeLarge
                 font.weight: Font.Bold
                 horizontalAlignment: Text.AlignHCenter
@@ -180,7 +179,7 @@ SettingsPageTemplate {
             Text {
                 Layout.fillWidth: true
                 text: "This app will be permanently removed from your device."
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: Constants.fontSizeMedium
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap

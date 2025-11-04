@@ -1,10 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
-import "../MarathonUI/Controls"
-import "."
 import MarathonUI.Theme
+import MarathonUI.Controls
+import "."
 
 Rectangle {
     id: quickSettings
@@ -141,7 +140,7 @@ Rectangle {
         
             Text {
                 text: SystemStatusStore.dateString
-                color: MColors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeMedium
                 font.weight: Font.Normal
                 font.family: MTypography.fontFamily
@@ -205,7 +204,7 @@ Rectangle {
                             width: index === toggleSwipeView.currentIndex ? 24 : 8
                             height: 8
                             radius: MRadius.md
-                            color: index === toggleSwipeView.currentIndex ? MColors.accent : Qt.rgba(255, 255, 255, 0.3)
+                            color: index === toggleSwipeView.currentIndex ? MColors.marathonTeal : Qt.rgba(255, 255, 255, 0.3)
                             
                             Behavior on width {
                                 NumberAnimation { duration: 200 }
@@ -232,7 +231,7 @@ Rectangle {
                 
                 Text {
                     text: "Brightness"
-                    color: MColors.text
+                    color: MColors.textPrimary
                     font.pixelSize: Constants.fontSizeMedium
                     font.weight: Font.Medium
                     font.family: MTypography.fontFamily
@@ -256,7 +255,7 @@ Rectangle {
                 
                 Text {
                     text: "Volume"
-                    color: MColors.text
+                    color: MColors.textPrimary
                     font.pixelSize: Constants.fontSizeMedium
                     font.weight: Font.Medium
                     font.family: MTypography.fontFamily

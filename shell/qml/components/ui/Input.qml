@@ -1,5 +1,6 @@
 import QtQuick
-import "../../theme"
+import MarathonOS.Shell
+import MarathonUI.Theme
 
 Rectangle {
     id: inputContainer

@@ -1,48 +1,34 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
 
 Text {
     id: root
     
     property string variant: "body"
     
-    font.pixelSize: {
-        switch (variant) {
-            case "h1": return Constants.fontSizeHuge
-            case "h2": return Constants.fontSizeXXLarge
-            case "h3": return Constants.fontSizeXLarge
-            case "h4": return Constants.fontSizeLarge
-            case "body": return Constants.fontSizeMedium
-            case "caption": return Constants.fontSizeSmall
-            case "overline": return Constants.fontSizeXSmall
-            default: return Constants.fontSizeMedium
-        }
-    }
-    
-    font.weight: {
-        switch (variant) {
-            case "h1":
-            case "h2":
-            case "h3":
-                return Font.Bold
-            case "h4":
-                return Font.DemiBold
-            default:
-                return Font.Normal
-        }
-    }
-    
     color: {
-        switch (variant) {
-            case "overline":
-            case "caption":
-                return MColors.textSecondary
-            default:
-                return MColors.text
+        switch(variant) {
+            case "primary": return MColors.textPrimary
+            case "secondary": return MColors.textSecondary
+            case "tertiary": return MColors.textTertiary
+            case "hint": return MColors.textHint
+            case "accent": return MColors.marathonTeal
+            default: return MColors.textPrimary
         }
     }
     
-    wrapMode: Text.WordWrap
-    elide: Text.ElideRight
+    font.pixelSize: {
+        switch(variant) {
+            case "display": return MTypography.sizeDisplay
+            case "xlarge": return MTypography.sizeXXLarge
+            case "large": return MTypography.sizeLarge
+            case "small": return MTypography.sizeSmall
+            case "xsmall": return MTypography.sizeXSmall
+            default: return MTypography.sizeBody
+        }
+    }
+    
+    font.family: MTypography.fontFamily
+    font.weight: MTypography.weightNormal
 }
 

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -37,8 +36,8 @@ Rectangle {
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "x"
-                    size: Constants.touchTargetMedium
+                    iconName: "x"
+                    iconSize: Constants.touchTargetMedium
                     onClicked: {
                         cancelled()
                     }
@@ -49,7 +48,7 @@ Rectangle {
                     text: "New Message"
                     font.pixelSize: Constants.fontSizeLarge
                     font.weight: Font.Bold
-                    color: MColors.text
+                    color: MColors.textPrimary
                 }
             }
         }
@@ -81,7 +80,7 @@ Rectangle {
                         text: "To:"
                         font.pixelSize: Constants.fontSizeMedium
                         font.weight: Font.DemiBold
-                        color: MColors.text
+                        color: MColors.textPrimary
                     }
                     
                     MTextInput {
@@ -101,8 +100,8 @@ Rectangle {
                     
                     MIconButton {
                         anchors.verticalCenter: parent.verticalCenter
-                        icon: "chevron-right"
-                        size: Constants.touchTargetMedium
+                        iconName: "chevron-right"
+                        iconSize: Constants.touchTargetMedium
                         enabled: selectedContact.length > 0 || recipientInput.text.length > 0
                         onClicked: {
                             startConversation()
@@ -153,7 +152,7 @@ Rectangle {
                                 width: Constants.iconSizeMedium + Constants.spacingSmall
                                 height: Constants.iconSizeMedium + Constants.spacingSmall
                                 radius: Constants.borderRadiusSharp
-                                color: MColors.surface2
+                                color: MColors.elevated
                                 border.width: Constants.borderWidthThin
                                 border.color: MColors.border
                                 
@@ -162,7 +161,7 @@ Rectangle {
                                     text: modelData.name ? modelData.name.charAt(0).toUpperCase() : "?"
                                     font.pixelSize: Constants.fontSizeMedium
                                     font.weight: Font.Bold
-                                    color: MColors.accent
+                                    color: MColors.marathonTeal
                                 }
                             }
                             
@@ -176,7 +175,7 @@ Rectangle {
                                     text: modelData.name
                                     font.pixelSize: Constants.fontSizeMedium
                                     font.weight: Font.DemiBold
-                                    color: MColors.text
+                                    color: MColors.textPrimary
                                     elide: Text.ElideRight
                                 }
                                 
@@ -191,7 +190,7 @@ Rectangle {
                         MouseArea {
                             anchors.fill: parent
                             onPressed: {
-                                parent.color = MColors.surface2
+                                parent.color = MColors.elevated
                                 HapticService.light()
                             }
                             onReleased: {

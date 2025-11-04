@@ -1,7 +1,8 @@
 import QtQuick
+import MarathonUI.Theme
 
 Item {
-    id: ripple
+    id: root
     
     property point origin: Qt.point(width / 2, height / 2)
     property bool active: false
@@ -15,17 +16,17 @@ Item {
         width: 0
         height: 0
         radius: width / 2
-        x: ripple.origin.x - width / 2
-        y: ripple.origin.y - height / 2
-        color: ripple.rippleColor
+        x: root.origin.x - width / 2
+        y: root.origin.y - height / 2
+        color: root.rippleColor
         opacity: 0
         
         states: State {
             name: "active"
-            when: ripple.active
+            when: root.active
             PropertyChanges {
                 target: rippleCircle
-                width: Math.max(ripple.width, ripple.height) * 2.5  // MMotion.rippleMaxRadius
+                width: Math.max(root.width, root.height) * MMotion.rippleMaxRadius
                 height: width
                 opacity: 0
             }
@@ -40,21 +41,21 @@ Item {
                         target: rippleCircle
                         properties: "width,height" 
                         from: 0
-                        duration: 400  // MMotion.rippleDuration
-                        easing.type: Easing.OutQuint  // MMotion.easingDecelerate
+                        duration: MMotion.rippleDuration
+                        easing.bezierCurve: MMotion.easingDecelerateCurve
                     }
                     NumberAnimation { 
                         target: rippleCircle
                         property: "opacity"
-                        from: 0.12  // MMotion.rippleOpacity
+                        from: MMotion.rippleOpacity
                         to: 0
-                        duration: 400  // MMotion.rippleDuration
-                        easing.type: Easing.Linear  // MMotion.easingLinear
+                        duration: MMotion.rippleDuration
+                        easing.type: Easing.Linear
                     }
                 }
                 ScriptAction { 
                     script: {
-                        ripple.active = false
+                        root.active = false
                         rippleCircle.width = 0
                         rippleCircle.height = 0
                     }

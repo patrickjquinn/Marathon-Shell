@@ -1,6 +1,8 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Core
 import "../components"
 
@@ -38,7 +40,7 @@ SettingsPageTemplate {
                     anchors.verticalCenter: parent.verticalCenter
                     name: BluetoothManagerCpp.enabled ? "bluetooth" : "bluetooth-off"
                     size: Constants.iconSizeMedium
-                    color: BluetoothManagerCpp.enabled ? Colors.accent : Colors.textSecondary
+                    color: BluetoothManagerCpp.enabled ? MColors.marathonTeal : MColors.textSecondary
                 }
                 
                 Column {
@@ -51,21 +53,21 @@ SettingsPageTemplate {
                     
                     Text {
                         text: "Bluetooth"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
+                        color: MColors.textPrimary
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                     }
                     
                     Text {
                         text: BluetoothManagerCpp.enabled ? (BluetoothManagerCpp.scanning ? "Scanning..." : "Enabled") : "Disabled"
-                        color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
                     }
                 }
                 
-                MarathonToggle {
+                MToggle {
                     id: bluetoothToggle
                     anchors.right: parent.right
                     anchors.rightMargin: Constants.spacingMedium
@@ -77,7 +79,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Paired Devices"
                 width: parent.width - Constants.spacingLarge * 2
                 visible: BluetoothManagerCpp.enabled && BluetoothManagerCpp.pairedDevices.length > 0
@@ -115,7 +117,7 @@ SettingsPageTemplate {
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: modelData.icon || "bluetooth"
                                     size: Constants.iconSizeMedium
-                                    color: modelData.connected ? Colors.accent : Colors.textSecondary
+                                    color: modelData.connected ? MColors.marathonTeal : MColors.textSecondary
                                 }
                                 
                                 Column {
@@ -126,18 +128,18 @@ SettingsPageTemplate {
                                     Text {
                                         width: parent.width
                                         text: modelData.alias || modelData.name || modelData.address
-                                        color: Colors.text
-                                        font.pixelSize: Typography.sizeBody
-                                        font.family: Typography.fontFamily
+                                        color: MColors.textPrimary
+                                        font.pixelSize: MTypography.sizeBody
+                                        font.family: MTypography.fontFamily
                                         elide: Text.ElideRight
                                     }
                                     
                                     Text {
                                         width: parent.width
                                         text: modelData.connected ? "Connected" : "Not connected"
-                                        color: modelData.connected ? Colors.accent : Colors.textSecondary
-                                        font.pixelSize: Typography.sizeSmall
-                                        font.family: Typography.fontFamily
+                                        color: modelData.connected ? MColors.marathonTeal : MColors.textSecondary
+                                        font.pixelSize: MTypography.sizeSmall
+                                        font.family: MTypography.fontFamily
                                     }
                                 }
                                 
@@ -146,7 +148,7 @@ SettingsPageTemplate {
                                     anchors.right: parent.right
                                     name: "chevron-right"
                                     size: Constants.iconSizeSmall
-                                    color: Colors.textSecondary
+                                    color: MColors.textSecondary
                                 }
                             }
                             
@@ -166,7 +168,7 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Available Devices"
                 width: parent.width - Constants.spacingLarge * 2
                 visible: BluetoothManagerCpp.enabled
@@ -222,7 +224,7 @@ SettingsPageTemplate {
                                         anchors.verticalCenter: parent.verticalCenter
                                         name: modelData.icon || "bluetooth"
                                         size: Constants.iconSizeMedium
-                                        color: Colors.textSecondary
+                                        color: MColors.textSecondary
                                     }
                                     
                                     Column {
@@ -232,18 +234,18 @@ SettingsPageTemplate {
                                         Text {
                                             width: parent.width
                                             text: modelData.alias || modelData.name || modelData.address
-                                            color: Colors.text
-                                            font.pixelSize: Typography.sizeBody
-                                            font.family: Typography.fontFamily
+                                            color: MColors.textPrimary
+                                            font.pixelSize: MTypography.sizeBody
+                                            font.family: MTypography.fontFamily
                                             elide: Text.ElideRight
                                         }
                                         
                                         Text {
                                             width: parent.width
                                             text: modelData.rssi ? "Signal: " + modelData.rssi + " dBm" : "Available"
-                                            color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            font.family: Typography.fontFamily
+                                            color: MColors.textSecondary
+                                            font.pixelSize: MTypography.sizeSmall
+                                            font.family: MTypography.fontFamily
                                         }
                                     }
                                 }
@@ -272,9 +274,9 @@ SettingsPageTemplate {
                     Text {
                         width: parent.width
                         text: BluetoothManagerCpp.scanning ? "Scanning for devices..." : "No devices found"
-                        color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         horizontalAlignment: Text.AlignHCenter
                         topPadding: Constants.spacingLarge
                         bottomPadding: Constants.spacingLarge

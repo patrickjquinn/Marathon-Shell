@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -52,7 +51,7 @@ Rectangle {
                     width: Constants.iconSizeMedium + Constants.spacingSmall
                     height: Constants.iconSizeMedium + Constants.spacingSmall
                     radius: Constants.borderRadiusSharp
-                    color: MColors.surface2
+                    color: MColors.elevated
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
                     antialiasing: Constants.enableAntialiasing
@@ -62,7 +61,7 @@ Rectangle {
                         text: conversation ? conversation.contactName.charAt(0).toUpperCase() : ""
                         font.pixelSize: Constants.fontSizeMedium
                         font.weight: Font.Bold
-                        color: MColors.accent
+                        color: MColors.marathonTeal
                     }
                 }
                 
@@ -71,7 +70,7 @@ Rectangle {
                     text: conversation ? conversation.contactName : ""
                     font.pixelSize: Constants.fontSizeLarge
                     font.weight: Font.Bold
-                    color: MColors.text
+                    color: MColors.textPrimary
                 }
             }
         }
@@ -102,9 +101,9 @@ Rectangle {
                         width: Math.min(messageText.implicitWidth + Constants.spacingMedium * 2, messagesList.width * 0.75)
                         height: messageText.implicitHeight + Constants.spacingMedium * 2
                         radius: Constants.borderRadiusSharp
-                        color: modelData.isOutgoing ? MColors.accent : MColors.surface
+                        color: modelData.isOutgoing ? MColors.marathonTeal : MColors.surface
                         border.width: Constants.borderWidthThin
-                        border.color: modelData.isOutgoing ? MColors.accentDark : MColors.border
+                        border.color: modelData.isOutgoing ? MColors.marathonTealDark : MColors.border
                         antialiasing: Constants.enableAntialiasing
                         
                         Text {
@@ -113,7 +112,7 @@ Rectangle {
                             anchors.margins: Constants.spacingMedium
                             text: modelData.text
                             font.pixelSize: Constants.fontSizeMedium
-                            color: modelData.isOutgoing ? MColors.text : MColors.text
+                            color: modelData.isOutgoing ? MColors.textPrimary : MColors.textPrimary
                             wrapMode: Text.Wrap
                         }
                     }
@@ -156,8 +155,8 @@ Rectangle {
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "send"
-                    size: Constants.touchTargetMedium
+                    iconName: "send"
+                    iconSize: 20
                     variant: messageInput.text.length > 0 ? "primary" : "secondary"
                     enabled: messageInput.text.length > 0
                     onClicked: {

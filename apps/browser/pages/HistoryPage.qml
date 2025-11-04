@@ -1,13 +1,12 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Lists
+import MarathonUI.Containers
 import MarathonUI.Core
 
 Rectangle {
     id: historyPage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal historySelected(string url)
     signal clearHistory()
@@ -76,12 +75,13 @@ Rectangle {
                 MSectionHeader {
                     visible: modelData.type === "header"
                     anchors.fill: parent
-                    title: modelData.title || ""
+                    text: modelData.title || ""
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     visible: modelData.type === "item"
-                    anchors.fill: parent
+                    width: parent.width
+                    height: parent.height
                     title: modelData.data ? (modelData.data.title || modelData.data.url) : ""
                     subtitle: modelData.data ? modelData.data.url : ""
                     iconName: "clock"

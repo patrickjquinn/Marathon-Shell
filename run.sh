@@ -35,7 +35,8 @@ echo ""
 
 # Build everything using build-all.sh script
 echo "🏗️  Building Marathon Shell and Apps..."
-./scripts/build-all.sh
+# CRITICAL: Always reinstall apps to ensure source changes are deployed
+./scripts/build-all.sh install
 
 if [ $? -eq 0 ]; then
     echo ""

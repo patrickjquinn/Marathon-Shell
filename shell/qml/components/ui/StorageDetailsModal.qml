@@ -1,5 +1,9 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
 
 Modal {
     id: storageModal
@@ -19,7 +23,7 @@ Modal {
                 
                 Text {
                     text: "Used"
-                    color: Colors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     width: parent.width / 2
@@ -27,7 +31,7 @@ Modal {
                 
                 Text {
                     text: "45.2 GB of 64 GB"
-                    color: Colors.textSecondary
+                    color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
                     font.family: MTypography.fontFamily
                     horizontalAlignment: Text.AlignRight
@@ -39,13 +43,13 @@ Modal {
                 width: parent.width
                 height: Constants.smallIndicatorSize
                 radius: Constants.borderRadiusSmall
-                color: Colors.backgroundDark
+                color: MColors.background
                 
                 Rectangle {
                     width: parent.width * 0.71 // 45.2/64
                     height: parent.height
                     radius: parent.radius
-                    color: Colors.accent
+                    color: MColors.marathonTeal
                 }
             }
         }
@@ -83,7 +87,7 @@ Modal {
                         
                         Text {
                             text: modelData.name
-                            color: Colors.text
+                            color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
                             anchors.verticalCenter: parent.verticalCenter
@@ -92,7 +96,7 @@ Modal {
                         
                         Text {
                             text: modelData.size
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             font.pixelSize: MTypography.sizeSmall
                             font.family: MTypography.fontFamily
                             horizontalAlignment: Text.AlignRight

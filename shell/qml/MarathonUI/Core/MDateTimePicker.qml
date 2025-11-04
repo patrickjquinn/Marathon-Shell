@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
-import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Modals
 
 Rectangle {
     id: root
@@ -12,38 +14,36 @@ Rectangle {
     signal dateSelected(date date)
     
     implicitWidth: 200
-    implicitHeight: Constants.touchTargetMedium
+    implicitHeight: MSpacing.touchTargetMin
     
-    color: MElevation.getSurface(1)
-    radius: Constants.borderRadiusSharp
-    border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(1)
-    antialiasing: Constants.enableAntialiasing
+    color: MColors.bb10Surface
+    radius: MRadius.md
+    border.width: 1
+    border.color: Qt.rgba(1, 1, 1, 0.08)
     
     Rectangle {
         anchors.fill: parent
-        anchors.margins: Constants.borderWidthThin
-        radius: parent.radius - Constants.borderWidthThin
+        anchors.margins: 1
+        radius: parent.radius - 1
         color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: MElevation.getBorderInner(1)
-        antialiasing: Constants.enableAntialiasing
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.04)
     }
     
     MouseArea {
         anchors.fill: parent
-        onClicked: pickerSheet.show()
+        onClicked: pickerSheet.visible = true
     }
     
     Row {
         anchors.fill: parent
-        anchors.leftMargin: Constants.spacingMedium
-        anchors.rightMargin: Constants.spacingMedium
-        spacing: Constants.spacingSmall
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
+        spacing: MSpacing.sm
         
         Icon {
             name: root.mode === "date" ? "calendar" : "clock"
-            size: Constants.iconSizeMedium
+            size: 24
             color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
         }
@@ -58,12 +58,12 @@ Rectangle {
                     return Qt.formatDateTime(root.selectedDate, "MMM dd, yyyy hh:mm AP")
                 }
             }
-            font.pixelSize: Constants.fontSizeMedium
-            color: MColors.text
+            font.pixelSize: MTypography.sizeBody
+            color: MColors.textPrimary
             verticalAlignment: Text.AlignVCenter
             anchors.verticalCenter: parent.verticalCenter
             elide: Text.ElideRight
-            width: parent.width - parent.spacing - Constants.iconSizeMedium
+            width: parent.width - parent.spacing - 24
         }
     }
     
@@ -71,14 +71,15 @@ Rectangle {
         id: pickerSheet
         title: root.label || (root.mode === "date" ? "Select Date" : "Select Time")
         anchors.fill: parent
+        visible: false
         
         content: [
             Column {
                 width: parent.width
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 
                 Row {
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     anchors.horizontalCenter: parent.horizontalCenter
                     
                     Tumbler {
@@ -88,8 +89,8 @@ Rectangle {
                         currentIndex: root.selectedDate.getMonth()
                         delegate: Text {
                             text: modelData
-                            font.pixelSize: Constants.fontSizeLarge
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -103,8 +104,8 @@ Rectangle {
                         currentIndex: root.selectedDate.getDate() - 1
                         delegate: Text {
                             text: modelData + 1
-                            font.pixelSize: Constants.fontSizeLarge
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -118,8 +119,8 @@ Rectangle {
                         currentIndex: root.selectedDate.getFullYear() - 1950
                         delegate: Text {
                             text: modelData + 1950
-                            font.pixelSize: Constants.fontSizeLarge
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -133,8 +134,8 @@ Rectangle {
                         currentIndex: root.selectedDate.getHours() % 12
                         delegate: Text {
                             text: modelData === 0 ? 12 : modelData
-                            font.pixelSize: Constants.fontSizeLarge
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -144,8 +145,8 @@ Rectangle {
                     Text {
                         visible: root.mode !== "date"
                         text: ":"
-                        font.pixelSize: Constants.fontSizeXLarge
-                        color: MColors.text
+                        font.pixelSize: MTypography.sizeXLarge
+                        color: MColors.textPrimary
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     
@@ -156,8 +157,8 @@ Rectangle {
                         currentIndex: root.selectedDate.getMinutes()
                         delegate: Text {
                             text: modelData < 10 ? "0" + modelData : modelData
-                            font.pixelSize: Constants.fontSizeLarge
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -171,8 +172,8 @@ Rectangle {
                         currentIndex: root.selectedDate.getHours() >= 12 ? 1 : 0
                         delegate: Text {
                             text: modelData
-                            font.pixelSize: Constants.fontSizeLarge
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            color: MColors.textPrimary
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
                             opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -181,13 +182,13 @@ Rectangle {
                 }
                 
                 Row {
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
                     anchors.horizontalCenter: parent.horizontalCenter
                     
                     MButton {
                         text: "Cancel"
                         variant: "secondary"
-                        onClicked: pickerSheet.close()
+                        onClicked: pickerSheet.visible = false
                     }
                     
                     MButton {
@@ -215,7 +216,7 @@ Rectangle {
                             
                             root.selectedDate = newDate
                             root.dateSelected(newDate)
-                            pickerSheet.close()
+                            pickerSheet.visible = false
                         }
                     }
                 }

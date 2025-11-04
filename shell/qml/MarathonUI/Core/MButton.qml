@@ -1,192 +1,162 @@
 import QtQuick
+import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonOS.Shell
 
-Rectangle {
+Item {
     id: root
     
-    property string text: ""
-    property string variant: "primary"    // primary, secondary, tertiary, ghost, danger, success
-    property string size: "medium"        // small, medium, large
-    property bool disabled: false
+    required property string text
+    property string variant: "default"
     property string iconName: ""
     property bool iconLeft: true
-    property bool fullWidth: false
-    property string state: "default"      // default, loading, success, error
+    property bool disabled: false
+    property string state: "default"
+    property string shape: "rounded"  // "rounded" or "circular"
     
     signal clicked()
     signal pressed()
     signal released()
     
-    implicitWidth: fullWidth ? parent.width : Math.max(minWidth, contentRow.width + horizontalPadding * 2)
-    implicitHeight: {
-        if (size === "small") return Constants.touchTargetSmall
-        if (size === "large") return Constants.touchTargetLarge
-        return Constants.touchTargetMedium
-    }
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real borderGlowWidth: Math.max(1, Math.round(3 * scaleFactor))
+    readonly property real borderGlowOffset: Math.max(1, Math.round(3 * scaleFactor))
+    readonly property real iconSize: Math.round(18 * scaleFactor)
     
-    readonly property int minWidth: 100
-    readonly property int horizontalPadding: {
-        if (size === "small") return Constants.spacingMedium
-        if (size === "large") return Constants.spacingXLarge
-        return Constants.spacingLarge
-    }
+    implicitWidth: buttonRect.implicitWidth + (variant === "primary" ? borderGlowOffset * 2 : 0)
+    implicitHeight: buttonRect.implicitHeight + (variant === "primary" ? borderGlowOffset * 2 : 0)
     
-    radius: Constants.borderRadiusSharp
-    scale: mouseArea.pressed ? 0.98 : 1.0
+    Accessible.role: Accessible.Button
+    Accessible.name: text
+    Accessible.description: variant + " button"
+    Accessible.onPressAction: if (!disabled && state === "default") clicked()
     
-    color: {
-        if (disabled) return MColors.surface0
-        if (mouseArea.pressed) {
-            if (variant === "primary") return MColors.accentPressed
-            if (variant === "secondary") return MColors.glass
-            if (variant === "tertiary") return MColors.surface1
-            if (variant === "ghost") return MColors.hover
-            if (variant === "danger") return MColors.errorDim
-            if (variant === "success") return MColors.successDim
-            return MColors.surface
-        }
-        if (variant === "primary") return MColors.accent
-        if (variant === "secondary") return MColors.glass
-        if (variant === "tertiary") return "transparent"
-        if (variant === "ghost") return "transparent"
-        if (variant === "danger") return MColors.error
-        if (variant === "success") return MColors.success
-        return MColors.glass
-    }
+    focus: true
+    Keys.onReturnPressed: if (!disabled && state === "default") clicked()
+    Keys.onSpacePressed: if (!disabled && state === "default") clicked()
     
-    border.width: Constants.borderWidthThin
-    border.color: {
-        if (variant === "primary") return MColors.accentBright
-        if (variant === "secondary") return MColors.glassBorder
-        if (variant === "tertiary") return MColors.border
-        if (variant === "ghost") return "transparent"
-        if (variant === "danger") return MColors.errorBright
-        if (variant === "success") return MColors.successBright
-        return MColors.borderOuter
-    }
-    
-    antialiasing: Constants.enableAntialiasing
-    
-    Behavior on color {
-        enabled: Constants.enableAnimations
-        ColorAnimation { duration: MMotion.quick }
-    }
-    
-    Behavior on scale {
-        enabled: Constants.enableAnimations
-        SpringAnimation { 
-            spring: MMotion.springMedium
-            damping: MMotion.dampingMedium
-            epsilon: MMotion.epsilon
-        }
-    }
-    
-    // Inner border for depth
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: Constants.borderRadiusSharp
-        color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: variant === "primary" ? MColors.borderHighlight : MColors.borderInner
-        antialiasing: Constants.enableAntialiasing
-        visible: variant !== "ghost" && variant !== "tertiary"
-        
-        Behavior on border.color {
-            enabled: Constants.enableAnimations
-            ColorAnimation { duration: MMotion.quick }
-        }
-    }
-    
-    // Ripple effect
-    
-    Row {
-        id: contentRow
+        visible: variant === "primary"
         anchors.centerIn: parent
-        spacing: Constants.spacingSmall
-        layoutDirection: iconLeft ? Qt.LeftToRight : Qt.RightToLeft
-        opacity: root.state === "loading" ? 0 : 1
+        width: buttonRect.width + borderGlowOffset * 2
+        height: buttonRect.height + borderGlowOffset * 2
+        radius: buttonRect.radius + borderGlowOffset
+        color: "transparent"
+        border.width: borderGlowWidth
+        border.color: Qt.rgba(0, 191/255, 165/255, 0.35)
+    }
+
+    Rectangle {
+        id: buttonRect
+        anchors.centerIn: parent
         
-        Behavior on opacity {
-            enabled: Constants.enableAnimations
-            NumberAnimation { duration: MMotion.quick }
+        implicitWidth: contentRow.width + MSpacing.xl * 2
+        implicitHeight: MSpacing.touchTargetMin
+        
+        radius: root.shape === "circular" ? width / 2 : MRadius.md
+        color: {
+            if (root.disabled) return Qt.rgba(1, 1, 1, 0.02)
+            if (mouseArea.pressed) {
+                if (root.variant === "primary") return MColors.marathonTealDark
+                if (root.variant === "secondary") return MColors.bb10Elevated
+                return "transparent"
+            }
+            if (root.variant === "primary") return MColors.marathonTeal
+            if (root.variant === "secondary") return MColors.bb10Surface
+            return "transparent"
+        }
+        
+        border.width: root.variant === "default" ? borderWidth : 0
+        border.color: MColors.borderGlass
+        
+        scale: mouseArea.pressed ? 0.96 : 1.0
+        
+        gradient: root.variant === "primary" ? primaryGradient : null
+        
+        Gradient {
+            id: primaryGradient
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0.0; color: MColors.marathonTealBright }
+            GradientStop { position: 0.5; color: MColors.marathonTeal }
+            GradientStop { position: 1.0; color: MColors.marathonTealDark }
+        }
+        
+        Behavior on color {
+            ColorAnimation { duration: MMotion.xs }
+        }
+        
+        Behavior on scale {
+            SpringAnimation {
+                spring: MMotion.springMedium
+                damping: MMotion.dampingMedium
+                epsilon: MMotion.epsilon
+            }
+        }
+        
+        Row {
+            id: contentRow
+            anchors.centerIn: parent
+            spacing: MSpacing.sm
+            layoutDirection: iconLeft ? Qt.LeftToRight : Qt.RightToLeft
+            opacity: root.state === "loading" ? 0 : 1
+            
+            Behavior on opacity {
+                NumberAnimation { duration: MMotion.quick }
+            }
+            
+            Icon {
+                visible: iconName !== "" && root.state === "default"
+                name: iconName
+                size: iconSize
+                color: variant === "primary" ? "#000000" : MColors.textPrimary  // Black icon on teal
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            
+            Text {
+                text: root.text
+                color: {
+                    if (disabled) return MColors.textHint
+                    if (variant === "primary") return "#000000"  // Pure black for maximum contrast on teal
+                    if (variant === "secondary") return MColors.textPrimary
+                    return MColors.textPrimary
+                }
+                font.pixelSize: MTypography.sizeBody  // Larger for readability
+                font.weight: variant === "primary" ? MTypography.weightBold : MTypography.weightDemiBold
+                font.family: MTypography.fontFamily
+                anchors.verticalCenter: parent.verticalCenter
+            }
         }
         
         Icon {
-            visible: iconName !== "" && root.state === "default"
-            name: iconName
-            size: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
-            color: disabled ? MColors.textDisabled : (variant === "primary" ? MColors.textOnAccent : MColors.text)
-            anchors.verticalCenter: parent.verticalCenter
-        }
-        
-        Text {
-            text: root.text
-            color: {
-                if (disabled) return MColors.textDisabled
-                if (variant === "primary") return MColors.textOnAccent
-                return MColors.text
-            }
-            font.pixelSize: root.size === "small" ? Constants.fontSizeSmall : (root.size === "large" ? Constants.fontSizeLarge : Constants.fontSizeMedium)
-            font.weight: Font.DemiBold
-            anchors.verticalCenter: parent.verticalCenter
-        }
-    }
-    
-    // Loading spinner - MActivityIndicator removed (MarathonUI.Effects not available)
-    // TODO: Add back when MarathonUI is available
-    
-    // Success icon
-    Icon {
-        anchors.centerIn: parent
-        name: "check"
-        size: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
-        color: variant === "primary" ? MColors.textOnAccent : MColors.success
-        visible: root.state === "success"
-        scale: root.state === "success" ? 1 : 0
-        
-        Behavior on scale {
-            enabled: Constants.enableAnimations
-            SpringAnimation { 
-                spring: MMotion.springLight
-                damping: MMotion.dampingLight
-                epsilon: MMotion.epsilon
+            anchors.centerIn: parent
+            name: "check"
+            size: iconSize
+            color: root.variant === "primary" ? MColors.textOnAccent : MColors.success
+            visible: root.state === "success"
+            scale: root.state === "success" ? 1 : 0
+            
+            Behavior on scale {
+                SpringAnimation {
+                    spring: MMotion.springLight
+                    damping: MMotion.dampingLight
+                    epsilon: MMotion.epsilon
+                }
             }
         }
-    }
-    
-    // Error icon
-    Icon {
-        anchors.centerIn: parent
-        name: "x"
-        size: root.size === "small" ? Constants.iconSizeSmall : (root.size === "large" ? Constants.iconSizeLarge : Constants.iconSizeMedium)
-        color: variant === "primary" ? MColors.textOnAccent : MColors.error
-        visible: root.state === "error"
-        scale: root.state === "error" ? 1 : 0
         
-        Behavior on scale {
-            enabled: Constants.enableAnimations
-            SpringAnimation { 
-                spring: MMotion.springLight
-                damping: MMotion.dampingLight
-                epsilon: MMotion.epsilon
+        MouseArea {
+            id: mouseArea
+            anchors.fill: parent
+            enabled: !root.disabled && root.state === "default"
+            
+            onPressed: function(mouse) {
+                MHaptics.lightImpact()
+                root.pressed()
             }
+            onReleased: root.released()
+            onClicked: root.clicked()
         }
-    }
-    
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        enabled: !disabled && root.state === "default"
-        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
-        
-        onPressed: function(mouse) {
-            rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
-            HapticService.light()
-            root.pressed()
-        }
-        onReleased: root.released()
-        onClicked: root.clicked()
     }
 }
-

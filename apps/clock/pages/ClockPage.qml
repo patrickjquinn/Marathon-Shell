@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import "../components" as ClockComponents
 
@@ -33,7 +32,7 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         
         // Main analog clock - centered and large, accounting for alarm bar
         Item {
@@ -49,7 +48,7 @@ Item {
                 anchors.centerIn: parent
                 width: parent.width * 1.10  // 10% larger frame (smaller than before)
                 height: parent.height * 1.10
-                color: Colors.background
+                color: MColors.background
                 border.width: Constants.borderWidthThick
                 border.color: Qt.rgba(0.18, 0.18, 0.18, 1.0)  // Darker, more subtle gray border
                 radius: width * 0.22  // Squircle-like radius (22% of width)
@@ -81,7 +80,7 @@ Item {
                                 
                                 width: isHourMarker ? Constants.borderWidthThick : Constants.borderWidthThin
                                 height: isHourMarker ? Constants.spacingMedium : Constants.spacingSmall
-                                color: Colors.accent
+                                color: MColors.marathonTeal
                             }
                         }
                     }
@@ -94,7 +93,7 @@ Item {
                         text: "12"
                         font.pixelSize: Constants.fontSizeXXLarge
                         font.weight: Font.Bold
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // Number: 3 with date
@@ -109,7 +108,7 @@ Item {
                             text: dayOfMonth
                             font.pixelSize: Constants.fontSizeMedium
                             font.weight: Font.Normal
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                         
                         Text {
@@ -117,7 +116,7 @@ Item {
                             text: dayOfWeek
                             font.pixelSize: Constants.fontSizeSmall
                             font.weight: Font.Normal
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                         
                         Text {
@@ -125,7 +124,7 @@ Item {
                             text: "3"
                             font.pixelSize: Constants.fontSizeXXLarge
                             font.weight: Font.Bold
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                     }
                     
@@ -137,7 +136,7 @@ Item {
                         text: "6"
                         font.pixelSize: Constants.fontSizeXXLarge
                         font.weight: Font.Bold
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // Number: 9
@@ -148,7 +147,7 @@ Item {
                         text: "9"
                         font.pixelSize: Constants.fontSizeXXLarge
                         font.weight: Font.Bold
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // PM indicator
@@ -159,7 +158,7 @@ Item {
                         text: hours >= 12 ? "PM" : "AM"
                         font.pixelSize: Constants.fontSizeMedium
                         font.weight: Font.Normal
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // Hour hand - darker gray with inner baton stripe (40% from center)
@@ -258,7 +257,7 @@ Item {
                             anchors.verticalCenterOffset: -height / 2
                             width: Constants.borderWidthThin
                             height: parent.height * 0.42
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                     }
                     
@@ -283,7 +282,7 @@ Item {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             height: Constants.actionBarHeight
-            color: Colors.background
+            color: MColors.background
             visible: clockApp.alarms.length > 0
             
             Column {
@@ -306,21 +305,21 @@ Item {
                         }
                         font.pixelSize: Constants.fontSizeLarge
                         font.weight: Font.Normal
-                        color: Colors.text
+                        color: MColors.textPrimary
                     }
                     
                     Text {
                         text: clockApp.alarms.length > 0 && clockApp.alarms[0].label ? clockApp.alarms[0].label : "Alarm Off"
                         font.pixelSize: Constants.fontSizeLarge
                         font.weight: Font.Normal
-                        color: Colors.text
+                        color: MColors.textPrimary
                     }
                 }
                 
                 Text {
                     text: "No Recurrence"
                     font.pixelSize: Constants.fontSizeSmall
-                    color: Colors.accent
+                            color: MColors.marathonTeal
                 }
             }
             
@@ -332,13 +331,13 @@ Item {
                 width: Constants.touchTargetMedium
                 height: Constants.touchTargetMedium
                 radius: width / 2
-                color: Colors.surface
+                color: MColors.surface
                 
                 ClockComponents.ClockIcon {
                     anchors.centerIn: parent
                     name: "clock"
                     size: Constants.iconSizeMedium
-                    color: Colors.textSecondary
+                        color: MColors.textSecondary
                 }
             }
         }

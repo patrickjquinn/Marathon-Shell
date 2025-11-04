@@ -1,33 +1,17 @@
 import QtQuick
-import MarathonOS.Shell
 
-Rectangle {
+Item {
     id: root
     
-    property int elevation: 1
-    property alias content: contentItem.children
+    property int zIndex: 0
+    default property alias content: contentItem.data
     
-    color: MElevation.getSurface(root.elevation)
-    radius: Constants.borderRadiusSharp
-    border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(root.elevation)
-    antialiasing: Constants.enableAntialiasing
-    
-    Rectangle {
-        id: innerBorder
-        anchors.fill: parent
-        anchors.margins: Constants.borderWidthThin
-        radius: parent.radius > 0 ? parent.radius - Constants.borderWidthThin : 0
-        color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: MElevation.getBorderInner(root.elevation)
-        antialiasing: Constants.enableAntialiasing
-    }
+    z: zIndex
+    anchors.fill: parent
     
     Item {
         id: contentItem
         anchors.fill: parent
-        anchors.margins: Constants.borderWidthThin * 2
     }
 }
 

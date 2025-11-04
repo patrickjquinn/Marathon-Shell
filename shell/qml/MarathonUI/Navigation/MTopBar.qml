@@ -1,68 +1,61 @@
 import QtQuick
+import QtQuick.Effects
+import MarathonUI.Theme
 import MarathonOS.Shell
-import "../Core"
 
 Rectangle {
     id: root
     
     property string title: ""
-    property bool showBackButton: false
-    property string rightIconName: ""
-    property alias leftContent: leftContainer.data
-    property alias rightContent: rightContainer.data
+    property alias actions: actionsItem.children
     
-    signal backClicked()
-    signal rightIconClicked()
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real barHeight: Math.round(88 * scaleFactor)
+    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real titleFontSize: Math.round(28 * scaleFactor)
+    readonly property real titleLetterSpacing: -0.5 * scaleFactor
     
-    implicitWidth: parent.width
-    implicitHeight: 56
-    color: MColors.glass
-    border.width: 1
-    border.color: MColors.glassBorder
+    height: barHeight
+    color: MColors.glassTitlebar
+    
+    // Glass morphism without blur (blur effect would blur content UNDER the bar, not desired)
+    border.width: borderWidth
+    border.color: MColors.borderGlass
+    
+    Rectangle {
+        anchors.fill: parent
+        anchors.topMargin: -borderWidth
+        anchors.leftMargin: -borderWidth
+        anchors.rightMargin: -borderWidth
+        color: "transparent"
+        border.width: borderWidth
+        border.color: Qt.rgba(1, 1, 1, 0.06)
+        z: 1
+    }
     
     Row {
-        anchors.fill: parent
-        anchors.leftMargin: Constants.spacingMedium
-        anchors.rightMargin: Constants.spacingMedium
-        spacing: Constants.spacingMedium
-        
-        Item {
-            id: leftContainer
-            width: showBackButton ? 48 : childrenRect.width
-            height: parent.height
-            
-            MIconButton {
-                visible: showBackButton && leftContainer.children.length === 1
-                iconName: "chevron-left"
-                anchors.verticalCenter: parent.verticalCenter
-                onClicked: root.backClicked()
-            }
-        }
+        anchors.left: parent.left
+        anchors.leftMargin: MSpacing.xl
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: MSpacing.sm
         
         Text {
             text: root.title
-            color: MColors.text
-            font.pixelSize: Constants.fontSizeLarge
-            font.weight: Font.DemiBold
+            color: MColors.textPrimary
+            font.pixelSize: titleFontSize
+            font.weight: Font.Light
             font.family: MTypography.fontFamily
+            font.letterSpacing: titleLetterSpacing
             anchors.verticalCenter: parent.verticalCenter
-            width: parent.width - leftContainer.width - rightContainer.width - Constants.spacingMedium * 2
-            elide: Text.ElideRight
         }
-        
-        Item {
-            id: rightContainer
-            width: rightIconName !== "" ? 48 : childrenRect.width
-            height: parent.height
-            
-            MIconButton {
-                visible: rightIconName !== "" && rightContainer.children.length === 1
-                iconName: rightIconName
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.right: parent.right
-                onClicked: root.rightIconClicked()
-            }
-        }
+    }
+    
+    Row {
+        id: actionsItem
+        anchors.right: parent.right
+        anchors.rightMargin: MSpacing.xl
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: MSpacing.md
     }
 }
 

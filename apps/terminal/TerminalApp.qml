@@ -117,7 +117,7 @@ MApp {
                                     width: 180
                                     height: 40
                                     y: (parent.height - height) / 2
-                                    color: index === currentTabIndex ? MColors.accent : MColors.surface2
+                                    color: index === currentTabIndex ? MColors.accent : MColors.elevated
                                     radius: Constants.borderRadiusSmall
                                     border.width: 1
                                     border.color: index === currentTabIndex ? MColors.accentBright : MColors.border
@@ -205,7 +205,7 @@ MApp {
                         width: 32
                         height: 32
                         radius: 16
-                        color: newTabMouseArea.pressed ? MColors.accentPressed : (newTabMouseArea.containsMouse ? MColors.accentHover : MColors.accent)
+                        color: newTabMouseArea.pressed ? MColors.pressed : (newTabMouseArea.containsMouse ? MColors.hover : MColors.accent)
                         border.width: 1
                         border.color: MColors.accentBright
                         

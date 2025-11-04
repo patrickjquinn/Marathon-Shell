@@ -1,8 +1,6 @@
 import QtQuick
 import QtWebEngine
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
 
 // Separate file for WebEngineView to enable true lazy loading
 // This file is only loaded when needed, avoiding QtWebEngine initialization on app launch

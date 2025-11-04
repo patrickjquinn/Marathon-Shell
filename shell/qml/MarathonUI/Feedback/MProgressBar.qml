@@ -1,62 +1,58 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
 
-Rectangle {
+Item {
     id: root
     
-    property real value: 0.0
+    property real value: 0.5
     property real from: 0.0
     property real to: 1.0
     property bool indeterminate: false
+    property color color: MColors.marathonTeal
     
-    readonly property real progress: (value - from) / (to - from)
-    
-    implicitWidth: 200
-    implicitHeight: 6
-    
-    color: MElevation.getSurface(0)
-    radius: height / 2
-    border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(0)
-    antialiasing: Constants.enableAntialiasing
+    implicitWidth: parent ? parent.width : 240
+    implicitHeight: 4
     
     Rectangle {
-        id: progressFill
+        id: track
+        anchors.fill: parent
+        radius: height / 2
+        color: MColors.bb10Surface
+        border.width: 1
+        border.color: MColors.borderGlass
+    }
+    
+    Rectangle {
+        id: fill
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.margins: Constants.borderWidthThin
-        width: root.indeterminate ? parent.width * 0.3 : (parent.width - Constants.borderWidthThin * 2) * Math.max(0, Math.min(1, root.progress))
-        radius: parent.radius - Constants.borderWidthThin
-        color: MColors.accent
-        antialiasing: Constants.enableAntialiasing
+        width: root.indeterminate ? parent.width * 0.3 : (root.value - root.from) / (root.to - root.from) * parent.width
+        radius: height / 2
+        color: root.color
+        
+        x: root.indeterminate ? indeterminateAnimation.value : 0
         
         Behavior on width {
-            enabled: Constants.enableAnimations && !root.indeterminate
-            SmoothedAnimation { velocity: 200 }
+            enabled: !root.indeterminate
+            NumberAnimation { duration: MMotion.quick }
         }
+    }
+    
+    SequentialAnimation {
+        id: indeterminateAnimation
+        running: root.indeterminate
+        loops: Animation.Infinite
         
-        SequentialAnimation {
-            running: root.indeterminate && Constants.enableAnimations
-            loops: Animation.Infinite
-            
-            NumberAnimation {
-                target: progressFill
-                property: "x"
-                from: 0
-                to: root.width - progressFill.width - Constants.borderWidthThin * 2
-                duration: 1000
-                easing.type: Easing.InOutCubic
-            }
-            
-            NumberAnimation {
-                target: progressFill
-                property: "x"
-                from: root.width - progressFill.width - Constants.borderWidthThin * 2
-                to: 0
-                duration: 1000
-                easing.type: Easing.InOutCubic
-            }
+        property real value: 0
+        
+        NumberAnimation {
+            target: indeterminateAnimation
+            property: "value"
+            from: -root.width * 0.3
+            to: root.width
+            duration: 1500
+            easing.type: Easing.InOutCubic
         }
     }
 }

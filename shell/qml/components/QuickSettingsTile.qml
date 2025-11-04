@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
@@ -16,7 +17,7 @@ Rectangle {
     height: Constants.hubHeaderHeight
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
-    border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
+    border.color: toggleData.active ? MColors.accentBright : MColors.border
     color: isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
     antialiasing: Constants.enableAntialiasing
     scale: isPressed ? 0.98 : 1.0
@@ -59,7 +60,7 @@ Rectangle {
         radius: Constants.borderRadiusSharp
         color: "transparent"
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderInner
+        border.color: MColors.borderSubtle
         antialiasing: Constants.enableAntialiasing
     }
     

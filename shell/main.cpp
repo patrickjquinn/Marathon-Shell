@@ -262,6 +262,13 @@ int main(int argc, char *argv[])
     // Set debug mode context property
     engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
     
+    // Expose Wayland availability to QML
+#ifdef HAVE_WAYLAND
+    engine.rootContext()->setContextProperty("HAVE_WAYLAND", true);
+#else
+    engine.rootContext()->setContextProperty("HAVE_WAYLAND", false);
+#endif
+    
     // Register DesktopFileParser as a singleton accessible from QML
     DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);
     engine.rootContext()->setContextProperty("DesktopFileParserCpp", desktopFileParser);

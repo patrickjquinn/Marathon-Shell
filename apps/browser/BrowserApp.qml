@@ -1,13 +1,10 @@
 import QtQuick
-import QtQuick.Controls
 import QtWebEngine
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonUI.Core
-import MarathonUI.Feedback
 import "components"
-import "pages"
 
 MApp {
     id: browserApp
@@ -779,7 +776,7 @@ MApp {
                         width: parent.width - Constants.touchTargetSmall * 5 - parent.spacing * 6
                         height: parent.height - Constants.spacingSmall * 2
                         radius: Constants.borderRadiusSmall
-                        color: MColors.surface2
+                        color: MColors.elevated
                         border.width: Constants.borderWidthThin
                         border.color: urlInput.activeFocus ? MColors.accent : MColors.border
                         clip: true

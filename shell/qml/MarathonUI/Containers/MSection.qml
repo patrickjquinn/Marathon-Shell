@@ -1,71 +1,65 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
 
-Column {
-    id: root
+Item {
+    id: section
     
     property string title: ""
     property string subtitle: ""
-    default property alias content: contentContainer.data
+    default property alias content: contentColumn.children
     
-    spacing: 0
+    width: parent ? parent.width : 400
+    height: headerColumn.height + contentCard.height + (title !== "" ? MSpacing.md : 0)
     
-    Rectangle {
-        visible: title !== ""
+    Column {
+        id: headerColumn
         width: parent.width
-        height: subtitle ? Constants.touchTargetLarge : Constants.touchTargetMedium
-        color: "transparent"
+        spacing: MSpacing.xs
+        visible: title !== ""
         
-        Column {
-            anchors.fill: parent
-            anchors.leftMargin: Constants.spacingLarge
-            anchors.rightMargin: Constants.spacingLarge
-            anchors.topMargin: Constants.spacingMedium
-            anchors.bottomMargin: Constants.spacingSmall
-            spacing: Constants.spacingXSmall
-            
-            Text {
-                text: root.title
-                color: MColors.text
-                font.pixelSize: Constants.fontSizeLarge
-                font.weight: Font.DemiBold
-                font.family: MTypography.fontFamily
-                textFormat: Text.PlainText
-            }
-            
-            Text {
-                visible: subtitle !== ""
-                text: subtitle
-                color: MColors.textSecondary
-                font.pixelSize: Constants.fontSizeXSmall
-                font.family: MTypography.fontFamily
-                wrapMode: Text.WordWrap
-                width: parent.width
-            }
+        Text {
+            text: title
+            color: MColors.textPrimary
+            font.pixelSize: MTypography.sizeLarge
+            font.weight: MTypography.weightDemiBold
+            font.family: MTypography.fontFamily
+            width: parent.width
+        }
+        
+        Text {
+            visible: subtitle !== ""
+            text: subtitle
+            color: MColors.textSecondary
+            font.pixelSize: MTypography.sizeSmall
+            font.family: MTypography.fontFamily
+            wrapMode: Text.WordWrap
+            width: parent.width
+            opacity: 0.7
         }
     }
     
     Rectangle {
+        id: contentCard
+        anchors.top: headerColumn.bottom
+        anchors.topMargin: title !== "" ? MSpacing.md : 0
         width: parent.width
-        implicitHeight: contentContainer.childrenRect.height
-        color: MColors.surface
-        radius: Constants.borderRadiusSharp
-        border.width: Constants.borderWidthMedium
-        border.color: MColors.border
-        antialiasing: Constants.enableAntialiasing
+        height: contentColumn.height
+        color: MColors.bb10Card
+        radius: MRadius.lg
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.12)
         
         Rectangle {
             anchors.fill: parent
-            anchors.margins: Constants.borderWidthThin
-            radius: parent.radius - Constants.borderWidthThin
+            anchors.margins: 1
+            radius: parent.radius - 1
             color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MColors.borderInner
-            antialiasing: Constants.enableAntialiasing
+            border.width: 1
+            border.color: Qt.rgba(1, 1, 1, 0.03)
         }
         
         Column {
-            id: contentContainer
+            id: contentColumn
             width: parent.width
         }
     }

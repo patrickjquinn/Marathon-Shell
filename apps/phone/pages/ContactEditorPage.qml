@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -41,8 +39,8 @@ Rectangle {
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "x"
-                    size: Constants.touchTargetMedium
+                    iconName: "x"
+                    iconSize: 20
                     onClicked: {
                         cancelled()
                     }
@@ -59,8 +57,8 @@ Rectangle {
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "check"
-                    size: Constants.touchTargetMedium
+                    iconName: "check"
+                    iconSize: 20
                     enabled: nameInput.text.length > 0 && phoneInput.text.length > 0
                     onClicked: {
                         saveContact()

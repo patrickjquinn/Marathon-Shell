@@ -3,25 +3,26 @@ import QtQuick
 import MarathonOS.Shell
 
 QtObject {
-    // Slate font family - loaded via FontLoader in MarathonShell.qml
-    readonly property string fontFamily: "Slate"
+    // Aligned with marathon-config.json typography
+    readonly property string fontFamily: "Slate"                 // Shell uses Slate font
+    readonly property string fontFamilyMono: "JetBrains Mono"   // Shell uses JetBrains Mono
     
-    // Responsive font sizes that scale with Constants.scaleFactor
-    // Base sizes: 32, 28, 20, 16, 14, 12, 10
-    readonly property int sizeDisplay: Math.round(32 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeXLarge: Math.round(28 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeLarge: Math.round(20 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeBody: Math.round(16 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeSmall: Math.round(14 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeXSmall: Math.round(12 * (Constants.scaleFactor || 1.0))
-    readonly property int sizeTiny: Math.round(10 * (Constants.scaleFactor || 1.0))
+    // Font sizes aligned with marathon-config.json - scaled with Constants.scaleFactor
+    readonly property int sizeXSmall: Math.round(12 * (Constants.scaleFactor || 1.0))     // xsmall: 12
+    readonly property int sizeSmall: Math.round(14 * (Constants.scaleFactor || 1.0))      // small: 14
+    readonly property int sizeBody: Math.round(16 * (Constants.scaleFactor || 1.0))       // medium: 16
+    readonly property int sizeLarge: Math.round(18 * (Constants.scaleFactor || 1.0))      // large: 18
+    readonly property int sizeXLarge: Math.round(24 * (Constants.scaleFactor || 1.0))     // xlarge: 24
+    readonly property int sizeXXLarge: Math.round(32 * (Constants.scaleFactor || 1.0))    // xxlarge: 32
+    readonly property int sizeHuge: Math.round(48 * (Constants.scaleFactor || 1.0))       // huge: 48
+    readonly property int sizeGigantic: Math.round(96 * (Constants.scaleFactor || 1.0))   // gigantic: 96 (lock screen clock)
     
-    // Slate font weights mapped to Qt font weights
-    readonly property int weightBlack: Font.Black
-    readonly property int weightBold: Font.Bold
-    readonly property int weightDemiBold: Font.DemiBold
-    readonly property int weightMedium: Font.Medium
-    readonly property int weightNormal: Font.Normal
+    // Font weights
     readonly property int weightLight: Font.Light
+    readonly property int weightNormal: Font.Normal
+    readonly property int weightMedium: Font.Medium
+    readonly property int weightDemiBold: Font.DemiBold
+    readonly property int weightBold: Font.Bold
+    readonly property int weightBlack: Font.Black
 }
 

@@ -1,74 +1,53 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: root
     
-    property alias source: image.source
-    property string text: ""
+    property string iconSource: ""
+    property alias source: buttonImage.source
     property bool disabled: false
-    property int imageSize: Constants.iconSizeXLarge
+    property string state: "default"
     
     signal clicked()
     signal pressed()
     signal released()
     
-    implicitWidth: Math.max(imageSize + Constants.spacingLarge * 2, 100)
-    implicitHeight: text !== "" ? imageSize + Constants.fontSizeMedium + Constants.spacingLarge * 2 : imageSize + Constants.spacingLarge * 2
+    implicitWidth: buttonImage.implicitWidth
+    implicitHeight: buttonImage.implicitHeight
     
-    color: disabled ? MElevation.getSurface(0) : (mouseArea.pressed ? MElevation.getSurface(1) : MElevation.getSurface(2))
-    radius: Constants.borderRadiusSharp
-    border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(2)
-    antialiasing: Constants.enableAntialiasing
+    color: "transparent"
     
-    Behavior on color {
-        enabled: Constants.enableAnimations
-        ColorAnimation { duration: Constants.animationFast }
-    }
-    
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: Constants.borderWidthThin
-        radius: parent.radius - Constants.borderWidthThin
-        color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: MElevation.getBorderInner(2)
-        antialiasing: Constants.enableAntialiasing
-    }
-    
-    Column {
+    Image {
+        id: buttonImage
         anchors.centerIn: parent
-        spacing: Constants.spacingSmall
+        fillMode: Image.PreserveAspectFit
+        opacity: root.disabled ? 0.4 : 1.0
         
-        Image {
-            id: image
-            width: root.imageSize
-            height: root.imageSize
-            fillMode: Image.PreserveAspectFit
-            sourceSize: Qt.size(root.imageSize, root.imageSize)
-            smooth: true
-            antialiasing: Constants.enableAntialiasing
-            anchors.horizontalCenter: parent.horizontalCenter
-            opacity: root.disabled ? 0.5 : 1.0
+        Behavior on opacity {
+            NumberAnimation { duration: MMotion.xs }
         }
-        
-        Text {
-            visible: root.text !== ""
-            text: root.text
-            font.pixelSize: Constants.fontSizeMedium
-            color: root.disabled ? MColors.textDisabled : MColors.text
-            anchors.horizontalCenter: parent.horizontalCenter
+    }
+    
+    scale: mouseArea.pressed && !disabled ? 0.96 : 1.0
+    
+    Behavior on scale {
+        SpringAnimation {
+            spring: 3.0
+            damping: 0.4
+            epsilon: 0.001
         }
     }
     
     MouseArea {
         id: mouseArea
         anchors.fill: parent
-        enabled: !root.disabled
-        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
+        enabled: !root.disabled && root.state === "default"
         
-        onPressed: root.pressed()
+        onPressed: function(mouse) {
+            root.pressed()
+        }
         onReleased: root.released()
         onClicked: root.clicked()
     }

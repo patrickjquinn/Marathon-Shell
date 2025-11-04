@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 
@@ -45,7 +44,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: formatTime(elapsedMs)
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeHuge * 1.2
                 font.weight: Font.Bold
             }
@@ -87,7 +86,7 @@ Item {
         Rectangle {
             width: parent.width
             height: Constants.borderWidthThin
-            color: Colors.border
+            color: MColors.border
             visible: laps.length > 0
         }
         
@@ -111,7 +110,7 @@ Item {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Lap " + (index + 1)
-                        color: Colors.text
+                        color: MColors.textPrimary
                         font.pixelSize: Constants.fontSizeMedium
                         width: parent.width * 0.3
                     }
@@ -119,7 +118,7 @@ Item {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: formatTime(modelData)
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                         font.pixelSize: Constants.fontSizeMedium
                         font.weight: Font.DemiBold
                     }
@@ -132,7 +131,7 @@ Item {
                     anchors.leftMargin: Constants.spacingLarge
                     anchors.rightMargin: Constants.spacingLarge
                     height: Constants.borderWidthThin
-                    color: Colors.border
+                    color: MColors.border
                 }
             }
         }

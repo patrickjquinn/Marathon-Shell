@@ -1,5 +1,9 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
 
 Item {
     id: shareSheet
@@ -66,7 +70,7 @@ Item {
                 
                 Text {
                     text: "Share"
-                    color: Colors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.DemiBold
                     font.family: MTypography.fontFamily
@@ -87,7 +91,7 @@ Item {
                     Icon {
                         name: "x"
                         size: Constants.iconSizeSmall
-                        color: Colors.text
+                        color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
                     
@@ -136,14 +140,14 @@ Item {
                             Icon {
                                 name: modelData.icon
                                 size: Constants.iconSizeMedium
-                                color: Colors.text
+                                color: MColors.textPrimary
                                 anchors.centerIn: parent
                             }
                         }
                         
                         Text {
                             text: modelData.name
-                            color: Colors.text
+                            color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeSmall
                             font.family: MTypography.fontFamily
                             anchors.horizontalCenter: parent.horizontalCenter
