@@ -3,6 +3,7 @@ import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Containers
 
 Page {
     id: conversationsPage
@@ -35,14 +36,14 @@ Page {
             // Page title
             Text {
                 text: "Messages"
-                color: MColors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeXLarge
                 font.weight: Font.Bold
                 font.family: MTypography.fontFamily
             }
             
             // Recent Conversations
-            Section {
+            MSection {
                 title: "Recent Conversations"
                 subtitle: "Your message conversations"
                 width: parent.width - 48
@@ -100,7 +101,7 @@ Page {
                                     NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
                                 }
                                 
-                                SettingsListItem {
+                                MSettingsListItem {
                                     anchors.fill: parent
                                     title: modelData.contactName
                                     subtitle: modelData.lastMessage
@@ -162,16 +163,16 @@ Page {
         width: Constants.touchTargetLarge
         height: Constants.touchTargetLarge
         radius: Constants.touchTargetLarge / 2
-        color: MColors.accent
+        color: MColors.marathonTeal
         border.width: Constants.borderWidthThick
-        border.color: MColors.accentDark
+        border.color: MColors.marathonTealDark
         antialiasing: true
         
         Icon {
             anchors.centerIn: parent
             name: "plus"
             size: Constants.iconSizeLarge
-            color: MColors.text
+            color: MColors.textPrimary
         }
         
         MouseArea {

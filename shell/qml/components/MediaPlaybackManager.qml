@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 // Media Playback Manager
@@ -14,7 +15,7 @@ Rectangle {
     radius: Constants.borderRadiusSmall
     color: Qt.rgba(255, 255, 255, 0.04)
     border.width: Constants.borderWidthThin
-    border.color: MColors.borderOuter
+    border.color: MColors.border
     
     // MPRIS2 Integration - Real media player control
     readonly property bool hasMedia: MPRIS2Controller ? MPRIS2Controller.hasActivePlayer : false
@@ -44,7 +45,7 @@ Rectangle {
                 width: Constants.touchTargetSmall
                 height: Constants.touchTargetSmall
                 radius: Constants.borderRadiusSmall
-                color: mediaManager.albumArt !== "" ? "transparent" : MColors.surface2
+                color: mediaManager.albumArt !== "" ? "transparent" : MColors.elevated
                 visible: mediaManager.hasMedia
                 clip: true  // CRITICAL: Clip child Image to rounded corners
                 
@@ -106,7 +107,7 @@ Rectangle {
                 width: parent.buttonWidth
                 height: parent.buttonWidth
                 radius: Constants.borderRadiusSmall
-                color: prevMouseArea.pressed ? MColors.surface2 : MColors.surface
+                color: prevMouseArea.pressed ? MColors.elevated : MColors.surface
                 
                 Behavior on color {
                     ColorAnimation { duration: Constants.animationFast }
@@ -174,7 +175,7 @@ Rectangle {
                 width: parent.buttonWidth
                 height: parent.buttonWidth
                 radius: Constants.borderRadiusSmall
-                color: nextMouseArea.pressed ? MColors.surface2 : MColors.surface
+                color: nextMouseArea.pressed ? MColors.elevated : MColors.surface
                 
                 Behavior on color {
                     ColorAnimation { duration: Constants.animationFast }

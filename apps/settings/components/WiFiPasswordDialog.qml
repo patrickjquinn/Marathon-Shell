@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Controls
+import MarathonUI.Core
 
 /**
  * Polished WiFi Password Dialog
@@ -94,7 +94,7 @@ Item {
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         transform: Translate { id: translateTransform; y: dialogCard.height }
 
         // Glass morphism effect
@@ -121,13 +121,13 @@ Item {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
                     radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15)
+                    color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15)
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
                         name: secured ? "lock" : "wifi"
                         size: Constants.iconSizeMedium
-                        color: MColors.accent
+                        color: MColors.marathonTeal
                         anchors.centerIn: parent
                         opacity: signalStrength / 100
                     }
@@ -187,9 +187,9 @@ Item {
                 width: parent.width
                 height: Constants.inputHeight
                 radius: Constants.borderRadiusSmall
-                color: MColors.backgroundLight || Qt.darker(MColors.background, 1.05)
+                color: MColors.background || Qt.darker(MColors.background, 1.05)
                 border.width: passwordInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.accent : MColors.border)
+                border.color: errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.marathonTeal : MColors.border)
                 visible: secured
 
                 Behavior on border.color {
@@ -204,7 +204,7 @@ Item {
                     Icon {
                         name: "key"
                         size: Constants.iconSizeMedium
-                        color: passwordInput.activeFocus ? MColors.accent : MColors.textSecondary
+                        color: passwordInput.activeFocus ? MColors.marathonTeal : MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -243,7 +243,7 @@ Item {
                         width: Constants.touchTargetSmall
                         height: Constants.touchTargetSmall
                         radius: Constants.borderRadiusSmall
-                        color: checked ? Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15) : "transparent"
+                        color: checked ? Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15) : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
                         Icon {
@@ -368,7 +368,7 @@ Item {
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.accent, 1.5) : MColors.accent
+                    color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.marathonTeal, 1.5) : MColors.marathonTeal
                     opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1.0
 
                     signal clicked()

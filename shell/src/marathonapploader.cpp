@@ -101,14 +101,20 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
     if (component->isError()) {
         qWarning() << "[MarathonAppLoader] Component error:" << component->errorString();
         emit loadError(appId, component->errorString());
-        delete component;
+        
+        // Remove from cache so it doesn't get reused
+        m_components.remove(appId);
+        component->deleteLater();
         return nullptr;
     }
     
     if (component->status() != QQmlComponent::Ready) {
         qWarning() << "[MarathonAppLoader] Component not ready. Status:" << component->status();
         emit loadError(appId, "Component not ready");
-        delete component;
+        
+        // Remove from cache so it doesn't get reused
+        m_components.remove(appId);
+        component->deleteLater();
         return nullptr;
     }
     
@@ -118,7 +124,10 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
     if (!appInstance) {
         qWarning() << "[MarathonAppLoader] Failed to create app instance:" << component->errorString();
         emit loadError(appId, component->errorString());
-        // Don't delete component - keep it cached for retry
+        
+        // Remove from cache to prevent retry with broken component
+        m_components.remove(appId);
+        component->deleteLater();
         return nullptr;
     }
     

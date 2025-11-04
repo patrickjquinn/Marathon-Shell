@@ -1,7 +1,8 @@
 import QtQuick
-import QtQuick.Controls
-import QtMultimedia
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Core
 import "../components"
 
 SettingsPageTemplate {
@@ -37,13 +38,13 @@ SettingsPageTemplate {
             
             Text {
                 text: "Tap a sound to preview it"
-                color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 width: parent.width - Constants.spacingLarge * 2
             }
             
-            Section {
+            MSection {
                 title: "Available Sounds"
                 width: parent.width - Constants.spacingLarge * 2
                 
@@ -66,7 +67,7 @@ SettingsPageTemplate {
                                 color: soundMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : 
                                        (soundPickerPage.currentSound === modelData ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
                                 border.width: soundPickerPage.currentSound === modelData ? Constants.borderWidthMedium : 0
-                                border.color: Colors.accent
+                                border.color: MColors.marathonTeal
                                 
                                 Behavior on color {
                                     ColorAnimation { duration: Constants.animationDurationFast }
@@ -84,7 +85,7 @@ SettingsPageTemplate {
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: soundPickerPage.currentSound === modelData ? "volume-2" : "music"
                                     size: Constants.iconSizeMedium
-                                    color: soundPickerPage.currentSound === modelData ? Colors.accent : Colors.textSecondary
+                                    color: soundPickerPage.currentSound === modelData ? MColors.marathonTeal : MColors.textSecondary
                                     z: 2
                                 }
                                 
@@ -95,9 +96,9 @@ SettingsPageTemplate {
                                     anchors.rightMargin: Constants.spacingMedium
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: SettingsManagerCpp.formatSoundName(modelData)
-                                    color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
-                                    font.family: Typography.fontFamily
+                                    color: MColors.textPrimary
+                                    font.pixelSize: MTypography.sizeBody
+                                    font.family: MTypography.fontFamily
                                     font.weight: soundPickerPage.currentSound === modelData ? Font.DemiBold : Font.Normal
                                     elide: Text.ElideRight
                                     z: 1
@@ -111,16 +112,16 @@ SettingsPageTemplate {
                                     width: Constants.iconSizeMedium
                                     height: Constants.iconSizeMedium
                                     radius: Constants.iconSizeMedium / 2
-                                    color: soundPickerPage.currentSound === modelData ? Colors.accent : "transparent"
+                                    color: soundPickerPage.currentSound === modelData ? MColors.marathonTeal : "transparent"
                                     border.width: Constants.borderWidthMedium
-                                    border.color: soundPickerPage.currentSound === modelData ? Colors.accent : Colors.border
+                                    border.color: soundPickerPage.currentSound === modelData ? MColors.marathonTeal : MColors.border
                                     z: 2
                                     
                                     Icon {
                                         anchors.centerIn: parent
                                         name: "check"
                                         size: Constants.iconSizeSmall
-                                        color: Colors.backgroundDark
+                                        color: MColors.background
                                         visible: soundPickerPage.currentSound === modelData
                                     }
                                     

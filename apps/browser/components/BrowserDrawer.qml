@@ -1,14 +1,14 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 import "../pages"
 
 Rectangle {
     id: drawer
     anchors.fill: parent
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal closed()
     signal tabSelected(int tabId)
@@ -49,9 +49,9 @@ Rectangle {
                         anchors.fill: parent
                         anchors.margins: 4
                         radius: Constants.borderRadiusSharp
-                        color: index === drawer.selectedTabIndex ? MColors.surface2 : MColors.surface
+                        color: index === drawer.selectedTabIndex ? MColors.elevated : MColors.surface
                         border.width: Constants.borderWidthThin
-                        border.color: index === drawer.selectedTabIndex ? MColors.accentBright : MColors.borderOuter
+                        border.color: index === drawer.selectedTabIndex ? MColors.accentBright : MColors.border
                         antialiasing: Constants.enableAntialiasing
                         
                         transform: Translate {
@@ -76,7 +76,7 @@ Rectangle {
                             radius: Constants.borderRadiusSharp
                             color: "transparent"
                             border.width: Constants.borderWidthThin
-                            border.color: MColors.borderInner
+                            border.color: MColors.borderSubtle
                             antialiasing: Constants.enableAntialiasing
                         }
                         

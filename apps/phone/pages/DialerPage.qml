@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
@@ -66,7 +65,7 @@ Rectangle {
                     color: MColors.glass
                     radius: Constants.borderRadiusSharp
                     border.width: Constants.borderWidthMedium
-                    border.color: MColors.glassBorder
+                    border.color: MColors.borderGlass
                     antialiasing: Constants.enableAntialiasing
                     scale: mouseArea.pressed ? 0.95 : 1.0
                     
@@ -89,7 +88,7 @@ Rectangle {
                         radius: parent.radius - Constants.borderWidthThin
                         color: "transparent"
                         border.width: Constants.borderWidthThin
-                        border.color: MColors.borderInner
+                        border.color: MColors.borderSubtle
                         antialiasing: Constants.enableAntialiasing
                     }
                     
@@ -147,8 +146,8 @@ Rectangle {
             spacing: Constants.spacingLarge
             
             MIconButton {
-                icon: "delete"
-                size: Constants.touchTargetLarge
+                iconName: "delete"
+                iconSize: 28
                 variant: "secondary"
                 disabled: dialedNumber.length === 0
                 onClicked: {

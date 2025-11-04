@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -87,7 +86,7 @@ MApp {
                 color: MColors.surface
                 radius: Constants.borderRadiusSharp
                 border.width: Constants.borderWidthThin
-                border.color: MColors.borderOuter
+                border.color: MColors.border
                 
                 Text {
                     anchors.fill: parent
@@ -118,32 +117,21 @@ MApp {
                         "0", ".", "", ""
                     ]
                     
-                    Rectangle {
+                    Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.preferredHeight: 60
-                        color: {
-                            if (modelData === "") return "transparent"
-                            if (modelData === "=") return MColors.accent
-                            if ("+-×÷".indexOf(modelData) !== -1) return MColors.surface2
-                            if (modelData === "C" || modelData === "⌫") return MColors.error
-                            return MColors.surface
-                        }
-                        radius: Constants.borderRadiusSharp
-                        border.width: Constants.borderWidthThin
-                        border.color: MColors.borderOuter
                         visible: modelData !== ""
                         
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData
-                            color: MColors.text
-                            font.pixelSize: 24
-                            font.weight: Font.Medium
-                        }
-                        
-                        MouseArea {
+                        MButton {
                             anchors.fill: parent
+                            text: modelData
+                            variant: {
+                                if (modelData === "=") return "primary"
+                                if (modelData === "C" || modelData === "⌫") return "danger"
+                                if ("+-×÷".indexOf(modelData) !== -1) return "secondary"
+                                return "secondary"
+                            }
                             onClicked: {
                                 HapticService.light()
                                 if (modelData === "C") {
@@ -162,34 +150,6 @@ MApp {
                                     calcApp.appendDecimal()
                                 } else {
                                     calcApp.appendDigit(modelData)
-                                }
-                            }
-                            
-                            onPressed: {
-                                if (modelData === "") {
-                                    parent.color = "transparent"
-                                } else if (modelData === "=") {
-                                    parent.color = MColors.accentDim
-                                } else if ("+-×÷".indexOf(modelData) !== -1) {
-                                    parent.color = MColors.surface3
-                                } else if (modelData === "C" || modelData === "⌫") {
-                                    parent.color = MColors.error
-                                } else {
-                                    parent.color = MColors.surface1
-                                }
-                            }
-                            
-                            onReleased: {
-                                if (modelData === "") {
-                                    parent.color = "transparent"
-                                } else if (modelData === "=") {
-                                    parent.color = MColors.accent
-                                } else if ("+-×÷".indexOf(modelData) !== -1) {
-                                    parent.color = MColors.surface2
-                                } else if (modelData === "C" || modelData === "⌫") {
-                                    parent.color = MColors.error
-                                } else {
-                                    parent.color = MColors.surface
                                 }
                             }
                         }

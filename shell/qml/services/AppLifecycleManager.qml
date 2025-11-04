@@ -60,7 +60,38 @@ QtObject {
      * @param {Object} appInstance - The MApp instance
      */
     function registerApp(appId, appInstance) {
-        Logger.info("AppLifecycle", "Registering app: " + appId)
+        Logger.info("AppLifecycle", "━━━━━━━ registerApp() CALLED ━━━━━━━")
+        Logger.info("AppLifecycle", "  appId: " + appId)
+        Logger.info("AppLifecycle", "  appInstance: " + appInstance)
+        Logger.info("AppLifecycle", "  appInstance.appName: " + (appInstance ? appInstance.appName : "N/A"))
+        Logger.info("AppLifecycle", "  appInstance.appIcon: " + (appInstance ? appInstance.appIcon : "N/A"))
+        
+        // VALIDATION: Check if icon path matches registry/manifest
+        if (appInstance && typeof MarathonAppRegistry !== 'undefined') {
+            var registryInfo = MarathonAppRegistry.getApp(appId)
+            if (registryInfo && registryInfo.icon && appInstance.appIcon) {
+                var manifestIcon = registryInfo.icon
+                var mappIcon = appInstance.appIcon
+                
+                Logger.info("AppLifecycle", "  🔍 Validating icon path...")
+                Logger.info("AppLifecycle", "    Manifest icon: " + manifestIcon)
+                Logger.info("AppLifecycle", "    MApp icon:     " + mappIcon)
+                
+                // Check if they match (allow for different path formats)
+                var iconBasename = manifestIcon.split('/').pop()
+                var isMatch = mappIcon.includes(iconBasename) || manifestIcon.includes(mappIcon)
+                
+                if (!isMatch) {
+                    Logger.warn("AppLifecycle", "  ⚠️  ⚠️  ⚠️  ICON PATH MISMATCH DETECTED! ⚠️  ⚠️  ⚠️")
+                    Logger.warn("AppLifecycle", "  App: " + appId)
+                    Logger.warn("AppLifecycle", "  manifest.json icon: " + manifestIcon)
+                    Logger.warn("AppLifecycle", "  MApp.appIcon:       " + mappIcon)
+                    Logger.warn("AppLifecycle", "  This may cause TaskModel registration to fail!")
+                    Logger.warn("AppLifecycle", "  FIX: Update MApp.appIcon to match manifest.json")
+                }
+            }
+        }
+        
         appRegistry[appId] = appInstance
         
         if (!appStates[appId]) {
@@ -72,15 +103,22 @@ QtObject {
                 launchTime: Date.now(),
                 lastActiveTime: 0
             }
+            Logger.info("AppLifecycle", "  ✅ Created new app state for: " + appId)
+        } else {
+            Logger.info("AppLifecycle", "  ℹ️  App state already exists for: " + appId)
         }
         
         // If this app was waiting to be brought to foreground, do it now
+        Logger.info("AppLifecycle", "  🔍 Checking pending foreground apps: " + JSON.stringify(pendingForegroundApps))
         if (pendingForegroundApps.indexOf(appId) !== -1) {
-            Logger.info("AppLifecycle", "App registered, applying pending foreground")
+            Logger.info("AppLifecycle", "  🎯 App WAS pending - applying foreground now!")
             var index = pendingForegroundApps.indexOf(appId)
             pendingForegroundApps.splice(index, 1)
             bringToForeground(appId)
+        } else {
+            Logger.info("AppLifecycle", "  ℹ️  App was NOT in pending list")
         }
+        Logger.info("AppLifecycle", "━━━━━━━ registerApp() COMPLETE ━━━━━━━")
     }
     
     /**
@@ -130,7 +168,14 @@ QtObject {
             var app = appRegistry[appId]
             app.start()   // Becomes visible
             app.resume()  // Becomes active
-            foregroundApp = { appId: appId }
+            
+            // Store full app reference, not just appId
+            foregroundApp = {
+                appId: appId,
+                appName: app.appName || appId,
+                appIcon: app.appIcon || "",
+                appType: app.appType || "marathon"
+            }
             Logger.info("AppLifecycle", "Set foregroundApp to: " + appId)
             
             if (appStates[appId]) {
@@ -205,20 +250,33 @@ QtObject {
      * Minimize current foreground app
      */
     function minimizeForegroundApp() {
+        Logger.info("AppLifecycle", "━━━━━━━ minimizeForegroundApp() CALLED ━━━━━━━")
+        
         if (!foregroundApp) {
+            Logger.warn("AppLifecycle", "❌ No foreground app to minimize!")
             return false
         }
         
         var appId = foregroundApp.appId
-        Logger.info("AppLifecycle", "Minimizing app: " + appId)
+        Logger.info("AppLifecycle", "📱 Minimizing app: " + appId)
+        Logger.info("AppLifecycle", "  foregroundApp.appId: " + foregroundApp.appId)
+        Logger.info("AppLifecycle", "  foregroundApp.appName: " + foregroundApp.appName)
         
         // Create task if doesn't exist (no snapshot needed - using live preview)
         if (typeof TaskModel !== 'undefined') {
             var taskExists = TaskModel.getTaskByAppId(appId) !== null
+            Logger.info("AppLifecycle", "  🔍 Checking TaskModel...")
+            Logger.info("AppLifecycle", "    Task exists: " + taskExists)
             
             if (!taskExists) {
                 if (appRegistry[appId]) {
                     var app = appRegistry[appId]
+                    Logger.info("AppLifecycle", "  ➕ Creating new task...")
+                    Logger.info("AppLifecycle", "    appId: " + app.appId)
+                    Logger.info("AppLifecycle", "    appName: " + app.appName)
+                    Logger.info("AppLifecycle", "    appIcon: " + app.appIcon)
+                    Logger.info("AppLifecycle", "    appType: " + (app.appType || "marathon"))
+                    
                     TaskModel.launchTask(
                         app.appId,
                         app.appName,
@@ -226,12 +284,19 @@ QtObject {
                         app.appType || "marathon",
                         app.surfaceId || -1
                     )
-                    Logger.info("AppLifecycle", "Task created for: " + appId)
+                    Logger.info("AppLifecycle", "  ✅ Task created for: " + appId)
+                } else {
+                    Logger.error("AppLifecycle", "  ❌ App not in registry: " + appId)
                 }
+            } else {
+                Logger.info("AppLifecycle", "  ℹ️  Task already exists for: " + appId)
             }
+        } else {
+            Logger.error("AppLifecycle", "  ❌ TaskModel is undefined!")
         }
         
         // Hide the app
+        Logger.info("AppLifecycle", "  🎬 Hiding app...")
         if (appRegistry[appId]) {
             appRegistry[appId].minimize()
             appRegistry[appId].stop()
@@ -239,22 +304,17 @@ QtObject {
             if (appStates[appId]) {
                 appStates[appId].isMinimized = true
                 appStates[appId].isActive = false
+                Logger.info("AppLifecycle", "  ✅ App state updated: isMinimized=true, isActive=false")
             }
+        } else {
+            Logger.error("AppLifecycle", "  ❌ App not in registry (hide step): " + appId)
         }
         
         // Clear foreground but keep app alive
+        Logger.info("AppLifecycle", "  🧹 Clearing foreground app")
         foregroundApp = null
         
-        // Hide the app UI and navigate to task switcher
-        if (typeof UIStore !== 'undefined') {
-            UIStore.minimizeApp()
-            
-            // Navigate to task switcher
-            if (typeof Router !== 'undefined') {
-                Router.goToFrames()
-            }
-        }
-        
+        Logger.info("AppLifecycle", "━━━━━━━ minimizeForegroundApp() COMPLETE ━━━━━━━")
         return true
     }
     

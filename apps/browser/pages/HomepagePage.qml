@@ -1,13 +1,11 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
 
 Rectangle {
     id: homepagePage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal homepageChanged(string url)
     signal backRequested()
@@ -41,7 +39,7 @@ Rectangle {
                     width: Constants.touchTargetSmall
                     height: Constants.touchTargetSmall
                     radius: Constants.borderRadiusSmall
-                    color: backMouseArea.pressed ? MColors.surfaceHover : "transparent"
+                    color: backMouseArea.pressed ? MColors.highlightSubtle : "transparent"
                     
                     Icon {
                         anchors.centerIn: parent
@@ -90,7 +88,7 @@ Rectangle {
                 delegate: Rectangle {
                     width: parent.width
                     height: Constants.touchTargetLarge
-                    color: delegateMouseArea.pressed ? MColors.surfaceHover : "transparent"
+                    color: delegateMouseArea.pressed ? MColors.highlightSubtle : "transparent"
                     
                     Rectangle {
                         anchors.bottom: parent.bottom
@@ -182,7 +180,7 @@ Rectangle {
                         width: parent.width
                         height: Constants.touchTargetMedium
                         radius: Constants.borderRadiusSmall
-                        color: MColors.surface2
+                        color: MColors.elevated
                         border.width: Constants.borderWidthThin
                         border.color: customUrlInput.activeFocus ? MColors.accent : MColors.border
                         

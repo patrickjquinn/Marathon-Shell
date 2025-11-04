@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import "../components"
@@ -73,14 +72,14 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: "clock"
                             size: Constants.iconSizeXLarge * 2
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             opacity: 0.5
                         }
                         
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "No alarms set"
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             font.pixelSize: Constants.fontSizeLarge
                             font.weight: Font.Medium
                         }
@@ -89,7 +88,7 @@ Item {
                             width: parent.width
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Tap the + button to create an alarm"
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             font.pixelSize: Constants.fontSizeMedium
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
@@ -104,8 +103,8 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: Constants.spacingLarge
-        icon: "plus"
-        size: Constants.touchTargetLarge
+        iconName: "plus"
+        iconSize: 28
         variant: "primary"
         shape: "circular"
         onClicked: {

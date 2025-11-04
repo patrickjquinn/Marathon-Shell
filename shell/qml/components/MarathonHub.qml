@@ -1,132 +1,41 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import "."
 import MarathonUI.Theme
+import MarathonUI.Navigation
 
 Rectangle {
     id: hub
     anchors.fill: parent
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal closed()
     
     property int selectedTabIndex: 0
     property bool isInPeekMode: false  // Set by parent (MarathonPeek vs MarathonPageView)
     
-    // Cache frequently-used properties for performance
-    readonly property int cachedSafeAreaTop: Constants.safeAreaTop
-    readonly property int cachedTouchTargetSmall: Constants.touchTargetSmall
-    readonly property int cachedBorderRadiusSharp: Constants.borderRadiusSharp
-    readonly property int cachedBorderWidthThin: Constants.borderWidthThin
-    readonly property color cachedAccentBright: MColors.accentBright
-    readonly property color cachedSurface: MColors.surface
-    readonly property color cachedSurface2: MColors.surface2
-    readonly property color cachedBorderOuter: MColors.borderOuter
-    readonly property color cachedBorderInner: MColors.borderInner
-    
     Column {
         anchors.fill: parent
-        anchors.topMargin: hub.isInPeekMode ? hub.cachedSafeAreaTop : 0
+        anchors.topMargin: hub.isInPeekMode ? Constants.safeAreaTop : 0
         spacing: 0
-                    
-        Row {
+        
+        MTabBar {
             id: hubTabs
             width: parent.width
-            height: hub.cachedTouchTargetSmall
-            z: 0
+            activeTab: hub.selectedTabIndex
             
-            Repeater {
-                model: [
-                    { name: "All", icon: "inbox" },
-                    { name: "Email", icon: "mail" },
-                    { name: "Messages", icon: "message-square" },
-                    { name: "Calls", icon: "phone" },
-                    { name: "Social", icon: "users" }
-                ]
-                
-                Item {
-                    width: hub.width / 5
-                    height: hub.cachedTouchTargetSmall
-                    
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 4
-                        radius: hub.cachedBorderRadiusSharp
-                        color: index === hub.selectedTabIndex ? hub.cachedSurface2 : hub.cachedSurface
-                        border.width: hub.cachedBorderWidthThin
-                        border.color: index === hub.selectedTabIndex ? hub.cachedAccentBright : hub.cachedBorderOuter
-                        antialiasing: Constants.enableAntialiasing
-                        
-                        transform: Translate {
-                            y: tabMouseArea.pressed ? -1 : 0
-                            
-                            Behavior on y {
-                                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
-                            }
-                        }
-                        
-                        Behavior on border.color {
-                            ColorAnimation { duration: 150 }
-                        }
-                        
-                        Behavior on color {
-                            ColorAnimation { duration: 150 }
-                        }
-                        
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: 1
-                            radius: hub.cachedBorderRadiusSharp
-                            color: "transparent"
-                            border.width: hub.cachedBorderWidthThin
-                            border.color: hub.cachedBorderInner
-                            antialiasing: Constants.enableAntialiasing
-                        }
-                        
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: Constants.spacingXSmall
-                            
-                            Icon {
-                                name: modelData.icon
-                                size: Constants.iconSizeSmall
-                                color: index === hub.selectedTabIndex ? hub.cachedAccentBright : MColors.textSecondary
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.6)
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: 200 }
-                                }
-                            }
-                            
-                            Text {
-                                text: modelData.name
-                                color: index === hub.selectedTabIndex ? hub.cachedAccentBright : MColors.textSecondary
-                                font.pixelSize: MTypography.sizeXSmall
-                                font.family: MTypography.fontFamily
-                                font.weight: index === hub.selectedTabIndex ? Font.DemiBold : Font.Normal
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                opacity: index === hub.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.7)
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: 200 }
-                                }
-                            }
-                        }
-                    }
-                    
-                    MouseArea {
-                        id: tabMouseArea
-                        anchors.fill: parent
-                        
-                        
-                        z: 100
-                        onClicked: {
-                            hub.selectedTabIndex = index
-                            Logger.info("Hub", "Switched to tab: " + modelData.name + " (index: " + index + ")")
-                        }
-                    }
-                }
+            tabs: [
+                { label: "All", icon: "inbox" },
+                { label: "Email", icon: "mail" },
+                { label: "Messages", icon: "message-square" },
+                { label: "Calls", icon: "phone" },
+                { label: "Social", icon: "users" }
+            ]
+            
+            onTabSelected: (index) => {
+                hub.selectedTabIndex = index
+                Logger.info("Hub", "Switched to tab: " + hubTabs.tabs[index].label + " (index: " + index + ")")
             }
         }
         
@@ -152,13 +61,13 @@ Rectangle {
                     }
                     return baseHeight
                 }
-                color: model.isRead ? MColors.backgroundDark : MColors.surface
+                color: model.isRead ? MColors.background : MColors.surface
                 
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
                     height: Constants.dividerHeight
-                    color: MColors.borderOuter
+                    color: MColors.border
                 }
                 
                 Column {

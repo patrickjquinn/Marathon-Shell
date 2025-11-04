@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: powerMenu
@@ -40,7 +41,7 @@ Rectangle {
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: 1
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         
         Column {
             id: contentColumn
@@ -52,7 +53,7 @@ Rectangle {
             
             Text {
                 text: "Power Options"
-                color: MColors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeLarge
                 font.weight: Font.Bold
                 font.family: MTypography.fontFamily
@@ -66,7 +67,7 @@ Rectangle {
                 radius: Constants.borderRadiusSmall
                 color: sleepMouseArea.pressed ? MColors.surfaceDark : "transparent"
                 border.width: 1
-                border.color: MColors.borderOuter
+                border.color: MColors.border
                 
                 Row {
                     anchors.centerIn: parent
@@ -75,13 +76,13 @@ Rectangle {
                     Icon {
                         name: "moon"
                         size: Constants.iconSizeMedium
-                        color: MColors.text
+                        color: MColors.textPrimary
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     
                     Text {
                         text: "Sleep"
-                        color: MColors.text
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
@@ -106,7 +107,7 @@ Rectangle {
                 radius: Constants.borderRadiusSmall
                 color: rebootMouseArea.pressed ? MColors.surfaceDark : "transparent"
                 border.width: 1
-                border.color: MColors.borderOuter
+                border.color: MColors.border
                 
                 Row {
                     anchors.centerIn: parent
@@ -146,7 +147,7 @@ Rectangle {
                 radius: Constants.borderRadiusSmall
                 color: shutdownMouseArea.pressed ? MColors.surfaceDark : "transparent"
                 border.width: 1
-                border.color: MColors.borderOuter
+                border.color: MColors.border
                 
                 Row {
                     anchors.centerIn: parent

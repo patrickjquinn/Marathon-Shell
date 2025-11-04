@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtLocation
 import QtPositioning
 import MarathonOS.Shell
@@ -135,7 +134,7 @@ MApp {
                         width: Constants.spacingLarge
                         height: Constants.spacingLarge
                         radius: width / 2
-                        color: MColors.accent
+                        color: MColors.marathonTeal
                         border.width: Constants.borderWidthThick
                         border.color: "white"
                         
@@ -164,7 +163,7 @@ MApp {
                     anchors.horizontalCenter: parent.horizontalCenter
                     name: "map"
                     size: Constants.iconSizeXLarge * 2
-                    color: MColors.accent
+                    color: MColors.marathonTeal
                     
                     RotationAnimation on rotation {
                         running: !mapLoaded
@@ -223,7 +222,7 @@ MApp {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
                     font.pixelSize: Constants.fontSizeMedium
-                    color: MColors.text
+                    color: MColors.textPrimary
                     verticalAlignment: TextInput.AlignVCenter
                     selectByMouse: true
                     
@@ -315,7 +314,7 @@ MApp {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: "map-pin"
                                 size: Constants.iconSizeMedium
-                                color: MColors.accent
+                                color: MColors.marathonTeal
                             }
                             
                             Column {
@@ -328,7 +327,7 @@ MApp {
                                     text: modelData.name
                                     font.pixelSize: Constants.fontSizeMedium
                                     font.weight: Font.DemiBold
-                                    color: MColors.text
+                                    color: MColors.textPrimary
                                     elide: Text.ElideRight
                                 }
                                 
@@ -345,7 +344,7 @@ MApp {
                         MouseArea {
                             anchors.fill: parent
                             onPressed: {
-                                parent.color = MColors.surface2
+                                parent.color = MColors.elevated
                                 HapticService.light()
                             }
                             onReleased: {
@@ -372,133 +371,49 @@ MApp {
             spacing: Constants.spacingMedium
             z: 100
             
-            Rectangle {
-                width: Constants.touchTargetLarge
-                height: Constants.touchTargetLarge
-                radius: Constants.borderRadiusSharp
-                color: MColors.surface
-                border.width: Constants.borderWidthMedium
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: "plus"
-                    size: Constants.iconSizeLarge
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        parent.scale = 0.9
-                        HapticService.light()
+            MIconButton {
+                iconName: "plus"
+                iconSize: 24
+                variant: "secondary"
+                onClicked: {
+                    HapticService.light()
+                    if (mapLoader.item) {
+                        mapLoader.item.zoomLevel = Math.min(mapLoader.item.zoomLevel + 1, mapLoader.item.maximumZoomLevel)
                     }
-                    onReleased: {
-                        parent.scale = 1.0
-                    }
-                    onCanceled: {
-                        parent.scale = 1.0
-                    }
-                    onClicked: {
-                        if (mapLoader.item) {
-                            mapLoader.item.zoomLevel = Math.min(mapLoader.item.zoomLevel + 1, mapLoader.item.maximumZoomLevel)
-                        }
-                    }
-                }
-                
-                Behavior on scale {
-                    NumberAnimation { duration: 100 }
                 }
             }
             
-            Rectangle {
-                width: Constants.touchTargetLarge
-                height: Constants.touchTargetLarge
-                radius: Constants.borderRadiusSharp
-                color: MColors.surface
-                border.width: Constants.borderWidthMedium
-                border.color: MColors.border
-                antialiasing: Constants.enableAntialiasing
-                
-                Icon {
-                    anchors.centerIn: parent
-                    name: "minus"
-                    size: Constants.iconSizeLarge
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: {
-                        parent.scale = 0.9
-                        HapticService.light()
+            MIconButton {
+                iconName: "minus"
+                iconSize: 24
+                variant: "secondary"
+                onClicked: {
+                    HapticService.light()
+                    if (mapLoader.item) {
+                        mapLoader.item.zoomLevel = Math.max(mapLoader.item.zoomLevel - 1, mapLoader.item.minimumZoomLevel)
                     }
-                    onReleased: {
-                        parent.scale = 1.0
-                    }
-                    onCanceled: {
-                        parent.scale = 1.0
-                    }
-                    onClicked: {
-                        if (mapLoader.item) {
-                            mapLoader.item.zoomLevel = Math.max(mapLoader.item.zoomLevel - 1, mapLoader.item.minimumZoomLevel)
-                        }
-                    }
-                }
-                
-                Behavior on scale {
-                    NumberAnimation { duration: 100 }
                 }
             }
         }
         
-        Rectangle {
+        MIconButton {
             id: locateButton
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: Constants.spacingLarge
-            width: Constants.touchTargetLarge
-            height: Constants.touchTargetLarge
-            radius: Constants.touchTargetLarge / 2
-            color: MColors.accent
-            border.width: Constants.borderWidthThick
-            border.color: MColors.accentDark
-            antialiasing: true
-            z: 100
-            
-            Icon {
-                anchors.centerIn: parent
-                name: "navigation"
-                size: Constants.iconSizeLarge
-                color: MColors.text
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                onPressed: {
-                    parent.scale = 0.9
-                    HapticService.medium()
+            iconName: "navigation"
+            iconSize: 28
+            variant: "primary"
+            shape: "circular"
+            onClicked: {
+                HapticService.medium()
+                if (positionSource.position.valid && mapLoader.item) {
+                    mapLoader.item.center = positionSource.position.coordinate
+                    mapLoader.item.zoomLevel = 15
+                    Logger.info("Maps", "Centered on current location")
+                } else {
+                    Logger.warn("Maps", "Position not available")
                 }
-                onReleased: {
-                    parent.scale = 1.0
-                }
-                onCanceled: {
-                    parent.scale = 1.0
-                }
-                onClicked: {
-                    if (positionSource.position.valid && mapLoader.item) {
-                        mapLoader.item.center = positionSource.position.coordinate
-                        mapLoader.item.zoomLevel = 15
-                        Logger.info("Maps", "Centered on current location")
-                    } else {
-                        Logger.warn("Maps", "Position not available")
-                    }
-                }
-            }
-            
-            Behavior on scale {
-                NumberAnimation { duration: 100 }
             }
         }
     }

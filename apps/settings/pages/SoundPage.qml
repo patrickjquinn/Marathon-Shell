@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Containers
 import "../components"
 
 SettingsPageTemplate {
@@ -21,7 +22,7 @@ SettingsPageTemplate {
             rightPadding: 24
             topPadding: 24
             
-            Section {
+            MSection {
                 title: "Volume"
                 width: parent.width - 48
                 
@@ -68,11 +69,11 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Sounds"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Ringtone"
                     value: AudioManager.currentRingtoneName
                     showChevron: true
@@ -81,7 +82,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Notification Sound"
                     value: AudioManager.currentNotificationSoundName
                     showChevron: true
@@ -90,7 +91,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Alarm Sound"
                     value: AudioManager.currentAlarmSoundName
                     showChevron: true

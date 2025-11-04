@@ -79,7 +79,7 @@ Item {
                 
                 Text {
                     text: title
-                    color: MColors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: MTypography.weightBold
                     font.family: MTypography.fontFamily

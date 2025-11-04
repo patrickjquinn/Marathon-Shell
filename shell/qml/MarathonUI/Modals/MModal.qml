@@ -1,25 +1,33 @@
 import QtQuick
+import QtQuick.Effects
+import MarathonUI.Theme
 import MarathonOS.Shell
 
 Rectangle {
     id: root
     
     property string title: ""
-    property alias content: contentItem.children
+    property alias content: contentItem.data
     property bool showing: false
     
     signal closed()
     signal accepted()
     
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real shadowTopMargin: Math.max(1, Math.round(8 * scaleFactor))
+    readonly property real shadowLRMargin: Math.max(1, Math.round(4 * scaleFactor))
+    readonly property real shadowBottomMargin: Math.max(1, Math.round(12 * scaleFactor))
+    readonly property real innerMargin: Math.max(1, Math.round(1 * scaleFactor))
+    
     anchors.fill: parent
     color: MColors.overlay
     visible: opacity > 0
     opacity: showing ? 1.0 : 0.0
-    z: Constants.zIndexQuickSettings + 100
+    z: 10000
     
     Behavior on opacity {
-        enabled: Constants.enableAnimations
-        NumberAnimation { duration: Constants.animationNormal }
+        NumberAnimation { duration: MMotion.quick }
     }
     
     MouseArea {
@@ -30,24 +38,51 @@ Rectangle {
     Rectangle {
         id: modalContainer
         anchors.centerIn: parent
-        width: Math.min(parent.width * 0.9, Constants.modalMaxWidth)
-        height: Math.min(parent.height * 0.8, Constants.modalMaxHeight)
+        width: Math.min(parent.width * 0.9, 600)
+        height: Math.min(parent.height * 0.8, 700)
         
-        color: MElevation.getSurface(3)
-        radius: Constants.borderRadiusSmall
-        border.width: Constants.borderWidthThin
-        border.color: MElevation.getBorderOuter(3)
-        antialiasing: Constants.enableAntialiasing
+        color: MColors.bb10Elevated
+        radius: MRadius.lg
+        
+        scale: root.showing ? 1.0 : 0.9
+        
+        Behavior on scale {
+            SpringAnimation { 
+                spring: MMotion.springMedium
+                damping: MMotion.dampingMedium
+                epsilon: MMotion.epsilon
+            }
+        }
+        
+        border.width: borderWidth
+        border.color: MColors.borderGlass
+        
+        // Performant shadow for modals (looks great, runs smooth on PinePhone)
+        Rectangle {
+            anchors.fill: parent
+            anchors.topMargin: shadowTopMargin
+            anchors.leftMargin: -shadowLRMargin
+            anchors.rightMargin: -shadowLRMargin
+            anchors.bottomMargin: -shadowBottomMargin
+            z: -1
+            radius: parent.radius
+            opacity: 0.5
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "transparent" }
+                GradientStop { position: 0.2; color: Qt.rgba(0, 0, 0, 0.3) }
+                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.7) }
+            }
+        }
+        
+        layer.enabled: false
         
         Rectangle {
-            id: innerBorder
             anchors.fill: parent
-            anchors.margins: Constants.borderWidthThin
-            radius: parent.radius > 0 ? parent.radius - Constants.borderWidthThin : 0
+            anchors.margins: innerMargin
+            radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
             color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MElevation.getBorderInner(3)
-            antialiasing: Constants.enableAntialiasing
+            border.width: borderWidth
+            border.color: MColors.highlightSubtle
         }
         
         MouseArea {
@@ -57,14 +92,15 @@ Rectangle {
         
         Column {
             anchors.fill: parent
-            anchors.margins: Constants.spacingLarge
-            spacing: Constants.spacingMedium
+            anchors.margins: MSpacing.xl
+            spacing: MSpacing.lg
             
             Text {
                 text: root.title
-                font.pixelSize: Constants.fontSizeXLarge
-                font.weight: Font.DemiBold
-                color: MColors.text
+                font.pixelSize: MTypography.sizeXLarge
+                font.weight: MTypography.weightDemiBold
+                font.family: MTypography.fontFamily
+                color: MColors.textPrimary
                 visible: root.title !== ""
                 width: parent.width
             }
@@ -72,7 +108,7 @@ Rectangle {
             Item {
                 id: contentItem
                 width: parent.width
-                height: parent.height - (root.title !== "" ? (Constants.fontSizeXLarge + Constants.spacingMedium) : 0)
+                height: parent.height - (root.title !== "" ? (MTypography.sizeXLarge + MSpacing.lg) : 0)
             }
         }
     }

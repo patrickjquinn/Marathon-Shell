@@ -83,7 +83,7 @@ Page {
                 }
             }
             
-            Section {
+            MSection {
                 title: "Your Notes"
                 subtitle: notesApp.notes.length === 0 ? "No notes yet. Tap the + button to create one." : notesApp.notes.length + " note" + (notesApp.notes.length === 1 ? "" : "s")
                 width: parent.width - 48
@@ -201,7 +201,7 @@ Page {
                                     
                                     onPressed: {
                                         startX = mouse.x
-                                        noteItem.color = MColors.surface2
+                                        noteItem.color = MColors.elevated
                                         HapticService.light()
                                     }
                                     onReleased: {
@@ -246,8 +246,8 @@ Page {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: Constants.spacingLarge
-        icon: "plus"
-        size: Constants.touchTargetLarge
+        iconName: "plus"
+        iconSize: 28
         variant: "primary"
         shape: "circular"
         onClicked: {

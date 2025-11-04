@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 
 Item {
     id: hudContainer
@@ -71,7 +72,7 @@ Item {
             Icon {
                 name: hudType === "volume" ? "volume-2" : "sun"
                 size: Constants.iconSizeXLarge
-                color: Colors.text
+                color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
             }
             
@@ -104,7 +105,7 @@ Item {
                 
                 Text {
                     text: Math.round(hudValue * 100) + "%"
-                    color: Colors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.DemiBold
                     font.family: MTypography.fontFamily

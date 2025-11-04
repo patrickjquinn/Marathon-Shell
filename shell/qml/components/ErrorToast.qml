@@ -1,6 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
+import MarathonUI.Core
 import MarathonUI.Theme
 
 /**
@@ -153,7 +153,7 @@ Item {
                     width: Constants.touchTargetMinimum
                     height: Constants.touchTargetMinimum
                     radius: Constants.borderRadiusSmall
-                    color: closeMouseArea.pressed ? MColors.surface2 : "transparent"
+                    color: closeMouseArea.pressed ? MColors.elevated : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
                     
                     Icon {

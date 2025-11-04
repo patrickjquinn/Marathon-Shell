@@ -1,11 +1,13 @@
 import QtQuick
-import QtWayland.Compositor
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Containers
 
 MApp {
     id: nativeAppWindow
+    
+    // Expose HAVE_WAYLAND from C++ context
+    readonly property bool haveWayland: typeof HAVE_WAYLAND !== 'undefined' ? HAVE_WAYLAND : false
     
     property var waylandSurface: null
     property string nativeAppId: ""
@@ -25,67 +27,57 @@ MApp {
         anchors.fill: parent
         color: MColors.background
         
-        ShellSurfaceItem {
-            id: surfaceItem
+        // Wayland surface rendering - conditionally load on Linux
+        Loader {
+            id: waylandSurfaceLoader
             anchors.fill: parent
+            visible: haveWayland
+            active: haveWayland && waylandSurface !== null
+            source: haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
             
-            // Access the xdgSurface that was set from QML (not C++ property)
-            shellSurface: nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.xdgSurface : null
+            onItemChanged: {
+                if (item && waylandSurface) {
+                    item.surfaceObj = waylandSurface
+                }
+            }
             
-            // Ensure proper rendering
-            touchEventsEnabled: true
-            
-            onShellSurfaceChanged: {
-                if (shellSurface) {
-                    Logger.info("NativeAppWindow", "ShellSurface assigned, configuring: " + width + "x" + height)
-                    
-                    // Get the toplevel from the Wayland surface (stored in QML)
-                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
-                    
-                    if (toplevel) {
-                        // Configure the surface to be maximized once we have a valid size
-                        Qt.callLater(function() {
-                            if (width > 0 && height > 0) {
-                                Logger.info("NativeAppWindow", "Sending maximized state: " + width + "x" + height)
-                                toplevel.sendMaximized(Qt.size(width, height))
+            Connections {
+                target: waylandSurfaceLoader.item
+                function onSurfaceDestroyed() {
+                    Logger.info("NativeAppWindow", "Surface destroyed for: " + nativeAppWindow.appId)
+                    nativeAppWindow.close()
                             }
-                        })
-                    }
-                }
-            }
-            
-            onWidthChanged: {
-                if (width > 0 && height > 0) {
-                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
-                    if (toplevel) {
-                        Logger.info("NativeAppWindow", "Width changed, sending maximized: " + width + "x" + height)
-                        toplevel.sendMaximized(Qt.size(width, height))
-                    }
-                }
-            }
-            
-            onHeightChanged: {
-                if (width > 0 && height > 0) {
-                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
-                    if (toplevel) {
-                        Logger.info("NativeAppWindow", "Height changed, sending maximized: " + width + "x" + height)
-                        toplevel.sendMaximized(Qt.size(width, height))
-                    }
-                }
-            }
-            
-            onSurfaceDestroyed: {
-                Logger.info("NativeAppWindow", "Surface destroyed for: " + nativeAppWindow.appId)
-                nativeAppWindow.close()
             }
         }
         
-        // Splash screen - shown while app is launching
+        // Show message when Wayland is not available (macOS)
+        Column {
+            anchors.centerIn: parent
+            spacing: Constants.spacingLarge
+            visible: !haveWayland
+            
+            Text {
+                text: "Native Apps Not Supported"
+                color: MColors.text
+                font.pixelSize: MTypography.sizeXLarge
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: "Native Linux apps require Wayland compositor,\nwhich is only available on Linux.\n\nOn macOS, only Marathon apps are supported."
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
+                anchors.horizontalCenter: parent.horizontalCenter
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+        
+        // Splash screen - shown while app is launching (on Linux with Wayland)
         Rectangle {
             id: splashScreen
             anchors.fill: parent
             color: MColors.background
-            visible: surfaceItem.shellSurface === null
+            visible: haveWayland && (!waylandSurface || (waylandSurfaceLoader.item && !waylandSurfaceLoader.item.shellSurface))
             
             Component.onCompleted: {
                 Logger.info("NativeAppWindow", "=== SPLASH SCREEN CREATED ===")
@@ -96,7 +88,8 @@ MApp {
             }
             
             onVisibleChanged: {
-                Logger.info("NativeAppWindow", "Splash visibility changed: " + visible + " (shellSurface: " + (surfaceItem.shellSurface ? "EXISTS" : "NULL") + ")")
+                var hasSurface = waylandSurfaceLoader.item && waylandSurfaceLoader.item.shellSurface
+                Logger.info("NativeAppWindow", "Splash visibility changed: " + visible + " (shellSurface: " + (hasSurface ? "EXISTS" : "NULL") + ")")
             }
             
             Column {

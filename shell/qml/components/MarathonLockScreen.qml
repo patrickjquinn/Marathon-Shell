@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
+import MarathonUI.Core
 import "."
 import "./ui"
 import MarathonUI.Theme
@@ -147,9 +148,9 @@ Item {
                                 width: Constants.touchTargetMinimum
                                 height: Constants.touchTargetMinimum
                                 radius: Math.round(20 * Constants.scaleFactor)
-                                color: expandedNotificationId === modelData.id ? MColors.surface2 : "transparent"
+                                color: expandedNotificationId === modelData.id ? MColors.elevated : "transparent"
                                 border.width: expandedNotificationId === modelData.id ? 0 : Constants.borderWidthThin
-                                border.color: MColors.borderOuter
+                                border.color: MColors.border
                                 anchors.verticalCenter: parent.verticalCenter
                                 antialiasing: true
                                 

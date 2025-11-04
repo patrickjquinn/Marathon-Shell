@@ -1,9 +1,7 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Theme
 import "pages"
 

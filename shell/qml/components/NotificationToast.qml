@@ -1,6 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Item {
@@ -41,7 +41,7 @@ Item {
         radius: Constants.borderRadiusSharp
         color: MColors.surface
         border.width: Constants.borderWidthMedium
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         antialiasing: Constants.enableAntialiasing
         visible: false
         
@@ -58,7 +58,7 @@ Item {
             radius: Constants.borderRadiusSharp
             color: "transparent"
             border.width: Constants.borderWidthThin
-            border.color: MColors.borderHighlight
+            border.color: MColors.highlightMedium
             antialiasing: Constants.enableAntialiasing
         }
         
@@ -76,9 +76,9 @@ Item {
                     width: MSpacing.touchTargetLarge
                     height: MSpacing.touchTargetLarge
                     radius: Constants.borderRadiusSharp
-                    color: MColors.surface1
+                    color: MColors.surface
                     border.width: Constants.borderWidthThin
-                    border.color: MColors.borderOuter
+                    border.color: MColors.border
                     antialiasing: Constants.enableAntialiasing
                     
                     Icon {

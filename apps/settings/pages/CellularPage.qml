@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
 import "../components"
 
 SettingsPageTemplate {
@@ -21,32 +22,32 @@ SettingsPageTemplate {
             rightPadding: 24
             topPadding: 24
             
-            Section {
+            MSection {
                 title: "Status"
                 width: parent.width - 48
                 visible: typeof CellularManager !== 'undefined'
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Operator"
                     value: (typeof CellularManager !== 'undefined' && CellularManager.operatorName) || "No service"
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Signal Strength"
                     value: (typeof CellularManager !== 'undefined' ? CellularManager.modemSignalStrength + "%" : "N/A")
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Network Type"
                     value: (typeof CellularManager !== 'undefined' && CellularManager.networkType) || "Unknown"
                 }
             }
             
-            Section {
+            MSection {
                 title: "Mobile Data"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Mobile Data"
                     subtitle: "Use cellular network for data"
                     showToggle: true
@@ -58,7 +59,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Data Roaming"
                     subtitle: (typeof CellularManager !== 'undefined' && CellularManager.roaming) ? "Currently roaming" : "Use data when traveling"
                     showToggle: true
@@ -67,17 +68,17 @@ SettingsPageTemplate {
                 }
             }
             
-            Section {
+            MSection {
                 title: "SIM Card"
                 width: parent.width - 48
                 visible: typeof CellularManager !== 'undefined' && CellularManager.simPresent
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "SIM Operator"
                     value: (typeof CellularManager !== 'undefined' && CellularManager.simOperator) || "Unknown"
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Phone Number"
                     value: (typeof CellularManager !== 'undefined' && CellularManager.phoneNumber) || "Not available"
                 }
@@ -86,9 +87,9 @@ SettingsPageTemplate {
             Text {
                 width: parent.width - 48
                 text: typeof CellularManager === 'undefined' ? "Mobile network features require Linux with ModemManager" : ""
-                color: Colors.textSecondary
-                font.pixelSize: Typography.sizeSmall
-                font.family: Typography.fontFamily
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
                 visible: typeof CellularManager === 'undefined'

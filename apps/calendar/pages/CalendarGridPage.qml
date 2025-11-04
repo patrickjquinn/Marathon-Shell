@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -43,8 +41,8 @@ Rectangle {
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "chevron-left"
-                    size: Constants.touchTargetMedium
+                    iconName: "chevron-left"
+                    iconSize: Constants.touchTargetMedium
                     onClicked: {
                         if (currentMonth === 0) {
                             currentMonth = 11
@@ -66,8 +64,8 @@ Rectangle {
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "chevron-right"
-                    size: Constants.touchTargetMedium
+                    iconName: "chevron-right"
+                    iconSize: Constants.touchTargetMedium
                     onClicked: {
                         if (currentMonth === 11) {
                             currentMonth = 0
@@ -93,7 +91,7 @@ Rectangle {
                 Rectangle {
                     width: calendarGridPage.width / 7
                     height: Constants.touchTargetMedium
-                    color: MColors.surface2
+                    color: MColors.elevated
                     
                     Text {
                         anchors.centerIn: parent

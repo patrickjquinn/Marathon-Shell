@@ -46,7 +46,7 @@ Rectangle {
         anchors.centerIn: parent
         width: Math.min(parent.width * 0.85, 400)
         height: 400
-        color: MColors.surface2
+        color: MColors.elevated
         radius: Constants.borderRadiusSharp
         border.width: Constants.borderWidthThin
         border.color: MColors.border

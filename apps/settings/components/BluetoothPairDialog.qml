@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Controls
+import MarathonUI.Core
 
 /**
  * Polished Bluetooth Pairing Dialog
@@ -121,7 +121,7 @@ Item {
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         transform: Translate { id: translateTransform; y: dialogCard.height }
 
         // Glass morphism effect
@@ -148,13 +148,13 @@ Item {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
                     radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15)
+                    color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15)
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
                         name: getDeviceIcon(bluetoothPairDialog.deviceType)
                         size: Constants.iconSizeMedium
-                        color: MColors.accent
+                        color: MColors.marathonTeal
                         anchors.centerIn: parent
                     }
                 }
@@ -190,9 +190,9 @@ Item {
                 width: parent.width
                 height: Constants.inputHeight
                 radius: Constants.borderRadiusSmall
-                color: MColors.backgroundLight || Qt.darker(MColors.background, 1.05)
+                color: MColors.background || Qt.darker(MColors.background, 1.05)
                 border.width: pinInput.activeFocus || passkeyInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: errorMessage !== "" ? MColors.error : ((pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.accent : MColors.border)
+                border.color: errorMessage !== "" ? MColors.error : ((pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.marathonTeal : MColors.border)
                 visible: pairingMode === "pin" || pairingMode === "passkey"
 
                 Behavior on border.color {
@@ -207,7 +207,7 @@ Item {
                     Icon {
                         name: "key"
                         size: Constants.iconSizeMedium
-                        color: (pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.accent : MColors.textSecondary
+                        color: (pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.marathonTeal : MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
@@ -276,9 +276,9 @@ Item {
                 width: parent.width
                 height: Math.round(100 * Constants.scaleFactor)
                 radius: Constants.borderRadiusLarge
-                color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.1)
+                color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.1)
                 border.width: Constants.borderWidthMedium
-                border.color: MColors.accent
+                border.color: MColors.marathonTeal
                 visible: pairingMode === "confirm"
 
                 Column {
@@ -291,7 +291,7 @@ Item {
                         font.weight: Font.Light
                         font.family: Typography.fontMonospace || "monospace"
                         font.letterSpacing: 8
-                        color: MColors.accent
+                        color: MColors.marathonTeal
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
 
@@ -414,7 +414,7 @@ Item {
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: canPair() ? MColors.accent : Qt.darker(MColors.accent, 1.5)
+                    color: canPair() ? MColors.marathonTeal : Qt.darker(MColors.marathonTeal, 1.5)
                     opacity: canPair() ? 1.0 : 0.5
 
                     signal clicked()

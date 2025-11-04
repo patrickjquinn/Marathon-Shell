@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonUI.Controls
 
@@ -94,7 +95,7 @@ Item {
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         transform: Translate { id: translateTransform; y: dialogCard.height }
 
         // Glass morphism effect

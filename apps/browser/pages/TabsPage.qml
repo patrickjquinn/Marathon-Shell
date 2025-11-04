@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -7,7 +6,7 @@ import "../components"
 
 Rectangle {
     id: tabsPage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal tabSelected(int tabId)
     signal newTabRequested()

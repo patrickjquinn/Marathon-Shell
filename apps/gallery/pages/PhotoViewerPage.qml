@@ -1,8 +1,6 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
-import MarathonUI.Theme
 
 Rectangle {
     id: photoViewer
@@ -63,8 +61,8 @@ Rectangle {
             
             MIconButton {
                 anchors.verticalCenter: parent.verticalCenter
-                icon: "x"
-                size: Constants.touchTargetMedium
+                iconName: "x"
+                iconSize: Constants.touchTargetMedium
                 onClicked: {
                     photoViewer.hide()
                 }
@@ -74,8 +72,8 @@ Rectangle {
             
             MIconButton {
                 anchors.verticalCenter: parent.verticalCenter
-                icon: "trash"
-                size: Constants.touchTargetMedium
+                iconName: "trash"
+                iconSize: Constants.touchTargetMedium
                 onClicked: {
                     if (photo && typeof MediaLibraryManager !== 'undefined') {
                         MediaLibraryManager.deletePhoto(photo.id)

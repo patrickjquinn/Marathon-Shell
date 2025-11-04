@@ -1,7 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
-import "../../MarathonUI/Theme"
-import "../../MarathonUI/Core"
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: modal
@@ -97,7 +97,7 @@ Rectangle {
                     id: modalTitle
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    color: MColors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: MTypography.weightBold
                     font.family: MTypography.fontFamily

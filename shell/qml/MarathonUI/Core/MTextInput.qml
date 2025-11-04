@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonUI.Theme
 import MarathonOS.Shell
 
 Rectangle {
@@ -6,70 +7,70 @@ Rectangle {
     
     property alias text: textInput.text
     property alias placeholderText: placeholder.text
-    property alias echoMode: textInput.echoMode
-    property alias textInput: textInput
     property bool disabled: false
-    property string variant: "default"
-    property color backgroundColor: MColors.surface
+    property bool error: false
     
     signal accepted()
     
-    implicitWidth: 280
-    implicitHeight: Constants.touchTargetMedium
-    radius: Constants.borderRadiusSharp
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real innerMargin: Math.max(1, Math.round(1 * scaleFactor))
     
-    color: backgroundColor
-    border.width: Constants.borderWidthThin
+    implicitWidth: parent ? parent.width : 240
+    implicitHeight: MSpacing.touchTargetMin
+    
+    radius: MRadius.md
+    color: MColors.bb10Surface
+    border.width: borderWidth
     border.color: {
-        if (disabled) return MColors.borderLight
-        if (textInput.activeFocus) return MColors.accentBright
-        return MColors.borderOuter
+        if (error) return MColors.error
+        if (textInput.activeFocus) return MColors.marathonTeal
+        return MColors.borderGlass
     }
     
-    antialiasing: Constants.enableAntialiasing
-    
-    Behavior on border.color { 
-        enabled: Constants.enableAnimations
-        ColorAnimation { duration: Constants.animationFast } 
+    Behavior on border.color {
+        ColorAnimation { duration: MMotion.xs }
     }
     
-    // Inner border for depth (shell pattern)
     Rectangle {
         anchors.fill: parent
-        anchors.margins: 1
-        radius: Constants.borderRadiusSharp
+        anchors.margins: innerMargin
+        radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
         color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: MColors.borderInner
-        antialiasing: Constants.enableAntialiasing
+        border.width: borderWidth
+        border.color: textInput.activeFocus ? Qt.rgba(0, 191/255, 165/255, 0.15) : MColors.borderSubtle
+        
+        Behavior on border.color {
+            ColorAnimation { duration: MMotion.xs }
+        }
+    }
+    
+    Text {
+        id: placeholder
+        anchors.left: parent.left
+        anchors.leftMargin: MSpacing.md
+        anchors.verticalCenter: parent.verticalCenter
+        color: MColors.textHint
+        font.pixelSize: MTypography.sizeBody
+        font.family: MTypography.fontFamily
+        visible: textInput.text.length === 0 && !textInput.activeFocus
     }
     
     TextInput {
         id: textInput
         anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
-        color: disabled ? MColors.textDisabled : MColors.text
-        font.pixelSize: Constants.fontSizeMedium
-        font.family: MTypography.fontFamily
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
         verticalAlignment: TextInput.AlignVCenter
-        enabled: !root.disabled
-        selectByMouse: true
-        selectedTextColor: MColors.background
-        selectionColor: MColors.accent
-        clip: true
+        color: disabled ? MColors.textHint : MColors.textPrimary
+        selectedTextColor: MColors.textOnAccent
+        selectionColor: MColors.marathonTeal
+        font.pixelSize: MTypography.sizeBody
+        font.family: MTypography.fontFamily
+        enabled: !disabled
         
         onAccepted: root.accepted()
-    }
-    
-    Text {
-        id: placeholder
-        anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
-        visible: !textInput.text && !textInput.activeFocus
-        color: MColors.textTertiary
-        font.pixelSize: Constants.fontSizeMedium
-        font.family: MTypography.fontFamily
-        verticalAlignment: Text.AlignVCenter
+        onTextChanged: root.textChanged()
     }
 }
 

@@ -2,118 +2,90 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // =========================================================================
-    // BACKGROUND - Pure black foundation
-    // =========================================================================
-    readonly property color background: "#000000"      // Pure black (OLED-friendly)
-    readonly property color backgroundDark: "#000000"  // Consistency
+    readonly property color bb10Black: "#040404"
+    readonly property color bb10Deep: "#070707"
+    readonly property color bb10Surface: "#0d0d0e"
+    readonly property color bb10Elevated: "#161718"
+    readonly property color bb10Card: "#1a1b1c"
     
-    // =========================================================================
-    // SURFACE ELEVATION - Dark grey cards with clear hierarchy
-    // =========================================================================
-    readonly property color surface: "#1A1A1A"         // Default card surface
-    readonly property color surface0: "#0A0A0A"        // Sunken (inset fields)
-    readonly property color surface1: "#1A1A1A"        // Base cards
-    readonly property color surface2: "#242424"        // Raised elements
-    readonly property color surface3: "#2E2E2E"        // Modals, sheets
-    readonly property color surface4: "#383838"        // Floating menus
-    readonly property color surface5: "#424242"        // Highest elevation (tooltips)
+    readonly property color marathonTealDarkest: "#006b5d"
+    readonly property color marathonTealDark: "#00897b"
+    readonly property color marathonTeal: "#00bfa5"
+    readonly property color marathonTealBright: "#1de9b6"
+    readonly property color marathonTealGlow: "#5dffdc"
     
-    // Legacy aliases
-    readonly property color surfaceLight: surface2
-    readonly property color surfaceDark: surface0
+    readonly property color textPrimary: "#f5f5f5"
+    readonly property color textSecondary: "#6a6a6a"
+    readonly property color textTertiary: "#4a4a4a"
+    readonly property color textHint: "#2a2a2a"
+    readonly property color textOnAccent: "#ffffff"
     
-    // =========================================================================
-    // TEAL ACCENT PALETTE - Dark teal to bright teal
-    // =========================================================================
-    readonly property color accent: "#14B8A6"          // Primary teal (base)
-    readonly property color accentBright: "#2DD4BF"    // Bright teal (highlights, borders)
-    readonly property color accentDim: "#0D9488"       // Dark teal (muted)
-    readonly property color accentHover: "#0F766E"     // Hover state (darker)
-    readonly property color accentPressed: "#0A5F56"   // Pressed state (darkest)
-    readonly property color accentLight: "#5EEAD4"     // Light teal (emphasis)
-    readonly property color accentDark: "#0D9488"      // Dark teal (borders)
+    readonly property color glassTitlebar: Qt.rgba(13/255, 13/255, 14/255, 0.72)
+    readonly property color glassTabbar: Qt.rgba(16/255, 16/255, 17/255, 0.78)
+    readonly property color glassActionbar: Qt.rgba(11/255, 11/255, 12/255, 0.82)
+    readonly property color glassHeader: Qt.rgba(18/255, 18/255, 19/255, 0.85)
     
-    // Accent with opacity (for overlays, backgrounds)
-    readonly property color accentSubtle: Qt.rgba(0.078, 0.722, 0.651, 0.1)   // 10% accent
-    readonly property color accentGhost: Qt.rgba(0.078, 0.722, 0.651, 0.05)   // 5% accent
-    readonly property color accentFaint: Qt.rgba(0.078, 0.722, 0.651, 0.02)   // 2% accent
+    readonly property color borderGlass: Qt.rgba(1, 1, 1, 0.08)
+    readonly property color borderSubtle: Qt.rgba(1, 1, 1, 0.05)
+    readonly property color borderDark: Qt.rgba(0, 0, 0, 0.7)
     
-    // =========================================================================
-    // TEXT COLORS - High contrast on black
-    // =========================================================================
-    readonly property color text: "#FFFFFF"            // Primary text (white)
-    readonly property color textSecondary: "#A0A0A0"   // Secondary text (light grey)
-    readonly property color textTertiary: "#707070"    // Tertiary text (medium grey)
-    readonly property color textDisabled: "#404040"    // Disabled text (dark grey)
-    readonly property color textOnAccent: "#000000"    // Text on teal (black for contrast)
+    readonly property color highlightSubtle: Qt.rgba(1, 1, 1, 0.03)
+    readonly property color highlightMedium: Qt.rgba(1, 1, 1, 0.06)
     
-    // =========================================================================
-    // BORDER COLORS - Subtle depth through borders
-    // =========================================================================
-    readonly property color border: "#2A2A2A"          // Default border
-    readonly property color borderLight: "#353535"     // Lighter border
-    readonly property color borderDark: "#1A1A1A"      // Darker border
-    readonly property color borderFocus: accent        // Teal border on focus
+    readonly property color hover: Qt.rgba(1, 1, 1, 0.04)
+    readonly property color pressed: Qt.rgba(0, 0, 0, 0.1)
+    readonly property color ripple: Qt.rgba(0, 191/255, 165/255, 0.12)
     
-    // Elevation borders (dual-border depth technique)
-    readonly property color borderOuter: "#000000"                // Pure black outer edge
-    readonly property color borderInner: Qt.rgba(1, 1, 1, 0.05)   // Subtle white inner highlight
-    readonly property color borderHighlight: Qt.rgba(1, 1, 1, 0.08) // Stronger highlight
-    readonly property color borderShadow: Qt.rgba(0, 0, 0, 0.6)   // Soft shadow
+    readonly property color overlay: Qt.rgba(0, 0, 0, 0.85)
+    readonly property color overlayLight: Qt.rgba(0, 0, 0, 0.7)
     
-    // =========================================================================
-    // SEMANTIC COLORS (with scales)
-    // =========================================================================
-    
-    // Success (green)
     readonly property color success: "#10B981"
     readonly property color successDim: "#059669"
-    readonly property color successBright: "#34D399"
-    readonly property color successSubtle: Qt.rgba(0.063, 0.725, 0.506, 0.1)
-    
-    // Warning (amber)
     readonly property color warning: "#F59E0B"
     readonly property color warningDim: "#D97706"
-    readonly property color warningBright: "#FBBF24"
-    readonly property color warningSubtle: Qt.rgba(0.961, 0.620, 0.043, 0.1)
-    
-    // Error (red)
     readonly property color error: "#EF4444"
     readonly property color errorDim: "#DC2626"
-    readonly property color errorBright: "#F87171"
-    readonly property color errorSubtle: Qt.rgba(0.937, 0.267, 0.267, 0.1)
-    
-    // Info (blue)
     readonly property color info: "#3B82F6"
     readonly property color infoDim: "#2563EB"
-    readonly property color infoBright: "#60A5FA"
-    readonly property color infoSubtle: Qt.rgba(0.231, 0.510, 0.965, 0.1)
     
-    // =========================================================================
-    // OVERLAY & GLASS EFFECTS
-    // =========================================================================
-    readonly property color overlay: Qt.rgba(0, 0, 0, 0.85)        // Modal backdrop (dark)
-    readonly property color overlayLight: Qt.rgba(0, 0, 0, 0.7)    // Lighter backdrop
-    readonly property color overlayHeavy: Qt.rgba(0, 0, 0, 0.95)   // Heavier backdrop
+    readonly property color background: bb10Black
+    readonly property color surface: bb10Surface
+    readonly property color elevated: bb10Elevated
+    readonly property color text: textPrimary
+    readonly property color accent: marathonTeal
+    readonly property color accentBright: marathonTealBright
+    readonly property color accentDark: marathonTealDark
+    readonly property color border: borderGlass
     
-    // Glass effects (minimal, performance-friendly)
-    readonly property color glass: Qt.rgba(0.2, 0.2, 0.2, 0.95)       // Darker glass with more opacity (visible on black)
-    readonly property color glassLight: Qt.rgba(0.25, 0.25, 0.25, 0.95)  // Lighter glass
-    readonly property color glassBorder: Qt.rgba(1, 1, 1, 0.25)           // Glass border (much more visible)
+    // Pre-computed colors for gradients and effects (used frequently in UI)
+    readonly property color marathonTealHoverGradient: Qt.rgba(0, 191/255, 165/255, 0.03)
+    readonly property color marathonTealPressGradient: Qt.rgba(0, 191/255, 165/255, 0.12)
+    readonly property color marathonTealGlowTop: Qt.rgba(0, 191/255, 165/255, 0.18)
+    readonly property color marathonTealGlowMid: Qt.rgba(0, 191/255, 165/255, 0.10)
+    readonly property color marathonTealGlowBottom: Qt.rgba(0, 191/255, 165/255, 0.02)
+    readonly property color marathonTealBorder: Qt.rgba(0, 191/255, 165/255, 0.35)
+    readonly property color marathonTealBorderHover: Qt.rgba(0, 191/255, 165/255, 0.4)
     
-    // =========================================================================
-    // INTERACTION STATES
-    // =========================================================================
-    readonly property color hover: Qt.rgba(1, 1, 1, 0.05)      // Hover overlay
-    readonly property color pressed: Qt.rgba(0, 0, 0, 0.1)     // Press overlay
-    readonly property color focus: Qt.rgba(0.078, 0.722, 0.651, 0.15)  // Focus ring
+    // Shadow colors (precomputed for performance)
+    readonly property color shadowDefault: Qt.rgba(0, 0, 0, 0.4)
+    readonly property color shadowStrong: Qt.rgba(0, 0, 0, 0.6)
+    readonly property color shadowHeavy: Qt.rgba(0, 0, 0, 0.7)
     
-    // =========================================================================
-    // SPECIAL EFFECTS
-    // =========================================================================
-    readonly property color ripple: Qt.rgba(1, 1, 1, 0.12)     // Ripple effect
-    readonly property color shimmer: Qt.rgba(1, 1, 1, 0.08)    // Loading shimmer
-    readonly property color divider: Qt.rgba(1, 1, 1, 0.06)    // Subtle divider
+    // White overlays (used in gradients)
+    readonly property color whiteOverlay02: Qt.rgba(1, 1, 1, 0.02)
+    readonly property color whiteOverlay03: Qt.rgba(1, 1, 1, 0.03)
+    readonly property color whiteOverlay04: Qt.rgba(1, 1, 1, 0.04)
+    readonly property color whiteOverlay05: Qt.rgba(1, 1, 1, 0.05)
+    readonly property color whiteOverlay06: Qt.rgba(1, 1, 1, 0.06)
+    readonly property color whiteOverlay08: Qt.rgba(1, 1, 1, 0.08)
+    readonly property color whiteOverlay10: Qt.rgba(1, 1, 1, 0.10)
+    readonly property color whiteOverlay12: Qt.rgba(1, 1, 1, 0.12)
+    readonly property color whiteOverlay15: Qt.rgba(1, 1, 1, 0.15)
+    readonly property color whiteOverlay30: Qt.rgba(1, 1, 1, 0.30)
+    readonly property color whiteOverlay40: Qt.rgba(1, 1, 1, 0.40)
+    
+    // Black overlays (used in shadows)
+    readonly property color blackOverlay15: Qt.rgba(0, 0, 0, 0.15)
+    readonly property color blackOverlay40: Qt.rgba(0, 0, 0, 0.4)
 }
 

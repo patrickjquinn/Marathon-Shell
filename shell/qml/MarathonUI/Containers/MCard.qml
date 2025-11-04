@@ -1,39 +1,70 @@
 import QtQuick
+import QtQuick.Effects
+import MarathonUI.Theme
+import MarathonUI.Effects
 import MarathonOS.Shell
 
 Rectangle {
     id: root
     
     default property alias content: contentItem.data
-    property string variant: "default"
     property int elevation: 1
-    property int elevationHover: elevation + 1
-    property int elevationPressed: elevation - 1
-    property bool pressed: false
     property bool interactive: false
-    property bool hovered: false
+    property bool pressed: false
     
     signal clicked()
     
-    implicitWidth: 300
-    implicitHeight: contentItem.childrenRect.height + Constants.spacingLarge * 2
-    radius: Constants.borderRadiusSharp
-    scale: pressed ? 0.98 : 1.0
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real shadowMargin1: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real shadowMargin2: Math.max(1, Math.round(2 * scaleFactor))
+    readonly property real shadowMargin3: Math.max(1, Math.round(3 * scaleFactor))
+    readonly property real shadowMargin4: Math.max(1, Math.round(4 * scaleFactor))
     
-    readonly property int currentElevation: pressed ? Math.max(0, elevationPressed) : (hovered ? elevationHover : elevation)
+    implicitWidth: parent ? parent.width : 300
+    implicitHeight: contentItem.childrenRect.height + MSpacing.md * 2
     
-    color: MElevation.getSurface(currentElevation)
-    border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(currentElevation)
-    antialiasing: Constants.enableAntialiasing
+    radius: MRadius.md
+    color: MElevation.getSurface(elevation)
+    border.width: borderWidth
+    border.color: MElevation.getBorderOuter(elevation)
+    
+    scale: pressed && interactive ? 0.96 : 1.0  // Press only, no hover
+    
+    // Performant shadow using layered rectangles
+    Rectangle {
+        id: shadowLayer
+        anchors.fill: parent
+        anchors.topMargin: shadowMargin3
+        anchors.leftMargin: -shadowMargin1
+        anchors.rightMargin: -shadowMargin1
+        anchors.bottomMargin: -shadowMargin4
+        z: -1
+        radius: parent.radius
+        opacity: 0.4
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "transparent" }
+            GradientStop { position: 0.2; color: Qt.rgba(0, 0, 0, 0.3) }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.6) }
+        }
+    }
+    
+    // Additional crisp shadow layer for more depth
+    Rectangle {
+        anchors.fill: parent
+        anchors.topMargin: shadowMargin1
+        anchors.bottomMargin: -shadowMargin1
+        z: -2
+        radius: parent.radius
+        color: Qt.rgba(0, 0, 0, 0.8)
+        opacity: 0.3
+    }
     
     Behavior on color {
-        enabled: Constants.enableAnimations
         ColorAnimation { duration: MMotion.quick }
     }
     
     Behavior on scale {
-        enabled: Constants.enableAnimations && interactive
         SpringAnimation { 
             spring: MMotion.springMedium
             damping: MMotion.dampingMedium
@@ -41,39 +72,50 @@ Rectangle {
         }
     }
     
+    // Inner highlight border
     Rectangle {
-        id: innerBorder
         anchors.fill: parent
-        anchors.margins: Constants.borderWidthThin
-        radius: root.radius > 0 ? root.radius - Constants.borderWidthThin : 0
+        anchors.margins: shadowMargin1
+        radius: parent.radius > shadowMargin1 ? parent.radius - shadowMargin1 : 0
         color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: MElevation.getBorderInner(currentElevation)
-        antialiasing: Constants.enableAntialiasing
-        
-        Behavior on border.color {
-            enabled: Constants.enableAnimations
-            ColorAnimation { duration: MMotion.quick }
-        }
+        border.width: borderWidth
+        border.color: MElevation.getBorderInner(elevation)
+    }
+    
+    // Secondary inner border for extra depth
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: shadowMargin2
+        radius: parent.radius > shadowMargin2 ? parent.radius - shadowMargin2 : 0
+        color: "transparent"
+        border.width: borderWidth
+        border.color: Qt.rgba(1, 1, 1, 0.02)
+        opacity: elevation >= 2 ? 1 : 0
     }
     
     Item {
         id: contentItem
         anchors.fill: parent
-        anchors.margins: Constants.spacingLarge
+        anchors.margins: MSpacing.md
+    }
+    
+    MRipple {
+        id: ripple
     }
     
     MouseArea {
         anchors.fill: parent
         enabled: interactive
-        hoverEnabled: interactive
-        cursorShape: interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onEntered: if (interactive) { root.hovered = true; HapticService.light() }
-        onExited: root.hovered = false
-        onPressed: if (interactive) { root.pressed = true }
+        
+        onPressed: function(mouse) {
+            if (interactive) {
+                root.pressed = true
+                ripple.trigger(Qt.point(mouse.x, mouse.y))
+            }
+        }
         onReleased: root.pressed = false
         onCanceled: root.pressed = false
-        onClicked: if (interactive) { root.clicked(); HapticService.medium() }
+        onClicked: if (interactive) root.clicked()
     }
 }
 

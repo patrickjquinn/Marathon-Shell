@@ -1,21 +1,34 @@
 import QtQuick
-import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: root
     
-    default property alias content: contentContainer.data
+    property var actions: []
     
-    implicitWidth: parent.width
-    implicitHeight: 72
-    color: MColors.glass
+    signal actionClicked(int index)
+    
+    width: parent ? parent.width : 400
+    height: 72
+    color: MColors.bb10Elevated
     border.width: 1
-    border.color: MColors.glassBorder
+    border.color: Qt.rgba(1, 1, 1, 0.08)
     
-    Item {
-        id: contentContainer
-        anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
+    Row {
+        anchors.centerIn: parent
+        spacing: MSpacing.md
+        
+        Repeater {
+            model: root.actions
+            
+            MButton {
+                text: modelData.text || ""
+                iconName: modelData.icon || ""
+                variant: modelData.variant || "default"
+                onClicked: root.actionClicked(index)
+            }
+        }
     }
 }
 

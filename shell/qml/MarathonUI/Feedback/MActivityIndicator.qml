@@ -1,47 +1,86 @@
 import QtQuick
-import MarathonOS.Shell
+import QtQuick.Shapes
+import MarathonUI.Theme
 
 Item {
     id: root
     
-    property int size: Constants.iconSizeLarge
-    property color color: MColors.accent
+    property color color: MColors.marathonTeal
+    property int size: 32
     property bool running: true
-    property int speed: 1000
     
     implicitWidth: size
     implicitHeight: size
     
-    Repeater {
-        model: 8
+    // Modern arc-based spinner with gradient trail
+    Shape {
+        id: spinner
+        anchors.centerIn: parent
+        width: root.size
+        height: root.size
         
-        Rectangle {
-            id: bar
-            x: root.size / 2 - width / 2
-            y: root.size / 2 - height / 2
-            width: root.size * 0.15
-            height: root.size * 0.35
-            radius: width / 2
-            color: root.color
-            opacity: 0.3 + (index / 8) * 0.7
-            antialiasing: Constants.enableAntialiasing
+        // Main spinning arc with gradient
+        ShapePath {
+            strokeColor: "transparent"
+            fillColor: "transparent"
+            strokeWidth: root.size / 8
+            capStyle: ShapePath.RoundCap
             
-            transform: Rotation {
-                origin.x: bar.width / 2
-                origin.y: root.size / 2 - bar.y
-                angle: index * 45
+            PathAngleArc {
+                centerX: spinner.width / 2
+                centerY: spinner.height / 2
+                radiusX: (root.size - root.size / 8) / 2
+                radiusY: (root.size - root.size / 8) / 2
+                startAngle: 0
+                sweepAngle: 300
             }
         }
-    }
-    
-    RotationAnimation {
-        target: root
-        property: "rotation"
-        from: 0
-        to: 360
-        duration: root.speed
-        loops: Animation.Infinite
-        running: root.running && Constants.enableAnimations
+        
+        // Gradient overlay using multiple arcs with decreasing opacity
+        Repeater {
+            model: 8
+            
+            Shape {
+                anchors.fill: parent
+                visible: root.running
+                
+                ShapePath {
+                    strokeColor: Qt.rgba(
+                        root.color.r,
+                        root.color.g,
+                        root.color.b,
+                        (1.0 - index / 8.0) * 0.8
+                    )
+                    fillColor: "transparent"
+                    strokeWidth: root.size / 8
+                    capStyle: ShapePath.RoundCap
+                    
+                    PathAngleArc {
+                        centerX: spinner.width / 2
+                        centerY: spinner.height / 2
+                        radiusX: (root.size - root.size / 8) / 2
+                        radiusY: (root.size - root.size / 8) / 2
+                        startAngle: -45 * index
+                        sweepAngle: 45
+                    }
+                }
+            }
+        }
+        
+        RotationAnimator on rotation {
+            from: 0
+            to: 360
+            duration: 1200
+            loops: Animation.Infinite
+            running: root.running
+            easing.type: Easing.Linear
+        }
+        
+        opacity: root.running ? 1.0 : 0
+        
+        Behavior on opacity {
+            NumberAnimation { duration: MMotion.quick }
+        }
     }
 }
 

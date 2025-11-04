@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Window
-import "./components" as Comp
 import MarathonOS.Shell
+import "./components" as Comp
 import MarathonUI.Theme
 
+// qmllint disable missing-property unqualified import
 Item {
     id: shell
     focus: true  // Enable keyboard input
@@ -562,7 +563,7 @@ Item {
         z: Constants.zIndexStatusBarApp
     }
     
-    Comp.MarathonNavBar {
+    MarathonNavBar {
         id: navBar
         anchors.left: parent.left
         anchors.right: parent.right
@@ -634,6 +635,8 @@ Item {
             }
         
         onLongSwipeUp: {
+            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━")
+            
             // Dismiss keyboard if visible, otherwise task switcher
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up")
@@ -644,14 +647,35 @@ Item {
             
             Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
         
-            if (UIStore.appWindowOpen && !UIStore.settingsOpen) {
-                Logger.info("NavBar", "Minimizing app to active frames")
+            if (UIStore.appWindowOpen) {
+                Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher")
+                Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
+                
+                // Use AppLifecycleManager to create task and minimize properly
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()")
+                    var result = AppLifecycleManager.minimizeForegroundApp()
+                    Logger.info("NavBar", "  ✅ AppLifecycleManager.minimizeForegroundApp() returned: " + result)
+                } else {
+                    Logger.error("NavBar", "  ❌ AppLifecycleManager is undefined!")
+                }
+                
+                Logger.info("NavBar", "  🎬 Hiding appWindow")
                 appWindow.hide()
-                UIStore.minimizeApp()  // Use minimizeApp() instead of closeApp() to preserve app state
+                Logger.info("NavBar", "  🎬 Calling UIStore.minimizeApp()")
+                UIStore.minimizeApp()
+            } else {
+                Logger.info("NavBar", "📍 No app open - just navigating to task switcher")
+                Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
             }
             
+            Logger.info("NavBar", "  🎯 Setting pageView.currentIndex = 1")
             pageView.currentIndex = 1
+            Logger.info("NavBar", "  🎯 Calling Router.goToFrames()")
             Router.goToFrames()
+            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP COMPLETE ━━━━━━━")
         }
         
         onStartPageTransition: {
@@ -831,7 +855,7 @@ Item {
             Rectangle {
                 id: appCardBackground
                 anchors.fill: parent
-                color: Colors.backgroundDark
+                color: MColors.background
                 radius: parent.radius
                 opacity: appWindowContainer.showCardFrame ? 1.0 : 0.0
                 
@@ -867,7 +891,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             height: Constants.touchTargetSmall
-            color: Colors.surfaceLight
+            color: MColors.surface
             opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1.0 / Math.max(0.1, appWindowContainer.opacity)) : 0.0
             visible: opacity > 0
             z: 100
@@ -910,7 +934,7 @@ Item {
                     
                     Text {
                         text: appWindow.appName
-                        color: Colors.text
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
                         font.family: MTypography.fontFamily
@@ -920,7 +944,7 @@ Item {
                     
                     Text {
                         text: "Running"
-                        color: Colors.textSecondary
+                        color: MColors.textSecondary
                         font.pixelSize: MTypography.sizeXSmall
                         font.family: MTypography.fontFamily
                         opacity: 0.7
@@ -936,13 +960,13 @@ Item {
                         anchors.centerIn: parent
                         width: Math.round(28 * Constants.scaleFactor)
                         height: Math.round(28 * Constants.scaleFactor)
-                        radius: Colors.cornerRadiusSmall
-                        color: Colors.surfaceLight
+                        radius: Constants.borderRadiusSmall
+                        color: MColors.surface
                         
                         Text {
                             anchors.centerIn: parent
                             text: "×"
-                            color: Colors.text
+                            color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Bold
                         }
@@ -969,11 +993,18 @@ Item {
         
         ScriptAction {
             script: {
+                // Minimize the app window
                 if (UIStore.settingsOpen) {
                     UIStore.minimizeSettings()
                 } else if (UIStore.appWindowOpen) {
                     UIStore.minimizeApp()
                 }
+                
+                // Navigate to task switcher
+                if (typeof Router !== 'undefined') {
+                    Router.goToFrames()
+                }
+                
                 shell.isTransitioningToActiveFrames = false
             }
         }
@@ -1437,7 +1468,7 @@ Item {
         }
     }
     
-    Comp.MarathonAlarmOverlay {
+    MarathonAlarmOverlay {
         id: alarmOverlay
     }
     
@@ -1645,7 +1676,7 @@ Item {
         }
     }
     
-    Comp.PowerMenu {
+    PowerMenu {
         id: powerMenu
         
         onSleepRequested: {

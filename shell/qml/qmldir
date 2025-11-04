@@ -13,10 +13,6 @@ singleton Constants 1.0 core/Constants.qml
 singleton Logger 1.0 core/Logger.qml
 singleton Router 1.0 core/Router.qml
 
-# Singletons from theme
-singleton Theme 1.0 theme/Theme.qml
-singleton Colors 1.0 theme/Colors.qml
-
 # Singletons from services
 singleton AlarmManager 1.0 services/AlarmManager.qml
 singleton AmbientLightSensor 1.0 services/AmbientLightSensor.qml
@@ -40,9 +36,6 @@ singleton UnifiedSearchService 1.0 services/UnifiedSearchService.qml
 singleton WakeManager 1.0 services/WakeManager.qml
 
 # UI Components
-Icon 1.0 components/Icon.qml
-SettingsListItem 1.0 components/ui/SettingsListItem.qml
-Section 1.0 components/layout/Section.qml
 MarathonSearch 1.0 components/MarathonSearch.qml
 MarathonAlarmOverlay 1.0 components/MarathonAlarmOverlay.qml
 MarathonOOBE 1.0 components/MarathonOOBE.qml

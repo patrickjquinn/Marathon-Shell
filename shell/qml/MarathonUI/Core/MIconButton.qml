@@ -1,109 +1,91 @@
 import QtQuick
+import QtQuick.Effects
+import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonOS.Shell
 
-Rectangle {
+Item {
     id: root
     
-    property alias icon: root.iconName
-    property string iconName: ""
-    property var size: Constants.touchTargetMedium
+    required property string iconName
+    property int iconSize: 20
+    property color iconColor: MColors.textPrimary
     property bool disabled: false
-    property string variant: "ghost"      // ghost, primary, secondary, solid
-    property string shape: "square"       // square, circular
-    property color iconColor: variant === "primary" || variant === "solid" ? MColors.textOnAccent : MColors.text
+    property string variant: "ghost"
+    property string shape: "square"
     
     signal clicked()
     
-    function getSize() {
-        if (typeof size === "number") return size
-        if (size === "small") return Constants.touchTargetSmall
-        if (size === "large") return Constants.touchTargetLarge
-        return Constants.touchTargetMedium
-    }
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
+    readonly property real borderGlowWidth: Math.max(1, Math.round(3 * scaleFactor))
+    readonly property real borderGlowOffset: Math.max(1, Math.round(3 * scaleFactor))
+    readonly property real scaledIconSize: Math.round(iconSize * scaleFactor)
     
-    width: getSize()
-    height: width
-    radius: shape === "circular" ? width / 2 : Constants.borderRadiusSharp
-    scale: mouseArea.pressed ? 0.95 : 1.0
+    implicitWidth: MSpacing.touchTargetMedium
+    implicitHeight: MSpacing.touchTargetMedium
     
-    color: {
-        if (disabled) return "transparent"
-        if (mouseArea.pressed) {
-            if (variant === "primary" || variant === "solid") return MColors.accentPressed
-            if (variant === "secondary") return MColors.glass
-            return MColors.hover
-        }
-        if (variant === "primary" || variant === "solid") return MColors.accent
-        if (variant === "secondary") return MColors.glass
-        return "transparent"
-    }
-    
-    border.width: variant === "primary" ? Constants.borderWidthMedium : Constants.borderWidthThin
-    border.color: {
-        if (variant === "primary") return MColors.accentBright
-        if (variant === "secondary") return MColors.glassBorder
-        return "transparent"
-    }
-    antialiasing: shape === "circular" ? true : Constants.enableAntialiasing
-    
-    Behavior on color { 
-        enabled: Constants.enableAnimations
-        ColorAnimation { duration: MMotion.quick } 
-    }
-    
-    Behavior on scale {
-        enabled: Constants.enableAnimations
-        SpringAnimation { 
-            spring: MMotion.springMedium
-            damping: MMotion.dampingMedium
-            epsilon: MMotion.epsilon
-        }
-    }
-    
-    // Inner border for depth
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius
-        color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: variant === "primary" ? MColors.borderHighlight : MColors.borderInner
-        antialiasing: parent.antialiasing
-        visible: variant === "primary" || variant === "secondary" || variant === "solid"
-        
-        Behavior on border.color {
-            enabled: Constants.enableAnimations
-            ColorAnimation { duration: MMotion.quick }
-        }
-    }
-    
-    // Ripple effect
-    
-    function getIconSize() {
-        if (typeof root.size === "number") {
-            return Math.max(20, root.size * 0.5)
-        }
-        if (root.size === "small") return 20
-        if (root.size === "large") return 32
-        return 24
-    }
-    
-    Icon {
-        name: iconName
-        size: getIconSize()
-        color: disabled ? MColors.textDisabled : root.iconColor
+        visible: variant === "primary"
         anchors.centerIn: parent
+        width: buttonRect.width + borderGlowOffset * 2
+        height: buttonRect.height + borderGlowOffset * 2
+        radius: shape === "circular" ? (width / 2) : (MRadius.md + borderGlowOffset)
+        color: "transparent"
+        border.width: borderGlowWidth
+        border.color: Qt.rgba(0, 191/255, 165/255, 0.35)
     }
     
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        enabled: !disabled
-        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ForbiddenCursor
-        onPressed: function(mouse) {
-            HapticService.light()
+    Rectangle {
+        id: buttonRect
+        anchors.centerIn: parent
+        width: root.implicitWidth
+        height: root.implicitHeight
+        
+        radius: shape === "circular" ? width / 2 : MRadius.md
+        color: {
+            if (disabled) return "transparent"
+            if (mouseArea.pressed) {
+                if (variant === "primary") return MColors.marathonTealDark
+                if (variant === "secondary") return MColors.bb10Elevated
+                return MColors.hover
+            }
+            if (variant === "primary") return MColors.marathonTeal
+            if (variant === "secondary") return MColors.bb10Surface
+            return "transparent"
         }
-        onClicked: root.clicked()
+        
+        border.width: variant === "secondary" ? borderWidth : 0
+        border.color: MColors.borderGlass
+        
+        scale: mouseArea.pressed ? 0.92 : 1.0
+        
+        Behavior on color {
+            ColorAnimation { duration: MMotion.xs }
+        }
+        
+        Behavior on scale {
+            SpringAnimation {
+                spring: MMotion.springMedium
+                damping: MMotion.dampingMedium
+                epsilon: MMotion.epsilon
+            }
+        }
+        
+        Icon {
+            name: iconName
+            size: scaledIconSize
+            color: disabled ? MColors.textHint : (variant === "primary" ? "#000000" : iconColor)  // Black icon on teal
+            anchors.centerIn: parent
+        }
+        
+        MouseArea {
+            id: mouseArea
+            anchors.fill: parent
+            enabled: !disabled
+            onPressed: MHaptics.lightImpact()
+            onClicked: root.clicked()
+        }
     }
 }
-

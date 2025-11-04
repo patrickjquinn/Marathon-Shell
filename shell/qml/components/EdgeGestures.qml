@@ -1,5 +1,5 @@
 import QtQuick
-import "../theme"
+import MarathonOS.Shell
 import MarathonUI.Theme
 
 Item {
@@ -30,15 +30,15 @@ Item {
             startX = mouse.x
             startY = mouse.y
             
-            if (mouse.y > height - Theme.peekThreshold) {
+            if (mouse.y > height - Constants.peekThreshold) {
                 activeGesture = "bottom"
                 bottomSwipeStarted()
                 mouse.accepted = true
-            } else if (mouse.x < Theme.edgeGestureWidth) {
+            } else if (mouse.x < Constants.gestureEdgeWidth) {
                 activeGesture = "left"
                 leftSwipeStarted()
                 mouse.accepted = true
-            } else if (mouse.x > width - Theme.edgeGestureWidth) {
+            } else if (mouse.x > width - Constants.gestureEdgeWidth) {
                 activeGesture = "right"
                 rightSwipeStarted()
                 mouse.accepted = true
@@ -51,12 +51,12 @@ Item {
         onPositionChanged: (mouse) => {
             if (activeGesture === "bottom") {
                 var dragY = startY - mouse.y
-                var progress = Math.max(0, Math.min(1, dragY / Theme.commitThreshold))
+                var progress = Math.max(0, Math.min(1, dragY / Constants.commitThreshold))
                 bottomSwipeProgress(progress)
                 mouse.accepted = true
             } else if (activeGesture === "left") {
                 var dragX = mouse.x - startX
-                var progress = Math.max(0, Math.min(1, dragX / Theme.hubWidth))
+                var progress = Math.max(0, Math.min(1, dragX / 300))  // Hub width approximation
                 leftSwipeProgress(progress)
                 mouse.accepted = true
             } else if (activeGesture === "right") {
@@ -70,11 +70,11 @@ Item {
         onReleased: (mouse) => {
             if (activeGesture === "bottom") {
                 var dragY = startY - mouse.y
-                var committed = dragY > Theme.commitThreshold
+                var committed = dragY > Constants.commitThreshold
                 bottomSwipeReleased(committed)
             } else if (activeGesture === "left") {
                 var dragX = mouse.x - startX
-                var committed = dragX > Theme.hubWidth * 0.5
+                var committed = dragX > 150  // Hub width half
                 leftSwipeReleased(committed)
             } else if (activeGesture === "right") {
                 var dragX = startX - mouse.x

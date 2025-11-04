@@ -1,5 +1,9 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
 
 Modal {
     id: textInputModal
@@ -16,10 +20,10 @@ Modal {
         Rectangle {
             width: parent.width
             height: Constants.inputHeight
-            color: Colors.backgroundDark
+            color: MColors.background
             radius: Constants.borderRadiusSmall
             border.width: textInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-            border.color: textInput.activeFocus ? Colors.accent : Qt.rgba(255, 255, 255, 0.1)
+            border.color: textInput.activeFocus ? MColors.marathonTeal : Qt.rgba(255, 255, 255, 0.1)
             
             Behavior on border.color {
                 ColorAnimation { duration: Constants.animationDurationFast }
@@ -29,7 +33,7 @@ Modal {
                 id: textInput
                 anchors.fill: parent
                 anchors.margins: 12
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 verticalAlignment: TextInput.AlignVCenter
@@ -38,7 +42,7 @@ Modal {
                 Text {
                     visible: !textInput.text && !textInput.activeFocus
                     text: placeholderText
-                    color: Colors.textTertiary
+                    color: MColors.textTertiary
                     font: textInput.font
                     anchors.fill: parent
                     verticalAlignment: Text.AlignVCenter
@@ -55,7 +59,7 @@ Modal {
             Rectangle {
                 width: (parent.width - 12) / 2
                 height: Constants.statusBarHeight
-                color: Colors.surfaceLight
+                color: MColors.surface
                 radius: Constants.borderRadiusSmall
                 border.width: Constants.borderWidthThin
                 border.color: Qt.rgba(255, 255, 255, 0.08)
@@ -70,7 +74,7 @@ Modal {
                 
                 Text {
                     text: "Cancel"
-                    color: Colors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     anchors.centerIn: parent
@@ -125,7 +129,7 @@ Modal {
                 
                 Text {
                     text: "Save"
-                    color: Colors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
                     font.family: MTypography.fontFamily
