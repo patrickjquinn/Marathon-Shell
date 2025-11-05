@@ -27,7 +27,7 @@ Rectangle {
     Column {
         anchors.fill: parent
         spacing: 0
-        
+                    
         MTabBar {
             id: drawerTabs
             width: parent.width
@@ -37,10 +37,10 @@ Rectangle {
                 { label: "Bookmarks", icon: "star" },
                 { label: "History", icon: "clock" },
                 { label: "Settings", icon: "settings" }
-            ]
-            
+                ]
+                
             onTabSelected: (index) => {
-                drawer.selectedTabIndex = index
+                            drawer.selectedTabIndex = index
                 Logger.info("BrowserDrawer", "Switched to tab: " + index)
             }
         }

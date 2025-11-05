@@ -133,11 +133,14 @@ set(QML_FILES
     qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
+    qml/components/CompositorConnections.qml
+    qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonOOBE.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/BluetoothPairDialog.qml
     qml/components/ErrorToast.qml
+    qml/components/IncomingCallOverlay.qml
     qml/components/VirtualKeyboard.qml
         qml/keyboard/Core/qmldir
         qml/keyboard/Core/MarathonKeyboard.qml
@@ -189,6 +192,18 @@ set(QML_FILES
     qml/services/AppLifecycleManager.qml
     qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
+    qml/services/AppLaunchService.qml
+    qml/services/DeepLinkHandler.qml
+    qml/services/NotificationHandler.qml
+    qml/services/TelephonyIntegration.qml
+    qml/services/PowerBatteryHandler.qml
+    qml/services/AlarmManager.qml
+    qml/services/AmbientLightSensor.qml
+    qml/services/ProximitySensor.qml
+    qml/services/FlashlightManager.qml
+    qml/services/WakeManager.qml
+    qml/services/CellularManager.qml
+    qml/services/StateManager.qml
 )
 
 qt6_add_executable(marathon-shell ${SOURCES})
@@ -225,6 +240,17 @@ set(SINGLETON_FILES
     qml/services/AppLifecycleManager.qml
     qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
+    qml/services/AppLaunchService.qml
+    qml/services/DeepLinkHandler.qml
+    qml/services/NotificationHandler.qml
+    qml/services/TelephonyIntegration.qml
+    qml/services/PowerBatteryHandler.qml
+    qml/services/AlarmManager.qml
+    qml/services/AmbientLightSensor.qml
+    qml/services/ProximitySensor.qml
+    qml/services/FlashlightManager.qml
+    qml/services/WakeManager.qml
+    qml/services/CellularManager.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -237,6 +263,9 @@ if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
 
+# Include QML linting module
+include(${CMAKE_SOURCE_DIR}/cmake/QMLLint.cmake)
+
 qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
@@ -245,6 +274,11 @@ qt6_add_qml_module(marathon-shell
         resources.qrc
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
+
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-shell ${QML_FILES})
+endif()
 
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core

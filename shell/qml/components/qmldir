@@ -3,6 +3,7 @@ AppContextMenu 1.0 AppContextMenu.qml
 BackGestureIndicator 1.0 BackGestureIndicator.qml
 BluetoothPairDialog 1.0 BluetoothPairDialog.qml
 ClipboardManager 1.0 ClipboardManager.qml
+CompositorConnections 1.0 CompositorConnections.qml
 ConnectionToast 1.0 ConnectionToast.qml
 EdgeGestures 1.0 EdgeGestures.qml
 ErrorToast 1.0 ErrorToast.qml
@@ -31,6 +32,7 @@ QuickSettingsTile 1.0 QuickSettingsTile.qml
 SafeAppLoader 1.0 SafeAppLoader.qml
 ScreenshotPreview 1.0 ScreenshotPreview.qml
 ShareSheet 1.0 ShareSheet.qml
+ShellInitialization 1.0 ShellInitialization.qml
 SystemHUD 1.0 SystemHUD.qml
 VirtualKeyboard 1.0 VirtualKeyboard.qml
 WaylandShellSurfaceItem 1.0 WaylandShellSurfaceItem.qml

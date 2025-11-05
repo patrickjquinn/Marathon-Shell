@@ -74,8 +74,8 @@ MCard {
                 anchors.top: parent.top
                 iconName: "x"
                 
-                onClicked: {
-                    tabCard.closeRequested()
+                    onClicked: {
+                        tabCard.closeRequested()
                 }
             }
         }

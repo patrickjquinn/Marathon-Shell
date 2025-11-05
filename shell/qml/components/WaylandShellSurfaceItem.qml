@@ -49,16 +49,20 @@ ShellSurfaceItem {
         Logger.info("WaylandShellSurfaceItem", "Surface destroyed")
     }
     
-    Rectangle {
+    Item {
         anchors.fill: parent
+        
+        Rectangle {
+            anchors.fill: parent
         color: MColors.elevated
-        visible: !parent.shellSurface
+            visible: !parent.parent.shellSurface
         
         Text {
             anchors.centerIn: parent
             text: "Connecting..."
             color: MColors.textSecondary
             font.pixelSize: MTypography.sizeSmall
+            }
         }
     }
 }

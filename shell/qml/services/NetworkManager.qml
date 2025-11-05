@@ -143,6 +143,10 @@ Item {
         }
     }
     
+    function toggleAirplaneMode() {
+        setAirplaneMode(!airplaneModeEnabled)
+    }
+    
     function enableCellularData() {
         console.log("[NetworkManager] Enabling cellular data...")
         cellularDataEnabled = true

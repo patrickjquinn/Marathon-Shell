@@ -48,6 +48,9 @@ public:
     Q_INVOKABLE void deleteConversation(const QString& conversationId);
     Q_INVOKABLE void markAsRead(const QString& conversationId);
     Q_INVOKABLE QString generateConversationId(const QString& number);
+    
+    // Simulation method for testing
+    Q_INVOKABLE void simulateIncomingSMS(const QString& sender, const QString& text);
 
 signals:
     void messageReceived(const QString& sender, const QString& text, qint64 timestamp);

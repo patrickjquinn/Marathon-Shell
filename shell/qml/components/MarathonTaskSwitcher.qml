@@ -460,10 +460,6 @@ Item {
                     }
                 ]
                 
-                Behavior on border.color {
-                    ColorAnimation { duration: 150 }
-                }
-                
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1

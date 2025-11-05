@@ -141,6 +141,14 @@ void TelephonyService::answer()
         return;
     }
     
+    // Handle simulation mode
+    if (m_activeCallPath.contains("simulate")) {
+        m_callState = "active";
+        emit callStateChanged("active");
+        qInfo() << "[TelephonyService] [SIMULATION] ✓ Call answered";
+        return;
+    }
+    
     QDBusInterface callInterface(
         "org.freedesktop.ModemManager1",
         m_activeCallPath,
@@ -173,6 +181,19 @@ void TelephonyService::hangup()
     
     if (m_activeCallPath.isEmpty()) {
         qWarning() << "[TelephonyService] No active call to hang up";
+        return;
+    }
+    
+    // Handle simulation mode
+    if (m_activeCallPath.contains("simulate")) {
+        m_callState = "idle";
+        m_activeCallPath.clear();
+        m_activeNumber.clear();
+        
+        emit callStateChanged("idle");
+        emit activeNumberChanged("");
+        
+        qInfo() << "[TelephonyService] [SIMULATION] ✓ Call hung up";
         return;
     }
     
@@ -237,6 +258,35 @@ void TelephonyService::sendDTMF(const QString& digit)
     }
     
     qDebug() << "[TelephonyService] ✓ DTMF sent:" << digit;
+}
+
+void TelephonyService::simulateIncomingCall(const QString& number)
+{
+    qInfo() << "[TelephonyService] [SIMULATION] Simulating incoming call from:" << number;
+    
+    m_activeNumber = number;
+    m_callState = "incoming";
+    m_activeCallPath = "/org/freedesktop/ModemManager1/Call/simulate"; // Mock path for simulation
+    
+    emit incomingCall(number);
+    emit callStateChanged("incoming");
+    emit activeNumberChanged(number);
+}
+
+void TelephonyService::simulateCallStateChange(const QString& state)
+{
+    qInfo() << "[TelephonyService] [SIMULATION] Simulating call state change to:" << state;
+    
+    if (state != m_callState) {
+        m_callState = state;
+        emit callStateChanged(state);
+        
+        if (state == "idle" || state == "terminated") {
+            m_activeCallPath.clear();
+            m_activeNumber.clear();
+            emit activeNumberChanged("");
+        }
+    }
 }
 
 void TelephonyService::connectToModemManager()

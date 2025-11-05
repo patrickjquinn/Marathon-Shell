@@ -554,5 +554,14 @@ MApp {
         id: activeCallPage
         anchors.fill: parent
     }
+    
+    Component.onCompleted: {
+        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
+            var number = TelephonyService.activeNumber
+            var contactName = resolveContactName(number)
+            activeCallPage.show(number, contactName)
+            Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")")
+        }
+    }
 }
 }

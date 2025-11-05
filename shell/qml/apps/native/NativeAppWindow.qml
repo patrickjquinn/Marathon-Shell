@@ -24,6 +24,7 @@ MApp {
     }
     
     content: Rectangle {
+        id: contentRect
         anchors.fill: parent
         color: MColors.background
         
@@ -31,13 +32,13 @@ MApp {
         Loader {
             id: waylandSurfaceLoader
             anchors.fill: parent
-            visible: haveWayland
-            active: haveWayland && waylandSurface !== null
-            source: haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
+            visible: nativeAppWindow.haveWayland
+            active: nativeAppWindow.haveWayland && nativeAppWindow.waylandSurface !== null
+            source: nativeAppWindow.haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
             
             onItemChanged: {
-                if (item && waylandSurface) {
-                    item.surfaceObj = waylandSurface
+                if (item && nativeAppWindow.waylandSurface) {
+                    item.surfaceObj = nativeAppWindow.waylandSurface
                 }
             }
             
@@ -54,7 +55,7 @@ MApp {
         Column {
             anchors.centerIn: parent
             spacing: Constants.spacingLarge
-            visible: !haveWayland
+            visible: !nativeAppWindow.haveWayland
             
             Text {
                 text: "Native Apps Not Supported"
@@ -77,7 +78,7 @@ MApp {
             id: splashScreen
             anchors.fill: parent
             color: MColors.background
-            visible: haveWayland && (!waylandSurface || (waylandSurfaceLoader.item && !waylandSurfaceLoader.item.shellSurface))
+            visible: nativeAppWindow.haveWayland && (!nativeAppWindow.waylandSurface || (waylandSurfaceLoader.item && !waylandSurfaceLoader.item.shellSurface))
             
             Component.onCompleted: {
                 Logger.info("NativeAppWindow", "=== SPLASH SCREEN CREATED ===")

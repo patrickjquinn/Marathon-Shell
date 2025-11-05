@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QEventLoop>
 #include <QTimer>
+#include <QStandardPaths>
 
 MarathonAppLoader::MarathonAppLoader(MarathonAppRegistry *registry, QQmlEngine *engine, QObject *parent)
     : QObject(parent)
@@ -48,6 +49,16 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
         m_engine->addImportPath(appPath);
         qDebug() << "  Added import path:" << appPath;
     }
+    
+    // Ensure MarathonUI is available to apps (same paths as in main.cpp)
+    QString marathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
+    m_engine->addImportPath(marathonUIPath);
+    QString systemMarathonUIPath = "/usr/lib/qt6/qml/MarathonUI";
+    m_engine->addImportPath(systemMarathonUIPath);
+    
+    // Add shell QML module path so apps can access MarathonOS.Shell singletons
+    m_engine->addImportPath("qrc:/");
+    m_engine->addImportPath(":/");
     
     // Build full path to entry point
     QString entryPointPath = appPath + "/" + appInfo->entryPoint;
@@ -189,6 +200,16 @@ void MarathonAppLoader::preloadApp(const QString &appId)
     if (!appPath.isEmpty()) {
         m_engine->addImportPath(appPath);
     }
+    
+    // Ensure MarathonUI is available to apps (same paths as in main.cpp)
+    QString marathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
+    m_engine->addImportPath(marathonUIPath);
+    QString systemMarathonUIPath = "/usr/lib/qt6/qml/MarathonUI";
+    m_engine->addImportPath(systemMarathonUIPath);
+    
+    // Add shell QML module path so apps can access MarathonOS.Shell singletons
+    m_engine->addImportPath("qrc:/");
+    m_engine->addImportPath(":/");
     
     QString entryPointPath = appPath + "/" + appInfo->entryPoint;
     if (!QFileInfo::exists(entryPointPath)) {

@@ -213,7 +213,6 @@ void AudioRoutingManager::detectAudioDevices()
     wpctl.start("wpctl", QStringList() << "status");
     
     if (!wpctl.waitForFinished(5000)) {
-        qWarning() << "[AudioRoutingManager] wpctl status timed out";
         return;
     }
     

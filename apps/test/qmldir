@@ -1,0 +1,3 @@
+module Marathon.Apps.Test
+TestApp 1.0 TestApp.qml
+

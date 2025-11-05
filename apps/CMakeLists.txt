@@ -36,6 +36,11 @@ else()
     set(MARATHON_APPS_DIR "$ENV{HOME}/.local/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
 endif()
 
+# Include QML linting module
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake)
+endif()
+
 # Function to create a Marathon app module
 function(add_marathon_app APP_NAME)
     set(options HAS_CPP)
@@ -102,6 +107,11 @@ function(add_marathon_app APP_NAME)
             NO_PLUGIN_OPTIONAL
         )
         
+        # Add qmllint validation target for apps with C++ plugins
+        if(QMLLINT_AVAILABLE)
+            add_qmllint_target(${APP_NAME}-plugin ${ARG_QML_FILES})
+        endif()
+        
         # Install base plugin library (the actual compiled code)
         install(TARGETS ${APP_NAME}-plugin
             LIBRARY DESTINATION "${INSTALL_DIR}"
@@ -141,6 +151,11 @@ function(add_marathon_app APP_NAME)
         endif()
     else()
         # Pure QML app - just copy files
+        # Add qmllint validation target for pure QML apps
+        if(QMLLINT_AVAILABLE)
+            add_qmllint_target(${APP_NAME}-qml ${ARG_QML_FILES})
+        endif()
+        
         install(DIRECTORY "${APP_DIR}/"
             DESTINATION "${INSTALL_DIR}"
             FILES_MATCHING 
@@ -181,6 +196,7 @@ add_subdirectory(gallery)
 add_subdirectory(music)
 add_subdirectory(maps)
 add_subdirectory(terminal)
+add_subdirectory(test)
 
 message(STATUS "==========================================")
 message(STATUS "Marathon Apps Build Configuration")

@@ -115,12 +115,18 @@ Item {
                         }
                     }
                     
-                    Icon {
+                    Item {
                         anchors.verticalCenter: parent.verticalCenter
+                        width: Constants.iconSizeSmall
+                        height: Constants.iconSizeSmall
+                        
+                        Icon {
+                            anchors.centerIn: parent
                         name: "x"
                         size: Constants.iconSizeSmall
                         color: MColors.textSecondary
                         visible: searchInput.text.length > 0
+                        }
                         
                         MouseArea {
                             anchors.fill: parent
