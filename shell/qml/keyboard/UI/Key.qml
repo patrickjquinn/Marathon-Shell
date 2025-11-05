@@ -3,6 +3,8 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: key

@@ -509,23 +509,21 @@ int main(int argc, char *argv[])
     engine.addImportPath("qrc:/");
     engine.addImportPath(":/");
     
+    // Add MarathonUI installation path (from independent build)
+    // On macOS: ~/.local/share/marathon-ui (from CMAKE_INSTALL_PREFIX)
+    // On Linux: ~/.local/share/marathon-ui or /usr/lib/qt6/qml/MarathonUI
+    QString marathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
+    engine.addImportPath(marathonUIPath);
+    qDebug() << "Added MarathonUI import path:" << marathonUIPath;
+    
+    // Also try system location for production builds
+    QString systemMarathonUIPath = "/usr/lib/qt6/qml/MarathonUI";
+    engine.addImportPath(systemMarathonUIPath);
+    
     // Add build directory path for MarathonUI modules (for development)
     QString buildPath = QCoreApplication::applicationDirPath() + "/../../../qml";
     engine.addImportPath(buildPath);
     qDebug() << "Added QML import path:" << buildPath;
-    
-    // MarathonUI plugin modules are built in qml/MarathonUI/*/qml/
-    QString marathonUIContainersPath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Containers/qml";
-    engine.addImportPath(marathonUIContainersPath);
-    qDebug() << "Added MarathonUI.Containers import path:" << marathonUIContainersPath;
-    
-    QString marathonUICorePath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Core/qml";
-    engine.addImportPath(marathonUICorePath);
-    qDebug() << "Added MarathonUI.Core import path:" << marathonUICorePath;
-    
-    QString marathonUIControlsPath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Controls/qml";
-    engine.addImportPath(marathonUIControlsPath);
-    qDebug() << "Added MarathonUI.Controls import path:" << marathonUIControlsPath;
     
     const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     

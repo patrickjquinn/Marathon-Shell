@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Navigation
 import "../pages"
 
 Rectangle {
@@ -26,102 +27,21 @@ Rectangle {
     Column {
         anchors.fill: parent
         spacing: 0
-                    
-        Row {
+        
+        MTabBar {
             id: drawerTabs
             width: parent.width
-            height: Constants.touchTargetSmall
-            z: 0
+            activeTab: drawer.selectedTabIndex
+            tabs: [
+                { label: "Tabs", icon: "layers" },
+                { label: "Bookmarks", icon: "star" },
+                { label: "History", icon: "clock" },
+                { label: "Settings", icon: "settings" }
+            ]
             
-            Repeater {
-                model: [
-                    { name: "Tabs", icon: "layers" },
-                    { name: "Bookmarks", icon: "star" },
-                    { name: "History", icon: "clock" },
-                    { name: "Settings", icon: "settings" }
-                ]
-                
-                Item {
-                    width: drawer.width / 4
-                    height: Constants.touchTargetSmall
-                    
-                    Rectangle {
-                        anchors.fill: parent
-                        anchors.margins: 4
-                        radius: Constants.borderRadiusSharp
-                        color: index === drawer.selectedTabIndex ? MColors.elevated : MColors.surface
-                        border.width: Constants.borderWidthThin
-                        border.color: index === drawer.selectedTabIndex ? MColors.accentBright : MColors.border
-                        antialiasing: Constants.enableAntialiasing
-                        
-                        transform: Translate {
-                            y: tabMouseArea.pressed ? -1 : 0
-                            
-                            Behavior on y {
-                                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
-                            }
-                        }
-                        
-                        Behavior on border.color {
-                            ColorAnimation { duration: 150 }
-                        }
-                        
-                        Behavior on color {
-                            ColorAnimation { duration: 150 }
-                        }
-                        
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: 1
-                            radius: Constants.borderRadiusSharp
-                            color: "transparent"
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.borderSubtle
-                            antialiasing: Constants.enableAntialiasing
-                        }
-                        
-                        Column {
-                            anchors.centerIn: parent
-                            spacing: 4
-                            
-                            Icon {
-                                name: modelData.icon
-                                size: Constants.iconSizeSmall
-                                color: index === drawer.selectedTabIndex ? MColors.accentBright : MColors.textSecondary
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                opacity: index === drawer.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.6)
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: 200 }
-                                }
-                            }
-                            
-                            Text {
-                                text: modelData.name
-                                color: index === drawer.selectedTabIndex ? MColors.accentBright : MColors.textSecondary
-                                font.pixelSize: MTypography.sizeXSmall
-                                font.family: MTypography.fontFamily
-                                font.weight: index === drawer.selectedTabIndex ? Font.DemiBold : Font.Normal
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                opacity: index === drawer.selectedTabIndex ? 1.0 : (tabMouseArea.pressed ? 0.8 : 0.7)
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: 200 }
-                                }
-                            }
-                        }
-                    }
-                    
-                    MouseArea {
-                        id: tabMouseArea
-                        anchors.fill: parent
-                        z: 100
-                        onClicked: {
-                            drawer.selectedTabIndex = index
-                            Logger.info("BrowserDrawer", "Switched to tab: " + modelData.name)
-                        }
-                    }
-                }
+            onTabSelected: (index) => {
+                drawer.selectedTabIndex = index
+                Logger.info("BrowserDrawer", "Switched to tab: " + index)
             }
         }
         

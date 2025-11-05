@@ -2,6 +2,7 @@ import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Containers
 
 Rectangle {
     id: bookmarksPage

@@ -89,6 +89,7 @@ else()
     set(HAVE_VIRTUALKEYBOARD FALSE)
 endif()
 
+add_subdirectory(marathon-ui)
 add_subdirectory(shell)
 
 message(STATUS "=== Marathon OS ===")

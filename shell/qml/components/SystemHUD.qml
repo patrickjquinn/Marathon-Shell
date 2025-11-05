@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Theme
 
 Item {
     id: hudContainer

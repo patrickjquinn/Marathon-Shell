@@ -1,6 +1,8 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Modals
 
 Rectangle {
     id: appWindow
@@ -16,6 +18,8 @@ Rectangle {
     property int surfaceId: -1
     property var pendingAppInstance: null
     property bool isLoadingComponent: false
+    property string loadError: ""
+    property bool hasError: false
     
     signal closed()
     signal minimized()
@@ -25,7 +29,7 @@ Rectangle {
         id: loadingSplash
         anchors.fill: parent
         color: MColors.background
-        visible: appWindow.isLoadingComponent
+        visible: appWindow.isLoadingComponent && !appWindow.hasError
         z: 1000
         
         Column {
@@ -53,6 +57,56 @@ Rectangle {
         }
     }
     
+    // Error state (shown when app fails to load)
+    Rectangle {
+        id: errorState
+        anchors.fill: parent
+        color: MColors.background
+        visible: appWindow.hasError
+        z: 1001
+        
+        Column {
+            anchors.centerIn: parent
+            spacing: 24
+            width: parent.width * 0.8
+            
+            Icon {
+                name: "alert-triangle"
+                size: 80
+                color: MColors.error
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: "Failed to Launch"
+                font.pixelSize: MTypography.sizeLarge
+                font.weight: Font.DemiBold
+                font.family: MTypography.fontFamily
+                color: MColors.textPrimary
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: appWindow.appName + " failed to start.\n\n" + (appWindow.loadError || "Unknown error occurred.")
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                color: MColors.textSecondary
+                wrapMode: Text.WordWrap
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+            }
+            
+            MButton {
+                text: "Close"
+                variant: "primary"
+                anchors.horizontalCenter: parent.horizontalCenter
+                onClicked: {
+                    appWindow.hide()
+                }
+            }
+        }
+    }
+    
     function show(id, name, icon, type, surface, sid) {
         var launchStartTime = Date.now()  // Performance measurement
         
@@ -69,6 +123,8 @@ Rectangle {
         appType = type || "marathon"
         waylandSurface = surface || null
         surfaceId = sid || -1
+        hasError = false
+        loadError = ""
         
         console.log("  appType set to:", appType)
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
@@ -128,13 +184,18 @@ Rectangle {
                             appContentLoader.sourceComponent = appInstanceContainer
                             appWindow.isLoadingComponent = false
                             Logger.info("AppWindow", "Native app instance created successfully: " + id)
+                            appWindow.hasError = false
                         } else {
                             appWindow.isLoadingComponent = false
                             Logger.error("AppWindow", "Failed to create native app instance: " + id)
+                            appWindow.hasError = true
+                            appWindow.loadError = "Failed to create native app instance."
                         }
                     } else if (component.status === Component.Error) {
                         appWindow.isLoadingComponent = false
                         Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString())
+                        appWindow.hasError = true
+                        appWindow.loadError = component.errorString()
                     }
                 }
                 
@@ -193,8 +254,13 @@ Rectangle {
                         appContentLoader.sourceComponent = undefined
                         appContentLoader.sourceComponent = appInstanceContainer
                         Logger.info("AppWindow", "External app loaded successfully: " + id)
+                        appWindow.hasError = false
+                        appWindow.isLoadingComponent = false
                     } else {
                         Logger.error("AppWindow", "Failed to load external app: " + id)
+                        appWindow.hasError = true
+                        appWindow.loadError = "Failed to load app component. Check console for details."
+                        appWindow.isLoadingComponent = false
                     }
                 }
             } else {
@@ -346,6 +412,18 @@ Rectangle {
                 Logger.error("AppWindow", "Failed to load app content for: " + appId)
             } else if (status === Loader.Ready) {
                 Logger.info("AppWindow", "App content loaded successfully for: " + appId)
+            }
+        }
+    }
+    
+    Connections {
+        target: MarathonAppLoader
+        function onLoadError(appId, error) {
+            if (appId === appWindow.appId) {
+                Logger.error("AppWindow", "Received loadError signal for: " + appId + " - " + error)
+                appWindow.hasError = true
+                appWindow.loadError = error
+                appWindow.isLoadingComponent = false
             }
         }
     }
