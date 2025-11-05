@@ -52,12 +52,12 @@ Rectangle {
     
     Column {
         anchors.centerIn: parent
-        spacing: Constants.spacingXLarge * 2
+        spacing: MSpacing.xl * 2
         width: parent.width * 0.8
         
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingLarge
+            spacing: MSpacing.lg
             
             Rectangle {
                 width: Constants.iconSizeXLarge * 3
@@ -71,7 +71,7 @@ Rectangle {
                 Text {
                     anchors.centerIn: parent
                     text: callName.charAt(0).toUpperCase()
-                    font.pixelSize: Constants.fontSizeXLarge * 3
+                    font.pixelSize: MTypography.sizeXLarge * 3
                     font.weight: Font.Bold
                     color: MColors.accent
                 }
@@ -79,12 +79,12 @@ Rectangle {
             
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: callName
-                    font.pixelSize: Constants.fontSizeXLarge
+                    font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
                 }
@@ -92,14 +92,14 @@ Rectangle {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: callNumber
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     color: MColors.textSecondary
                 }
                 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: formatDuration(callDuration)
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     color: MColors.accent
                 }
             }
@@ -108,7 +108,7 @@ Rectangle {
         Grid {
             anchors.horizontalCenter: parent.horizontalCenter
             columns: 3
-            spacing: Constants.spacingLarge
+            spacing: MSpacing.lg
             
             Repeater {
                 model: [
@@ -121,7 +121,7 @@ Rectangle {
                 ]
                 
                 Column {
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     width: Constants.touchTargetLarge * 1.2
                     
                     Rectangle {
@@ -178,7 +178,7 @@ Rectangle {
                     
                     Text {
                         text: modelData.label
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         color: MColors.textSecondary
                         horizontalAlignment: Text.AlignHCenter
                         width: parent.width

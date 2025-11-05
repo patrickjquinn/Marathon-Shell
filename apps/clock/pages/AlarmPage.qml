@@ -18,7 +18,7 @@ Item {
             ListView {
                 id: alarmsList
                 anchors.fill: parent
-                anchors.topMargin: Constants.spacingMedium
+                anchors.topMargin: MSpacing.md
                 clip: true
                 model: clockApp.alarms
                 spacing: 0
@@ -66,7 +66,7 @@ Item {
                     Column {
                         id: emptyColumn
                         anchors.centerIn: parent
-                        spacing: Constants.spacingLarge
+                        spacing: MSpacing.lg
                         
                         ClockComponents.ClockIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -80,7 +80,7 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "No alarms set"
                             color: MColors.textSecondary
-                            font.pixelSize: Constants.fontSizeLarge
+                            font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Medium
                         }
                         
@@ -89,7 +89,7 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Tap the + button to create an alarm"
                             color: MColors.textSecondary
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                         }
@@ -102,7 +102,7 @@ Item {
     MIconButton {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: Constants.spacingLarge
+        anchors.margins: MSpacing.lg
         iconName: "plus"
         iconSize: 28
         variant: "primary"

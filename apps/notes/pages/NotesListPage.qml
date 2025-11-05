@@ -23,7 +23,7 @@ Page {
         Column {
             id: notesContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -32,19 +32,19 @@ Page {
             Text {
                 text: "Notes"
                 color: MColors.text
-                font.pixelSize: Constants.fontSizeXLarge
+                font.pixelSize: MTypography.sizeXLarge
                 font.weight: Font.Bold
                 font.family: MTypography.fontFamily
             }
             
             Row {
                 width: parent.width - 48
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Sort:"
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
                     color: MColors.textSecondary
                 }
                 
@@ -67,7 +67,7 @@ Page {
                         Text {
                             anchors.centerIn: parent
                             text: modelData.label
-                            font.pixelSize: Constants.fontSizeXSmall
+                            font.pixelSize: MTypography.sizeXSmall
                             color: MColors.text
                         }
                         
@@ -85,19 +85,20 @@ Page {
             
             MSection {
                 title: "Your Notes"
-                subtitle: notesApp.notes.length === 0 ? "No notes yet. Tap the + button to create one." : notesApp.notes.length + " note" + (notesApp.notes.length === 1 ? "" : "s")
+                subtitle: notesApp.notes.length + " note" + (notesApp.notes.length === 1 ? "" : "s")
                 width: parent.width - 48
+                visible: notesApp.notes.length > 0
                 
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                 Repeater {
                     model: notesApp.notes
                     
                         Rectangle {
                             width: parent.width
-                            height: Constants.touchTargetLarge + Constants.spacingLarge
+                            height: Constants.touchTargetLarge + MSpacing.lg
                             color: "transparent"
                             
                             Rectangle {
@@ -105,7 +106,7 @@ Page {
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
-                                anchors.margins: Constants.spacingSmall
+                                anchors.margins: MSpacing.sm
                                 width: Constants.touchTargetLarge
                                 color: "#E74C3C"
                                 radius: Constants.borderRadiusSharp
@@ -129,7 +130,7 @@ Page {
                             Rectangle {
                                 id: noteItem
                                 anchors.fill: parent
-                                anchors.margins: Constants.spacingSmall
+                                anchors.margins: MSpacing.sm
                                 color: MColors.surface
                                 radius: Constants.borderRadiusSharp
                                 border.width: Constants.borderWidthThin
@@ -141,8 +142,8 @@ Page {
                                 
                                 Row {
                                     anchors.fill: parent
-                                    anchors.margins: Constants.spacingMedium
-                                    spacing: Constants.spacingMedium
+                                    anchors.margins: MSpacing.md
+                                    spacing: MSpacing.md
                                     
                                     Icon {
                                         anchors.verticalCenter: parent.verticalCenter
@@ -154,12 +155,12 @@ Page {
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
-                                        spacing: Constants.spacingXSmall
+                                        spacing: MSpacing.xs
                                         
                                         Text {
                                             width: parent.width
                                             text: modelData.title || "Untitled"
-                                            font.pixelSize: Constants.fontSizeMedium
+                                            font.pixelSize: MTypography.sizeBody
                                             font.weight: Font.DemiBold
                                             color: MColors.text
                                             elide: Text.ElideRight
@@ -168,7 +169,7 @@ Page {
                                         Text {
                                             width: parent.width
                                             text: modelData.content.substring(0, 100) + (modelData.content.length > 100 ? "..." : "")
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
                                             color: MColors.textSecondary
                                             elide: Text.ElideRight
                                             wrapMode: Text.NoWrap
@@ -177,11 +178,11 @@ Page {
                                     
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        spacing: Constants.spacingXSmall
+                                        spacing: MSpacing.xs
                                         
                                         Text {
                                             text: formatTimestamp(modelData.timestamp)
-                                            font.pixelSize: Constants.fontSizeXSmall
+                                            font.pixelSize: MTypography.sizeXSmall
                                             color: MColors.textTertiary
                                             horizontalAlignment: Text.AlignRight
                                         }
@@ -238,6 +239,16 @@ Page {
                 }
             }
             
+            MEmptyState {
+                width: parent.width - 48
+                height: 400
+                visible: notesApp.notes.length === 0
+                iconName: "file-text"
+                iconSize: 96
+                title: "No Notes Yet"
+                message: "Tap the + button below to create your first note"
+            }
+            
             Item { height: 40 }
         }
     }
@@ -245,7 +256,7 @@ Page {
     MIconButton {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: Constants.spacingLarge
+        anchors.margins: MSpacing.lg
         iconName: "plus"
         iconSize: 28
         variant: "primary"

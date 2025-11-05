@@ -90,7 +90,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 0
         width: Math.min(parent.width, Math.round(500 * Constants.scaleFactor))
-        height: contentColumn.height + Constants.spacingXXLarge
+        height: contentColumn.height + MSpacing.xxl
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: Constants.borderWidthThin
@@ -108,13 +108,13 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Constants.spacingLarge
-            spacing: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
+            spacing: MSpacing.lg
 
             // Header row
             Row {
                 width: parent.width
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
 
                 // Network icon with signal strength
                 Rectangle {
@@ -135,8 +135,8 @@ Item {
 
                 // Network info
                 Column {
-                    width: parent.width - Constants.touchTargetMedium - Constants.spacingMedium
-                    spacing: Constants.spacingXSmall
+                    width: parent.width - Constants.touchTargetMedium - MSpacing.md
+                    spacing: MSpacing.xs
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
@@ -150,7 +150,7 @@ Item {
                     }
 
                     Row {
-                        spacing: Constants.spacingSmall
+                        spacing: MSpacing.sm
 
                         // Security badge
                         Rectangle {
@@ -198,8 +198,8 @@ Item {
 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
+                    spacing: MSpacing.md
 
                     Icon {
                         name: "key"
@@ -210,7 +210,7 @@ Item {
 
                     TextInput {
                         id: passwordInput
-                        width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - Constants.spacingMedium * 2
+                        width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - MSpacing.md * 2
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
                         font.family: Typography.fontFamily
@@ -267,7 +267,7 @@ Item {
             // Error message
             Rectangle {
                 width: parent.width
-                height: errorText.height + Constants.spacingMedium
+                height: errorText.height + MSpacing.md
                 radius: Constants.borderRadiusSmall
                 color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
                 border.width: Constants.borderWidthThin
@@ -276,8 +276,8 @@ Item {
 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingSmall
-                    spacing: Constants.spacingSmall
+                    anchors.margins: MSpacing.sm
+                    spacing: MSpacing.sm
 
                     Icon {
                         name: "alert-circle"
@@ -294,7 +294,7 @@ Item {
                         font.family: Typography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
-                        width: parent.width - Constants.iconSizeSmall - Constants.spacingSmall
+                        width: parent.width - Constants.iconSizeSmall - MSpacing.sm
                     }
                 }
             }
@@ -302,12 +302,12 @@ Item {
             // Connection progress
             Column {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 visible: isConnecting
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
 
                     BusyIndicator {
                         width: Constants.iconSizeMedium
@@ -330,11 +330,11 @@ Item {
             Row {
                 width: parent.width
                 height: Constants.touchTargetMedium
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
 
                 // Cancel button
                 Rectangle {
-                    width: (parent.width - Constants.spacingMedium) / 2
+                    width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: "transparent"
@@ -365,7 +365,7 @@ Item {
                 // Connect button
                 Rectangle {
                     id: connectButton
-                    width: (parent.width - Constants.spacingMedium) / 2
+                    width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.marathonTeal, 1.5) : MColors.marathonTeal

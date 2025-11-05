@@ -27,7 +27,7 @@ Page {
         Column {
             id: messagesContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -37,7 +37,7 @@ Page {
             Text {
                 text: "Messages"
                 color: MColors.textPrimary
-                font.pixelSize: Constants.fontSizeXLarge
+                font.pixelSize: MTypography.sizeXLarge
                 font.weight: Font.Bold
                 font.family: MTypography.fontFamily
             }
@@ -50,14 +50,14 @@ Page {
                 
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Repeater {
                         model: messagesApp.conversations
                         
                         Rectangle {
                             width: parent.width
-                            height: Constants.touchTargetLarge + Constants.spacingMedium
+                            height: Constants.touchTargetLarge + MSpacing.md
                             color: "transparent"
                             
                             Rectangle {
@@ -65,7 +65,7 @@ Page {
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
-                                anchors.margins: Constants.spacingSmall
+                                anchors.margins: MSpacing.sm
                                 width: Constants.touchTargetLarge
                                 color: "#E74C3C"
                                 radius: Constants.borderRadiusSharp
@@ -91,7 +91,7 @@ Page {
                             Rectangle {
                                 id: conversationItem
                                 anchors.fill: parent
-                                anchors.margins: Constants.spacingSmall
+                                anchors.margins: MSpacing.sm
                                 color: MColors.surface
                                 radius: Constants.borderRadiusSharp
                                 border.width: Constants.borderWidthThin
@@ -159,7 +159,7 @@ Page {
     Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: Constants.spacingLarge
+        anchors.margins: MSpacing.lg
         width: Constants.touchTargetLarge
         height: Constants.touchTargetLarge
         radius: Constants.touchTargetLarge / 2

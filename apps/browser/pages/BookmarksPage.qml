@@ -99,7 +99,7 @@ Rectangle {
             visible: bookmarksPage.bookmarks.length === 0
             anchors.centerIn: parent
             text: "No bookmarks yet"
-            font.pixelSize: Constants.fontSizeLarge
+            font.pixelSize: MTypography.sizeLarge
             color: MColors.textTertiary
         }
     }

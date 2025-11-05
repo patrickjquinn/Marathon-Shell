@@ -7,6 +7,7 @@ MTextInput 1.0 MTextInput.qml
 MTextArea 1.0 MTextArea.qml
 MImageButton 1.0 MImageButton.qml
 MDateTimePicker 1.0 MDateTimePicker.qml
+MEmptyState 1.0 MEmptyState.qml
 Icon 1.0 Icon.qml
 singleton MBreakpoints 1.0 MBreakpoints.qml
 MResponsive 1.0 MResponsive.qml

@@ -13,20 +13,20 @@ SettingsPageTemplate {
     property string pageName: "bluetooth"
     
     content: Flickable {
-        contentHeight: bluetoothContent.height + Constants.navBarHeight + Constants.spacingXLarge * 3
+        contentHeight: bluetoothContent.height + Constants.navBarHeight + MSpacing.xl * 3
         clip: true
         boundsBehavior: Flickable.DragAndOvershootBounds
         
         Column {
             id: bluetoothContent
             width: parent.width
-            spacing: Constants.spacingLarge
-            leftPadding: Constants.spacingLarge
-            rightPadding: Constants.spacingLarge
-            topPadding: Constants.spacingLarge
+            spacing: MSpacing.lg
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             Rectangle {
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 height: Constants.appIconSize
                 radius: Constants.borderRadiusMedium
                 color: Qt.rgba(255, 255, 255, 0.04)
@@ -36,7 +36,7 @@ SettingsPageTemplate {
                 Icon {
                     id: bluetoothIcon
                     anchors.left: parent.left
-                    anchors.leftMargin: Constants.spacingMedium
+                    anchors.leftMargin: MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
                     name: BluetoothManagerCpp.enabled ? "bluetooth" : "bluetooth-off"
                     size: Constants.iconSizeMedium
@@ -45,11 +45,11 @@ SettingsPageTemplate {
                 
                 Column {
                     anchors.left: bluetoothIcon.right
-                    anchors.leftMargin: Constants.spacingMedium
+                    anchors.leftMargin: MSpacing.md
                     anchors.right: bluetoothToggle.left
-                    anchors.rightMargin: Constants.spacingMedium
+                    anchors.rightMargin: MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Constants.spacingXSmall
+                    spacing: MSpacing.xs
                     
                     Text {
                         text: "Bluetooth"
@@ -70,7 +70,7 @@ SettingsPageTemplate {
                 MToggle {
                     id: bluetoothToggle
                     anchors.right: parent.right
-                    anchors.rightMargin: Constants.spacingMedium
+                    anchors.rightMargin: MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
                     checked: BluetoothManagerCpp.enabled
                     onToggled: {
@@ -81,7 +81,7 @@ SettingsPageTemplate {
             
             MSection {
                 title: "Paired Devices"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 visible: BluetoothManagerCpp.enabled && BluetoothManagerCpp.pairedDevices.length > 0
                 
                 Column {
@@ -109,9 +109,9 @@ SettingsPageTemplate {
                             
                             Row {
                                 anchors.fill: parent
-                                anchors.leftMargin: Constants.spacingMedium
-                                anchors.rightMargin: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                                anchors.leftMargin: MSpacing.md
+                                anchors.rightMargin: MSpacing.md
+                                spacing: MSpacing.md
                                 
                                 Icon {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -123,7 +123,7 @@ SettingsPageTemplate {
                                 Column {
                                     id: deviceColumn
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - Constants.iconSizeMedium - Constants.iconSizeSmall - Constants.spacingMedium * 4
+                                    width: parent.width - Constants.iconSizeMedium - Constants.iconSizeSmall - MSpacing.md * 4
                                     
                                     Text {
                                         width: parent.width
@@ -170,12 +170,12 @@ SettingsPageTemplate {
             
             MSection {
                 title: "Available Devices"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 visible: BluetoothManagerCpp.enabled
                 
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
                     
                     MButton {
                         width: parent.width
@@ -216,9 +216,9 @@ SettingsPageTemplate {
                                 
                                 Row {
                                     anchors.fill: parent
-                                    anchors.leftMargin: Constants.spacingMedium
-                                    anchors.rightMargin: Constants.spacingMedium
-                                    spacing: Constants.spacingMedium
+                                    anchors.leftMargin: MSpacing.md
+                                    anchors.rightMargin: MSpacing.md
+                                    spacing: MSpacing.md
                                     
                                     Icon {
                                         anchors.verticalCenter: parent.verticalCenter
@@ -229,7 +229,7 @@ SettingsPageTemplate {
                                     
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium * 2
+                                        width: parent.width - Constants.iconSizeMedium - MSpacing.md * 2
                                         
                                         Text {
                                             width: parent.width
@@ -278,8 +278,8 @@ SettingsPageTemplate {
                         font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         horizontalAlignment: Text.AlignHCenter
-                        topPadding: Constants.spacingLarge
-                        bottomPadding: Constants.spacingLarge
+                        topPadding: MSpacing.lg
+                        bottomPadding: MSpacing.lg
                         visible: BluetoothManagerCpp.devices.length === 0
                     }
                 }

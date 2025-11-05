@@ -30,8 +30,8 @@ Rectangle {
     
     Column {
         anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
-        spacing: Constants.spacingSmall
+        anchors.margins: MSpacing.md
+        spacing: MSpacing.sm
         
         Item {
             width: parent.width
@@ -48,16 +48,16 @@ Rectangle {
             
             Column {
                 anchors.left: globeIcon.right
-                anchors.leftMargin: Constants.spacingSmall
+                anchors.leftMargin: MSpacing.sm
                 anchors.right: closeButton.left
-                anchors.rightMargin: Constants.spacingSmall
+                anchors.rightMargin: MSpacing.sm
                 anchors.top: parent.top
                 spacing: 2
                 
                 Text {
                     width: parent.width
                     text: tabData ? (tabData.title || "New Tab") : "New Tab"
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
                     color: isCurrentTab ? MColors.text : MColors.textSecondary
                     elide: Text.ElideRight
@@ -66,7 +66,7 @@ Rectangle {
                 Text {
                     width: parent.width
                     text: tabData ? (tabData.url || "about:blank") : "about:blank"
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
                     color: MColors.textTertiary
                     elide: Text.ElideMiddle
                 }
@@ -100,7 +100,7 @@ Rectangle {
         
         Rectangle {
             width: parent.width
-            height: parent.height - Constants.touchTargetSmall - Constants.spacingSmall
+            height: parent.height - Constants.touchTargetSmall - MSpacing.sm
             radius: Constants.borderRadiusSmall
             color: MColors.background
             border.width: Constants.borderWidthThin
@@ -110,7 +110,7 @@ Rectangle {
             Text {
                 anchors.centerIn: parent
                 text: tabData ? (tabData.title || tabData.url || "Loading...") : "Loading..."
-                font.pixelSize: Constants.fontSizeSmall
+                font.pixelSize: MTypography.sizeSmall
                 color: MColors.textTertiary
             }
         }

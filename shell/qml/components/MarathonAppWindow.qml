@@ -195,12 +195,6 @@ Rectangle {
                         Logger.info("AppWindow", "External app loaded successfully: " + id)
                     } else {
                         Logger.error("AppWindow", "Failed to load external app: " + id)
-                        // Fallback to template
-                        appContentLoader.setSource("../apps/template/TemplateApp.qml", {
-                            "_appId": id,
-                            "_appName": name,
-                            "_appIcon": icon
-                        })
                     }
                 }
             } else {

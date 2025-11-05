@@ -112,7 +112,7 @@ MApp {
         Rectangle {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.margins: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
             width: Constants.touchTargetLarge * 2
             height: Constants.touchTargetMedium
             radius: Constants.borderRadiusSharp
@@ -121,12 +121,12 @@ MApp {
             
             Row {
                 anchors.centerIn: parent
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Constants.spacingMedium
-                    height: Constants.spacingMedium
+                    width: MSpacing.md
+                    height: MSpacing.md
                     radius: width / 2
                     color: MColors.error
                     
@@ -141,7 +141,7 @@ MApp {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: Math.floor(recordingSeconds / 60) + ":" + (recordingSeconds % 60 < 10 ? "0" : "") + (recordingSeconds % 60)
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: "white"
                 }
@@ -172,8 +172,8 @@ MApp {
         Row {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.topMargin: Constants.spacingLarge
-            spacing: Constants.spacingSmall
+            anchors.topMargin: MSpacing.lg
+            spacing: MSpacing.sm
             z: 10
             
             MButton {
@@ -199,9 +199,9 @@ MApp {
         Row {
             anchors.top: parent.top
             anchors.right: parent.right
-            anchors.topMargin: Constants.spacingLarge
-            anchors.rightMargin: Constants.spacingLarge
-            spacing: Constants.spacingMedium
+            anchors.topMargin: MSpacing.lg
+            anchors.rightMargin: MSpacing.lg
+            spacing: MSpacing.md
             z: 10
             
             MIconButton {
@@ -232,8 +232,8 @@ MApp {
         Row {
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottomMargin: Constants.spacingXLarge
-            spacing: Constants.spacingXLarge
+            anchors.bottomMargin: MSpacing.xl
+            spacing: MSpacing.xl
             z: 10
             
             // Gallery button
@@ -250,8 +250,8 @@ MApp {
             
             // Main capture button
             Rectangle {
-                width: Constants.touchTargetLarge + Constants.spacingMedium
-                height: Constants.touchTargetLarge + Constants.spacingMedium
+                width: Constants.touchTargetLarge + MSpacing.md
+                height: Constants.touchTargetLarge + MSpacing.md
                 radius: width / 2
                 color: "transparent"
                 border.width: Constants.borderWidthThick
@@ -260,8 +260,8 @@ MApp {
                 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: parent.width - Constants.spacingMedium
-                    height: parent.height - Constants.spacingMedium
+                    width: parent.width - MSpacing.md
+                    height: parent.height - MSpacing.md
                     radius: width / 2
                     color: isRecording ? MColors.error : MColors.accent
                     antialiasing: true
@@ -346,7 +346,7 @@ MApp {
         Rectangle {
             anchors.top: parent.top
             anchors.left: parent.left
-            anchors.margins: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
             width: 12
             height: 12
             radius: 6

@@ -76,10 +76,10 @@ Item {
                                 
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.top: parent.top
-                                anchors.topMargin: Constants.spacingMedium
+                                anchors.topMargin: MSpacing.md
                                 
                                 width: isHourMarker ? Constants.borderWidthThick : Constants.borderWidthThin
-                                height: isHourMarker ? Constants.spacingMedium : Constants.spacingSmall
+                                height: isHourMarker ? MSpacing.md : MSpacing.sm
                                 color: MColors.marathonTeal
                             }
                         }
@@ -89,9 +89,9 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
-                        anchors.topMargin: Constants.spacingXLarge
+                        anchors.topMargin: MSpacing.xl
                         text: "12"
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: MTypography.sizeXXLarge
                         font.weight: Font.Bold
                         color: MColors.marathonTeal
                     }
@@ -99,14 +99,14 @@ Item {
                     // Number: 3 with date
                     Column {
                         anchors.right: parent.right
-                        anchors.rightMargin: Constants.spacingXLarge
+                        anchors.rightMargin: MSpacing.xl
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: Constants.spacingXSmall
+                        spacing: MSpacing.xs
                         
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: dayOfMonth
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             font.weight: Font.Normal
                             color: MColors.marathonTeal
                         }
@@ -114,7 +114,7 @@ Item {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: dayOfWeek
-                            font.pixelSize: Constants.fontSizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                             font.weight: Font.Normal
                             color: MColors.marathonTeal
                         }
@@ -122,7 +122,7 @@ Item {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "3"
-                            font.pixelSize: Constants.fontSizeXXLarge
+                            font.pixelSize: MTypography.sizeXXLarge
                             font.weight: Font.Bold
                             color: MColors.marathonTeal
                         }
@@ -132,9 +132,9 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: Constants.spacingXLarge
+                        anchors.bottomMargin: MSpacing.xl
                         text: "6"
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: MTypography.sizeXXLarge
                         font.weight: Font.Bold
                         color: MColors.marathonTeal
                     }
@@ -142,10 +142,10 @@ Item {
                     // Number: 9
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: Constants.spacingXLarge
+                        anchors.leftMargin: MSpacing.xl
                         anchors.verticalCenter: parent.verticalCenter
                         text: "9"
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: MTypography.sizeXXLarge
                         font.weight: Font.Bold
                         color: MColors.marathonTeal
                     }
@@ -154,9 +154,9 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: Constants.spacingXLarge * 1.5
+                        anchors.verticalCenterOffset: MSpacing.xl * 1.5
                         text: hours >= 12 ? "PM" : "AM"
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.Normal
                         color: MColors.marathonTeal
                     }
@@ -264,8 +264,8 @@ Item {
                     // Center pivot point - circular
                     Rectangle {
                         anchors.centerIn: parent
-                        width: Constants.spacingMedium
-                        height: Constants.spacingMedium
+                        width: MSpacing.md
+                        height: MSpacing.md
                         radius: width / 2
                         color: "#404040"  // Dark gray
                         border.width: 1
@@ -287,12 +287,12 @@ Item {
             
             Column {
                 anchors.left: parent.left
-                anchors.leftMargin: Constants.spacingLarge
+                anchors.leftMargin: MSpacing.lg
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Constants.spacingXSmall
+                spacing: MSpacing.xs
                 
                 Row {
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Text {
                         text: {
@@ -303,14 +303,14 @@ Item {
                             var m = alarm.minute < 10 ? "0" + alarm.minute : alarm.minute
                             return h + ":" + m
                         }
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Normal
                         color: MColors.textPrimary
                     }
                     
                     Text {
                         text: clockApp.alarms.length > 0 && clockApp.alarms[0].label ? clockApp.alarms[0].label : "Alarm Off"
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Normal
                         color: MColors.textPrimary
                     }
@@ -318,7 +318,7 @@ Item {
                 
                 Text {
                     text: "No Recurrence"
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
                             color: MColors.marathonTeal
                 }
             }
@@ -326,7 +326,7 @@ Item {
             // Alarm toggle
             Rectangle {
                 anchors.right: parent.right
-                anchors.rightMargin: Constants.spacingLarge
+                anchors.rightMargin: MSpacing.lg
                 anchors.verticalCenter: parent.verticalCenter
                 width: Constants.touchTargetMedium
                 height: Constants.touchTargetMedium

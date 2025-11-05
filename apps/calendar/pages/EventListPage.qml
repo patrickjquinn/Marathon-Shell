@@ -17,7 +17,7 @@ Page {
         Column {
             id: calendarContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -26,7 +26,7 @@ Page {
             Text {
                 text: "Calendar"
                 color: MColors.text
-                font.pixelSize: Constants.fontSizeXLarge
+                font.pixelSize: MTypography.sizeXLarge
                 font.weight: Font.Bold
                 font.family: MTypography.fontFamily
             }

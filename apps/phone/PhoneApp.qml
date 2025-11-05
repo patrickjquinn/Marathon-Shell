@@ -136,8 +136,8 @@ MApp {
                     
                     Column {
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingLarge
-                        spacing: Constants.spacingLarge
+                        anchors.margins: MSpacing.lg
+                        spacing: MSpacing.lg
                         
                         // Display
                         Rectangle {
@@ -152,7 +152,7 @@ MApp {
                             Text {
                                 anchors.centerIn: parent
                                 text: dialedNumber || "Enter number"
-                                font.pixelSize: Constants.fontSizeLarge
+                                font.pixelSize: MTypography.sizeLarge
                                 font.weight: Font.DemiBold
                                 color: dialedNumber ? MColors.text : MColors.textSecondary
                                 horizontalAlignment: Text.AlignHCenter
@@ -162,10 +162,10 @@ MApp {
                         // Keypad
                         Grid {
                             width: parent.width
-                            height: parent.height - Constants.touchTargetLarge - Constants.touchTargetLarge - Constants.spacingLarge * 3
+                            height: parent.height - Constants.touchTargetLarge - Constants.touchTargetLarge - MSpacing.lg * 3
                             columns: 3
                             rows: 4
-                            spacing: Constants.spacingSmall
+                            spacing: MSpacing.sm
                             
                             Repeater {
                                 model: [
@@ -194,12 +194,12 @@ MApp {
                                     
                                     Column {
                                         anchors.centerIn: parent
-                                        spacing: Constants.spacingXSmall
+                                        spacing: MSpacing.xs
                                         
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.digit
-                                            font.pixelSize: Constants.fontSizeXLarge
+                                            font.pixelSize: MTypography.sizeXLarge
                                             font.weight: Font.Bold
                                             color: MColors.text
                                         }
@@ -207,7 +207,7 @@ MApp {
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.letters
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
                                             color: MColors.textSecondary
                                         }
                                     }
@@ -235,7 +235,7 @@ MApp {
                         // Call/Delete buttons
                         Row {
                             width: parent.width
-                            spacing: Constants.spacingLarge
+                            spacing: MSpacing.lg
                             
                             Rectangle {
                                 width: (parent.width - parent.spacing) / 2
@@ -487,7 +487,7 @@ MApp {
                     MIconButton {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
-                        anchors.margins: Constants.spacingLarge
+                        anchors.margins: MSpacing.lg
                         iconName: "plus"
                         iconSize: 28
                         variant: "primary"

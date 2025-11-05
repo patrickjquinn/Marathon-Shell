@@ -56,8 +56,8 @@ Rectangle {
         
         Row {
             anchors.fill: parent
-            anchors.margins: Constants.spacingMedium
-            spacing: Constants.spacingMedium
+            anchors.margins: MSpacing.md
+            spacing: MSpacing.md
             
             MIconButton {
                 anchors.verticalCenter: parent.verticalCenter

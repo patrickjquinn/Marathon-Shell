@@ -30,9 +30,9 @@ Page {
         
         Row {
             anchors.left: parent.left
-            anchors.leftMargin: Constants.spacingMedium
+            anchors.leftMargin: MSpacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Constants.spacingMedium
+            spacing: MSpacing.md
             
             Icon {
                 name: "chevron-down"

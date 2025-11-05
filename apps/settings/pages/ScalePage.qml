@@ -18,10 +18,10 @@ SettingsPageTemplate {
         Column {
             id: scaleContent
             width: parent.width
-            spacing: Constants.spacingXLarge
-            leftPadding: Constants.spacingLarge
-            rightPadding: Constants.spacingLarge
-            topPadding: Constants.spacingLarge
+            spacing: MSpacing.xl
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             Text {
                 text: "Adjust the size of text and UI elements. Changes take effect immediately."
@@ -29,16 +29,16 @@ SettingsPageTemplate {
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
             }
             
             MSection {
                 title: "Scale Options"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Rectangle {
                         width: parent.width
@@ -50,8 +50,8 @@ SettingsPageTemplate {
                         
                         Row {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
+                            spacing: MSpacing.md
                             
                             Rectangle {
                                 width: Math.round(28 * Constants.userScaleFactor)
@@ -112,8 +112,8 @@ SettingsPageTemplate {
                         
                         Row {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
+                            spacing: MSpacing.md
                             
                             Rectangle {
                                 width: Math.round(28 * Constants.userScaleFactor)
@@ -174,8 +174,8 @@ SettingsPageTemplate {
                         
                         Row {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
+                            spacing: MSpacing.md
                             
                             Rectangle {
                                 width: Math.round(28 * Constants.userScaleFactor)
@@ -236,8 +236,8 @@ SettingsPageTemplate {
                         
                         Row {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
+                            spacing: MSpacing.md
                             
                             Rectangle {
                                 width: Math.round(28 * Constants.userScaleFactor)
@@ -295,7 +295,7 @@ SettingsPageTemplate {
                 color: MColors.textTertiary
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 wrapMode: Text.WordWrap
             }
             

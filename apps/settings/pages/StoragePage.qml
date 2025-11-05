@@ -17,7 +17,7 @@ SettingsPageTemplate {
         Column {
             id: storageContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -36,7 +36,7 @@ SettingsPageTemplate {
                     
                     Column {
                         anchors.centerIn: parent
-                        spacing: Constants.spacingSmall
+                        spacing: MSpacing.sm
                         
                         Text {
                             text: StorageManager.usedSpaceString + " used of " + StorageManager.totalSpaceString

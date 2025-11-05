@@ -40,15 +40,15 @@ Page {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.rightMargin: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
+                spacing: MSpacing.md
                 
                 MButton {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Cancel"
                     variant: "secondary"
-                    width: Constants.touchTargetLarge + Constants.spacingMedium
+                    width: Constants.touchTargetLarge + MSpacing.md
                     onClicked: {
                         HapticService.light()
                         navigationStack.pop()
@@ -56,7 +56,7 @@ Page {
                 }
                 
                 Item {
-                    width: parent.width - (Constants.touchTargetLarge + Constants.spacingMedium) * 2 - (deleteBtn.visible ? Constants.touchTargetLarge + Constants.spacingLarge : 0) - parent.spacing * (deleteBtn.visible ? 3 : 2)
+                    width: parent.width - (Constants.touchTargetLarge + MSpacing.md) * 2 - (deleteBtn.visible ? Constants.touchTargetLarge + MSpacing.lg : 0) - parent.spacing * (deleteBtn.visible ? 3 : 2)
                     height: 1
                 }
                 
@@ -66,7 +66,7 @@ Page {
                     text: !isNewNote ? "Delete" : ""
                     variant: "danger"
                     visible: !isNewNote
-                    width: Constants.touchTargetLarge + Constants.spacingLarge
+                    width: Constants.touchTargetLarge + MSpacing.lg
                     onClicked: {
                         HapticService.medium()
                         deleteDialog.open()
@@ -77,7 +77,7 @@ Page {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Save"
                     variant: "primary"
-                    width: Constants.touchTargetLarge + Constants.spacingMedium
+                    width: Constants.touchTargetLarge + MSpacing.md
                     onClicked: {
                         HapticService.light()
                         var title = titleInput.text.trim() || "Untitled"
@@ -104,8 +104,8 @@ Page {
             Column {
                 id: editorContent
                 width: parent.width
-                padding: Constants.spacingLarge
-                spacing: Constants.spacingMedium
+                padding: MSpacing.lg
+                spacing: MSpacing.md
                 
                 Rectangle {
                     width: parent.width - parent.padding * 2
@@ -119,9 +119,9 @@ Page {
                     TextInput {
                         id: titleInput
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingMedium
+                        anchors.margins: MSpacing.md
                         color: MColors.text
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Bold
                         verticalAlignment: TextInput.AlignVCenter
                         
@@ -129,7 +129,7 @@ Page {
                             anchors.fill: parent
                             text: "Title"
                             color: MColors.textSecondary
-                            font.pixelSize: Constants.fontSizeLarge
+                            font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Bold
                             verticalAlignment: Text.AlignVCenter
                             visible: titleInput.text.length === 0

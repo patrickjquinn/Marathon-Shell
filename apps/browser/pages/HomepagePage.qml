@@ -18,7 +18,7 @@ Rectangle {
         
         Rectangle {
             width: parent.width
-            height: Constants.touchTargetMedium + Constants.spacingMedium
+            height: Constants.touchTargetMedium + MSpacing.md
             color: MColors.surface
             
             Rectangle {
@@ -30,9 +30,9 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.rightMargin: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
+                spacing: MSpacing.md
                 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
@@ -61,7 +61,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Homepage"
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.DemiBold
                     color: MColors.text
                 }
@@ -99,9 +99,9 @@ Rectangle {
                     
                     Row {
                         anchors.fill: parent
-                        anchors.leftMargin: Constants.spacingLarge
-                        anchors.rightMargin: Constants.spacingLarge
-                        spacing: Constants.spacingMedium
+                        anchors.leftMargin: MSpacing.lg
+                        anchors.rightMargin: MSpacing.lg
+                        spacing: MSpacing.md
                         
                         Icon {
                             anchors.verticalCenter: parent.verticalCenter
@@ -112,13 +112,13 @@ Rectangle {
                         
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - parent.spacing * 2 - parent.children[0].width - parent.children[2].width - Constants.spacingMedium
+                            width: parent.width - parent.spacing * 2 - parent.children[0].width - parent.children[2].width - MSpacing.md
                             spacing: 2
                             
                             Text {
                                 width: parent.width
                                 text: model.name
-                                font.pixelSize: Constants.fontSizeMedium
+                                font.pixelSize: MTypography.sizeBody
                                 color: MColors.text
                                 elide: Text.ElideRight
                             }
@@ -126,7 +126,7 @@ Rectangle {
                             Text {
                                 width: parent.width
                                 text: model.url
-                                font.pixelSize: Constants.fontSizeSmall
+                                font.pixelSize: MTypography.sizeSmall
                                 color: MColors.textTertiary
                                 elide: Text.ElideMiddle
                             }
@@ -154,7 +154,7 @@ Rectangle {
             
             Rectangle {
                 width: parent.width
-                height: Constants.spacingLarge + Constants.touchTargetLarge + Constants.spacingSmall
+                height: MSpacing.lg + Constants.touchTargetLarge + MSpacing.sm
                 color: MColors.surface
                 
                 Rectangle {
@@ -166,12 +166,12 @@ Rectangle {
                 
                 Column {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingLarge
-                    spacing: Constants.spacingSmall
+                    anchors.margins: MSpacing.lg
+                    spacing: MSpacing.sm
                     
                     Text {
                         text: "Custom Homepage"
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
                         color: MColors.textSecondary
                     }
@@ -187,11 +187,11 @@ Rectangle {
                         TextInput {
                             id: customUrlInput
                             anchors.fill: parent
-                            anchors.leftMargin: Constants.spacingMedium
-                            anchors.rightMargin: Constants.spacingMedium
+                            anchors.leftMargin: MSpacing.md
+                            anchors.rightMargin: MSpacing.md
                             verticalAlignment: TextInput.AlignVCenter
                             color: MColors.text
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
                             selectByMouse: true
                             selectedTextColor: MColors.background
@@ -212,7 +212,7 @@ Rectangle {
                                 visible: !customUrlInput.text && !customUrlInput.activeFocus
                                 text: "Enter custom URL"
                                 color: MColors.textTertiary
-                                font.pixelSize: Constants.fontSizeMedium
+                                font.pixelSize: MTypography.sizeBody
                                 font.family: MTypography.fontFamily
                             }
                         }
