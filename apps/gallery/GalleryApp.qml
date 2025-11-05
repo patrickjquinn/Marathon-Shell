@@ -54,8 +54,8 @@ MApp {
                     
                     Column {
                         width: parent.width
-                        padding: Constants.spacingMedium
-                        spacing: Constants.spacingMedium
+                        padding: MSpacing.md
+                        spacing: MSpacing.md
                         
                         Repeater {
                             model: albums
@@ -77,8 +77,8 @@ MApp {
                                 
                                 Row {
                                     anchors.fill: parent
-                                    anchors.margins: Constants.spacingMedium
-                                    spacing: Constants.spacingMedium
+                                    anchors.margins: MSpacing.md
+                                    spacing: MSpacing.md
                                     
                                     Rectangle {
                                         anchors.verticalCenter: parent.verticalCenter
@@ -101,18 +101,18 @@ MApp {
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         width: parent.width - parent.spacing * 2 - Constants.touchTargetLarge - Constants.iconSizeMedium
-                                        spacing: Constants.spacingXSmall
+                                        spacing: MSpacing.xs
                                         
                                         Text {
                                             text: modelData.name
-                                            font.pixelSize: Constants.fontSizeMedium
+                                            font.pixelSize: MTypography.sizeBody
                                             font.weight: Font.DemiBold
                                             color: MColors.text
                                         }
                                         
                                         Text {
                                             text: modelData.photoCount + " photos"
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            font.pixelSize: MTypography.sizeSmall
                                             color: MColors.textSecondary
                                         }
                                     }
@@ -126,53 +126,78 @@ MApp {
                                 }
                             }
                         }
+                        
+                        MEmptyState {
+                            width: parent.width - parent.padding * 2
+                            height: 400
+                            visible: albums.length === 0
+                            iconName: "folder"
+                            iconSize: 96
+                            title: "No Albums Yet"
+                            message: "Your photo library is empty. Add some photos to see them here!"
+                        }
                     }
                 }
                 
-                GridView {
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cellWidth: width / 3
-                    cellHeight: cellWidth
-                    clip: true
                     
-                    model: photos
-                    
-                    delegate: MCard {
-                        width: GridView.view.cellWidth - Constants.spacingXSmall
-                        height: GridView.view.cellHeight - Constants.spacingXSmall
-                        elevation: 1
-                        interactive: true
+                    GridView {
+                        anchors.fill: parent
+                        cellWidth: width / 3
+                        cellHeight: cellWidth
+                        clip: true
                         
-                        onClicked: {
-                            Logger.info("Gallery", "View photo: " + modelData.id)
-                            photoViewerLoader.active = true
-                            photoViewerLoader.item.show(modelData)
-                        }
+                        model: photos
                         
-                        Image {
-                            anchors.fill: parent
-                            anchors.margins: Constants.borderWidthThin
-                            source: modelData.thumbnailPath || modelData.path
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                            clip: true
+                        delegate: MCard {
+                            width: GridView.view.cellWidth - MSpacing.xs
+                            height: GridView.view.cellHeight - MSpacing.xs
+                            elevation: 1
+                            interactive: true
                             
-                            Rectangle {
+                            onClicked: {
+                                Logger.info("Gallery", "View photo: " + modelData.id)
+                                photoViewerLoader.active = true
+                                photoViewerLoader.item.show(modelData)
+                            }
+                            
+                            Image {
                                 anchors.fill: parent
-                                color: MColors.elevated
-                                radius: Constants.borderRadiusSharp
-                                visible: parent.status === Image.Loading || parent.status === Image.Error
+                                anchors.margins: Constants.borderWidthThin
+                                source: modelData.thumbnailPath || modelData.path
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: true
+                                clip: true
                                 
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "image"
-                                    size: Constants.iconSizeLarge
-                                    color: MColors.textSecondary
+                                Rectangle {
+                                    anchors.fill: parent
+                                    color: MColors.elevated
+                                    radius: Constants.borderRadiusSharp
+                                    visible: parent.status === Image.Loading || parent.status === Image.Error
+                                    
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "image"
+                                        size: Constants.iconSizeLarge
+                                        color: MColors.textSecondary
+                                    }
                                 }
                             }
                         }
+                    }
+                    
+                    MEmptyState {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        height: 400
+                        visible: photos.length === 0
+                        iconName: "image"
+                        iconSize: 96
+                        title: "No Photos"
+                        message: selectedAlbum ? "This album is empty" : "Select an album to view photos"
                     }
                 }
             }

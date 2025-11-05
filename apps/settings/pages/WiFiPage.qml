@@ -20,7 +20,7 @@ SettingsPageTemplate {
         Column {
             id: wifiContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -61,7 +61,7 @@ SettingsPageTemplate {
                     Row {
                         anchors.fill: parent
                         anchors.margins: 16
-                        spacing: Constants.spacingMedium
+                        spacing: MSpacing.md
                         
                         Icon {
                             name: "wifi"
@@ -124,7 +124,7 @@ SettingsPageTemplate {
                 Row {
                     width: parent.width
                     height: 48
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
                     visible: NetworkManager.isScanning
                     
                     BusyIndicator {
@@ -146,7 +146,7 @@ SettingsPageTemplate {
                 // Network list
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     visible: !NetworkManager.isScanning && NetworkManager.availableNetworks.length > 0
                     
                         Repeater {

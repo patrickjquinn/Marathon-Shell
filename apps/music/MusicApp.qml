@@ -168,11 +168,11 @@ MApp {
                     
                     Column {
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingXLarge
-                        anchors.bottomMargin: Constants.navBarHeight + Constants.spacingXLarge  // Account for system nav bar
-                        spacing: Constants.spacingLarge
+                        anchors.margins: MSpacing.xl
+                        anchors.bottomMargin: Constants.navBarHeight + MSpacing.xl  // Account for system nav bar
+                        spacing: MSpacing.lg
                         
-                        Item { height: Constants.spacingLarge }
+                        Item { height: MSpacing.lg }
                         
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -200,46 +200,46 @@ MApp {
                             }
                         }
                         
-                        Item { height: Constants.spacingMedium }
+                        Item { height: MSpacing.md }
                         
                         Column {
                             width: parent.width
-                            spacing: Constants.spacingSmall
+                            spacing: MSpacing.sm
                             
-                            Text {
+                            MLabel {
                                 width: parent.width
                                 text: currentTrack ? currentTrack.title : "No Track"
-                                font.pixelSize: Constants.fontSizeXLarge
+                                variant: "primary"
+                                font.pixelSize: MTypography.sizeXLarge
                                 font.weight: Font.Bold
-                                color: MColors.textPrimary
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
                             }
                             
-                            Text {
+                            MLabel {
                                 width: parent.width
                                 text: currentTrack ? currentTrack.artist : "Select a track"
-                                font.pixelSize: Constants.fontSizeLarge
-                                color: MColors.textSecondary
+                                variant: "secondary"
+                                font.pixelSize: MTypography.sizeLarge
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
                             }
                             
-                            Text {
+                            MLabel {
                                 width: parent.width
                                 text: currentTrack ? currentTrack.album : ""
-                                font.pixelSize: Constants.fontSizeMedium
-                                color: MColors.textTertiary
+                                variant: "tertiary"
+                                font.pixelSize: MTypography.sizeBody
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
                             }
                         }
                         
-                        Item { height: Constants.spacingMedium }
+                        Item { height: MSpacing.md }
                         
                            Column {
                                width: parent.width
-                               spacing: Constants.spacingSmall
+                               spacing: MSpacing.sm
 
                                MSlider {
                                    width: parent.width
@@ -256,10 +256,10 @@ MApp {
                                Row {
                                    width: parent.width
 
-                                   Text {
+                                   MLabel {
                                        text: formatTime(currentTrack ? currentTrack.position : 0)
-                                       font.pixelSize: Constants.fontSizeSmall
-                                       color: MColors.textSecondary
+                                       variant: "secondary"
+                                       font.pixelSize: MTypography.sizeSmall
                                    }
 
                                    Item {
@@ -267,194 +267,85 @@ MApp {
                                        height: 1
                                    }
 
-                                   Text {
+                                   MLabel {
                                        text: formatTime(currentTrack ? currentTrack.duration : 0)
-                                       font.pixelSize: Constants.fontSizeSmall
-                                       color: MColors.textSecondary
+                                       variant: "secondary"
+                                       font.pixelSize: MTypography.sizeSmall
                                    }
                                }
                            }
                         
-                        Item { height: Constants.spacingMedium }
+                        Item { height: MSpacing.md }
                         
                         Row {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: Constants.spacingLarge
+                            spacing: MSpacing.lg
                             
-                            Rectangle {
+                            MIconButton {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.touchTargetMedium
-                                height: Constants.touchTargetMedium
-                                radius: Constants.borderRadiusSharp
-                                color: shuffle ? MColors.marathonTeal : "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: shuffle ? MColors.marathonTealDark : MColors.border
-                                antialiasing: Constants.enableAntialiasing
-                                
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "shuffle"
-                                    size: Constants.iconSizeMedium
-                                    color: MColors.textPrimary
-                                }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        HapticService.light()
-                                    }
-                                    onClicked: {
-                                        shuffle = !shuffle
-                                    }
+                                iconName: "shuffle"
+                                iconSize: Constants.iconSizeMedium
+                                variant: shuffle ? "primary" : "secondary"
+                                onClicked: {
+                                    HapticService.light()
+                                    shuffle = !shuffle
                                 }
                             }
                             
-                            Rectangle {
+                            MIconButton {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.touchTargetMedium
-                                height: Constants.touchTargetMedium
-                                radius: Constants.borderRadiusSharp
-                                color: "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-                                antialiasing: Constants.enableAntialiasing
-                                
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "skip-back"
-                                    size: Constants.iconSizeMedium
-                                    color: MColors.textPrimary
-                                }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.color = MColors.surface
-                                        HapticService.light()
-                                    }
-                                    onReleased: {
-                                        parent.color = "transparent"
-                                    }
-                                    onCanceled: {
-                                        parent.color = "transparent"
-                                    }
-                                    onClicked: {
-                                        console.log("Previous track")
-                                    }
+                                iconName: "skip-back"
+                                iconSize: Constants.iconSizeMedium
+                                variant: "secondary"
+                                onClicked: {
+                                    HapticService.light()
+                                    playPrevious()
                                 }
                             }
                             
-                            Rectangle {
+                            MCircularIconButton {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.touchTargetLarge
-                                height: Constants.touchTargetLarge
-                                radius: width / 2
-                                color: MColors.marathonTeal
-                                border.width: Constants.borderWidthMedium
-                                border.color: MColors.marathonTealDark
-                                antialiasing: true
-                                
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: isPlaying ? "pause" : "play"
-                                    size: Constants.iconSizeLarge
-                                    color: MColors.textPrimary
-                                }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.scale = 0.9
-                                        HapticService.medium()
-                                    }
-                                    onReleased: {
-                                        parent.scale = 1.0
-                                    }
-                                    onCanceled: {
-                                        parent.scale = 1.0
-                                    }
-                                    onClicked: {
-                                        if (isPlaying) {
-                                            audioPlayer.pause()
-                                        } else {
-                                            if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState) {
-                                                audioPlayer.source = currentTrack.path
-                                            }
-                                            audioPlayer.play()
+                                iconName: isPlaying ? "pause" : "play"
+                                iconSize: Constants.iconSizeLarge
+                                buttonSize: Constants.touchTargetLarge
+                                variant: "primary"
+                                onClicked: {
+                                    HapticService.medium()
+                                    if (isPlaying) {
+                                        audioPlayer.pause()
+                                    } else {
+                                        if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState) {
+                                            audioPlayer.source = currentTrack.path
                                         }
-                                    }
-                                }
-                                
-                                Behavior on scale {
-                                    NumberAnimation { duration: 100 }
-                                }
-                            }
-                            
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.touchTargetMedium
-                                height: Constants.touchTargetMedium
-                                radius: Constants.borderRadiusSharp
-                                color: "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-                                antialiasing: Constants.enableAntialiasing
-                                
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "skip-forward"
-                                    size: Constants.iconSizeMedium
-                                    color: MColors.textPrimary
-                                }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.color = MColors.surface
-                                        HapticService.light()
-                                    }
-                                    onReleased: {
-                                        parent.color = "transparent"
-                                    }
-                                    onCanceled: {
-                                        parent.color = "transparent"
-                                    }
-                                    onClicked: {
-                                        console.log("Next track")
+                                        audioPlayer.play()
                                     }
                                 }
                             }
                             
-                            Rectangle {
+                            MIconButton {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.touchTargetMedium
-                                height: Constants.touchTargetMedium
-                                radius: Constants.borderRadiusSharp
-                                color: repeatMode !== "off" ? MColors.marathonTeal : "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: repeatMode !== "off" ? MColors.marathonTealDark : MColors.border
-                                antialiasing: Constants.enableAntialiasing
-                                
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: repeatMode === "one" ? "repeat-1" : "repeat"
-                                    size: Constants.iconSizeMedium
-                                    color: MColors.textPrimary
+                                iconName: "skip-forward"
+                                iconSize: Constants.iconSizeMedium
+                                variant: "secondary"
+                                onClicked: {
+                                    HapticService.light()
+                                    playNext()
                                 }
-                                
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        HapticService.light()
-                                    }
-                                    onClicked: {
-                                        if (repeatMode === "off") {
-                                            repeatMode = "all"
-                                        } else if (repeatMode === "all") {
-                                            repeatMode = "one"
-                                        } else {
-                                            repeatMode = "off"
-                                        }
+                            }
+                            
+                            MIconButton {
+                                anchors.verticalCenter: parent.verticalCenter
+                                iconName: repeatMode === "one" ? "repeat-1" : "repeat"
+                                iconSize: Constants.iconSizeMedium
+                                variant: repeatMode !== "off" ? "primary" : "secondary"
+                                onClicked: {
+                                    HapticService.light()
+                                    if (repeatMode === "off") {
+                                        repeatMode = "all"
+                                    } else if (repeatMode === "all") {
+                                        repeatMode = "one"
+                                    } else {
+                                        repeatMode = "off"
                                     }
                                 }
                             }
@@ -466,34 +357,29 @@ MApp {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    topMargin: Constants.spacingMedium
+                    topMargin: MSpacing.md
                     
                     model: playlist
                     
-                    delegate: Rectangle {
+                    delegate: Item {
                         width: ListView.view.width
-                        height: Constants.touchTargetLarge + Constants.spacingSmall
-                        color: "transparent"
+                        height: Constants.touchTargetLarge + MSpacing.sm
                         
-                        Rectangle {
+                        MCard {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
                             anchors.topMargin: 0
-                            color: MColors.surface
-                            radius: Constants.borderRadiusSharp
-                            border.width: Constants.borderWidthThin
-                            border.color: index === 0 ? MColors.marathonTeal : MColors.border
-                            antialiasing: Constants.enableAntialiasing
+                            interactive: true
+                            elevation: index === 0 ? 2 : 1
                             
                             Row {
                                 anchors.fill: parent
-                                anchors.margins: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                                spacing: MSpacing.md
                                 
                                 Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: Constants.iconSizeLarge + Constants.spacingMedium
-                                    height: Constants.iconSizeLarge + Constants.spacingMedium
+                                    width: Constants.iconSizeLarge + MSpacing.md
+                                    height: Constants.iconSizeLarge + MSpacing.md
                                     radius: Constants.borderRadiusSharp
                                     color: MColors.elevated
                                     border.width: Constants.borderWidthThin
@@ -510,37 +396,37 @@ MApp {
                                 
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - parent.spacing * 3 - Constants.iconSizeLarge - Constants.spacingMedium - 40
-                                    spacing: Constants.spacingXSmall
+                                    width: parent.width - parent.spacing * 3 - Constants.iconSizeLarge - MSpacing.md - 40
+                                    spacing: MSpacing.xs
                                     
-                                    Text {
+                                    MLabel {
                                         width: parent.width
                                         text: modelData.title
-                                        font.pixelSize: Constants.fontSizeMedium
+                                        variant: index === 0 ? "accent" : "primary"
+                                        font.pixelSize: MTypography.sizeBody
                                         font.weight: index === 0 ? Font.Bold : Font.DemiBold
-                                        color: index === 0 ? MColors.marathonTeal : MColors.textPrimary
                                         elide: Text.ElideRight
                                     }
                                     
                                     Row {
-                                        spacing: Constants.spacingSmall
+                                        spacing: MSpacing.sm
                                         
-                                        Text {
+                                        MLabel {
                                             text: modelData.artist
-                                            font.pixelSize: Constants.fontSizeSmall
-                                            color: MColors.textSecondary
+                                            variant: "secondary"
+                                            font.pixelSize: MTypography.sizeSmall
                                         }
                                         
-                                        Text {
+                                        MLabel {
                                             text: "•"
-                                            font.pixelSize: Constants.fontSizeSmall
-                                            color: MColors.textSecondary
+                                            variant: "secondary"
+                                            font.pixelSize: MTypography.sizeSmall
                                         }
                                         
-                                        Text {
+                                        MLabel {
                                             text: formatTime(modelData.duration)
-                                            font.pixelSize: Constants.fontSizeSmall
-                                            color: MColors.textSecondary
+                                            variant: "secondary"
+                                            font.pixelSize: MTypography.sizeSmall
                                         }
                                     }
                                 }
@@ -553,23 +439,20 @@ MApp {
                                 }
                             }
                             
-                            MouseArea {
-                                anchors.fill: parent
-                                onPressed: {
-                                    parent.color = MColors.elevated
-                                    HapticService.light()
-                                }
-                                onReleased: {
-                                    parent.color = MColors.surface
-                                }
-                                onCanceled: {
-                                    parent.color = MColors.surface
-                                }
-                                onClicked: {
-                                    console.log("Play track:", modelData.title)
-                                }
+                            onClicked: {
+                                HapticService.light()
+                                playTrack(modelData)
                             }
                         }
+                    }
+                    
+                    MEmptyState {
+                        anchors.fill: parent
+                        visible: playlist.length === 0
+                        iconName: "music-2"
+                        iconSize: 96
+                        title: "No Music Yet"
+                        message: "Your music library is empty. Add some music files to get started!"
                     }
                 }
             }

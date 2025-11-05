@@ -24,29 +24,29 @@ SettingsPageTemplate {
     property string pageName: soundType
     
     content: Flickable {
-        contentHeight: soundContent.height + Constants.spacingXLarge * 3
+        contentHeight: soundContent.height + MSpacing.xl * 3
         clip: true
         boundsBehavior: Flickable.DragAndOvershootBounds
         
         Column {
             id: soundContent
             width: parent.width
-            spacing: Constants.spacingLarge
-            leftPadding: Constants.spacingLarge
-            rightPadding: Constants.spacingLarge
-            topPadding: Constants.spacingLarge
+            spacing: MSpacing.lg
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             Text {
                 text: "Tap a sound to preview it"
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
             }
             
             MSection {
                 title: "Available Sounds"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 
                 Column {
                     width: parent.width
@@ -81,7 +81,7 @@ SettingsPageTemplate {
                                 Icon {
                                     id: soundIcon
                                     anchors.left: parent.left
-                                    anchors.leftMargin: Constants.spacingMedium
+                                    anchors.leftMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
                                     name: soundPickerPage.currentSound === modelData ? "volume-2" : "music"
                                     size: Constants.iconSizeMedium
@@ -91,9 +91,9 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     anchors.left: soundIcon.right
-                                    anchors.leftMargin: Constants.spacingMedium
+                                    anchors.leftMargin: MSpacing.md
                                     anchors.right: checkBox.left
-                                    anchors.rightMargin: Constants.spacingMedium
+                                    anchors.rightMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: SettingsManagerCpp.formatSoundName(modelData)
                                     color: MColors.textPrimary
@@ -107,7 +107,7 @@ SettingsPageTemplate {
                                 Rectangle {
                                     id: checkBox
                                     anchors.right: parent.right
-                                    anchors.rightMargin: Constants.spacingMedium
+                                    anchors.rightMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: Constants.iconSizeMedium
                                     height: Constants.iconSizeMedium

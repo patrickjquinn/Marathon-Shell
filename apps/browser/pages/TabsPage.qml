@@ -21,23 +21,23 @@ Rectangle {
         
         Item {
             width: parent.width
-            height: parent.height - (Constants.touchTargetSmall + Constants.spacingMedium)
+            height: parent.height - (Constants.touchTargetSmall + MSpacing.md)
             
             ListView {
                 id: tabsList
                 anchors.fill: parent
                 clip: true
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 
                 model: tabsPage.tabs
                 
                 delegate: Item {
                     width: tabsList.width
-                    height: Constants.cardHeight + Constants.spacingMedium
+                    height: Constants.cardHeight + MSpacing.md
                     
                     TabCard {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - Constants.spacingLarge * 2
+                        width: parent.width - MSpacing.lg * 2
                         tabData: modelData
                         isCurrentTab: modelData.id === tabsPage.currentTabId
                         
@@ -53,22 +53,22 @@ Rectangle {
                     }
                 }
                 
-                header: Item { height: Constants.spacingMedium }
-                footer: Item { height: Constants.spacingMedium }
+                header: Item { height: MSpacing.md }
+                footer: Item { height: MSpacing.md }
             }
             
             Text {
                 visible: tabsPage.tabs.length === 0
                 anchors.centerIn: parent
                 text: "No open tabs"
-                font.pixelSize: Constants.fontSizeLarge
+                font.pixelSize: MTypography.sizeLarge
                 color: MColors.textTertiary
             }
         }
         
         Rectangle {
             width: parent.width
-            height: Constants.touchTargetSmall + Constants.spacingMedium
+            height: Constants.touchTargetSmall + MSpacing.md
             color: MColors.surface
             opacity: tabsPage.tabs.length >= 20 ? 0.5 : 1.0
             
@@ -81,7 +81,7 @@ Rectangle {
             
             Row {
                 anchors.centerIn: parent
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
@@ -93,7 +93,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: tabsPage.tabs.length >= 20 ? "Tab Limit Reached" : "New Tab"
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
                     color: tabsPage.tabs.length >= 20 ? MColors.textTertiary : MColors.accent
                 }

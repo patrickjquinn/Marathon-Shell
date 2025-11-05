@@ -17,7 +17,7 @@ SettingsPageTemplate {
         Column {
             id: displayContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -28,7 +28,7 @@ SettingsPageTemplate {
                 
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
                     
                     Slider {
                         width: parent.width
@@ -181,7 +181,7 @@ SettingsPageTemplate {
                 Column {
                     id: clockPositionContent
                     width: parent.width
-                    spacing: Constants.spacingXLarge
+                    spacing: MSpacing.xl
                     leftPadding: 24
                     rightPadding: 24
                     topPadding: 24

@@ -43,13 +43,13 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.md
                 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Constants.iconSizeMedium + Constants.spacingSmall
-                    height: Constants.iconSizeMedium + Constants.spacingSmall
+                    width: Constants.iconSizeMedium + MSpacing.sm
+                    height: Constants.iconSizeMedium + MSpacing.sm
                     radius: Constants.borderRadiusSharp
                     color: MColors.elevated
                     border.width: Constants.borderWidthThin
@@ -59,7 +59,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: conversation ? conversation.contactName.charAt(0).toUpperCase() : ""
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.Bold
                         color: MColors.marathonTeal
                     }
@@ -68,7 +68,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: conversation ? conversation.contactName : ""
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: MColors.textPrimary
                 }
@@ -80,26 +80,26 @@ Rectangle {
             width: parent.width
             height: parent.height - parent.children[0].height - parent.children[2].height
             clip: true
-            topMargin: Constants.spacingMedium
+            topMargin: MSpacing.md
             verticalLayoutDirection: ListView.BottomToTop
-            spacing: Constants.spacingSmall
+            spacing: MSpacing.sm
             
             model: messages.slice().reverse()
             
             delegate: Item {
                 width: messagesList.width
-                height: messageBubble.height + timestampText.height + Constants.spacingSmall * 2
+                height: messageBubble.height + timestampText.height + MSpacing.sm * 2
                 
                 Column {
                     anchors.left: modelData.isOutgoing ? undefined : parent.left
                     anchors.right: modelData.isOutgoing ? parent.right : undefined
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingXSmall
+                    anchors.margins: MSpacing.md
+                    spacing: MSpacing.xs
                     
                     Rectangle {
                         id: messageBubble
-                        width: Math.min(messageText.implicitWidth + Constants.spacingMedium * 2, messagesList.width * 0.75)
-                        height: messageText.implicitHeight + Constants.spacingMedium * 2
+                        width: Math.min(messageText.implicitWidth + MSpacing.md * 2, messagesList.width * 0.75)
+                        height: messageText.implicitHeight + MSpacing.md * 2
                         radius: Constants.borderRadiusSharp
                         color: modelData.isOutgoing ? MColors.marathonTeal : MColors.surface
                         border.width: Constants.borderWidthThin
@@ -109,9 +109,9 @@ Rectangle {
                         Text {
                             id: messageText
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
                             text: modelData.text
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             color: modelData.isOutgoing ? MColors.textPrimary : MColors.textPrimary
                             wrapMode: Text.Wrap
                         }
@@ -120,7 +120,7 @@ Rectangle {
                     Text {
                         id: timestampText
                         text: new Date(modelData.timestamp).toLocaleTimeString(Qt.locale(), "h:mm AP")
-                        font.pixelSize: Constants.fontSizeXSmall
+                        font.pixelSize: MTypography.sizeXSmall
                         color: MColors.textTertiary
                         anchors.left: modelData.isOutgoing ? undefined : parent.left
                         anchors.right: modelData.isOutgoing ? parent.right : undefined
@@ -143,8 +143,8 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.md
                 
                 MTextInput {
                     id: messageInput

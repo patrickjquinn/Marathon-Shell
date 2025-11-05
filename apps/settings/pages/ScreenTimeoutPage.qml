@@ -11,30 +11,30 @@ SettingsPageTemplate {
     property string pageName: "screentimeout"
     
     content: Flickable {
-        contentHeight: timeoutContent.height + Constants.spacingXLarge * 3
+        contentHeight: timeoutContent.height + MSpacing.xl * 3
         clip: true
         boundsBehavior: Flickable.DragAndOvershootBounds
         
         Column {
             id: timeoutContent
             width: parent.width
-            spacing: Constants.spacingLarge
-            leftPadding: Constants.spacingLarge
-            rightPadding: Constants.spacingLarge
-            topPadding: Constants.spacingLarge
+            spacing: MSpacing.lg
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             Text {
                 text: "Choose how long before your screen turns off"
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 wrapMode: Text.WordWrap
             }
             
             MSection {
                 title: "Timeout Duration"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 
                 Column {
                     width: parent.width
@@ -64,9 +64,9 @@ SettingsPageTemplate {
                             
                             Row {
                                 anchors.fill: parent
-                                anchors.leftMargin: Constants.spacingMedium
-                                anchors.rightMargin: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                                anchors.leftMargin: MSpacing.md
+                                anchors.rightMargin: MSpacing.md
+                                spacing: MSpacing.md
                                 
                                 Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter

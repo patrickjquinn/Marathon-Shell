@@ -143,7 +143,7 @@ MApp {
         MIconButton {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
             iconName: "plus"
             iconSize: 28
             variant: "primary"

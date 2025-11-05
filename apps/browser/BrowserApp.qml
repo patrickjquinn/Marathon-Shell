@@ -662,7 +662,7 @@ MApp {
             Rectangle {
                 id: urlBar
                 width: parent.width
-                height: Constants.touchTargetMedium + Constants.spacingSmall
+                height: Constants.touchTargetMedium + MSpacing.sm
                 color: isPrivateMode ? Qt.rgba(0.5, 0, 0.5, 0.3) : MColors.surface
                 
                 Rectangle {
@@ -697,9 +697,9 @@ MApp {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingSmall
-                    anchors.rightMargin: Constants.spacingSmall
-                    spacing: Constants.spacingXSmall
+                    anchors.leftMargin: MSpacing.sm
+                    anchors.rightMargin: MSpacing.sm
+                    spacing: MSpacing.xs
                     
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
@@ -774,7 +774,7 @@ MApp {
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - Constants.touchTargetSmall * 5 - parent.spacing * 6
-                        height: parent.height - Constants.spacingSmall * 2
+                        height: parent.height - MSpacing.sm * 2
                         radius: Constants.borderRadiusSmall
                         color: MColors.elevated
                         border.width: Constants.borderWidthThin
@@ -784,11 +784,11 @@ MApp {
                         TextInput {
                             id: urlInput
                             anchors.fill: parent
-                            anchors.leftMargin: Constants.spacingMedium
-                            anchors.rightMargin: clearButton.visible ? clearButton.width + Constants.spacingMedium : Constants.spacingMedium
+                            anchors.leftMargin: MSpacing.md
+                            anchors.rightMargin: clearButton.visible ? clearButton.width + MSpacing.md : MSpacing.md
                             verticalAlignment: TextInput.AlignVCenter
                             color: MColors.text
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
                             selectByMouse: true
                             selectedTextColor: MColors.background
@@ -817,7 +817,7 @@ MApp {
                                 visible: !urlInput.text && !urlInput.activeFocus
                                 text: isPrivateMode ? "Private Browsing" : "Search or enter URL"
                                 color: MColors.textTertiary
-                                font.pixelSize: Constants.fontSizeMedium
+                                font.pixelSize: MTypography.sizeBody
                                 font.family: MTypography.fontFamily
                             }
                         }
@@ -825,7 +825,7 @@ MApp {
                         Rectangle {
                             id: clearButton
                             anchors.right: parent.right
-                            anchors.rightMargin: Constants.spacingSmall
+                            anchors.rightMargin: MSpacing.sm
                             anchors.verticalCenter: parent.verticalCenter
                             width: Constants.touchTargetSmall * 0.7
                             height: Constants.touchTargetSmall * 0.7
@@ -931,7 +931,7 @@ MApp {
                         
                         Row {
                             anchors.centerIn: parent
-                            anchors.horizontalCenterOffset: -Constants.spacingXSmall
+                            anchors.horizontalCenterOffset: -MSpacing.xs
                             spacing: 3
                             
                             Icon {
@@ -944,7 +944,7 @@ MApp {
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "(" + tabs.length + ")"
-                                font.pixelSize: Constants.fontSizeSmall * 0.85
+                                font.pixelSize: MTypography.sizeSmall * 0.85
                                 font.weight: Font.Normal
                                 color: MColors.textTertiary
                                 visible: tabs.length > 0

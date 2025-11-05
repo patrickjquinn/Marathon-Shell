@@ -58,20 +58,20 @@ Rectangle {
         
         Column {
             anchors.fill: parent
-            anchors.margins: Constants.spacingLarge
-            spacing: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
+            spacing: MSpacing.lg
             
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: isEditMode ? "Edit Alarm" : "Set Alarm Time"
-                font.pixelSize: Constants.fontSizeLarge
+                font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.Bold
                 color: MColors.text
             }
             
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 
                 Tumbler {
                     id: hourTumbler
@@ -80,7 +80,7 @@ Rectangle {
                     model: 24
                     delegate: Text {
                         text: modelData.toString().padStart(2, '0')
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         color: MColors.text
                         opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
                         horizontalAlignment: Text.AlignHCenter
@@ -91,7 +91,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: ":"
-                    font.pixelSize: Constants.fontSizeXLarge
+                    font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
                 }
@@ -103,7 +103,7 @@ Rectangle {
                     model: 60
                     delegate: Text {
                         text: modelData.toString().padStart(2, '0')
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         color: MColors.text
                         opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
                         horizontalAlignment: Text.AlignHCenter
@@ -112,11 +112,11 @@ Rectangle {
                 }
             }
             
-            Item { height: Constants.spacingLarge }
+            Item { height: MSpacing.lg }
             
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 
                 MButton {
                     text: "Cancel"

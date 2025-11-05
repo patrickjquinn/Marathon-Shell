@@ -37,21 +37,21 @@ Item {
             width: parent.width
             height: parent.height * 0.4
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             
-            Item { height: Constants.spacingLarge; width: 1 }
+            Item { height: MSpacing.lg; width: 1 }
             
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: formatTime(elapsedMs)
                 color: MColors.textPrimary
-                font.pixelSize: Constants.fontSizeHuge * 1.2
+                font.pixelSize: MTypography.sizeHuge * 1.2
                 font.weight: Font.Bold
             }
             
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 
                 MButton {
                     text: isRunning ? "Lap" : "Start"
@@ -103,15 +103,15 @@ Item {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingLarge
-                    anchors.rightMargin: Constants.spacingLarge
-                    spacing: Constants.spacingMedium
+                    anchors.leftMargin: MSpacing.lg
+                    anchors.rightMargin: MSpacing.lg
+                    spacing: MSpacing.md
                     
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Lap " + (index + 1)
                         color: MColors.textPrimary
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         width: parent.width * 0.3
                     }
                     
@@ -119,7 +119,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         text: formatTime(modelData)
                         color: MColors.marathonTeal
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                     }
                 }
@@ -128,8 +128,8 @@ Item {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: Constants.spacingLarge
-                    anchors.rightMargin: Constants.spacingLarge
+                    anchors.leftMargin: MSpacing.lg
+                    anchors.rightMargin: MSpacing.lg
                     height: Constants.borderWidthThin
                     color: MColors.border
                 }

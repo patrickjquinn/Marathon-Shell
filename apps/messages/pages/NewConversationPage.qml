@@ -31,8 +31,8 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.md
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
@@ -46,7 +46,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "New Message"
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: MColors.textPrimary
                 }
@@ -72,13 +72,13 @@ Rectangle {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
+                    spacing: MSpacing.md
                     
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "To:"
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                         color: MColors.textPrimary
                     }
@@ -136,7 +136,7 @@ Rectangle {
                     
                     Rectangle {
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingXSmall
+                        anchors.margins: MSpacing.xs
                         color: MColors.surface
                         radius: Constants.borderRadiusSharp
                         border.width: Constants.borderWidthThin
@@ -144,13 +144,13 @@ Rectangle {
                         
                         Row {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
+                            anchors.margins: MSpacing.md
+                            spacing: MSpacing.md
                             
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.iconSizeMedium + Constants.spacingSmall
-                                height: Constants.iconSizeMedium + Constants.spacingSmall
+                                width: Constants.iconSizeMedium + MSpacing.sm
+                                height: Constants.iconSizeMedium + MSpacing.sm
                                 radius: Constants.borderRadiusSharp
                                 color: MColors.elevated
                                 border.width: Constants.borderWidthThin
@@ -159,7 +159,7 @@ Rectangle {
                                 Text {
                                     anchors.centerIn: parent
                                     text: modelData.name ? modelData.name.charAt(0).toUpperCase() : "?"
-                                    font.pixelSize: Constants.fontSizeMedium
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.Bold
                                     color: MColors.marathonTeal
                                 }
@@ -168,12 +168,12 @@ Rectangle {
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - parent.children[0].width - parent.spacing
-                                spacing: Constants.spacingXSmall
+                                spacing: MSpacing.xs
                                 
                                 Text {
                                     width: parent.width
                                     text: modelData.name
-                                    font.pixelSize: Constants.fontSizeMedium
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
                                     color: MColors.textPrimary
                                     elide: Text.ElideRight
@@ -181,7 +181,7 @@ Rectangle {
                                 
                                 Text {
                                     text: modelData.phone
-                                    font.pixelSize: Constants.fontSizeSmall
+                                    font.pixelSize: MTypography.sizeSmall
                                     color: MColors.textSecondary
                                 }
                             }

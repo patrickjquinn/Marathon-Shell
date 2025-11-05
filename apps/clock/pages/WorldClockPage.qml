@@ -55,7 +55,7 @@ Item {
     
     ListView {
         anchors.fill: parent
-        anchors.topMargin: Constants.spacingMedium
+        anchors.topMargin: MSpacing.md
         clip: true
         model: timeModel
         spacing: 0
@@ -66,26 +66,26 @@ Item {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Constants.spacingLarge
-                anchors.rightMargin: Constants.spacingLarge
-                spacing: Constants.spacingMedium
+                anchors.leftMargin: MSpacing.lg
+                anchors.rightMargin: MSpacing.lg
+                spacing: MSpacing.md
                 
                 Column {
                     width: parent.width - timeText.width - parent.spacing
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: Constants.spacingXSmall
+                    spacing: MSpacing.xs
                     
                     Text {
                         text: model.cityName
                         color: MColors.textPrimary
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                     }
                     
                     Text {
                         text: model.timeDiff
                         color: MColors.textSecondary
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                     }
                 }
                 
@@ -94,7 +94,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     text: model.cityTime
                     color: MColors.marathonTeal
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                 }
             }
@@ -103,8 +103,8 @@ Item {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.leftMargin: Constants.spacingLarge
-                anchors.rightMargin: Constants.spacingLarge
+                anchors.leftMargin: MSpacing.lg
+                anchors.rightMargin: MSpacing.lg
                 height: Constants.borderWidthThin
                 color: MColors.border
             }

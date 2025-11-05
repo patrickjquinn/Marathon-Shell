@@ -44,37 +44,37 @@ Item {
         Column {
             id: mainColumn
             width: parent.width
-            spacing: Constants.spacingXLarge * 2
-            topPadding: Constants.spacingXLarge * 2
-            bottomPadding: Constants.spacingLarge
+            spacing: MSpacing.xl * 2
+            topPadding: MSpacing.xl * 2
+            bottomPadding: MSpacing.lg
             
             // Timer display
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: formatTime(remainingSeconds)
                 color: MColors.textPrimary
-                font.pixelSize: Constants.fontSizeHuge * 1.8
+                font.pixelSize: MTypography.sizeHuge * 1.8
                 font.weight: Font.Light
             }
             
             // Quick timer buttons
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 visible: !isRunning && remainingSeconds === 0
-                width: Math.min(parent.width - Constants.spacingLarge * 2, Constants.screenWidth * 0.8)
+                width: Math.min(parent.width - MSpacing.lg * 2, Constants.screenWidth * 0.8)
                 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Quick Timers"
                     color: MColors.textSecondary
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                 }
                 
                 Grid {
                     anchors.horizontalCenter: parent.horizontalCenter
                     columns: 3
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
                     width: parent.width
                     
                     Repeater {
@@ -103,7 +103,7 @@ Item {
             // Control buttons
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 visible: remainingSeconds > 0
                 
                 MButton {

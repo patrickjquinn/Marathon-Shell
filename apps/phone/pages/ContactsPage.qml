@@ -9,16 +9,16 @@ Rectangle {
     ListView {
         id: contactsList
         anchors.fill: parent
-        anchors.leftMargin: Constants.spacingMedium
-        anchors.rightMargin: Constants.spacingMedium
-        anchors.bottomMargin: Constants.spacingMedium
-        spacing: Constants.spacingSmall
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
+        anchors.bottomMargin: MSpacing.md
+        spacing: MSpacing.sm
         clip: true
         
         // Header spacer for top padding
         header: Item {
             width: parent.width
-            height: Constants.spacingLarge
+            height: MSpacing.lg
         }
         
         model: phoneApp.contacts
@@ -34,8 +34,8 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.md
                 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
@@ -50,7 +50,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: modelData.name.charAt(0).toUpperCase()
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Bold
                         color: MColors.accent
                     }
@@ -59,14 +59,14 @@ Rectangle {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - parent.spacing * 3 - Constants.iconSizeLarge - Constants.iconSizeMedium
-                    spacing: Constants.spacingXSmall
+                    spacing: MSpacing.xs
                     
                     Row {
-                        spacing: Constants.spacingSmall
+                        spacing: MSpacing.sm
                         
                         Text {
                             text: modelData.name
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             font.weight: Font.DemiBold
                             color: MColors.text
                         }
@@ -82,7 +82,7 @@ Rectangle {
                     
                     Text {
                         text: modelData.phone
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         color: MColors.textSecondary
                     }
                 }

@@ -117,7 +117,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 0
         width: Math.min(parent.width, Math.round(500 * Constants.scaleFactor))
-        height: contentColumn.height + Constants.spacingXXLarge
+        height: contentColumn.height + MSpacing.xxl
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: Constants.borderWidthThin
@@ -135,13 +135,13 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Constants.spacingLarge
-            spacing: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
+            spacing: MSpacing.lg
 
             // Header row
             Row {
                 width: parent.width
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
 
                 // Device icon
                 Rectangle {
@@ -161,8 +161,8 @@ Item {
 
                 // Device info
                 Column {
-                    width: parent.width - Constants.touchTargetMedium - Constants.spacingMedium
-                    spacing: Constants.spacingXSmall
+                    width: parent.width - Constants.touchTargetMedium - MSpacing.md
+                    spacing: MSpacing.xs
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
@@ -201,8 +201,8 @@ Item {
 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
+                    spacing: MSpacing.md
 
                     Icon {
                         name: "key"
@@ -214,7 +214,7 @@ Item {
                     TextInput {
                         id: pinInput
                         visible: pairingMode === "pin"
-                        width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
+                        width: parent.width - Constants.iconSizeMedium - MSpacing.md
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
                         font.family: Typography.fontFamily
@@ -243,7 +243,7 @@ Item {
                     TextInput {
                         id: passkeyInput
                         visible: pairingMode === "passkey"
-                        width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
+                        width: parent.width - Constants.iconSizeMedium - MSpacing.md
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
                         font.family: Typography.fontFamily
@@ -283,7 +283,7 @@ Item {
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
 
                     Text {
                         text: displayedPasskey
@@ -308,7 +308,7 @@ Item {
             // Error message
             Rectangle {
                 width: parent.width
-                height: errorText.height + Constants.spacingMedium
+                height: errorText.height + MSpacing.md
                 radius: Constants.borderRadiusSmall
                 color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
                 border.width: Constants.borderWidthThin
@@ -317,8 +317,8 @@ Item {
 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingSmall
-                    spacing: Constants.spacingSmall
+                    anchors.margins: MSpacing.sm
+                    spacing: MSpacing.sm
 
                     Icon {
                         name: "alert-circle"
@@ -335,7 +335,7 @@ Item {
                         font.family: Typography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
-                        width: parent.width - Constants.iconSizeSmall - Constants.spacingSmall
+                        width: parent.width - Constants.iconSizeSmall - MSpacing.sm
                     }
                 }
             }
@@ -343,12 +343,12 @@ Item {
             // Pairing progress
             Column {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 visible: isPairing
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
 
                     BusyIndicator {
                         width: Constants.iconSizeMedium
@@ -371,12 +371,12 @@ Item {
             Row {
                 width: parent.width
                 height: Constants.touchTargetMedium
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 visible: !isPairing
 
                 // Cancel/Reject button
                 Rectangle {
-                    width: (parent.width - Constants.spacingMedium) / 2
+                    width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: "transparent"
@@ -411,7 +411,7 @@ Item {
                 // Pair/Accept button
                 Rectangle {
                     id: pairButton
-                    width: (parent.width - Constants.spacingMedium) / 2
+                    width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: canPair() ? MColors.marathonTeal : Qt.darker(MColors.marathonTeal, 1.5)

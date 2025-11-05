@@ -366,6 +366,7 @@ qt6_add_qml_module(marathon-ui-core
         qml/MarathonUI/Core/MLabel.qml
         qml/MarathonUI/Core/MDateTimePicker.qml
         qml/MarathonUI/Core/MImageButton.qml
+        qml/MarathonUI/Core/MEmptyState.qml
         qml/MarathonUI/Core/Icon.qml
         qml/MarathonUI/Core/MBreakpoints.qml
         qml/MarathonUI/Core/MResponsive.qml

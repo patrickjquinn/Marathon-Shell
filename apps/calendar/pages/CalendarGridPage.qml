@@ -25,7 +25,7 @@ Rectangle {
         
         Rectangle {
             width: parent.width
-            height: Constants.touchTargetLarge + Constants.spacingLarge
+            height: Constants.touchTargetLarge + MSpacing.lg
             color: MColors.surface
             
             Rectangle {
@@ -37,7 +37,7 @@ Rectangle {
             
             Row {
                 anchors.centerIn: parent
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
@@ -57,7 +57,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: Qt.formatDate(selectedDate, "MMMM yyyy")
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: MColors.text
                 }
@@ -96,7 +96,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: modelData
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.Bold
                         color: MColors.textSecondary
                     }
@@ -108,7 +108,7 @@ Rectangle {
                 
                 Rectangle {
                     width: calendarGridPage.width / 7
-                    height: (calendarGridPage.height - Constants.touchTargetLarge - Constants.spacingLarge - Constants.touchTargetMedium) / 6
+                    height: (calendarGridPage.height - Constants.touchTargetLarge - MSpacing.lg - Constants.touchTargetMedium) / 6
                     color: "transparent"
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
@@ -150,8 +150,8 @@ Rectangle {
                     
                     Column {
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingXSmall
-                        spacing: Constants.spacingXSmall
+                        anchors.margins: MSpacing.xs
+                        spacing: MSpacing.xs
                         
                         Rectangle {
                             width: Constants.touchTargetMedium
@@ -163,7 +163,7 @@ Rectangle {
                             Text {
                                 anchors.centerIn: parent
                                 text: parent.parent.parent.dayNumber
-                                font.pixelSize: Constants.fontSizeSmall
+                                font.pixelSize: MTypography.sizeSmall
                                 font.weight: parent.parent.parent.isToday ? Font.Bold : Font.Normal
                                 color: parent.parent.parent.isCurrentMonth ? (parent.parent.parent.isToday ? MColors.text : MColors.text) : MColors.textTertiary
                             }
@@ -174,7 +174,7 @@ Rectangle {
                             
                             Rectangle {
                                 width: parent.width
-                                height: Constants.spacingMedium
+                                height: MSpacing.md
                                 radius: Constants.borderRadiusSharp
                                 color: MColors.accent
                                 
@@ -182,7 +182,7 @@ Rectangle {
                                     anchors.fill: parent
                                     anchors.margins: 1
                                     text: parent.parent.parent.dayEvents[index].title
-                                    font.pixelSize: Constants.fontSizeXSmall
+                                    font.pixelSize: MTypography.sizeXSmall
                                     color: MColors.text
                                     elide: Text.ElideRight
                                     verticalAlignment: Text.AlignVCenter
@@ -194,7 +194,7 @@ Rectangle {
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: parent.parent.dayEvents.length > 3 ? "+" + (parent.parent.dayEvents.length - 3) : ""
-                            font.pixelSize: Constants.fontSizeXSmall
+                            font.pixelSize: MTypography.sizeXSmall
                             color: MColors.textSecondary
                             visible: parent.parent.dayEvents.length > 3
                         }

@@ -9,10 +9,10 @@ Rectangle {
     ListView {
         id: historyList
         anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
-        spacing: Constants.spacingSmall
+        anchors.margins: MSpacing.md
+        spacing: MSpacing.sm
         clip: true
-        topMargin: Constants.spacingMedium
+        topMargin: MSpacing.md
         
         model: phoneApp.callHistory
         
@@ -27,8 +27,8 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.md
                 
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
@@ -41,36 +41,36 @@ Rectangle {
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
-                    spacing: Constants.spacingXSmall
+                    spacing: MSpacing.xs
                     
                     Text {
                         width: parent.width
                         text: modelData.contactName
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                         color: MColors.text
                         elide: Text.ElideRight
                     }
                     
                     Row {
-                        spacing: Constants.spacingSmall
+                        spacing: MSpacing.sm
                         
                         Text {
                             text: modelData.phone
-                            font.pixelSize: Constants.fontSizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                             color: MColors.textSecondary
                         }
                         
                         Text {
                             text: "•"
-                            font.pixelSize: Constants.fontSizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                             color: MColors.textSecondary
                             visible: modelData.duration > 0
                         }
                         
                         Text {
                             text: formatDuration(modelData.duration)
-                            font.pixelSize: Constants.fontSizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                             color: MColors.textSecondary
                             visible: modelData.duration > 0
                         }
@@ -80,7 +80,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: formatTimestamp(modelData.timestamp)
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
                     color: MColors.textTertiary
                 }
             }
@@ -107,7 +107,7 @@ Rectangle {
             anchors.centerIn: parent
             visible: historyList.count === 0
             text: "No call history"
-            font.pixelSize: Constants.fontSizeLarge
+            font.pixelSize: MTypography.sizeLarge
             color: MColors.textSecondary
         }
     }

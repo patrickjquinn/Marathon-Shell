@@ -77,8 +77,8 @@ MApp {
         
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: Constants.spacingMedium
-            spacing: Constants.spacingMedium
+            anchors.margins: MSpacing.md
+            spacing: MSpacing.md
             
             Rectangle {
                 Layout.fillWidth: true
@@ -88,11 +88,11 @@ MApp {
                 border.width: Constants.borderWidthThin
                 border.color: MColors.border
                 
-                Text {
+                MLabel {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
                     text: calcApp.display
-                    color: MColors.text
+                    variant: "primary"
                     font.pixelSize: 48
                     font.weight: Font.Bold
                     horizontalAlignment: Text.AlignRight
@@ -105,8 +105,8 @@ MApp {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 columns: 4
-                rowSpacing: Constants.spacingSmall
-                columnSpacing: Constants.spacingSmall
+                rowSpacing: MSpacing.sm
+                columnSpacing: MSpacing.sm
                 
                 Repeater {
                     model: [
@@ -118,17 +118,20 @@ MApp {
                     ]
                     
                     Item {
+                        required property string modelData
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.preferredHeight: 60
                         visible: modelData !== ""
                         
-                        MButton {
-                            anchors.fill: parent
+                        MCircularIconButton {
+                            anchors.centerIn: parent
                             text: modelData
+                            buttonSize: Math.min(parent.width, parent.height) - 10
+                            iconSize: 24
                             variant: {
                                 if (modelData === "=") return "primary"
-                                if (modelData === "C" || modelData === "⌫") return "danger"
+                                if (modelData === "C" || modelData === "⌫") return "secondary"
                                 if ("+-×÷".indexOf(modelData) !== -1) return "secondary"
                                 return "secondary"
                             }

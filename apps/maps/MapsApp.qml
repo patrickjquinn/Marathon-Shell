@@ -131,8 +131,8 @@ MApp {
                     
                     sourceItem: Rectangle {
                         id: locationDot
-                        width: Constants.spacingLarge
-                        height: Constants.spacingLarge
+                        width: MSpacing.lg
+                        height: MSpacing.lg
                         radius: width / 2
                         color: MColors.marathonTeal
                         border.width: Constants.borderWidthThick
@@ -157,7 +157,7 @@ MApp {
             
             Column {
                 anchors.centerIn: parent
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 
                 Icon {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -174,89 +174,63 @@ MApp {
                     }
                 }
                 
-                Text {
+                MLabel {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Loading map..."
-                    font.pixelSize: Constants.fontSizeLarge
-                    color: MColors.textSecondary
+                    variant: "secondary"
+                    font.pixelSize: MTypography.sizeLarge
                 }
             }
         }
         
-        Rectangle {
+        Row {
             id: searchBar
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.margins: Constants.spacingMedium
+            anchors.margins: MSpacing.md
             height: Constants.touchTargetLarge
-            color: MColors.surface
-            radius: Constants.borderRadiusSharp
-            border.width: Constants.borderWidthMedium
-            border.color: MColors.border
-            antialiasing: Constants.enableAntialiasing
+            spacing: MSpacing.sm
             z: 100
             
-            Row {
-                anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+            Icon {
+                anchors.verticalCenter: parent.verticalCenter
+                name: isSearching ? "loader" : "search"
+                size: Constants.iconSizeMedium
+                color: MColors.textSecondary
                 
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: isSearching ? "loader" : "search"
-                    size: Constants.iconSizeMedium
-                    color: MColors.textSecondary
-                    
-                    RotationAnimation on rotation {
-                        running: isSearching
-                        loops: Animation.Infinite
-                        from: 0
-                        to: 360
-                        duration: 1000
+                RotationAnimation on rotation {
+                    running: isSearching
+                    loops: Animation.Infinite
+                    from: 0
+                    to: 360
+                    duration: 1000
+                }
+            }
+            
+            MTextInput {
+                id: searchInput
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
+                placeholderText: "Search for places..."
+                
+                onTextChanged: {
+                    showSearch = text.length > 0
+                    if (text.length > 2) {
+                        searchTimer.restart()
                     }
                 }
-                
-                TextInput {
-                    id: searchInput
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
-                    font.pixelSize: Constants.fontSizeMedium
-                    color: MColors.textPrimary
-                    verticalAlignment: TextInput.AlignVCenter
-                    selectByMouse: true
-                    
-                    onTextChanged: {
-                        showSearch = text.length > 0
-                        if (text.length > 2) {
-                            searchTimer.restart()
-                        }
-                    }
-                    
-                    Text {
-                        anchors.fill: parent
-                        text: "Search for places..."
-                        font.pixelSize: Constants.fontSizeMedium
-                        color: MColors.textTertiary
-                        verticalAlignment: Text.AlignVCenter
-                        visible: !searchInput.text && !searchInput.activeFocus
-                    }
-                }
-                
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "x"
-                    size: Constants.iconSizeMedium
-                    color: MColors.textSecondary
-                    visible: searchInput.text.length > 0
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            searchInput.text = ""
-                            showSearch = false
-                        }
-                    }
+            }
+            
+            MIconButton {
+                anchors.verticalCenter: parent.verticalCenter
+                iconName: "x"
+                iconSize: 20
+                variant: "secondary"
+                visible: searchInput.text.length > 0
+                onClicked: {
+                    searchInput.text = ""
+                    showSearch = false
                 }
             }
         }
@@ -274,9 +248,9 @@ MApp {
             anchors.top: searchBar.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.margins: Constants.spacingMedium
-            anchors.topMargin: Constants.spacingSmall
-            height: Math.min(searchResultsList.contentHeight + Constants.spacingMedium * 2, parent.height * 0.5)
+            anchors.margins: MSpacing.md
+            anchors.topMargin: MSpacing.sm
+            height: Math.min(searchResultsList.contentHeight + MSpacing.md * 2, parent.height * 0.5)
             color: MColors.surface
             radius: Constants.borderRadiusSharp
             border.width: Constants.borderWidthMedium
@@ -287,28 +261,23 @@ MApp {
             ListView {
                 id: searchResultsList
                 anchors.fill: parent
-                anchors.margins: Constants.spacingSmall
+                anchors.margins: MSpacing.sm
                 clip: true
                 
                 model: searchResults
                 
-                delegate: Rectangle {
+                delegate: Item {
                     width: searchResultsList.width
-                    height: Constants.touchTargetLarge + Constants.spacingSmall
-                    color: "transparent"
+                    height: Constants.touchTargetLarge + MSpacing.sm
                     
-                    Rectangle {
+                    MCard {
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingXSmall
-                        color: MColors.surface
-                        radius: Constants.borderRadiusSharp
-                        border.width: Constants.borderWidthThin
-                        border.color: MColors.border
+                        anchors.margins: MSpacing.xs
+                        interactive: true
                         
                         Row {
                             anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
+                            spacing: MSpacing.md
                             
                             Icon {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -320,43 +289,31 @@ MApp {
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - parent.children[0].width - parent.spacing
-                                spacing: Constants.spacingXSmall
+                                spacing: MSpacing.xs
                                 
-                                Text {
+                                MLabel {
                                     width: parent.width
                                     text: modelData.name
-                                    font.pixelSize: Constants.fontSizeMedium
+                                    variant: "primary"
+                                    font.pixelSize: MTypography.sizeBody
                                     font.weight: Font.DemiBold
-                                    color: MColors.textPrimary
                                     elide: Text.ElideRight
                                 }
                                 
-                                Text {
+                                MLabel {
                                     width: parent.width
                                     text: modelData.address
-                                    font.pixelSize: Constants.fontSizeSmall
-                                    color: MColors.textSecondary
+                                    variant: "secondary"
+                                    font.pixelSize: MTypography.sizeSmall
                                     elide: Text.ElideRight
                                 }
                             }
                         }
                         
-                        MouseArea {
-                            anchors.fill: parent
-                            onPressed: {
-                                parent.color = MColors.elevated
-                                HapticService.light()
-                            }
-                            onReleased: {
-                                parent.color = MColors.surface
-                            }
-                            onCanceled: {
-                                parent.color = MColors.surface
-                            }
-                            onClicked: {
-                                Logger.info("Maps", "Selected: " + modelData.name)
-                                goToLocation(modelData.lat, modelData.lon)
-                            }
+                        onClicked: {
+                            HapticService.light()
+                            Logger.info("Maps", "Selected: " + modelData.name)
+                            goToLocation(modelData.lat, modelData.lon)
                         }
                     }
                 }
@@ -366,14 +323,15 @@ MApp {
         Column {
             anchors.right: parent.right
             anchors.bottom: locateButton.top
-            anchors.margins: Constants.spacingLarge
-            anchors.bottomMargin: Constants.spacingMedium
-            spacing: Constants.spacingMedium
+            anchors.margins: MSpacing.md
+            anchors.bottomMargin: MSpacing.sm
+            spacing: MSpacing.sm
             z: 100
             
-            MIconButton {
+            MCircularIconButton {
                 iconName: "plus"
-                iconSize: 24
+                iconSize: 20
+                buttonSize: 48
                 variant: "secondary"
                 onClicked: {
                     HapticService.light()
@@ -383,9 +341,10 @@ MApp {
                 }
             }
             
-            MIconButton {
+            MCircularIconButton {
                 iconName: "minus"
-                iconSize: 24
+                iconSize: 20
+                buttonSize: 48
                 variant: "secondary"
                 onClicked: {
                     HapticService.light()
@@ -396,15 +355,15 @@ MApp {
             }
         }
         
-        MIconButton {
+        MCircularIconButton {
             id: locateButton
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: Constants.spacingLarge
+            anchors.margins: MSpacing.md
             iconName: "navigation"
-            iconSize: 28
+            iconSize: 24
+            buttonSize: 56
             variant: "primary"
-            shape: "circular"
             onClicked: {
                 HapticService.medium()
                 if (positionSource.position.valid && mapLoader.item) {
