@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Containers
 
 Rectangle {
     id: settingsPage

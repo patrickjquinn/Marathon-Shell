@@ -2,6 +2,7 @@
 // Special characters and symbols
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 import "../UI"
 
 Item {

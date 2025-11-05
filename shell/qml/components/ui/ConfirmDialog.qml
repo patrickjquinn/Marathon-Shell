@@ -1,5 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Item {
     id: confirmDialog

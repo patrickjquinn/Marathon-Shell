@@ -2,6 +2,7 @@ import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Containers
 import "../components"
 
 Rectangle {
@@ -41,7 +42,7 @@ Rectangle {
                         tabData: modelData
                         isCurrentTab: modelData.id === tabsPage.currentTabId
                         
-                        onClicked: {
+                        onTabClicked: {
                             HapticService.light()
                             tabsPage.tabSelected(modelData.id)
                         }
@@ -57,12 +58,11 @@ Rectangle {
                 footer: Item { height: MSpacing.md }
             }
             
-            Text {
+            MEmptyState {
                 visible: tabsPage.tabs.length === 0
                 anchors.centerIn: parent
-                text: "No open tabs"
-                font.pixelSize: MTypography.sizeLarge
-                color: MColors.textTertiary
+                title: "No open tabs"
+                message: "Tap the button below to create a new tab"
             }
         }
         
@@ -79,31 +79,14 @@ Rectangle {
                 color: MColors.border
             }
             
-            Row {
+            MButton {
                 anchors.centerIn: parent
-                spacing: MSpacing.sm
+                text: tabsPage.tabs.length >= 20 ? "Tab Limit Reached" : "New Tab"
+                iconName: "plus"
+                variant: "primary"
+                disabled: tabsPage.tabs.length >= 20
                 
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "plus"
-                    size: Constants.iconSizeSmall
-                    color: tabsPage.tabs.length >= 20 ? MColors.textTertiary : MColors.accent
-                }
-                
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: tabsPage.tabs.length >= 20 ? "Tab Limit Reached" : "New Tab"
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: Font.DemiBold
-                    color: tabsPage.tabs.length >= 20 ? MColors.textTertiary : MColors.accent
-                }
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                enabled: tabsPage.tabs.length < 20
                 onClicked: {
-                    HapticService.light()
                     tabsPage.newTabRequested()
                 }
             }

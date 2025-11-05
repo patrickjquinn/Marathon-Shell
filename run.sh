@@ -20,7 +20,7 @@ echo "💻 Detected $CORES CPU cores"
 # Clean build if requested
 if [ "$CLEAN" = "1" ]; then
     echo "🧹 Clean build requested, removing build directories..."
-    rm -rf build build-apps
+    rm -rf build build-apps build-ui
 fi
 
 # Kill any existing instances first
