@@ -21,6 +21,11 @@ qt6_add_qml_module(marathon-ui-theme
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Theme
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-theme ${THEME_QML_FILES})
+endif()
+
 install(TARGETS marathon-ui-theme
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

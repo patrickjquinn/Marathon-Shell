@@ -15,6 +15,15 @@ target_link_libraries(marathon-ui-modals PRIVATE
     marathon-ui-core
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-modals
+        MModal.qml
+        MConfirmDialog.qml
+        MSheet.qml
+    )
+endif()
+
 install(TARGETS marathon-ui-modals
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

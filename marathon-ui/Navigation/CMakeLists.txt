@@ -19,6 +19,19 @@ target_link_libraries(marathon-ui-navigation PRIVATE
     marathon-ui-core
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-navigation
+        MTopBar.qml
+        MBottomBar.qml
+        MActionBar.qml
+        MNavigationPane.qml
+        MTabBar.qml
+        MSwipeView.qml
+        MPageIndicator.qml
+    )
+endif()
+
 install(TARGETS marathon-ui-navigation
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

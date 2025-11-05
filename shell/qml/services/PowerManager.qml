@@ -176,6 +176,10 @@ QtObject {
         }
     }
     
+    function togglePowerSaveMode() {
+        setPowerSaveMode(!isPowerSaveMode)
+    }
+    
     function refreshBatteryInfo() {
         if (typeof PowerManagerCpp !== 'undefined') {
             PowerManagerCpp.refreshBatteryInfo()

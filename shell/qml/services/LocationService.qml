@@ -22,6 +22,10 @@ QtObject {
     signal locationError(string error)
     signal permissionChanged(bool granted)
     
+    function enable() {
+        enableLocation()
+    }
+    
     function enableLocation() {
         console.log("[LocationService] Enabling location services...")
         locationEnabled = true

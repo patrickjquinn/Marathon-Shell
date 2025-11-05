@@ -11,13 +11,13 @@ echo "Marathon OS Complete Build"
 echo "============================================"
 echo ""
 
-# Detect OS and set Qt path
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    QT_PATH="/opt/homebrew/opt/qt@6"
-else
-    QT_PATH="/usr"
-fi
-
+    # Detect OS and set Qt path
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        QT_PATH="/opt/homebrew/opt/qt@6"
+    else
+        QT_PATH="/usr"
+    fi
+    
 # Step 1: Build MarathonUI
 echo "Step 1/3: Building MarathonUI..."
 echo "----------------------------------------"

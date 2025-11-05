@@ -201,7 +201,11 @@ MApp {
             MTabBar {
                 id: tabBar
                 width: parent.width
-                activeTab: parent.currentView
+                
+                Binding on activeTab {
+                    value: parent.currentView
+                    restoreMode: Binding.RestoreBinding
+                }
                 
                 tabs: [
                     { label: "Clock", icon: "clock" },
@@ -212,7 +216,7 @@ MApp {
                 
                 onTabSelected: (index) => {
                     HapticService.light()
-                    tabBar.parent.currentView = index
+                    parent.currentView = index
                 }
             }
         }

@@ -15,6 +15,15 @@ target_link_libraries(marathon-ui-feedback PRIVATE
     marathon-ui-core
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-feedback
+        MBadge.qml
+        MActivityIndicator.qml
+        MProgressBar.qml
+    )
+endif()
+
 install(TARGETS marathon-ui-feedback
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

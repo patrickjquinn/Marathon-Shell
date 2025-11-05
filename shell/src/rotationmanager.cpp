@@ -34,8 +34,6 @@ RotationManager::~RotationManager()
 
 void RotationManager::connectToSensorProxy()
 {
-    qDebug() << "[RotationManager] Connecting to iio-sensor-proxy";
-    
     m_sensorProxy = new QDBusInterface(
         "net.hadess.SensorProxy",
         "/net/hadess/SensorProxy",
@@ -45,7 +43,6 @@ void RotationManager::connectToSensorProxy()
     );
     
     if (!m_sensorProxy->isValid()) {
-        qDebug() << "[RotationManager] iio-sensor-proxy not available:" << m_sensorProxy->lastError().message();
         m_available = false;
         emit availableChanged();
         return;

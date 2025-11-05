@@ -81,7 +81,6 @@ void MPRIS2Controller::scanForPlayers()
     QDBusReply<QStringList> reply = QDBusConnection::sessionBus().call(call);
     
     if (!reply.isValid()) {
-        qDebug() << "[MPRIS2Controller] Failed to list D-Bus services:" << reply.error().message();
         return;
     }
     

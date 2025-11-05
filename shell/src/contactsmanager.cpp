@@ -166,6 +166,37 @@ QVariantMap ContactsManager::getContact(int id)
     return QVariantMap();
 }
 
+QVariantMap ContactsManager::getContactByNumber(const QString& phoneNumber)
+{
+    if (phoneNumber.isEmpty()) {
+        return QVariantMap();
+    }
+    
+    QString cleanNumber = phoneNumber;
+    cleanNumber.remove(QRegularExpression("[^0-9+]"));
+    
+    for (const Contact& contact : m_contacts) {
+        QString cleanContactNumber = contact.phone;
+        cleanContactNumber.remove(QRegularExpression("[^0-9+]"));
+        
+        if (cleanContactNumber == cleanNumber ||
+            cleanContactNumber.endsWith(cleanNumber.right(10)) ||
+            cleanNumber.endsWith(cleanContactNumber.right(10))) {
+            
+            QVariantMap map;
+            map["id"] = contact.id;
+            map["name"] = contact.name;
+            map["phone"] = contact.phone;
+            map["email"] = contact.email;
+            map["organization"] = contact.organization;
+            map["favorite"] = contact.additionalFields.value("favorite", false);
+            return map;
+        }
+    }
+    
+    return QVariantMap();
+}
+
 void ContactsManager::loadFromVCards()
 {
     m_contacts.clear();

@@ -29,6 +29,27 @@ target_link_libraries(marathon-ui-containers PRIVATE
     marathon-ui-effects
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-containers
+        MCard.qml
+        MPage.qml
+        MSection.qml
+        MListItem.qml
+        MApp.qml
+        MLayer.qml
+        MScrollView.qml
+        MSectionHeader.qml
+        MSwipeDelegate.qml
+        MPullToRefresh.qml
+        MFormCard.qml
+        MFormField.qml
+        MListTile.qml
+        MPanel.qml
+        MSettingsListItem.qml
+    )
+endif()
+
 install(TARGETS marathon-ui-containers
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

@@ -81,11 +81,13 @@
         <file alias="arrow-left.svg">resources/images/icons/lucide/arrow-left.svg</file>
         <file alias="check-circle.svg">resources/images/icons/lucide/check-circle.svg</file>
         <file alias="alert-circle.svg">resources/images/icons/lucide/alert-circle.svg</file>
+        <file alias="alert-triangle.svg">resources/images/icons/lucide/alert-triangle.svg</file>
         <file alias="bell-off.svg">resources/images/icons/lucide/bell-off.svg</file>
         <file alias="moon.svg">resources/images/icons/lucide/moon.svg</file>
         <file alias="volume-x.svg">resources/images/icons/lucide/volume-x.svg</file>
         <file alias="monitor.svg">resources/images/icons/lucide/monitor.svg</file>
         <file alias="smartphone.svg">resources/images/icons/lucide/smartphone.svg</file>
+        <file alias="cpu.svg">resources/images/icons/lucide/cpu.svg</file>
         <file alias="music-2.svg">resources/images/icons/lucide/music-2.svg</file>
         <file alias="wifi-off.svg">resources/images/icons/lucide/wifi-off.svg</file>
         <file alias="bluetooth-off.svg">resources/images/icons/lucide/bluetooth-off.svg</file>

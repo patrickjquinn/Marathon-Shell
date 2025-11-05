@@ -33,6 +33,12 @@ if(DEFINED ENV{MARATHON_UI_DIR})
     set(MARATHON_UI_DIR "$ENV{MARATHON_UI_DIR}" CACHE PATH "MarathonUI installation directory" FORCE)
 endif()
 
+# Include QML linting module (from parent directory) BEFORE subdirectories
+# This allows subdirectories to use QMLLINT_AVAILABLE and add_qmllint_target
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake)
+endif()
+
 # Singleton files will be marked in individual module CMakeLists.txt files
 
 # Build all MarathonUI modules (order matters for dependencies)

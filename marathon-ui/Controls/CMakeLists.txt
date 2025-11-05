@@ -19,6 +19,19 @@ target_link_libraries(marathon-ui-controls PRIVATE
     marathon-ui-core
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-controls
+        MSlider.qml
+        MToggle.qml
+        MCheckbox.qml
+        MRadioButton.qml
+        MRadioGroup.qml
+        MDropdown.qml
+        MComboBox.qml
+    )
+endif()
+
 install(TARGETS marathon-ui-controls
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

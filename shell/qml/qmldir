@@ -17,23 +17,35 @@ singleton Router 1.0 core/Router.qml
 singleton AlarmManager 1.0 services/AlarmManager.qml
 singleton AmbientLightSensor 1.0 services/AmbientLightSensor.qml
 singleton AppLifecycleManager 1.0 services/AppLifecycleManager.qml
+singleton AppLaunchService 1.0 services/AppLaunchService.qml
 singleton AudioManager 1.0 services/AudioManager.qml
 singleton CellularManager 1.0 services/CellularManager.qml
+singleton DeepLinkHandler 1.0 services/DeepLinkHandler.qml
 singleton DesktopEntryParser 1.0 services/DesktopEntryParser.qml
 singleton DisplayManager 1.0 services/DisplayManager.qml
 singleton FlashlightManager 1.0 services/FlashlightManager.qml
 singleton LocationService 1.0 services/LocationService.qml
 singleton NavigationRouter 1.0 services/NavigationRouter.qml
 singleton NetworkManager 1.0 services/NetworkManager.qml
+singleton NotificationHandler 1.0 services/NotificationHandler.qml
 singleton NotificationService 1.0 services/NotificationService.qml
 singleton Platform 1.0 services/Platform.qml
+singleton PowerBatteryHandler 1.0 services/PowerBatteryHandler.qml
 singleton PowerManager 1.0 services/PowerManager.qml
 singleton ProximitySensor 1.0 services/ProximitySensor.qml
 singleton ServiceBus 1.0 services/ServiceBus.qml
 singleton SessionManager 1.0 services/SessionManager.qml
+singleton TelephonyIntegration 1.0 services/TelephonyIntegration.qml
 singleton TelephonyManager 1.0 services/TelephonyManager.qml
 singleton UnifiedSearchService 1.0 services/UnifiedSearchService.qml
 singleton WakeManager 1.0 services/WakeManager.qml
+singleton HapticService 1.0 services/HapticService.qml
+singleton StatusBarIconService 1.0 services/StatusBarIconService.qml
+singleton ClipboardService 1.0 services/ClipboardService.qml
+singleton WindowManager 1.0 services/WindowManager.qml
+singleton StateManager 1.0 services/StateManager.qml
+singleton ScreenshotService 1.0 services/ScreenshotService.qml
+singleton AppLauncher 1.0 services/AppLauncher.qml
 
 # UI Components
 MarathonSearch 1.0 components/MarathonSearch.qml

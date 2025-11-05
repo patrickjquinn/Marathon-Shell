@@ -21,6 +21,11 @@ target_link_libraries(marathon-ui-effects PRIVATE
     marathon-ui-theme
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-effects ${EFFECTS_QML_FILES})
+endif()
+
 install(TARGETS marathon-ui-effects
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

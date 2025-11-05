@@ -83,7 +83,6 @@ void ModemManagerCpp::initializeDBusConnection()
         if (m_dbusRetryCount < maxRetries) {
             int delay = qMin(100 * (1 << m_dbusRetryCount), 5000);
             m_dbusRetryCount++;
-            qDebug() << "[ModemManagerCpp] Retry" << m_dbusRetryCount << "of" << maxRetries << "in" << delay << "ms";
             m_dbusRetryTimer->start(delay);
         } else {
             qWarning() << "[ModemManagerCpp] ModemManager not available after" << maxRetries << "retries";
@@ -94,7 +93,6 @@ void ModemManagerCpp::initializeDBusConnection()
 
 void ModemManagerCpp::retryDBusConnection()
 {
-    qDebug() << "[ModemManagerCpp] Retrying D-Bus connection...";
     initializeDBusConnection();
 }
 

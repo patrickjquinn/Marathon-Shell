@@ -2,7 +2,7 @@ pragma Singleton
 import QtQuick
 import MarathonOS.Shell
 
-QtObject {
+Item {
     id: alarmManager
     
     property var alarms: []  // Array of alarm objects

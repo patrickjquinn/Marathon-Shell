@@ -12,6 +12,11 @@ target_link_libraries(marathon-ui-lists PRIVATE
     marathon-ui-theme
 )
 
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-ui-lists MDivider.qml)
+endif()
+
 install(TARGETS marathon-ui-lists
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}

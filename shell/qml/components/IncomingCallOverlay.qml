@@ -184,6 +184,7 @@ Rectangle {
                     }
                     
                     MouseArea {
+                        id: declineMouseArea
                         anchors.fill: parent
                         anchors.margins: -Constants.spacingMedium
                         onClicked: {
@@ -199,17 +200,9 @@ Rectangle {
                         }
                     }
                     
-                    // Press effect
-                    scale: mouseArea.pressed ? 0.95 : 1.0
+                    scale: declineMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
                         NumberAnimation { duration: Constants.animationDurationFast }
-                    }
-                    
-                    MouseArea {
-                        id: mouseArea
-                        anchors.fill: parent
-                        anchors.margins: -Constants.spacingMedium
-                        onClicked: parent.parent.children[0].clicked()
                     }
                 }
                 
@@ -244,6 +237,7 @@ Rectangle {
                     }
                     
                     MouseArea {
+                        id: answerMouseArea
                         anchors.fill: parent
                         anchors.margins: -Constants.spacingMedium
                         onClicked: {
@@ -257,24 +251,15 @@ Rectangle {
                             answered()
                             hide()
                             
-                            // Open phone app to active call screen
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                AppLifecycleManager.launchApp("phone")
+                            if (typeof UIStore !== 'undefined') {
+                                UIStore.openApp("phone", "Phone", "")
                             }
                         }
                     }
                     
-                    // Press effect
                     scale: answerMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
                         NumberAnimation { duration: Constants.animationDurationFast }
-                    }
-                    
-                    MouseArea {
-                        id: answerMouseArea
-                        anchors.fill: parent
-                        anchors.margins: -Constants.spacingMedium
-                        onClicked: parent.parent.children[0].clicked()
                     }
                 }
                 
