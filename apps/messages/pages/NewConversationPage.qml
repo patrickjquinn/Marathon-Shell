@@ -1,7 +1,11 @@
 import QtQuick
+import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Feedback
+import MarathonUI.Navigation
 
 Rectangle {
     id: newConversationPage
@@ -12,43 +16,35 @@ Rectangle {
     
     property string selectedContact: ""
     property string selectedContactName: ""
+    property bool isValidNumber: validatePhoneNumber(recipientInput.text)
     
     Column {
         anchors.fill: parent
         spacing: 0
         
-        Rectangle {
+        MActionBar {
             width: parent.width
-            height: Constants.actionBarHeight
-            color: MColors.surface
+            showBack: true
             
-            Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: Constants.borderWidthThin
-                color: MColors.border
+            onBackClicked: {
+                HapticService.light()
+                cancelled()
             }
             
-            Row {
-                anchors.fill: parent
-                anchors.margins: MSpacing.md
-                spacing: MSpacing.md
-                
-                MIconButton {
+            Rectangle {
+                anchors.left: parent.left
+                anchors.leftMargin: 92
                     anchors.verticalCenter: parent.verticalCenter
-                    iconName: "x"
-                    iconSize: Constants.touchTargetMedium
-                    onClicked: {
-                        cancelled()
-                    }
-                }
+                width: titleText.width
+                height: titleText.height
+                color: "transparent"
                 
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
+                MLabel {
+                    id: titleText
                     text: "New Message"
+                    variant: "primary"
                     font.pixelSize: MTypography.sizeLarge
-                    font.weight: Font.Bold
-                    color: MColors.textPrimary
+                    font.weight: MTypography.weightBold
                 }
             }
         }
@@ -102,8 +98,10 @@ Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         iconName: "chevron-right"
                         iconSize: Constants.touchTargetMedium
-                        enabled: selectedContact.length > 0 || recipientInput.text.length > 0
+                        variant: (selectedContact.length > 0 || isValidNumber) ? "primary" : "ghost"
+                        enabled: selectedContact.length > 0 || isValidNumber
                         onClicked: {
+                            HapticService.medium()
                             startConversation()
                         }
                     }
@@ -121,68 +119,74 @@ Rectangle {
                 }
             }
             
+            MEmptyState {
+                visible: contactsList.count === 0 && recipientInput.text.length > 2
+                anchors.centerIn: parent
+                width: parent.width - MSpacing.xl * 2
+                iconName: "users"
+                title: "No contacts found"
+                message: "Try a different search or enter a phone number"
+            }
+            
             ListView {
                 id: contactsList
                 width: parent.width
                 height: parent.height - parent.children[0].height
                 clip: true
+                spacing: MSpacing.xs
+                topMargin: MSpacing.sm
                 
                 model: typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
                 
-                delegate: Rectangle {
+                delegate: Item {
                     width: contactsList.width
-                    height: Constants.touchTargetLarge
-                    color: "transparent"
+                    height: 72
                     
-                    Rectangle {
+                    MCard {
                         anchors.fill: parent
                         anchors.margins: MSpacing.xs
-                        color: MColors.surface
-                        radius: Constants.borderRadiusSharp
-                        border.width: Constants.borderWidthThin
-                        border.color: MColors.border
+                        elevation: 0
+                        radius: MRadius.lg
                         
-                        Row {
+                        content: Row {
                             anchors.fill: parent
                             anchors.margins: MSpacing.md
                             spacing: MSpacing.md
                             
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: Constants.iconSizeMedium + MSpacing.sm
-                                height: Constants.iconSizeMedium + MSpacing.sm
-                                radius: Constants.borderRadiusSharp
-                                color: MColors.elevated
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
+                                width: 40
+                                height: 40
+                                radius: MRadius.full
+                                color: MColors.marathonTeal
                                 
-                                Text {
+                                MLabel {
                                     anchors.centerIn: parent
                                     text: modelData.name ? modelData.name.charAt(0).toUpperCase() : "?"
+                                    variant: "primary"
                                     font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.Bold
-                                    color: MColors.marathonTeal
+                                    font.weight: MTypography.weightBold
                                 }
                             }
                             
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - parent.children[0].width - parent.spacing
+                                width: parent.width - 56
                                 spacing: MSpacing.xs
                                 
-                                Text {
-                                    width: parent.width
+                                MLabel {
                                     text: modelData.name
+                                    variant: "primary"
                                     font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.DemiBold
-                                    color: MColors.textPrimary
+                                    font.weight: MTypography.weightMedium
                                     elide: Text.ElideRight
+                                    width: parent.width
                                 }
                                 
-                                Text {
+                                MLabel {
                                     text: modelData.phone
+                                    variant: "secondary"
                                     font.pixelSize: MTypography.sizeSmall
-                                    color: MColors.textSecondary
                                 }
                             }
                         }
@@ -190,14 +194,14 @@ Rectangle {
                         MouseArea {
                             anchors.fill: parent
                             onPressed: {
-                                parent.color = MColors.elevated
+                                parent.scale = 0.98
                                 HapticService.light()
                             }
                             onReleased: {
-                                parent.color = MColors.surface
+                                parent.scale = 1.0
                             }
                             onCanceled: {
-                                parent.color = MColors.surface
+                                parent.scale = 1.0
                             }
                             onClicked: {
                                 selectedContact = modelData.phone
@@ -205,6 +209,10 @@ Rectangle {
                                 recipientInput.text = modelData.name
                                 Logger.info("NewConversation", "Selected contact: " + modelData.name)
                             }
+                        }
+                        
+                        Behavior on scale {
+                            NumberAnimation { duration: MMotion.fast }
                         }
                     }
                 }
@@ -216,10 +224,19 @@ Rectangle {
         var recipient = selectedContact.length > 0 ? selectedContact : recipientInput.text
         var name = selectedContactName.length > 0 ? selectedContactName : recipient
         
-        if (recipient.length > 0) {
+        if (recipient.length > 0 && isValidNumber) {
             Logger.info("NewConversation", "Starting conversation with: " + recipient)
             conversationStarted(recipient, name)
+        } else {
+            Logger.warn("NewConversation", "Invalid phone number: " + recipient)
         }
+    }
+    
+    function validatePhoneNumber(number) {
+        if (!number || number.length === 0) return false
+        
+        var cleaned = number.replace(/\D/g, '')
+        return cleaned.length >= 10
     }
 }
 

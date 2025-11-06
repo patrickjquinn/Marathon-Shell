@@ -16,11 +16,19 @@ Item {
             spacing: MSpacing.md
             padding: MSpacing.lg
             
-            Text {
-                text: "⏰ Alarms & Timers"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                color: MColors.textPrimary
+            Row {
+                spacing: MSpacing.sm
+                Icon {
+                    name: "clock"
+                    size: 24
+                    color: MColors.accent
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                MLabel {
+                    text: "Alarms & Timers"
+                    variant: "headline"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
             
             MCard {
@@ -31,17 +39,14 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Alarm Trigger Test"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
-                    Text {
+                    MLabel {
                         text: "Current Alarms: " + AlarmManager.alarms.length
-                        font.pixelSize: MTypography.sizeSmall
-                        color: MColors.textSecondary
+                        variant: "secondary"
                     }
                     
                     Row {
@@ -64,7 +69,7 @@ Item {
                                     snoozeDuration: 10
                                 }
                                 AlarmManager.alarmTriggered(testAlarm)
-                                Logger.info("TestApp", "✓ Triggered test alarm")
+                                Logger.info("TestApp", "Triggered test alarm")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -81,7 +86,7 @@ Item {
                                     "Test Alarm (+1 min)",
                                     []
                                 )
-                                Logger.info("TestApp", "✓ Created alarm: " + alarmId)
+                                Logger.info("TestApp", "Created alarm: " + alarmId)
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -97,17 +102,14 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Wake Manager Test"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
-                    Text {
+                    MLabel {
                         text: "Test system wake functionality"
-                        font.pixelSize: MTypography.sizeSmall
-                        color: MColors.textSecondary
+                        variant: "secondary"
                     }
                     
                     Flow {
@@ -116,11 +118,11 @@ Item {
                         
                         MButton {
                             text: "Wake (Alarm)"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 WakeManager.wake("alarm")
-                                Logger.info("TestApp", "✓ Wake: alarm")
+                                Logger.info("TestApp", "Wake: alarm")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -131,7 +133,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 WakeManager.wake("call")
-                                Logger.info("TestApp", "✓ Wake: call")
+                                Logger.info("TestApp", "Wake: call")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -142,20 +144,20 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 WakeManager.wake("notification")
-                                Logger.info("TestApp", "✓ Wake: notification")
+                                Logger.info("TestApp", "Wake: notification")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Schedule Wake"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.light()
                                 var wakeTime = new Date()
                                 wakeTime.setMinutes(wakeTime.getMinutes() + 1)
                                 WakeManager.scheduleWake(wakeTime, "test")
-                                Logger.info("TestApp", "✓ Scheduled wake in 1 minute")
+                                Logger.info("TestApp", "Scheduled wake in 1 minute")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -165,4 +167,3 @@ Item {
         }
     }
 }
-

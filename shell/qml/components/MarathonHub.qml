@@ -1,6 +1,10 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Feedback
+import MarathonUI.Modals
 import "."
 import MarathonUI.Theme
 import MarathonUI.Navigation
@@ -12,18 +16,38 @@ Rectangle {
     
     signal closed()
     
+    property bool isInPeekMode: false
     property int selectedTabIndex: 0
-    property bool isInPeekMode: false  // Set by parent (MarathonPeek vs MarathonPageView)
+    property var categoryMap: ({
+        0: "all",
+        1: "email",
+        2: "message",
+        3: "call",
+        4: "social"
+    })
+    
+    function filterByCategory(notification) {
+        if (selectedTabIndex === 0) return true
+        
+        var category = notification.category || notification.appId || ""
+        var selectedCategory = categoryMap[selectedTabIndex]
+        
+        if (selectedCategory === "email" && (category.includes("mail") || category.includes("email"))) return true
+        if (selectedCategory === "message" && (category.includes("message") || category.includes("sms") || category.includes("chat"))) return true
+        if (selectedCategory === "call" && (category.includes("call") || category.includes("phone"))) return true
+        if (selectedCategory === "social" && (category.includes("social") || category.includes("twitter") || category.includes("facebook"))) return true
+        
+        return false
+    }
     
     Column {
         anchors.fill: parent
-        anchors.topMargin: hub.isInPeekMode ? Constants.safeAreaTop : 0
+        anchors.topMargin: isInPeekMode ? Constants.statusBarHeight : 0
         spacing: 0
         
         MTabBar {
             id: hubTabs
             width: parent.width
-            activeTab: hub.selectedTabIndex
             
             tabs: [
                 { label: "All", icon: "inbox" },
@@ -35,87 +59,138 @@ Rectangle {
             
             onTabSelected: (index) => {
                 hub.selectedTabIndex = index
-                Logger.info("Hub", "Switched to tab: " + hubTabs.tabs[index].label + " (index: " + index + ")")
+                Logger.info("Hub", "Switched to tab: " + hubTabs.tabs[index].label)
+            }
+        }
+        
+        Rectangle {
+            id: clearBar
+            width: parent.width
+            height: 48
+            color: MColors.surface
+            visible: NotificationModel.count > 0
+            
+            Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: MColors.border
+            }
+            
+            Row {
+                anchors.centerIn: parent
+                spacing: MSpacing.md
+                
+                MButton {
+                    text: "Mark All Read"
+                    variant: "ghost"
+                    iconName: "check"
+                    onClicked: {
+                        HapticService.light()
+                        NotificationService.markAllAsRead()
+                        Logger.info("Hub", "Marked all notifications as read")
+                    }
+                }
+                
+                MButton {
+                    text: "Clear All"
+                    variant: "ghost"
+                    iconName: "trash-2"
+                    onClicked: {
+                        HapticService.medium()
+                        NotificationService.clearAll()
+                        Logger.info("Hub", "Cleared all notifications")
+                    }
+                }
             }
         }
         
         ListView {
             id: notificationsList
             width: parent.width
-            height: parent.height - hubTabs.height
+            height: parent.height - hubTabs.height - (clearBar.visible ? clearBar.height : 0)
             clip: true
             spacing: 0
-            cacheBuffer: Math.max(0, height * 2)
-            reuseItems: true
             
             model: NotificationModel
             
-            delegate: Rectangle {
+            delegate: Item {
                 id: notificationDelegate
                 width: notificationsList.width
-                height: {
-                    var baseHeight = Constants.bottomBarHeight
-                    // Add extra height if notification has actions
-                    if (model.actions && model.actions.length > 0) {
-                        return baseHeight + 60
+                height: filterByCategory(model) ? 88 : 0
+                visible: filterByCategory(model)
+                clip: true
+                
+                Rectangle {
+                    anchors.fill: parent
+                    color: notificationMouseArea.pressed ? MColors.highlightSubtle : "transparent"
+                    
+                    Behavior on color {
+                        ColorAnimation { duration: MMotion.quick }
                     }
-                    return baseHeight
-                }
-                color: model.isRead ? MColors.background : MColors.surface
                 
                 Rectangle {
                     anchors.bottom: parent.bottom
                     width: parent.width
-                    height: Constants.dividerHeight
+                        height: 1
                     color: MColors.border
                 }
                 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 16
-                    spacing: Constants.spacingMedium
-                    
                     Row {
-                        width: parent.width
-                        height: Math.round(48 * Constants.scaleFactor)
-                        spacing: Constants.spacingMedium
+                    anchors.fill: parent
+                        anchors.leftMargin: MSpacing.md
+                        anchors.rightMargin: MSpacing.md
+                        spacing: MSpacing.md
                         
                         Rectangle {
-                            width: Math.round(48 * Constants.scaleFactor)
-                            height: Math.round(48 * Constants.scaleFactor)
-                            radius: Math.round(24 * Constants.scaleFactor)
-                            color: MColors.accentDim
+                            width: 48
+                            height: 48
+                            radius: MRadius.md
+                            color: model.isRead ? MColors.elevated : MColors.accent
+                            opacity: model.isRead ? 0.5 : 0.15
                             anchors.verticalCenter: parent.verticalCenter
-                            antialiasing: Constants.enableAntialiasing
                             
                             Icon {
                                 name: model.icon || "bell"
-                                size: Constants.iconSizeMedium
-                                color: MColors.text
+                                size: 24
+                                color: model.isRead ? MColors.textSecondary : MColors.accent
                                 anchors.centerIn: parent
                             }
                         }
                         
                         Column {
-                            width: parent.width - Math.round(48 * Constants.scaleFactor) - Math.round(72 * Constants.scaleFactor) - Constants.spacingMedium * 2
+                            width: parent.width - 48 - 60 - MSpacing.md * 2
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Constants.spacingXSmall
+                            spacing: MSpacing.xs
                             
-                            Text {
-                                text: model.title
-                                color: model.isRead ? MColors.textSecondary : MColors.text
-                                font.pixelSize: MTypography.sizeBody
-                                font.weight: model.isRead ? Font.Normal : Font.Bold
-                                font.family: MTypography.fontFamily
-                                elide: Text.ElideRight
+                            Row {
                                 width: parent.width
+                                spacing: MSpacing.xs
+                                
+                                MLabel {
+                                    text: model.title
+                                    variant: "primary"
+                                    font.weight: model.isRead ? MTypography.weightNormal : MTypography.weightBold
+                                    font.pixelSize: MTypography.sizeBody
+                                    elide: Text.ElideRight
+                                    width: parent.width - (unreadIndicator.visible ? unreadIndicator.width + MSpacing.xs : 0)
+                                }
+                                
+                                Rectangle {
+                                    id: unreadIndicator
+                                    visible: !model.isRead
+                                    width: 8
+                                    height: 8
+                                    radius: 4
+                                    color: MColors.accent
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
                             }
                             
-                            Text {
+                            MLabel {
                                 text: model.body || ""
-                                color: MColors.textSecondary
+                                variant: "secondary"
                                 font.pixelSize: MTypography.sizeSmall
-                                font.family: MTypography.fontFamily
                                 width: parent.width
                                 elide: Text.ElideRight
                                 maximumLineCount: 2
@@ -123,112 +198,105 @@ Rectangle {
                             }
                         }
                         
-                        Column {
-                            width: Math.round(72 * Constants.scaleFactor)
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Constants.spacingSmall
-                            
-                            Text {
-                                text: Qt.formatDateTime(new Date(model.timestamp), "hh:mm")
-                                color: MColors.textSecondary
+                        MLabel {
+                            text: {
+                                var now = new Date()
+                                var notifDate = new Date(model.timestamp)
+                                var diffMs = now - notifDate
+                                var diffMins = Math.floor(diffMs / 60000)
+                                
+                                if (diffMins < 1) return "now"
+                                if (diffMins < 60) return diffMins + "m"
+                                
+                                var diffHours = Math.floor(diffMins / 60)
+                                if (diffHours < 24) return diffHours + "h"
+                                
+                                return Qt.formatDateTime(notifDate, "hh:mm")
+                            }
+                            variant: "tertiary"
                                 font.pixelSize: MTypography.sizeXSmall
-                                font.family: MTypography.fontFamily
-                                anchors.right: parent.right
+                            width: 60
+                            horizontalAlignment: Text.AlignRight
+                            anchors.verticalCenter: parent.verticalCenter
                             }
-                            
-                            Rectangle {
-                                visible: !model.isRead
-                                width: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
-                                height: Constants.smallIndicatorSize + Math.round(2 * Constants.scaleFactor)
-                                radius: Constants.borderRadiusSharp
-                                color: MColors.accentBright
-                                anchors.right: parent.right
-                                antialiasing: Constants.enableAntialiasing
-                            }
+                        }
+                    
+                    MouseArea {
+                        id: notificationMouseArea
+                        anchors.fill: parent
+                        
+                    onClicked: {
+                        Logger.info("Hub", "Notification clicked: " + model.title)
+                        HapticService.light()
+                        NotificationModel.markAsRead(model.id)
+                        
+                        if (model.appId) {
+                            NavigationRouter.navigateToDeepLink(
+                                model.appId,
+                                "",
+                                {
+                                    "notificationId": model.id,
+                                    "action": "view",
+                                    "from": "hub"
+                                }
+                            )
+                            Router.goHome()
+                        }
+                    }
+                        
+                        onPressAndHold: {
+                            Logger.info("Hub", "Long press on notification: " + model.id)
+                            HapticService.medium()
+                            contextMenu.open()
                         }
                     }
                     
-                    // Action buttons row
-                    Row {
-                        width: parent.width
-                        height: 40
-                        spacing: Constants.spacingSmall
-                        visible: model.actions && model.actions.length > 0
+                    MSheet {
+                        id: contextMenu
+                        title: "Notification Actions"
                         
-                        Repeater {
-                            model: notificationDelegate.ListView.view.model.getNotificationActions ? 
-                                   notificationDelegate.ListView.view.model.getNotificationActions(index) : 
-                                   (notificationDelegate.ListView.view.model.get(index).actions || [])
+                        Column {
+                            width: parent.width
+                            spacing: 0
                             
-                            Rectangle {
-                                property int actionCount: notificationDelegate.ListView.view.model.getNotificationActions ? 
-                                                          notificationDelegate.ListView.view.model.getNotificationActions(index).length : 
-                                                          (notificationDelegate.ListView.view.model.get(index).actions ? notificationDelegate.ListView.view.model.get(index).actions.length : 0)
-                                
-                                width: actionCount > 0 ? (parent.width - (actionCount - 1) * Constants.spacingSmall) / actionCount : 0
-                                height: 40
-                                radius: Constants.borderRadiusSmall
-                                color: actionBtnMouseArea.pressed ? MColors.accentPressed : (actionBtnMouseArea.containsMouse ? MColors.accentHover : MColors.accent)
-                                border.width: Constants.borderWidthThin
-                                border.color: Qt.rgba(255, 255, 255, 0.15)
-                                antialiasing: Constants.enableAntialiasing
-                                
-                                Behavior on color {
-                                    ColorAnimation { duration: Constants.animationDurationFast }
-                                }
-                                
-                                Text {
-                                    text: {
-                                        var action = modelData.toLowerCase()
-                                        if (action === "reply") return "Reply"
-                                        if (action === "snooze") return "Snooze"
-                                        if (action === "view") return "View"
-                                        if (action === "dismiss") return "Dismiss"
-                                        if (action === "open") return "Open"
-                                        if (action === "archive") return "Archive"
-                                        if (action === "delete") return "Delete"
-                                        return modelData
-                                    }
-                                    color: MColors.text
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.weight: Font.Medium
-                                    font.family: MTypography.fontFamily
-                                    anchors.centerIn: parent
-                                }
-                                
-                                MouseArea {
-                                    id: actionBtnMouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    
-                                    onClicked: (mouse) => {
-                                        Logger.info("Hub", "Action clicked: " + modelData)
+                            MSettingsListItem {
+                                title: model.isRead ? "Mark as Unread" : "Mark as Read"
+                                iconName: model.isRead ? "mail" : "mail-open"
+                                showChevron: false
+                                onSettingClicked: {
                                         HapticService.light()
+                                    if (model.isRead) {
                                         
-                                        // Get the notification from parent delegate
-                                        var notification = notificationDelegate.ListView.view.model.get(index)
-                                        if (notification) {
-                                            // Trigger the action
-                                            NotificationService.triggerAction(notification.id, modelData)
-                                            
-                                            // Handle specific actions
-                                            if (modelData.toLowerCase() === "reply") {
-                                                Router.launchApp(notification.appId, {"action": "reply", "notificationId": notification.id})
+                                    } else {
+                                        NotificationModel.markAsRead(model.id)
+                                    }
+                                    contextMenu.close()
+                                }
+                            }
+                            
+                            MSettingsListItem {
+                                title: "Open App"
+                                iconName: "external-link"
+                                showChevron: false
+                                visible: model.appId !== ""
+                                onSettingClicked: {
+                                        HapticService.light()
+                                    if (model.appId) {
+                                        NavigationRouter.navigateToDeepLink(model.appId, "", {})
                                                 Router.goHome()
-                                            } else if (modelData.toLowerCase() === "snooze") {
-                                                Logger.info("Hub", "Snoozing notification for 10 minutes")
-                                                NotificationService.dismissNotification(notification.id)
-                                            } else if (modelData.toLowerCase() === "view" || modelData.toLowerCase() === "open") {
-                                                Router.launchApp(notification.appId)
-                                                Router.goHome()
-                                            } else if (modelData.toLowerCase() === "dismiss" || modelData.toLowerCase() === "delete") {
-                                                NotificationService.dismissNotification(notification.id)
-                                            } else if (modelData.toLowerCase() === "archive") {
-                                                NotificationService.dismissNotification(notification.id)
-                                            }
-                                        }
-                                        
-                                        mouse.accepted = true
+                                    }
+                                    contextMenu.close()
+                                }
+                            }
+                            
+                            MSettingsListItem {
+                                title: "Delete"
+                                iconName: "trash-2"
+                                showChevron: false
+                                onSettingClicked: {
+                                    HapticService.medium()
+                                    NotificationService.dismissNotification(model.id)
+                                    contextMenu.close()
                                     }
                                 }
                             }
@@ -236,28 +304,22 @@ Rectangle {
                     }
                 }
                 
-                MouseArea {
-                    anchors.fill: parent
-                    z: -1
-                    onClicked: {
-                        Logger.info("Hub", "Notification clicked: " + model.title)
-                        NotificationModel.markAsRead(model.id)
-                        
-                        // Open the app if available
-                        if (model.appId) {
-                            Router.launchApp(model.appId)
-                            Router.goHome()
+            MEmptyState {
+                visible: {
+                    var count = 0
+                    for (var i = 0; i < NotificationModel.count; i++) {
+                        var notif = NotificationModel.data(NotificationModel.index(i, 0), 256)
+                        if (filterByCategory({category: notif?.category, appId: notif?.appId})) {
+                            count++
                         }
                     }
+                    return count === 0
                 }
-            }
-            
-            Text {
-                visible: notificationsList.count === 0
-                text: "No notifications"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
                 anchors.centerIn: parent
+                width: parent.width - MSpacing.xl * 2
+                iconName: "bell"
+                title: "No notifications"
+                message: selectedTabIndex === 0 ? "You're all caught up!" : "No " + hubTabs.tabs[selectedTabIndex].label.toLowerCase() + " notifications"
             }
         }
     }

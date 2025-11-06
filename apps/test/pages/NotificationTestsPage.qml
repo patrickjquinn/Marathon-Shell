@@ -16,11 +16,19 @@ Item {
             spacing: MSpacing.md
             padding: MSpacing.lg
             
-            Text {
-                text: "🔔 Notifications"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                color: MColors.textPrimary
+            Row {
+                spacing: MSpacing.sm
+                Icon {
+                    name: "bell"
+                    size: 24
+                    color: MColors.accent
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                MLabel {
+                    text: "Notifications"
+                    variant: "headline"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
             
             MCard {
@@ -31,11 +39,9 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Basic Notifications"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Flow {
@@ -44,7 +50,7 @@ Item {
                         
                         MButton {
                             text: "Simple"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.sendNotification(
@@ -52,7 +58,7 @@ Item {
                                     "Test Notification",
                                     "This is a simple test notification"
                                 )
-                                Logger.info("TestApp", "✓ Sent simple notification")
+                                Logger.info("TestApp", "Sent simple notification")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -66,25 +72,25 @@ Item {
                                     "test",
                                     "Marathon Test",
                                     "Notification with custom icon",
-                                    { icon: "qrc:/images/marathon-logo.svg", category: "test" }
+                                    { icon: "bell", category: "test" }
                                 )
-                                Logger.info("TestApp", "✓ Sent notification with icon")
+                                Logger.info("TestApp", "Sent notification with icon")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "High Priority"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.sendNotification(
                                     "test",
-                                    "⚠️ Important",
+                                    "Important",
                                     "This is a high priority notification",
-                                    { priority: "high", persistent: true }
+                                    { priority: "high", persistent: true, icon: "alert-triangle" }
                                 )
-                                Logger.info("TestApp", "✓ Sent high priority notification")
+                                Logger.info("TestApp", "Sent high priority notification")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -98,9 +104,9 @@ Item {
                                     "test",
                                     "Interactive",
                                     "Tap an action below",
-                                    { actions: ["reply", "dismiss", "snooze"], category: "message" }
+                                    { actions: ["reply", "dismiss", "snooze"], category: "message", icon: "message-circle" }
                                 )
-                                Logger.info("TestApp", "✓ Sent notification with actions")
+                                Logger.info("TestApp", "Sent notification with actions")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -116,11 +122,9 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Category Tests"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Flow {
@@ -129,14 +133,14 @@ Item {
                         
                         MButton {
                             text: "Message"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.sendNotification(
                                     "messages",
                                     "John Doe",
                                     "Hey, how are you doing?",
-                                    { category: "message", icon: "message" }
+                                    { category: "message", icon: "message-circle" }
                                 )
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
@@ -144,7 +148,7 @@ Item {
                         
                         MButton {
                             text: "Email"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.sendNotification(
@@ -159,7 +163,7 @@ Item {
                         
                         MButton {
                             text: "Social"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.sendNotification(
@@ -174,7 +178,7 @@ Item {
                         
                         MButton {
                             text: "System"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.sendNotification(
@@ -198,11 +202,9 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Stress Tests"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Row {
@@ -210,17 +212,18 @@ Item {
                         
                         MButton {
                             text: "Burst (10)"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.medium()
                                 for (var i = 0; i < 10; i++) {
                                     NotificationService.sendNotification(
                                         "test",
                                         "Burst Test " + (i + 1),
-                                        "Testing notification system under load"
+                                        "Testing notification system under load",
+                                        { icon: "zap" }
                                     )
                                 }
-                                Logger.info("TestApp", "✓ Sent 10 burst notifications")
+                                Logger.info("TestApp", "Sent 10 burst notifications")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -231,7 +234,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 NotificationService.dismissAllNotifications()
-                                Logger.info("TestApp", "✓ Cleared all notifications")
+                                Logger.info("TestApp", "Cleared all notifications")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -241,4 +244,3 @@ Item {
         }
     }
 }
-

@@ -25,7 +25,6 @@
 #include "src/audiomanagercpp.h"
 #include "src/modemmanagercpp.h"
 #include "src/sensormanagercpp.h"
-#include "src/notificationservice.h"
 #include "src/settingsmanager.h"
 #include "src/bluetoothmanager.h"
 #include "src/marathonappregistry.h"
@@ -350,6 +349,9 @@ int main(int argc, char *argv[])
             qWarning() << "[MarathonShell] Failed to initialize notification database";
         }
         
+        // Load existing notifications from database into model
+        notificationModel->loadFromDatabase(notifDb);
+        
         // Register ApplicationService
         MarathonApplicationService *appService = new MarathonApplicationService(
             appRegistry, appLoader, taskModel, &app);
@@ -365,13 +367,13 @@ int main(int argc, char *argv[])
         }
         
         // Register NotificationService
-        MarathonNotificationService *notifService = new MarathonNotificationService(notifDb, &app);
+        MarathonNotificationService *notifService = new MarathonNotificationService(notifDb, notificationModel, &app);
         if (notifService->registerService()) {
             qInfo() << "[MarathonShell]   ✓ NotificationService registered";
         }
         
         // Register freedesktop.org Notifications (standard interface for 3rd-party apps)
-        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, &app);
+        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, notificationModel, &app);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
         }

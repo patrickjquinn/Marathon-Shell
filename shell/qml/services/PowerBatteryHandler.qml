@@ -29,7 +29,7 @@ QtObject {
         }
         
         if (level <= 3 && !root.hasShownCriticalWarning) {
-            Logger.critical("PowerBatteryHandler", "Critical battery level: " + level + "% - Initiating emergency shutdown")
+            Logger.error("PowerBatteryHandler", "Critical battery level: " + level + "% - Initiating emergency shutdown")
             if (root.errorToast) {
                 root.errorToast.show("Critical Battery", "Device will shutdown in 10 seconds to prevent data loss", "battery-warning")
             }

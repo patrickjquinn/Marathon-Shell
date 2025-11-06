@@ -16,11 +16,19 @@ Item {
             spacing: MSpacing.md
             padding: MSpacing.lg
             
-            Text {
-                text: "⚙️ System Services"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                color: MColors.textPrimary
+            Row {
+                spacing: MSpacing.sm
+                Icon {
+                    name: "cpu"
+                    size: 24
+                    color: MColors.accent
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                MLabel {
+                    text: "System Services"
+                    variant: "headline"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
             
             MCard {
@@ -31,33 +39,28 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Power & Battery"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Column {
                         width: parent.width
                         spacing: MSpacing.xs
                         
-                        Text {
+                        MLabel {
                             text: "Battery: " + PowerManager.batteryLevel + "%"
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Charging: " + (PowerManager.isCharging ? "Yes" : "No")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Power Save: " + (PowerManager.isPowerSaveMode ? "On" : "Off")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                     }
                     
@@ -66,11 +69,11 @@ Item {
                         
                         MButton {
                             text: "Toggle Power Save"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 PowerManager.togglePowerSaveMode()
-                                Logger.info("TestApp", "✓ Toggled power save mode")
+                                Logger.info("TestApp", "Toggled power save mode")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -86,40 +89,34 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Network Status"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Column {
                         width: parent.width
                         spacing: MSpacing.xs
                         
-                        Text {
+                        MLabel {
                             text: "WiFi: " + (NetworkManager.wifiConnected ? ("Connected (" + NetworkManager.wifiSsid + ")") : "Disconnected")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Signal: " + NetworkManager.wifiSignalStrength + "%"
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                             visible: NetworkManager.wifiConnected
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Cellular: " + (NetworkManager.cellularConnected ? NetworkManager.cellularOperator : "Disconnected")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Airplane Mode: " + (NetworkManager.airplaneModeEnabled ? "On" : "Off")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                     }
                     
@@ -128,11 +125,11 @@ Item {
                         
                         MButton {
                             text: "Scan WiFi"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 NetworkManager.scanWifi()
-                                Logger.info("TestApp", "✓ WiFi scan initiated")
+                                Logger.info("TestApp", "WiFi scan initiated")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -143,7 +140,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 NetworkManager.toggleAirplaneMode()
-                                Logger.info("TestApp", "✓ Toggled airplane mode")
+                                Logger.info("TestApp", "Toggled airplane mode")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -159,27 +156,23 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Display"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Column {
                         width: parent.width
                         spacing: MSpacing.xs
                         
-                        Text {
+                        MLabel {
                             text: "Brightness: " + Math.round(DisplayManager.brightness * 100) + "%"
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Auto-brightness: " + (DisplayManager.autoBrightnessEnabled ? "On" : "Off")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                     }
                     
@@ -189,11 +182,11 @@ Item {
                         
                         MButton {
                             text: "Increase"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 DisplayManager.increaseBrightness()
-                                Logger.info("TestApp", "✓ Increased brightness")
+                                Logger.info("TestApp", "Increased brightness")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -204,7 +197,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 DisplayManager.decreaseBrightness()
-                                Logger.info("TestApp", "✓ Decreased brightness")
+                                Logger.info("TestApp", "Decreased brightness")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -215,7 +208,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 DisplayManager.setAutoBrightness(!DisplayManager.autoBrightnessEnabled)
-                                Logger.info("TestApp", "✓ Toggled auto-brightness")
+                                Logger.info("TestApp", "Toggled auto-brightness")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -231,11 +224,9 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Screenshot Service"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Row {
@@ -243,11 +234,11 @@ Item {
                         
                         MButton {
                             text: "Take Screenshot"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.medium()
                                 ScreenshotService.takeScreenshot()
-                                Logger.info("TestApp", "✓ Screenshot taken")
+                                Logger.info("TestApp", "Screenshot taken")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -257,4 +248,3 @@ Item {
         }
     }
 }
-

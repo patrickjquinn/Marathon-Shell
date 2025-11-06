@@ -32,11 +32,10 @@ MApp {
                     anchors.centerIn: parent
                     spacing: MSpacing.xs
                     
-                    Text {
+                    MLabel {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "Marathon Service Tests"
-                        font.pixelSize: MTypography.sizeLarge
-                        font.weight: Font.Bold
+                        variant: "headline"
                         color: MColors.marathonTeal
                     }
                     
@@ -44,22 +43,49 @@ MApp {
                         anchors.horizontalCenter: parent.horizontalCenter
                         spacing: MSpacing.lg
                         
-                        Text {
-                            text: "✓ " + testApp.passedTests
+                        Row {
+                            spacing: MSpacing.xs
+                            Icon {
+                                name: "check"
+                                size: 16
+                                color: MColors.success
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            MLabel {
+                                text: testApp.passedTests.toString()
                             color: MColors.success
-                            font.pixelSize: MTypography.sizeBody
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                         
-                        Text {
-                            text: "✗ " + testApp.failedTests
+                        Row {
+                            spacing: MSpacing.xs
+                            Icon {
+                                name: "x"
+                                size: 16
+                                color: MColors.error
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            MLabel {
+                                text: testApp.failedTests.toString()
                             color: MColors.error
-                            font.pixelSize: MTypography.sizeBody
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                         
-                        Text {
-                            text: "Total: " + testApp.totalTests
+                        Row {
+                            spacing: MSpacing.xs
+                            Icon {
+                                name: "list"
+                                size: 16
                             color: MColors.textSecondary
-                            font.pixelSize: MTypography.sizeBody
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            MLabel {
+                                text: testApp.totalTests.toString()
+                                variant: "secondary"
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
                         }
                     }
                 }

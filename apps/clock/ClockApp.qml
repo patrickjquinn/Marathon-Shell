@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonUI.Navigation
 import "pages"
@@ -185,6 +186,10 @@ MApp {
                     id: clockPage
                 }
                 
+                WorldClockPage {
+                    id: worldClockPage
+                }
+                
                 AlarmPage {
                     id: alarmPage
                 }
@@ -202,13 +207,9 @@ MApp {
                 id: tabBar
                 width: parent.width
                 
-                Binding on activeTab {
-                    value: parent.currentView
-                    restoreMode: Binding.RestoreBinding
-                }
-                
                 tabs: [
                     { label: "Clock", icon: "clock" },
+                    { label: "World", icon: "globe" },
                     { label: "Alarm", icon: "bell" },
                     { label: "Timer", icon: "timer" },
                     { label: "Stopwatch", icon: "stopwatch" }

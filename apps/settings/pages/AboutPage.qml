@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Theme
 import "../components"
 
 SettingsPageTemplate {

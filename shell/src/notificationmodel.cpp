@@ -1,4 +1,5 @@
 #include "notificationmodel.h"
+#include "dbus/notificationdatabase.h"
 #include <QDebug>
 
 NotificationModel::NotificationModel(QObject* parent)
@@ -156,5 +157,54 @@ void NotificationModel::updateUnreadCount()
         m_unreadCount = count;
         emit unreadCountChanged();
     }
+}
+
+void NotificationModel::loadFromDatabase(NotificationDatabase* database)
+{
+    if (!database) {
+        qWarning() << "[NotificationModel] Cannot load from null database";
+        return;
+    }
+    
+    qDebug() << "[NotificationModel] Loading notifications from database...";
+    
+    QList<NotificationDatabase::NotificationRecord> records = database->getNotifications();
+    
+    if (records.isEmpty()) {
+        qDebug() << "[NotificationModel] No notifications in database";
+        return;
+    }
+    
+    beginResetModel();
+    
+    qDeleteAll(m_notifications);
+    m_notifications.clear();
+    m_notificationIndex.clear();
+    
+    for (const auto& record : records) {
+        Notification* notification = new Notification(
+            record.id, 
+            record.appId, 
+            record.title, 
+            record.body, 
+            record.iconPath, 
+            this
+        );
+        notification->setIsRead(record.read);
+        
+        m_notifications.append(notification);
+        m_notificationIndex[record.id] = notification;
+        
+        if (record.id >= m_nextId) {
+            m_nextId = record.id + 1;
+        }
+    }
+    
+    endResetModel();
+    
+    updateUnreadCount();
+    emit countChanged();
+    
+    qInfo() << "[NotificationModel] Loaded" << m_notifications.count() << "notifications from database";
 }
 

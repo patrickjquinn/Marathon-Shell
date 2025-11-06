@@ -3,7 +3,6 @@ import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
 import "../components"
-import "../components" as ClockComponents
 
 Item {
     id: alarmPage
@@ -69,7 +68,7 @@ Item {
                         anchors.centerIn: parent
                         spacing: MSpacing.lg
                         
-                        ClockComponents.ClockIcon {
+                        ClockIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: "clock"
                             size: Constants.iconSizeXLarge * 2
