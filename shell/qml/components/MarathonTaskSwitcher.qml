@@ -284,14 +284,15 @@ Item {
                                             Logger.info("TaskSwitcher", "Closing native app via compositor, surfaceId: " + model.surfaceId)
                                             compositor.closeWindow(model.surfaceId)
                                         }
+                                        // Also remove from TaskModel for native apps
+                                        TaskModel.closeTask(model.id)
                                     } else {
-                                        // For Marathon apps, use lifecycle manager
+                                        // For Marathon apps, use lifecycle manager which handles both app closure and TaskModel removal
                                         if (typeof AppLifecycleManager !== 'undefined') {
                                             AppLifecycleManager.closeApp(model.appId)
                                         }
                                     }
                                     
-                                    TaskModel.closeTask(model.id)
                                     cardRoot.closing = false
                                 }
                             }
@@ -378,20 +379,17 @@ Item {
                         if (isDragging && (isFlickUp || isDragUp)) {
                             Logger.info("TaskSwitcher", "Closing: " + model.appId + " (v: " + velocity.toFixed(2) + "px/ms, d: " + dragDistance.toFixed(0) + "px)")
                             
-                            var taskIdToClose = model.id
+                            var appIdToClose = model.appId
                             
                             // Reset transform immediately to avoid ghost spacing
                             dragDistance = 0
                             isDragging = false
                             velocity = 0
                             
-                            // Actually close the app instance, not just remove from TaskModel
+                            // Close the app - AppLifecycleManager will handle both the app instance AND removing from TaskModel
                             if (typeof AppLifecycleManager !== 'undefined') {
-                                AppLifecycleManager.closeApp(model.appId)
+                                AppLifecycleManager.closeApp(appIdToClose)
                             }
-                            
-                            // Close task - GridView will remove delegate cleanly
-                            TaskModel.closeTask(taskIdToClose)
                             
                             mouse.accepted = true
                         } else if (!isDragging && totalTime < 200) {

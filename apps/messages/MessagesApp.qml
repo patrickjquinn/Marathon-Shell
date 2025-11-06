@@ -114,6 +114,8 @@ MApp {
                     var conversation = getConversation(conversationId)
                     if (conversation) {
                         navigationStack.push(chatPage, { conversation: conversation })
+                    } else {
+                        Logger.warn("Messages", "Conversation not found: " + conversationId)
                     }
                 }
                 onNewMessage: function() {
@@ -124,7 +126,11 @@ MApp {
         
         Component {
             id: chatPage
-            ChatPage {}
+            ChatPage {
+                onNavigateBack: {
+                    navigationStack.pop()
+                }
+            }
         }
         
         Component {
@@ -154,12 +160,30 @@ MApp {
     }
     
     function getConversation(id) {
+        if (!id) return null
+        
         for (var i = 0; i < conversations.length; i++) {
             if (conversations[i].id === id) {
                 return conversations[i]
             }
         }
+        
+        Logger.warn("Messages", "Conversation not found: " + id)
         return null
+    }
+    
+    function refreshConversations() {
+        if (typeof SMSService !== 'undefined') {
+            conversations = SMSService.conversations
+        }
+    }
+    
+    Connections {
+        target: typeof SMSService !== 'undefined' ? SMSService : null
+        function onConversationsChanged() {
+            Logger.info("Messages", "Conversations updated")
+            refreshConversations()
+        }
     }
     
     function formatTimestamp(timestamp) {

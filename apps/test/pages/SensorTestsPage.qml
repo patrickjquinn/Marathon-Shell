@@ -16,11 +16,19 @@ Item {
             spacing: MSpacing.md
             padding: MSpacing.lg
             
-            Text {
-                text: "📡 Sensors"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                color: MColors.textPrimary
+            Row {
+                spacing: MSpacing.sm
+                Icon {
+                    name: "activity"
+                    size: 24
+                    color: MColors.accent
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                MLabel {
+                    text: "Sensors"
+                    variant: "headline"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
             
             MCard {
@@ -31,27 +39,23 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Ambient Light Sensor"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Column {
                         width: parent.width
                         spacing: MSpacing.xs
                         
-                        Text {
+                        MLabel {
                             text: "Available: " + (AmbientLightSensor.available ? "Yes" : "No")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Light Level: " + AmbientLightSensor.lightLevel + " lux"
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                     }
                     
@@ -60,11 +64,11 @@ Item {
                         
                         MButton {
                             text: "Enable"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 AmbientLightSensor.enable()
-                                Logger.info("TestApp", "✓ Enabled ambient light sensor")
+                                Logger.info("TestApp", "Enabled ambient light sensor")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -75,7 +79,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 AmbientLightSensor.disable()
-                                Logger.info("TestApp", "✓ Disabled ambient light sensor")
+                                Logger.info("TestApp", "Disabled ambient light sensor")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -91,27 +95,23 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Proximity Sensor"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Column {
                         width: parent.width
                         spacing: MSpacing.xs
                         
-                        Text {
+                        MLabel {
                             text: "Available: " + (ProximitySensor.available ? "Yes" : "No")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Near: " + (ProximitySensor.near ? "Yes" : "No")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                     }
                     
@@ -120,11 +120,11 @@ Item {
                         
                         MButton {
                             text: "Enable"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 ProximitySensor.enable()
-                                Logger.info("TestApp", "✓ Enabled proximity sensor")
+                                Logger.info("TestApp", "Enabled proximity sensor")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -135,7 +135,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 ProximitySensor.disable()
-                                Logger.info("TestApp", "✓ Disabled proximity sensor")
+                                Logger.info("TestApp", "Disabled proximity sensor")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -151,39 +151,33 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Location Service"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Column {
                         width: parent.width
                         spacing: MSpacing.xs
                         
-                        Text {
+                        MLabel {
                             text: "Enabled: " + (LocationService.enabled ? "Yes" : "No")
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Lat: " + LocationService.latitude.toFixed(6)
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Lon: " + LocationService.longitude.toFixed(6)
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                         
-                        Text {
+                        MLabel {
                             text: "Accuracy: " + LocationService.accuracy + "m"
-                            font.pixelSize: MTypography.sizeSmall
-                            color: MColors.textSecondary
+                            variant: "secondary"
                         }
                     }
                     
@@ -192,22 +186,22 @@ Item {
                         
                         MButton {
                             text: "Enable"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 LocationService.enable()
-                                Logger.info("TestApp", "✓ Enabled location service")
+                                Logger.info("TestApp", "Enabled location service")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Get Location"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.light()
                                 LocationService.updateLocation()
-                                Logger.info("TestApp", "✓ Requested location update")
+                                Logger.info("TestApp", "Requested location update")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -223,17 +217,14 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Flashlight"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
-                    Text {
+                    MLabel {
                         text: "Status: " + (FlashlightManager.enabled ? "On" : "Off")
-                        font.pixelSize: MTypography.sizeSmall
-                        color: MColors.textSecondary
+                        variant: "secondary"
                     }
                     
                     Row {
@@ -241,11 +232,11 @@ Item {
                         
                         MButton {
                             text: "Toggle"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 FlashlightManager.toggle()
-                                Logger.info("TestApp", "✓ Toggled flashlight")
+                                Logger.info("TestApp", "Toggled flashlight")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -255,4 +246,3 @@ Item {
         }
     }
 }
-

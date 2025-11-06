@@ -10,14 +10,17 @@ QtObject {
     function handleDeepLink(appId, route, params) {
         Logger.info("DeepLinkHandler", "Deep link requested: " + appId)
         
-        var app = AppStore.getApp(appId)
-        if (app) {
-            UIStore.openApp(app.id, app.name, app.icon)
+        // Use MarathonAppRegistry instead of AppStore
+        var appInfo = typeof MarathonAppRegistry !== 'undefined' ? 
+                      MarathonAppRegistry.getApp(appId) : null
+        
+        if (appInfo && appInfo.id) {
+            UIStore.openApp(appInfo.id, appInfo.name, appInfo.icon)
             if (root.appWindow) {
-                root.appWindow.show(app.id, app.name, app.icon, app.type)
+                root.appWindow.show(appInfo.id, appInfo.name, appInfo.icon, appInfo.type)
             }
             if (typeof AppLifecycleManager !== 'undefined') {
-                AppLifecycleManager.bringToForeground(app.id)
+                AppLifecycleManager.bringToForeground(appInfo.id)
             }
         } else {
             Logger.warn("DeepLinkHandler", "App not found for deep link: " + appId)

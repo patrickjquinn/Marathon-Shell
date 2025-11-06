@@ -28,6 +28,7 @@ Item {
     Item {
         id: lockContent
         anchors.fill: parent
+        z: 1
         
         // Wallpaper with proper caching
         Image {
@@ -115,11 +116,13 @@ Item {
             z: 10
             
             Repeater {
-                model: Math.min(NotificationModel.count, 4)
+                model: NotificationModel
                 
-                Item {
-                    width: expandedNotificationId === modelData.id ? Math.round(300 * Constants.scaleFactor) : Math.round(48 * Constants.scaleFactor)
+                delegate: Item {
+                    width: expandedNotificationId === model.id ? Math.round(300 * Constants.scaleFactor) : Math.round(48 * Constants.scaleFactor)
                     height: Math.round(48 * Constants.scaleFactor)
+                    visible: index < 4
+                    z: 10
                     
                     Behavior on width {
                         NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
@@ -127,12 +130,13 @@ Item {
                     
                     Rectangle {
                         anchors.fill: parent
-                        color: expandedNotificationId === modelData.id ? MColors.surface : "transparent"
+                        color: expandedNotificationId === model.id ? MColors.surface : "transparent"
                         radius: Constants.borderRadiusSharp
                         antialiasing: true
+                        z: 10
                         
                         // GPU layer for notification cards
-                        layer.enabled: expandedNotificationId === modelData.id
+                        layer.enabled: expandedNotificationId === model.id
                         layer.smooth: true
                         
                         Behavior on color {
@@ -148,8 +152,8 @@ Item {
                                 width: Constants.touchTargetMinimum
                                 height: Constants.touchTargetMinimum
                                 radius: Math.round(20 * Constants.scaleFactor)
-                                color: expandedNotificationId === modelData.id ? MColors.elevated : "transparent"
-                                border.width: expandedNotificationId === modelData.id ? 0 : Constants.borderWidthThin
+                                color: expandedNotificationId === model.id ? MColors.elevated : "transparent"
+                                border.width: expandedNotificationId === model.id ? 0 : Constants.borderWidthThin
                                 border.color: MColors.border
                                 anchors.verticalCenter: parent.verticalCenter
                                 antialiasing: true
@@ -161,58 +165,49 @@ Item {
                                     NumberAnimation { duration: 200 }
                                 }
                                 
-                                Image {
-                                    source: modelData.icon
-                                    width: Math.round(24 * Constants.scaleFactor)
-                                    height: Math.round(24 * Constants.scaleFactor)
-                                    fillMode: Image.PreserveAspectFit
-                                    asynchronous: true
-                                    cache: true
+                                Icon {
+                                    name: model.icon || "bell"
+                                    size: 24
+                                    color: MColors.textPrimary
                                     anchors.centerIn: parent
                                 }
                                 
                                 Rectangle {
-                                    visible: !modelData.read
+                                    visible: !model.isRead
                                     anchors.right: parent.right
                                     anchors.top: parent.top
-                                    anchors.rightMargin: Math.round(-4 * Constants.scaleFactor)
-                                    anchors.topMargin: Math.round(-4 * Constants.scaleFactor)
-                                    width: Math.round(18 * Constants.scaleFactor)
-                                    height: Math.round(18 * Constants.scaleFactor)
-                                    radius: Constants.borderRadiusSharp
-                                    color: MColors.error
+                                    anchors.rightMargin: Math.round(-2 * Constants.scaleFactor)
+                                    anchors.topMargin: Math.round(-2 * Constants.scaleFactor)
+                                    width: Math.round(10 * Constants.scaleFactor)
+                                    height: Math.round(10 * Constants.scaleFactor)
+                                    radius: Math.round(5 * Constants.scaleFactor)
+                                    color: MColors.accent
                                     antialiasing: true
-                                    
-                                    Text {
-                                        text: "1"
-                                        color: MColors.text
-                                        font.pixelSize: MTypography.sizeXSmall
-                                        font.weight: Font.Bold
-                                        anchors.centerIn: parent
-                                    }
                                 }
                             }
                             
                             Column {
-                                visible: expandedNotificationId === modelData.id
+                                visible: expandedNotificationId === model.id
                                 anchors.verticalCenter: parent.verticalCenter
                                 width: parent.width - Math.round(68 * Constants.scaleFactor)
                                 spacing: Math.round(2 * Constants.scaleFactor)
                                 
                                 Text {
-                                    text: modelData.title
-                                    color: MColors.text
+                                    text: model.title || ""
+                                    color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeSmall
                                     font.weight: Font.Bold
+                                    font.family: MTypography.fontFamily
                                     elide: Text.ElideRight
                                     width: parent.width
                                     renderType: Text.NativeRendering
                                 }
                                 
                                 Text {
-                                    text: modelData.subtitle
+                                    text: model.body || ""
                                     color: MColors.textSecondary
                                     font.pixelSize: MTypography.sizeXSmall
+                                    font.family: MTypography.fontFamily
                                     elide: Text.ElideRight
                                     width: parent.width
                                     renderType: Text.NativeRendering
@@ -222,17 +217,22 @@ Item {
                         
                         MouseArea {
                             anchors.fill: parent
-                            z: 100
+                            z: 20
+                            preventStealing: true
                             
-                            property var notification: modelData
+                            onPressed: {
+                                Logger.info("LockScreen", "Notification MouseArea pressed: " + model.title)
+                            }
                             
                             onClicked: {
-                                if (expandedNotificationId === notification.id) {
+                                HapticService.light()
+                                Logger.info("LockScreen", "Notification clicked: " + model.title)
+                                if (expandedNotificationId === model.id) {
                                     expandedNotificationId = ""
-                                    Logger.info("LockScreen", "Notification dismissed: " + notification.title)
+                                    Logger.info("LockScreen", "Notification dismissed: " + model.title)
                                 } else {
-                                    expandedNotificationId = notification.id
-                                    Logger.info("LockScreen", "Notification expanded: " + notification.title)
+                                    expandedNotificationId = model.id
+                                    Logger.info("LockScreen", "Notification expanded: " + model.title)
                                 }
                             }
                         }
@@ -308,7 +308,7 @@ Item {
     // Optimized touch handling with momentum
     MouseArea {
         anchors.fill: parent
-        z: 5
+        z: 0
         propagateComposedEvents: true
         
         property real startY: 0
@@ -323,14 +323,7 @@ Item {
             velocity = 0
             isDragging = false
             lastTime = Date.now()
-            
-            // Let notifications handle their own clicks
-            if (mouse.y > height * 0.3 && mouse.y < height * 0.7 && mouse.x < 350) {
-                mouse.accepted = false
-                return
-            }
-            // Bottom bar buttons now handle their own events with propagateComposedEvents
-            // No need to block anything - swipes work everywhere including bottom bar
+            // Don't reject here - we need to track the gesture to determine if it's a swipe or tap
         }
         
         onPositionChanged: (mouse) => {
@@ -350,6 +343,8 @@ Item {
             
             if (totalDelta > 10) {
                 isDragging = true
+                // Once we detect dragging, stop propagating to notification taps
+                mouse.accepted = true
             }
             
             if (isDragging) {
@@ -377,6 +372,9 @@ Item {
                     swipeProgress = 0
                     expandedNotificationId = ""
                 }
+            } else {
+                // Was a tap, not a swipe - notifications will handle it via their MouseAreas
+                Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y)
             }
             
             isDragging = false

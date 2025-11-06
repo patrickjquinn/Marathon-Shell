@@ -76,25 +76,19 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     columns: 3
                     spacing: MSpacing.md
-                    width: parent.width
                     
                     Repeater {
                         model: [1, 3, 5, 10, 15, 30]
                         
-                        Item {
+                        MButton {
                             required property int modelData
-                            width: (parent.width - parent.spacing * 2) / 3
-                            height: parent.height
-                            
-                            MButton {
-                                anchors.fill: parent
+                            width: Math.round((parent.parent.width - parent.spacing * 2) / 3)
                                 text: modelData + " min"
                                 variant: "secondary"
                                 onClicked: {
                                     HapticService.light()
                                     remainingSeconds = modelData * 60
                                     totalSeconds = remainingSeconds
-                                }
                             }
                         }
                     }

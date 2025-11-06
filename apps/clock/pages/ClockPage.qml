@@ -1,7 +1,8 @@
 import QtQuick
+import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
-import "../components" as ClockComponents
+import "../components"
 
 Item {
     id: clockPage
@@ -38,30 +39,73 @@ Item {
         // Main analog clock - centered and large, accounting for alarm bar
         Item {
             anchors.centerIn: parent
-            width: Math.min(parent.width * 0.85, parent.height * 0.7)
+            width: Math.min(parent.width * 0.7, parent.height * 0.55)
             height: width
             // Account for alarm bar when centering
-            anchors.verticalCenterOffset: clockApp.alarms.length > 0 ? -Constants.actionBarHeight / 2 : 0
+            anchors.verticalCenterOffset: (clockApp.alarms && clockApp.alarms.length > 0) ? -Constants.actionBarHeight / 2 : 0
             
-            // Squircle clock face (super-ellipse shape) - larger frame ONLY
-            Rectangle {
-                id: clockFace
+            // Squircle clock face with neumorphic design - raised from background
+            Item {
+                id: clockFaceContainer
                 anchors.centerIn: parent
-                width: parent.width * 1.10  // 10% larger frame (smaller than before)
+                width: parent.width * 1.10
                 height: parent.height * 1.10
-                color: MColors.background
-                border.width: Constants.borderWidthThick
-                border.color: Qt.rgba(0.18, 0.18, 0.18, 1.0)  // Darker, more subtle gray border
-                radius: width * 0.22  // Squircle-like radius (22% of width)
+                
+                // Dark shadow layer (bottom-right) - creates depth
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -20
+                    radius: width * 0.22
+                    color: "transparent"
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: Qt.rgba(0, 0, 0, 0.25)
+                        shadowBlur: 1.0
+                        shadowHorizontalOffset: 20
+                        shadowVerticalOffset: 20
+                    }
+                }
+                
+                // Light shadow layer (top-left) - creates raised effect
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -20
+                    radius: width * 0.22
+                    color: "transparent"
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: Qt.rgba(1, 1, 1, 0.8)
+                        shadowBlur: 1.0
+                        shadowHorizontalOffset: -20
+                        shadowVerticalOffset: -20
+                    }
+                }
+                
+                // Main clock face
+                Rectangle {
+                    id: clockFace
+                    anchors.fill: parent
+                    color: MColors.surface
+                    radius: width * 0.22
+                    
+                    // Subtle inner border for definition
+                    border.width: Constants.borderWidthThin
+                    border.color: Qt.rgba(0, 0, 0, 0.05)
+                }
                 
                 // Scale factor to keep clock content same size inside larger frame
                 property real contentScale: 1.0 / 1.10
                 
-                // Container to scale clock content to original size
+                // Container to scale clock content to original size inside the face
                 Item {
+                    parent: clockFaceContainer
                     anchors.centerIn: parent
-                    width: parent.width * parent.contentScale
-                    height: parent.height * parent.contentScale
+                    width: clockFaceContainer.width * clockFaceContainer.contentScale
+                    height: clockFaceContainer.height * clockFaceContainer.contentScale
                 
                     // Hour markers (all 60 ticks, with emphasis on hours)
                     Repeater {
@@ -284,7 +328,7 @@ Item {
             anchors.bottom: parent.bottom
             height: Constants.actionBarHeight
             color: MColors.background
-            visible: clockApp.alarms.length > 0
+            visible: clockApp.alarms && clockApp.alarms.length > 0
             
             Column {
                 anchors.left: parent.left
@@ -297,12 +341,13 @@ Item {
                     
                     Text {
                         text: {
-                            if (clockApp.alarms.length === 0) return ""
+                            if (!clockApp.alarms || clockApp.alarms.length === 0) return ""
                             var alarm = clockApp.alarms[0]
-                            var h = alarm.hour % 12
+                            var h = (alarm.hour !== undefined ? alarm.hour : 0) % 12
                             if (h === 0) h = 12
-                            var m = alarm.minute < 10 ? "0" + alarm.minute : alarm.minute
-                            return h + ":" + m
+                            var m = alarm.minute !== undefined ? alarm.minute : 0
+                            var mStr = m < 10 ? "0" + m : m.toString()
+                            return h + ":" + mStr
                         }
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Normal
@@ -310,7 +355,7 @@ Item {
                     }
                     
                     Text {
-                        text: clockApp.alarms.length > 0 && clockApp.alarms[0].label ? clockApp.alarms[0].label : "Alarm Off"
+                        text: (clockApp.alarms && clockApp.alarms.length > 0 && clockApp.alarms[0].label) ? clockApp.alarms[0].label : "Alarm Off"
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Normal
                         color: MColors.textPrimary
@@ -334,9 +379,9 @@ Item {
                 radius: width / 2
                 color: MColors.surface
                 
-                ClockComponents.ClockIcon {
+                ClockIcon {
                     anchors.centerIn: parent
-                    name: "clock"
+                    name: "bell"
                     size: Constants.iconSizeMedium
                         color: MColors.textSecondary
                 }

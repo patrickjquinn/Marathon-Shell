@@ -26,22 +26,22 @@ QtObject {
         var appId = notification.appId
         
         if (appId === "phone") {
-            NavigationRouter.navigate(appId, "history", {})
+            NavigationRouter.navigateToDeepLink(appId, "history", {})
         } else if (appId === "messages") {
             var notifId = notification.id
             if (typeof notifId === "string" && notifId.startsWith("sms_")) {
                 var parts = notifId.split("_")
                 if (parts.length >= 2) {
                     var phoneNumber = parts[1]
-                    NavigationRouter.navigate(appId, "conversation", { number: phoneNumber })
+                    NavigationRouter.navigateToDeepLink(appId, "conversation", { number: phoneNumber })
                 } else {
-                    NavigationRouter.navigate(appId, "", {})
+                    NavigationRouter.navigateToDeepLink(appId, "", {})
                 }
             } else {
-                NavigationRouter.navigate(appId, "", {})
+                NavigationRouter.navigateToDeepLink(appId, "", {})
             }
         } else {
-            NavigationRouter.navigate(appId, "", {})
+            NavigationRouter.navigateToDeepLink(appId, "", {})
         }
         
         NotificationService.dismissNotification(id)
@@ -62,18 +62,17 @@ QtObject {
                 if (typeof TelephonyService !== 'undefined') {
                     TelephonyService.dial(number)
                 }
-                NavigationRouter.navigate("phone", "", {})
+                NavigationRouter.navigateToDeepLink("phone", "", {})
             } else if (action === "message") {
                 var number2 = notification.body.replace("From: ", "")
-                NavigationRouter.navigate("messages", "conversation", { number: number2 })
+                NavigationRouter.navigateToDeepLink("messages", "conversation", { number: number2 })
             }
         } else if (notification.appId === "messages") {
             if (action === "reply") {
-                NavigationRouter.navigate("messages", "", {})
+                NavigationRouter.navigateToDeepLink("messages", "", {})
             } else if (action === "mark_read") {
                 NotificationService.dismissNotification(id)
             }
         }
     }
 }
-

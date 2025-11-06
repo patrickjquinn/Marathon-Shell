@@ -9,7 +9,7 @@ Rectangle {
     anchors.fill: parent
     color: Qt.rgba(0, 0, 0, 0.85)
     visible: false
-    z: 1000
+    z: Constants.zIndexModalOverlay
     
     property int editingAlarmId: -1
     property bool isEditMode: false
@@ -79,7 +79,10 @@ Rectangle {
                     height: 200
                     model: 24
                     delegate: Text {
-                        text: modelData.toString().padStart(2, '0')
+                        text: {
+                            var str = modelData.toString()
+                            return str.length < 2 ? "0" + str : str
+                        }
                         font.pixelSize: MTypography.sizeLarge
                         color: MColors.text
                         opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -102,7 +105,10 @@ Rectangle {
                     height: 200
                     model: 60
                     delegate: Text {
-                        text: modelData.toString().padStart(2, '0')
+                        text: {
+                            var str = modelData.toString()
+                            return str.length < 2 ? "0" + str : str
+                        }
                         font.pixelSize: MTypography.sizeLarge
                         color: MColors.text
                         opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
@@ -121,13 +127,17 @@ Rectangle {
                 MButton {
                     text: "Cancel"
                     variant: "secondary"
-                    onClicked: dialog.close()
+                    onClicked: {
+                        HapticService.light()
+                        dialog.close()
+                    }
                 }
                 
                 MButton {
                     text: "Save"
                     variant: "primary"
                     onClicked: {
+                        HapticService.light()
                         if (isEditMode) {
                             dialog.alarmUpdated(editingAlarmId, hourTumbler.currentIndex, minuteTumbler.currentIndex)
                         } else {

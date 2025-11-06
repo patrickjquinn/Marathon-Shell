@@ -16,11 +16,19 @@ Item {
             spacing: MSpacing.md
             padding: MSpacing.lg
             
-            Text {
-                text: "🎵 Media & Audio"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                color: MColors.textPrimary
+            Row {
+                spacing: MSpacing.sm
+                Icon {
+                    name: "music"
+                    size: 24
+                    color: MColors.accent
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+                MLabel {
+                    text: "Media & Audio"
+                    variant: "headline"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
             
             MCard {
@@ -31,17 +39,14 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Audio Manager"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
-                    Text {
+                    MLabel {
                         text: "Volume: " + Math.round(AudioManager.volume * 100) + "%"
-                        font.pixelSize: MTypography.sizeSmall
-                        color: MColors.textSecondary
+                        variant: "secondary"
                     }
                     
                     Flow {
@@ -50,22 +55,22 @@ Item {
                         
                         MButton {
                             text: "Play Ringtone"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.playRingtone()
-                                Logger.info("TestApp", "✓ Playing ringtone")
+                                Logger.info("TestApp", "Playing ringtone")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Stop Ringtone"
-                            variant: "secondary"
+                            variant: "danger"
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.stopRingtone()
-                                Logger.info("TestApp", "✓ Stopped ringtone")
+                                Logger.info("TestApp", "Stopped ringtone")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -76,29 +81,29 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.playNotificationSound()
-                                Logger.info("TestApp", "✓ Played notification sound")
+                                Logger.info("TestApp", "Played notification sound")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Alarm Sound"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.playAlarmSound()
-                                Logger.info("TestApp", "✓ Playing alarm sound")
+                                Logger.info("TestApp", "Playing alarm sound")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Stop Alarm"
-                            variant: "secondary"
+                            variant: "danger"
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.stopAlarmSound()
-                                Logger.info("TestApp", "✓ Stopped alarm sound")
+                                Logger.info("TestApp", "Stopped alarm sound")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -114,17 +119,14 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Audio Profiles"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
-                    Text {
+                    MLabel {
                         text: "Current: " + AudioManager.audioProfile
-                        font.pixelSize: MTypography.sizeSmall
-                        color: MColors.textSecondary
+                        variant: "secondary"
                     }
                     
                     Flow {
@@ -137,7 +139,7 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.setAudioProfile("silent")
-                                Logger.info("TestApp", "✓ Profile: silent")
+                                Logger.info("TestApp", "Profile: silent")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -148,29 +150,29 @@ Item {
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.setAudioProfile("vibrate")
-                                Logger.info("TestApp", "✓ Profile: vibrate")
+                                Logger.info("TestApp", "Profile: vibrate")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Normal"
-                            variant: "secondary"
+                            variant: "primary"
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.setAudioProfile("normal")
-                                Logger.info("TestApp", "✓ Profile: normal")
+                                Logger.info("TestApp", "Profile: normal")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Loud"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.light()
                                 AudioManager.setAudioProfile("loud")
-                                Logger.info("TestApp", "✓ Profile: loud")
+                                Logger.info("TestApp", "Profile: loud")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -186,11 +188,9 @@ Item {
                     spacing: MSpacing.md
                     padding: MSpacing.lg
                     
-                    Text {
+                    MLabel {
                         text: "Haptic Feedback"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        color: MColors.textPrimary
+                        variant: "title"
                     }
                     
                     Flow {
@@ -202,7 +202,7 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light()
-                                Logger.info("TestApp", "✓ Haptic: light")
+                                Logger.info("TestApp", "Haptic: light")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -212,7 +212,7 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.medium()
-                                Logger.info("TestApp", "✓ Haptic: medium")
+                                Logger.info("TestApp", "Haptic: medium")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -222,17 +222,17 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.heavy()
-                                Logger.info("TestApp", "✓ Haptic: heavy")
+                                Logger.info("TestApp", "Haptic: heavy")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
                         
                         MButton {
                             text: "Pattern"
-                            variant: "secondary"
+                            variant: "accent"
                             onClicked: {
                                 HapticService.vibratePattern([100, 50, 100, 50, 200], 1)
-                                Logger.info("TestApp", "✓ Haptic: custom pattern")
+                                Logger.info("TestApp", "Haptic: custom pattern")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
                         }
@@ -242,4 +242,3 @@ Item {
         }
     }
 }
-

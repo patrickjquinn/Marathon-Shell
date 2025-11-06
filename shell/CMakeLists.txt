@@ -20,8 +20,6 @@ set(SOURCES
     src/modemmanagercpp.cpp
     src/sensormanagercpp.h
     src/sensormanagercpp.cpp
-    src/notificationservice.h
-    src/notificationservice.cpp
     src/settingsmanager.h
     src/settingsmanager.cpp
     src/storagemanager.h

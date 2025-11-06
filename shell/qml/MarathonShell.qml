@@ -504,6 +504,11 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
+        
+        onNotificationTapped: (notification) => {
+            Logger.info("Shell", "Notification tapped from peek: " + notification.title)
+            notificationToast.showToast(notification)
+        }
     }
     
     // Peek gesture capture area - must be above app window to work when app is open
