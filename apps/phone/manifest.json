@@ -8,6 +8,9 @@
   "permissions": ["phone", "contacts"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["Communication"],
+  "handlesUriSchemes": ["tel", "callto"],
+  "defaultFor": ["dialer"],
   "searchKeywords": ["phone", "dialer", "calls", "contacts", "voicemail"],
   "deepLinks": {}
 }

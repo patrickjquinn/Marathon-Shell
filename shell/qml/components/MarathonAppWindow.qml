@@ -232,36 +232,14 @@ Rectangle {
                     appContentLoader.sourceComponent = undefined
                     appContentLoader.sourceComponent = appInstanceContainer
                 } else {
-                    // Load external Marathon app dynamically (creates new instance)
+                    // Load external Marathon app asynchronously
                     Logger.info("AppWindow", "Loading external app from: " + appInfo.absolutePath)
                     
-                    var appInstance = MarathonAppLoader.loadApp(id)
+                    // Show loading splash while component loads
+                    appWindow.isLoadingComponent = true
                     
-                    if (appInstance) {
-                        console.log("AppWindow: App instance loaded, registering with AppLifecycleManager")
-                        
-                        // IMMEDIATELY register the app with AppLifecycleManager
-                        if (typeof AppLifecycleManager !== 'undefined') {
-                            console.log("AppWindow: Registering app:", id)
-                            AppLifecycleManager.registerApp(id, appInstance)
-                        } else {
-                            console.error("AppWindow: AppLifecycleManager not available!")
-                        }
-                        
-                        // Store instance and set component - container will pick it up
-                        appWindow.pendingAppInstance = appInstance
-                        // FORCE reload by clearing first
-                        appContentLoader.sourceComponent = undefined
-                        appContentLoader.sourceComponent = appInstanceContainer
-                        Logger.info("AppWindow", "External app loaded successfully: " + id)
-                        appWindow.hasError = false
-                        appWindow.isLoadingComponent = false
-                    } else {
-                        Logger.error("AppWindow", "Failed to load external app: " + id)
-                        appWindow.hasError = true
-                        appWindow.loadError = "Failed to load app component. Check console for details."
-                        appWindow.isLoadingComponent = false
-                    }
+                    // Use async loading to avoid blocking UI
+                    MarathonAppLoader.loadAppAsync(id)
                 }
             } else {
                 // Load placeholder template app
@@ -418,6 +396,36 @@ Rectangle {
     
     Connections {
         target: MarathonAppLoader
+        
+        function onAppLoadProgress(appId, percent) {
+            if (appId === appWindow.appId) {
+                Logger.debug("AppWindow", "Load progress for " + appId + ": " + percent + "%")
+            }
+        }
+        
+        function onAppInstanceReady(appId, instance) {
+            if (appId === appWindow.appId) {
+                Logger.info("AppWindow", "App instance ready: " + appId)
+                
+                // IMMEDIATELY register the app with AppLifecycleManager
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    console.log("AppWindow: Registering app:", appId)
+                    AppLifecycleManager.registerApp(appId, instance)
+                } else {
+                    console.error("AppWindow: AppLifecycleManager not available!")
+                }
+                
+                // Store instance and set component - container will pick it up
+                appWindow.pendingAppInstance = instance
+                // FORCE reload by clearing first
+                appContentLoader.sourceComponent = undefined
+                appContentLoader.sourceComponent = appInstanceContainer
+                Logger.info("AppWindow", "External app loaded successfully: " + appId)
+                appWindow.hasError = false
+                appWindow.isLoadingComponent = false
+            }
+        }
+        
         function onLoadError(appId, error) {
             if (appId === appWindow.appId) {
                 Logger.error("AppWindow", "Received loadError signal for: " + appId + " - " + error)

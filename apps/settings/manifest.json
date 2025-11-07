@@ -8,6 +8,9 @@
   "permissions": ["system"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["System"],
+  "handlesUriSchemes": [],
+  "defaultFor": [],
   "searchKeywords": [
     "settings",
     "preferences",

@@ -8,6 +8,9 @@
   "permissions": ["system", "storage"],
   "minShellVersion": "1.0.0",
   "protected": false,
+  "categories": ["System"],
+  "handlesUriSchemes": [],
+  "defaultFor": [],
   "searchKeywords": ["terminal", "shell", "command", "bash", "zsh", "console", "cli"],
   "deepLinks": {
     "new-tab": {

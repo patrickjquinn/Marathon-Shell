@@ -192,6 +192,10 @@ Item {
         flickableDirection: Flickable.VerticalFlick
         interactive: TaskModel.taskCount > 4  // Only scrollable if more than 1 page
         
+        // Allow horizontal gestures to pass through to parent PageView
+        // This is critical for page switching when task switcher is full
+        property bool allowHorizontalPassthrough: true
+        
         // Pagination settings - snap to full pages (2 rows = 4 apps)
         snapMode: GridView.NoSnap  // Disable automatic snap, use custom
         preferredHighlightBegin: 0
@@ -303,8 +307,9 @@ Item {
                     id: cardDragArea
                     anchors.fill: parent
                     z: 50  // Below close button (z: 1000) but above content
-                    preventStealing: true  // Don't let parent steal drag
+                    preventStealing: false  // Allow gesture direction detection
                     
+                    property real startX: 0
                     property real startY: 0
                     property real startTime: 0
                     property real lastY: 0
@@ -313,6 +318,8 @@ Item {
                     property bool isDragging: false
                     property real velocity: 0
                     property bool closeButtonClicked: false
+                    property bool isVerticalGesture: false
+                    property bool gestureDecided: false
                     
                     onPressed: function(mouse) {
                         // Check if click is on close button - let it handle
@@ -328,6 +335,7 @@ Item {
                             return
                         }
                         
+                        startX = mouse.x
                         startY = mouse.y
                         startTime = Date.now()
                         lastY = mouse.y
@@ -336,27 +344,53 @@ Item {
                         isDragging = false
                         velocity = 0
                         closeButtonClicked = false
+                        isVerticalGesture = false
+                        gestureDecided = false
                         mouse.accepted = true
                     }
                     
                     onPositionChanged: function(mouse) {
                         if (pressed) {
-                            var now = Date.now()
-                            var deltaTime = now - lastTime
-                            var deltaY = mouse.y - lastY
+                            var deltaX = Math.abs(mouse.x - startX)
+                            var deltaY = mouse.y - startY
                             
-                            // Calculate instantaneous velocity
-                            if (deltaTime > 0) {
-                                velocity = deltaY / deltaTime
+                            // Decide gesture direction after 15px movement
+                            if (!gestureDecided && (deltaX > 15 || Math.abs(deltaY) > 15)) {
+                                // Vertical gesture: deltaY more than 2x deltaX
+                                if (Math.abs(deltaY) > deltaX * 2.0) {
+                                    isVerticalGesture = true
+                                    preventStealing = true  // NOW prevent stealing for vertical
+                                    Logger.debug("TaskSwitcher", "Vertical gesture detected")
+                                } else {
+                                    // Horizontal gesture - let parent handle
+                                    isVerticalGesture = false
+                                    preventStealing = false
+                                    mouse.accepted = false  // Pass to parent
+                                    Logger.debug("TaskSwitcher", "Horizontal gesture - passing to parent")
+                                    return
+                                }
+                                gestureDecided = true
                             }
                             
-                            dragDistance = mouse.y - startY
-                            lastY = mouse.y
-                            lastTime = now
-                            
-                            // Start dragging after 10px movement
-                            if (Math.abs(dragDistance) > 10) {
-                                isDragging = true
+                            // Only track vertical movement if it's a vertical gesture
+                            if (isVerticalGesture) {
+                                var now = Date.now()
+                                var deltaTime = now - lastTime
+                                var dy = mouse.y - lastY
+                                
+                                // Calculate instantaneous velocity
+                                if (deltaTime > 0) {
+                                    velocity = dy / deltaTime
+                                }
+                                
+                                dragDistance = deltaY
+                                lastY = mouse.y
+                                lastTime = now
+                                
+                                // Start dragging after 10px movement
+                                if (Math.abs(dragDistance) > 10) {
+                                    isDragging = true
+                                }
                             }
                         }
                     }
@@ -365,6 +399,15 @@ Item {
                         // If close button was clicked, ignore
                         if (closeButtonClicked) {
                             closeButtonClicked = false
+                            return
+                        }
+                        
+                        // If it was a horizontal gesture, we already rejected it
+                        if (!isVerticalGesture) {
+                            isDragging = false
+                            gestureDecided = false
+                            dragDistance = 0
+                            preventStealing = false
                             return
                         }
                         
@@ -385,6 +428,9 @@ Item {
                             dragDistance = 0
                             isDragging = false
                             velocity = 0
+                            isVerticalGesture = false
+                            gestureDecided = false
+                            preventStealing = false
                             
                             // Close the app - AppLifecycleManager will handle both the app instance AND removing from TaskModel
                             if (typeof AppLifecycleManager !== 'undefined') {
@@ -420,6 +466,9 @@ Item {
                         dragDistance = 0
                         isDragging = false
                         velocity = 0
+                        isVerticalGesture = false
+                        gestureDecided = false
+                        preventStealing = false
                     }
                 }
                 

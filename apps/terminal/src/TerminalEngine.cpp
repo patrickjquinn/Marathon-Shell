@@ -96,18 +96,16 @@ void TerminalEngine::start()
     // This creates a "dumb" shell that doesn't try to control a TTY
     m_process->start(shell, QStringList());
     
-    if (!m_process->waitForStarted(3000)) {
-        qWarning() << "[TerminalEngine] Failed to start shell:" << m_process->errorString();
-        return;
-    }
-    
-    qDebug() << "[TerminalEngine] Shell started successfully (PID:" << m_process->processId() << ")";
-    
-    // Send initial prompt
-    m_output = "Marathon Terminal\n";
-    m_output += "Type 'help' for available commands\n\n";
-    emit outputChanged();
-    emit runningChanged();
+    // ✅ NON-BLOCKING: Connect to started() signal instead of waitForStarted()
+    connect(m_process, &QProcess::started, this, [this, shell]() {
+        qDebug() << "[TerminalEngine] Shell started successfully (PID:" << m_process->processId() << ")";
+        
+        // Send initial prompt
+        m_output = "Marathon Terminal\n";
+        m_output += "Ready.\n\n";
+        emit outputChanged();
+        emit runningChanged();
+    });
 }
 
 void TerminalEngine::sendInput(const QString &text)

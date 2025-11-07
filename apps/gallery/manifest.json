@@ -8,6 +8,9 @@
   "permissions": ["storage"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["Entertainment"],
+  "handlesUriSchemes": [],
+  "defaultFor": ["gallery"],
   "searchKeywords": ["gallery", "photos", "images", "pictures", "media"],
   "deepLinks": {}
 }

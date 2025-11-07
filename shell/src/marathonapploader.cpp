@@ -1,8 +1,6 @@
 #include "marathonapploader.h"
 #include <QDebug>
 #include <QFileInfo>
-#include <QEventLoop>
-#include <QTimer>
 #include <QStandardPaths>
 
 MarathonAppLoader::MarathonAppLoader(MarathonAppRegistry *registry, QQmlEngine *engine, QObject *parent)
@@ -74,13 +72,11 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
     
     // Check if we already have this component cached
     QQmlComponent *component = m_components.value(appId, nullptr);
-    bool isNewComponent = false;
     
     if (!component) {
         // Create component ASYNCHRONOUSLY for non-blocking load
         QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
         component = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
-        isNewComponent = true;
         
         // Cache immediately (even if loading)
         m_components.insert(appId, component);
@@ -90,23 +86,14 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
         qDebug() << "  Using cached component, status:" << component->status();
     }
     
-    // Wait for async loading to complete (only on first load)
+    // ❌ REMOVED BLOCKING CODE - NO MORE QEventLoop!
+    // Instead, check status and either return immediately or return null
+    // QML should use loadAppAsync() for truly async loading
+    
     if (component->status() == QQmlComponent::Loading) {
-        qDebug() << "  Waiting for component to finish loading...";
-        
-        // Create event loop to wait for statusChanged signal
-        QEventLoop loop;
-        connect(component, &QQmlComponent::statusChanged, &loop, [&loop, component](QQmlComponent::Status status) {
-            if (status == QQmlComponent::Ready || status == QQmlComponent::Error) {
-                loop.quit();
-            }
-        });
-        
-        // Wait with timeout
-        QTimer::singleShot(5000, &loop, &QEventLoop::quit);
-        loop.exec();
-        
-        qDebug() << "  Component loaded, status:" << component->status();
+        qWarning() << "[MarathonAppLoader] Component still loading. Use loadAppAsync() instead of loadApp()";
+        emit loadError(appId, "Component loading in progress - use loadAppAsync()");
+        return nullptr;
     }
     
     if (component->isError()) {
@@ -227,5 +214,168 @@ void MarathonAppLoader::preloadApp(const QString &appId)
     m_components.insert(appId, component);
     
     qDebug() << "[MarathonAppLoader] Component preloaded:" << appId;
+}
+
+// New async loading method - non-blocking!
+void MarathonAppLoader::loadAppAsync(const QString &appId)
+{
+    qDebug() << "[MarathonAppLoader] Loading app asynchronously:" << appId;
+    
+    if (!m_engine) {
+        qWarning() << "[MarathonAppLoader] No QML engine available";
+        emit loadError(appId, "No QML engine");
+        return;
+    }
+    
+    // Get app info from registry
+    MarathonAppRegistry::AppInfo *appInfo = m_registry->getAppInfo(appId);
+    if (!appInfo) {
+        qWarning() << "[MarathonAppLoader] App not found in registry:" << appId;
+        emit loadError(appId, "App not found in registry");
+        return;
+    }
+    
+    // Add import paths
+    QString appPath = appInfo->absolutePath;
+    if (!appPath.isEmpty()) {
+        m_engine->addImportPath(appPath);
+    }
+    
+    QString marathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
+    m_engine->addImportPath(marathonUIPath);
+    QString systemMarathonUIPath = "/usr/lib/qt6/qml/MarathonUI";
+    m_engine->addImportPath(systemMarathonUIPath);
+    m_engine->addImportPath("qrc:/");
+    m_engine->addImportPath(":/");
+    
+    // Build entry point path
+    QString entryPointPath = appPath + "/" + appInfo->entryPoint;
+    
+    // Check if file exists
+    if (!QFileInfo::exists(entryPointPath)) {
+        qWarning() << "[MarathonAppLoader] Entry point file not found:" << entryPointPath;
+        emit loadError(appId, "Entry point file not found: " + entryPointPath);
+        return;
+    }
+    
+    // Check if component is already cached and ready
+    QQmlComponent *component = m_components.value(appId, nullptr);
+    
+    if (component && component->status() == QQmlComponent::Ready) {
+        // Component already loaded, create instance immediately
+        qDebug() << "[MarathonAppLoader] Using cached component for:" << appId;
+        QObject *instance = createAppInstance(appId, component);
+        if (instance) {
+            emit appInstanceReady(appId, instance);
+            emit appLoaded(appId);
+        }
+        return;
+    }
+    
+    if (component && component->status() == QQmlComponent::Loading) {
+        // Already loading, just wait for it
+        qDebug() << "[MarathonAppLoader] Component already loading for:" << appId;
+        // Handler is already connected below
+        return;
+    }
+    
+    // If component is in error state, clean it up before retry
+    if (component && component->status() == QQmlComponent::Error) {
+        qDebug() << "[MarathonAppLoader] Cleaning up failed component before retry:" << appId;
+        m_components.remove(appId);
+        component->deleteLater();
+        component = nullptr;
+    }
+    
+    // Create new component
+    qDebug() << "[MarathonAppLoader] Creating new component for:" << appId;
+    emit appLoadProgress(appId, 10);  // Starting load
+    
+    QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
+    component = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
+    m_components.insert(appId, component);
+    
+    emit appLoadProgress(appId, 30);  // Component created
+    
+    // Connect to statusChanged signal for async handling
+    connect(component, &QQmlComponent::statusChanged, this, [this, appId, component](QQmlComponent::Status status) {
+        qDebug() << "[MarathonAppLoader] Component status changed for" << appId << ":" << status;
+        
+        if (status == QQmlComponent::Ready) {
+            emit appLoadProgress(appId, 70);  // Component ready
+            handleComponentStatusAsync(appId, component);
+        } else if (status == QQmlComponent::Error) {
+            qWarning() << "[MarathonAppLoader] Component error:" << component->errorString();
+            emit loadError(appId, component->errorString());
+            m_components.remove(appId);
+            component->deleteLater();
+        }
+    });
+    
+    // If component is already ready (sync load), handle immediately
+    if (component->status() == QQmlComponent::Ready) {
+        emit appLoadProgress(appId, 70);
+        handleComponentStatusAsync(appId, component);
+    }
+}
+
+// Handle component status asynchronously
+void MarathonAppLoader::handleComponentStatusAsync(const QString &appId, QQmlComponent *component)
+{
+    qDebug() << "[MarathonAppLoader] Handling component status for:" << appId;
+    
+    if (!component || component->isError()) {
+        qWarning() << "[MarathonAppLoader] Invalid or error component";
+        if (component) {
+            emit loadError(appId, component->errorString());
+        } else {
+            emit loadError(appId, "Component is null");
+        }
+        return;
+    }
+    
+    emit appLoadProgress(appId, 80);  // Creating instance
+    
+    QObject *instance = createAppInstance(appId, component);
+    
+    if (instance) {
+        emit appLoadProgress(appId, 100);  // Complete
+        emit appInstanceReady(appId, instance);
+        emit appLoaded(appId);
+    }
+}
+
+// Create app instance from component
+QObject* MarathonAppLoader::createAppInstance(const QString &appId, QQmlComponent *component)
+{
+    if (!component || component->status() != QQmlComponent::Ready) {
+        qWarning() << "[MarathonAppLoader] Component not ready for:" << appId;
+        return nullptr;
+    }
+    
+    qDebug() << "[MarathonAppLoader] Creating instance for:" << appId;
+    
+    QObject *appInstance = component->create();
+    
+    if (!appInstance) {
+        qWarning() << "[MarathonAppLoader] Failed to create app instance:" << component->errorString();
+        emit loadError(appId, component->errorString());
+        m_components.remove(appId);
+        component->deleteLater();
+        return nullptr;
+    }
+    
+    // Inject icon path from registry
+    MarathonAppRegistry::AppInfo *appInfo = m_registry->getAppInfo(appId);
+    if (appInfo && appInstance->property("appIcon").isValid()) {
+        QString iconPath = appInfo->icon;
+        if (!iconPath.isEmpty()) {
+            appInstance->setProperty("appIcon", iconPath);
+            qDebug() << "  Injected icon:" << iconPath;
+        }
+    }
+    
+    qDebug() << "[MarathonAppLoader] Successfully created instance for:" << appId;
+    return appInstance;
 }
 

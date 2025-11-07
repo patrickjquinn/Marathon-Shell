@@ -49,6 +49,12 @@ QVariant MarathonAppRegistry::data(const QModelIndex &index, int role) const
             return app->searchKeywords;
         case DeepLinksRole:
             return app->deepLinksJson;
+        case CategoriesRole:
+            return app->categories;
+        case HandlesUriSchemesRole:
+            return app->handlesUriSchemes;
+        case DefaultForRole:
+            return app->defaultFor;
         default:
             return QVariant();
     }
@@ -68,6 +74,9 @@ QHash<int, QByteArray> MarathonAppRegistry::roleNames() const
     roles[PermissionsRole] = "permissions";
     roles[SearchKeywordsRole] = "searchKeywords";
     roles[DeepLinksRole] = "deepLinks";
+    roles[CategoriesRole] = "categories";
+    roles[HandlesUriSchemesRole] = "handlesUriSchemes";
+    roles[DefaultForRole] = "defaultFor";
     return roles;
 }
 
@@ -88,6 +97,9 @@ QVariantMap MarathonAppRegistry::getApp(const QString &appId) const
         result["permissions"] = app->permissions;
         result["searchKeywords"] = app->searchKeywords;
         result["deepLinks"] = app->deepLinksJson;
+        result["categories"] = app->categories;
+        result["handlesUriSchemes"] = app->handlesUriSchemes;
+        result["defaultFor"] = app->defaultFor;
     }
     
     return result;

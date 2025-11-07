@@ -24,7 +24,10 @@ public:
         IsProtectedRole,
         PermissionsRole,
         SearchKeywordsRole,
-        DeepLinksRole
+        DeepLinksRole,
+        CategoriesRole,
+        HandlesUriSchemesRole,
+        DefaultForRole
     };
     
     struct AppInfo {
@@ -39,6 +42,9 @@ public:
         QStringList permissions;
         QStringList searchKeywords;
         QString deepLinksJson;  // JSON string for QML parsing
+        QStringList categories;
+        QStringList handlesUriSchemes;
+        QStringList defaultFor;
     };
     
     explicit MarathonAppRegistry(QObject *parent = nullptr);

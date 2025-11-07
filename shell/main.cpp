@@ -487,7 +487,12 @@ int main(int argc, char *argv[])
         QDir::homePath() + "/.local/share/flatpak/exports/share/applications"  // User Flatpak apps
     };
     qDebug() << "[Marathon] Scanning for native apps in:" << searchPaths;
-    QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths);
+    
+    // Use the mobile-friendly filter setting
+    bool filterMobile = settingsManager->filterMobileFriendlyApps();
+    qDebug() << "[Marathon] Filter mobile-friendly apps:" << filterMobile;
+    
+    QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths, filterMobile);
     qDebug() << "[Marathon] Found" << nativeApps.count() << "native apps";
     for (const QVariant& appVariant : nativeApps) {
         QVariantMap app = appVariant.toMap();

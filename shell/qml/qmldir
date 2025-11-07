@@ -56,3 +56,6 @@ BluetoothPairDialog 1.0 components/BluetoothPairDialog.qml
 ErrorToast 1.0 components/ErrorToast.qml
 IncomingCallOverlay 1.0 components/IncomingCallOverlay.qml
 
+# Models
+FilteredAppModel 1.0 models/FilteredAppModel.qml
+

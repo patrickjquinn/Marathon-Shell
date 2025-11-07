@@ -1,0 +1,3 @@
+[submodule "third-party/asyncfuture"]
+	path = third-party/asyncfuture
+	url = https://github.com/vpicaver/asyncfuture.git
