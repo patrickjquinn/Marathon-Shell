@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Controls
 
 Rectangle {
     id: root
@@ -108,6 +109,17 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             width: showToggle ? 76 : showChevron ? (valueText.visible ? valueText.width + 36 : 20) : (valueText.visible ? valueText.width : 0)
             height: parent.height
+            
+            MToggle {
+                id: toggle
+                visible: showToggle
+                checked: toggleValue
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                onToggled: {
+                    root.toggleChanged(checked)
+                }
+            }
             
             Text {
                 id: valueText
