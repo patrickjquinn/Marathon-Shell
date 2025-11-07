@@ -46,11 +46,12 @@ QtObject {
     }
     
     function handleSurfaceDestroyed(surface, surfaceId) {
-        Logger.info("CompositorConnections", "Native app surface destroyed, surfaceId: " + surfaceId)
+        // NOTE: Task cleanup for native apps is now handled in MarathonShell.qml using getTaskBySurfaceId()
+        // This function only handles window cleanup
         
+        // Close the visible window if it's the destroyed surface
         if (typeof UIStore !== 'undefined' && root.appWindow) {
             if (UIStore.appWindowOpen && root.appWindow.appType === "native" && root.appWindow.surfaceId === surfaceId) {
-                Logger.info("CompositorConnections", "Closing native app window due to surface destruction")
                 UIStore.closeApp()
                 root.appWindow.hide()
             }

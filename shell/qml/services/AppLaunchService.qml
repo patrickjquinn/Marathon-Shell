@@ -89,7 +89,15 @@ QtObject {
             Logger.info("AppLaunchService", "App already running, bringing to foreground: " + app.name)
             
             try {
+                // Bring app to foreground (updates lifecycle state)
                 AppLifecycleManager.bringToForeground(app.id)
+                
+                // CRITICAL: Also restore the app window (show it)
+                // This is what task switcher does - we need to do the same
+                if (typeof UIStore !== 'undefined') {
+                    UIStore.restoreApp(app.id, app.name, app.icon)
+                }
+                
                 delete launchingApps[app.id]
                 root.appLaunchCompleted(app.id, app.name)
                 return true

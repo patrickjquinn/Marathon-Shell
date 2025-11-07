@@ -1,4 +1,5 @@
 import QtQuick
+import QtWayland.Compositor
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -6,9 +7,6 @@ import MarathonUI.Containers
 
 MApp {
     id: nativeAppWindow
-    
-    // Expose HAVE_WAYLAND from C++ context
-    readonly property bool haveWayland: typeof HAVE_WAYLAND !== 'undefined' ? HAVE_WAYLAND : false
     
     property var waylandSurface: null
     property string nativeAppId: ""
@@ -25,83 +23,75 @@ MApp {
     }
     
     content: Rectangle {
-        id: contentRect
         anchors.fill: parent
         color: MColors.background
         
-        // Wayland surface rendering - conditionally load on Linux
-        Loader {
-            id: waylandSurfaceLoader
+        ShellSurfaceItem {
+            id: surfaceItem
             anchors.fill: parent
-            visible: nativeAppWindow.haveWayland
-            active: nativeAppWindow.haveWayland && nativeAppWindow.waylandSurface !== null
-            source: nativeAppWindow.haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
             
-            onItemChanged: {
-                if (item && nativeAppWindow.waylandSurface) {
-                    item.surfaceObj = nativeAppWindow.waylandSurface
-                }
-            }
+            property bool hasConfigured: false
             
+            // Access the xdgSurface that was set from QML (not C++ property)
+            shellSurface: nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.xdgSurface : null
+            
+            // Ensure proper rendering
+            touchEventsEnabled: true
+            
+            // CRITICAL: Wait for surface to have content before configuring
+            // Sending configure too early causes incorrect initial scaling
             Connections {
-                target: waylandSurfaceLoader.item
-                enabled: waylandSurfaceLoader.item !== null
-                function onSurfaceDestroyed() {
-                    Logger.info("NativeAppWindow", "Surface destroyed for: " + nativeAppWindow.appId)
-                    nativeAppWindow.close()
+                target: nativeAppWindow.waylandSurface
+                enabled: nativeAppWindow.waylandSurface !== null
+                
+                function onHasContentChanged() {
+                    if (nativeAppWindow.waylandSurface.hasContent && !surfaceItem.hasConfigured) {
+                        surfaceItem.hasConfigured = true
+                        var toplevel = nativeAppWindow.waylandSurface.toplevel
+                        if (toplevel && surfaceItem.width > 0 && surfaceItem.height > 0) {
+                            toplevel.sendMaximized(Qt.size(surfaceItem.width, surfaceItem.height))
+                        }
+                    }
                 }
             }
-        }
-        
-        // Show message when Wayland is not available (macOS)
-        Column {
-            anchors.centerIn: parent
-            spacing: Constants.spacingLarge
-            visible: !nativeAppWindow.haveWayland
             
-            Text {
-                text: "Native Apps Not Supported"
-                color: MColors.text
-                font.pixelSize: MTypography.sizeXLarge
-                anchors.horizontalCenter: parent.horizontalCenter
+            onWidthChanged: {
+                // Only reconfigure if we've already sent initial configure
+                if (hasConfigured && width > 0 && height > 0 && shellSurface) {
+                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
+                    if (toplevel) {
+                        toplevel.sendMaximized(Qt.size(width, height))
+                    }
+                }
             }
             
-            Text {
-                text: "Native Linux apps require Wayland compositor,\nwhich is only available on Linux.\n\nOn macOS, only Marathon apps are supported."
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                anchors.horizontalCenter: parent.horizontalCenter
-                horizontalAlignment: Text.AlignHCenter
+            onHeightChanged: {
+                // Only reconfigure if we've already sent initial configure
+                if (hasConfigured && width > 0 && height > 0 && shellSurface) {
+                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
+                    if (toplevel) {
+                        toplevel.sendMaximized(Qt.size(width, height))
+                    }
+                }
+            }
+            
+            onSurfaceDestroyed: {
+                // NOTE: Task cleanup is now handled automatically in MarathonShell.qml via surfaceDestroyed signal
+                // This handler just closes the window
+                nativeAppWindow.close()
             }
         }
         
-        // Splash screen - shown while app is launching (on Linux with Wayland)
+        // Splash screen - shown while app is launching
         Rectangle {
             id: splashScreen
             anchors.fill: parent
             color: MColors.background
-            visible: nativeAppWindow.haveWayland && (!nativeAppWindow.waylandSurface || (waylandSurfaceLoader.item && !waylandSurfaceLoader.item.shellSurface))
-            
-            Component.onCompleted: {
-                Logger.info("NativeAppWindow", "=== SPLASH SCREEN CREATED ===")
-                Logger.info("NativeAppWindow", "Visible: " + visible)
-                Logger.info("NativeAppWindow", "Color: " + color)
-                Logger.info("NativeAppWindow", "Icon: " + nativeAppWindow.nativeAppIcon)
-                Logger.info("NativeAppWindow", "Title: " + nativeAppWindow.nativeTitle)
-            }
-            
-            onVisibleChanged: {
-                var hasSurface = waylandSurfaceLoader.item && waylandSurfaceLoader.item.shellSurface
-                Logger.info("NativeAppWindow", "Splash visibility changed: " + visible + " (shellSurface: " + (hasSurface ? "EXISTS" : "NULL") + ")")
-            }
+            visible: surfaceItem.shellSurface === null
             
             Column {
                 anchors.centerIn: parent
                 spacing: MSpacing.xl
-                
-                Component.onCompleted: {
-                    Logger.info("NativeAppWindow", "Splash Column created")
-                }
                 
                 // Show the actual app icon if available, otherwise fallback to generic icon
                 Image {
@@ -114,14 +104,6 @@ MApp {
                     anchors.horizontalCenter: parent.horizontalCenter
                     smooth: true
                     visible: nativeAppWindow.nativeAppIcon !== ""
-                    
-                    onStatusChanged: {
-                        if (status === Image.Error) {
-                            Logger.warn("NativeAppWindow", "Failed to load icon: " + source)
-                        } else if (status === Image.Ready) {
-                            Logger.info("NativeAppWindow", "Icon loaded successfully: " + source)
-                        }
-                    }
                 }
                 
                 Icon {
@@ -130,10 +112,6 @@ MApp {
                     color: MColors.textTertiary
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: nativeAppWindow.nativeAppIcon === ""
-                    
-                    Component.onCompleted: {
-                        Logger.info("NativeAppWindow", "Fallback Icon visible: " + visible)
-                    }
                 }
                 
                 Text {
@@ -142,19 +120,9 @@ MApp {
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     anchors.horizontalCenter: parent.horizontalCenter
-                    
-                    Component.onCompleted: {
-                        Logger.info("NativeAppWindow", "Loading text: '" + text + "'")
-                    }
                 }
             }
         }
-    }
-    
-    Component.onCompleted: {
-        Logger.info("NativeAppWindow", "Created for surface: " + surfaceId)
-        Logger.info("NativeAppWindow", "appId: " + nativeAppId + " (property: " + appId + ")")
-        Logger.info("NativeAppWindow", "nativeTitle: " + nativeTitle)
     }
 }
 

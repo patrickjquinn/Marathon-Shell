@@ -58,6 +58,37 @@ Item {
     
     Component.onCompleted: {
         compositor = shellInitialization.initialize(shell, Window.window)
+        
+        // CRITICAL: Connect compositor signals AFTER compositor is created
+        // The Connections block above doesn't work because compositor is null when it's created
+        if (compositor) {
+            compositor.surfaceCreated.connect(function(surface, surfaceId, xdgSurface) {
+                compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp)
+                compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface)
+            })
+            
+            compositor.surfaceDestroyed.connect(function(surface, surfaceId) {
+                // CRITICAL: Remove task from TaskModel when surface is destroyed
+                // This handles both process termination AND surface unmapping (when app closes internally)
+                if (typeof TaskModel !== 'undefined') {
+                    var task = TaskModel.getTaskBySurfaceId(surfaceId)
+                    if (task) {
+                        TaskModel.closeTask(task.id)
+                    }
+                }
+                
+                // Also notify CompositorConnections for window cleanup
+                compositorConnections.handleSurfaceDestroyed(surface, surfaceId)
+            })
+            
+            compositor.appLaunched.connect(function(command, pid) {
+                compositorConnections.handleAppLaunched(command, pid)
+            })
+            
+            compositor.appClosed.connect(function(pid) {
+                compositorConnections.handleAppClosed(pid)
+            })
+        }
     }
     
     // Handle window resize (for desktop/tablet)
@@ -1387,28 +1418,8 @@ Item {
         id: compositorConnections
     }
     
-    Connections {
-        target: compositor
-        enabled: compositor !== null
-        
-        function onSurfaceCreated(surface, surfaceId, xdgSurface) {
-            Logger.info("Shell", "📱 Surface created signal received, calling CompositorConnections")
-            compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp)
-            compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface)
-        }
-        
-        function onAppClosed(pid) {
-            compositorConnections.handleAppClosed(pid)
-        }
-        
-        function onAppLaunched(command, pid) {
-            compositorConnections.handleAppLaunched(command, pid)
-        }
-        
-        function onSurfaceDestroyed(surface, surfaceId) {
-            compositorConnections.handleSurfaceDestroyed(surface, surfaceId)
-        }
-    }
+    // NOTE: Compositor signal connections are made manually in Component.onCompleted
+    // because the compositor property is null when this file is first loaded
     
     Keys.onReleased: (event) => {
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
