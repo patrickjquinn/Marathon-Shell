@@ -182,6 +182,19 @@ int main(int argc, char *argv[])
     QtWebEngineQuick::initialize();
 #endif
     
+    // CRITICAL: Disable Qt's automatic HiDPI scaling for the compositor window
+    // 
+    // Problem: On HiDPI host displays (devicePixelRatio=2), Qt automatically doubles the window's
+    // internal resolution. For a 540x1140 window, Qt would render at 1080x2280 internally, then
+    // downscale to fit the window, causing blurriness in embedded Wayland apps.
+    //
+    // Solution: Set PassThrough policy to disable automatic scaling, ensuring 1:1 pixel mapping.
+    // Combined with m_output->setScaleFactor(1) in the compositor, this forces apps to render
+    // at the exact window size (540x1140) without any scaling artifacts.
+    //
+    // Must be called BEFORE creating QGuiApplication.
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+    
     QGuiApplication app(argc, argv);
     
     // Set RT priority for input handling (Priority 85 per Marathon OS spec)
@@ -254,8 +267,14 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("MPRIS2Controller", mpris2Controller);
     qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
     
+    // CRITICAL: Create SettingsManager BEFORE compositor manager
+    // The compositor needs access to userScaleFactor for physical size calculation
+    SettingsManager *settingsManager = new SettingsManager(&app);
+    engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
+    
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
-    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(&app);
+    // Pass SettingsManager for dynamic physical size calculation
+    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(settingsManager, &app);
     engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
     
     // Set debug mode context property
@@ -297,14 +316,13 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("TaskModel", taskModel);
     engine.rootContext()->setContextProperty("NotificationModel", notificationModel);
     
-    // Register C++ services
+    // Register C++ services (SettingsManager already created above for compositor)
     NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
     PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
     DisplayManagerCpp *displayManager = new DisplayManagerCpp(&app);
     AudioManagerCpp *audioManager = new AudioManagerCpp(&app);
     ModemManagerCpp *modemManager = new ModemManagerCpp(&app);
     SensorManagerCpp *sensorManager = new SensorManagerCpp(&app);
-    SettingsManager *settingsManager = new SettingsManager(&app);
     StorageManager *storageManager = new StorageManager(&app);
     BluetoothManager *bluetoothManager = new BluetoothManager(&app);
     RotationManager *rotationManager = new RotationManager(&app);
@@ -318,7 +336,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
     engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
     engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
-    engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     engine.rootContext()->setContextProperty("RotationManager", rotationManager);

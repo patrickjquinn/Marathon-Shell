@@ -15,13 +15,16 @@
 #include <QMap>
 #include <QProcess>
 
+// Forward declaration
+class SettingsManager;
+
 class WaylandCompositor : public QWaylandCompositor
 {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
 
 public:
-    explicit WaylandCompositor(QQuickWindow *window);
+    explicit WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager);
     ~WaylandCompositor() override;
 
     QQmlListProperty<QObject> surfaces();
@@ -46,10 +49,13 @@ private slots:
 
 private:
     void setCompositorRealtimePriority();
+    void calculateAndSetPhysicalSize();
+    
     QWaylandXdgShell *m_xdgShell;
     QWaylandWlShell *m_wlShell;
     QWaylandQuickOutput *m_output;
     QQuickWindow *m_window;
+    SettingsManager *m_settingsManager;
     
     QList<QObject*> m_surfaces;
     QMap<int, QWaylandSurface*> m_surfaceMap;      // surfaceId -> surface

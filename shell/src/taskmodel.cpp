@@ -130,6 +130,17 @@ Task* TaskModel::getTaskByAppId(const QString& appId)
     return m_appIndex.value(appId, nullptr);
 }
 
+Task* TaskModel::getTaskBySurfaceId(int surfaceId)
+{
+    // Search through all tasks to find one with matching surfaceId
+    for (Task* task : m_tasks) {
+        if (task && task->surfaceId() == surfaceId) {
+            return task;
+        }
+    }
+    return nullptr;
+}
+
 void TaskModel::updateTaskSnapshot(const QString& appId, const QImage& snapshot)
 {
     Task* task = m_appIndex.value(appId, nullptr);
