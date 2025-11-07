@@ -3,7 +3,9 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#ifdef HAVE_QT_CONCURRENT
 #include <QFutureWatcher>
+#endif
 #include "marathonappregistry.h"
 
 class MarathonAppScanner : public QObject {
@@ -30,6 +32,10 @@ private:
     int performScan();  // Actual scan logic (for thread), returns count
     
     MarathonAppRegistry *m_registry;
+#ifdef HAVE_QT_CONCURRENT
     QFutureWatcher<int> *m_scanWatcher;  // For async scanning
+#else
+    void *m_scanWatcher;  // Placeholder when Concurrent not available
+#endif
 };
 

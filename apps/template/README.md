@@ -1,6 +1,10 @@
 # Template App
 
+⚠️ **THIS IS A TEMPLATE - DO NOT INSTALL THIS APP** ⚠️
+
 This is a starter template for creating new Marathon apps. It demonstrates best practices for MApp lifecycle management, navigation, and UI design.
+
+**Important**: This app is NOT meant to be built or installed. It exists purely as a reference and starting point for new apps.
 
 ## Features
 

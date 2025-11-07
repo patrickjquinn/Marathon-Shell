@@ -15,9 +15,7 @@ Item {
     
     FilteredAppModel {
         id: filteredAppModel
-        onCountChanged: {
-            appGrid.pageCount = Math.ceil(filteredAppModel.count / (appGrid.columns * appGrid.rows))
-        }
+        // No need for onCountChanged - pageCount property binding handles updates automatically
     }
     
     // Responsive grid layout based on screen width
@@ -27,6 +25,7 @@ Item {
     property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6))
     property int rows: Constants.screenWidth < 700 ? 5 : 4
     property int currentPage: 0
+    // Property binding automatically updates when filteredAppModel.count, columns, or rows change
     property int pageCount: Math.ceil(filteredAppModel.count / (columns * rows))
     property real searchPullProgress: 0.0  // 0.0 to 1.0, tracks pull-down gesture
     property bool searchGestureActive: false  // Track if gesture is in progress

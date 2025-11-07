@@ -319,9 +319,12 @@ Item {
                     property real velocity: 0
                     property bool closeButtonClicked: false
                     property bool isVerticalGesture: false
+                    property bool isHorizontalGesture: false
                     property bool gestureDecided: false
                     
                     onPressed: function(mouse) {
+                        Logger.info("TaskSwitcher", "⬇️ PRESSED card: " + model.appId + " at (" + mouse.x + ", " + mouse.y + ")")
+                        
                         // Check if click is on close button - let it handle
                         var buttonPos = closeButtonArea.mapToItem(cardDragArea, 0, 0)
                         var isOnButton = mouse.x >= buttonPos.x && 
@@ -330,6 +333,7 @@ Item {
                                         mouse.y <= buttonPos.y + closeButtonArea.height
                         
                         if (isOnButton) {
+                            Logger.debug("TaskSwitcher", "Click on close button detected, passing through")
                             closeButtonClicked = true
                             mouse.accepted = false  // Let close button handle
                             return
@@ -345,130 +349,188 @@ Item {
                         velocity = 0
                         closeButtonClicked = false
                         isVerticalGesture = false
+                        isHorizontalGesture = false
                         gestureDecided = false
-                        mouse.accepted = true
+                        preventStealing = false  // Reset to allow parent to steal if needed
+                        mouse.accepted = true  // Initially accept
                     }
                     
                     onPositionChanged: function(mouse) {
-                        if (pressed) {
-                            var deltaX = Math.abs(mouse.x - startX)
-                            var deltaY = mouse.y - startY
+                        if (!pressed) return
+                        
+                        var deltaX = Math.abs(mouse.x - startX)
+                        var deltaY = Math.abs(mouse.y - startY)
+                        var deltaYSigned = mouse.y - startY
+                        
+                        // CRITICAL: Early gesture detection (after just 8px movement)
+                        if (!gestureDecided && (deltaX > 8 || deltaY > 8)) {
+                            gestureDecided = true
                             
-                            // Decide gesture direction after 15px movement
-                            if (!gestureDecided && (deltaX > 15 || Math.abs(deltaY) > 15)) {
-                                // Vertical gesture: deltaY more than 2x deltaX
-                                if (Math.abs(deltaY) > deltaX * 2.0) {
-                                    isVerticalGesture = true
-                                    preventStealing = true  // NOW prevent stealing for vertical
-                                    Logger.debug("TaskSwitcher", "Vertical gesture detected")
-                                } else {
-                                    // Horizontal gesture - let parent handle
-                                    isVerticalGesture = false
-                                    preventStealing = false
-                                    mouse.accepted = false  // Pass to parent
-                                    Logger.debug("TaskSwitcher", "Horizontal gesture - passing to parent")
-                                    return
-                                }
-                                gestureDecided = true
+                            // Determine gesture type:
+                            // - Horizontal: deltaX > deltaY * 1.5 (horizontal dominates)
+                            // - Vertical: deltaY > deltaX * 1.5 (vertical dominates)
+                            // - Ambiguous: Will be treated as tap if released quickly
+                            
+                            if (deltaX > deltaY * 1.5) {
+                                // HORIZONTAL gesture - pass to parent for page switching
+                                isHorizontalGesture = true
+                                isVerticalGesture = false
+                                preventStealing = false
+                                mouse.accepted = false  // Pass to parent immediately
+                                Logger.info("TaskSwitcher", "🔄 Horizontal swipe detected - passing to parent for page navigation")
+                                return
+                            } else if (deltaY > deltaX * 1.5) {
+                                // VERTICAL gesture - handle for card dismissal
+                                isVerticalGesture = true
+                                isHorizontalGesture = false
+                                preventStealing = true  // Prevent parent from stealing
+                                Logger.info("TaskSwitcher", "↕️ Vertical swipe detected - handling for card dismissal")
+                            } else {
+                                // Ambiguous - don't claim yet, treat as potential tap
+                                Logger.debug("TaskSwitcher", "❓ Ambiguous gesture - will treat as tap if quick")
+                            }
+                        }
+                        
+                        // Only track vertical movement if it's a vertical gesture
+                        if (isVerticalGesture) {
+                            var now = Date.now()
+                            var deltaTime = now - lastTime
+                            var dy = mouse.y - lastY
+                            
+                            // Calculate instantaneous velocity
+                            if (deltaTime > 0) {
+                                velocity = dy / deltaTime
                             }
                             
-                            // Only track vertical movement if it's a vertical gesture
-                            if (isVerticalGesture) {
-                                var now = Date.now()
-                                var deltaTime = now - lastTime
-                                var dy = mouse.y - lastY
-                                
-                                // Calculate instantaneous velocity
-                                if (deltaTime > 0) {
-                                    velocity = dy / deltaTime
-                                }
-                                
-                                dragDistance = deltaY
-                                lastY = mouse.y
-                                lastTime = now
-                                
-                                // Start dragging after 10px movement
-                                if (Math.abs(dragDistance) > 10) {
-                                    isDragging = true
-                                }
+                            dragDistance = deltaYSigned
+                            lastY = mouse.y
+                            lastTime = now
+                            
+                            // Start dragging after 10px movement
+                            if (Math.abs(dragDistance) > 10) {
+                                isDragging = true
                             }
                         }
                     }
                     
                     onReleased: function(mouse) {
+                        Logger.info("TaskSwitcher", "⬆️ RELEASED card: " + model.appId + 
+                            " (time: " + (Date.now() - startTime) + "ms, " +
+                            "dragging: " + isDragging + ", " +
+                            "vertical: " + isVerticalGesture + ", " +
+                            "horizontal: " + isHorizontalGesture + ")")
+                        
                         // If close button was clicked, ignore
                         if (closeButtonClicked) {
+                            Logger.debug("TaskSwitcher", "Close button clicked, ignoring")
                             closeButtonClicked = false
                             return
                         }
                         
-                        // If it was a horizontal gesture, we already rejected it
-                        if (!isVerticalGesture) {
+                        // If it was a horizontal gesture, we already passed it to parent
+                        if (isHorizontalGesture) {
+                            Logger.debug("TaskSwitcher", "Horizontal gesture handled by parent")
+                            // Reset state
                             isDragging = false
                             gestureDecided = false
                             dragDistance = 0
+                            isHorizontalGesture = false
+                            isVerticalGesture = false
                             preventStealing = false
                             return
                         }
                         
                         var totalTime = Date.now() - startTime
+                        Logger.info("TaskSwitcher", "Gesture analysis: totalTime=" + totalTime + "ms, isDragging=" + isDragging + ", gestureDecided=" + gestureDecided)
                         
-                        // Use instantaneous velocity (more responsive to flicks)
-                        // Flick up: velocity < -0.5 px/ms (more lenient)
-                        // OR drag up > 50px (reduced from 80px)
-                        var isFlickUp = velocity < -0.5
-                        var isDragUp = dragDistance < -50
-                        
-                        if (isDragging && (isFlickUp || isDragUp)) {
-                            Logger.info("TaskSwitcher", "Closing: " + model.appId + " (v: " + velocity.toFixed(2) + "px/ms, d: " + dragDistance.toFixed(0) + "px)")
+                        // VERTICAL DRAG: Check for flick/drag up to close
+                        if (isVerticalGesture && isDragging) {
+                            // Use instantaneous velocity (more responsive to flicks)
+                            // Flick up: velocity < -0.5 px/ms (more lenient)
+                            // OR drag up > 50px (reduced from 80px)
+                            var isFlickUp = velocity < -0.5
+                            var isDragUp = dragDistance < -50
                             
-                            var appIdToClose = model.appId
-                            
-                            // Reset transform immediately to avoid ghost spacing
-                            dragDistance = 0
-                            isDragging = false
-                            velocity = 0
-                            isVerticalGesture = false
-                            gestureDecided = false
-                            preventStealing = false
-                            
-                            // Close the app - AppLifecycleManager will handle both the app instance AND removing from TaskModel
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                AppLifecycleManager.closeApp(appIdToClose)
+                            if (isFlickUp || isDragUp) {
+                                Logger.info("TaskSwitcher", "❌ Closing card: " + model.appId + " (velocity: " + velocity.toFixed(2) + "px/ms, distance: " + dragDistance.toFixed(0) + "px)")
+                                
+                                var appIdToClose = model.appId
+                                
+                                // Reset transform immediately to avoid ghost spacing
+                                dragDistance = 0
+                                isDragging = false
+                                velocity = 0
+                                isVerticalGesture = false
+                                gestureDecided = false
+                                preventStealing = false
+                                
+                                // Close the app - AppLifecycleManager will handle both the app instance AND removing from TaskModel
+                                if (typeof AppLifecycleManager !== 'undefined') {
+                                    AppLifecycleManager.closeApp(appIdToClose)
+                                }
+                                
+                                mouse.accepted = true
+                            } else {
+                                // Vertical drag but didn't reach threshold - just reset
+                                Logger.debug("TaskSwitcher", "Vertical drag didn't reach threshold, resetting")
+                                dragDistance = 0
+                                isDragging = false
+                                velocity = 0
+                                isVerticalGesture = false
+                                gestureDecided = false
+                                preventStealing = false
                             }
-                            
-                            mouse.accepted = true
-                        } else if (!isDragging && totalTime < 200) {
-                            // Quick tap - open app
-                            Logger.info("TaskSwitcher", "Opening task: " + model.appId)
+                        } else if (!isDragging && !isVerticalGesture && !isHorizontalGesture && totalTime < 250) {
+                            // TAP DETECTED - Quick press/release with minimal movement
+                            Logger.info("TaskSwitcher", "🎯 TAP DETECTED - Opening task: " + model.appId)
                             var appId = model.appId
                             var appTitle = model.title
                             var appIcon = model.icon
                             var appType = model.type
                             
-                            // Defer to avoid blocking
+                            // Reset state immediately
+                            dragDistance = 0
+                            isDragging = false
+                            velocity = 0
+                            isVerticalGesture = false
+                            isHorizontalGesture = false
+                            gestureDecided = false
+                            preventStealing = false
+                            
+                            // Defer restoration to avoid blocking UI
                             Qt.callLater(function() {
+                                Logger.info("TaskSwitcher", "📱 Restoring app: " + appId + " (type: " + appType + ")")
+                                
                                 // For Marathon apps, restore through lifecycle manager
-                                if (appType !== "native" && typeof AppLifecycleManager !== 'undefined') {
-                                    AppLifecycleManager.restoreApp(appId)
+                                // For native apps, AppLifecycleManager handles foreground state
+                                if (typeof AppLifecycleManager !== 'undefined') {
+                                    if (appType !== "native") {
+                                        AppLifecycleManager.restoreApp(appId)
+                                    } else {
+                                        // Native apps need foreground tracking too
+                                        AppLifecycleManager.bringToForeground(appId)
+                                    }
                                 }
                                 
                                 // Then update UI state (this triggers the restoration in MarathonShell.qml)
+                                Logger.info("TaskSwitcher", "📢 Calling UIStore.restoreApp(" + appId + ")")
                                 UIStore.restoreApp(appId, appTitle, appIcon)
+                                Logger.info("TaskSwitcher", "🚪 Closing task switcher")
                                 closed()
                             })
                             mouse.accepted = true
                         } else {
-                            // Drag but not past threshold
+                            // Some other gesture or long press - reset
+                            Logger.debug("TaskSwitcher", "Unhandled gesture, resetting (time: " + totalTime + "ms)")
+                            dragDistance = 0
+                            isDragging = false
+                            velocity = 0
+                            isVerticalGesture = false
+                            isHorizontalGesture = false
+                            gestureDecided = false
+                            preventStealing = false
                             mouse.accepted = false
                         }
-                        
-                        dragDistance = 0
-                        isDragging = false
-                        velocity = 0
-                        isVerticalGesture = false
-                        gestureDecided = false
-                        preventStealing = false
                     }
                 }
                 

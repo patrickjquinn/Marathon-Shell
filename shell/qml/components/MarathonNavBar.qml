@@ -23,6 +23,7 @@ Rectangle {
     signal minimizeApp()
     signal startPageTransition()
     signal toggleKeyboard()
+    signal toggleSearch()
     
     property real startX: 0
     property real startY: 0
@@ -70,21 +71,68 @@ Rectangle {
     property bool isAppOpen: false
     property real gestureProgress: 0
     property bool keyboardVisible: false
+    property bool searchActive: false
+    
+    // Search button (small, bottom left of nav bar)
+    Item {
+        id: searchButton
+        anchors.left: parent.left
+        anchors.leftMargin: MSpacing.sm
+        anchors.verticalCenter: parent.verticalCenter
+        width: 16
+        height: 16
+        z: 300
+        
+        Rectangle {
+            anchors.fill: parent
+            radius: MRadius.sm
+            color: navBar.searchActive ? MColors.accent : MColors.surface
+            opacity: navBar.searchActive ? 0.3 : 0.15
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+        }
+        
+        Icon {
+            name: "search"
+            size: 12
+            color: navBar.searchActive ? MColors.accentBright : MColors.text
+            anchors.centerIn: parent
+            opacity: navBar.searchActive ? 1.0 : 0.6
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+            
+            Behavior on color {
+                ColorAnimation { duration: 150 }
+            }
+        }
+        
+        MouseArea {
+            anchors.fill: parent
+            anchors.margins: -4
+            onClicked: {
+                HapticService.light()
+                navBar.toggleSearch()
+            }
+        }
+    }
     
     // Keyboard button (small, bottom right of nav bar)
     Item {
         id: keyboardButton
         anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingSmall
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 2
-        width: Constants.iconSizeSmall + 4
-        height: Constants.iconSizeSmall + 4
+        anchors.rightMargin: MSpacing.sm
+        anchors.verticalCenter: parent.verticalCenter
+        width: 16
+        height: 16
         z: 300
         
         Rectangle {
             anchors.fill: parent
-            radius: Constants.borderRadiusSmall
+            radius: MRadius.sm
             color: navBar.keyboardVisible ? MColors.accent : MColors.surface
             opacity: navBar.keyboardVisible ? 0.3 : 0.15
             
@@ -95,8 +143,8 @@ Rectangle {
         
         Icon {
             name: "keyboard"
-            size: Constants.iconSizeSmall - 2
-            color: navBar.keyboardVisible ? MColors.accent : MColors.text
+            size: 12
+            color: navBar.keyboardVisible ? MColors.accentBright : MColors.text
             anchors.centerIn: parent
             opacity: navBar.keyboardVisible ? 1.0 : 0.6
             

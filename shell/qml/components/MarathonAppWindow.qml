@@ -316,8 +316,9 @@ Rectangle {
                     var capturedWindow = appWindow  // Capture window reference
                     
                     // Connect to app registration signals
+                    // NOTE: Explicitly specify 'appInstanceContainer' as receiver to avoid "Could not find receiver" warnings
                     if (appInstance.requestRegister) {
-                        appInstance.requestRegister.connect(function(appId, appInst) {
+                        appInstance.requestRegister.connect(appInstanceContainer, function(appId, appInst) {
                             console.log("AppWindow: App requested registration:", appId)
                             if (typeof AppLifecycleManager !== 'undefined') {
                                 AppLifecycleManager.registerApp(appId, appInst)
@@ -328,7 +329,7 @@ Rectangle {
                     }
                     
                     if (appInstance.requestUnregister) {
-                        appInstance.requestUnregister.connect(function(appId) {
+                        appInstance.requestUnregister.connect(appInstanceContainer, function(appId) {
                             console.log("AppWindow: App requested unregistration:", appId)
                             if (typeof AppLifecycleManager !== 'undefined') {
                                 AppLifecycleManager.unregisterApp(appId)
@@ -337,7 +338,7 @@ Rectangle {
                     }
                     
                     if (appInstance.minimizeRequested) {
-                        minimizeConnection = appInstance.minimizeRequested.connect(function() {
+                        minimizeConnection = appInstance.minimizeRequested.connect(appInstanceContainer, function() {
                             Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName)
                             if (capturedWindow) {
                                 capturedWindow.minimized()
@@ -346,7 +347,7 @@ Rectangle {
                     }
                     
                     if (appInstance.closed) {
-                        closedConnection = appInstance.closed.connect(function() {
+                        closedConnection = appInstance.closed.connect(appInstanceContainer, function() {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName)
                             if (capturedWindow) {
                                 capturedWindow.hide()
@@ -396,6 +397,7 @@ Rectangle {
     
     Connections {
         target: MarathonAppLoader
+        enabled: MarathonAppLoader !== null
         
         function onAppLoadProgress(appId, percent) {
             if (appId === appWindow.appId) {
