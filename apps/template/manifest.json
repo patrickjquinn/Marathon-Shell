@@ -1,0 +1,12 @@
+{
+  "id": "template",
+  "name": "Template App",
+  "version": "1.0.0",
+  "description": "Template for creating new Marathon apps",
+  "icon": "assets/icon.svg",
+  "entryPoint": "TemplateApp.qml",
+  "category": "utilities",
+  "author": "Marathon OS",
+  "permissions": []
+}
+

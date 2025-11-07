@@ -195,17 +195,13 @@ void WaylandCompositor::launchApp(const QString &command)
     qDebug() << "[WaylandCompositor] Starting process:" << actualCommand;
     process->start("/bin/sh", {"-c", actualCommand});
     
-    if (process->waitForStarted(3000)) {
+    // ✅ NON-BLOCKING: Connect to started() signal instead of waitForStarted()
+    connect(process, &QProcess::started, this, [this, process, command]() {
         qint64 pid = process->processId();
         qInfo() << "[WaylandCompositor] ✓ App process started successfully, PID:" << pid;
         qInfo() << "[WaylandCompositor] ✓ Waiting for Wayland surface to connect...";
         emit appLaunched(command, pid);
-    } else {
-        qWarning() << "[WaylandCompositor] ✗ Failed to start app:" << actualCommand;
-        qWarning() << "[WaylandCompositor] ✗ Error:" << process->errorString();
-        m_processes.remove(process);
-        process->deleteLater();
-    }
+    });
 }
 
 void WaylandCompositor::closeWindow(int surfaceId)

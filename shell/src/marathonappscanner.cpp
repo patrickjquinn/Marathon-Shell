@@ -6,12 +6,21 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QtConcurrent>
 
 MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *parent)
     : QObject(parent)
     , m_registry(registry)
+    , m_scanWatcher(new QFutureWatcher<int>(this))
 {
     qDebug() << "[MarathonAppScanner] Initialized";
+    
+    // Connect async scan completion
+    connect(m_scanWatcher, &QFutureWatcher<int>::finished, this, [this]() {
+        int count = m_scanWatcher->result();
+        qDebug() << "[MarathonAppScanner] Async scan complete. Discovered:" << count << "apps";
+        emit scanComplete(count);
+    });
 }
 
 QStringList MarathonAppScanner::getSearchPaths()
@@ -36,8 +45,28 @@ QStringList MarathonAppScanner::getSearchPaths()
 
 void MarathonAppScanner::scanApplications()
 {
-    qDebug() << "[MarathonAppScanner] Starting app scan...";
+    // Keep synchronous version for backwards compatibility
     emit scanStarted();
+    int count = performScan();
+    emit scanComplete(count);
+}
+
+void MarathonAppScanner::scanApplicationsAsync()
+{
+    qDebug() << "[MarathonAppScanner] Starting async app scan...";
+    emit scanStarted();
+    
+    // Run scan in background thread using QtConcurrent
+    QFuture<int> future = QtConcurrent::run([this]() {
+        return this->performScan();
+    });
+    
+    m_scanWatcher->setFuture(future);
+}
+
+int MarathonAppScanner::performScan()
+{
+    qDebug() << "[MarathonAppScanner] Performing app scan...";
     
     int discoveredCount = 0;
     QStringList searchPaths = getSearchPaths();
@@ -84,7 +113,7 @@ void MarathonAppScanner::scanApplications()
     }
     
     qDebug() << "[MarathonAppScanner] Scan complete. Discovered:" << discoveredCount << "apps";
-    emit scanComplete(discoveredCount);
+    return discoveredCount;
 }
 
 QString MarathonAppScanner::getManifestPath(const QString &appPath)
@@ -158,6 +187,24 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     // Parse deepLinks object
     QJsonObject deepLinksObj = obj.value("deepLinks").toObject();
     info.deepLinksJson = QJsonDocument(deepLinksObj).toJson(QJsonDocument::Compact);
+    
+    // Parse categories array
+    QJsonArray categoriesArray = obj.value("categories").toArray();
+    for (const QJsonValue &value : categoriesArray) {
+        info.categories.append(value.toString());
+    }
+    
+    // Parse handlesUriSchemes array
+    QJsonArray uriSchemesArray = obj.value("handlesUriSchemes").toArray();
+    for (const QJsonValue &value : uriSchemesArray) {
+        info.handlesUriSchemes.append(value.toString());
+    }
+    
+    // Parse defaultFor array
+    QJsonArray defaultForArray = obj.value("defaultFor").toArray();
+    for (const QJsonValue &value : defaultForArray) {
+        info.defaultFor.append(value.toString());
+    }
     
     qDebug() << "[MarathonAppScanner] Deep links for" << info.id << ":" << info.deepLinksJson;
     

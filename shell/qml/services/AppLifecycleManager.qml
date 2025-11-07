@@ -355,6 +355,13 @@ QtObject {
         }
         
         unregisterApp(appId)
+        
+        // CRITICAL: Tell MarathonAppLoader to clean up the cached component
+        // This ensures a fresh load on next launch
+        if (typeof MarathonAppLoader !== 'undefined') {
+            MarathonAppLoader.unloadApp(appId)
+            Logger.info("AppLifecycle", "Unloaded component from MarathonAppLoader: " + appId)
+        }
     }
     
     /**

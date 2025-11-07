@@ -10,14 +10,24 @@ Item {
     signal appLaunched(var app)
     signal longPress()
     
+    // Filtered app model
+    property var appModel: filteredAppModel
+    
+    FilteredAppModel {
+        id: filteredAppModel
+        onCountChanged: {
+            appGrid.pageCount = Math.ceil(filteredAppModel.count / (appGrid.columns * appGrid.rows))
+        }
+    }
+    
     // Responsive grid layout based on screen width
     // Phone (< 700px): 4 columns × 5 rows
     // Small tablet (700-900px): 5 columns × 4 rows  
     // Large tablet/desktop (> 900px): 6 columns × 4 rows
-    property int columns: Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6)
+    property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6))
     property int rows: Constants.screenWidth < 700 ? 5 : 4
     property int currentPage: 0
-    property int pageCount: Math.ceil(AppModel.count / (columns * rows))
+    property int pageCount: Math.ceil(filteredAppModel.count / (columns * rows))
     property real searchPullProgress: 0.0  // 0.0 to 1.0, tracks pull-down gesture
     property bool searchGestureActive: false  // Track if gesture is in progress
     
@@ -58,15 +68,9 @@ Item {
         }
     }
     
-    Component.onCompleted: Logger.info("AppGrid", "Initialized with " + AppModel.count + " apps")
+    Component.onCompleted: Logger.info("AppGrid", "Initialized with " + filteredAppModel.count + " apps")
     
-    Connections {
-        target: AppModel
-        function onCountChanged() {
-            pageCount = Math.ceil(AppModel.count / (appGrid.columns * appGrid.rows))
-            Logger.info("AppGrid", "App count changed: " + AppModel.count + ", pages: " + pageCount)
-        }
-    }
+    // No longer needed - FilteredAppModel handles this internally
     
     ListView {
         id: pageView
@@ -105,7 +109,7 @@ Item {
                     readonly property int pageEndIdx: pageStartIdx + (appGrid.columns * appGrid.rows)
                     
                     Repeater {
-                        model: AppModel
+                        model: filteredAppModel.count
                         
                         Item {
                             width: (iconGrid.width - (appGrid.columns - 1) * iconGrid.spacing) / appGrid.columns
@@ -113,6 +117,9 @@ Item {
                             
                             // Optimized visibility: calculate once per page change
                             visible: index >= iconGrid.pageStartIdx && index < iconGrid.pageEndIdx
+                            
+                            // Get app data from filtered model
+                            readonly property var appData: filteredAppModel.getAppAtIndex(index)
                         
                         // Optimized transform: NumberAnimation instead of SpringAnimation for press effects
                         transform: [
@@ -180,7 +187,7 @@ Item {
                                     Image {
                                         anchors.centerIn: parent
                                         anchors.verticalCenterOffset: 4
-                                        source: model.icon
+                                        source: appData ? appData.icon : ""
                                         width: parent.width
                                         height: parent.height
                                         fillMode: Image.PreserveAspectFit
@@ -196,7 +203,7 @@ Item {
                                     Image {
                                         id: appIcon
                                         anchors.centerIn: parent
-                                        source: model.icon
+                                        source: appData ? appData.icon : ""
                                         width: parent.width
                                         height: parent.height
                                         fillMode: Image.PreserveAspectFit
@@ -220,13 +227,15 @@ Item {
                                     border.color: MColors.background
                                     antialiasing: Constants.enableAntialiasing
                                     visible: {
-                                        var count = NotificationService.getNotificationCountForApp(model.id)
+                                        if (!appData || !SettingsManagerCpp.showNotificationBadges) return false
+                                        var count = NotificationService.getNotificationCountForApp(appData.id)
                                         return count > 0
                                     }
                                     
                                     Text {
                                         text: {
-                                            var count = NotificationService.getNotificationCountForApp(model.id)
+                                            if (!appData) return ""
+                                            var count = NotificationService.getNotificationCountForApp(appData.id)
                                             return count > 9 ? "9+" : count.toString()
                                         }
                                         color: MColors.text
@@ -240,7 +249,7 @@ Item {
                             
                             Text {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: model.name
+                                text: appData ? appData.name : ""
                                 color: WallpaperStore.isDark ? MColors.text : "#000000"
                                 font.pixelSize: MTypography.sizeSmall
                                 font.family: MTypography.fontFamily
@@ -311,14 +320,18 @@ Item {
                                 
                                 // Normal tap - launch app (only if not a search gesture)
                                 if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
-                                    console.log("[AppGrid] CLICK DETECTED - Launching app:", model.name, "type:", model.type, "exec:", model.exec)
-                                    Logger.info("AppGrid", "App launched: " + model.name)
+                                    if (!appData) {
+                                        console.log("[AppGrid] CLICK REJECTED - No app data at index:", index)
+                                        return
+                                    }
+                                    console.log("[AppGrid] CLICK DETECTED - Launching app:", appData.name, "type:", appData.type, "exec:", appData.exec)
+                                    Logger.info("AppGrid", "App launched: " + appData.name)
                                     appLaunched({
-                                        id: model.id,
-                                        name: model.name,
-                                        icon: model.icon,
-                                        type: model.type,
-                                        exec: model.exec
+                                        id: appData.id,
+                                        name: appData.name,
+                                        icon: appData.icon,
+                                        type: appData.type,
+                                        exec: appData.exec
                                     })
                                     HapticService.medium()
                                 } else {
@@ -330,7 +343,8 @@ Item {
                             }
                             
                             onPressAndHold: {
-                                Logger.info("AppGrid", "App long-pressed: " + model.name)
+                                if (!appData) return
+                                Logger.info("AppGrid", "App long-pressed: " + appData.name)
                                 var globalPos = mapToItem(appGrid.parent, mouseX, mouseY)
                                 HapticService.heavy()
                                 
@@ -338,10 +352,10 @@ Item {
                                     var shell = appGrid.parent.parent.parent
                                     if (shell.appContextMenu) {
                                         shell.appContextMenu.show({
-                                            id: model.id,
-                                            name: model.name,
-                                            icon: model.icon,
-                                            type: model.type
+                                            id: appData.id,
+                                            name: appData.name,
+                                            icon: appData.icon,
+                                            type: appData.type
                                         }, globalPos)
                                     }
                                 }

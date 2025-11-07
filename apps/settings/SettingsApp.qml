@@ -160,6 +160,15 @@ MApp {
             case "appmanager":
                 component = appManagerPageComponent
                 break
+            case "hiddenapps":
+                component = hiddenAppsPageComponent
+                break
+            case "defaultapps":
+                component = defaultAppsPageComponent
+                break
+            case "appsort":
+                component = appSortPageComponent
+                break
             default:
                 Logger.error("SettingsApp", "Unknown page: " + pageName)
                 return
@@ -251,6 +260,27 @@ MApp {
     Component {
         id: appManagerPageComponent
         AppManagerPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: hiddenAppsPageComponent
+        HiddenAppsPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: defaultAppsPageComponent
+        DefaultAppsPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: appSortPageComponent
+        AppSortPage {
             onNavigateBack: navigationStack.pop()
         }
     }

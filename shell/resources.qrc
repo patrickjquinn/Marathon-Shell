@@ -83,6 +83,10 @@
         <file alias="alert-circle.svg">resources/images/icons/lucide/alert-circle.svg</file>
         <file alias="alert-triangle.svg">resources/images/icons/lucide/alert-triangle.svg</file>
         <file alias="bell-off.svg">resources/images/icons/lucide/bell-off.svg</file>
+        <file alias="bell-ring.svg">resources/images/icons/lucide/bell-ring.svg</file>
+        <file alias="trending-up.svg">resources/images/icons/lucide/trending-up.svg</file>
+        <file alias="layout.svg">resources/images/icons/lucide/layout.svg</file>
+        <file alias="video.svg">resources/images/icons/lucide/video.svg</file>
         <file alias="moon.svg">resources/images/icons/lucide/moon.svg</file>
         <file alias="volume-x.svg">resources/images/icons/lucide/volume-x.svg</file>
         <file alias="monitor.svg">resources/images/icons/lucide/monitor.svg</file>

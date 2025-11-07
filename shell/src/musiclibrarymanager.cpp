@@ -9,16 +9,113 @@
 #include <QMediaPlayer>
 #include <QAudioOutput>
 
+// Static const for extensions
+const QStringList MusicScanWorker::AUDIO_EXTENSIONS = {
+    "mp3", "m4a", "flac", "ogg", "opus", "wav", "aac", "wma"
+};
+
 const QStringList MusicLibraryManager::AUDIO_EXTENSIONS = {
     "mp3", "m4a", "flac", "ogg", "opus", "wav", "aac", "wma"
 };
+
+// ===== MusicScanWorker Implementation =====
+
+MusicScanWorker::MusicScanWorker(const QStringList &paths, QObject *parent)
+    : QObject(parent)
+    , m_paths(paths)
+{
+}
+
+void MusicScanWorker::process()
+{
+    qDebug() << "[MusicScanWorker] Starting scan of" << m_paths.size() << "paths";
+    
+    QList<Track> tracks;
+    int totalFiles = 0;
+    int currentFile = 0;
+    
+    // First pass: count files
+    for (const QString &path : m_paths) {
+        QDirIterator countIt(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        while (countIt.hasNext()) {
+            countIt.next();
+            totalFiles++;
+        }
+    }
+    
+    qDebug() << "[MusicScanWorker] Found" << totalFiles << "total files to scan";
+    
+    // Second pass: scan files
+    for (const QString &path : m_paths) {
+        QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+        
+        while (it.hasNext()) {
+            QString filePath = it.next();
+            QFileInfo fileInfo(filePath);
+            QString extension = fileInfo.suffix().toLower();
+            
+            if (AUDIO_EXTENSIONS.contains(extension)) {
+                Track track = scanFile(filePath);
+                if (!track.path.isEmpty()) {
+                    tracks.append(track);
+                }
+                
+                currentFile++;
+                if (currentFile % 50 == 0) {  // Emit progress every 50 files
+                    emit scanProgress(currentFile, totalFiles);
+                }
+            }
+        }
+    }
+    
+    qDebug() << "[MusicScanWorker] Scan complete. Found" << tracks.size() << "music tracks";
+    emit scanProgress(totalFiles, totalFiles);  // 100%
+    emit scanFinished(tracks);
+}
+
+Track MusicScanWorker::scanFile(const QString& filePath)
+{
+    Track track;
+    track.id = -1;  // Will be set by database
+    track.path = filePath;
+    
+    QFileInfo fileInfo(filePath);
+    
+    // Basic metadata from filename/path
+    track.title = fileInfo.completeBaseName();
+    track.artist = "Unknown Artist";
+    track.album = "Unknown Album";
+    track.duration = 0;
+    track.trackNumber = 0;
+    track.year = "";
+    
+    // Try to extract from path structure: .../Artist/Album/Track.mp3
+    QStringList pathParts = fileInfo.absolutePath().split('/');
+    if (pathParts.size() >= 2) {
+        track.album = pathParts[pathParts.size() - 1];
+        track.artist = pathParts[pathParts.size() - 2];
+    }
+    
+    return track;
+}
+
+bool MusicScanWorker::isAudioFile(const QString& path)
+{
+    QString extension = QFileInfo(path).suffix().toLower();
+    return AUDIO_EXTENSIONS.contains(extension);
+}
+
+// ===== MusicLibraryManager Implementation =====
 
 MusicLibraryManager::MusicLibraryManager(QObject *parent)
     : QObject(parent)
     , m_watcher(new QFileSystemWatcher(this))
     , m_scanTimer(new QTimer(this))
+    , m_scanThread(nullptr)
+    , m_scanWorker(nullptr)
     , m_isScanning(false)
     , m_trackCount(0)
+    , m_scanProgress(0)
 {
     initDatabase();
     loadArtists();
@@ -103,6 +200,137 @@ void MusicLibraryManager::scanLibrary()
     emit libraryChanged();
     
     qDebug() << "[MusicLibraryManager] Scan complete:" << m_trackCount << "tracks";
+}
+
+void MusicLibraryManager::scanLibraryAsync()
+{
+    if (m_isScanning) {
+        qDebug() << "[MusicLibraryManager] Async scan already in progress";
+        return;
+    }
+    
+    m_isScanning = true;
+    m_scanProgress = 0;
+    emit scanningChanged(true);
+    emit scanProgressChanged(0);
+    
+    qDebug() << "[MusicLibraryManager] Starting async library scan...";
+    
+    // Create worker and thread
+    m_scanWorker = new MusicScanWorker(getScanPaths());
+    m_scanThread = new QThread();
+    
+    m_scanWorker->moveToThread(m_scanThread);
+    
+    // Connect signals
+    connect(m_scanThread, &QThread::started, m_scanWorker, &MusicScanWorker::process);
+    connect(m_scanWorker, &MusicScanWorker::scanProgress, this, &MusicLibraryManager::onScanProgress);
+    connect(m_scanWorker, &MusicScanWorker::scanFinished, this, &MusicLibraryManager::onScanFinished);
+    connect(m_scanWorker, &MusicScanWorker::scanError, this, [this](const QString &error) {
+        qWarning() << "[MusicLibraryManager] Scan error:" << error;
+        m_isScanning = false;
+        emit scanningChanged(false);
+    });
+    
+    // Cleanup when done
+    connect(m_scanWorker, &MusicScanWorker::scanFinished, m_scanThread, &QThread::quit);
+    connect(m_scanThread, &QThread::finished, m_scanWorker, &QObject::deleteLater);
+    connect(m_scanThread, &QThread::finished, m_scanThread, &QObject::deleteLater);
+    connect(m_scanThread, &QThread::finished, this, [this]() {
+        m_scanThread = nullptr;
+        m_scanWorker = nullptr;
+    });
+    
+    // Start the scan
+    m_scanThread->start();
+}
+
+int MusicLibraryManager::scanProgress() const
+{
+    QMutexLocker locker(&m_mutex);
+    return m_scanProgress;
+}
+
+void MusicLibraryManager::onScanProgress(int current, int total)
+{
+    {
+        QMutexLocker locker(&m_mutex);
+        m_scanProgress = (total > 0) ? (current * 100 / total) : 0;
+    }
+    emit scanProgressChanged(m_scanProgress);
+}
+
+void MusicLibraryManager::onScanFinished(QList<Track> tracks)
+{
+    qDebug() << "[MusicLibraryManager] Async scan finished. Processing" << tracks.size() << "tracks";
+    
+    // Add all tracks to database in a batch
+    addTrackBatch(tracks);
+    
+    // Update counts
+    QSqlQuery countQuery(m_database);
+    countQuery.exec("SELECT COUNT(*) FROM tracks");
+    if (countQuery.next()) {
+        m_trackCount = countQuery.value(0).toInt();
+    }
+    
+    // Reload artists
+    loadArtists();
+    
+    m_isScanning = false;
+    emit scanningChanged(false);
+    emit scanComplete(m_trackCount);
+    emit libraryChanged();
+    
+    qDebug() << "[MusicLibraryManager] Async scan complete:" << m_trackCount << "total tracks";
+}
+
+void MusicLibraryManager::addTrackBatch(const QList<Track>& tracks)
+{
+    if (tracks.isEmpty()) {
+        return;
+    }
+    
+    m_database.transaction();
+    
+    QSqlQuery query(m_database);
+    query.prepare("INSERT OR REPLACE INTO tracks (path, title, artist, album, duration, track_number, year) "
+                  "VALUES (?, ?, ?, ?, ?, ?, ?)");
+    
+    for (const Track& track : tracks) {
+        query.addBindValue(track.path);
+        query.addBindValue(track.title);
+        query.addBindValue(track.artist);
+        query.addBindValue(track.album);
+        query.addBindValue(track.duration);
+        query.addBindValue(track.trackNumber);
+        query.addBindValue(track.year);
+        
+        if (!query.exec()) {
+            qWarning() << "[MusicLibraryManager] Failed to insert track:" << query.lastError().text();
+        }
+    }
+    
+    m_database.commit();
+    qDebug() << "[MusicLibraryManager] Batch inserted" << tracks.size() << "tracks";
+}
+
+QStringList MusicLibraryManager::getScanPaths()
+{
+    QStringList paths;
+    
+    QString musicPath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+    QDir musicDir(musicPath);
+    
+    if (!musicDir.exists()) {
+        musicDir.mkpath(musicPath);
+    }
+    
+    paths << musicPath;
+    
+    // Could add additional paths here (e.g., SD card, custom music folders)
+    
+    return paths;
 }
 
 QVariantList MusicLibraryManager::getAlbums(const QString& artistName)

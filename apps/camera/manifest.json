@@ -8,6 +8,9 @@
   "permissions": ["camera", "storage"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["Entertainment"],
+  "handlesUriSchemes": [],
+  "defaultFor": ["camera"],
   "searchKeywords": ["camera", "photo", "video", "capture", "picture"],
   "deepLinks": {}
 }

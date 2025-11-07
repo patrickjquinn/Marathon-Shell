@@ -13,7 +13,15 @@ DesktopFileParser::DesktopFileParser(QObject *parent)
 
 QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths)
 {
+    // Default: don't filter (for backwards compatibility)
+    return scanApplications(searchPaths, false);
+}
+
+QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths, bool filterMobileFriendly)
+{
     QVariantList apps;
+    
+    qDebug() << "[DesktopFileParser] Scanning with mobile filter:" << filterMobileFriendly;
     
     for (const QString &path : searchPaths) {
         QDir dir(path);
@@ -31,12 +39,22 @@ QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths)
         for (const QFileInfo &fileInfo : desktopFiles) {
             QVariantMap app = parseDesktopFile(fileInfo.absoluteFilePath());
             if (!app.isEmpty()) {
-                apps.append(app);
+                // Apply mobile-friendly filter if requested
+                if (filterMobileFriendly) {
+                    if (isMobileFriendly(app)) {
+                        apps.append(app);
+                        qDebug() << "[DesktopFileParser] ✓ Mobile-friendly:" << app["name"].toString();
+                    } else {
+                        qDebug() << "[DesktopFileParser] ✗ Not mobile-friendly (filtered):" << app["name"].toString();
+                    }
+                } else {
+                    apps.append(app);
+                }
             }
         }
     }
     
-    qDebug() << "[DesktopFileParser] Total apps found:" << apps.count();
+    qDebug() << "[DesktopFileParser] Total apps found:" << apps.count() << "(filtered:" << filterMobileFriendly << ")";
     return apps;
 }
 
@@ -101,6 +119,12 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath)
             if (value != "Application") {
                 return QVariantMap(); // Not an application
             }
+        } else if (key == "X-Purism-FormFactor") {
+            // Phosh/Purism form factor specification
+            app["purismFormFactor"] = value.split(';', Qt::SkipEmptyParts);
+        } else if (key == "X-KDE-FormFactors") {
+            // KDE form factor specification
+            app["kdeFormFactors"] = value.split(';', Qt::SkipEmptyParts);
         }
     }
     
@@ -262,5 +286,34 @@ QString DesktopFileParser::cleanExecLine(const QString &exec)
     }
     
     return cleaned;
+}
+
+bool DesktopFileParser::isMobileFriendly(const QVariantMap &app)
+{
+    // Check X-Purism-FormFactor (Phosh standard)
+    if (app.contains("purismFormFactor")) {
+        QStringList formFactors = app["purismFormFactor"].toStringList();
+        for (const QString &factor : formFactors) {
+            if (factor.contains("Mobile", Qt::CaseInsensitive)) {
+                qDebug() << "[DesktopFileParser]   Mobile-friendly via X-Purism-FormFactor:" << factor;
+                return true;
+            }
+        }
+    }
+    
+    // Check X-KDE-FormFactors (KDE standard)
+    if (app.contains("kdeFormFactors")) {
+        QStringList formFactors = app["kdeFormFactors"].toStringList();
+        for (const QString &factor : formFactors) {
+            if (factor.contains("handset", Qt::CaseInsensitive) || 
+                factor.contains("phone", Qt::CaseInsensitive)) {
+                qDebug() << "[DesktopFileParser]   Mobile-friendly via X-KDE-FormFactors:" << factor;
+                return true;
+            }
+        }
+    }
+    
+    // If no form factor is specified, consider it desktop-only
+    return false;
 }
 

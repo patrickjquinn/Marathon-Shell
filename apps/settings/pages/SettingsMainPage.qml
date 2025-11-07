@@ -201,6 +201,97 @@ Page {
                 }
             }
             
+            // Apps & Filters
+            MSection {
+                title: "Apps & Filters"
+                subtitle: "Control which apps are displayed"
+                width: parent.width - 48
+                
+                MSettingsListItem {
+                    title: "Hidden Apps"
+                    subtitle: SettingsManagerCpp.hiddenApps.length + " app(s) hidden"
+                    iconName: "eye-off"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("hiddenapps")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Default Apps"
+                    subtitle: "Choose apps for specific actions"
+                    iconName: "star"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("defaultapps")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "App Sorting & Layout"
+                    subtitle: {
+                        var sortText = SettingsManagerCpp.appSortOrder === "alphabetical" ? "Alphabetical" : 
+                                      SettingsManagerCpp.appSortOrder === "frequent" ? "Most Used" :
+                                      SettingsManagerCpp.appSortOrder === "recent" ? "Recently Added" : "Custom"
+                        var gridText = SettingsManagerCpp.appGridColumns === 0 ? "Auto" : SettingsManagerCpp.appGridColumns + " columns"
+                        return sortText + " • " + gridText
+                    }
+                    iconName: "layout"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("appsort")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Filter Non-Mobile Apps"
+                    subtitle: "Only show apps optimized for mobile screens"
+                    iconName: "smartphone"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.filterMobileFriendlyApps
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.filterMobileFriendlyApps = value
+                        Logger.info("Settings", "Mobile app filter: " + value + " (restart required)")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Search Native Apps"
+                    subtitle: "Include system apps in search results"
+                    iconName: "search"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.searchNativeApps
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.searchNativeApps = value
+                        Logger.info("Settings", "Search native apps: " + value)
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Show Notification Badges"
+                    subtitle: "Display unread counts on app icons"
+                    iconName: "bell-ring"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.showNotificationBadges
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.showNotificationBadges = value
+                        Logger.info("Settings", "Notification badges: " + value)
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Show Frequent Apps"
+                    subtitle: "Display most used apps at the top"
+                    iconName: "trending-up"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.showFrequentApps
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.showFrequentApps = value
+                        Logger.info("Settings", "Show frequent apps: " + value)
+                    }
+                }
+            }
+            
             Item { height: 40 }
         }
     }

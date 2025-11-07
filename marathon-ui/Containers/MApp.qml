@@ -8,6 +8,7 @@ Item {
     property string appIcon: ""
     
     property bool isPreviewMode: false
+    property bool debugLifecycle: false
     
     property bool isActive: false
     property bool isPaused: false
@@ -62,6 +63,7 @@ Item {
     }
     
     function start() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "start()")
         if (!isVisible) {
             isVisible = true
             appStarted()
@@ -69,6 +71,7 @@ Item {
     }
     
     function stop() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "stop()")
         if (isVisible) {
             isVisible = false
             appStopped()
@@ -76,6 +79,7 @@ Item {
     }
     
     function pause() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "pause()")
         if (!isPaused) {
             isPaused = true
             isActive = false
@@ -85,6 +89,7 @@ Item {
     }
     
     function resume() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "resume()")
         if (isPaused || !isActive) {
             isPaused = false
             isActive = true
@@ -94,12 +99,14 @@ Item {
     }
     
     function minimize() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "minimize()")
         isMinimized = true
         pause()
         appMinimized()
     }
     
     function restore() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "restore()")
         isMinimized = false
         resume()
         start()
@@ -107,6 +114,7 @@ Item {
     }
     
     function close() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "close()")
         appWillTerminate()
         stop()
         appClosed()
@@ -114,6 +122,7 @@ Item {
     }
     
     function handleLowMemory() {
+        if (debugLifecycle) console.log("[MApp Lifecycle]", appId, "handleLowMemory()")
         lowMemoryWarning()
     }
     
