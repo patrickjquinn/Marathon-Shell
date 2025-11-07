@@ -26,6 +26,7 @@ MApp {
     
     Connections {
         target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
+        enabled: target !== null
         function onIncomingCall(number) {
             Logger.info("Phone", "Incoming call from: " + number)
             var contactName = resolveContactName(number)

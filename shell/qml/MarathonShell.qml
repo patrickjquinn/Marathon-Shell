@@ -371,11 +371,18 @@ Item {
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
+        searchActive: UIStore.searchOpen
         
         onToggleKeyboard: {
             Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active)
             virtualKeyboard.active = !virtualKeyboard.active
             Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.active)
+        }
+        
+        onToggleSearch: {
+            Logger.info("Shell", "Search button clicked from nav bar")
+            UIStore.toggleSearch()
+            HapticService.light()
         }
             
         onSwipeLeft: {
@@ -565,9 +572,11 @@ Item {
         // Watch for app switching (when restoring from task switcher)
         Connections {
             target: UIStore
+            enabled: UIStore !== null
+            
             function onCurrentAppIdChanged() {
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
-                    Logger.info("Shell", "App ID changed, showing: " + UIStore.currentAppId)
+                    Logger.info("Shell", "🔄 App ID changed, showing: " + UIStore.currentAppId)
                     
                     // Check TaskModel for app type - if native, get surface
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId)
@@ -1109,7 +1118,23 @@ Item {
         }
         
         onResultSelected: (result) => {
-            AppLaunchService.launchFromSearch(result, compositor, appWindow)
+            // Handle different result types
+            if (result.type === "app") {
+                // Transform search result to app object format
+                var app = {
+                    id: result.data.id,
+                    name: result.data.name,
+                    icon: result.data.icon,
+                    type: result.data.type || "marathon"
+                }
+                AppLaunchService.launchApp(app, compositor, appWindow)
+            } else if (result.type === "deeplink") {
+                // Execute deep link navigation
+                UnifiedSearchService.executeSearchResult(result)
+            } else if (result.type === "setting") {
+                // Execute setting navigation
+                UnifiedSearchService.executeSearchResult(result)
+            }
             UIStore.closeSearch()
         }
     }
@@ -1364,8 +1389,10 @@ Item {
     
     Connections {
         target: compositor
+        enabled: compositor !== null
         
         function onSurfaceCreated(surface, surfaceId, xdgSurface) {
+            Logger.info("Shell", "📱 Surface created signal received, calling CompositorConnections")
             compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp)
             compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface)
         }
@@ -1423,6 +1450,7 @@ Item {
         
         Connections {
             target: incomingCallOverlayLoader.item
+            enabled: incomingCallOverlayLoader.item !== null
             function onAnswered() {
             TelephonyIntegration.callWasAnswered = true
             }

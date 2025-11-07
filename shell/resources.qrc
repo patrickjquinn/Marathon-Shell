@@ -52,9 +52,11 @@
         <file alias="list.svg">resources/images/icons/lucide/list.svg</file>
         <file alias="trash-2.svg">resources/images/icons/lucide/trash-2.svg</file>
         <file alias="link.svg">resources/images/icons/lucide/link.svg</file>
+        <file alias="external-link.svg">resources/images/icons/lucide/external-link.svg</file>
         <file alias="file-text.svg">resources/images/icons/lucide/file-text.svg</file>
         <file alias="message-square.svg">resources/images/icons/lucide/message-square.svg</file>
         <file alias="mail.svg">resources/images/icons/lucide/mail.svg</file>
+        <file alias="mail-open.svg">resources/images/icons/lucide/mail-open.svg</file>
         <file alias="inbox.svg">resources/images/icons/lucide/inbox.svg</file>
         <file alias="phone.svg">resources/images/icons/lucide/phone.svg</file>
         <file alias="users.svg">resources/images/icons/lucide/users.svg</file>

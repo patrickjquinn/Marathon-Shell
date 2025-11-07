@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonUI.Containers
 
@@ -44,10 +45,11 @@ MApp {
             
             Connections {
                 target: waylandSurfaceLoader.item
+                enabled: waylandSurfaceLoader.item !== null
                 function onSurfaceDestroyed() {
                     Logger.info("NativeAppWindow", "Surface destroyed for: " + nativeAppWindow.appId)
                     nativeAppWindow.close()
-                            }
+                }
             }
         }
         

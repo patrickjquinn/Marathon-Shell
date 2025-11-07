@@ -6,21 +6,29 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QDebug>
+#ifdef HAVE_QT_CONCURRENT
 #include <QtConcurrent>
+#endif
 
 MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *parent)
     : QObject(parent)
     , m_registry(registry)
+#ifdef HAVE_QT_CONCURRENT
     , m_scanWatcher(new QFutureWatcher<int>(this))
+#else
+    , m_scanWatcher(nullptr)
+#endif
 {
     qDebug() << "[MarathonAppScanner] Initialized";
     
+#ifdef HAVE_QT_CONCURRENT
     // Connect async scan completion
     connect(m_scanWatcher, &QFutureWatcher<int>::finished, this, [this]() {
         int count = m_scanWatcher->result();
         qDebug() << "[MarathonAppScanner] Async scan complete. Discovered:" << count << "apps";
         emit scanComplete(count);
     });
+#endif
 }
 
 QStringList MarathonAppScanner::getSearchPaths()
@@ -56,12 +64,23 @@ void MarathonAppScanner::scanApplicationsAsync()
     qDebug() << "[MarathonAppScanner] Starting async app scan...";
     emit scanStarted();
     
+#ifdef HAVE_QT_CONCURRENT
     // Run scan in background thread using QtConcurrent
-    QFuture<int> future = QtConcurrent::run([this]() {
-        return this->performScan();
-    });
-    
-    m_scanWatcher->setFuture(future);
+    if (m_scanWatcher) {
+        QFuture<int> future = QtConcurrent::run([this]() {
+            return this->performScan();
+        });
+        m_scanWatcher->setFuture(future);
+    } else {
+        // Fallback to synchronous if Concurrent not available
+        int count = performScan();
+        emit scanComplete(count);
+    }
+#else
+    // Fallback to synchronous if Concurrent not available
+    int count = performScan();
+    emit scanComplete(count);
+#endif
 }
 
 int MarathonAppScanner::performScan()

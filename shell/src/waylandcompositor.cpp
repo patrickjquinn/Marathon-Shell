@@ -31,6 +31,57 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     m_output = new QWaylandQuickOutput(this, window);
     m_output->setSizeFollowsWindow(true);
     
+    // Configure output for mobile form factor
+    QScreen *screen = window->screen();
+    if (screen) {
+        qreal screenDpi = screen->logicalDotsPerInch();
+        qreal devicePixelRatio = screen->devicePixelRatio();
+        
+        // CRITICAL: For mobile compositor, ALWAYS use scale=1
+        // - scale=1 means apps render at native resolution (e.g., 1080x2400 pixels)
+        // - Physical output size (mm) determines mobile vs desktop, NOT scale factor
+        // - Mobile toolkits (libadwaita, Kirigami) use physical size to trigger adaptive layouts
+        // - Using scale>1 causes blur because apps render at lower res then upscale
+        int scaleFactor = 1;
+        
+        m_output->setScaleFactor(scaleFactor);
+        
+        // CRITICAL: Set physical size to achieve ~96 DPI (standard desktop DPI)
+        // 
+        // GTK calculates DPI as: pixels / physical_size_mm * 25.4
+        // For 540 pixels at 96 DPI: 540 / 96 * 25.4 = 143mm
+        // 
+        // Why 96 DPI and not higher?
+        // - Mobile apps use ADAPTIVE LAYOUTS (triggered by narrow width + LIBADWAITA_MOBILE)
+        // - They don't need high DPI scaling (that's for desktop apps on 4K monitors)
+        // - Physical size matters for FORM FACTOR detection (narrow = mobile), not DPI
+        // - Using small physical size (68mm) caused ~200 DPI → GTK scaled UI 2x → too big!
+        //
+        // This gives us:
+        // - Mobile form factor (narrow width triggers adaptive layouts)
+        // - Standard 96 DPI (no unwanted 2x UI scaling)
+        // - Sharp rendering (scale=1 means native pixel resolution)
+        int physicalWidth = 143;   // millimeters (for 540px at 96 DPI)
+        int physicalHeight = 302;  // millimeters (for 1140px at 96 DPI)
+        
+        // Keep aspect ratio consistent
+        QSize pixelSize = window->size();
+        qreal aspectRatio = (qreal)pixelSize.height() / (qreal)pixelSize.width();
+        physicalHeight = (int)(physicalWidth * aspectRatio);
+        
+        m_output->setPhysicalSize(QSize(physicalWidth, physicalHeight));
+        
+        qInfo() << "[WaylandCompositor] Output configured for MOBILE form factor:";
+        qInfo() << "[WaylandCompositor]   Scale factor:" << scaleFactor;
+        qInfo() << "[WaylandCompositor]   Pixel size:" << pixelSize;
+        qInfo() << "[WaylandCompositor]   Physical size:" << physicalWidth << "x" << physicalHeight << "mm (~6\" phone)";
+        qInfo() << "[WaylandCompositor]   DPI:" << screenDpi << "devicePixelRatio:" << devicePixelRatio;
+    } else {
+        m_output->setScaleFactor(1);
+        m_output->setPhysicalSize(QSize(68, 136));  // Default mobile size
+        qWarning() << "[WaylandCompositor] No screen available, using defaults";
+    }
+    
     setSocketName("marathon-wayland-0");
     
     create();
@@ -149,6 +200,27 @@ void WaylandCompositor::launchApp(const QString &command)
     env.insert("CLUTTER_BACKEND", "wayland");
     env.insert("SDL_VIDEODRIVER", "wayland");
     
+    // CRITICAL: Mobile form factor environment variables
+    // These tell GTK4/libadwaita apps to use mobile/adaptive layouts
+    env.insert("LIBADWAITA_MOBILE", "1");      // Force libadwaita mobile mode
+    env.insert("GTK_USE_PORTAL", "0");         // Disable portals (causes issues in nested compositor)
+    env.insert("PURISM_FORM_FACTOR", "phone"); // Phosh compatibility
+    
+    // Force client-side decorations for GTK apps (better mobile experience)
+    env.insert("GTK_CSD", "1");
+    
+    // NOTE: DO NOT set GDK_SCALE or GDK_DPI_SCALE!
+    // These are X11-only variables and are IGNORED on Wayland.
+    // Under Wayland, scaling is communicated via wl_output::scale (set to 1 above)
+    // and apps receive physical size (68mm) to detect mobile form factor.
+    //
+    // Reference: https://discourse.gnome.org/t/scaling-ui-for-hidpi-display-under-non-gnome-wayland/17545
+    // Reference: https://docs.gtk.org/gtk4/x11.html (these vars are X11-specific)
+    
+    // Qt mobile hints
+    env.insert("QT_QUICK_CONTROLS_MOBILE", "1");
+    env.insert("QT_QUICK_CONTROLS_STYLE", "Material");
+    
     process->setProcessEnvironment(env);
     
     qInfo() << "[WaylandCompositor] ===== LAUNCHING APP =====";
@@ -158,6 +230,15 @@ void WaylandCompositor::launchApp(const QString &command)
     qInfo() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << runtimeDir;
     qInfo() << "[WaylandCompositor] GDK_BACKEND:" << env.value("GDK_BACKEND");
     qInfo() << "[WaylandCompositor] DBUS_SESSION_BUS_ADDRESS:" << env.value("DBUS_SESSION_BUS_ADDRESS");
+    qInfo() << "[WaylandCompositor] 📱 MOBILE ENV VARS:";
+    qInfo() << "[WaylandCompositor]   LIBADWAITA_MOBILE:" << env.value("LIBADWAITA_MOBILE");
+    qInfo() << "[WaylandCompositor]   PURISM_FORM_FACTOR:" << env.value("PURISM_FORM_FACTOR");
+    qInfo() << "[WaylandCompositor]   GTK_USE_PORTAL:" << env.value("GTK_USE_PORTAL");
+    qInfo() << "[WaylandCompositor]   GTK_CSD:" << env.value("GTK_CSD");
+    qInfo() << "[WaylandCompositor]   QT_QUICK_CONTROLS_MOBILE:" << env.value("QT_QUICK_CONTROLS_MOBILE");
+    qInfo() << "[WaylandCompositor] 📡 WAYLAND SCALING (via compositor wl_output protocol):";
+    qInfo() << "[WaylandCompositor]   wl_output::scale = 1 (native resolution)";
+    qInfo() << "[WaylandCompositor]   wl_output::physical_size = 68x143mm (mobile phone)";
     
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &WaylandCompositor::handleProcessFinished);
@@ -340,22 +421,23 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel, 
         emit surfaceCreated(surface, surfaceId, xdgSurface);
         
         // Connect signals with QPointer for safe access to toplevel
+        // Note: Explicitly specify 'this' as receiver context to avoid "Could not find receiver" warnings
         QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
         QPointer<QWaylandSurface> safeSurface(surface);
         
-        connect(toplevel, &QWaylandXdgToplevel::titleChanged, this, [this, safeToplevel, safeSurface]() {
+        connect(toplevel, &QWaylandXdgToplevel::titleChanged, this, [safeToplevel, safeSurface]() {
             if (safeToplevel && safeSurface) {
                 safeSurface->setProperty("title", safeToplevel->title());
                 qInfo() << "[WaylandCompositor] *** Title updated to:" << (safeToplevel->title().isEmpty() ? "(empty)" : safeToplevel->title());
             }
-        });
+        }, Qt::UniqueConnection);
         
-        connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, [this, safeToplevel, safeSurface]() {
+        connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this, [safeToplevel, safeSurface]() {
             if (safeToplevel && safeSurface) {
                 safeSurface->setProperty("appId", safeToplevel->appId());
                 qInfo() << "[WaylandCompositor] *** App ID updated to:" << (safeToplevel->appId().isEmpty() ? "(empty)" : safeToplevel->appId());
             }
-        });
+        }, Qt::UniqueConnection);
         
         qInfo() << "[WaylandCompositor] Signal handlers connected for surfaceId:" << surfaceId;
     }
@@ -372,13 +454,14 @@ void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlSh
         surface->setProperty("title", wlShellSurface->title());
         
         // Connect signal with QPointer for safe access
+        // Note: Explicitly specify 'this' as receiver context to avoid "Could not find receiver" warnings
         QPointer<QWaylandWlShellSurface> safeWlShell(wlShellSurface);
         QPointer<QWaylandSurface> safeSurface(surface);
-        connect(wlShellSurface, &QWaylandWlShellSurface::titleChanged, this, [this, safeWlShell, safeSurface]() {
+        connect(wlShellSurface, &QWaylandWlShellSurface::titleChanged, this, [safeWlShell, safeSurface]() {
             if (safeWlShell && safeSurface) {
                 safeSurface->setProperty("title", safeWlShell->title());
             }
-        });
+        }, Qt::UniqueConnection);
     }
 }
 

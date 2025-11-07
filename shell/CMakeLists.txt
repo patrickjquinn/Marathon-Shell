@@ -289,7 +289,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::QuickControls2
     Qt6::Svg
     Qt6::DBus
-    Qt6::Concurrent  # For async operations
     Qt6::Multimedia
     asyncfuture
     marathon-ui-theme

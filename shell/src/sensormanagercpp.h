@@ -18,6 +18,10 @@ public:
     bool available() const { return m_available; }
     bool proximityNear() const { return m_proximityNear; }
     int ambientLight() const { return m_ambientLight; }
+    
+    Q_INVOKABLE void enableLightSensor(const QString& sensorPath);
+    Q_INVOKABLE void disableLightSensor(const QString& sensorPath);
+    Q_INVOKABLE int readLightLevel(const QString& sensorPath);
 
 signals:
     void availableChanged();

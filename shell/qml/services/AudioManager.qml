@@ -185,7 +185,7 @@ QtObject {
         
         Logger.info("AudioManager", "Playing ringtone: " + currentRingtone)
         ringtonePlayer.source = currentRingtone
-        ringtonePlayer.audioOutput.volume = ringtoneVolume
+        // Volume is bound in the MediaPlayer declaration below
         ringtonePlayer.loops = MediaPlayer.Infinite
         ringtonePlayer.play()
     }

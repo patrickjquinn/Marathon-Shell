@@ -108,7 +108,7 @@ QtObject {
         function onNotificationReceived(notification) {
             notifications.push(notification)
             notifications = notifications
-            notificationCount = NotificationService.unreadCount
+            // notificationCount is already bound to NotificationService.unreadCount at line 38
         }
         function onNotificationDismissed(id) {
             notifications = notifications.filter(function(n) { return n.id !== id })

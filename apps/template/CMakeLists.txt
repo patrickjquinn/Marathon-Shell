@@ -1,50 +1,22 @@
-cmake_minimum_required(VERSION 3.16)
-project(template VERSION 1.0.0 LANGUAGES CXX)
+# ============================================================
+# TEMPLATE APP - DO NOT BUILD OR INSTALL
+# ============================================================
+#
+# This is a reference template for creating new Marathon apps.
+# It should NOT be built or installed to the system.
+#
+# To use this template:
+#   1. Copy this directory to apps/yourapp/
+#   2. Update manifest.json, CMakeLists.txt, and QML files
+#   3. Add add_subdirectory(yourapp) to apps/CMakeLists.txt
+#
+# ============================================================
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+message(WARNING "Template app should not be built. This is a reference template only.")
+message(WARNING "If you need to build an app based on this template:")
+message(WARNING "  1. Copy apps/template/ to apps/yourapp/")
+message(WARNING "  2. Customize manifest.json and QML files")
+message(WARNING "  3. Add add_subdirectory(yourapp) to apps/CMakeLists.txt")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Qml Quick)
-
-qt_add_qml_module(template
-    URI TemplateApp
-    VERSION 1.0
-    QML_FILES
-        TemplateApp.qml
-        pages/MainPage.qml
-        qmldir
-    RESOURCES
-        manifest.json
-)
-
-set_target_properties(template PROPERTIES
-    QT_QML_MODULE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/apps/template"
-)
-
-install(TARGETS template
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/apps/template"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}/apps/template"
-)
-
-install(FILES
-    manifest.json
-    TemplateApp.qml
-    qmldir
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/apps/template"
-)
-
-install(DIRECTORY pages/
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/apps/template/pages"
-    FILES_MATCHING PATTERN "*.qml"
-)
-
-install(DIRECTORY components/
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/apps/template/components"
-    FILES_MATCHING PATTERN "*.qml"
-)
-
-install(DIRECTORY assets/
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/apps/template/assets"
-)
+# Intentionally empty - no build or install rules
 

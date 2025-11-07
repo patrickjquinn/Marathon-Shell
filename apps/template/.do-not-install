@@ -1,0 +1,11 @@
+This is a TEMPLATE / EXAMPLE app for developers.
+
+DO NOT INSTALL this app to the system.
+It is meant to be copied and customized when creating new apps.
+
+This directory should remain in source control as a reference but
+should never be installed to ~/.local/share/marathon-apps/ or
+/usr/share/marathon-apps/
+
+If you see this file in an installed location, something went wrong.
+

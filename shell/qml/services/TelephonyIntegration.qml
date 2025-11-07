@@ -58,6 +58,11 @@ QtObject {
             DisplayManager.turnScreenOn()
         }
         
+        // Play ringtone
+        if (typeof AudioManager !== 'undefined') {
+            AudioManager.playRingtone()
+        }
+        
         var contactName = root.resolveContactName(number)
         if (root.incomingCallOverlay) {
             root.incomingCallOverlay.show(number, contactName)
@@ -79,6 +84,11 @@ QtObject {
         }
         
         if (state === "active" || state === "idle" || state === "terminated") {
+            // Stop ringtone when call is answered/ended
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.stopRingtone()
+            }
+            
             if (root.incomingCallOverlay && root.incomingCallOverlay.visible) {
                 root.incomingCallOverlay.hide()
             }
