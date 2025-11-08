@@ -1211,6 +1211,13 @@ Item {
         id: errorToast
     }
     
+    // Permission dialog for app permission requests
+    Comp.PermissionDialog {
+        id: permissionDialog
+        anchors.centerIn: parent
+        z: Constants.zIndexModalOverlay + 50
+    }
+    
     // Wire network manager to connection toast
     Connections {
         target: NetworkManager

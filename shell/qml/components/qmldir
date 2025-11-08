@@ -27,6 +27,7 @@ MarathonStatusBar 1.0 MarathonStatusBar.qml
 MarathonTaskSwitcher 1.0 MarathonTaskSwitcher.qml
 MediaPlaybackManager 1.0 MediaPlaybackManager.qml
 NotificationToast 1.0 NotificationToast.qml
+PermissionDialog 1.0 PermissionDialog.qml
 PowerMenu 1.0 PowerMenu.qml
 QuickSettingsTile 1.0 QuickSettingsTile.qml
 SafeAppLoader 1.0 SafeAppLoader.qml

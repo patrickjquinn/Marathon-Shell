@@ -118,8 +118,13 @@ endif()
 add_subdirectory(third-party/asyncfuture)
 message(STATUS "AsyncFuture library added for promise-based async operations")
 
+# Marathon Core library (shared app management logic)
+add_subdirectory(marathon-core)
+message(STATUS "Marathon Core library added for app management")
+
 add_subdirectory(marathon-ui)
 add_subdirectory(shell)
+add_subdirectory(tools/marathon-dev)
 
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")

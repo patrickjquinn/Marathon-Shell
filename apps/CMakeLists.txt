@@ -236,6 +236,7 @@ add_subdirectory(music)
 add_subdirectory(maps)
 add_subdirectory(terminal)
 add_subdirectory(test)
+add_subdirectory(store)
 
 message(STATUS "==========================================")
 message(STATUS "Marathon Apps Build Configuration")
