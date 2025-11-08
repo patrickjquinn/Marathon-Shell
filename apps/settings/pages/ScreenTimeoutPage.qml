@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
 import "../components"
 
 SettingsPageTemplate {
@@ -10,30 +11,30 @@ SettingsPageTemplate {
     property string pageName: "screentimeout"
     
     content: Flickable {
-        contentHeight: timeoutContent.height + Constants.spacingXLarge * 3
+        contentHeight: timeoutContent.height + MSpacing.xl * 3
         clip: true
         boundsBehavior: Flickable.DragAndOvershootBounds
         
         Column {
             id: timeoutContent
             width: parent.width
-            spacing: Constants.spacingLarge
-            leftPadding: Constants.spacingLarge
-            rightPadding: Constants.spacingLarge
-            topPadding: Constants.spacingLarge
+            spacing: MSpacing.lg
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             Text {
                 text: "Choose how long before your screen turns off"
-                color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
-                width: parent.width - Constants.spacingLarge * 2
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                width: parent.width - MSpacing.lg * 2
                 wrapMode: Text.WordWrap
             }
             
-            Section {
+            MSection {
                 title: "Timeout Duration"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 
                 Column {
                     width: parent.width
@@ -54,7 +55,7 @@ SettingsPageTemplate {
                                 color: timeoutMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : 
                                        (DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
                                 border.width: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Constants.borderWidthMedium : 0
-                                border.color: Colors.accent
+                                border.color: MColors.marathonTeal
                                 
                                 Behavior on color {
                                     ColorAnimation { duration: Constants.animationDurationFast }
@@ -63,9 +64,9 @@ SettingsPageTemplate {
                             
                             Row {
                                 anchors.fill: parent
-                                anchors.leftMargin: Constants.spacingMedium
-                                anchors.rightMargin: Constants.spacingMedium
-                                spacing: Constants.spacingMedium
+                                anchors.leftMargin: MSpacing.md
+                                anchors.rightMargin: MSpacing.md
+                                spacing: MSpacing.md
                                 
                                 Rectangle {
                                     anchors.verticalCenter: parent.verticalCenter
@@ -76,14 +77,14 @@ SettingsPageTemplate {
                                     border.width: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? 
                                                   Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
                                     border.color: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? 
-                                                  Colors.accent : Colors.border
+                                                  MColors.marathonTeal : MColors.border
                                     
                                     Rectangle {
                                         anchors.centerIn: parent
                                         width: Constants.iconSizeSmall
                                         height: Constants.iconSizeSmall
                                         radius: Constants.iconSizeSmall / 2
-                                        color: Colors.accent
+                                        color: MColors.marathonTeal
                                         visible: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
                                     }
                                 }
@@ -91,9 +92,9 @@ SettingsPageTemplate {
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData
-                                    color: Colors.text
-                                    font.pixelSize: Typography.sizeBody
-                                    font.family: Typography.fontFamily
+                                    color: MColors.textPrimary
+                                    font.pixelSize: MTypography.sizeBody
+                                    font.family: MTypography.fontFamily
                                     font.weight: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Font.DemiBold : Font.Normal
                                 }
                             }

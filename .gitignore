@@ -1,5 +1,7 @@
 build/
 build-apps/
+build-release/
+build-ui/
 .vscode/
 *.user
 *.autosave

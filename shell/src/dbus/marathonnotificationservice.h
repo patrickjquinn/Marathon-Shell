@@ -8,13 +8,15 @@
 #include <QVariantList>
 #include "notificationdatabase.h"
 
+class NotificationModel;
+
 class MarathonNotificationService : public QObject, protected QDBusContext
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathon.NotificationService")
 
 public:
-    explicit MarathonNotificationService(NotificationDatabase *database, QObject *parent = nullptr);
+    explicit MarathonNotificationService(NotificationDatabase *database, NotificationModel *model, QObject *parent = nullptr);
     ~MarathonNotificationService();
 
     bool registerService();
@@ -37,6 +39,7 @@ signals:
 
 private:
     NotificationDatabase *m_database;
+    NotificationModel *m_model;
     
     QVariantMap notificationToVariantMap(const NotificationDatabase::NotificationRecord &record);
 };

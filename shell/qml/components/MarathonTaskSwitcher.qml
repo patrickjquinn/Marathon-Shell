@@ -1,11 +1,13 @@
 import QtQuick
-import QtWayland.Compositor
 import MarathonOS.Shell
 import "."
 import MarathonUI.Theme
 
 Item {
     id: taskSwitcher
+    
+    // Expose HAVE_WAYLAND from C++ context
+    readonly property bool haveWayland: typeof HAVE_WAYLAND !== 'undefined' ? HAVE_WAYLAND : false
     
     signal closed()
     signal taskSelected(var task)
@@ -190,6 +192,10 @@ Item {
         flickableDirection: Flickable.VerticalFlick
         interactive: TaskModel.taskCount > 4  // Only scrollable if more than 1 page
         
+        // Allow horizontal gestures to pass through to parent PageView
+        // This is critical for page switching when task switcher is full
+        property bool allowHorizontalPassthrough: true
+        
         // Pagination settings - snap to full pages (2 rows = 4 apps)
         snapMode: GridView.NoSnap  // Disable automatic snap, use custom
         preferredHighlightBegin: 0
@@ -237,10 +243,10 @@ Item {
                         id: cardRoot
                         anchors.fill: parent
                         anchors.margins: 8
-                        color: MColors.glass
+                        color: MColors.glassTitlebar
                         radius: Constants.borderRadiusSharp
                         border.width: Constants.borderWidthThin
-                        border.color: cardDragArea.pressed ? MColors.accentLight : MColors.borderInner
+                        border.color: cardDragArea.pressed ? MColors.marathonTealBright : MColors.borderSubtle
                         antialiasing: Constants.enableAntialiasing
                         
                         property bool closing: false
@@ -282,14 +288,15 @@ Item {
                                             Logger.info("TaskSwitcher", "Closing native app via compositor, surfaceId: " + model.surfaceId)
                                             compositor.closeWindow(model.surfaceId)
                                         }
+                                        // Also remove from TaskModel for native apps
+                                        TaskModel.closeTask(model.id)
                                     } else {
-                                        // For Marathon apps, use lifecycle manager
+                                        // For Marathon apps, use lifecycle manager which handles both app closure and TaskModel removal
                                         if (typeof AppLifecycleManager !== 'undefined') {
                                             AppLifecycleManager.closeApp(model.appId)
                                         }
                                     }
                                     
-                                    TaskModel.closeTask(model.id)
                                     cardRoot.closing = false
                                 }
                             }
@@ -300,8 +307,9 @@ Item {
                     id: cardDragArea
                     anchors.fill: parent
                     z: 50  // Below close button (z: 1000) but above content
-                    preventStealing: true  // Don't let parent steal drag
+                    preventStealing: false  // Allow gesture direction detection
                     
+                    property real startX: 0
                     property real startY: 0
                     property real startTime: 0
                     property real lastY: 0
@@ -310,8 +318,13 @@ Item {
                     property bool isDragging: false
                     property real velocity: 0
                     property bool closeButtonClicked: false
+                    property bool isVerticalGesture: false
+                    property bool isHorizontalGesture: false
+                    property bool gestureDecided: false
                     
                     onPressed: function(mouse) {
+                        Logger.info("TaskSwitcher", "⬇️ PRESSED card: " + model.appId + " at (" + mouse.x + ", " + mouse.y + ")")
+                        
                         // Check if click is on close button - let it handle
                         var buttonPos = closeButtonArea.mapToItem(cardDragArea, 0, 0)
                         var isOnButton = mouse.x >= buttonPos.x && 
@@ -320,11 +333,13 @@ Item {
                                         mouse.y <= buttonPos.y + closeButtonArea.height
                         
                         if (isOnButton) {
+                            Logger.debug("TaskSwitcher", "Click on close button detected, passing through")
                             closeButtonClicked = true
                             mouse.accepted = false  // Let close button handle
                             return
                         }
                         
+                        startX = mouse.x
                         startY = mouse.y
                         startTime = Date.now()
                         lastY = mouse.y
@@ -333,21 +348,61 @@ Item {
                         isDragging = false
                         velocity = 0
                         closeButtonClicked = false
-                        mouse.accepted = true
+                        isVerticalGesture = false
+                        isHorizontalGesture = false
+                        gestureDecided = false
+                        preventStealing = false  // Reset to allow parent to steal if needed
+                        mouse.accepted = true  // Initially accept
                     }
                     
                     onPositionChanged: function(mouse) {
-                        if (pressed) {
+                        if (!pressed) return
+                        
+                        var deltaX = Math.abs(mouse.x - startX)
+                        var deltaY = Math.abs(mouse.y - startY)
+                        var deltaYSigned = mouse.y - startY
+                        
+                        // CRITICAL: Early gesture detection (after just 8px movement)
+                        if (!gestureDecided && (deltaX > 8 || deltaY > 8)) {
+                            gestureDecided = true
+                            
+                            // Determine gesture type:
+                            // - Horizontal: deltaX > deltaY * 1.5 (horizontal dominates)
+                            // - Vertical: deltaY > deltaX * 1.5 (vertical dominates)
+                            // - Ambiguous: Will be treated as tap if released quickly
+                            
+                            if (deltaX > deltaY * 1.5) {
+                                // HORIZONTAL gesture - pass to parent for page switching
+                                isHorizontalGesture = true
+                                isVerticalGesture = false
+                                preventStealing = false
+                                mouse.accepted = false  // Pass to parent immediately
+                                Logger.info("TaskSwitcher", "🔄 Horizontal swipe detected - passing to parent for page navigation")
+                                return
+                            } else if (deltaY > deltaX * 1.5) {
+                                // VERTICAL gesture - handle for card dismissal
+                                isVerticalGesture = true
+                                isHorizontalGesture = false
+                                preventStealing = true  // Prevent parent from stealing
+                                Logger.info("TaskSwitcher", "↕️ Vertical swipe detected - handling for card dismissal")
+                            } else {
+                                // Ambiguous - don't claim yet, treat as potential tap
+                                Logger.debug("TaskSwitcher", "❓ Ambiguous gesture - will treat as tap if quick")
+                            }
+                        }
+                        
+                        // Only track vertical movement if it's a vertical gesture
+                        if (isVerticalGesture) {
                             var now = Date.now()
                             var deltaTime = now - lastTime
-                            var deltaY = mouse.y - lastY
+                            var dy = mouse.y - lastY
                             
                             // Calculate instantaneous velocity
                             if (deltaTime > 0) {
-                                velocity = deltaY / deltaTime
+                                velocity = dy / deltaTime
                             }
                             
-                            dragDistance = mouse.y - startY
+                            dragDistance = deltaYSigned
                             lastY = mouse.y
                             lastTime = now
                             
@@ -359,67 +414,123 @@ Item {
                     }
                     
                     onReleased: function(mouse) {
+                        Logger.info("TaskSwitcher", "⬆️ RELEASED card: " + model.appId + 
+                            " (time: " + (Date.now() - startTime) + "ms, " +
+                            "dragging: " + isDragging + ", " +
+                            "vertical: " + isVerticalGesture + ", " +
+                            "horizontal: " + isHorizontalGesture + ")")
+                        
                         // If close button was clicked, ignore
                         if (closeButtonClicked) {
+                            Logger.debug("TaskSwitcher", "Close button clicked, ignoring")
                             closeButtonClicked = false
                             return
                         }
                         
-                        var totalTime = Date.now() - startTime
-                        
-                        // Use instantaneous velocity (more responsive to flicks)
-                        // Flick up: velocity < -0.5 px/ms (more lenient)
-                        // OR drag up > 50px (reduced from 80px)
-                        var isFlickUp = velocity < -0.5
-                        var isDragUp = dragDistance < -50
-                        
-                        if (isDragging && (isFlickUp || isDragUp)) {
-                            Logger.info("TaskSwitcher", "Closing: " + model.appId + " (v: " + velocity.toFixed(2) + "px/ms, d: " + dragDistance.toFixed(0) + "px)")
-                            
-                            var taskIdToClose = model.id
-                            
-                            // Reset transform immediately to avoid ghost spacing
-                            dragDistance = 0
+                        // If it was a horizontal gesture, we already passed it to parent
+                        if (isHorizontalGesture) {
+                            Logger.debug("TaskSwitcher", "Horizontal gesture handled by parent")
+                            // Reset state
                             isDragging = false
-                            velocity = 0
+                            gestureDecided = false
+                            dragDistance = 0
+                            isHorizontalGesture = false
+                            isVerticalGesture = false
+                            preventStealing = false
+                            return
+                        }
+                        
+                        var totalTime = Date.now() - startTime
+                        Logger.info("TaskSwitcher", "Gesture analysis: totalTime=" + totalTime + "ms, isDragging=" + isDragging + ", gestureDecided=" + gestureDecided)
+                        
+                        // VERTICAL DRAG: Check for flick/drag up to close
+                        if (isVerticalGesture && isDragging) {
+                            // Use instantaneous velocity (more responsive to flicks)
+                            // Flick up: velocity < -0.5 px/ms (more lenient)
+                            // OR drag up > 50px (reduced from 80px)
+                            var isFlickUp = velocity < -0.5
+                            var isDragUp = dragDistance < -50
                             
-                            // Actually close the app instance, not just remove from TaskModel
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                AppLifecycleManager.closeApp(model.appId)
+                            if (isFlickUp || isDragUp) {
+                                Logger.info("TaskSwitcher", "❌ Closing card: " + model.appId + " (velocity: " + velocity.toFixed(2) + "px/ms, distance: " + dragDistance.toFixed(0) + "px)")
+                                
+                                var appIdToClose = model.appId
+                                
+                                // Reset transform immediately to avoid ghost spacing
+                                dragDistance = 0
+                                isDragging = false
+                                velocity = 0
+                                isVerticalGesture = false
+                                gestureDecided = false
+                                preventStealing = false
+                                
+                                // Close the app - AppLifecycleManager will handle both the app instance AND removing from TaskModel
+                                if (typeof AppLifecycleManager !== 'undefined') {
+                                    AppLifecycleManager.closeApp(appIdToClose)
+                                }
+                                
+                                mouse.accepted = true
+                            } else {
+                                // Vertical drag but didn't reach threshold - just reset
+                                Logger.debug("TaskSwitcher", "Vertical drag didn't reach threshold, resetting")
+                                dragDistance = 0
+                                isDragging = false
+                                velocity = 0
+                                isVerticalGesture = false
+                                gestureDecided = false
+                                preventStealing = false
                             }
-                            
-                            // Close task - GridView will remove delegate cleanly
-                            TaskModel.closeTask(taskIdToClose)
-                            
-                            mouse.accepted = true
-                        } else if (!isDragging && totalTime < 200) {
-                            // Quick tap - open app
-                            Logger.info("TaskSwitcher", "Opening task: " + model.appId)
+                        } else if (!isDragging && !isVerticalGesture && !isHorizontalGesture && totalTime < 250) {
+                            // TAP DETECTED - Quick press/release with minimal movement
+                            Logger.info("TaskSwitcher", "🎯 TAP DETECTED - Opening task: " + model.appId)
                             var appId = model.appId
                             var appTitle = model.title
                             var appIcon = model.icon
                             var appType = model.type
                             
-                            // Defer to avoid blocking
+                            // Reset state immediately
+                            dragDistance = 0
+                            isDragging = false
+                            velocity = 0
+                            isVerticalGesture = false
+                            isHorizontalGesture = false
+                            gestureDecided = false
+                            preventStealing = false
+                            
+                            // Defer restoration to avoid blocking UI
                             Qt.callLater(function() {
+                                Logger.info("TaskSwitcher", "📱 Restoring app: " + appId + " (type: " + appType + ")")
+                                
                                 // For Marathon apps, restore through lifecycle manager
-                                if (appType !== "native" && typeof AppLifecycleManager !== 'undefined') {
-                                    AppLifecycleManager.restoreApp(appId)
+                                // For native apps, AppLifecycleManager handles foreground state
+                                if (typeof AppLifecycleManager !== 'undefined') {
+                                    if (appType !== "native") {
+                                        AppLifecycleManager.restoreApp(appId)
+                                    } else {
+                                        // Native apps need foreground tracking too
+                                        AppLifecycleManager.bringToForeground(appId)
+                                    }
                                 }
                                 
                                 // Then update UI state (this triggers the restoration in MarathonShell.qml)
+                                Logger.info("TaskSwitcher", "📢 Calling UIStore.restoreApp(" + appId + ")")
                                 UIStore.restoreApp(appId, appTitle, appIcon)
+                                Logger.info("TaskSwitcher", "🚪 Closing task switcher")
                                 closed()
                             })
                             mouse.accepted = true
                         } else {
-                            // Drag but not past threshold
+                            // Some other gesture or long press - reset
+                            Logger.debug("TaskSwitcher", "Unhandled gesture, resetting (time: " + totalTime + "ms)")
+                            dragDistance = 0
+                            isDragging = false
+                            velocity = 0
+                            isVerticalGesture = false
+                            isHorizontalGesture = false
+                            gestureDecided = false
+                            preventStealing = false
                             mouse.accepted = false
                         }
-                        
-                        dragDistance = 0
-                        isDragging = false
-                        velocity = 0
                     }
                 }
                 
@@ -458,10 +569,6 @@ Item {
                     }
                 ]
                 
-                Behavior on border.color {
-                    ColorAnimation { duration: 150 }
-                }
-                
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1
@@ -477,7 +584,7 @@ Item {
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
-                                color: Colors.backgroundDark
+                                color: MColors.background
                                 radius: parent.parent.radius
                                 
                                 Loader {
@@ -621,44 +728,64 @@ Item {
                                                     }
                                                 }
                                                 
-                                                // Native app surface rendering with ShellSurfaceItem
+                                                // Native app surface rendering - conditionally load Wayland component on Linux
                                                 Loader {
                                                     id: nativeSurfaceLoader
                                                     anchors.top: parent.top
                                                     anchors.horizontalCenter: parent.horizontalCenter
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
-                                                    visible: model.type === "native" && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
-                                                    active: visible
-                                                    asynchronous: true
+                                                    visible: model.type === "native"
+                                                    active: haveWayland && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
+                                                    source: haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                                     
                                                     property var surfaceObj: typeof model.waylandSurface !== 'undefined' ? model.waylandSurface : null
                                                     
-                                                    sourceComponent: ShellSurfaceItem {
-                                                        anchors.fill: parent
-                                                        // CRITICAL FIX: Access xdgSurface property DIRECTLY (not via .property() method)
-                                                        // The property was stored in C++ via surface->setProperty("xdgSurface", ...)
-                                                        // In QML, we access it as a direct property: surface.xdgSurface
-                                                        shellSurface: nativeSurfaceLoader.surfaceObj && nativeSurfaceLoader.surfaceObj.xdgSurface 
-                                                                      ? nativeSurfaceLoader.surfaceObj.xdgSurface
-                                                                      : null
+                                                    onItemChanged: {
+                                                        if (item && surfaceObj) {
+                                                            item.surfaceObj = surfaceObj
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Fallback for native apps when Wayland is not available (macOS)
+                                                        Rectangle {
+                                                    anchors.top: parent.top
+                                                    anchors.horizontalCenter: parent.horizontalCenter
+                                                    width: parent.width
+                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                                    visible: model.type === "native" && !haveWayland
+                                                            color: MColors.elevated
+                                                            
+                                                    Column {
+                                                                anchors.centerIn: parent
+                                                        spacing: Constants.spacingMedium
                                                         
-                                                        onSurfaceDestroyed: {
-                                                            Logger.info("TaskSwitcher", "Native surface destroyed in preview for: " + model.appId)
+                                                        Image {
+                                                            width: Math.round(80 * Constants.scaleFactor)
+                                                            height: Math.round(80 * Constants.scaleFactor)
+                                                            source: model.icon || "qrc:/images/icons/lucide/grid.svg"
+                                                            sourceSize.width: Math.round(80 * Constants.scaleFactor)
+                                                            sourceSize.height: 80
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                            smooth: true
+                                                            fillMode: Image.PreserveAspectFit
                                                         }
                                                         
-                                                        // Fallback if shellSurface is null
-                                                        Rectangle {
-                                                            anchors.fill: parent
-                                                            color: MColors.surface2
-                                                            visible: !parent.shellSurface
-                                                            
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: "Connecting..."
+                                                        Text {
+                                                            text: model.title || model.appId
                                                                 color: MColors.textSecondary
                                                                 font.pixelSize: MTypography.sizeSmall
-                                                            }
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
+                                                        }
+                                                        
+                                                        Text {
+                                                            text: "Native apps not available on macOS"
+                                                            color: MColors.textTertiary
+                                                            font.pixelSize: MTypography.sizeXSmall
+                                                            font.family: MTypography.fontFamily
+                                                            anchors.horizontalCenter: parent.horizontalCenter
                                                         }
                                                     }
                                                 }
@@ -670,7 +797,7 @@ Item {
                                                     width: parent.width
                                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                                     visible: previewContainer.liveApp === null && (model.type !== "native" || !model.waylandSurface)
-                                                    color: MColors.backgroundDark
+                                                    color: MColors.background
                                                     
                                                     Column {
                                                         anchors.centerIn: parent
@@ -766,7 +893,7 @@ Item {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 height: Math.round(50 * Constants.scaleFactor)
-                        color: Colors.surfaceLight
+                        color: MColors.surface
                                 radius: 0
                                 
                                 Row {
@@ -794,7 +921,7 @@ Item {
                                         
                                         Text {
                                     text: model.title
-                                            color: Colors.text
+                                                            color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeSmall
                                     font.weight: Font.DemiBold
                                             font.family: MTypography.fontFamily
@@ -804,7 +931,7 @@ Item {
                                         
                                         Text {
                                     text: model.subtitle || "Running"
-                                            color: Colors.textSecondary
+                                                            color: MColors.textSecondary
                                     font.pixelSize: MTypography.sizeXSmall
                                             font.family: MTypography.fontFamily
                                     opacity: 0.7
@@ -822,13 +949,13 @@ Item {
                                             anchors.centerIn: parent
                                             width: Math.round(28 * Constants.scaleFactor)
                                             height: Math.round(28 * Constants.scaleFactor)
-                                    radius: Colors.cornerRadiusSmall
-                                    color: Colors.surfaceLight
+                                    radius: MRadius.sm
+                                    color: MColors.surface
                                             
                                             Text {
                                                 anchors.centerIn: parent
                                                 text: "×"
-                                        color: Colors.text
+                                                            color: MColors.textPrimary
                                         font.pixelSize: MTypography.sizeLarge
                                                 font.weight: Font.Bold
                                             }
@@ -915,7 +1042,7 @@ Item {
                 
                 color: {
                     var isActive = index === pageIndicator.currentPage
-                    return isActive ? Colors.accent : Qt.rgba(255, 255, 255, 0.25)
+                    return isActive ? MColors.accent : Qt.rgba(255, 255, 255, 0.25)
                 }
                 
                 border.width: 1

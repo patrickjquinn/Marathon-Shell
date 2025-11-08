@@ -17,7 +17,7 @@ Rectangle {
     // HIDE when no predictions (user request)
     visible: predictions.length > 0
     height: visible ? implicitHeight : 0
-    color: MColors.surface1
+    color: MColors.surface
     border.width: 0
     border.color: "transparent"
     
@@ -35,9 +35,9 @@ Rectangle {
                 width: Math.round(100 * Constants.scaleFactor)
                 height: Math.round(32 * Constants.scaleFactor)
                 radius: Constants.borderRadiusSmall
-                color: predictionMouseArea.pressed ? MColors.accent : MColors.surface2
+                color: predictionMouseArea.pressed ? MColors.accent : MColors.elevated
                 border.width: Constants.borderWidthMedium
-                border.color: index === 0 ? MColors.accentBright : MColors.borderOuter
+                border.color: index === 0 ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
                 
                 Behavior on color {
@@ -61,7 +61,7 @@ Rectangle {
                     radius: parent.radius - 1
                     color: "transparent"
                     border.width: Constants.borderWidthThin
-                    border.color: index === 0 ? MColors.accentSubtle : MColors.borderInner
+                    border.color: index === 0 ? MColors.marathonTealHoverGradient : MColors.borderSubtle
                     antialiasing: parent.antialiasing
                 }
                 

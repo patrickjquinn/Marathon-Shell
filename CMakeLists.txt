@@ -14,6 +14,34 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ARM optimizations for older mobile devices
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
+    message(STATUS "🔧 Enabling ARM optimizations for mobile device")
+    
+    # Use NEON SIMD for better performance
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
+        add_compile_options(-mfpu=neon -mfloat-abi=hard)
+        message(STATUS "   ✓ ARM NEON SIMD enabled")
+    endif()
+    
+    # Optimize for size on embedded (older ARM has limited RAM)
+    if(CMAKE_BUILD_TYPE MATCHES "Release")
+        add_compile_options(-Os -fdata-sections -ffunction-sections)
+        add_link_options(-Wl,--gc-sections)
+        message(STATUS "   ✓ Size optimization (-Os) enabled for embedded")
+    endif()
+    
+    # Disable debug output to reduce overhead
+    add_compile_definitions(
+        QT_NO_DEBUG_OUTPUT
+        QT_NO_INFO_OUTPUT
+    )
+    message(STATUS "   ✓ Debug output disabled for performance")
+endif()
+
+# Enable QML Language Server support for IDE/VS Code
+set(QT_QML_GENERATE_QMLLS_INI ON)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -62,13 +90,19 @@ else()
     set(HAVE_WEBENGINE FALSE)
 endif()
 
+# WaylandCompositor is only available on Linux, skip on macOS
+if(APPLE)
+    message(STATUS "Skipping WaylandCompositor search on macOS (not supported)")
+    set(HAVE_WAYLAND FALSE)
+else()
 find_package(Qt6 6.5 COMPONENTS WaylandCompositor)
 if(TARGET Qt6::WaylandCompositor)
     message(STATUS "Qt WaylandCompositor found - enabling Wayland support")
     set(HAVE_WAYLAND TRUE)
 else()
-    message(STATUS "Qt WaylandCompositor not found - Wayland support disabled (macOS doesn't support it)")
+        message(STATUS "Qt WaylandCompositor not found - Wayland support disabled")
     set(HAVE_WAYLAND FALSE)
+    endif()
 endif()
 
 find_package(Qt6 6.5 COMPONENTS VirtualKeyboard)
@@ -80,7 +114,17 @@ else()
     set(HAVE_VIRTUALKEYBOARD FALSE)
 endif()
 
+# Add asyncfuture library
+add_subdirectory(third-party/asyncfuture)
+message(STATUS "AsyncFuture library added for promise-based async operations")
+
+# Marathon Core library (shared app management logic)
+add_subdirectory(marathon-core)
+message(STATUS "Marathon Core library added for app management")
+
+add_subdirectory(marathon-ui)
 add_subdirectory(shell)
+add_subdirectory(tools/marathon-dev)
 
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")

@@ -89,8 +89,8 @@ MApp {
                 // Layout: ScrollView (tabs) + Add Button (fixed)
                 Item {
                     anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingMedium
-                    anchors.rightMargin: Constants.spacingMedium
+                    anchors.leftMargin: MSpacing.md
+                    anchors.rightMargin: MSpacing.md
                     
                     // Scrollable tab area
                     ScrollView {
@@ -99,7 +99,7 @@ MApp {
                         anchors.top: parent.top
                         anchors.bottom: parent.bottom
                         anchors.right: addButton.left
-                        anchors.rightMargin: Constants.spacingSmall
+                        anchors.rightMargin: MSpacing.sm
                         clip: true
                         
                         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
@@ -107,7 +107,7 @@ MApp {
                         
                         Row {
                             height: tabScrollView.height
-                            spacing: Constants.spacingSmall
+                            spacing: MSpacing.sm
                             
                             Repeater {
                                 model: terminalApp.tabs.length
@@ -117,7 +117,7 @@ MApp {
                                     width: 180
                                     height: 40
                                     y: (parent.height - height) / 2
-                                    color: index === currentTabIndex ? MColors.accent : MColors.surface2
+                                    color: index === currentTabIndex ? MColors.accent : MColors.elevated
                                     radius: Constants.borderRadiusSmall
                                     border.width: 1
                                     border.color: index === currentTabIndex ? MColors.accentBright : MColors.border
@@ -136,9 +136,9 @@ MApp {
                                     
                                     Row {
                                         anchors.fill: parent
-                                        anchors.leftMargin: Constants.spacingMedium
-                                        anchors.rightMargin: Constants.spacingSmall
-                                        spacing: Constants.spacingSmall
+                                        anchors.leftMargin: MSpacing.md
+                                        anchors.rightMargin: MSpacing.sm
+                                        spacing: MSpacing.sm
                                         
                                         Icon {
                                             anchors.verticalCenter: parent.verticalCenter
@@ -205,7 +205,7 @@ MApp {
                         width: 32
                         height: 32
                         radius: 16
-                        color: newTabMouseArea.pressed ? MColors.accentPressed : (newTabMouseArea.containsMouse ? MColors.accentHover : MColors.accent)
+                        color: newTabMouseArea.pressed ? MColors.pressed : (newTabMouseArea.containsMouse ? MColors.hover : MColors.accent)
                         border.width: 1
                         border.color: MColors.accentBright
                         
@@ -243,12 +243,12 @@ MApp {
                 
                 ScrollView {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
                     
                     TextArea {
                         id: terminalOutput
                         width: parent.width
-                        height: Math.max(implicitHeight, terminalContent.height - Constants.spacingMedium * 2)
+                        height: Math.max(implicitHeight, terminalContent.height - MSpacing.md * 2)
                         color: MColors.success
                         font.family: "Monaco, 'Courier New', monospace"
                         font.pixelSize: MTypography.sizeSmall
@@ -280,9 +280,9 @@ MApp {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingMedium
-                    anchors.rightMargin: Constants.spacingMedium
-                    spacing: Constants.spacingSmall
+                    anchors.leftMargin: MSpacing.md
+                    anchors.rightMargin: MSpacing.md
+                    spacing: MSpacing.sm
                     
                     Text {
                         anchors.verticalCenter: parent.verticalCenter

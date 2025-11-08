@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonUI.Theme
 import MarathonOS.Shell
 
 // DEPRECATED: Use MarathonUI.Core.MButton instead

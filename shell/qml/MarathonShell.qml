@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Window
-import "./components" as Comp
 import MarathonOS.Shell
+import "./components" as Comp
 import MarathonUI.Theme
 
+// qmllint disable missing-property unqualified import
 Item {
     id: shell
     focus: true  // Enable keyboard input
@@ -16,7 +17,6 @@ Item {
     FontLoader { id: slateBold; source: "qrc:/fonts/Slate-Bold.ttf" }
     
     property var compositor: null
-    property var pendingNativeApp: null
     property alias appWindowContainer: appWindowContainer
     
     // State management moved to stores
@@ -34,19 +34,8 @@ Item {
         target: NavigationRouter
         
         function onDeepLinkRequested(appId, route, params) {
-            Logger.info("Shell", "Deep link requested: " + appId)
-            
-            // Launch the app
-            var app = AppStore.getApp(appId)
-            if (app) {
-                UIStore.openApp(app.id, app.name, app.icon)
-                appWindow.show(app.id, app.name, app.icon, app.type)
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    AppLifecycleManager.bringToForeground(app.id)
-                }
-            } else {
-                Logger.warn("Shell", "App not found for deep link: " + appId)
-            }
+            DeepLinkHandler.appWindow = appWindow
+            DeepLinkHandler.handleDeepLink(appId, route, params)
         }
     }
     
@@ -55,162 +44,51 @@ Item {
         target: NotificationService
         
         function onNotificationClicked(id) {
-            Logger.info("Shell", "Notification clicked: " + id)
-            
-            // Find the notification
-            var notification = null
-            for (var i = 0; i < NotificationService.notifications.length; i++) {
-                if (NotificationService.notifications[i].id === id) {
-                    notification = NotificationService.notifications[i]
-                    break
-                }
-            }
-            
-            if (!notification) {
-                Logger.warn("Shell", "Notification not found: " + id)
-                return
-            }
-            
-            // Handle deep link based on notification type
-            var appId = notification.appId
-            
-            if (appId === "phone") {
-                // Open phone app
-                NavigationRouter.navigate(appId, "history", {})
-            } else if (appId === "messages") {
-                // Extract conversation ID from notification ID if it's an SMS
-                var notifId = notification.id
-                if (typeof notifId === "string" && notifId.startsWith("sms_")) {
-                    var parts = notifId.split("_")
-                    if (parts.length >= 2) {
-                        var phoneNumber = parts[1]
-                        NavigationRouter.navigate(appId, "conversation", { number: phoneNumber })
-                    } else {
-                        NavigationRouter.navigate(appId, "", {})
-                    }
-                } else {
-                    NavigationRouter.navigate(appId, "", {})
-                }
-            } else {
-                // Generic app launch
-                NavigationRouter.navigate(appId, "", {})
-            }
-            
-            // Mark notification as read
-            NotificationService.dismissNotification(id)
+            NotificationHandler.handleNotificationClick(id)
         }
         
         function onNotificationActionTriggered(id, action) {
-            Logger.info("Shell", "Notification action: " + action + " for ID: " + id)
-            
-            // Find the notification
-            var notification = null
-            for (var i = 0; i < NotificationService.notifications.length; i++) {
-                if (NotificationService.notifications[i].id === id) {
-                    notification = NotificationService.notifications[i]
-                    break
+            NotificationHandler.handleNotificationAction(id, action)
                 }
             }
             
-            if (!notification) {
-                Logger.warn("Shell", "Notification not found: " + id)
-                return
-            }
-            
-            // Handle specific actions
-            if (notification.appId === "phone") {
-                if (action === "call_back") {
-                    // Extract number and initiate call
-                    var number = notification.body.replace("From: ", "")
-                    if (typeof TelephonyService !== 'undefined') {
-                        TelephonyService.dial(number)
-                    }
-                    NavigationRouter.navigate("phone", "", {})
-                } else if (action === "message") {
-                    // Open messages app with this contact
-                    var number2 = notification.body.replace("From: ", "")
-                    NavigationRouter.navigate("messages", "conversation", { number: number2 })
-                }
-            } else if (notification.appId === "messages") {
-                if (action === "reply") {
-                    // Open messages app to reply
-                    NavigationRouter.navigate("messages", "", {})
-                } else if (action === "mark_read") {
-                    // Mark as read without opening app
-                    NotificationService.dismissNotification(id)
-                }
-            }
-        }
+    Comp.ShellInitialization {
+        id: shellInitialization
     }
     
     Component.onCompleted: {
-        // Load persisted settings
-        // userScaleFactor is now managed by Binding in Constants.qml
-        WallpaperStore.currentWallpaper = SettingsManagerCpp.wallpaperPath
+        compositor = shellInitialization.initialize(shell, Window.window)
         
-        // Initialize responsive sizing system
-        Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4)
-        UIStore.shellRef = shell
-        Logger.info("Shell", "Screen size: " + shell.width + "x" + shell.height + " @ " + Math.round(Screen.pixelDensity * 25.4) + " DPI")
-        Logger.info("Shell", "Scale factor: " + Constants.scaleFactor + " (base: " + (Constants.screenHeight / Constants.baseHeight) + " x user: " + Constants.userScaleFactor + ")")
-        
-        forceActiveFocus()
-        Logger.info("Shell", "Marathon Shell initialized")
-        
-        // Request compositor initialization from C++
-        console.log("========== COMPOSITOR INITIALIZATION ==========")
-        console.log("  WaylandCompositorManager defined?", typeof WaylandCompositorManager !== 'undefined')
-        
-        if (typeof WaylandCompositorManager !== 'undefined') {
-            console.log("  Getting Window.window...")
-            var rootWindow = Window.window
-            console.log("  rootWindow:", rootWindow)
-            
-            if (rootWindow) {
-                console.log("  Calling WaylandCompositorManager.createCompositor...")
-                compositor = WaylandCompositorManager.createCompositor(rootWindow)
-                console.log("  compositor returned:", compositor)
-                
-                if (compositor) {
-                    console.log("  compositor.socketName:", compositor.socketName)
-                    Logger.info("Shell", "Wayland Compositor initialized: " + compositor.socketName)
-                } else {
-                    console.log("  compositor is NULL")
-                    Logger.info("Shell", "Wayland Compositor not available on this platform")
-                }
-            } else {
-                console.log("  rootWindow is NULL!")
-            }
-        } else {
-            console.log("  WaylandCompositorManager is UNDEFINED")
-            Logger.info("Shell", "Wayland Compositor not available on this platform (expected on macOS)")
-            compositor = null
-        }
-        console.log("[DEBUG] Compositor object:", compositor)
-        console.log("[DEBUG] Compositor is null?", compositor === null)
-        console.log("[DEBUG] Compositor socketName:", compositor ? compositor.socketName : "N/A")
-        Logger.info("Shell", compositor ? "Compositor created successfully" : "Compositor is NULL")
-        
-        // Compositor signals are handled by Connections object below
+        // CRITICAL: Connect compositor signals AFTER compositor is created
+        // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
-            Logger.info("Shell", "Compositor initialized successfully")
-        } else {
-            Logger.warn("Shell", "Compositor is null")
+            compositor.surfaceCreated.connect(function(surface, surfaceId, xdgSurface) {
+                compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp)
+                compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface)
+            })
+            
+            compositor.surfaceDestroyed.connect(function(surface, surfaceId) {
+                // CRITICAL: Remove task from TaskModel when surface is destroyed
+                // This handles both process termination AND surface unmapping (when app closes internally)
+                if (typeof TaskModel !== 'undefined') {
+                    var task = TaskModel.getTaskBySurfaceId(surfaceId)
+                    if (task) {
+                        TaskModel.closeTask(task.id)
+                    }
+                }
+                
+                // Also notify CompositorConnections for window cleanup
+                compositorConnections.handleSurfaceDestroyed(surface, surfaceId)
+            })
+            
+            compositor.appLaunched.connect(function(command, pid) {
+                compositorConnections.handleAppLaunched(command, pid)
+            })
+            
+            compositor.appClosed.connect(function(pid) {
+                compositorConnections.handleAppClosed(pid)
+            })
         }
-        
-        // Start Bluetooth auto-reconnect timer
-        if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
-            bluetoothReconnectTimer.start()
-        }
-        
-        // Log system services status
-        Logger.info("Shell", "System Services:")
-        Logger.info("Shell", "  - NetworkManager: " + (typeof NetworkManagerCpp !== 'undefined' ? "✓" : "✗"))
-        Logger.info("Shell", "  - PowerManager: " + (typeof PowerManagerCpp !== 'undefined' ? "✓" : "✗"))
-        Logger.info("Shell", "  - AudioManager: " + (typeof AudioManagerCpp !== 'undefined' ? "✓" : "✗"))
-        Logger.info("Shell", "  - BluetoothManager: " + (typeof BluetoothManagerCpp !== 'undefined' ? "✓" : "✗"))
-        Logger.info("Shell", "  - ModemManager: " + (typeof ModemManagerCpp !== 'undefined' ? "✓" : "✗"))
-        Logger.info("Shell", "  - MPRIS2Controller: " + (typeof MPRIS2Controller !== 'undefined' ? "✓" : "✗"))
     }
     
     // Handle window resize (for desktop/tablet)
@@ -463,30 +341,7 @@ Item {
                 }
                 
                 onAppLaunched: (app) => {
-                    Logger.info("Shell", "App launched: " + app.name + " (type: " + app.type + ")")
-                    
-                    if (app.type === "native") {
-                        if (compositor) {
-                            shell.pendingNativeApp = app
-                            
-                            // Show splash screen IMMEDIATELY (before surface connects)
-                            UIStore.openApp(app.id, app.name, app.icon)
-                            appWindow.show(app.id, app.name, app.icon, "native", null, -1)
-                            Logger.info("Shell", "Showing splash screen for native app: " + app.name)
-                            
-                            // Now launch the app (surface will connect later)
-                            compositor.launchApp(app.exec)
-                        } else {
-                            Logger.warn("Shell", "Cannot launch native app - compositor not available")
-                        }
-                    } else {
-                        // All Marathon apps (including Settings) go through same path
-                        UIStore.openApp(app.id, app.name, app.icon)
-                        appWindow.show(app.id, app.name, app.icon, app.type)
-                        if (typeof AppLifecycleManager !== 'undefined') {
-                            AppLifecycleManager.bringToForeground(app.id)
-                        }
-                    }
+                    AppLaunchService.launchApp(app, compositor, appWindow)
                 }
                 
                 Component.onCompleted: {
@@ -519,30 +374,7 @@ Item {
                     showNotifications: shell.currentPage > 0
                     
                     onAppLaunched: (app) => {
-                        Logger.info("Shell", "Bottom bar launched: " + app.name + " (type: " + app.type + ")")
-                        
-                        if (app.type === "native") {
-                            if (compositor) {
-                                shell.pendingNativeApp = app
-                                
-                                // Show splash screen IMMEDIATELY (before surface connects)
-                                UIStore.openApp(app.id, app.name, app.icon)
-                                appWindow.show(app.id, app.name, app.icon, "native", null, -1)
-                                Logger.info("Shell", "Showing splash screen for native app: " + app.name)
-                                
-                                // Now launch the app (surface will connect later)
-                                compositor.launchApp(app.exec)
-                            } else {
-                                Logger.warn("Shell", "Cannot launch native app - compositor not available")
-                            }
-                        } else {
-                            // All Marathon apps go through same path
-                            UIStore.openApp(app.id, app.name, app.icon)
-                            appWindow.show(app.id, app.name, app.icon, app.type)
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                AppLifecycleManager.bringToForeground(app.id)
-                            }
-                        }
+                        AppLaunchService.launchApp(app, compositor, appWindow)
                     }
                 }
             }
@@ -562,7 +394,7 @@ Item {
         z: Constants.zIndexStatusBarApp
     }
     
-    Comp.MarathonNavBar {
+    MarathonNavBar {
         id: navBar
         anchors.left: parent.left
         anchors.right: parent.right
@@ -570,11 +402,18 @@ Item {
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
+        searchActive: UIStore.searchOpen
         
         onToggleKeyboard: {
             Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active)
             virtualKeyboard.active = !virtualKeyboard.active
             Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.active)
+        }
+        
+        onToggleSearch: {
+            Logger.info("Shell", "Search button clicked from nav bar")
+            UIStore.toggleSearch()
+            HapticService.light()
         }
             
         onSwipeLeft: {
@@ -634,6 +473,8 @@ Item {
             }
         
         onLongSwipeUp: {
+            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━")
+            
             // Dismiss keyboard if visible, otherwise task switcher
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up")
@@ -644,14 +485,35 @@ Item {
             
             Logger.gesture("NavBar", "longSwipeUp", {target: "activeFrames"})
         
-            if (UIStore.appWindowOpen && !UIStore.settingsOpen) {
-                Logger.info("NavBar", "Minimizing app to active frames")
+            if (UIStore.appWindowOpen) {
+                Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher")
+                Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
+                
+                // Use AppLifecycleManager to create task and minimize properly
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()")
+                    var result = AppLifecycleManager.minimizeForegroundApp()
+                    Logger.info("NavBar", "  ✅ AppLifecycleManager.minimizeForegroundApp() returned: " + result)
+                } else {
+                    Logger.error("NavBar", "  ❌ AppLifecycleManager is undefined!")
+                }
+                
+                Logger.info("NavBar", "  🎬 Hiding appWindow")
                 appWindow.hide()
-                UIStore.minimizeApp()  // Use minimizeApp() instead of closeApp() to preserve app state
+                Logger.info("NavBar", "  🎬 Calling UIStore.minimizeApp()")
+                UIStore.minimizeApp()
+            } else {
+                Logger.info("NavBar", "📍 No app open - just navigating to task switcher")
+                Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
             }
             
+            Logger.info("NavBar", "  🎯 Setting pageView.currentIndex = 1")
             pageView.currentIndex = 1
+            Logger.info("NavBar", "  🎯 Calling Router.goToFrames()")
             Router.goToFrames()
+            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP COMPLETE ━━━━━━━")
         }
         
         onStartPageTransition: {
@@ -680,6 +542,11 @@ Item {
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
+        
+        onNotificationTapped: (notification) => {
+            Logger.info("Shell", "Notification tapped from peek: " + notification.title)
+            notificationToast.showToast(notification)
+        }
     }
     
     // Peek gesture capture area - must be above app window to work when app is open
@@ -736,9 +603,11 @@ Item {
         // Watch for app switching (when restoring from task switcher)
         Connections {
             target: UIStore
+            enabled: UIStore !== null
+            
             function onCurrentAppIdChanged() {
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
-                    Logger.info("Shell", "App ID changed, showing: " + UIStore.currentAppId)
+                    Logger.info("Shell", "🔄 App ID changed, showing: " + UIStore.currentAppId)
                     
                     // Check TaskModel for app type - if native, get surface
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId)
@@ -831,7 +700,7 @@ Item {
             Rectangle {
                 id: appCardBackground
                 anchors.fill: parent
-                color: Colors.backgroundDark
+                color: MColors.background
                 radius: parent.radius
                 opacity: appWindowContainer.showCardFrame ? 1.0 : 0.0
                 
@@ -867,7 +736,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             height: Constants.touchTargetSmall
-            color: Colors.surfaceLight
+            color: MColors.surface
             opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1.0 / Math.max(0.1, appWindowContainer.opacity)) : 0.0
             visible: opacity > 0
             z: 100
@@ -910,7 +779,7 @@ Item {
                     
                     Text {
                         text: appWindow.appName
-                        color: Colors.text
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
                         font.family: MTypography.fontFamily
@@ -920,7 +789,7 @@ Item {
                     
                     Text {
                         text: "Running"
-                        color: Colors.textSecondary
+                        color: MColors.textSecondary
                         font.pixelSize: MTypography.sizeXSmall
                         font.family: MTypography.fontFamily
                         opacity: 0.7
@@ -936,13 +805,13 @@ Item {
                         anchors.centerIn: parent
                         width: Math.round(28 * Constants.scaleFactor)
                         height: Math.round(28 * Constants.scaleFactor)
-                        radius: Colors.cornerRadiusSmall
-                        color: Colors.surfaceLight
+                        radius: Constants.borderRadiusSmall
+                        color: MColors.surface
                         
                         Text {
                             anchors.centerIn: parent
                             text: "×"
-                            color: Colors.text
+                            color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Bold
                         }
@@ -969,11 +838,18 @@ Item {
         
         ScriptAction {
             script: {
+                // Minimize the app window
                 if (UIStore.settingsOpen) {
                     UIStore.minimizeSettings()
                 } else if (UIStore.appWindowOpen) {
                     UIStore.minimizeApp()
                 }
+                
+                // Navigate to task switcher
+                if (typeof Router !== 'undefined') {
+                    Router.goToFrames()
+                }
+                
                 shell.isTransitioningToActiveFrames = false
             }
         }
@@ -1005,11 +881,7 @@ Item {
         }
         
         onLaunchApp: (app) => {
-            UIStore.openApp(app.id, app.name, app.icon)
-            appWindow.show(app.id, app.name, app.icon, app.type)
-            if (typeof AppLifecycleManager !== 'undefined') {
-                AppLifecycleManager.bringToForeground(app.id)
-            }
+            AppLaunchService.launchApp(app, compositor, appWindow)
         }
     }
     
@@ -1277,36 +1149,23 @@ Item {
         }
         
         onResultSelected: (result) => {
-            Logger.info("Shell", "Search result selected: " + result.name + " (type: " + result.type + ")")
-            
-            // Launch the app based on type
-            if (result.type === "native") {
-                if (compositor) {
-                    shell.pendingNativeApp = result
-                    
-                    // Show splash screen IMMEDIATELY
-                    UIStore.openApp(result.id, result.name, result.icon)
-                    appWindow.show(result.id, result.name, result.icon, "native", null, -1)
-                    Logger.info("Shell", "Showing splash screen for native app from search: " + result.name)
-                    
-                    // Launch via compositor
-                    compositor.launchApp(result.exec)
-                    Logger.info("Shell", "Launched native app from search: " + result.name)
+            // Handle different result types
+            if (result.type === "app") {
+                // Transform search result to app object format
+                var app = {
+                    id: result.data.id,
+                    name: result.data.name,
+                    icon: result.data.icon,
+                    type: result.data.type || "marathon"
                 }
-            } else {
-                // Marathon app - use AppLifecycleManager
-                // Check if app is already running
-                if (AppLifecycleManager.isAppRunning(result.id)) {
-                    AppLifecycleManager.bringToForeground(result.id)
-                    Logger.info("Shell", "Brought running app to foreground: " + result.name)
-                } else {
-                    UIStore.openApp(result.id, result.name, result.icon)
-                    appWindow.show(result.id, result.name, result.icon, "marathon")
-                    Logger.info("Shell", "Launched Marathon app from search: " + result.name)
-                }
+                AppLaunchService.launchApp(app, compositor, appWindow)
+            } else if (result.type === "deeplink") {
+                // Execute deep link navigation
+                UnifiedSearchService.executeSearchResult(result)
+            } else if (result.type === "setting") {
+                // Execute setting navigation
+                UnifiedSearchService.executeSearchResult(result)
             }
-            
-            // Close search
             UIStore.closeSearch()
         }
     }
@@ -1352,6 +1211,13 @@ Item {
         id: errorToast
     }
     
+    // Permission dialog for app permission requests
+    Comp.PermissionDialog {
+        id: permissionDialog
+        anchors.centerIn: parent
+        z: Constants.zIndexModalOverlay + 50
+    }
+    
     // Wire network manager to connection toast
     Connections {
         target: NetworkManager
@@ -1373,71 +1239,64 @@ Item {
         }
     }
     
-    // Battery warning state tracking
-    property int lastBatteryWarningLevel: 100
-    property bool hasShownCriticalWarning: false
-    
-    // Battery level monitoring for warnings
     Connections {
         target: typeof PowerManager !== 'undefined' ? PowerManager : null
         
         function onBatteryLevelChanged() {
-            let level = PowerManager.batteryLevel
-            let isCharging = PowerManager.isCharging
-            
-            // Don't show warnings while charging
-            if (isCharging) {
-                lastBatteryWarningLevel = 100
-                hasShownCriticalWarning = false
-                return
-            }
-            
-            // Critical battery (3%) - Emergency shutdown
-            if (level <= 3 && !hasShownCriticalWarning) {
-                Logger.critical("Battery", "Critical battery level: " + level + "% - Initiating emergency shutdown")
-                errorToast.show("Critical Battery", "Device will shutdown in 10 seconds to prevent data loss", "battery-warning")
-                HapticService.heavy()
-                hasShownCriticalWarning = true
-                
-                // Countdown to shutdown
+            PowerBatteryHandler.errorToast = errorToast
+            PowerBatteryHandler.shutdownCallback = function() {
                 criticalBatteryShutdownTimer.start()
             }
-            // Battery warnings at threshold crossings (prevent spam)
-            else if (level <= 5 && lastBatteryWarningLevel > 5) {
-                Logger.warn("Battery", "Very low battery: " + level + "%")
-                errorToast.show("Very Low Battery", level + "% remaining. Connect charger immediately.", "battery-warning")
-                HapticService.heavy()
-                lastBatteryWarningLevel = 5
+            PowerBatteryHandler.shutdownStopCallback = function() {
+                criticalBatteryShutdownTimer.stop()
             }
-            else if (level <= 10 && lastBatteryWarningLevel > 10) {
-                Logger.warn("Battery", "Low battery: " + level + "%")
-                errorToast.show("Low Battery", level + "% remaining. Connect charger soon.", "battery")
-                HapticService.medium()
-                lastBatteryWarningLevel = 10
-            }
-            else if (level <= 20 && lastBatteryWarningLevel > 20) {
-                Logger.info("Battery", "Battery getting low: " + level + "%")
-                errorToast.show("Battery Low", level + "% remaining", "battery")
-                HapticService.light()
-                lastBatteryWarningLevel = 20
+            PowerBatteryHandler.handleBatteryLevelChanged()
             }
         }
-    }
     
-    // Critical battery shutdown timer
     Timer {
         id: criticalBatteryShutdownTimer
-        interval: 10000 // 10 seconds
+        interval: 10000
         repeat: false
         onTriggered: {
             Logger.critical("Battery", "Emergency shutdown due to critical battery")
-            if (PowerManager) {
+            if (typeof PowerManager !== 'undefined' && PowerManager) {
                 PowerManager.shutdown()
             }
         }
     }
     
-    Comp.MarathonAlarmOverlay {
+    Timer {
+        id: bluetoothReconnectTimer
+        interval: 5000
+        repeat: false
+        onTriggered: {
+            if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
+                Logger.info("Shell", "Attempting Bluetooth auto-reconnect...")
+                
+                var pairedDevices = BluetoothManagerCpp.pairedDevices
+                
+                if (pairedDevices && pairedDevices.length > 0) {
+                    Logger.info("Shell", "Found " + pairedDevices.length + " paired devices, attempting reconnect")
+                    
+                    for (var i = 0; i < pairedDevices.length; i++) {
+                        var device = pairedDevices[i]
+                        
+                        if (!device.connected) {
+                            Logger.info("Shell", "Reconnecting to: " + device.name + " (" + device.address + ")")
+                            BluetoothManagerCpp.connectDevice(device.address)
+                        } else {
+                            Logger.info("Shell", "Device already connected: " + device.name)
+                        }
+                    }
+                } else {
+                    Logger.info("Shell", "No paired Bluetooth devices found")
+                }
+            }
+        }
+    }
+    
+    MarathonAlarmOverlay {
         id: alarmOverlay
     }
     
@@ -1562,90 +1421,24 @@ Item {
         }
     }
     
-    Connections {
-        target: compositor
-        
-        function onSurfaceCreated(surface, surfaceId, xdgSurface) {
-            Logger.info("Shell", "========== onSurfaceCreated HANDLER FIRED ==========")
-            Logger.info("Shell", "Native app surface created, surfaceId: " + surfaceId)
-            Logger.info("Shell", "pendingNativeApp: " + (shell.pendingNativeApp ? shell.pendingNativeApp.name : "NULL"))
-            
-            if (shell.pendingNativeApp) {
-                var app = shell.pendingNativeApp
-                Logger.info("Shell", "Surface connected for: " + app.name + " (surfaceId: " + surfaceId + ")")
-                
-                // Store xdgSurface and toplevel on surface for NativeAppWindow to access
-                surface.xdgSurface = xdgSurface
-                surface.toplevel = xdgSurface.toplevel
-                
-                // Only create a task for the FIRST surface (main window), not for popups/subsurfaces
-                // Check if a task already exists for this app
-                var existingTask = TaskModel.getTaskByAppId(app.id)
-                if (!existingTask) {
-                    TaskModel.launchTask(app.id, app.name, app.icon, "native", surfaceId, surface)
-                    Logger.info("Shell", "Added native app to TaskModel: " + app.name + " (surfaceId: " + surfaceId + ") with surface")
-                } else {
-                    // Update existing task with surface (for subsurfaces/popups)
-                    TaskModel.updateTaskSurface(app.id, surface)
-                    Logger.info("Shell", "Native app already has task, updated surface (surfaceId: " + surfaceId + " is a subsurface/popup)")
-                }
-                
-                // Update the existing window (already showing splash) with the actual surface
-                Logger.info("Shell", "Updating window with connected surface")
-                appWindow.show(app.id, app.name, app.icon, "native", surface, surfaceId)
-                Logger.info("Shell", "Surface attached to window, splash should hide")
-                
-                // NOTE: Native apps are not registered with AppLifecycleManager
-                // They are managed via the Wayland compositor instead
-                // UIStore already handles bringing the window to foreground
-                
-                shell.pendingNativeApp = null
-            }
-        }
-        
-        function onAppClosed(pid) {
-            Logger.info("Shell", "Native app process closed, PID: " + pid)
-            // The window will close automatically via surfaceDestroyed handler
-        }
-        
-        function onAppLaunched(command, pid) {
-            Logger.info("Shell", "Native app process started: " + command + " (PID: " + pid + ")")
-        }
-        
-        function onSurfaceDestroyed(surface, surfaceId) {
-            Logger.info("Shell", "Native app surface destroyed, surfaceId: " + surfaceId)
-            
-            if (UIStore.appWindowOpen && appWindow.appType === "native") {
-                if (appWindow.surfaceId === surfaceId) {
-                    Logger.info("Shell", "Closing native app window due to surface destruction")
-                    UIStore.closeApp()
-                    appWindow.hide()
-                }
-            }
-        }
+    Comp.CompositorConnections {
+        id: compositorConnections
     }
     
+    // NOTE: Compositor signal connections are made manually in Component.onCompleted
+    // because the compositor property is null when this file is first loaded
+    
     Keys.onReleased: (event) => {
-        // Power button released - if timer still running, it's a short press (lock/wake)
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             if (powerButtonTimer.running) {
-                // Short press - toggle lock/wake
-                if (SessionStore.isLocked) {
-                    Logger.info("Shell", "Power button SHORT PRESS - waking device")
-                    // Turn screen on and show lock screen (user must swipe/PIN to unlock)
-                    DisplayManager.turnScreenOn()
-                } else {
-                    Logger.info("Shell", "Power button SHORT PRESS - locking device")
-                    SessionStore.lock()
-                }
+                PowerBatteryHandler.handlePowerButtonPress()
                 powerButtonTimer.stop()
-                HapticService.medium()
             }
             event.accepted = true
         }
     }
     
-    Comp.PowerMenu {
+    PowerMenu {
         id: powerMenu
         
         onSleepRequested: {
@@ -1665,205 +1458,48 @@ Item {
         }
     }
     
-    // Bluetooth auto-reconnect timer (delayed to let system settle)
-    Timer {
-        id: bluetoothReconnectTimer
-        interval: 5000 // Wait 5 seconds after boot
-        repeat: false
-        onTriggered: {
-            if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
-                Logger.info("Shell", "Attempting Bluetooth auto-reconnect...")
-                
-                // Get list of paired devices
-                var pairedDevices = BluetoothManagerCpp.pairedDevices
-                
-                if (pairedDevices && pairedDevices.length > 0) {
-                    Logger.info("Shell", "Found " + pairedDevices.length + " paired devices, attempting reconnect")
-                    
-                    // Try to reconnect to each paired device
-                    for (var i = 0; i < pairedDevices.length; i++) {
-                        var device = pairedDevices[i]
-                        
-                        // Only reconnect if device is not already connected
-                        if (!device.connected) {
-                            Logger.info("Shell", "Reconnecting to: " + device.name + " (" + device.address + ")")
-                            BluetoothManagerCpp.connectDevice(device.address)
-                        } else {
-                            Logger.info("Shell", "Device already connected: " + device.name)
-                        }
-                    }
-                } else {
-                    Logger.info("Shell", "No paired Bluetooth devices found")
-                }
-            }
-        }
-    }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // TELEPHONY & SMS INTEGRATION
-    // ═══════════════════════════════════════════════════════════════
-    
-    // Track call state for missed call detection
-    property string lastCallState: "idle"
-    property string lastCallerNumber: ""
-    property bool callWasAnswered: false
-    
-    // Incoming Call Overlay (shows over lock screen and all content)
     Loader {
         id: incomingCallOverlayLoader
         anchors.fill: parent
         z: Constants.zIndexModalOverlay + 100
         active: false
         source: "qrc:/MarathonOS/Shell/qml/components/IncomingCallOverlay.qml"
-        
-        property var incomingCallOverlay: item
+    }
         
         Connections {
             target: incomingCallOverlayLoader.item
+            enabled: incomingCallOverlayLoader.item !== null
             function onAnswered() {
-                callWasAnswered = true
-                Logger.info("Shell", "Call answered by user")
+            TelephonyIntegration.callWasAnswered = true
             }
-            
             function onDeclined() {
-                callWasAnswered = false
-                Logger.info("Shell", "Call declined by user")
-            }
+            TelephonyIntegration.callWasAnswered = false
         }
     }
     
-    // TelephonyService Integration (C++ backend)
     Connections {
         target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
         
         function onIncomingCall(number) {
-            Logger.info("Shell", "📞 INCOMING CALL from: " + number)
-            
-            lastCallerNumber = number
-            callWasAnswered = false
-            
-            // Wake device and turn on screen
-            WakeManager.wake("call")
-            DisplayManager.turnScreenOn()
-            
-            // Show incoming call overlay over lock screen
-            var contactName = resolveContactName(number)
             incomingCallOverlayLoader.active = true
-            if (incomingCallOverlayLoader.item) {
-                incomingCallOverlayLoader.item.show(number, contactName)
-            }
-            
-            // Haptic feedback - continuous vibration
-            if (typeof HapticService !== 'undefined') {
-                HapticService.vibratePattern([1000, 500], -1) // Continuous
-            }
+            TelephonyIntegration.incomingCallOverlay = incomingCallOverlayLoader.item
+            TelephonyIntegration.handleIncomingCall(number)
         }
         
         function onCallStateChanged(state) {
-            Logger.info("Shell", "📞 Call state changed: " + state)
-            
-            // Detect missed call (went from "incoming" to "idle"/"terminated" without being answered)
-            if (lastCallState === "incoming" && (state === "idle" || state === "terminated")) {
-                if (!callWasAnswered) {
-                    Logger.info("Shell", "📞 MISSED CALL from: " + lastCallerNumber)
-                    createMissedCallNotification(lastCallerNumber)
-                }
-            }
-            
-            // Hide incoming call overlay when call ends or is answered
-            if (state === "active" || state === "idle" || state === "terminated") {
-                if (incomingCallOverlayLoader.item && incomingCallOverlayLoader.item.visible) {
+            TelephonyIntegration.handleCallStateChanged(state)
+            if ((state === "active" || state === "idle" || state === "terminated") && incomingCallOverlayLoader.item && incomingCallOverlayLoader.item.visible) {
                     incomingCallOverlayLoader.item.hide()
                     incomingCallOverlayLoader.active = false
                 }
-                
-                // Stop vibration
-                if (typeof HapticService !== 'undefined') {
-                    HapticService.stopVibration()
                 }
             }
             
-            lastCallState = state
-        }
-    }
-    
-    // SMSService Integration (C++ backend)
     Connections {
         target: typeof SMSService !== 'undefined' ? SMSService : null
         
         function onMessageReceived(sender, text, timestamp) {
-            Logger.info("Shell", "💬 SMS RECEIVED from: " + sender)
-            
-            // Wake device briefly
-            WakeManager.wake("notification")
-            
-            // Create notification
-            var contactName = resolveContactName(sender)
-            NotificationService.addNotification({
-                id: "sms_" + sender + "_" + timestamp,
-                appId: "messages",
-                appName: "Messages",
-                title: contactName,
-                body: text,
-                icon: "message-circle",
-                timestamp: timestamp,
-                actions: [
-                    { id: "reply", label: "Reply" },
-                    { id: "mark_read", label: "Mark Read" }
-                ],
-                priority: "high",
-                category: "message"
-            })
-            
-            // Haptic feedback
-            if (typeof HapticService !== 'undefined') {
-                HapticService.medium()
-            }
-            
-            // Play notification sound
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playNotificationSound()
-            }
-        }
-    }
-    
-    // Helper function: Resolve contact name from phone number
-    function resolveContactName(number) {
-        // Try to get contact name from ContactsManager
-        if (typeof ContactsManager !== 'undefined') {
-            var contact = ContactsManager.getContactByNumber(number)
-            if (contact) {
-                return contact.name
-            }
-        }
-        
-        // Fallback to number
-        return number
-    }
-    
-    // Helper function: Create missed call notification
-    function createMissedCallNotification(number) {
-        var contactName = resolveContactName(number)
-        
-        NotificationService.addNotification({
-            id: "missed_call_" + number + "_" + Date.now(),
-            appId: "phone",
-            appName: "Phone",
-            title: "Missed Call",
-            body: "From: " + contactName,
-            icon: "phone-missed",
-            timestamp: Date.now(),
-            actions: [
-                { id: "call_back", label: "Call Back" },
-                { id: "message", label: "Message" }
-            ],
-            priority: "high",
-            category: "call"
-        })
-        
-        // Haptic feedback for missed call
-        if (typeof HapticService !== 'undefined') {
-            HapticService.heavy()
+            TelephonyIntegration.handleMessageReceived(sender, text, timestamp)
         }
     }
 }

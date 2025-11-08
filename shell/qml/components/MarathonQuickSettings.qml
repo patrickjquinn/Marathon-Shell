@@ -1,10 +1,11 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
-import "../MarathonUI/Controls"
-import "."
 import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Controls
+import MarathonUI.Navigation
+import "."
 
 Rectangle {
     id: quickSettings
@@ -124,9 +125,9 @@ Rectangle {
             Flickable {
                 id: scrollView
                 anchors.fill: parent
-                anchors.topMargin: Constants.spacingLarge
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.rightMargin: Constants.spacingMedium
+                anchors.topMargin: MSpacing.lg
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
                 anchors.bottomMargin: 80
                 contentHeight: contentColumn.height
                 clip: true
@@ -137,21 +138,18 @@ Rectangle {
         Column {
             id: contentColumn
             width: parent.width
-            spacing: Constants.spacingMedium
+            spacing: MSpacing.md
         
-            Text {
+            MLabel {
                 text: SystemStatusStore.dateString
-                color: MColors.text
-                font.pixelSize: Constants.fontSizeMedium
-                font.weight: Font.Normal
-                font.family: MTypography.fontFamily
+                variant: "body"
                 anchors.left: parent.left
             }
             
             // Paginated Quick Settings Toggles
             Column {
                 width: parent.width
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 
                 SwipeView {
                     id: toggleSwipeView
@@ -171,8 +169,8 @@ Rectangle {
                             Grid {
                                 anchors.fill: parent
                                 columns: gridColumns
-                                columnSpacing: Constants.spacingSmall
-                                rowSpacing: Constants.spacingSmall
+                                columnSpacing: MSpacing.sm
+                                rowSpacing: MSpacing.sm
                                 
                                 Repeater {
                                     model: {
@@ -182,7 +180,7 @@ Rectangle {
                                     }
                                     
                                     delegate: QuickSettingsTile {
-                                        tileWidth: (toggleSwipeView.width - (Constants.spacingSmall * (gridColumns - 1))) / gridColumns
+                                        tileWidth: (toggleSwipeView.width - (MSpacing.sm * (gridColumns - 1))) / gridColumns
                                         toggleData: modelData
                                         onTapped: handleToggleTap(modelData.id)
                                         onLongPressed: handleLongPress(modelData.id)
@@ -193,29 +191,10 @@ Rectangle {
                     }
                 }
                 
-                // Page indicator
-                Row {
+                MPageIndicator {
+                    count: toggleSwipeView.count
+                    currentIndex: toggleSwipeView.currentIndex
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Constants.spacingSmall
-                    
-                    Repeater {
-                        model: toggleSwipeView.count
-                        
-                        Rectangle {
-                            width: index === toggleSwipeView.currentIndex ? 24 : 8
-                            height: 8
-                            radius: MRadius.md
-                            color: index === toggleSwipeView.currentIndex ? MColors.accent : Qt.rgba(255, 255, 255, 0.3)
-                            
-                            Behavior on width {
-                                NumberAnimation { duration: 200 }
-                            }
-                            
-                            Behavior on color {
-                                ColorAnimation { duration: 200 }
-                            }
-                        }
-                    }
                 }
             }
             
@@ -228,14 +207,12 @@ Rectangle {
             // Brightness Slider
             Column {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
-                Text {
+                MLabel {
                     text: "Brightness"
-                    color: MColors.text
-                    font.pixelSize: Constants.fontSizeMedium
+                    variant: "body"
                     font.weight: Font.Medium
-                    font.family: MTypography.fontFamily
                 }
                 
                 MSlider {
@@ -252,14 +229,12 @@ Rectangle {
             // Volume Slider
             Column {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
-                Text {
+                MLabel {
                     text: "Volume"
-                    color: MColors.text
-                    font.pixelSize: Constants.fontSizeMedium
+                    variant: "body"
                     font.weight: Font.Medium
-                    font.family: MTypography.fontFamily
                 }
                 
                 MSlider {

@@ -8,7 +8,7 @@ Window {
     width: 540
     height: 1140
     visible: true
-    title: "Marathon OS - Bandit (OnePlus 6 - 50% scale)"
+    title: "Marathon OS - Bandit"
     color: "#000000"
     
     MarathonShell {

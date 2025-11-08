@@ -1,10 +1,10 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Navigation
 import "pages"
 
 MApp {
@@ -107,83 +107,12 @@ MApp {
             anchors.fill: parent
             spacing: 0
             
-            Rectangle {
-                width: parent.width
-                height: Constants.touchTargetLarge
-                color: MColors.surface
-                
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width
-                    height: Constants.borderWidthThin
-                    color: MColors.border
-                }
-                
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingMedium
-                    
-                    Repeater {
-                        model: [
-                            { label: "Month", icon: "calendar" },
-                            { label: "List", icon: "list" }
-                        ]
-                        
-                        Rectangle {
-                            width: Constants.touchTargetLarge * 2
-                            height: Constants.touchTargetMedium
-                            radius: Constants.borderRadiusSharp
-                            color: currentView === index ? MColors.accent : MColors.glass
-                            border.width: Constants.borderWidthMedium
-                            border.color: currentView === index ? MColors.accentBright : MColors.glassBorder
-                            antialiasing: Constants.enableAntialiasing
-                            
-                            Rectangle {
-                                anchors.fill: parent
-                                anchors.margins: Constants.borderWidthThin
-                                radius: parent.radius - Constants.borderWidthThin
-                                color: "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: currentView === index ? MColors.borderHighlight : MColors.borderInner
-                                antialiasing: Constants.enableAntialiasing
-                            }
-                            
-                            Row {
-                                anchors.centerIn: parent
-                                spacing: Constants.spacingSmall
-                                
-                                Icon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    name: modelData.icon
-                                    size: Constants.iconSizeMedium
-                                    color: currentView === index ? MColors.textOnAccent : MColors.text
-                                }
-                                
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.label
-                                    font.pixelSize: Constants.fontSizeMedium
-                                    font.weight: currentView === index ? Font.DemiBold : Font.Normal
-                                    color: currentView === index ? MColors.textOnAccent : MColors.text
-                                }
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    currentView = index
-                                    HapticService.light()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            property int currentView: 0
             
             StackLayout {
                 width: parent.width
-                height: parent.height - parent.children[0].height
-                currentIndex: currentView
+                height: parent.height - tabBar.height
+                currentIndex: parent.currentView
                 
                 CalendarGridPage {
                     id: gridPage
@@ -193,14 +122,30 @@ MApp {
                     id: listPage
                 }
             }
+            
+            MTabBar {
+                id: tabBar
+                width: parent.width
+                activeTab: parent.currentView
+                
+                tabs: [
+                    { label: "Month", icon: "calendar" },
+                    { label: "List", icon: "list" }
+                ]
+                
+                onTabSelected: (index) => {
+                    HapticService.light()
+                    tabBar.parent.currentView = index
+                }
+            }
         }
         
         MIconButton {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: Constants.spacingLarge
-            icon: "plus"
-            size: Constants.touchTargetLarge
+            anchors.margins: MSpacing.lg
+            iconName: "plus"
+            iconSize: 28
             variant: "primary"
             shape: "circular"
             onClicked: {

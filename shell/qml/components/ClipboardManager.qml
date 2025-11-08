@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
@@ -36,7 +37,7 @@ Rectangle {
             
             Text {
                 text: "Clipboard History"
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.DemiBold
                 font.family: MTypography.fontFamily
@@ -55,7 +56,7 @@ Rectangle {
                 
                 Text {
                     text: "Clear"
-                    color: Colors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeSmall
                     font.family: MTypography.fontFamily
                     anchors.centerIn: parent
@@ -113,7 +114,7 @@ Rectangle {
                         
                         Text {
                             text: modelData.text
-                            color: Colors.text
+                            color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.family: MTypography.fontFamily
                             elide: Text.ElideRight
@@ -127,7 +128,7 @@ Rectangle {
                                 var date = new Date(modelData.timestamp)
                                 return Qt.formatDateTime(date, "hh:mm AP")
                             }
-                            color: Colors.textTertiary
+                            color: MColors.textTertiary
                             font.pixelSize: MTypography.sizeXSmall
                             font.family: MTypography.fontFamily
                         }
@@ -178,7 +179,7 @@ Rectangle {
             Text {
                 visible: parent.count === 0
                 text: "No clipboard history"
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 anchors.centerIn: parent

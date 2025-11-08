@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
@@ -16,7 +17,7 @@ Rectangle {
     height: Constants.hubHeaderHeight
     radius: Constants.borderRadiusSharp
     border.width: Constants.borderWidthThin
-    border.color: toggleData.active ? MColors.accentBright : MColors.borderOuter
+    border.color: toggleData.active ? MColors.accentBright : MColors.border
     color: isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
     antialiasing: Constants.enableAntialiasing
     scale: isPressed ? 0.98 : 1.0
@@ -59,7 +60,7 @@ Rectangle {
         radius: Constants.borderRadiusSharp
         color: "transparent"
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderInner
+        border.color: MColors.borderSubtle
         antialiasing: Constants.enableAntialiasing
     }
     
@@ -68,11 +69,11 @@ Rectangle {
     
     Row {
         anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
-        spacing: Constants.spacingMedium
+        anchors.margins: MSpacing.md
+        spacing: MSpacing.md
         
         Item {
-            width: Constants.iconSizeMedium + Constants.spacingSmall
+            width: Constants.iconSizeMedium + MSpacing.sm
             height: Constants.statusBarHeight
             anchors.verticalCenter: parent.verticalCenter
             
@@ -90,23 +91,22 @@ Rectangle {
         
         Column {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Constants.spacingXSmall
-            width: parent.width - (Constants.iconSizeMedium + Constants.spacingMedium * 3)
+            spacing: MSpacing.xs
+            width: parent.width - (Constants.iconSizeMedium + MSpacing.md * 3)
             
-            Text {
+            MLabel {
                 text: toggleData.label || ""
-                color: MColors.text
-                font.pixelSize: Constants.fontSizeMedium
+                variant: "body"
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
                 width: parent.width
             }
             
-            Text {
+            MLabel {
                 visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
                 text: toggleData.subtitle || ""
-                color: MColors.textSecondary
-                font.pixelSize: Constants.fontSizeXSmall
+                variant: "secondary"
+                font.pixelSize: MTypography.sizeXSmall
                 elide: Text.ElideRight
                 width: parent.width
                 opacity: 0.7

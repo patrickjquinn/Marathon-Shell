@@ -85,6 +85,8 @@ public:
     Q_INVOKABLE void dismissAllNotifications();
     Q_INVOKABLE Notification* getNotification(int id);
 
+    void loadFromDatabase(class NotificationDatabase* database);
+
 signals:
     void unreadCountChanged();
     void countChanged();

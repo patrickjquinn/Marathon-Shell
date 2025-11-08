@@ -1,7 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Theme
 
 Item {
     id: stopwatchPage
@@ -38,21 +38,21 @@ Item {
             width: parent.width
             height: parent.height * 0.4
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             
-            Item { height: Constants.spacingLarge; width: 1 }
+            Item { height: MSpacing.lg; width: 1 }
             
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: formatTime(elapsedMs)
-                color: Colors.text
-                font.pixelSize: Constants.fontSizeHuge * 1.2
+                color: MColors.textPrimary
+                font.pixelSize: MTypography.sizeHuge * 1.2
                 font.weight: Font.Bold
             }
             
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 
                 MButton {
                     text: isRunning ? "Lap" : "Start"
@@ -87,7 +87,7 @@ Item {
         Rectangle {
             width: parent.width
             height: Constants.borderWidthThin
-            color: Colors.border
+            color: MColors.border
             visible: laps.length > 0
         }
         
@@ -104,23 +104,23 @@ Item {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingLarge
-                    anchors.rightMargin: Constants.spacingLarge
-                    spacing: Constants.spacingMedium
+                    anchors.leftMargin: MSpacing.lg
+                    anchors.rightMargin: MSpacing.lg
+                    spacing: MSpacing.md
                     
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Lap " + (index + 1)
-                        color: Colors.text
-                        font.pixelSize: Constants.fontSizeMedium
+                        color: MColors.textPrimary
+                        font.pixelSize: MTypography.sizeBody
                         width: parent.width * 0.3
                     }
                     
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: formatTime(modelData)
-                        color: Colors.accent
-                        font.pixelSize: Constants.fontSizeMedium
+                        color: MColors.marathonTeal
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                     }
                 }
@@ -129,10 +129,10 @@ Item {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.leftMargin: Constants.spacingLarge
-                    anchors.rightMargin: Constants.spacingLarge
+                    anchors.leftMargin: MSpacing.lg
+                    anchors.rightMargin: MSpacing.lg
                     height: Constants.borderWidthThin
-                    color: Colors.border
+                    color: MColors.border
                 }
             }
         }

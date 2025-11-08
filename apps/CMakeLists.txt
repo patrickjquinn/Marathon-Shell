@@ -36,6 +36,11 @@ else()
     set(MARATHON_APPS_DIR "$ENV{HOME}/.local/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
 endif()
 
+# Include QML linting module
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake)
+endif()
+
 # Function to create a Marathon app module
 function(add_marathon_app APP_NAME)
     set(options HAS_CPP)
@@ -102,6 +107,11 @@ function(add_marathon_app APP_NAME)
             NO_PLUGIN_OPTIONAL
         )
         
+        # Add qmllint validation target for apps with C++ plugins
+        if(QMLLINT_AVAILABLE)
+            add_qmllint_target(${APP_NAME}-plugin ${ARG_QML_FILES})
+        endif()
+        
         # Install base plugin library (the actual compiled code)
         install(TARGETS ${APP_NAME}-plugin
             LIBRARY DESTINATION "${INSTALL_DIR}"
@@ -140,7 +150,40 @@ function(add_marathon_app APP_NAME)
             ")
         endif()
     else()
-        # Pure QML app - just copy files
+        # Pure QML app - USE qt6_add_qml_module for AOT compilation
+        # Per Qt docs: "This will happen automatically if you use the CMake QML Module API"
+        
+        # Set QTP0001 policy for proper resource paths
+        if(COMMAND qt_policy)
+            qt_policy(SET QTP0001 NEW)
+        endif()
+        
+        # Convert absolute paths to relative (required by Qt resource system)
+        set(RELATIVE_QML_FILES "")
+        foreach(QML_FILE ${ARG_QML_FILES})
+            get_filename_component(ABS_FILE "${QML_FILE}" ABSOLUTE)
+            file(RELATIVE_PATH REL_FILE "${CMAKE_CURRENT_SOURCE_DIR}" "${ABS_FILE}")
+            list(APPEND RELATIVE_QML_FILES "${REL_FILE}")
+        endforeach()
+        
+        # Create a target for the QML module (enables AOT compilation)
+        qt6_add_qml_module(${APP_NAME}-qml
+            URI ${ARG_URI}
+            VERSION ${ARG_VERSION}
+            QML_FILES ${RELATIVE_QML_FILES}
+            RESOURCES ${ARG_RESOURCES}
+            NO_PLUGIN  # Pure QML, no C++ plugin
+            NO_GENERATE_PLUGIN_SOURCE  # Don't generate unnecessary plugin code
+            OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/apps/${APP_NAME}"
+        )
+        
+        # Add qmllint validation
+        if(QMLLINT_AVAILABLE)
+            add_qmllint_target(${APP_NAME}-qml ${ARG_QML_FILES})
+        endif()
+        
+        # Install compiled QML files (.qmlc) alongside source
+        # Qt will prefer .qmlc when loading from filesystem
         install(DIRECTORY "${APP_DIR}/"
             DESTINATION "${INSTALL_DIR}"
             FILES_MATCHING 
@@ -151,6 +194,17 @@ function(add_marathon_app APP_NAME)
             PATTERN "*.png"
             PATTERN "*.jpg"
         )
+        
+        # Install the generated qmlcache directory if it exists
+        # This contains the .qmlc compiled files
+        if(EXISTS "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/.rcc/qmlcache")
+            install(DIRECTORY "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/.rcc/qmlcache/"
+                DESTINATION "${INSTALL_DIR}/.qmlcache"
+                FILES_MATCHING 
+                PATTERN "*.qmlc"
+                PATTERN "*.jsc"
+            )
+        endif()
     endif()
     
     # Always install manifest and assets
@@ -181,6 +235,8 @@ add_subdirectory(gallery)
 add_subdirectory(music)
 add_subdirectory(maps)
 add_subdirectory(terminal)
+add_subdirectory(test)
+add_subdirectory(store)
 
 message(STATUS "==========================================")
 message(STATUS "Marathon Apps Build Configuration")

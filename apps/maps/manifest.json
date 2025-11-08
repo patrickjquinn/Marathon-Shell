@@ -8,6 +8,9 @@
   "permissions": ["location", "network"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["Productivity"],
+  "handlesUriSchemes": ["geo"],
+  "defaultFor": [],
   "searchKeywords": ["maps", "navigation", "location", "directions", "places"],
   "deepLinks": {}
 }

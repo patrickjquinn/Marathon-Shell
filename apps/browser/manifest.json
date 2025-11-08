@@ -8,6 +8,9 @@
   "permissions": ["network", "storage"],
   "minShellVersion": "1.0.0",
   "protected": false,
+  "categories": ["Productivity"],
+  "handlesUriSchemes": ["http", "https"],
+  "defaultFor": ["browser"],
   "searchKeywords": [
     "browser",
     "web",

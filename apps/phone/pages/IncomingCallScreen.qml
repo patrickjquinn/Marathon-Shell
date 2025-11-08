@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -26,12 +25,12 @@ Rectangle {
     
     Column {
         anchors.centerIn: parent
-        spacing: Constants.spacingXLarge * 2
+        spacing: MSpacing.xl * 2
         width: parent.width * 0.8
         
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingLarge
+            spacing: MSpacing.lg
             
             Rectangle {
                 width: Constants.iconSizeXLarge * 3
@@ -45,7 +44,7 @@ Rectangle {
                 Text {
                     anchors.centerIn: parent
                     text: callerName.charAt(0).toUpperCase()
-                    font.pixelSize: Constants.fontSizeXLarge * 3
+                    font.pixelSize: MTypography.sizeXLarge * 3
                     font.weight: Font.Bold
                     color: MColors.accent
                 }
@@ -60,12 +59,12 @@ Rectangle {
             
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Incoming Call"
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
                     font.weight: Font.Medium
                     color: MColors.textSecondary
                 }
@@ -73,7 +72,7 @@ Rectangle {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: callerName
-                    font.pixelSize: Constants.fontSizeXLarge
+                    font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
                 }
@@ -81,7 +80,7 @@ Rectangle {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: callerNumber
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     color: MColors.textSecondary
                 }
             }
@@ -89,7 +88,7 @@ Rectangle {
         
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Constants.spacingXLarge * 2
+            spacing: MSpacing.xl * 2
             
             Rectangle {
                 width: Constants.touchTargetLarge * 1.5

@@ -2,18 +2,18 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Theme
 import "pages"
-import "components"
 
 MApp {
     id: settingsApp
     appId: "settings"
     appName: "Settings"
-    appIcon: "qrc:/images/settings.svg"
+    appIcon: "assets/icon.svg"
     
     content: Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
     
     // Navigation stack
     StackView {
@@ -160,6 +160,15 @@ MApp {
             case "appmanager":
                 component = appManagerPageComponent
                 break
+            case "hiddenapps":
+                component = hiddenAppsPageComponent
+                break
+            case "defaultapps":
+                component = defaultAppsPageComponent
+                break
+            case "appsort":
+                component = appSortPageComponent
+                break
             default:
                 Logger.error("SettingsApp", "Unknown page: " + pageName)
                 return
@@ -251,6 +260,27 @@ MApp {
     Component {
         id: appManagerPageComponent
         AppManagerPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: hiddenAppsPageComponent
+        HiddenAppsPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: defaultAppsPageComponent
+        DefaultAppsPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: appSortPageComponent
+        AppSortPage {
             onNavigateBack: navigationStack.pop()
         }
     }

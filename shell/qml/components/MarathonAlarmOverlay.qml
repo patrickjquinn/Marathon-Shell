@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
@@ -92,7 +93,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatTime(new Date(), "hh:mm")
             color: MColors.textSecondary
-            font.pixelSize: MTypography.sizeDisplay
+            font.pixelSize: MTypography.sizeXXLarge
             font.weight: MTypography.weightMedium
             font.family: MTypography.fontFamily
         }

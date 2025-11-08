@@ -1,11 +1,11 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Navigation
 import "pages"
-import "components" as ClockComponents
 
 MApp {
     id: clockApp
@@ -175,14 +175,19 @@ MApp {
             anchors.fill: parent
             spacing: 0
             
-            // Main content area
+            property int currentView: 0
+            
             StackLayout {
                 width: parent.width
                 height: parent.height - tabBar.height
-                currentIndex: tabBar.currentIndex
+                currentIndex: parent.currentView
                 
                 ClockPage {
                     id: clockPage
+                }
+                
+                WorldClockPage {
+                    id: worldClockPage
                 }
                 
                 AlarmPage {
@@ -198,91 +203,21 @@ MApp {
                 }
             }
             
-            // Bottom tab bar - BB10 style
-            Rectangle {
+            MTabBar {
                 id: tabBar
                 width: parent.width
-                height: Constants.actionBarHeight
-                color: MColors.surface
                 
-                property int currentIndex: 0
+                tabs: [
+                    { label: "Clock", icon: "clock" },
+                    { label: "World", icon: "globe" },
+                    { label: "Alarm", icon: "bell" },
+                    { label: "Timer", icon: "timer" },
+                    { label: "Stopwatch", icon: "stopwatch" }
+                ]
                 
-                Rectangle {
-                    anchors.top: parent.top
-                    width: parent.width
-                    height: Constants.borderWidthThin
-                    color: MColors.border
-                }
-                
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: 0
-                    spacing: 0
-                    
-                    Repeater {
-                        model: [
-                            { icon: "clock", label: "Clock" },
-                            { icon: "bell", label: "Alarm" },
-                            { icon: "timer", label: "Timer" },
-                            { icon: "stopwatch", label: "Stopwatch" }
-                        ]
-                        
-                        Rectangle {
-                            width: tabBar.width / 4
-                            height: tabBar.height
-                            color: "transparent"
-                            
-                            // Active indicator bar - BB10 style top accent line
-                            Rectangle {
-                                anchors.top: parent.top
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: parent.width * 0.8
-                                height: Constants.borderWidthThick
-                                color: MColors.accent
-                                opacity: tabBar.currentIndex === index ? 1.0 : 0.0
-                                
-                                Behavior on opacity {
-                                    NumberAnimation { duration: Constants.animationFast }
-                                }
-                            }
-                            
-                            Column {
-                                anchors.centerIn: parent
-                                spacing: Constants.spacingXSmall
-                                
-                                ClockComponents.ClockIcon {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    name: modelData.icon
-                                    size: Constants.iconSizeMedium
-                                    color: tabBar.currentIndex === index ? MColors.accent : MColors.textSecondary
-                                    
-                                    Behavior on color {
-                                        ColorAnimation { duration: Constants.animationFast }
-                                    }
-                                }
-                                
-                                Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.label
-                                    font.pixelSize: Constants.fontSizeXSmall
-                                    color: tabBar.currentIndex === index ? MColors.accent : MColors.textSecondary
-                                    font.weight: tabBar.currentIndex === index ? Font.DemiBold : Font.Normal
-                                    
-                                    Behavior on color {
-                                        ColorAnimation { duration: Constants.animationFast }
-                                    }
-                                }
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticService.light()
-                                    tabBar.currentIndex = index
-                                }
-                            }
-                        }
-                    }
+                onTabSelected: (index) => {
+                    HapticService.light()
+                    parent.currentView = index
                 }
             }
         }

@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Theme
 import "../components"
 
 SettingsPageTemplate {
@@ -16,16 +17,16 @@ SettingsPageTemplate {
         Column {
             id: notificationsContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
             
-            Section {
+            MSection {
                 title: "Notification Settings"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Do Not Disturb"
                     subtitle: "Silence notifications and calls"
                     showToggle: true
@@ -35,7 +36,7 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Show on Lock Screen"
                     subtitle: "Display notifications when locked"
                     showToggle: true
@@ -45,14 +46,14 @@ SettingsPageTemplate {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Notification Sound"
                     value: AudioManager.currentNotificationSoundName
                     showChevron: true
                 }
             }
             
-            Section {
+            MSection {
                 title: "Per-App Notifications"
                 subtitle: "Coming soon"
                 width: parent.width - 48

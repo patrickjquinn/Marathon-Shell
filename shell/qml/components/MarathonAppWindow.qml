@@ -1,11 +1,13 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Modals
 
 Rectangle {
     id: appWindow
     anchors.fill: parent
-    color: Colors.surface
+    color: MColors.surface
     focus: true
     
     property string appId: ""
@@ -16,6 +18,8 @@ Rectangle {
     property int surfaceId: -1
     property var pendingAppInstance: null
     property bool isLoadingComponent: false
+    property string loadError: ""
+    property bool hasError: false
     
     signal closed()
     signal minimized()
@@ -24,8 +28,8 @@ Rectangle {
     Rectangle {
         id: loadingSplash
         anchors.fill: parent
-        color: Colors.background
-        visible: appWindow.isLoadingComponent
+        color: MColors.background
+        visible: appWindow.isLoadingComponent && !appWindow.hasError
         z: 1000
         
         Column {
@@ -45,10 +49,60 @@ Rectangle {
             
             Text {
                 text: "Loading " + (appWindow.appName || "app") + "..."
-                color: Colors.textSecondary
+                color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter
+            }
+        }
+    }
+    
+    // Error state (shown when app fails to load)
+    Rectangle {
+        id: errorState
+        anchors.fill: parent
+        color: MColors.background
+        visible: appWindow.hasError
+        z: 1001
+        
+        Column {
+            anchors.centerIn: parent
+            spacing: 24
+            width: parent.width * 0.8
+            
+            Icon {
+                name: "alert-triangle"
+                size: 80
+                color: MColors.error
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: "Failed to Launch"
+                font.pixelSize: MTypography.sizeLarge
+                font.weight: Font.DemiBold
+                font.family: MTypography.fontFamily
+                color: MColors.textPrimary
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+            
+            Text {
+                text: appWindow.appName + " failed to start.\n\n" + (appWindow.loadError || "Unknown error occurred.")
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                color: MColors.textSecondary
+                wrapMode: Text.WordWrap
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+            }
+            
+            MButton {
+                text: "Close"
+                variant: "primary"
+                anchors.horizontalCenter: parent.horizontalCenter
+                onClicked: {
+                    appWindow.hide()
+                }
             }
         }
     }
@@ -69,6 +123,8 @@ Rectangle {
         appType = type || "marathon"
         waylandSurface = surface || null
         surfaceId = sid || -1
+        hasError = false
+        loadError = ""
         
         console.log("  appType set to:", appType)
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")")
@@ -128,13 +184,18 @@ Rectangle {
                             appContentLoader.sourceComponent = appInstanceContainer
                             appWindow.isLoadingComponent = false
                             Logger.info("AppWindow", "Native app instance created successfully: " + id)
+                            appWindow.hasError = false
                         } else {
                             appWindow.isLoadingComponent = false
                             Logger.error("AppWindow", "Failed to create native app instance: " + id)
+                            appWindow.hasError = true
+                            appWindow.loadError = "Failed to create native app instance."
                         }
                     } else if (component.status === Component.Error) {
                         appWindow.isLoadingComponent = false
                         Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString())
+                        appWindow.hasError = true
+                        appWindow.loadError = component.errorString()
                     }
                 }
                 
@@ -158,33 +219,27 @@ Rectangle {
                 if (existingInstance) {
                     // Reuse existing instance - just reparent it
                     Logger.info("AppWindow", "Reusing existing app instance: " + id)
+                    console.log("AppWindow: Reusing and re-registering existing instance:", id)
+                    
+                    // Re-register to ensure it's in foreground state
+                    if (typeof AppLifecycleManager !== 'undefined') {
+                        AppLifecycleManager.registerApp(id, existingInstance)
+                    }
+                    
                     existingInstance.visible = true
                     appWindow.pendingAppInstance = existingInstance
                     // FORCE reload by clearing first
                     appContentLoader.sourceComponent = undefined
                     appContentLoader.sourceComponent = appInstanceContainer
                 } else {
-                    // Load external Marathon app dynamically (creates new instance)
+                    // Load external Marathon app asynchronously
                     Logger.info("AppWindow", "Loading external app from: " + appInfo.absolutePath)
                     
-                    var appInstance = MarathonAppLoader.loadApp(id)
+                    // Show loading splash while component loads
+                    appWindow.isLoadingComponent = true
                     
-                    if (appInstance) {
-                        // Store instance and set component - container will pick it up
-                        appWindow.pendingAppInstance = appInstance
-                        // FORCE reload by clearing first
-                        appContentLoader.sourceComponent = undefined
-                        appContentLoader.sourceComponent = appInstanceContainer
-                        Logger.info("AppWindow", "External app loaded successfully: " + id)
-                    } else {
-                        Logger.error("AppWindow", "Failed to load external app: " + id)
-                        // Fallback to template
-                        appContentLoader.setSource("../apps/template/TemplateApp.qml", {
-                            "_appId": id,
-                            "_appName": name,
-                            "_appIcon": icon
-                        })
-                    }
+                    // Use async loading to avoid blocking UI
+                    MarathonAppLoader.loadAppAsync(id)
                 }
             } else {
                 // Load placeholder template app
@@ -260,8 +315,30 @@ Rectangle {
                     var capturedAppId = appWindow.appId
                     var capturedWindow = appWindow  // Capture window reference
                     
+                    // Connect to app registration signals
+                    // NOTE: Explicitly specify 'appInstanceContainer' as receiver to avoid "Could not find receiver" warnings
+                    if (appInstance.requestRegister) {
+                        appInstance.requestRegister.connect(appInstanceContainer, function(appId, appInst) {
+                            console.log("AppWindow: App requested registration:", appId)
+                            if (typeof AppLifecycleManager !== 'undefined') {
+                                AppLifecycleManager.registerApp(appId, appInst)
+                            } else {
+                                console.error("AppWindow: AppLifecycleManager not available!")
+                            }
+                        })
+                    }
+                    
+                    if (appInstance.requestUnregister) {
+                        appInstance.requestUnregister.connect(appInstanceContainer, function(appId) {
+                            console.log("AppWindow: App requested unregistration:", appId)
+                            if (typeof AppLifecycleManager !== 'undefined') {
+                                AppLifecycleManager.unregisterApp(appId)
+                            }
+                        })
+                    }
+                    
                     if (appInstance.minimizeRequested) {
-                        minimizeConnection = appInstance.minimizeRequested.connect(function() {
+                        minimizeConnection = appInstance.minimizeRequested.connect(appInstanceContainer, function() {
                             Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName)
                             if (capturedWindow) {
                                 capturedWindow.minimized()
@@ -270,7 +347,7 @@ Rectangle {
                     }
                     
                     if (appInstance.closed) {
-                        closedConnection = appInstance.closed.connect(function() {
+                        closedConnection = appInstance.closed.connect(appInstanceContainer, function() {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName)
                             if (capturedWindow) {
                                 capturedWindow.hide()
@@ -314,6 +391,49 @@ Rectangle {
                 Logger.error("AppWindow", "Failed to load app content for: " + appId)
             } else if (status === Loader.Ready) {
                 Logger.info("AppWindow", "App content loaded successfully for: " + appId)
+            }
+        }
+    }
+    
+    Connections {
+        target: MarathonAppLoader
+        enabled: MarathonAppLoader !== null
+        
+        function onAppLoadProgress(appId, percent) {
+            if (appId === appWindow.appId) {
+                Logger.debug("AppWindow", "Load progress for " + appId + ": " + percent + "%")
+            }
+        }
+        
+        function onAppInstanceReady(appId, instance) {
+            if (appId === appWindow.appId) {
+                Logger.info("AppWindow", "App instance ready: " + appId)
+                
+                // IMMEDIATELY register the app with AppLifecycleManager
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    console.log("AppWindow: Registering app:", appId)
+                    AppLifecycleManager.registerApp(appId, instance)
+                } else {
+                    console.error("AppWindow: AppLifecycleManager not available!")
+                }
+                
+                // Store instance and set component - container will pick it up
+                appWindow.pendingAppInstance = instance
+                // FORCE reload by clearing first
+                appContentLoader.sourceComponent = undefined
+                appContentLoader.sourceComponent = appInstanceContainer
+                Logger.info("AppWindow", "External app loaded successfully: " + appId)
+                appWindow.hasError = false
+                appWindow.isLoadingComponent = false
+            }
+        }
+        
+        function onLoadError(appId, error) {
+            if (appId === appWindow.appId) {
+                Logger.error("AppWindow", "Received loadError signal for: " + appId + " - " + error)
+                appWindow.hasError = true
+                appWindow.loadError = error
+                appWindow.isLoadingComponent = false
             }
         }
     }

@@ -20,7 +20,7 @@ echo "💻 Detected $CORES CPU cores"
 # Clean build if requested
 if [ "$CLEAN" = "1" ]; then
     echo "🧹 Clean build requested, removing build directories..."
-    rm -rf build build-apps
+    rm -rf build build-apps build-ui
 fi
 
 # Kill any existing instances first
@@ -35,7 +35,8 @@ echo ""
 
 # Build everything using build-all.sh script
 echo "🏗️  Building Marathon Shell and Apps..."
-./scripts/build-all.sh
+# CRITICAL: Always reinstall apps to ensure source changes are deployed
+./scripts/build-all.sh install
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -50,19 +51,33 @@ if [ $? -eq 0 ]; then
         echo ""
     fi
     
+    # CRITICAL: Disable Qt's automatic HiDPI scaling for the compositor itself
+    # The compositor must render at native 1:1 scale, regardless of host DPI
+    # Otherwise QWaylandOutput will advertise wrong geometry (e.g. 1080x2280 instead of 540x1140)
+    export QT_AUTO_SCREEN_SCALE_FACTOR=0
+    export QT_ENABLE_HIGHDPI_SCALING=0
+    
     # Check for device DPI simulation (OnePlus 6: ~1.25x scale for 50% window)
     if [ "$DEVICE_DPI" = "1" ] || [ "$DEVICE_DPI" = "oneplus6" ]; then
         export QT_SCALE_FACTOR=1.25
         echo "📱 Device DPI simulation enabled (OnePlus 6: 1.25x scale)"
         echo "   Window: 540x1140 (50% of 1080x2280), DPI: ~402 ppi"
         echo ""
+    else
+        # Force 1:1 scaling (no DPI scaling from host)
+        export QT_SCALE_FACTOR=1
+        echo "🖥️  Compositor scaling: 1:1 (native resolution, no HiDPI from host)"
     fi
     
     # Enable QML validation in debug mode
     if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
-        export QML_DISABLE_DISK_CACHE=1
-        export QT_LOGGING_RULES="qml.debug=false;qt.qml.debug=false;qt.quick.debug=false"
-        echo "🔍 QML validation enabled (cache disabled, reduced logging)"
+        # DON'T disable disk cache - we need it for ARM performance!
+        # export QML_DISABLE_DISK_CACHE=1
+        export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+        mkdir -p "$QT_QML_DISK_CACHE_PATH"
+        # Allow all logging in debug mode (same as running binary directly)
+        unset QT_LOGGING_RULES
+        echo "🔍 Debug mode: Full logging enabled (no filtering)"
         echo ""
     else
         # Disable all debug logging in production

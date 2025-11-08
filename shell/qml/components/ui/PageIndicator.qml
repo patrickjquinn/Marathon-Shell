@@ -1,5 +1,5 @@
 import QtQuick
-import "../../theme"
+import MarathonOS.Shell
 
 Row {
     id: pageIndicator

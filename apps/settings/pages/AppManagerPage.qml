@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
@@ -13,7 +12,7 @@ SettingsPageTemplate {
     property string pageName: "appmanager"
     
     content: Flickable {
-        contentHeight: contentColumn.height + Constants.navBarHeight + Constants.spacingXLarge * 3
+        contentHeight: contentColumn.height + Constants.navBarHeight + MSpacing.xl * 3
         clip: true
         boundsBehavior: Flickable.DragAndOvershootBounds
         
@@ -22,39 +21,39 @@ SettingsPageTemplate {
             width: parent.width
             spacing: 0
             
-            Item { height: Constants.spacingMedium; width: 1 }
+            Item { height: MSpacing.md; width: 1 }
             
             Text {
                 width: parent.width
-                leftPadding: Constants.spacingLarge
-                rightPadding: Constants.spacingLarge
+                leftPadding: MSpacing.lg
+                rightPadding: MSpacing.lg
                 text: "Installed Apps (" + MarathonAppRegistry.count + ")"
-                color: Colors.textSecondary
-                font.pixelSize: Constants.fontSizeSmall
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeSmall
             }
             
-            Item { height: Constants.spacingSmall; width: 1 }
+            Item { height: MSpacing.sm; width: 1 }
             
             Repeater {
                 model: MarathonAppRegistry
                 
                 delegate: Item {
                     width: contentColumn.width
-                    height: Constants.touchTargetLarge + Constants.spacingLarge
+                    height: Constants.touchTargetLarge + MSpacing.lg
                     
                     Rectangle {
                         anchors.fill: parent
-                        anchors.leftMargin: Constants.spacingLarge
-                        anchors.rightMargin: Constants.spacingLarge
+                        anchors.leftMargin: MSpacing.lg
+                        anchors.rightMargin: MSpacing.lg
                         color: "transparent"
                         
                         RowLayout {
                             anchors.fill: parent
-                            spacing: Constants.spacingMedium
+                            spacing: MSpacing.md
                             
                             Image {
-                                Layout.preferredWidth: Constants.iconSizeLarge + Constants.spacingSmall
-                                Layout.preferredHeight: Constants.iconSizeLarge + Constants.spacingSmall
+                                Layout.preferredWidth: Constants.iconSizeLarge + MSpacing.sm
+                                Layout.preferredHeight: Constants.iconSizeLarge + MSpacing.sm
                                 Layout.alignment: Qt.AlignVCenter
                                 source: model.icon || "qrc:/images/app-icon-placeholder.svg"
                                 fillMode: Image.PreserveAspectFit
@@ -70,34 +69,34 @@ SettingsPageTemplate {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignVCenter
-                                spacing: Constants.spacingXSmall
+                                spacing: MSpacing.xs
                                 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: Constants.spacingSmall
+                                    spacing: MSpacing.sm
                                     
                                     Text {
                                         text: model.name
-                                        color: Colors.text
-                                        font.pixelSize: Constants.fontSizeMedium
+                                        color: MColors.textPrimary
+                                        font.pixelSize: MTypography.sizeBody
                                         font.weight: Font.DemiBold
                                     }
                                     
                                     Rectangle {
                                         visible: model.isProtected
-                                        Layout.preferredWidth: systemBadgeText.width + Constants.spacingMedium
-                                        Layout.preferredHeight: Constants.spacingLarge
+                                        Layout.preferredWidth: systemBadgeText.width + MSpacing.md
+                                        Layout.preferredHeight: MSpacing.lg
                                         radius: Constants.borderRadiusSmall
                                         color: "transparent"
                                         border.width: Constants.borderWidthThin
-                                        border.color: Colors.accent
+                                        border.color: MColors.marathonTeal
                                         
                                         Text {
                                             id: systemBadgeText
                                             anchors.centerIn: parent
                                             text: "System"
-                                            color: Colors.accent
-                                            font.pixelSize: Constants.fontSizeSmall
+                                            color: MColors.marathonTeal
+                                            font.pixelSize: MTypography.sizeSmall
                                             font.weight: Font.Medium
                                         }
                                     }
@@ -105,14 +104,14 @@ SettingsPageTemplate {
                                 
                                 Text {
                                     text: "v" + (model.version || "1.0.0")
-                                    color: Colors.textSecondary
-                                    font.pixelSize: Constants.fontSizeSmall
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeSmall
                                     Layout.fillWidth: true
                                 }
                             }
                             
                             MButton {
-                                Layout.preferredWidth: Constants.touchTargetLarge + Constants.spacingLarge
+                                Layout.preferredWidth: Constants.touchTargetLarge + MSpacing.lg
                                 text: "Uninstall"
                                 variant: "danger"
                                 disabled: model.isProtected
@@ -128,22 +127,22 @@ SettingsPageTemplate {
                             anchors.bottom: parent.bottom
                             width: parent.width
                             height: Constants.borderWidthThin
-                            color: Colors.border
+                            color: MColors.border
                         }
                     }
                 }
             }
             
-            Item { height: Constants.spacingLarge; width: 1 }
+            Item { height: MSpacing.lg; width: 1 }
         }
     }
     
     Rectangle {
         id: uninstallDialog
         anchors.centerIn: parent
-        width: Math.min(Constants.screenWidth * 0.85, parent.width - Constants.spacingXLarge * 2)
-        height: dialogContent.height + Constants.spacingXLarge * 2
-        color: Colors.surface
+        width: Math.min(Constants.screenWidth * 0.85, parent.width - MSpacing.xl * 2)
+        height: dialogContent.height + MSpacing.xl * 2
+        color: MColors.surface
         radius: Constants.borderRadiusLarge
         visible: false
         z: 1000
@@ -164,14 +163,14 @@ SettingsPageTemplate {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            anchors.margins: Constants.spacingXLarge
-            spacing: Constants.spacingLarge
+            anchors.margins: MSpacing.xl
+            spacing: MSpacing.lg
             
             Text {
                 Layout.fillWidth: true
                 text: "Uninstall " + uninstallDialog.appName + "?"
-                color: Colors.text
-                font.pixelSize: Constants.fontSizeLarge
+                color: MColors.textPrimary
+                font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.Bold
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
@@ -180,15 +179,15 @@ SettingsPageTemplate {
             Text {
                 Layout.fillWidth: true
                 text: "This app will be permanently removed from your device."
-                color: Colors.textSecondary
-                font.pixelSize: Constants.fontSizeMedium
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
             }
             
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 
                 MButton {
                     Layout.fillWidth: true

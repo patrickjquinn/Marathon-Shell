@@ -2,6 +2,7 @@ import QtQuick
 import MarathonOS.Shell
 import "."
 import MarathonUI.Theme
+import MarathonUI.Core
 
 // Peek & Flow - THE signature BlackBerry 10 feature
 // Swipe from left edge to peek at Hub, continue to open fully
@@ -22,6 +23,7 @@ Item {
     
     signal closed()
     signal fullyOpened()
+    signal notificationTapped(var notification)
     
     // Public API for external gesture capture
     function startPeekGesture(x) {
@@ -47,6 +49,8 @@ Item {
         
         // Update peek progress (0 to 1)
         peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)))
+        
+        Logger.info("Peek", "Progress: " + (peekProgress * 100).toFixed(1) + "%, notif visible: " + (peekProgress < 0.35) + ", hub visible: " + (peekProgress >= 0.30))
     }
     
     function endPeekGesture() {
@@ -98,6 +102,10 @@ Item {
         visible: peekProgress > 0 || isPeeking
         clip: true
         
+        Component.onCompleted: {
+            Logger.info("Peek", "hubPanelContainer initialized, width: " + width)
+        }
+        
         Behavior on x {
             enabled: !isPeeking
             NumberAnimation {
@@ -106,10 +114,128 @@ Item {
             }
         }
         
+        // Notification Preview (0-35% peek) - shows icons vertically stacked
+        Item {
+            id: notificationPreview
+            anchors.fill: parent
+            visible: peekProgress < 0.35
+            opacity: peekProgress < 0.30 ? 1.0 : Math.max(0, (0.35 - peekProgress) / 0.05)
+            z: 10
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+            
+            Component.onCompleted: {
+                Logger.info("Peek", "NotificationPreview initialized, count: " + NotificationModel.count)
+            }
+            
+            Rectangle {
+                anchors.fill: parent
+                color: MColors.surface
+                
+                Column {
+                    anchors.left: parent.left
+                    anchors.leftMargin: MSpacing.lg
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: MSpacing.md
+                    
+                    Repeater {
+                        model: NotificationModel
+                        
+                        onCountChanged: {
+                            Logger.info("Peek", "Repeater count changed: " + count + ", NotificationModel.count: " + NotificationModel.count)
+                        }
+                        
+                        Component.onCompleted: {
+                            Logger.info("Peek", "Repeater initialized with count: " + count + ", NotificationModel.count: " + NotificationModel.count)
+                        }
+                        
+                        delegate: Item {
+                            width: 48
+                            height: 48
+                            visible: index < 5
+                            
+                            Component.onCompleted: {
+                                Logger.info("Peek", "Notification item created, index: " + index + ", icon: " + (model.icon || "bell") + ", title: " + (model.title || "none"))
+                            }
+                            
+                            Rectangle {
+                                id: notifIcon
+                                anchors.fill: parent
+                                radius: 24
+                                color: "transparent"
+                                border.width: 1
+                                border.color: MColors.border
+                                
+                                scale: notifMouseArea.pressed ? 0.9 : 1.0
+                                
+                                Behavior on scale {
+                                    NumberAnimation { duration: 100 }
+                                }
+                                
+                                Icon {
+                                    name: model.icon || "bell"
+                                    size: 24
+                                    color: MColors.textPrimary
+                                    anchors.centerIn: parent
+                                }
+                                
+                                Rectangle {
+                                    visible: !model.isRead
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.rightMargin: -2
+                                    anchors.topMargin: -2
+                                    width: 10
+                                    height: 10
+                                    radius: 5
+                                    color: MColors.marathonTeal
+                                }
+                            }
+                            
+                            MouseArea {
+                                id: notifMouseArea
+                                anchors.fill: parent
+                                
+                                onClicked: {
+                                    HapticService.light()
+                                    Logger.info("Peek", "Notification tapped: " + model.title)
+                                    peekComponent.notificationTapped({
+                                        id: model.id,
+                                        title: model.title,
+                                        body: model.body,
+                                        icon: model.icon,
+                                        appId: model.appId
+                                    })
+                                }
+                            }
+                        }
+                    }
+                    
+                    Text {
+                        visible: NotificationModel.count === 0
+                        text: "No notifications"
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                }
+            }
+        }
+        
+        // Full Hub (30%+ peek) - fades in as preview fades out
         MarathonHub {
             id: hubPanel
             anchors.fill: parent
-            isInPeekMode: true  // Tell Hub to apply safe area padding
+            isInPeekMode: true
+            visible: peekProgress >= 0.30
+            opacity: peekProgress < 0.30 ? 0 : Math.min(1, (peekProgress - 0.30) / 0.05)
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
             
             onClosed: {
                 closePeek()
@@ -296,7 +422,7 @@ Item {
     }
     
     Component.onCompleted: {
-        Logger.info("Peek", "Initialized, progress: " + peekProgress)
+        Logger.info("Peek", "MarathonPeek component initialized, progress: " + peekProgress)
         forceActiveFocus()
     }
     

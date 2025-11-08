@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
 
 Page {
     id: mainPage
@@ -11,7 +13,7 @@ Page {
     signal requestClose()
     
     background: Rectangle {
-        color: Colors.backgroundDark
+        color: MColors.background
     }
     
     Flickable {
@@ -26,7 +28,7 @@ Page {
         Column {
             id: settingsContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
@@ -35,19 +37,19 @@ Page {
             // Page title
             Text {
                 text: "Settings"
-                color: Colors.text
-                font.pixelSize: Typography.sizeXLarge
+                color: MColors.textPrimary
+                font.pixelSize: MTypography.sizeXLarge
                 font.weight: Font.Bold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
             }
             
             // Network & Connectivity
-            Section {
+            MSection {
                 title: "Network & Connectivity"
                 subtitle: "Manage your network connections"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "WiFi"
                     subtitle: SystemStatusStore.wifiConnected ? ("Connected" + (SystemStatusStore.wifiNetwork ? " • " + SystemStatusStore.wifiNetwork : "")) : "Not connected"
                     iconName: "wifi"
@@ -57,7 +59,7 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Bluetooth"
                     subtitle: SystemControlStore.isBluetoothOn ? "On" : "Off"
                     iconName: "bluetooth"
@@ -67,7 +69,7 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Mobile Network"
                     subtitle: "Manage cellular data"
                     iconName: "signal"
@@ -77,7 +79,7 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Airplane Mode"
                     subtitle: "Turn off all wireless connections"
                     iconName: "plane"
@@ -90,12 +92,12 @@ Page {
             }
             
             // Display & Brightness
-            Section {
+            MSection {
                 title: "Display & Brightness"
                 subtitle: "Customize your screen settings"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Display Settings"
                     subtitle: "Brightness, rotation, and screen timeout"
                     iconName: "sun"
@@ -107,12 +109,12 @@ Page {
             }
             
             // Sound & Notifications
-            Section {
+            MSection {
                 title: "Sound & Notifications"
                 subtitle: "Manage audio and notification settings"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Sound Settings"
                     subtitle: "Volume, ringtones, and notification sounds"
                     iconName: "volume-2"
@@ -122,7 +124,7 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Notifications"
                     subtitle: "Manage app notifications"
                     iconName: "bell"
@@ -132,7 +134,7 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Do Not Disturb"
                     subtitle: "Silence notifications and calls"
                     iconName: "moon"
@@ -145,12 +147,12 @@ Page {
             }
             
             // Storage & Battery
-            Section {
+            MSection {
                 title: "Storage & Battery"
                 subtitle: "Manage device resources"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Storage"
                     subtitle: "Manage storage and apps"
                     iconName: "hard-drive"
@@ -160,7 +162,7 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Battery Saver"
                     subtitle: "Extend battery life"
                     iconName: "battery"
@@ -173,12 +175,12 @@ Page {
             }
             
             // System
-            Section {
+            MSection {
                 title: "System"
                 subtitle: "Device information and preferences"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "App Manager"
                     subtitle: "Install and manage applications"
                     iconName: "package"
@@ -188,13 +190,104 @@ Page {
                     }
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "About Device"
                     subtitle: "Device name, OS version, and information"
                     iconName: "info"
                     showChevron: true
                     onSettingClicked: {
                         mainPage.navigateToPage("about")
+                    }
+                }
+            }
+            
+            // Apps & Filters
+            MSection {
+                title: "Apps & Filters"
+                subtitle: "Control which apps are displayed"
+                width: parent.width - 48
+                
+                MSettingsListItem {
+                    title: "Hidden Apps"
+                    subtitle: SettingsManagerCpp.hiddenApps.length + " app(s) hidden"
+                    iconName: "eye-off"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("hiddenapps")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Default Apps"
+                    subtitle: "Choose apps for specific actions"
+                    iconName: "star"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("defaultapps")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "App Sorting & Layout"
+                    subtitle: {
+                        var sortText = SettingsManagerCpp.appSortOrder === "alphabetical" ? "Alphabetical" : 
+                                      SettingsManagerCpp.appSortOrder === "frequent" ? "Most Used" :
+                                      SettingsManagerCpp.appSortOrder === "recent" ? "Recently Added" : "Custom"
+                        var gridText = SettingsManagerCpp.appGridColumns === 0 ? "Auto" : SettingsManagerCpp.appGridColumns + " columns"
+                        return sortText + " • " + gridText
+                    }
+                    iconName: "layout"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("appsort")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Filter Non-Mobile Apps"
+                    subtitle: "Only show apps optimized for mobile screens"
+                    iconName: "smartphone"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.filterMobileFriendlyApps
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.filterMobileFriendlyApps = value
+                        Logger.info("Settings", "Mobile app filter: " + value + " (restart required)")
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Search Native Apps"
+                    subtitle: "Include system apps in search results"
+                    iconName: "search"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.searchNativeApps
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.searchNativeApps = value
+                        Logger.info("Settings", "Search native apps: " + value)
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Show Notification Badges"
+                    subtitle: "Display unread counts on app icons"
+                    iconName: "bell-ring"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.showNotificationBadges
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.showNotificationBadges = value
+                        Logger.info("Settings", "Notification badges: " + value)
+                    }
+                }
+                
+                MSettingsListItem {
+                    title: "Show Frequent Apps"
+                    subtitle: "Display most used apps at the top"
+                    iconName: "trending-up"
+                    showToggle: true
+                    toggleValue: SettingsManagerCpp.showFrequentApps
+                    onToggleChanged: (value) => {
+                        SettingsManagerCpp.showFrequentApps = value
+                        Logger.info("Settings", "Show frequent apps: " + value)
                     }
                 }
             }

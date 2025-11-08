@@ -1,36 +1,31 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
+import MarathonUI.Containers
 
-Rectangle {
+MCard {
     id: tabCard
     height: Constants.cardHeight
-    radius: Constants.borderRadiusSharp
-    color: isCurrentTab ? MColors.surface2 : MColors.surface
-    border.width: Constants.borderWidthThin
-    border.color: isCurrentTab ? MColors.accentBright : MColors.borderOuter
-    antialiasing: Constants.enableAntialiasing
+    elevation: isCurrentTab ? 2 : 1
+    interactive: true
     
-    signal clicked()
+    signal tabClicked()
     signal closeRequested()
     
     property var tabData: null
     property bool isCurrentTab: false
     
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: Constants.borderRadiusSharp
-        color: "transparent"
-        border.width: Constants.borderWidthThin
-        border.color: MColors.borderInner
-        antialiasing: Constants.enableAntialiasing
+    border.color: isCurrentTab ? MColors.accentBright : MColors.border
+    
+    onClicked: {
+        tabCard.tabClicked()
     }
     
     Column {
         anchors.fill: parent
-        anchors.margins: Constants.spacingMedium
-        spacing: Constants.spacingSmall
+        anchors.margins: MSpacing.md
+        spacing: MSpacing.sm
         
         Item {
             width: parent.width
@@ -47,17 +42,18 @@ Rectangle {
             
             Column {
                 anchors.left: globeIcon.right
-                anchors.leftMargin: Constants.spacingSmall
+                anchors.leftMargin: MSpacing.sm
                 anchors.right: closeButton.left
-                anchors.rightMargin: Constants.spacingSmall
+                anchors.rightMargin: MSpacing.sm
                 anchors.top: parent.top
                 spacing: 2
                 
                 Text {
                     width: parent.width
                     text: tabData ? (tabData.title || "New Tab") : "New Tab"
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
+                    font.family: MTypography.fontFamily
                     color: isCurrentTab ? MColors.text : MColors.textSecondary
                     elide: Text.ElideRight
                 }
@@ -65,61 +61,41 @@ Rectangle {
                 Text {
                     width: parent.width
                     text: tabData ? (tabData.url || "about:blank") : "about:blank"
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
                     color: MColors.textTertiary
                     elide: Text.ElideMiddle
                 }
             }
             
-            Rectangle {
+            MIconButton {
                 id: closeButton
                 anchors.right: parent.right
                 anchors.top: parent.top
-                width: Constants.touchTargetSmall
-                height: Constants.touchTargetSmall
-                radius: Constants.borderRadiusSmall
-                color: closeMouseArea.pressed ? Qt.rgba(1, 0, 0, 0.2) : "transparent"
+                iconName: "x"
                 
-                Icon {
-                    anchors.centerIn: parent
-                    name: "x"
-                    size: Constants.iconSizeSmall
-                    color: MColors.text
-                }
-                
-                MouseArea {
-                    id: closeMouseArea
-                    anchors.fill: parent
                     onClicked: {
                         tabCard.closeRequested()
-                    }
                 }
             }
         }
         
         Rectangle {
             width: parent.width
-            height: parent.height - Constants.touchTargetSmall - Constants.spacingSmall
+            height: parent.height - Constants.touchTargetSmall - MSpacing.sm
             radius: Constants.borderRadiusSmall
-            color: MColors.backgroundDark
+            color: MColors.background
             border.width: Constants.borderWidthThin
-            border.color: MColors.borderOuter
+            border.color: MColors.border
             clip: true
             
             Text {
                 anchors.centerIn: parent
                 text: tabData ? (tabData.title || tabData.url || "Loading...") : "Loading..."
-                font.pixelSize: Constants.fontSizeSmall
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 color: MColors.textTertiary
             }
-        }
-    }
-    
-    MouseArea {
-        anchors.fill: parent
-        z: -1
-        onClicked: {
-            tabCard.clicked()
         }
     }
 }

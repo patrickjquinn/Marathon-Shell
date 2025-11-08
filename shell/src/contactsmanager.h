@@ -35,6 +35,7 @@ public:
     Q_INVOKABLE void deleteContact(int id);
     Q_INVOKABLE QVariantList searchContacts(const QString& query);
     Q_INVOKABLE QVariantMap getContact(int id);
+    Q_INVOKABLE QVariantMap getContactByNumber(const QString& phoneNumber);
     Q_INVOKABLE void importVCard(const QString& path);
     Q_INVOKABLE void exportVCard(int contactId, const QString& path);
 

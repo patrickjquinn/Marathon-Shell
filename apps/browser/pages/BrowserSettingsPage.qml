@@ -2,11 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Core
+import MarathonUI.Containers
 
 Rectangle {
     id: settingsPage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal clearHistoryRequested()
     signal clearCookiesRequested()
@@ -62,7 +62,7 @@ Rectangle {
                     }
                 ]
                 
-                delegate: SettingsListItem {
+                delegate: MSettingsListItem {
                     title: modelData.title
                     subtitle: modelData.subtitle
                     iconName: modelData.iconName

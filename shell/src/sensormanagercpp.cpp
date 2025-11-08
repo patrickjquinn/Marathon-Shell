@@ -140,3 +140,58 @@ int SensorManagerCpp::readAmbientLightSensor()
     return value.toInt();
 }
 
+void SensorManagerCpp::enableLightSensor(const QString& sensorPath)
+{
+    // Enable IIO sensor buffer
+    // echo 1 > {sensorPath}/buffer/enable
+    QString enablePath = sensorPath + "/buffer/enable";
+    QFile file(enablePath);
+    
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[SensorManagerCpp] Failed to open" << enablePath;
+        return;
+    }
+    
+    file.write("1\n");
+    file.close();
+    qDebug() << "[SensorManagerCpp] Enabled light sensor at:" << sensorPath;
+}
+
+void SensorManagerCpp::disableLightSensor(const QString& sensorPath)
+{
+    // Disable IIO sensor buffer
+    // echo 0 > {sensorPath}/buffer/enable
+    QString enablePath = sensorPath + "/buffer/enable";
+    QFile file(enablePath);
+    
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[SensorManagerCpp] Failed to open" << enablePath;
+        return;
+    }
+    
+    file.write("0\n");
+    file.close();
+    qDebug() << "[SensorManagerCpp] Disabled light sensor at:" << sensorPath;
+}
+
+int SensorManagerCpp::readLightLevel(const QString& sensorPath)
+{
+    // Read illuminance from sensor
+    QString valuePath = sensorPath + "/in_illuminance_input";
+    QFile file(valuePath);
+    
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        // Try alternative path
+        valuePath = sensorPath + "/in_illuminance_raw";
+        file.setFileName(valuePath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return 500; // Default moderate light
+        }
+    }
+    
+    QString value = file.readAll().trimmed();
+    file.close();
+    
+    return value.toInt();
+}
+

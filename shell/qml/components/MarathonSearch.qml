@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Item {
@@ -42,16 +43,16 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.95)
+        color: MColors.background
     }
     
     Column {
         anchors.fill: parent
-        anchors.topMargin: Constants.safeAreaTop + 8
-        anchors.leftMargin: Constants.spacingLarge
-        anchors.rightMargin: Constants.spacingLarge
-        anchors.bottomMargin: Constants.safeAreaBottom + 20
-        spacing: Constants.spacingMedium
+        anchors.topMargin: Constants.safeAreaTop + MSpacing.md
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
+        anchors.bottomMargin: Constants.safeAreaBottom + MSpacing.lg
+        spacing: MSpacing.md
         z: 10
         
         Item {
@@ -62,10 +63,10 @@ Item {
                 id: searchBarContainer
                 anchors.fill: parent
                 color: MColors.surface
-                radius: Constants.borderRadiusSharp
-                border.width: searchInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: searchInput.activeFocus ? MColors.accentBright : MColors.borderOuter
-                antialiasing: Constants.enableAntialiasing
+                radius: MRadius.lg
+                border.width: searchInput.activeFocus ? 2 : 1
+                border.color: searchInput.activeFocus ? MColors.accentBright : MColors.border
+                antialiasing: true
                 
                 Behavior on border.color {
                     ColorAnimation { duration: 200 }
@@ -73,13 +74,13 @@ Item {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: Constants.spacingMedium
+                    anchors.margins: MSpacing.sm
+                    spacing: MSpacing.sm
                     
                     Icon {
                         anchors.verticalCenter: parent.verticalCenter
                         name: "search"
-                        size: Constants.iconSizeMedium
+                        size: 24
                         color: searchInput.activeFocus ? MColors.accentBright : MColors.textSecondary
                         
                         Behavior on color {
@@ -90,12 +91,13 @@ Item {
                     TextInput {
                         id: searchInput
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - 80
+                        width: parent.width - 64
                         color: MColors.text
-                        font.pixelSize: MTypography.sizeLarge
+                        font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         selectionColor: MColors.accentBright
                         selectedTextColor: MColors.text
+                        clip: true
                         
                         Keys.onEscapePressed: searchOverlay.close()
                         Keys.onDownPressed: resultsList.forceActiveFocus()
@@ -114,16 +116,22 @@ Item {
                         }
                     }
                     
-                    Icon {
+                    Item {
                         anchors.verticalCenter: parent.verticalCenter
-                        name: "x"
-                        size: Constants.iconSizeSmall
-                        color: MColors.textSecondary
+                        width: 20
+                        height: 20
                         visible: searchInput.text.length > 0
+                        
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "x"
+                            size: 16
+                            color: MColors.textSecondary
+                        }
                         
                         MouseArea {
                             anchors.fill: parent
-                            anchors.margins: -8
+                            anchors.margins: -6
                             onClicked: {
                                 searchInput.text = ""
                                 searchInput.forceActiveFocus()
@@ -134,12 +142,12 @@ Item {
             }
         }
         
-        ListView {
+            ListView {
             id: resultsList
             width: parent.width
             height: parent.height - 76
             clip: true
-            spacing: Constants.spacingSmall
+            spacing: MSpacing.xs
             model: searchOverlay.searchResults
             interactive: true
             boundsBehavior: Flickable.StopAtBounds
@@ -162,10 +170,10 @@ Item {
             delegate: Rectangle {
                 width: resultsList.width
                 height: Constants.appIconSize
-                color: resultMouseArea.pressed ? MColors.surface2 : 
-                       (resultsList.currentIndex === index ? MColors.surface1 : "transparent")
-                radius: Constants.borderRadiusSharp
-                antialiasing: Constants.enableAntialiasing
+                color: resultMouseArea.pressed ? MColors.pressed : 
+                       (resultsList.currentIndex === index ? MColors.highlightSubtle : "transparent")
+                radius: MRadius.md
+                antialiasing: true
                 
                 Behavior on color {
                     ColorAnimation { duration: 150 }
@@ -173,16 +181,16 @@ Item {
                 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
+                    spacing: MSpacing.md
                     
                     Rectangle {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 48
                         height: 48
-                        radius: modelData.type === "app" ? Constants.borderRadiusSharp : 24
-                        color: MColors.surface1
-                        antialiasing: Constants.enableAntialiasing
+                        radius: modelData.type === "app" ? MRadius.sm : 24
+                        color: MColors.elevated
+                        antialiasing: true
                         
                         Image {
                             anchors.centerIn: parent
@@ -197,7 +205,7 @@ Item {
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 76
-                        spacing: 4
+                        spacing: MSpacing.xs
                         
                         Text {
                             width: parent.width
@@ -210,15 +218,15 @@ Item {
                         }
                         
                         Row {
-                            spacing: Constants.spacingSmall
+                            spacing: MSpacing.sm
                             
                             Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: typeText.width + 12
-                                height: Constants.navBarHeight
-                                radius: Constants.borderRadiusSharp
+                                width: typeText.width + MSpacing.md
+                                height: 20
+                                radius: MRadius.sm
                                 color: {
-                                    if (modelData.type === "app") return MColors.surface2
+                                    if (modelData.type === "app") return MColors.elevated
                                     if (modelData.type === "deeplink") return Qt.rgba(139/255, 92/255, 246/255, 0.15)
                                     return Qt.rgba(59/255, 130/255, 246/255, 0.15)
                                 }
@@ -312,7 +320,7 @@ Item {
             return
         }
         
-        Logger.info("Search", "Result selected: " + result.title)
+        Logger.info("Search", "Result selected: " + result.title + " (type: " + result.type + ")")
         UnifiedSearchService.addToRecentSearches(searchQuery)
         
         // Close first to prevent double-tap through
@@ -320,7 +328,7 @@ Item {
         
         // Execute after a brief delay to ensure search is closed
         Qt.callLater(function() {
-            UnifiedSearchService.executeSearchResult(result)
+            // Emit signal to parent (MarathonShell) to handle launch
             resultSelected(result)
         })
     }

@@ -1,9 +1,8 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Theme
 import "../components"
-import "../components" as ClockComponents
 
 Item {
     id: alarmPage
@@ -19,7 +18,7 @@ Item {
             ListView {
                 id: alarmsList
                 anchors.fill: parent
-                anchors.topMargin: Constants.spacingMedium
+                anchors.topMargin: MSpacing.md
                 clip: true
                 model: clockApp.alarms
                 spacing: 0
@@ -67,21 +66,21 @@ Item {
                     Column {
                         id: emptyColumn
                         anchors.centerIn: parent
-                        spacing: Constants.spacingLarge
+                        spacing: MSpacing.lg
                         
-                        ClockComponents.ClockIcon {
+                        ClockIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: "clock"
                             size: Constants.iconSizeXLarge * 2
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             opacity: 0.5
                         }
                         
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "No alarms set"
-                            color: Colors.textSecondary
-                            font.pixelSize: Constants.fontSizeLarge
+                            color: MColors.textSecondary
+                            font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Medium
                         }
                         
@@ -89,8 +88,8 @@ Item {
                             width: parent.width
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "Tap the + button to create an alarm"
-                            color: Colors.textSecondary
-                            font.pixelSize: Constants.fontSizeMedium
+                            color: MColors.textSecondary
+                            font.pixelSize: MTypography.sizeBody
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                         }
@@ -103,9 +102,9 @@ Item {
     MIconButton {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: Constants.spacingLarge
-        icon: "plus"
-        size: Constants.touchTargetLarge
+        anchors.margins: MSpacing.lg
+        iconName: "plus"
+        iconSize: 28
         variant: "primary"
         shape: "circular"
         onClicked: {

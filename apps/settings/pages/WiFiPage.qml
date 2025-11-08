@@ -1,6 +1,9 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Core
 import "../components"
 
 SettingsPageTemplate {
@@ -17,74 +20,32 @@ SettingsPageTemplate {
         Column {
             id: wifiContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
             
             // WiFi toggle
-            Rectangle {
+            MSettingsListItem {
                 width: parent.width - 48
-                height: Constants.appIconSize
-                radius: 4
-                color: Qt.rgba(255, 255, 255, 0.04)
-                border.width: 1
-                border.color: Qt.rgba(255, 255, 255, 0.08)
-                
-                Icon {
-                    id: wifiIcon
-                    name: "wifi"
-                    size: Constants.iconSizeMedium
-                    color: Colors.text
-                    anchors.left: parent.left
-                    anchors.leftMargin: 16
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                
-                Column {
-                    anchors.left: wifiIcon.right
-                    anchors.leftMargin: Constants.spacingMedium
-                    anchors.right: wifiToggle.left
-                    anchors.rightMargin: Constants.spacingMedium
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 4
-                    
-                    Text {
-                        text: "WiFi"
-                        color: Colors.text
-                        font.pixelSize: Typography.sizeBody
-                        font.weight: Font.DemiBold
-                        font.family: Typography.fontFamily
-                    }
-                    
-                    Text {
-                        text: NetworkManager.wifiEnabled ? "Enabled" : "Disabled"
-                        color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
-                    }
-                }
-                
-                MarathonToggle {
-                    id: wifiToggle
-                    anchors.right: parent.right
-                    anchors.rightMargin: Constants.spacingMedium
-                    anchors.verticalCenter: parent.verticalCenter
-                    checked: NetworkManager.wifiEnabled
-                    onToggled: {
-                        NetworkManager.toggleWifi()
-                        if (NetworkManager.wifiEnabled) {
-                            // Start scanning when WiFi is turned on
-                            Qt.callLater(() => {
-                                NetworkManager.scanWifi()
-                            })
-                        }
+                title: "WiFi"
+                subtitle: NetworkManager.wifiEnabled ? "Enabled" : "Disabled"
+                iconName: "wifi"
+                showToggle: true
+                toggleValue: NetworkManager.wifiEnabled
+                onToggleChanged: {
+                    NetworkManager.toggleWifi()
+                    if (NetworkManager.wifiEnabled) {
+                        // Start scanning when WiFi is turned on
+                        Qt.callLater(() => {
+                            NetworkManager.scanWifi()
+                        })
                     }
                 }
             }
             
             // Current network (if connected)
-            Section {
+            MSection {
                 title: "Current Network"
                 width: parent.width - 48
                 visible: NetworkManager.wifiConnected && NetworkManager.wifiEnabled
@@ -100,7 +61,7 @@ SettingsPageTemplate {
                     Row {
                         anchors.fill: parent
                         anchors.margins: 16
-                        spacing: Constants.spacingMedium
+                        spacing: MSpacing.md
                         
                         Icon {
                             name: "wifi"
@@ -116,19 +77,19 @@ SettingsPageTemplate {
                             
                             Text {
                                 text: NetworkManager.wifiSsid || "Connected"
-                                color: Colors.text
-                                font.pixelSize: Typography.sizeBody
+                                color: MColors.textPrimary
+                                font.pixelSize: MTypography.sizeBody
                                 font.weight: Font.DemiBold
-                                font.family: Typography.fontFamily
+                                font.family: MTypography.fontFamily
                                 elide: Text.ElideRight
                                 width: parent.width
                             }
                             
                             Text {
                                 text: "Connected • " + NetworkManager.wifiSignalStrength + "% signal"
-                                color: Colors.textSecondary
-                                font.pixelSize: Typography.sizeSmall
-                                font.family: Typography.fontFamily
+                                color: MColors.textSecondary
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
                             }
                         }
                         
@@ -137,7 +98,7 @@ SettingsPageTemplate {
                         Icon {
                             name: "chevron-down"
                             size: Constants.iconSizeSmall
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             rotation: -90
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -154,7 +115,7 @@ SettingsPageTemplate {
             }
             
             // Available networks
-            Section {
+            MSection {
                 title: NetworkManager.wifiEnabled ? "Available Networks" : "Turn on WiFi to see networks"
                 width: parent.width - 48
                 visible: NetworkManager.wifiEnabled
@@ -163,7 +124,7 @@ SettingsPageTemplate {
                 Row {
                     width: parent.width
                     height: 48
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
                     visible: NetworkManager.isScanning
                     
                     BusyIndicator {
@@ -175,9 +136,9 @@ SettingsPageTemplate {
                     
                     Text {
                         text: "Scanning for networks..."
-                        color: Colors.textSecondary
-                        font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeBody
+                        font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -185,91 +146,19 @@ SettingsPageTemplate {
                 // Network list
                 Column {
                     width: parent.width
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     visible: !NetworkManager.isScanning && NetworkManager.availableNetworks.length > 0
                     
-                    Repeater {
-                        model: NetworkManager.availableNetworks
-                        
-                        Rectangle {
-                            width: parent.width
-                            height: Constants.appIconSize
-                            radius: 4
-                            color: Qt.rgba(255, 255, 255, 0.04)
-                            border.width: 1
-                            border.color: Qt.rgba(255, 255, 255, 0.08)
+                        Repeater {
+                            model: NetworkManager.availableNetworks
                             
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: Constants.spacingMedium
-                                
-                                // Signal strength indicator
-                                Icon {
-                                    name: "wifi"
-                                    size: Constants.iconSizeMedium
-                                    color: modelData.signal > 60 ? Qt.rgba(20, 184, 166, 1.0) : 
-                                           modelData.signal > 30 ? Colors.text : Colors.textSecondary
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    opacity: modelData.signal > 60 ? 1.0 :
-                                             modelData.signal > 30 ? 0.7 : 0.4
-                                }
-                                
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 4
-                                    width: parent.width - 100
-                                    
-                                    Text {
-                                        text: modelData.ssid
-                                        color: Colors.text
-                                        font.pixelSize: Typography.sizeBody
-                                        font.weight: Font.Medium
-                                        font.family: Typography.fontFamily
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
-                                    
-                                    Row {
-                                        spacing: Constants.spacingSmall
-                                        
-                                        Text {
-                                            text: modelData.security || "Open"
-                                            color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            font.family: Typography.fontFamily
-                                        }
-                                        
-                                        Text {
-                                            text: "•"
-                                            color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            visible: modelData.frequency
-                                        }
-                                        
-                                        Text {
-                                            text: modelData.frequency ? (modelData.frequency + " GHz") : ""
-                                            color: Colors.textSecondary
-                                            font.pixelSize: Typography.sizeSmall
-                                            font.family: Typography.fontFamily
-                                            visible: modelData.frequency
-                                        }
-                                    }
-                                }
-                                
-                                Item { width: 1; height: 1 } // Spacer
-                                
-                                Icon {
-                                    name: modelData.secure ? "lock" : "globe"
-                                    size: Constants.iconSizeSmall
-                                    color: Colors.textSecondary
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-                            }
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: {
+                            MSettingsListItem {
+                                width: parent.width
+                                title: modelData.ssid
+                                subtitle: (modelData.security || "Open") + (modelData.frequency ? (" • " + modelData.frequency + " GHz") : "")
+                                iconName: "wifi"
+                                showChevron: true
+                                onSettingClicked: {
                                     HapticService.light()
                                     Logger.info("WiFiPage", "Connect to: " + modelData.ssid)
                                     
@@ -283,16 +172,15 @@ SettingsPageTemplate {
                                 }
                             }
                         }
-                    }
                 }
                 
                 // No networks found
                 Text {
                     width: parent.width
                     text: "No networks found"
-                    color: Colors.textSecondary
-                    font.pixelSize: Typography.sizeBody
-                    font.family: Typography.fontFamily
+                    color: MColors.textSecondary
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
                     horizontalAlignment: Text.AlignHCenter
                     topPadding: 24
                     bottomPadding: 24
@@ -300,42 +188,15 @@ SettingsPageTemplate {
                 }
                 
                 // Rescan button
-                Rectangle {
+                MButton {
                     width: parent.width
-                    height: 48
-                    radius: 4
-                    color: Qt.rgba(20, 184, 166, 0.12)
-                    border.width: 1
-                    border.color: Qt.rgba(20, 184, 166, 0.3)
+                    text: "Scan for networks"
+                    iconName: "rotate-cw"
+                    variant: "primary"
                     visible: !NetworkManager.isScanning
-                    
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: Constants.spacingSmall
-                        
-                        Icon {
-                            name: "rotate-cw"
-                            size: Constants.iconSizeSmall
-                            color: Qt.rgba(20, 184, 166, 1.0)
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        
-                        Text {
-                            text: "Scan for networks"
-                            color: Qt.rgba(20, 184, 166, 1.0)
-                            font.pixelSize: Typography.sizeBody
-                            font.weight: Font.Medium
-                            font.family: Typography.fontFamily
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                    }
-                    
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            HapticService.medium()
-                            NetworkManager.scanWifi()
-                        }
+                    onClicked: {
+                        HapticService.medium()
+                        NetworkManager.scanWifi()
                     }
                 }
             }

@@ -2,7 +2,7 @@ pragma Singleton
 import QtQuick
 import Qt.labs.settings
 
-QtObject {
+Item {
     id: root
     
     property var runningApps: ({})

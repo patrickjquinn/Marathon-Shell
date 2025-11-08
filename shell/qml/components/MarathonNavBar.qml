@@ -1,17 +1,18 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
     id: navBar
     height: Constants.navBarHeight
-    color: MColors.backgroundDark
+    color: MColors.background
     
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: Constants.borderWidthThin
-        color: MColors.borderOuter
+        color: MColors.border
     }
     
     signal swipeLeft()
@@ -22,6 +23,7 @@ Rectangle {
     signal minimizeApp()
     signal startPageTransition()
     signal toggleKeyboard()
+    signal toggleSearch()
     
     property real startX: 0
     property real startY: 0
@@ -69,21 +71,68 @@ Rectangle {
     property bool isAppOpen: false
     property real gestureProgress: 0
     property bool keyboardVisible: false
+    property bool searchActive: false
+    
+    // Search button (small, bottom left of nav bar)
+    Item {
+        id: searchButton
+        anchors.left: parent.left
+        anchors.leftMargin: MSpacing.sm
+        anchors.verticalCenter: parent.verticalCenter
+        width: 16
+        height: 16
+        z: 300
+        
+        Rectangle {
+            anchors.fill: parent
+            radius: MRadius.sm
+            color: navBar.searchActive ? MColors.accent : MColors.surface
+            opacity: navBar.searchActive ? 0.3 : 0.15
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+        }
+        
+        Icon {
+            name: "search"
+            size: 12
+            color: navBar.searchActive ? MColors.accentBright : MColors.text
+            anchors.centerIn: parent
+            opacity: navBar.searchActive ? 1.0 : 0.6
+            
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+            
+            Behavior on color {
+                ColorAnimation { duration: 150 }
+            }
+        }
+        
+        MouseArea {
+            anchors.fill: parent
+            anchors.margins: -4
+            onClicked: {
+                HapticService.light()
+                navBar.toggleSearch()
+            }
+        }
+    }
     
     // Keyboard button (small, bottom right of nav bar)
     Item {
         id: keyboardButton
         anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingSmall
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 2
-        width: Constants.iconSizeSmall + 4
-        height: Constants.iconSizeSmall + 4
+        anchors.rightMargin: MSpacing.sm
+        anchors.verticalCenter: parent.verticalCenter
+        width: 16
+        height: 16
         z: 300
         
         Rectangle {
             anchors.fill: parent
-            radius: Constants.borderRadiusSmall
+            radius: MRadius.sm
             color: navBar.keyboardVisible ? MColors.accent : MColors.surface
             opacity: navBar.keyboardVisible ? 0.3 : 0.15
             
@@ -94,8 +143,8 @@ Rectangle {
         
         Icon {
             name: "keyboard"
-            size: Constants.iconSizeSmall - 2
-            color: navBar.keyboardVisible ? MColors.accent : MColors.text
+            size: 12
+            color: navBar.keyboardVisible ? MColors.accentBright : MColors.text
             anchors.centerIn: parent
             opacity: navBar.keyboardVisible ? 1.0 : 0.6
             
@@ -227,17 +276,28 @@ Rectangle {
             
             // Only process navigation gestures if search is NOT open
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
-                if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
-                    Logger.info("NavBar", "⬆️ MINIMIZE GESTURE - diffY: " + diffY + ", gestureProgress: " + gestureProgress)
-                    minimizeApp()
-                    gestureProgressResetTimer.start()
-                } else if (diffY > longSwipeThreshold) {
-                    Logger.info("NavBar", "Long swipe up - Task switcher")
+                if (diffY > longSwipeThreshold) {
+                    // Long swipe up - Always go to task switcher
+                    Logger.info("NavBar", "🔥🔥🔥 LONG SWIPE UP TRIGGERED 🔥🔥🔥")
+                    Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + longSwipeThreshold)
+                    Logger.info("NavBar", "  isAppOpen: " + isAppOpen)
+                    Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                    Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
                     longSwipeUp()
                     currentX = 0
                     currentY = 0
                     gestureProgress = 0
+                } else if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
+                    // Short swipe up while app is open - Minimize app
+                    Logger.info("NavBar", "⬆️⬆️⬆️ MINIMIZE GESTURE TRIGGERED ⬆️⬆️⬆️")
+                    Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + gestureProgress)
+                    Logger.info("NavBar", "  isAppOpen: " + isAppOpen)
+                    Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
+                    Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
+                    minimizeApp()
+                    gestureProgressResetTimer.start()
                 } else if (diffY > shortSwipeThreshold) {
+                    // Short swipe up - Go home
                     Logger.info("NavBar", "Short swipe up - Go home")
                     shortSwipeUp()
                     currentX = 0

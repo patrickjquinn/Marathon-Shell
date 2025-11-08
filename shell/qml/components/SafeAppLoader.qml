@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Item {
     id: root
@@ -36,7 +38,7 @@ Item {
                 text: "App Crashed"
                 font.pixelSize: Constants.fontSizeXLarge
                 font.weight: Font.DemiBold
-                color: MColors.text
+                color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
             }
             
@@ -49,28 +51,10 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
             }
             
-            Button {
+            MButton {
                 text: "Restart App"
+                variant: "primary"
                 anchors.horizontalCenter: parent.horizontalCenter
-                
-                background: Rectangle {
-                    color: parent.pressed ? MColors.accentDark : MColors.accent
-                    radius: Constants.borderRadiusSmall
-                    
-                    Behavior on color {
-                        ColorAnimation { duration: Constants.animationFast }
-                    }
-                }
-                
-                contentItem: Text {
-                    text: parent.text
-                    font.pixelSize: Constants.fontSizeMedium
-                    font.weight: Font.Medium
-                    color: MColors.text
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                
                 onClicked: root.restart()
             }
         }
@@ -104,6 +88,27 @@ Item {
         onLoaded: {
             if (item) {
                 console.log("SafeAppLoader: Successfully loaded app", root.appId)
+                
+                // Connect to app's registration signals
+                if (item.requestRegister) {
+                    item.requestRegister.connect(function(appId, appInstance) {
+                        console.log("SafeAppLoader: App requested registration:", appId)
+                        if (typeof AppLifecycleManager !== 'undefined') {
+                            AppLifecycleManager.registerApp(appId, appInstance)
+                        } else {
+                            console.error("SafeAppLoader: AppLifecycleManager not available!")
+                        }
+                    })
+                }
+                
+                if (item.requestUnregister) {
+                    item.requestUnregister.connect(function(appId) {
+                        console.log("SafeAppLoader: App requested unregistration:", appId)
+                        if (typeof AppLifecycleManager !== 'undefined') {
+                            AppLifecycleManager.unregisterApp(appId)
+                        }
+                    })
+                }
             }
         }
     }

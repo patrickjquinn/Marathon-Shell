@@ -1,12 +1,14 @@
 #include "marathonnotificationservice.h"
 #include "notificationdatabase.h"
+#include "../notificationmodel.h"
 #include <QDBusConnection>
 #include <QDateTime>
 #include <QDebug>
 
-MarathonNotificationService::MarathonNotificationService(NotificationDatabase *database, QObject *parent)
+MarathonNotificationService::MarathonNotificationService(NotificationDatabase *database, NotificationModel *model, QObject *parent)
     : QObject(parent)
     , m_database(database)
+    , m_model(model)
 {
 }
 
@@ -55,6 +57,9 @@ uint MarathonNotificationService::Notify(const QString &appId, const QString &ti
     uint id = m_database->saveNotification(record);
     
     if (id > 0) {
+        if (m_model) {
+            m_model->addNotification(appId, title, body, record.iconPath);
+        }
         emit NotificationReceived(id, appId, title, body);
     }
     

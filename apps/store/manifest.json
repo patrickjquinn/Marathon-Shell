@@ -1,0 +1,16 @@
+{
+  "id": "store",
+  "name": "App Store",
+  "version": "1.0.0",
+  "entryPoint": "StoreApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": [
+    "network"
+  ],
+  "minShellVersion": "1.0.0",
+  "protected": true,
+  "searchKeywords": ["apps", "install", "download", "software", "store"],
+  "categories": ["System"]
+}
+

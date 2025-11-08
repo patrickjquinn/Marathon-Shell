@@ -25,13 +25,14 @@
 #include "src/audiomanagercpp.h"
 #include "src/modemmanagercpp.h"
 #include "src/sensormanagercpp.h"
-#include "src/notificationservice.h"
 #include "src/settingsmanager.h"
 #include "src/bluetoothmanager.h"
 #include "src/marathonappregistry.h"
 #include "src/marathonappscanner.h"
 #include "src/marathonapploader.h"
 #include "src/marathonappinstaller.h"
+#include "src/marathonpermissionmanager.h"
+#include "src/marathonappstoreservice.h"
 #include "src/contactsmanager.h"
 #include "src/telephonyservice.h"
 #include "src/callhistorymanager.h"
@@ -55,6 +56,7 @@
 #include "src/dbus/notificationdatabase.h"
 #include "src/dbus/marathonstorageservice.h"
 #include "src/dbus/marathonsettingsservice.h"
+#include "src/dbus/marathonpermissionportal.h"
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
@@ -183,6 +185,19 @@ int main(int argc, char *argv[])
     QtWebEngineQuick::initialize();
 #endif
     
+    // CRITICAL: Disable Qt's automatic HiDPI scaling for the compositor window
+    // 
+    // Problem: On HiDPI host displays (devicePixelRatio=2), Qt automatically doubles the window's
+    // internal resolution. For a 540x1140 window, Qt would render at 1080x2280 internally, then
+    // downscale to fit the window, causing blurriness in embedded Wayland apps.
+    //
+    // Solution: Set PassThrough policy to disable automatic scaling, ensuring 1:1 pixel mapping.
+    // Combined with m_output->setScaleFactor(1) in the compositor, this forces apps to render
+    // at the exact window size (540x1140) without any scaling artifacts.
+    //
+    // Must be called BEFORE creating QGuiApplication.
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+    
     QGuiApplication app(argc, argv);
     
     // Set RT priority for input handling (Priority 85 per Marathon OS spec)
@@ -255,12 +270,25 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("MPRIS2Controller", mpris2Controller);
     qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
     
+    // CRITICAL: Create SettingsManager BEFORE compositor manager
+    // The compositor needs access to userScaleFactor for physical size calculation
+    SettingsManager *settingsManager = new SettingsManager(&app);
+    engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
+    
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
-    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(&app);
+    // Pass SettingsManager for dynamic physical size calculation
+    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(settingsManager, &app);
     engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
     
     // Set debug mode context property
     engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
+    
+    // Expose Wayland availability to QML
+#ifdef HAVE_WAYLAND
+    engine.rootContext()->setContextProperty("HAVE_WAYLAND", true);
+#else
+    engine.rootContext()->setContextProperty("HAVE_WAYLAND", false);
+#endif
     
     // Register DesktopFileParser as a singleton accessible from QML
     DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);
@@ -291,14 +319,13 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("TaskModel", taskModel);
     engine.rootContext()->setContextProperty("NotificationModel", notificationModel);
     
-    // Register C++ services
+    // Register C++ services (SettingsManager already created above for compositor)
     NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
     PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
     DisplayManagerCpp *displayManager = new DisplayManagerCpp(&app);
     AudioManagerCpp *audioManager = new AudioManagerCpp(&app);
     ModemManagerCpp *modemManager = new ModemManagerCpp(&app);
     SensorManagerCpp *sensorManager = new SensorManagerCpp(&app);
-    SettingsManager *settingsManager = new SettingsManager(&app);
     StorageManager *storageManager = new StorageManager(&app);
     BluetoothManager *bluetoothManager = new BluetoothManager(&app);
     RotationManager *rotationManager = new RotationManager(&app);
@@ -312,7 +339,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
     engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
     engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
-    engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
     engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     engine.rootContext()->setContextProperty("RotationManager", rotationManager);
@@ -343,6 +369,9 @@ int main(int argc, char *argv[])
             qWarning() << "[MarathonShell] Failed to initialize notification database";
         }
         
+        // Load existing notifications from database into model
+        notificationModel->loadFromDatabase(notifDb);
+        
         // Register ApplicationService
         MarathonApplicationService *appService = new MarathonApplicationService(
             appRegistry, appLoader, taskModel, &app);
@@ -358,16 +387,19 @@ int main(int argc, char *argv[])
         }
         
         // Register NotificationService
-        MarathonNotificationService *notifService = new MarathonNotificationService(notifDb, &app);
+        MarathonNotificationService *notifService = new MarathonNotificationService(notifDb, notificationModel, &app);
         if (notifService->registerService()) {
             qInfo() << "[MarathonShell]   ✓ NotificationService registered";
         }
         
         // Register freedesktop.org Notifications (standard interface for 3rd-party apps)
-        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, &app);
+        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, notificationModel, &app);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
         }
+        
+        // Expose to QML for inline-reply functionality
+        engine.rootContext()->setContextProperty("FreedesktopNotifications", freedesktopNotif);
         
         // Register StorageService
         MarathonStorageService *storageService = new MarathonStorageService(storageManager, &app);
@@ -383,6 +415,24 @@ int main(int argc, char *argv[])
         
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
+    
+    // Register Permission Manager
+    MarathonPermissionManager *permissionManager = new MarathonPermissionManager(&app);
+    engine.rootContext()->setContextProperty("PermissionManager", permissionManager);
+    qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
+    
+    // Register Permission Portal (D-Bus)
+    if (bus.isConnected()) {
+        MarathonPermissionPortal *permissionPortal = new MarathonPermissionPortal(permissionManager, &app);
+        if (permissionPortal->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ PermissionPortal registered";
+        }
+    }
+    
+    // Register App Store Service
+    MarathonAppStoreService *appStoreService = new MarathonAppStoreService(appInstaller, &app);
+    engine.rootContext()->setContextProperty("AppStoreService", appStoreService);
+    qInfo() << "[MarathonShell] ✓ App Store Service initialized";
     
     // Register Telephony & Messaging services
     ContactsManager *contactsManager = new ContactsManager(&app);
@@ -478,7 +528,12 @@ int main(int argc, char *argv[])
         QDir::homePath() + "/.local/share/flatpak/exports/share/applications"  // User Flatpak apps
     };
     qDebug() << "[Marathon] Scanning for native apps in:" << searchPaths;
-    QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths);
+    
+    // Use the mobile-friendly filter setting
+    bool filterMobile = settingsManager->filterMobileFriendlyApps();
+    qDebug() << "[Marathon] Filter mobile-friendly apps:" << filterMobile;
+    
+    QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths, filterMobile);
     qDebug() << "[Marathon] Found" << nativeApps.count() << "native apps";
     for (const QVariant& appVariant : nativeApps) {
         QVariantMap app = appVariant.toMap();
@@ -502,23 +557,21 @@ int main(int argc, char *argv[])
     engine.addImportPath("qrc:/");
     engine.addImportPath(":/");
     
+    // Add MarathonUI installation path (from independent build)
+    // On macOS: ~/.local/share/marathon-ui (from CMAKE_INSTALL_PREFIX)
+    // On Linux: ~/.local/share/marathon-ui or /usr/lib/qt6/qml/MarathonUI
+    QString marathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
+    engine.addImportPath(marathonUIPath);
+    qDebug() << "Added MarathonUI import path:" << marathonUIPath;
+    
+    // Also try system location for production builds
+    QString systemMarathonUIPath = "/usr/lib/qt6/qml/MarathonUI";
+    engine.addImportPath(systemMarathonUIPath);
+    
     // Add build directory path for MarathonUI modules (for development)
     QString buildPath = QCoreApplication::applicationDirPath() + "/../../../qml";
     engine.addImportPath(buildPath);
     qDebug() << "Added QML import path:" << buildPath;
-    
-    // MarathonUI plugin modules are built in qml/MarathonUI/*/qml/
-    QString marathonUIContainersPath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Containers/qml";
-    engine.addImportPath(marathonUIContainersPath);
-    qDebug() << "Added MarathonUI.Containers import path:" << marathonUIContainersPath;
-    
-    QString marathonUICorePath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Core/qml";
-    engine.addImportPath(marathonUICorePath);
-    qDebug() << "Added MarathonUI.Core import path:" << marathonUICorePath;
-    
-    QString marathonUIControlsPath = QCoreApplication::applicationDirPath() + "/../../../qml/MarathonUI/Controls/qml";
-    engine.addImportPath(marathonUIControlsPath);
-    qDebug() << "Added MarathonUI.Controls import path:" << marathonUIControlsPath;
     
     const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     

@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Page {
     id: pageTemplate
@@ -12,7 +14,7 @@ Page {
     signal navigateBack()
     
     background: Rectangle {
-        color: Colors.backgroundDark
+        color: MColors.background
     }
     
     // Header with back button (BB10 style)
@@ -22,30 +24,30 @@ Page {
         anchors.left: parent.left
         anchors.right: parent.right
         height: Constants.actionBarHeight
-        color: Colors.surface
+        color: MColors.surface
         z: 10
         visible: showBackButton
         
         Row {
             anchors.left: parent.left
-            anchors.leftMargin: Constants.spacingMedium
+            anchors.leftMargin: MSpacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Constants.spacingMedium
+            spacing: MSpacing.md
             
             Icon {
                 name: "chevron-down"
                 size: Constants.iconSizeMedium
-                color: Colors.text
+                color: MColors.textPrimary
                 anchors.verticalCenter: parent.verticalCenter
                 rotation: 90
             }
             
             Text {
                 text: pageTemplate.pageTitle
-                color: Colors.text
-                font.pixelSize: Typography.sizeBody
+                color: MColors.textPrimary
+                font.pixelSize: MTypography.sizeBody
                 font.weight: Font.DemiBold
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
@@ -60,7 +62,7 @@ Page {
             // Press feedback
             Rectangle {
                 anchors.fill: parent
-                color: Colors.text
+                color: MColors.textPrimary
                 opacity: parent.pressed ? 0.1 : 0
                 Behavior on opacity {
                     NumberAnimation { duration: 150 }

@@ -2,6 +2,44 @@
 #define AUDIOMANAGERCPP_H
 
 #include <QObject>
+#include <QAbstractListModel>
+#include <QTimer>
+
+struct AudioStream {
+    int id;
+    QString name;
+    QString appName;
+    double volume;
+    bool muted;
+    QString mediaClass; // "Stream/Output/Audio" etc.
+};
+
+class AudioStreamModel : public QAbstractListModel
+{
+    Q_OBJECT
+    
+public:
+    enum StreamRoles {
+        IdRole = Qt::UserRole + 1,
+        NameRole,
+        AppNameRole,
+        VolumeRole,
+        MutedRole,
+        MediaClassRole
+    };
+    
+    explicit AudioStreamModel(QObject* parent = nullptr);
+    
+    int rowCount(const QModelIndex& parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
+    QHash<int, QByteArray> roleNames() const override;
+    
+    void updateStreams(const QList<AudioStream>& streams);
+    AudioStream* getStream(int streamId);
+    
+private:
+    QList<AudioStream> m_streams;
+};
 
 class AudioManagerCpp : public QObject
 {
@@ -9,6 +47,8 @@ class AudioManagerCpp : public QObject
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(double volume READ volume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY mutedChanged)
+    Q_PROPERTY(AudioStreamModel* streams READ streams CONSTANT)
+    Q_PROPERTY(bool perAppVolumeSupported READ perAppVolumeSupported CONSTANT)
 
 public:
     explicit AudioManagerCpp(QObject* parent = nullptr);
@@ -16,19 +56,31 @@ public:
     bool available() const { return m_available; }
     double volume() const { return m_currentVolume; }
     bool muted() const { return m_muted; }
+    AudioStreamModel* streams() { return m_streamModel; }
+    bool perAppVolumeSupported() const { return m_available && m_isPipeWire; }
     
     Q_INVOKABLE void setVolume(double volume);
     Q_INVOKABLE void setMuted(bool muted);
+    Q_INVOKABLE void setStreamVolume(int streamId, double volume);
+    Q_INVOKABLE void setStreamMuted(int streamId, bool muted);
+    Q_INVOKABLE void refreshStreams();
 
 signals:
     void availableChanged();
     void volumeChanged();
     void mutedChanged();
+    void streamsChanged();
 
 private:
+    void parseWpctlStatus();
+    void startStreamMonitoring();
+    
     bool m_available;
+    bool m_isPipeWire;
     double m_currentVolume;
     bool m_muted;
+    AudioStreamModel* m_streamModel;
+    QTimer* m_streamRefreshTimer;
 };
 
 #endif // AUDIOMANAGERCPP_H

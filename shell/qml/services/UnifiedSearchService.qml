@@ -35,6 +35,11 @@ QtObject {
             var appIcon = app.icon
             var appType = app.type
             
+            // Skip native apps if searchNativeApps is disabled
+            if (appType === "native" && !SettingsManagerCpp.searchNativeApps) {
+                continue
+            }
+            
             if (appName && appId) {
                 var keywords = [
                     appName.toLowerCase(),

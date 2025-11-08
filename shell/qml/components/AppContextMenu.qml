@@ -1,6 +1,9 @@
 import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
 
 Item {
     id: contextMenu
@@ -81,13 +84,13 @@ Item {
                     Icon {
                         name: "info"
                         size: Constants.iconSizeSmall
-                        color: Colors.text
+                        color: MColors.textPrimary
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     
                     Text {
                         text: "App Info"
-                        color: Colors.text
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         anchors.verticalCenter: parent.verticalCenter

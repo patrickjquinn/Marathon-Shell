@@ -8,6 +8,9 @@
   "permissions": ["notifications"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["Utility"],
+  "handlesUriSchemes": [],
+  "defaultFor": [],
   "searchKeywords": [
     "clock",
     "alarm",

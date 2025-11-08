@@ -1,11 +1,10 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
 
 Item {
     id: noteItem
-    height: Constants.touchTargetLarge + Constants.spacingLarge
+    height: Constants.touchTargetLarge + MSpacing.lg
     
     property int noteId: -1
     property string noteTitle: ""
@@ -37,13 +36,13 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        anchors.leftMargin: Constants.spacingLarge
-        anchors.rightMargin: Constants.spacingLarge
+        anchors.leftMargin: MSpacing.lg
+        anchors.rightMargin: MSpacing.lg
         color: "transparent"
         
         Rectangle {
             anchors.fill: parent
-            color: mouseArea.pressed ? MColors.surface2 : "transparent"
+            color: mouseArea.pressed ? MColors.elevated : "transparent"
             radius: Constants.borderRadiusSharp
             
             Behavior on color {
@@ -53,17 +52,17 @@ Item {
         
         Column {
             anchors.fill: parent
-            anchors.margins: Constants.spacingMedium
-            spacing: Constants.spacingXSmall
+            anchors.margins: MSpacing.md
+            spacing: MSpacing.xs
             
             Row {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Text {
                     text: noteTitle || "Untitled"
                     color: MColors.text
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                     width: parent.width - timestampText.width - parent.spacing
@@ -73,7 +72,7 @@ Item {
                     id: timestampText
                     text: formatTimestamp(noteTimestamp)
                     color: MColors.textSecondary
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
                     anchors.baseline: parent.children[0].baseline
                 }
             }
@@ -82,7 +81,7 @@ Item {
                 width: parent.width
                 text: noteContent.substring(0, 100) + (noteContent.length > 100 ? "..." : "")
                     color: MColors.textSecondary
-                font.pixelSize: Constants.fontSizeSmall
+                font.pixelSize: MTypography.sizeSmall
                 elide: Text.ElideRight
                 maximumLineCount: 2
                 wrapMode: Text.WordWrap
@@ -93,8 +92,8 @@ Item {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: Constants.spacingMedium
-            anchors.rightMargin: Constants.spacingMedium
+            anchors.leftMargin: MSpacing.md
+            anchors.rightMargin: MSpacing.md
             height: Constants.borderWidthThin
             color: MColors.border
         }

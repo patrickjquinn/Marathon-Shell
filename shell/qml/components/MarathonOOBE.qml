@@ -2,9 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
-import "../MarathonUI/Controls"
 import MarathonUI.Theme
+import MarathonUI.Controls
+import MarathonUI.Core
+import MarathonUI.Containers
 
 /**
  * Marathon OS - Out-of-Box Experience (OOBE)
@@ -98,7 +99,7 @@ Item {
 
                 Text {
                     text: "Welcome to Marathon OS"
-                    font.pixelSize: MTypography.sizeDisplay
+                    font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
                     color: MColors.text
@@ -143,7 +144,7 @@ Item {
                 
                 Text {
                     text: "Connect to WiFi"
-                    font.pixelSize: MTypography.sizeDisplay
+                    font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
                     color: MColors.text
@@ -164,7 +165,7 @@ Item {
                 Column {
                     id: wifiColumn
                     width: parent.width
-                    spacing: Constants.spacingXLarge
+                    spacing: MSpacing.xxl
                     
                     Text {
                         text: "Connect to a wireless network to continue"
@@ -176,62 +177,55 @@ Item {
                     }
 
                 // WiFi toggle - styled like settings app
-                Rectangle {
+                MCard {
                     width: parent.width
-                    height: Constants.appIconSize
-                    radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(255, 255, 255, 0.04)
-                    border.width: 1
-                    border.color: Qt.rgba(255, 255, 255, 0.08)
+                    height: MSpacing.touchTargetMedium
+                    elevation: 2
 
-                    Icon {
-                        id: wifiIcon
-                        name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
-                        size: Constants.iconSizeMedium
-                        color: SystemStatusStore.isWifiOn ? MColors.accent : MColors.textSecondary
-                        anchors.left: parent.left
-                        anchors.leftMargin: Constants.spacingMedium
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
+                    Row {
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.md
+                        spacing: MSpacing.md
 
-                    Column {
-                        anchors.left: wifiIcon.right
-                        anchors.leftMargin: Constants.spacingMedium
-                        anchors.right: wifiToggleSwitch.left
-                        anchors.rightMargin: Constants.spacingMedium
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: Math.round(4 * Constants.scaleFactor)
-
-                        Text {
-                            text: "WiFi"
-                            font.pixelSize: MTypography.sizeBody
-                            font.weight: Font.DemiBold
-                            font.family: MTypography.fontFamily
-                            color: MColors.text
+                        Icon {
+                            id: wifiIcon
+                            name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
+                            size: Math.round(24 * Constants.scaleFactor)
+                            color: SystemStatusStore.isWifiOn ? MColors.accent : MColors.textSecondary
                         }
 
-                        Text {
-                            text: SystemStatusStore.isWifiOn ? "Enabled" : "Disabled"
-                            font.pixelSize: MTypography.sizeSmall
-                            font.family: MTypography.fontFamily
-                            color: MColors.textSecondary
-                        }
-                    }
+                        Column {
+                            width: parent.width - wifiIcon.width - wifiToggleSwitch.width - (MSpacing.md * 2)
+                            spacing: MSpacing.xs
 
-                    MarathonToggle {
-                        id: wifiToggleSwitch
-                        checked: SystemStatusStore.isWifiOn
-                        onToggled: SystemControlStore.toggleWifi()
-                        anchors.right: parent.right
-                        anchors.rightMargin: Constants.spacingMedium
-                        anchors.verticalCenter: parent.verticalCenter
+                            Text {
+                                text: "WiFi"
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: Font.DemiBold
+                                font.family: MTypography.fontFamily
+                                color: MColors.text
+                            }
+
+                            Text {
+                                text: SystemStatusStore.isWifiOn ? "Enabled" : "Disabled"
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
+                                color: MColors.textSecondary
+                            }
+                        }
+
+                        MToggle {
+                            id: wifiToggleSwitch
+                            checked: SystemStatusStore.isWifiOn
+                            onToggled: SystemControlStore.toggleWifi()
+                        }
                     }
                 }
 
                     // Available Networks Section
                     Column {
                         width: parent.width
-                        spacing: Constants.spacingMedium
+                        spacing: MSpacing.md
                         visible: SystemStatusStore.isWifiOn
                         
                         Text {
@@ -247,81 +241,81 @@ Item {
                         Repeater {
                             model: NetworkManager.availableWifiNetworks
 
-                            Rectangle {
+                            MCard {
                                 width: parent.parent.width
-                                height: Constants.appIconSize
-                                radius: Constants.borderRadiusSmall
-                                color: Qt.rgba(255, 255, 255, 0.04)
-                                border.width: 1
-                                border.color: mouseArea.pressed ? MColors.accent : Qt.rgba(255, 255, 255, 0.08)
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: Constants.spacingMedium
-                            spacing: Constants.spacingMedium
-
-                            // Signal strength icon
-                            Icon {
-                                name: "wifi"
-                                size: Constants.iconSizeMedium
-                                color: modelData.strength > 60 ? MColors.accent : 
-                                       modelData.strength > 30 ? MColors.text : MColors.textSecondary
-                                opacity: modelData.strength > 60 ? 1.0 :
-                                         modelData.strength > 30 ? 0.7 : 0.4
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: Math.round(4 * Constants.scaleFactor)
-                                width: parent.width - Constants.iconSizeMedium - (Constants.spacingMedium * 2)
-
-                                Text {
-                                    text: modelData.ssid
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.Medium
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.text
-                                    elide: Text.ElideRight
-                                    width: parent.width
+                                height: MSpacing.touchTargetMedium
+                                elevation: 2
+                                interactive: true
+                                
+                                onPressedChanged: {
+                                    border.color = pressed ? MColors.accent : MColors.border
                                 }
 
                                 Row {
-                                    spacing: Constants.spacingSmall
+                                    anchors.fill: parent
+                                    anchors.margins: MSpacing.md
+                                    spacing: MSpacing.md
 
-                                    Text {
-                                        text: modelData.security || "Open"
-                                        font.pixelSize: MTypography.sizeSmall
-                                        font.family: MTypography.fontFamily
-                                        color: MColors.textSecondary
-                                    }
-
-                                    Text {
-                                        text: "•"
-                                        font.pixelSize: MTypography.sizeSmall
-                                        color: MColors.textSecondary
-                                    }
-
-                                    Text {
-                                        text: modelData.strength + "%"
-                                        font.pixelSize: MTypography.sizeSmall
-                                        font.family: MTypography.fontFamily
-                                        color: MColors.textSecondary
-                                    }
-
+                                    // Signal strength icon
                                     Icon {
-                                        name: "lock"
-                                        size: Constants.iconSizeSmall
-                                        color: MColors.textTertiary
-                                        visible: modelData.secured
+                                        name: "wifi"
+                                        size: Math.round(24 * Constants.scaleFactor)
+                                        color: modelData.strength > 60 ? MColors.accent : 
+                                               modelData.strength > 30 ? MColors.text : MColors.textSecondary
+                                        opacity: modelData.strength > 60 ? 1.0 :
+                                                 modelData.strength > 30 ? 0.7 : 0.4
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: MSpacing.xs
+
+                                        Text {
+                                            text: modelData.ssid
+                                            font.pixelSize: MTypography.sizeBody
+                                            font.weight: Font.Medium
+                                            font.family: MTypography.fontFamily
+                                            color: MColors.text
+                                            elide: Text.ElideRight
+                                            width: parent.width
+                                        }
+
+                                        Row {
+                                            spacing: MSpacing.sm
+
+                                            Text {
+                                                text: modelData.security || "Open"
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                            }
+
+                                            Text {
+                                                text: "•"
+                                                font.pixelSize: MTypography.sizeSmall
+                                                color: MColors.textSecondary
+                                            }
+
+                                            Text {
+                                                text: modelData.strength + "%"
+                                                font.pixelSize: MTypography.sizeSmall
+                                                font.family: MTypography.fontFamily
+                                                color: MColors.textSecondary
+                                            }
+
+                                            Icon {
+                                                name: "lock"
+                                                size: Math.round(16 * Constants.scaleFactor)
+                                                color: MColors.textTertiary
+                                                visible: modelData.secured
+                                                anchors.verticalCenter: parent.verticalCenter
+                                            }
+                                        }
+                                    }
                                 }
-                            }
-                        }
 
                                 MouseArea {
-                                    id: mouseArea
                                     anchors.fill: parent
                                     onClicked: {
                                         HapticService.light()
@@ -348,7 +342,7 @@ Item {
                 
                 Text {
                     text: "Set Time & Date"
-                    font.pixelSize: MTypography.sizeDisplay
+                    font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
                     color: MColors.text
@@ -369,7 +363,7 @@ Item {
                 Column {
                     id: timeColumn
                     width: parent.width
-                    spacing: Constants.spacingXLarge
+                    spacing: MSpacing.xxl
                     
                     Text {
                         text: "Configure your time format preferences"
@@ -380,17 +374,15 @@ Item {
                         width: parent.width
                     }
 
-                Rectangle {
+                MCard {
                     width: parent.width
-                    height: Constants.lockScreenClockFontSize + (MSpacing.lg * 2)
-                    radius: MRadius.lg
-                    color: MColors.surface
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.border
+                    height: MTypography.sizeHuge + (MSpacing.lg * 2)
+                    elevation: 2
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: MSpacing.sm
+                        spacing: MSpacing.md
+                        width: parent.width - (MSpacing.md * 2)
 
                         Text {
                             text: Qt.formatTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
@@ -411,13 +403,10 @@ Item {
                     }
                 }
 
-                Rectangle {
+                MCard {
                     width: parent.width
-                    height: Constants.touchTargetMedium
-                    radius: MRadius.md
-                    color: MColors.surface
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.border
+                    height: MSpacing.touchTargetMedium
+                    elevation: 2
 
                     Row {
                         anchors.fill: parent
@@ -425,72 +414,46 @@ Item {
                         spacing: MSpacing.md
 
                         Icon {
+                            id: clockIcon
                             name: "clock"
-                            size: Constants.iconSizeMedium
+                            size: Math.round(24 * Constants.scaleFactor)
                             color: MColors.text
-                            anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Text {
+                            id: timeFormatText
                             text: "Time Format"
                             font.pixelSize: MTypography.sizeLarge
                             font.family: MTypography.fontFamily
                             color: MColors.text
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Math.round(200 * Constants.scaleFactor)
+                        }
+
+                        Item {
+                            width: parent.width - clockIcon.width - timeFormatText.implicitWidth - buttonsRow.implicitWidth - (MSpacing.md * 3)
+                            height: parent.height
                         }
 
                         Row {
+                            id: buttonsRow
                             spacing: MSpacing.md
-                            anchors.verticalCenter: parent.verticalCenter
 
-                            Rectangle {
-                                width: Constants.touchTargetMedium + MSpacing.md
-                                height: Constants.touchTargetSmall
-                                radius: MRadius.md
-                                color: SettingsManagerCpp.timeFormat === "12h" ? MColors.accent : "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: SettingsManagerCpp.timeFormat === "12h" ? MColors.accent : MColors.border
-
-                                Text {
-                                    text: "12h"
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.family: MTypography.fontFamily
-                                    color: SettingsManagerCpp.timeFormat === "12h" ? MColors.background : MColors.text
-                                    anchors.centerIn: parent
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        SettingsManagerCpp.timeFormat = "12h"
-                                        HapticService.light()
-                                    }
+                            MButton {
+                                text: "12h"
+                                variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
+                                height: MSpacing.touchTargetSmall
+                                onClicked: {
+                                    SettingsManagerCpp.timeFormat = "12h"
+                                    HapticService.light()
                                 }
                             }
 
-                            Rectangle {
-                                width: Constants.touchTargetMedium + MSpacing.md
-                                height: Constants.touchTargetSmall
-                                radius: MRadius.md
-                                color: SettingsManagerCpp.timeFormat === "24h" ? MColors.accent : "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: SettingsManagerCpp.timeFormat === "24h" ? MColors.accent : MColors.border
-
-                                Text {
-                                    text: "24h"
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.family: MTypography.fontFamily
-                                    color: SettingsManagerCpp.timeFormat === "24h" ? MColors.background : MColors.text
-                                    anchors.centerIn: parent
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        SettingsManagerCpp.timeFormat = "24h"
-                                        HapticService.light()
-                                    }
+                            MButton {
+                                text: "24h"
+                                variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
+                                height: MSpacing.touchTargetSmall
+                                onClicked: {
+                                    SettingsManagerCpp.timeFormat = "24h"
+                                    HapticService.light()
                                 }
                             }
                         }
@@ -523,7 +486,7 @@ Item {
                 
                 Text {
                     text: "Learn Gestures"
-                    font.pixelSize: MTypography.sizeDisplay
+                    font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
                     color: MColors.text
@@ -544,7 +507,7 @@ Item {
                 Column {
                     id: gestureColumn
                     width: parent.width
-                    spacing: Constants.spacingXLarge
+                    spacing: MSpacing.xxl
 
                     Text {
                         text: "Marathon OS is designed for fluid, gesture-driven navigation."
@@ -564,29 +527,27 @@ Item {
                             { icon: "chevrons-up", title: "Swipe Sideways", description: "Navigate between pages" }
                         ]
 
-                        Rectangle {
+                        MCard {
                             width: parent.width
-                            height: Constants.touchTargetLarge + MSpacing.md
-                            radius: MRadius.md
-                            color: MColors.surface
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.border
+                            height: MSpacing.touchTargetLarge + MSpacing.md
+                            elevation: 2
 
                             Row {
                                 anchors.fill: parent
                                 anchors.margins: MSpacing.md
                                 spacing: MSpacing.lg
 
-                                Rectangle {
-                                    width: Constants.touchTargetMedium
-                                    height: Constants.touchTargetMedium
+                                MCard {
+                                    width: MSpacing.touchTargetMedium
+                                    height: MSpacing.touchTargetMedium
+                                    elevation: 0
+                                    color: MColors.marathonTealHoverGradient
                                     radius: MRadius.md
-                                    color: MColors.accentSubtle
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Icon {
                                         name: modelData.icon
-                                        size: Constants.iconSizeMedium
+                                        size: Math.round(24 * Constants.scaleFactor)
                                         color: MColors.accent
                                         anchors.centerIn: parent
                                     }
@@ -595,7 +556,6 @@ Item {
                                 Column {
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: MSpacing.xs
-                                    width: parent.width - Constants.touchTargetMedium - (MSpacing.lg * 2)
 
                                     Text {
                                         text: modelData.title
@@ -627,24 +587,25 @@ Item {
                 width: parent.width
                 spacing: MSpacing.xxl
 
-                Rectangle {
+                MCard {
                     width: Math.round(120 * Constants.scaleFactor)
                     height: Math.round(120 * Constants.scaleFactor)
-                    radius: Math.round(60 * Constants.scaleFactor)
-                    color: MColors.successSubtle
+                    radius: MRadius.circle
+                    color: MColors.elevated
+                    elevation: 2
                     anchors.horizontalCenter: parent.horizontalCenter
 
                     Icon {
                         name: "check-circle"
-                        size: Constants.iconSizeXLarge
-                        color: MColors.success
+                        size: MTypography.sizeXLarge
+                        color: MColors.text
                         anchors.centerIn: parent
                     }
                 }
 
                 Text {
                     text: "You're All Set!"
-                    font.pixelSize: MTypography.sizeDisplay
+                    font.pixelSize: MTypography.sizeXXLarge
                     font.weight: Font.Bold
                     font.family: MTypography.fontFamily
                     color: MColors.text
@@ -666,11 +627,63 @@ Item {
     }
 
     // =========================================================================
+    // Navigation buttons
+    // =========================================================================
+    Row {
+        id: navigationRow
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: pageIndicatorRow.top
+        anchors.leftMargin: MSpacing.xl
+        anchors.rightMargin: MSpacing.xl
+        anchors.bottomMargin: MSpacing.xl
+        height: MSpacing.touchTargetMedium
+        spacing: MSpacing.md
+
+        MButton {
+            width: (parent.width - MSpacing.md) / 2
+            height: parent.height
+            text: "Back"
+            variant: "default"
+            visible: oobeRoot.currentPage > 0
+            onClicked: {
+                if (oobeRoot.currentPage > 0) {
+                    HapticService.light()
+                    oobeRoot.currentPage--
+                }
+            }
+        }
+
+        Item {
+            width: (parent.width - MSpacing.md) / 2
+            height: parent.height
+            visible: oobeRoot.currentPage === 0
+        }
+
+        MButton {
+            width: (parent.width - MSpacing.md) / 2
+            height: parent.height
+            text: oobeRoot.currentPage === oobeRoot.pages.length - 1 ? "Get Started" : "Next"
+            variant: "primary"
+            onClicked: {
+                HapticService.light()
+                if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
+                    oobeRoot.currentPage++
+                } else {
+                    SettingsManagerCpp.firstRunComplete = true
+                    oobeRoot.setupComplete()
+                }
+            }
+        }
+    }
+
+    // =========================================================================
     // Page indicators - styled like shell
     // =========================================================================
     Row {
+        id: pageIndicatorRow
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: navigationRow.top
+        anchors.bottom: navBar.top
         anchors.bottomMargin: MSpacing.xxl
         spacing: MSpacing.md
         height: Math.round(20 * Constants.scaleFactor) // Fixed height for vertical alignment
@@ -689,113 +702,20 @@ Item {
         }
     }
 
-    // =========================================================================
-    // Navigation buttons
-    // =========================================================================
-    Row {
-        id: navigationRow
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: navBar.top
-        anchors.leftMargin: MSpacing.xl
-        anchors.rightMargin: MSpacing.xl
-        anchors.bottomMargin: MSpacing.xl
-        height: Constants.touchTargetMedium
-        spacing: MSpacing.md
-
-        Rectangle {
-            width: (parent.width - MSpacing.md) / 2
-            height: parent.height
-            radius: MRadius.md
-            color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MColors.border
-            visible: oobeRoot.currentPage > 0
-
-            Text {
-                text: "Back"
-                font.pixelSize: MTypography.sizeLarge
-                font.family: MTypography.fontFamily
-                color: MColors.text
-                anchors.centerIn: parent
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    if (oobeRoot.currentPage > 0) {
-                        HapticService.light()
-                        oobeRoot.currentPage--
-                    }
-                }
-            }
-        }
-
-        Item {
-            width: (parent.width - MSpacing.md) / 2
-            height: parent.height
-            visible: oobeRoot.currentPage === 0
-        }
-
-        Rectangle {
-            width: (parent.width - MSpacing.md) / 2
-            height: parent.height
-            radius: MRadius.md
-            color: MColors.accent
-
-            Text {
-                text: oobeRoot.currentPage === oobeRoot.pages.length - 1 ? "Get Started" : "Next"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Medium
-                font.family: MTypography.fontFamily
-                color: MColors.background
-                anchors.centerIn: parent
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                onClicked: {
-                    HapticService.light()
-                    if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
-                        oobeRoot.currentPage++
-                    } else {
-                        SettingsManagerCpp.firstRunComplete = true
-                        oobeRoot.setupComplete()
-                    }
-                }
-            }
-        }
-    }
-
     // Skip button - positioned in top right of page content area
-    Rectangle {
+    MButton {
         anchors.top: swipeView.top
         anchors.topMargin: MSpacing.lg
         anchors.right: parent.right
         anchors.rightMargin: MSpacing.xl
-        width: Math.round(60 * Constants.scaleFactor)
-        height: Math.round(40 * Constants.scaleFactor)
-        radius: MRadius.md
-        color: "transparent"
+        text: "Skip"
+        variant: "default"
         visible: oobeRoot.currentPage < oobeRoot.pages.length - 1
         z: 200
-
-        Text {
-            text: "Skip"
-            font.pixelSize: MTypography.sizeBody
-            font.weight: Font.Medium
-            font.family: MTypography.fontFamily
-            color: MColors.textTertiary
-            anchors.centerIn: parent
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                SettingsManagerCpp.firstRunComplete = true
-                HapticService.light()
-                oobeRoot.setupComplete()
-            }
+        onClicked: {
+            SettingsManagerCpp.firstRunComplete = true
+            HapticService.light()
+            oobeRoot.setupComplete()
         }
     }
     

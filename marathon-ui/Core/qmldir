@@ -1,0 +1,15 @@
+module MarathonUI.Core
+MButton 1.0 MButton.qml
+MIconButton 1.0 MIconButton.qml
+MCircularIconButton 1.0 MCircularIconButton.qml
+MLabel 1.0 MLabel.qml
+MTextInput 1.0 MTextInput.qml
+MTextArea 1.0 MTextArea.qml
+MImageButton 1.0 MImageButton.qml
+MDateTimePicker 1.0 MDateTimePicker.qml
+MEmptyState 1.0 MEmptyState.qml
+Icon 1.0 Icon.qml
+singleton MBreakpoints 1.0 MBreakpoints.qml
+MResponsive 1.0 MResponsive.qml
+MGrid 1.0 MGrid.qml
+MContainer 1.0 MContainer.qml
