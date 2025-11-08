@@ -3,198 +3,361 @@ import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Feedback
+import MarathonUI.Modals
+import MarathonUI.Navigation
+import "../components"
 
 Page {
     id: conversationsPage
     
-    signal openConversation(int conversationId)
+    signal openConversation(string conversationId)
     signal newMessage()
+    
+    property var filteredConversations: messagesApp.conversations
+    property bool showUnreadOnly: false
+    property string searchQuery: ""
     
     background: Rectangle {
         color: MColors.background
     }
     
-    Flickable {
-        id: scrollView
+    Component.onCompleted: {
+        updateFilter()
+    }
+    
+    Column {
         anchors.fill: parent
-        contentHeight: messagesContent.height + 40
-        clip: true
-        boundsBehavior: Flickable.DragAndOvershootBounds
-        flickDeceleration: 1500
-        maximumFlickVelocity: 2500
+        spacing: 0
         
-        Column {
-            id: messagesContent
+        MActionBar {
+            id: actionBar
+            showBack: false
             width: parent.width
-            spacing: Constants.spacingXLarge
-            leftPadding: 24
-            rightPadding: 24
-            topPadding: 24
-            bottomPadding: 24
             
-            // Page title
-            Text {
-                text: "Messages"
-                color: MColors.text
-                font.pixelSize: Constants.fontSizeXLarge
-                font.weight: Font.Bold
-                font.family: MTypography.fontFamily
+            onSignatureClicked: {
+                HapticService.medium()
+                newMessage()
             }
             
-            // Recent Conversations
-            Section {
-                title: "Recent Conversations"
-                subtitle: "Your message conversations"
-                width: parent.width - 48
+            Rectangle {
+                anchors.left: parent.left
+                anchors.leftMargin: MSpacing.md
+                anchors.verticalCenter: parent.verticalCenter
+                width: titleText.width
+                height: titleText.height
+                color: "transparent"
                 
-                Column {
-                    width: parent.width
-                    spacing: Constants.spacingSmall
+                MLabel {
+                    id: titleText
+                text: "Messages"
+                    variant: "primary"
+                    font.pixelSize: MTypography.sizeLarge
+                    font.weight: MTypography.weightBold
+                }
+            }
+        }
+        
+        Item {
+            id: searchBar
+            width: parent.width
+            height: searchInput.visible ? 60 : 0
+            visible: height > 0
+            clip: true
+            
+            Behavior on height {
+                NumberAnimation { duration: MMotion.fast; easing.bezierCurve: MMotion.easingStandardCurve }
+            }
+            
+            Rectangle {
+                anchors.fill: parent
+                color: MColors.surface
+                
+                MTextInput {
+                    id: searchInput
+                    anchors.fill: parent
+                    anchors.margins: MSpacing.md
+                    placeholderText: "Search conversations..."
+                    visible: false
                     
-                    Repeater {
-                        model: messagesApp.conversations
-                        
-                        Rectangle {
+                    onTextChanged: {
+                        searchQuery = text
+                        searchTimer.restart()
+                    }
+                    
+                    Timer {
+                        id: searchTimer
+                        interval: 300
+                        onTriggered: updateFilter()
+                    }
+                }
+            }
+        }
+        
+        Item {
+            id: filterRow
+            width: parent.width
+            height: 52
+            
+            Rectangle {
+                anchors.fill: parent
+                color: MColors.surface
+                
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: parent.width
+                    height: 1
+                    color: MColors.border
+                }
+                
+                Row {
+                    anchors.centerIn: parent
+                    spacing: MSpacing.sm
+                    
+                    MButton {
+                        text: "All"
+                        variant: !showUnreadOnly ? "primary" : "ghost"
+                        onClicked: {
+                            showUnreadOnly = false
+                            updateFilter()
+                            HapticService.light()
+                        }
+                    }
+                    
+                    MButton {
+                        text: "Unread"
+                        variant: showUnreadOnly ? "primary" : "ghost"
+                        onClicked: {
+                            showUnreadOnly = true
+                            updateFilter()
+                            HapticService.light()
+                        }
+                    }
+                }
+            }
+        }
+        
+        ScrollView {
                             width: parent.width
-                            height: Constants.touchTargetLarge + Constants.spacingMedium
-                            color: "transparent"
+            height: parent.height - actionBar.height - filterRow.height - searchBar.height
+            contentWidth: width
+            clip: true
+            
+            ListView {
+                id: conversationsList
+                anchors.fill: parent
+                topMargin: MSpacing.md
+                bottomMargin: MSpacing.md
+                spacing: MSpacing.sm
+                
+                model: filteredConversations
+                
+                delegate: Item {
+                    width: conversationsList.width
+                    height: 88
+                    
+                    Item {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: parent.width - MSpacing.md * 2
+                        height: parent.height
                             
                             Rectangle {
                                 id: deleteButton
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
-                                anchors.margins: Constants.spacingSmall
-                                width: Constants.touchTargetLarge
-                                color: "#E74C3C"
-                                radius: Constants.borderRadiusSharp
+                        width: 80
+                        color: MColors.error
+                        radius: MRadius.lg
                                 visible: conversationItem.x < -20
+                        opacity: Math.min(1, Math.abs(conversationItem.x) / 80)
                                 
                                 Icon {
                                     anchors.centerIn: parent
                                     name: "trash"
                                     size: Constants.iconSizeMedium
-                                    color: "white"
+                            color: "#FFFFFF"
                                 }
                                 
                                 MouseArea {
                                     anchors.fill: parent
                                     onClicked: {
-                                        if (typeof SMSService !== 'undefined') {
-                                            SMSService.deleteConversation(modelData.id)
-                                        }
+                                HapticService.heavy()
+                                deleteConversation(modelData.id)
                                     }
                                 }
                             }
                             
-                            Rectangle {
+                    ConversationListItem {
                                 id: conversationItem
                                 anchors.fill: parent
-                                anchors.margins: Constants.spacingSmall
-                                color: MColors.surface
-                                radius: Constants.borderRadiusSharp
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
+                        conversation: modelData
                                 
                                 Behavior on x {
-                                    NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
+                            NumberAnimation { duration: MMotion.fast; easing.bezierCurve: MMotion.easingStandardCurve }
                                 }
                                 
-                                SettingsListItem {
-                                    anchors.fill: parent
-                                    title: modelData.contactName
-                                    subtitle: modelData.lastMessage
-                                    iconName: "message-circle"
-                                    showChevron: true
-                                    value: messagesApp.formatTimestamp(modelData.timestamp)
+                        onConversationClicked: {
+                            if (conversationItem.x === 0) {
+                                openConversation(modelData.id)
+                            } else {
+                                conversationItem.x = 0
+                            }
+                        }
                                 }
                                 
                                 MouseArea {
+                        id: swipeArea
                                     anchors.fill: parent
+                        z: -1
+                        
                                     property real startX: 0
+                        property bool longPressActive: false
                                     
-                                    onPressed: {
+                        onPressed: (mouse) => {
                                         startX = mouse.x
+                            longPressActive = false
                                         HapticService.light()
                                     }
-                                    onReleased: {
-                                        if (conversationItem.x < -100) {
-                                            if (typeof SMSService !== 'undefined') {
-                                                SMSService.deleteConversation(modelData.id)
-                                            }
-                                        } else {
-                                            conversationItem.x = 0
-                                        }
-                                    }
-                                    onCanceled: {
-                                        conversationItem.x = 0
-                                    }
-                                    onPositionChanged: {
-                                        if (pressed) {
+                        
+                        onPressAndHold: {
+                            longPressActive = true
+                            HapticService.medium()
+                            contextMenu.conversationId = modelData.id
+                            contextMenu.isUnread = modelData.unreadCount > 0
+                            contextMenu.visible = true
+                        }
+                        
+                        onPositionChanged: (mouse) => {
+                            if (pressed && !longPressActive) {
                                             var delta = mouse.x - startX
                                             if (delta < 0) {
-                                                conversationItem.x = Math.max(delta, -120)
+                                    conversationItem.x = Math.max(delta, -80)
                                             }
                                         }
                                     }
-                                    onClicked: {
-                                        if (conversationItem.x === 0) {
-                                            openConversation(modelData.id)
+                        
+                        onReleased: (mouse) => {
+                            if (!longPressActive) {
+                                if (conversationItem.x < -40) {
+                                    conversationItem.x = -80
                                         } else {
                                             conversationItem.x = 0
                                         }
                                     }
                                 }
-                            }
+                        
+                        onCanceled: {
+                            conversationItem.x = 0
                         }
                     }
                 }
             }
             
-            Item { height: 40 }
+                MEmptyState {
+                    visible: conversationsList.count === 0
+                    anchors.centerIn: parent
+                    width: parent.width - MSpacing.xl * 2
+                    iconName: "message-circle"
+                    title: searchQuery.length > 0 ? "No conversations found" : (showUnreadOnly ? "No unread messages" : "No conversations yet")
+                    message: searchQuery.length > 0 ? "Try a different search term" : "Start a new conversation to begin messaging"
+                }
+        }
+    }
+    }
+    
+    MCircularIconButton {
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: MSpacing.lg
+        iconName: "plus"
+        iconSize: 28
+        variant: "primary"
+        buttonSize: 62
+        onClicked: {
+            HapticService.medium()
+            newMessage()
         }
     }
     
-    Rectangle {
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: Constants.spacingLarge
-        width: Constants.touchTargetLarge
-        height: Constants.touchTargetLarge
-        radius: Constants.touchTargetLarge / 2
-        color: MColors.accent
-        border.width: Constants.borderWidthThick
-        border.color: MColors.accentDark
-        antialiasing: true
+    MSheet {
+        id: contextMenu
+        visible: false
         
-        Icon {
-            anchors.centerIn: parent
-            name: "plus"
-            size: Constants.iconSizeLarge
-            color: MColors.text
-        }
+        property string conversationId: ""
+        property bool isUnread: false
         
-        MouseArea {
-            anchors.fill: parent
-            onPressed: {
-                parent.scale = 0.9
+        title: "Conversation Options"
+        
+        Column {
+            width: parent.width
+            spacing: 0
+            
+            MSettingsListItem {
+                title: contextMenu.isUnread ? "Mark as Read" : "Mark as Unread"
+                iconName: contextMenu.isUnread ? "check" : "circle"
+                showChevron: false
+                onSettingClicked: {
+                    if (typeof SMSService !== 'undefined') {
+                        if (contextMenu.isUnread) {
+                            SMSService.markAsRead(contextMenu.conversationId)
+                        }
+                    }
+                    HapticService.light()
+                    contextMenu.visible = false
+                }
+            }
+            
+            MSettingsListItem {
+                title: "Open Conversation"
+                iconName: "message-circle"
+                showChevron: false
+                onSettingClicked: {
+                    openConversation(contextMenu.conversationId)
+                    HapticService.light()
+                    contextMenu.visible = false
+                }
+            }
+            
+            MSettingsListItem {
+                title: "Delete Conversation"
+                iconName: "trash"
+                showChevron: false
+                onSettingClicked: {
+                    deleteConversation(contextMenu.conversationId)
                 HapticService.medium()
-            }
-            onReleased: {
-                parent.scale = 1.0
-            }
-            onCanceled: {
-                parent.scale = 1.0
-            }
-            onClicked: {
-                Logger.info("Messages", "New message")
-                newMessage()
+                    contextMenu.visible = false
+                }
             }
         }
+    }
+    
+    function updateFilter() {
+        var conversations = messagesApp.conversations
         
-        Behavior on scale {
-            NumberAnimation { duration: 100 }
+        if (showUnreadOnly) {
+            conversations = conversations.filter(function(c) {
+                return c.unreadCount > 0
+            })
+        }
+        
+        if (searchQuery.length > 0) {
+            var query = searchQuery.toLowerCase()
+            conversations = conversations.filter(function(c) {
+                return (c.contactName && c.contactName.toLowerCase().includes(query)) ||
+                       (c.contactNumber && c.contactNumber.includes(query)) ||
+                       (c.lastMessage && c.lastMessage.toLowerCase().includes(query))
+            })
+        }
+        
+        filteredConversations = conversations
+    }
+    
+    function deleteConversation(conversationId) {
+        if (typeof SMSService !== 'undefined') {
+            SMSService.deleteConversation(conversationId)
         }
     }
 }
-

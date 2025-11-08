@@ -8,6 +8,9 @@
   "permissions": [],
   "minShellVersion": "1.0.0",
   "protected": false,
+  "categories": ["Utility"],
+  "handlesUriSchemes": [],
+  "defaultFor": [],
   "searchKeywords": [
     "calculator",
     "math",

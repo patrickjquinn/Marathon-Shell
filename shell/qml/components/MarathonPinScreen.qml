@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 
 // High-Performance PIN Entry Screen with Frosted Glass Effect
 Item {
@@ -57,8 +58,8 @@ Item {
     Rectangle {
         id: glassRect
         anchors.fill: parent
-        color: "#1a1a1a"
-        opacity: 0.5
+        color: MColors.background
+        opacity: 0.95
         z: 1
         
         // Capture wallpaper for blurring
@@ -81,6 +82,13 @@ Item {
             saturation: 0.3
             brightness: -0.2
         }
+    }
+    
+    // Solid background overlay for better contrast
+    Rectangle {
+        anchors.fill: parent
+        color: MColors.overlay
+        z: 2
     }
     
     Column {
@@ -147,7 +155,7 @@ Item {
                     radius: Math.round(7 * Constants.scaleFactor)
                     color: index < pin.length ? MColors.accentBright : "transparent"
                     border.width: 2
-                    border.color: index < pin.length ? MColors.accentBright : MColors.borderLight
+                    border.color: index < pin.length ? MColors.accentBright : MColors.borderSubtle
                     antialiasing: true
                     
                     // Simple, fast animations
@@ -173,7 +181,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: error
-            color: MColors.errorBright
+            color: MColors.error
             font.pixelSize: Math.round(16 * Constants.scaleFactor)
             font.weight: Font.Medium
             visible: error !== ""
@@ -214,50 +222,22 @@ Item {
                 Repeater {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
                     
-                    Rectangle {
-                        id: numButton
-                        width: Math.round(80 * Constants.scaleFactor)
-                        height: Math.round(80 * Constants.scaleFactor)
-                        radius: Math.round(40 * Constants.scaleFactor)
-                        color: numMouseArea.pressed ? MColors.surface2 : MColors.surface
-                        antialiasing: true
+                    delegate: Item {
+                        width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                        height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                         
-                        // Fast color transition
-                        Behavior on color {
-                            ColorAnimation { duration: 80 }
-                        }
+                        property string digit: modelData
                         
-                        // Subtle shadow
-                        layer.enabled: true
-                        layer.effect: MultiEffect {
-                            shadowEnabled: true
-                            shadowColor: Qt.rgba(0, 0, 0, 0.15)
-                            shadowBlur: 0.3
-                            shadowVerticalOffset: 2
-                        }
-                        
-                        Text {
+                        MCircularIconButton {
                             anchors.centerIn: parent
-                            text: modelData
-                            color: MColors.text
-                            font.pixelSize: Math.round(32 * Constants.scaleFactor)
-                            font.weight: Font.Light
-                            renderType: Text.NativeRendering
-                        }
-                        
-                        // Simple scale - fast
-                        scale: numMouseArea.pressed ? 0.88 : 1.0
-                        
-                        Behavior on scale {
-                            NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
-                        }
-                        
-                        MouseArea {
-                            id: numMouseArea
-                            anchors.fill: parent
+                            text: digit
+                            iconSize: Math.round(32 * Constants.scaleFactor)
+                            buttonSize: Math.round(80 * Constants.scaleFactor)
+                            variant: "secondary"
+                            textColor: MColors.textPrimary
                             onClicked: {
                                 HapticService.light()
-                                handleInput(modelData)
+                                handleInput(parent.digit)
                             }
                         }
                     }
@@ -271,48 +251,22 @@ Item {
                 
                 // Empty space for alignment
                 Item { 
-                    width: Math.round(80 * Constants.scaleFactor)
-                    height: Math.round(80 * Constants.scaleFactor)
+                    width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                 }
                 
                 // Zero button
-                Rectangle {
-                    width: Math.round(80 * Constants.scaleFactor)
-                    height: Math.round(80 * Constants.scaleFactor)
-                    radius: Math.round(40 * Constants.scaleFactor)
-                    color: zeroMouseArea.pressed ? MColors.surface2 : MColors.surface
-                    antialiasing: true
+                Item {
+                    width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     
-                    Behavior on color {
-                        ColorAnimation { duration: 80 }
-                    }
-                    
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: Qt.rgba(0, 0, 0, 0.15)
-                        shadowBlur: 0.3
-                        shadowVerticalOffset: 2
-                    }
-                    
-                    Text {
+                    MCircularIconButton {
                         anchors.centerIn: parent
                         text: "0"
-                        color: MColors.text
-                        font.pixelSize: Math.round(32 * Constants.scaleFactor)
-                        font.weight: Font.Light
-                        renderType: Text.NativeRendering
-                    }
-                    
-                    scale: zeroMouseArea.pressed ? 0.88 : 1.0
-                    
-                    Behavior on scale {
-                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
-                    }
-                    
-                    MouseArea {
-                        id: zeroMouseArea
-                        anchors.fill: parent
+                        iconSize: Math.round(32 * Constants.scaleFactor)
+                        buttonSize: Math.round(80 * Constants.scaleFactor)
+                        variant: "secondary"
+                        textColor: MColors.textPrimary
                         onClicked: {
                             HapticService.light()
                             handleInput("0")
@@ -321,41 +275,17 @@ Item {
                 }
                 
                 // Backspace button
-                Rectangle {
-                    width: Math.round(80 * Constants.scaleFactor)
-                    height: Math.round(80 * Constants.scaleFactor)
-                    radius: Math.round(40 * Constants.scaleFactor)
-                    color: clearMouseArea.pressed ? MColors.surface2 : MColors.surface
-                    antialiasing: true
+                Item {
+                    width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     
-                    Behavior on color {
-                        ColorAnimation { duration: 80 }
-                    }
-                    
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: Qt.rgba(0, 0, 0, 0.15)
-                        shadowBlur: 0.3
-                        shadowVerticalOffset: 2
-                    }
-                    
-                    Icon {
-                        name: "delete"
-                        size: Math.round(28 * Constants.scaleFactor)
-                        color: MColors.textSecondary
+                    MCircularIconButton {
                         anchors.centerIn: parent
-                    }
-                    
-                    scale: clearMouseArea.pressed ? 0.88 : 1.0
-                    
-                    Behavior on scale {
-                        NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
-                    }
-                    
-                    MouseArea {
-                        id: clearMouseArea
-                        anchors.fill: parent
+                        iconName: "delete"
+                        iconSize: Math.round(28 * Constants.scaleFactor)
+                        buttonSize: Math.round(80 * Constants.scaleFactor)
+                        variant: "secondary"
+                        iconColor: MColors.textSecondary
                         onClicked: {
                             HapticService.light()
                             pin = ""

@@ -8,6 +8,9 @@
   "permissions": ["storage"],
   "minShellVersion": "1.0.0",
   "protected": true,
+  "categories": ["Productivity"],
+  "handlesUriSchemes": [],
+  "defaultFor": [],
   "searchKeywords": [
     "notes",
     "memo",

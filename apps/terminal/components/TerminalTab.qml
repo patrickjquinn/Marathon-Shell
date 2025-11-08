@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import Qt.labs.platform as Platform
-import MarathonUI.Core
 import MarathonUI.Theme
 
 Rectangle {
@@ -96,7 +95,7 @@ Rectangle {
                 contentItem: Rectangle {
                     implicitWidth: Constants.scrollBarWidth
                     radius: Constants.borderRadiusSharp
-                    color: parent.pressed ? MColors.accentPressed : (parent.hovered ? MColors.accent : MColors.textTertiary)
+                    color: parent.pressed ? MColors.pressed : (parent.hovered ? MColors.accent : MColors.textTertiary)
                     opacity: parent.active ? 1.0 : 0.5
                     
                     Behavior on color {
@@ -111,9 +110,9 @@ Rectangle {
             
             TextEdit {
                 id: terminalOutputText
-                width: terminalFlickable.width - Constants.spacingMedium * 2
-                x: Constants.spacingMedium
-                y: Constants.spacingMedium
+                width: terminalFlickable.width - MSpacing.md * 2
+                x: MSpacing.md
+                y: MSpacing.md
                 
                 text: ""
                 readOnly: true
@@ -122,7 +121,7 @@ Rectangle {
                 wrapMode: TextEdit.NoWrap
                 
                 font.family: "Menlo, Monaco, 'Courier New', monospace"
-                font.pixelSize: Constants.fontSizeMedium
+                font.pixelSize: MTypography.sizeBody
                 color: MColors.text
                 
                 textFormat: TextEdit.PlainText
@@ -143,14 +142,14 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingSmall
-                spacing: Constants.spacingSmall
+                anchors.margins: MSpacing.sm
+                spacing: MSpacing.sm
                 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "❯"
                     font.family: "Menlo, Monaco, 'Courier New', monospace"
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     color: MColors.accent
                 }
                 
@@ -160,7 +159,7 @@ Rectangle {
                     width: parent.width - 80
                     
                     font.family: "Menlo, Monaco, 'Courier New', monospace"
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     color: MColors.text
                     selectionColor: MColors.accent
                     selectedTextColor: MColors.textOnAccent

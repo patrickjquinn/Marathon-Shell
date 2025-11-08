@@ -1,6 +1,7 @@
 import QtQuick
 import QtWayland.Compositor
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonUI.Containers
 
@@ -29,53 +30,54 @@ MApp {
             id: surfaceItem
             anchors.fill: parent
             
+            property bool hasConfigured: false
+            
             // Access the xdgSurface that was set from QML (not C++ property)
             shellSurface: nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.xdgSurface : null
             
             // Ensure proper rendering
             touchEventsEnabled: true
             
-            onShellSurfaceChanged: {
-                if (shellSurface) {
-                    Logger.info("NativeAppWindow", "ShellSurface assigned, configuring: " + width + "x" + height)
-                    
-                    // Get the toplevel from the Wayland surface (stored in QML)
-                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
-                    
-                    if (toplevel) {
-                        // Configure the surface to be maximized once we have a valid size
-                        Qt.callLater(function() {
-                            if (width > 0 && height > 0) {
-                                Logger.info("NativeAppWindow", "Sending maximized state: " + width + "x" + height)
-                                toplevel.sendMaximized(Qt.size(width, height))
-                            }
-                        })
+            // CRITICAL: Wait for surface to have content before configuring
+            // Sending configure too early causes incorrect initial scaling
+            Connections {
+                target: nativeAppWindow.waylandSurface
+                enabled: nativeAppWindow.waylandSurface !== null
+                
+                function onHasContentChanged() {
+                    if (nativeAppWindow.waylandSurface.hasContent && !surfaceItem.hasConfigured) {
+                        surfaceItem.hasConfigured = true
+                        var toplevel = nativeAppWindow.waylandSurface.toplevel
+                        if (toplevel && surfaceItem.width > 0 && surfaceItem.height > 0) {
+                            toplevel.sendMaximized(Qt.size(surfaceItem.width, surfaceItem.height))
+                        }
                     }
                 }
             }
             
             onWidthChanged: {
-                if (width > 0 && height > 0) {
+                // Only reconfigure if we've already sent initial configure
+                if (hasConfigured && width > 0 && height > 0 && shellSurface) {
                     var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
                     if (toplevel) {
-                        Logger.info("NativeAppWindow", "Width changed, sending maximized: " + width + "x" + height)
                         toplevel.sendMaximized(Qt.size(width, height))
                     }
                 }
             }
             
             onHeightChanged: {
-                if (width > 0 && height > 0) {
+                // Only reconfigure if we've already sent initial configure
+                if (hasConfigured && width > 0 && height > 0 && shellSurface) {
                     var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null
                     if (toplevel) {
-                        Logger.info("NativeAppWindow", "Height changed, sending maximized: " + width + "x" + height)
                         toplevel.sendMaximized(Qt.size(width, height))
                     }
                 }
             }
             
             onSurfaceDestroyed: {
-                Logger.info("NativeAppWindow", "Surface destroyed for: " + nativeAppWindow.appId)
+                // NOTE: Task cleanup is now handled automatically in MarathonShell.qml via surfaceDestroyed signal
+                // This handler just closes the window
                 nativeAppWindow.close()
             }
         }
@@ -87,25 +89,9 @@ MApp {
             color: MColors.background
             visible: surfaceItem.shellSurface === null
             
-            Component.onCompleted: {
-                Logger.info("NativeAppWindow", "=== SPLASH SCREEN CREATED ===")
-                Logger.info("NativeAppWindow", "Visible: " + visible)
-                Logger.info("NativeAppWindow", "Color: " + color)
-                Logger.info("NativeAppWindow", "Icon: " + nativeAppWindow.nativeAppIcon)
-                Logger.info("NativeAppWindow", "Title: " + nativeAppWindow.nativeTitle)
-            }
-            
-            onVisibleChanged: {
-                Logger.info("NativeAppWindow", "Splash visibility changed: " + visible + " (shellSurface: " + (surfaceItem.shellSurface ? "EXISTS" : "NULL") + ")")
-            }
-            
             Column {
                 anchors.centerIn: parent
                 spacing: MSpacing.xl
-                
-                Component.onCompleted: {
-                    Logger.info("NativeAppWindow", "Splash Column created")
-                }
                 
                 // Show the actual app icon if available, otherwise fallback to generic icon
                 Image {
@@ -118,14 +104,6 @@ MApp {
                     anchors.horizontalCenter: parent.horizontalCenter
                     smooth: true
                     visible: nativeAppWindow.nativeAppIcon !== ""
-                    
-                    onStatusChanged: {
-                        if (status === Image.Error) {
-                            Logger.warn("NativeAppWindow", "Failed to load icon: " + source)
-                        } else if (status === Image.Ready) {
-                            Logger.info("NativeAppWindow", "Icon loaded successfully: " + source)
-                        }
-                    }
                 }
                 
                 Icon {
@@ -134,10 +112,6 @@ MApp {
                     color: MColors.textTertiary
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: nativeAppWindow.nativeAppIcon === ""
-                    
-                    Component.onCompleted: {
-                        Logger.info("NativeAppWindow", "Fallback Icon visible: " + visible)
-                    }
                 }
                 
                 Text {
@@ -146,19 +120,9 @@ MApp {
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     anchors.horizontalCenter: parent.horizontalCenter
-                    
-                    Component.onCompleted: {
-                        Logger.info("NativeAppWindow", "Loading text: '" + text + "'")
-                    }
                 }
             }
         }
-    }
-    
-    Component.onCompleted: {
-        Logger.info("NativeAppWindow", "Created for surface: " + surfaceId)
-        Logger.info("NativeAppWindow", "appId: " + nativeAppId + " (property: " + appId + ")")
-        Logger.info("NativeAppWindow", "nativeTitle: " + nativeTitle)
     }
 }
 

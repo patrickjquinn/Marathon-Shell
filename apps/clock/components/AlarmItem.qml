@@ -1,12 +1,12 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Controls
+import MarathonUI.Containers
 import MarathonUI.Theme
 
 Item {
     id: alarmItem
-    height: Constants.touchTargetLarge + Constants.spacingLarge
+    height: card.height + MSpacing.md
     
     property int alarmId: -1
     property int alarmHour: 0
@@ -29,38 +29,40 @@ Item {
         return h + ":" + (minute < 10 ? "0" : "") + minute + " " + suffix
     }
     
-    Rectangle {
-        anchors.fill: parent
-        anchors.leftMargin: Constants.spacingLarge
-        anchors.rightMargin: Constants.spacingLarge
-        color: "transparent"
+    MCard {
+        id: card
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: MSpacing.lg
+        anchors.rightMargin: MSpacing.lg
+        elevation: 1
+        interactive: true
         
-        MouseArea {
-            anchors.fill: parent
-            onClicked: alarmItem.clicked()
-        }
+        onClicked: alarmItem.clicked()
         
         Row {
-            anchors.fill: parent
-            anchors.margins: Constants.spacingMedium
-            spacing: Constants.spacingMedium
+            width: parent.parent.width - MSpacing.md * 2
+            height: MSpacing.touchTargetLarge
+            spacing: MSpacing.md
             
             Column {
                 width: parent.width - toggleSwitch.width - parent.spacing
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Constants.spacingXSmall
+                spacing: MSpacing.xs
                 
                 Text {
                     text: formatTime(alarmHour, alarmMinute)
                     color: alarmEnabled ? MColors.text : MColors.textSecondary
-                    font.pixelSize: Constants.fontSizeXLarge
-                    font.weight: Font.Bold
+                    font.pixelSize: MTypography.sizeXLarge
+                    font.weight: MTypography.weightBold
+                    font.family: MTypography.fontFamily
                 }
                 
                 Text {
                     text: alarmLabel
                     color: MColors.textSecondary
-                    font.pixelSize: Constants.fontSizeSmall
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
                 }
             }
             
@@ -73,16 +75,5 @@ Item {
                 }
             }
         }
-        
-        Rectangle {
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: Constants.spacingMedium
-            anchors.rightMargin: Constants.spacingMedium
-            height: Constants.borderWidthThin
-            color: MColors.border
-        }
     }
 }
-

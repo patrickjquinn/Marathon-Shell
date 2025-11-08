@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Theme
 import "../components"
 
 SettingsPageTemplate {
@@ -16,77 +17,77 @@ SettingsPageTemplate {
         Column {
             id: aboutContent
             width: parent.width
-            spacing: Constants.spacingXLarge
+            spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
             
-            Section {
+            MSection {
                 title: "Device Information"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Device Name"
                     value: SettingsManagerCpp.deviceName
                     showChevron: true
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Model"
                     value: "Marathon Passport"
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "OS Version"
                     value: "Marathon OS 1.0.0"
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Build"
                     value: "Alpha"
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Kernel Version"
                     value: Platform.os === "linux" ? "Linux 6.x" : "Darwin"
                 }
             }
             
-            Section {
+            MSection {
                 title: "Hardware"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Storage"
                     value: "64 GB"
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Display"
                     value: DisplayManager.width + "x" + DisplayManager.height
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Battery"
                     value: SystemStatusStore.batteryLevel + "%"
                 }
             }
             
-            Section {
+            MSection {
                 title: "Legal"
                 width: parent.width - 48
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Open Source Licenses"
                     showChevron: true
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Terms of Service"
                     showChevron: true
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     title: "Privacy Policy"
                     showChevron: true
                 }

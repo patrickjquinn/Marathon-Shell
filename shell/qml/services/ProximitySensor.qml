@@ -2,7 +2,7 @@ pragma Singleton
 import QtQuick
 import MarathonOS.Shell
 
-QtObject {
+Item {
     id: proximitySensor
     
     property bool available: false

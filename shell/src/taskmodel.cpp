@@ -79,9 +79,10 @@ void TaskModel::launchTask(const QString& appId, const QString& appName,
 
     QString taskId = "task_" + QString::number(QDateTime::currentMSecsSinceEpoch());
 
-    beginInsertRows(QModelIndex(), m_tasks.count(), m_tasks.count());
+    // Insert at index 0 (newest first) instead of appending (oldest first)
+    beginInsertRows(QModelIndex(), 0, 0);
     Task* task = new Task(taskId, appId, appName, appIcon, appType, surfaceId, waylandSurface, this);
-    m_tasks.append(task);
+    m_tasks.prepend(task);  // Changed from append() to prepend()
     m_taskIndex[taskId] = task;
     m_appIndex[appId] = task;
     endInsertRows();
@@ -89,7 +90,8 @@ void TaskModel::launchTask(const QString& appId, const QString& appName,
     emit taskCountChanged();
     emit taskLaunched(taskId);
     qDebug() << "[TaskModel] Launched task:" << appName << "(" << appType << "), ID:" << taskId 
-             << "surface:" << (waylandSurface ? "present" : "NULL");
+             << "surface:" << (waylandSurface ? "present" : "NULL")
+             << "- inserted at position 0 (newest first)";
 }
 
 void TaskModel::closeTask(const QString& taskId)
@@ -126,6 +128,17 @@ Task* TaskModel::getTask(const QString& taskId)
 Task* TaskModel::getTaskByAppId(const QString& appId)
 {
     return m_appIndex.value(appId, nullptr);
+}
+
+Task* TaskModel::getTaskBySurfaceId(int surfaceId)
+{
+    // Search through all tasks to find one with matching surfaceId
+    for (Task* task : m_tasks) {
+        if (task && task->surfaceId() == surfaceId) {
+            return task;
+        }
+    }
+    return nullptr;
 }
 
 void TaskModel::updateTaskSnapshot(const QString& appId, const QImage& snapshot)

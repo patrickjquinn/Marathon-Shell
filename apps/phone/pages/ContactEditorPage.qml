@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -36,13 +34,13 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.margins: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.margins: MSpacing.md
+                spacing: MSpacing.md
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "x"
-                    size: Constants.touchTargetMedium
+                    iconName: "x"
+                    iconSize: 20
                     onClicked: {
                         cancelled()
                     }
@@ -52,15 +50,15 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
                     text: isNewContact ? "New Contact" : "Edit Contact"
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.Bold
                     color: MColors.text
                 }
                 
                 MIconButton {
                     anchors.verticalCenter: parent.verticalCenter
-                    icon: "check"
-                    size: Constants.touchTargetMedium
+                    iconName: "check"
+                    iconSize: 20
                     enabled: nameInput.text.length > 0 && phoneInput.text.length > 0
                     onClicked: {
                         saveContact()
@@ -78,8 +76,8 @@ Rectangle {
             Column {
                 id: contentColumn
                 width: parent.width
-                spacing: Constants.spacingLarge
-                padding: Constants.spacingLarge
+                spacing: MSpacing.lg
+                padding: MSpacing.lg
                 
                 Rectangle {
                     width: Constants.iconSizeXLarge * 2
@@ -93,7 +91,7 @@ Rectangle {
                     Text {
                         anchors.centerIn: parent
                         text: nameInput.text.length > 0 ? nameInput.text.charAt(0).toUpperCase() : "?"
-                        font.pixelSize: Constants.fontSizeXLarge * 2
+                        font.pixelSize: MTypography.sizeXLarge * 2
                         font.weight: Font.Bold
                         color: MColors.accent
                     }
@@ -101,11 +99,11 @@ Rectangle {
                 
                 Column {
                     width: parent.width - parent.padding * 2
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Text {
                         text: "Name *"
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
                         color: MColors.textSecondary
                     }
@@ -120,11 +118,11 @@ Rectangle {
                 
                 Column {
                     width: parent.width - parent.padding * 2
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Text {
                         text: "Phone *"
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
                         color: MColors.textSecondary
                     }
@@ -142,11 +140,11 @@ Rectangle {
                 
                 Column {
                     width: parent.width - parent.padding * 2
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Text {
                         text: "Email"
-                        font.pixelSize: Constants.fontSizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.weight: Font.DemiBold
                         color: MColors.textSecondary
                     }
@@ -162,7 +160,7 @@ Rectangle {
                     }
                 }
                 
-                Item { height: Constants.spacingLarge }
+                Item { height: MSpacing.lg }
                 
                 MButton {
                     width: parent.width - parent.padding * 2

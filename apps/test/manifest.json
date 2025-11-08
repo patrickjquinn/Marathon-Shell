@@ -1,0 +1,25 @@
+{
+  "name": "Test Suite",
+  "id": "test",
+  "version": "1.0.0",
+  "description": "Comprehensive service testing for Marathon Shell - test calls, SMS, notifications, alarms, media, and all system services",
+  "icon": "assets/icon.svg",
+  "entryPoint": "TestApp.qml",
+  "author": "Marathon OS",
+  "category": "development",
+  "permissions": [
+    "system.telephony",
+    "system.notifications",
+    "system.audio",
+    "system.network",
+    "system.power",
+    "system.display",
+    "system.location",
+    "system.contacts"
+  ],
+  "capabilities": {
+    "backgroundExecution": false,
+    "systemIntegration": true
+  }
+}
+

@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 
 Item {
     id: screenshotPreview
@@ -69,7 +70,7 @@ Item {
             
             Text {
                 text: "Screenshot saved"
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: MTypography.sizeXSmall
                 font.family: MTypography.fontFamily
                 anchors.horizontalCenter: parent.horizontalCenter

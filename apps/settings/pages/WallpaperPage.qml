@@ -1,6 +1,8 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Core
 import "../components"
 
 SettingsPageTemplate {
@@ -17,39 +19,39 @@ SettingsPageTemplate {
         Column {
             id: wallpaperContent
             width: parent.width
-            spacing: Constants.spacingLarge
-            leftPadding: Constants.spacingLarge
-            rightPadding: Constants.spacingLarge
-            topPadding: Constants.spacingLarge
+            spacing: MSpacing.lg
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             Text {
                 text: "Choose a wallpaper for your home screen"
-                color: Colors.textSecondary
-                font.pixelSize: Typography.sizeBody
-                font.family: Typography.fontFamily
-                width: parent.width - Constants.spacingLarge * 2
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                width: parent.width - MSpacing.lg * 2
             }
             
-            Section {
+            MSection {
                 title: "Wallpapers"
-                width: parent.width - Constants.spacingLarge * 2
+                width: parent.width - MSpacing.lg * 2
                 
                 Grid {
                     width: parent.width
                     columns: 2
-                    columnSpacing: Constants.spacingLarge
-                    rowSpacing: Constants.spacingLarge
+                    columnSpacing: MSpacing.lg
+                    rowSpacing: MSpacing.lg
                     
                     Repeater {
                         model: WallpaperStore.wallpapers
                         
                         Rectangle {
-                            width: (parent.width - Constants.spacingLarge) / 2
+                            width: (parent.width - MSpacing.lg) / 2
                             height: width * 1.4
                             radius: Constants.borderRadiusMedium
-                            color: WallpaperStore.currentWallpaper === modelData.path ? Colors.accent : Colors.surface
+                            color: WallpaperStore.currentWallpaper === modelData.path ? MColors.marathonTeal : MColors.surface
                             border.width: WallpaperStore.currentWallpaper === modelData.path ? Math.round(4 * Constants.scaleFactor) : Constants.borderWidthThin
-                            border.color: WallpaperStore.currentWallpaper === modelData.path ? Colors.accent : Colors.border
+                            border.color: WallpaperStore.currentWallpaper === modelData.path ? MColors.marathonTeal : MColors.border
                             clip: true
                             
                             Behavior on border.width {
@@ -84,7 +86,7 @@ SettingsPageTemplate {
                                 
                                 Rectangle {
                                     anchors.fill: parent
-                                    color: Colors.accent
+                                    color: MColors.marathonTeal
                                     opacity: wallpaperMouseArea.pressed ? 0.2 : 0
                                     
                                     Behavior on opacity {
@@ -97,17 +99,17 @@ SettingsPageTemplate {
                                 visible: WallpaperStore.currentWallpaper === modelData.path
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.margins: Constants.spacingMedium
+                                anchors.margins: MSpacing.md
                                 width: Math.round(Constants.iconSizeLarge * 1.2)
                                 height: Math.round(Constants.iconSizeLarge * 1.2)
                                 radius: width / 2
-                                color: Colors.text
+                                color: MColors.textPrimary
                                 
                                 Icon {
                                     anchors.centerIn: parent
                                     name: "check"
                                     size: Constants.iconSizeMedium
-                                    color: Colors.accent
+                                    color: MColors.marathonTeal
                                 }
                                 
                                 scale: WallpaperStore.currentWallpaper === modelData.path ? 1.0 : 0.0
@@ -129,20 +131,20 @@ SettingsPageTemplate {
                                 anchors.bottom: parent.bottom
                                 anchors.left: parent.left
                                 anchors.right: parent.right
-                                anchors.margins: Constants.spacingSmall
+                                anchors.margins: MSpacing.sm
                                 text: modelData.name
-                                color: Colors.text
-                                font.pixelSize: Typography.sizeXSmall
-                                font.family: Typography.fontFamily
+                                color: MColors.textPrimary
+                                font.pixelSize: MTypography.sizeXSmall
+                                font.family: MTypography.fontFamily
                                 font.weight: WallpaperStore.currentWallpaper === modelData.path ? Font.Bold : Font.Normal
                                 horizontalAlignment: Text.AlignHCenter
                                 
                                 Rectangle {
                                     anchors.fill: parent
-                                    anchors.margins: -Constants.spacingXSmall
+                                    anchors.margins: -MSpacing.xs
                                     z: -1
                                     radius: Constants.borderRadiusSmall
-                                    color: Colors.backgroundDark
+                                    color: MColors.background
                                     opacity: 0.8
                                 }
                             }

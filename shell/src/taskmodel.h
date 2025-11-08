@@ -100,6 +100,7 @@ public:
     Q_INVOKABLE void closeTask(const QString& taskId);
     Q_INVOKABLE Task* getTask(const QString& taskId);
     Q_INVOKABLE Task* getTaskByAppId(const QString& appId);
+    Q_INVOKABLE Task* getTaskBySurfaceId(int surfaceId);
     Q_INVOKABLE void updateTaskSnapshot(const QString& appId, const QImage& snapshot);
     Q_INVOKABLE void updateTaskSurface(const QString& appId, QObject* surface);
     Q_INVOKABLE void clear();

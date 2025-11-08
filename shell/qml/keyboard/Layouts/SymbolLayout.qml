@@ -2,6 +2,7 @@
 // Special characters and symbols
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
 import "../UI"
 
 Item {
@@ -83,7 +84,7 @@ Item {
         Rectangle {
             width: parent.width
             height: 1
-            color: MColors.borderOuter
+            color: MColors.border
             opacity: 0.3
         }
         
@@ -138,7 +139,7 @@ Item {
         Rectangle {
             width: parent.width
             height: 1
-            color: MColors.borderOuter
+            color: MColors.border
             opacity: 0.3
         }
         

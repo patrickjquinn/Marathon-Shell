@@ -80,6 +80,48 @@ If `true`, app cannot be uninstalled by users. Reserved for system apps.
 
 **Default:** `false`
 
+### `categories` (array of strings)
+App categories for organization and filtering.
+
+**Available categories:**
+- `"Communication"` - Messaging, email, calls
+- `"Productivity"` - Notes, calendar, documents
+- `"Entertainment"` - Music, video, games
+- `"Utility"` - Calculator, clock, settings
+- `"System"` - Core system apps
+
+**Example:**
+```json
+"categories": ["Communication", "Social"]
+```
+
+### `handlesUriSchemes` (array of strings)
+URI schemes this app can handle (for deep linking).
+
+**Example:**
+```json
+"handlesUriSchemes": ["sms", "mms", "tel"]
+```
+
+### `defaultFor` (array of strings)
+Default handler capabilities this app provides.
+
+**Available handlers:**
+- `"browser"` - Web browser
+- `"dialer"` - Phone calls
+- `"messaging"` - SMS/MMS
+- `"email"` - Email client
+- `"camera"` - Photo/video capture
+- `"gallery"` - Photo viewing
+- `"music"` - Music player
+- `"video"` - Video player
+- `"files"` - File manager
+
+**Example:**
+```json
+"defaultFor": ["messaging"]
+```
+
 ---
 
 ## Deep Link Search (Core Feature)

@@ -27,6 +27,14 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
+    , m_filterMobileFriendlyApps(true)  // Default to ON for better mobile UX
+    , m_hiddenApps()
+    , m_appSortOrder("alphabetical")
+    , m_appGridColumns(0)  // 0 = auto
+    , m_searchNativeApps(true)
+    , m_showNotificationBadges(true)
+    , m_showFrequentApps(false)
+    , m_defaultApps()
     , m_firstRunComplete(false)
 {
     qDebug() << "[SettingsManager] Initialized";
@@ -65,12 +73,37 @@ void SettingsManager::load() {
     // Notifications
     m_showNotificationsOnLockScreen = m_settings.value("notifications/showOnLockScreen", true).toBool();
     
+    // App Management
+    m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", true).toBool();
+    m_hiddenApps = m_settings.value("apps/hiddenApps", QStringList()).toStringList();
+    m_appSortOrder = m_settings.value("apps/sortOrder", "alphabetical").toString();
+    m_appGridColumns = m_settings.value("apps/gridColumns", 0).toInt();
+    m_searchNativeApps = m_settings.value("apps/searchNativeApps", true).toBool();
+    m_showNotificationBadges = m_settings.value("apps/showBadges", true).toBool();
+    m_showFrequentApps = m_settings.value("apps/showFrequentApps", false).toBool();
+    
+    // Load default apps map
+    QVariantMap defaultApps;
+    defaultApps["browser"] = m_settings.value("apps/defaultBrowser", "").toString();
+    defaultApps["dialer"] = m_settings.value("apps/defaultDialer", "").toString();
+    defaultApps["messaging"] = m_settings.value("apps/defaultMessaging", "").toString();
+    defaultApps["email"] = m_settings.value("apps/defaultEmail", "").toString();
+    defaultApps["camera"] = m_settings.value("apps/defaultCamera", "").toString();
+    defaultApps["gallery"] = m_settings.value("apps/defaultGallery", "").toString();
+    defaultApps["music"] = m_settings.value("apps/defaultMusic", "").toString();
+    defaultApps["video"] = m_settings.value("apps/defaultVideo", "").toString();
+    defaultApps["files"] = m_settings.value("apps/defaultFiles", "").toString();
+    m_defaultApps = defaultApps;
+    
     // OOBE
     m_firstRunComplete = m_settings.value("system/firstRunComplete", false).toBool();
     
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
     qDebug() << "[SettingsManager] Loaded: firstRunComplete =" << m_firstRunComplete;
+    qDebug() << "[SettingsManager] Loaded: filterMobileFriendlyApps =" << m_filterMobileFriendlyApps;
+    qDebug() << "[SettingsManager] Loaded: hiddenApps =" << m_hiddenApps;
+    qDebug() << "[SettingsManager] Loaded: appSortOrder =" << m_appSortOrder;
 }
 
 void SettingsManager::save() {
@@ -103,6 +136,26 @@ void SettingsManager::save() {
     
     // Notifications
     m_settings.setValue("notifications/showOnLockScreen", m_showNotificationsOnLockScreen);
+    
+    // App Management
+    m_settings.setValue("apps/filterMobileFriendly", m_filterMobileFriendlyApps);
+    m_settings.setValue("apps/hiddenApps", m_hiddenApps);
+    m_settings.setValue("apps/sortOrder", m_appSortOrder);
+    m_settings.setValue("apps/gridColumns", m_appGridColumns);
+    m_settings.setValue("apps/searchNativeApps", m_searchNativeApps);
+    m_settings.setValue("apps/showBadges", m_showNotificationBadges);
+    m_settings.setValue("apps/showFrequentApps", m_showFrequentApps);
+    
+    // Save default apps
+    m_settings.setValue("apps/defaultBrowser", m_defaultApps.value("browser", "").toString());
+    m_settings.setValue("apps/defaultDialer", m_defaultApps.value("dialer", "").toString());
+    m_settings.setValue("apps/defaultMessaging", m_defaultApps.value("messaging", "").toString());
+    m_settings.setValue("apps/defaultEmail", m_defaultApps.value("email", "").toString());
+    m_settings.setValue("apps/defaultCamera", m_defaultApps.value("camera", "").toString());
+    m_settings.setValue("apps/defaultGallery", m_defaultApps.value("gallery", "").toString());
+    m_settings.setValue("apps/defaultMusic", m_defaultApps.value("music", "").toString());
+    m_settings.setValue("apps/defaultVideo", m_defaultApps.value("video", "").toString());
+    m_settings.setValue("apps/defaultFiles", m_defaultApps.value("files", "").toString());
     
     // OOBE
     m_settings.setValue("system/firstRunComplete", m_firstRunComplete);
@@ -369,6 +422,102 @@ int SettingsManager::screenTimeoutValue(const QString &option) {
     if (option == "5 minutes") return 300000;
     if (option == "Never") return 0;
     return 120000; // Default to 2 minutes
+}
+
+void SettingsManager::setFilterMobileFriendlyApps(bool enabled) {
+    if (m_filterMobileFriendlyApps == enabled) {
+        return;
+    }
+    
+    m_filterMobileFriendlyApps = enabled;
+    emit filterMobileFriendlyAppsChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] Filter mobile-friendly apps:" << enabled;
+}
+
+void SettingsManager::setHiddenApps(const QStringList &apps) {
+    if (m_hiddenApps == apps) {
+        return;
+    }
+    
+    m_hiddenApps = apps;
+    emit hiddenAppsChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] Hidden apps:" << apps.size();
+}
+
+void SettingsManager::setAppSortOrder(const QString &order) {
+    if (m_appSortOrder == order) {
+        return;
+    }
+    
+    m_appSortOrder = order;
+    emit appSortOrderChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] App sort order:" << order;
+}
+
+void SettingsManager::setAppGridColumns(int columns) {
+    if (m_appGridColumns == columns) {
+        return;
+    }
+    
+    m_appGridColumns = columns;
+    emit appGridColumnsChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] App grid columns:" << columns;
+}
+
+void SettingsManager::setSearchNativeApps(bool enabled) {
+    if (m_searchNativeApps == enabled) {
+        return;
+    }
+    
+    m_searchNativeApps = enabled;
+    emit searchNativeAppsChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] Search native apps:" << enabled;
+}
+
+void SettingsManager::setShowNotificationBadges(bool enabled) {
+    if (m_showNotificationBadges == enabled) {
+        return;
+    }
+    
+    m_showNotificationBadges = enabled;
+    emit showNotificationBadgesChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] Show notification badges:" << enabled;
+}
+
+void SettingsManager::setShowFrequentApps(bool enabled) {
+    if (m_showFrequentApps == enabled) {
+        return;
+    }
+    
+    m_showFrequentApps = enabled;
+    emit showFrequentAppsChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] Show frequent apps:" << enabled;
+}
+
+void SettingsManager::setDefaultApps(const QVariantMap &apps) {
+    if (m_defaultApps == apps) {
+        return;
+    }
+    
+    m_defaultApps = apps;
+    emit defaultAppsChanged();
+    save();
+    
+    qDebug() << "[SettingsManager] Default apps updated";
 }
 
 QString SettingsManager::formatSoundName(const QString &path) {

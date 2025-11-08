@@ -38,6 +38,16 @@ class SettingsManager : public QObject {
     // Notification properties
     Q_PROPERTY(bool showNotificationsOnLockScreen READ showNotificationsOnLockScreen WRITE setShowNotificationsOnLockScreen NOTIFY showNotificationsOnLockScreenChanged)
     
+    // App management properties
+    Q_PROPERTY(bool filterMobileFriendlyApps READ filterMobileFriendlyApps WRITE setFilterMobileFriendlyApps NOTIFY filterMobileFriendlyAppsChanged)
+    Q_PROPERTY(QStringList hiddenApps READ hiddenApps WRITE setHiddenApps NOTIFY hiddenAppsChanged)
+    Q_PROPERTY(QString appSortOrder READ appSortOrder WRITE setAppSortOrder NOTIFY appSortOrderChanged)
+    Q_PROPERTY(int appGridColumns READ appGridColumns WRITE setAppGridColumns NOTIFY appGridColumnsChanged)
+    Q_PROPERTY(bool searchNativeApps READ searchNativeApps WRITE setSearchNativeApps NOTIFY searchNativeAppsChanged)
+    Q_PROPERTY(bool showNotificationBadges READ showNotificationBadges WRITE setShowNotificationBadges NOTIFY showNotificationBadgesChanged)
+    Q_PROPERTY(bool showFrequentApps READ showFrequentApps WRITE setShowFrequentApps NOTIFY showFrequentAppsChanged)
+    Q_PROPERTY(QVariantMap defaultApps READ defaultApps WRITE setDefaultApps NOTIFY defaultAppsChanged)
+    
     // OOBE properties
     Q_PROPERTY(bool firstRunComplete READ firstRunComplete WRITE setFirstRunComplete NOTIFY firstRunCompleteChanged)
 
@@ -75,6 +85,16 @@ public:
     // Notification getters
     bool showNotificationsOnLockScreen() const { return m_showNotificationsOnLockScreen; }
     
+    // App management getters
+    bool filterMobileFriendlyApps() const { return m_filterMobileFriendlyApps; }
+    QStringList hiddenApps() const { return m_hiddenApps; }
+    QString appSortOrder() const { return m_appSortOrder; }
+    int appGridColumns() const { return m_appGridColumns; }
+    bool searchNativeApps() const { return m_searchNativeApps; }
+    bool showNotificationBadges() const { return m_showNotificationBadges; }
+    bool showFrequentApps() const { return m_showFrequentApps; }
+    QVariantMap defaultApps() const { return m_defaultApps; }
+    
     // OOBE getters
     bool firstRunComplete() const { return m_firstRunComplete; }
 
@@ -107,6 +127,16 @@ public:
     
     // Notification setters
     void setShowNotificationsOnLockScreen(bool enabled);
+    
+    // App management setters
+    void setFilterMobileFriendlyApps(bool enabled);
+    void setHiddenApps(const QStringList &apps);
+    void setAppSortOrder(const QString &order);
+    void setAppGridColumns(int columns);
+    void setSearchNativeApps(bool enabled);
+    void setShowNotificationBadges(bool enabled);
+    void setShowFrequentApps(bool enabled);
+    void setDefaultApps(const QVariantMap &apps);
     
     // OOBE setters
     void setFirstRunComplete(bool complete);
@@ -155,6 +185,16 @@ signals:
     // Notification signals
     void showNotificationsOnLockScreenChanged();
     
+    // App management signals
+    void filterMobileFriendlyAppsChanged();
+    void hiddenAppsChanged();
+    void appSortOrderChanged();
+    void appGridColumnsChanged();
+    void searchNativeAppsChanged();
+    void showNotificationBadgesChanged();
+    void showFrequentAppsChanged();
+    void defaultAppsChanged();
+    
     // OOBE signals
     void firstRunCompleteChanged();
 
@@ -193,6 +233,16 @@ private:
     
     // Notification members
     bool m_showNotificationsOnLockScreen;
+    
+    // App management members
+    bool m_filterMobileFriendlyApps;
+    QStringList m_hiddenApps;
+    QString m_appSortOrder;
+    int m_appGridColumns;
+    bool m_searchNativeApps;
+    bool m_showNotificationBadges;
+    bool m_showFrequentApps;
+    QVariantMap m_defaultApps;
     
     // OOBE members
     bool m_firstRunComplete;

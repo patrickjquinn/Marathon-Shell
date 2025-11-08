@@ -1,5 +1,5 @@
 import QtQuick
-import "../theme"
+import MarathonOS.Shell
 import MarathonUI.Theme
 
 MouseArea {
@@ -17,7 +17,7 @@ MouseArea {
     
     onPressed: (mouse) => {
         startY = mouse.y
-        if (mouse.y > height - Theme.peekThreshold) {
+        if (mouse.y > height - Constants.peekThreshold) {
             isPeeking = true
             peekStarted()
             mouse.accepted = true
@@ -30,7 +30,7 @@ MouseArea {
         if (isPeeking) {
             var dragY = startY - mouse.y
             var progress = Math.max(0, Math.min(1, 
-                dragY / Theme.commitThreshold))
+                dragY / Constants.commitThreshold))
             peekProgress(progress)
             mouse.accepted = true
         }
@@ -39,7 +39,7 @@ MouseArea {
     onReleased: (mouse) => {
         if (isPeeking) {
             var dragY = startY - mouse.y
-            var committed = dragY > Theme.commitThreshold
+            var committed = dragY > Constants.commitThreshold
             peekReleased(committed)
             isPeeking = false
             mouse.accepted = true

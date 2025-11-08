@@ -1,13 +1,12 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Lists
+import MarathonUI.Containers
 import MarathonUI.Core
 
 Rectangle {
     id: historyPage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal historySelected(string url)
     signal clearHistory()
@@ -71,17 +70,18 @@ Rectangle {
             
             delegate: Item {
                 width: historyList.width
-                height: modelData.type === "header" ? Constants.touchTargetSmall : (Constants.touchTargetLarge + Constants.spacingXSmall)
+                height: modelData.type === "header" ? Constants.touchTargetSmall : (Constants.touchTargetLarge + MSpacing.xs)
                 
                 MSectionHeader {
                     visible: modelData.type === "header"
                     anchors.fill: parent
-                    title: modelData.title || ""
+                    text: modelData.title || ""
                 }
                 
-                SettingsListItem {
+                MSettingsListItem {
                     visible: modelData.type === "item"
-                    anchors.fill: parent
+                    width: parent.width
+                    height: parent.height
                     title: modelData.data ? (modelData.data.title || modelData.data.url) : ""
                     subtitle: modelData.data ? modelData.data.url : ""
                     iconName: "clock"
@@ -101,7 +101,7 @@ Rectangle {
                 visible: historyPage.history.length === 0
                 anchors.centerIn: parent
                 text: "No history yet"
-                font.pixelSize: Constants.fontSizeLarge
+                font.pixelSize: MTypography.sizeLarge
                 color: MColors.textTertiary
             }
         }
@@ -109,7 +109,7 @@ Rectangle {
         Rectangle {
             id: clearButton
             width: parent.width
-            height: Constants.touchTargetMedium + Constants.spacingMedium * 2
+            height: Constants.touchTargetMedium + MSpacing.md * 2
             color: MColors.surface
             visible: historyPage.history.length > 0
             
@@ -122,7 +122,7 @@ Rectangle {
             
             Row {
                 anchors.centerIn: parent
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
@@ -134,7 +134,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Clear History"
-                    font.pixelSize: Constants.fontSizeMedium
+                    font.pixelSize: MTypography.sizeBody
                     font.weight: Font.DemiBold
                     color: MColors.error
                 }

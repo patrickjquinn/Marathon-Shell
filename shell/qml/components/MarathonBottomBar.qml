@@ -85,7 +85,7 @@ Item {
         Rectangle {
             width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: Colors.cornerRadiusCircle  // BB10: True circle
+            radius: 999  // BB10: True circle
             color: bottomBar.currentPage === -2 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
             
@@ -110,7 +110,7 @@ Item {
         Rectangle {
             width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: Colors.cornerRadiusCircle  // BB10: True circle
+            radius: 999  // BB10: True circle
             color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
             
@@ -138,7 +138,7 @@ Item {
             Rectangle {
                 width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
-                radius: Colors.cornerRadiusCircle  // BB10: True circle
+                radius: 999  // BB10: True circle
                 color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
                 anchors.verticalCenter: parent.verticalCenter
                 

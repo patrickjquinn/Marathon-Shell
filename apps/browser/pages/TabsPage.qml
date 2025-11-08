@@ -1,13 +1,13 @@
 import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Containers
 import "../components"
 
 Rectangle {
     id: tabsPage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal tabSelected(int tabId)
     signal newTabRequested()
@@ -22,27 +22,27 @@ Rectangle {
         
         Item {
             width: parent.width
-            height: parent.height - (Constants.touchTargetSmall + Constants.spacingMedium)
+            height: parent.height - (Constants.touchTargetSmall + MSpacing.md)
             
             ListView {
                 id: tabsList
                 anchors.fill: parent
                 clip: true
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 
                 model: tabsPage.tabs
                 
                 delegate: Item {
                     width: tabsList.width
-                    height: Constants.cardHeight + Constants.spacingMedium
+                    height: Constants.cardHeight + MSpacing.md
                     
                     TabCard {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: parent.width - Constants.spacingLarge * 2
+                        width: parent.width - MSpacing.lg * 2
                         tabData: modelData
                         isCurrentTab: modelData.id === tabsPage.currentTabId
                         
-                        onClicked: {
+                        onTabClicked: {
                             HapticService.light()
                             tabsPage.tabSelected(modelData.id)
                         }
@@ -54,22 +54,21 @@ Rectangle {
                     }
                 }
                 
-                header: Item { height: Constants.spacingMedium }
-                footer: Item { height: Constants.spacingMedium }
+                header: Item { height: MSpacing.md }
+                footer: Item { height: MSpacing.md }
             }
             
-            Text {
+            MEmptyState {
                 visible: tabsPage.tabs.length === 0
                 anchors.centerIn: parent
-                text: "No open tabs"
-                font.pixelSize: Constants.fontSizeLarge
-                color: MColors.textTertiary
+                title: "No open tabs"
+                message: "Tap the button below to create a new tab"
             }
         }
         
         Rectangle {
             width: parent.width
-            height: Constants.touchTargetSmall + Constants.spacingMedium
+            height: Constants.touchTargetSmall + MSpacing.md
             color: MColors.surface
             opacity: tabsPage.tabs.length >= 20 ? 0.5 : 1.0
             
@@ -80,31 +79,14 @@ Rectangle {
                 color: MColors.border
             }
             
-            Row {
+            MButton {
                 anchors.centerIn: parent
-                spacing: Constants.spacingSmall
+                text: tabsPage.tabs.length >= 20 ? "Tab Limit Reached" : "New Tab"
+                iconName: "plus"
+                variant: "primary"
+                disabled: tabsPage.tabs.length >= 20
                 
-                Icon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    name: "plus"
-                    size: Constants.iconSizeSmall
-                    color: tabsPage.tabs.length >= 20 ? MColors.textTertiary : MColors.accent
-                }
-                
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: tabsPage.tabs.length >= 20 ? "Tab Limit Reached" : "New Tab"
-                    font.pixelSize: Constants.fontSizeMedium
-                    font.weight: Font.DemiBold
-                    color: tabsPage.tabs.length >= 20 ? MColors.textTertiary : MColors.accent
-                }
-            }
-            
-            MouseArea {
-                anchors.fill: parent
-                enabled: tabsPage.tabs.length < 20
                 onClicked: {
-                    HapticService.light()
                     tabsPage.newTabRequested()
                 }
             }

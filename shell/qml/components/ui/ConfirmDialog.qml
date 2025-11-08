@@ -1,5 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Item {
     id: confirmDialog
@@ -79,7 +81,7 @@ Item {
                 
                 Text {
                     text: title
-                    color: MColors.text
+                    color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeLarge
                     font.weight: MTypography.weightBold
                     font.family: MTypography.fontFamily

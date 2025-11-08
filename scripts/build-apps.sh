@@ -86,6 +86,13 @@ if [ $INSTALL_EXIT_CODE -ne 0 ]; then
     for app_src in "$PROJECT_ROOT/apps"/*; do
         if [ -d "$app_src" ]; then
             app_name=$(basename "$app_src")
+            
+            # Skip template directory - it's a reference example, not a real app
+            if [ "$app_name" = "template" ]; then
+                echo "   ⏭️  Skipping template (example app, not for installation)"
+                continue
+            fi
+            
             app_dest="$INSTALL_DIR/$app_name"
             
             echo "   📦 Installing $app_name..."

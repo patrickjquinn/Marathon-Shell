@@ -3,6 +3,8 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Core
 
 Rectangle {
     id: key
@@ -98,7 +100,7 @@ Rectangle {
         radius: parent.radius > 0 ? parent.radius - 2 : 0
         color: "transparent"
         border.width: Math.round(1 * Constants.scaleFactor)
-        border.color: key.pressed ? MColors.accentSubtle : "#555555"  // Lighter grey for depth
+        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555"  // Lighter grey for depth
         antialiasing: parent.antialiasing
     }
     
@@ -113,7 +115,7 @@ Rectangle {
             visible: key.iconName !== ""
             name: key.iconName
             size: Math.round(20 * Constants.scaleFactor)
-            color: MColors.text
+            color: MColors.textPrimary
             anchors.centerIn: parent
             opacity: key.pressed ? 1.0 : 0.9
         }
@@ -122,7 +124,7 @@ Rectangle {
         Text {
             visible: key.iconName === ""
             text: key.displayText
-            color: MColors.text
+            color: MColors.textPrimary
             font.pixelSize: key.isSpecial ? 
                 Math.round(14 * Constants.scaleFactor) : 
                 Math.round(18 * Constants.scaleFactor)
@@ -157,9 +159,9 @@ Rectangle {
         z: 1000
         
         radius: Constants.borderRadiusMedium
-        color: MColors.surface3
+        color: MColors.elevated
         border.width: Constants.borderWidthMedium
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         antialiasing: true
         
         // Inner border
@@ -169,7 +171,7 @@ Rectangle {
             radius: parent.radius - 1
             color: "transparent"
             border.width: Constants.borderWidthThin
-            border.color: MColors.borderHighlight
+            border.color: MColors.highlightMedium
             antialiasing: true
         }
         
@@ -185,7 +187,7 @@ Rectangle {
         // Preview text (larger)
         Text {
             text: key.displayText
-            color: MColors.text
+            color: MColors.textPrimary
             font.pixelSize: Math.round(32 * Constants.scaleFactor)
             font.weight: Font.Normal
             anchors.centerIn: parent
@@ -228,7 +230,7 @@ Rectangle {
             width: alternatePopup.popupWidth
             height: Math.round(50 * Constants.scaleFactor)
             radius: Constants.borderRadiusMedium
-            color: MColors.surface3
+            color: MColors.elevated
             border.width: Constants.borderWidthMedium
             border.color: MColors.accentBright
             antialiasing: true
@@ -257,7 +259,7 @@ Rectangle {
                         Text {
                             anchors.centerIn: parent
                             text: modelData
-                            color: MColors.text
+                            color: MColors.textPrimary
                             font.pixelSize: Math.round(20 * Constants.scaleFactor)
                         }
                         

@@ -1,8 +1,7 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Theme
 
 Item {
     id: timerPage
@@ -46,50 +45,50 @@ Item {
         Column {
             id: mainColumn
             width: parent.width
-            spacing: Constants.spacingXLarge * 2
-            topPadding: Constants.spacingXLarge * 2
-            bottomPadding: Constants.spacingLarge
+            spacing: MSpacing.xl * 2
+            topPadding: MSpacing.xl * 2
+            bottomPadding: MSpacing.lg
             
             // Timer display
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: formatTime(remainingSeconds)
-                color: Colors.text
-                font.pixelSize: Constants.fontSizeHuge * 1.8
+                color: MColors.textPrimary
+                font.pixelSize: MTypography.sizeHuge * 1.8
                 font.weight: Font.Light
             }
             
             // Quick timer buttons
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
                 visible: !isRunning && remainingSeconds === 0
-                width: Math.min(parent.width - Constants.spacingLarge * 2, Constants.screenWidth * 0.8)
+                width: Math.min(parent.width - MSpacing.lg * 2, Constants.screenWidth * 0.8)
                 
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Quick Timers"
-                    color: Colors.textSecondary
-                    font.pixelSize: Constants.fontSizeMedium
+                    color: MColors.textSecondary
+                    font.pixelSize: MTypography.sizeBody
                 }
                 
                 Grid {
                     anchors.horizontalCenter: parent.horizontalCenter
                     columns: 3
-                    spacing: Constants.spacingMedium
-                    width: parent.width
+                    spacing: MSpacing.md
                     
                     Repeater {
                         model: [1, 3, 5, 10, 15, 30]
                         
                         MButton {
-                            width: (parent.width - parent.spacing * 2) / 3
-                            text: modelData + " min"
-                            variant: "secondary"
-                            onClicked: {
-                                HapticService.light()
-                                remainingSeconds = modelData * 60
-                                totalSeconds = remainingSeconds
+                            required property int modelData
+                            width: Math.round((parent.parent.width - parent.spacing * 2) / 3)
+                                text: modelData + " min"
+                                variant: "secondary"
+                                onClicked: {
+                                    HapticService.light()
+                                    remainingSeconds = modelData * 60
+                                    totalSeconds = remainingSeconds
                             }
                         }
                     }
@@ -99,7 +98,7 @@ Item {
             // Control buttons
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Constants.spacingLarge
+                spacing: MSpacing.lg
                 visible: remainingSeconds > 0
                 
                 MButton {

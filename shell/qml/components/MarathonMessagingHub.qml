@@ -1,5 +1,6 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Core
 import "."
 import MarathonUI.Theme
 
@@ -40,7 +41,7 @@ Item {
                     Icon {
                         name: "bell"
                         size: 28
-                        color: Colors.text
+                        color: MColors.textPrimary
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     
@@ -50,14 +51,14 @@ Item {
                         
                         Text {
                             text: modelData.title
-                            color: Colors.text
+                            color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeBody
                             font.weight: Font.Bold
                         }
                         
                         Text {
                             text: modelData.content
-                            color: Colors.textSecondary
+                            color: MColors.textSecondary
                             font.pixelSize: MTypography.sizeSmall
                         }
                     }
@@ -78,7 +79,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text: "▼"
-                color: Colors.text
+                color: MColors.textPrimary
                 font.pixelSize: Constants.fontSizeMedium
             }
             

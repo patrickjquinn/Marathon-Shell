@@ -1,5 +1,9 @@
 import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
 
 Modal {
     id: listPickerModal
@@ -39,7 +43,7 @@ Modal {
                 // Press feedback
                 Rectangle {
                     anchors.fill: parent
-                    color: Colors.accent
+                    color: MColors.marathonTeal
                     opacity: itemMouseArea.pressed ? 0.05 : 0
                     radius: parent.radius
                     
@@ -63,7 +67,7 @@ Modal {
                     
                     Text {
                         text: modelData
-                        color: Colors.text
+                        color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeBody
                         font.weight: index === selectedIndex ? Font.DemiBold : Font.Normal
                         font.family: MTypography.fontFamily
@@ -76,14 +80,14 @@ Modal {
                         width: Constants.iconButtonSize
                         height: Constants.iconButtonSize
                         radius: Constants.borderRadiusSmall
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                         anchors.verticalCenter: parent.verticalCenter
                         
                         Rectangle {
                             width: Constants.smallIndicatorSize
                             height: Constants.smallIndicatorSize
                             radius: Constants.borderRadiusSmall
-                            color: Colors.text
+                            color: MColors.textPrimary
                             anchors.centerIn: parent
                         }
                     }

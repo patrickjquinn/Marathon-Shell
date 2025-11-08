@@ -1,0 +1,3 @@
+module MarathonOS.Utils
+singleton Async 1.0 Async.qml
+

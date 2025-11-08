@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
@@ -7,7 +6,7 @@ import MarathonUI.Core
 
 Rectangle {
     id: searchEnginePage
-    color: MColors.backgroundDark
+    color: MColors.background
     
     signal searchEngineSelected(string name, string url)
     signal backRequested()
@@ -20,7 +19,7 @@ Rectangle {
         
         Rectangle {
             width: parent.width
-            height: Constants.touchTargetMedium + Constants.spacingMedium
+            height: Constants.touchTargetMedium + MSpacing.md
             color: MColors.surface
             
             Rectangle {
@@ -32,9 +31,9 @@ Rectangle {
             
             Row {
                 anchors.fill: parent
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.rightMargin: Constants.spacingMedium
-                spacing: Constants.spacingMedium
+                anchors.leftMargin: MSpacing.md
+                anchors.rightMargin: MSpacing.md
+                spacing: MSpacing.md
                 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
@@ -63,7 +62,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Search Engine"
-                    font.pixelSize: Constants.fontSizeLarge
+                    font.pixelSize: MTypography.sizeLarge
                     font.weight: Font.DemiBold
                     color: MColors.text
                 }
@@ -72,7 +71,7 @@ Rectangle {
         
         ListView {
             width: parent.width
-            height: parent.height - (Constants.touchTargetMedium + Constants.spacingMedium)
+            height: parent.height - (Constants.touchTargetMedium + MSpacing.md)
             clip: true
             spacing: 0
             
@@ -98,9 +97,9 @@ Rectangle {
                 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: Constants.spacingLarge
-                    anchors.rightMargin: Constants.spacingLarge
-                    spacing: Constants.spacingMedium
+                    anchors.leftMargin: MSpacing.lg
+                    anchors.rightMargin: MSpacing.lg
+                    spacing: MSpacing.md
                     
                     Icon {
                         Layout.alignment: Qt.AlignVCenter
@@ -112,7 +111,7 @@ Rectangle {
                     Text {
                         Layout.alignment: Qt.AlignVCenter
                         text: model.name
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         color: MColors.text
                     }
                     

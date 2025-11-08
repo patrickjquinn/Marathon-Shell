@@ -1,4 +1,5 @@
 #include "freedesktopnotifications.h"
+#include "../notificationmodel.h"
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QDBusMessage>
@@ -7,9 +8,10 @@
 #include <QCoreApplication>
 #include <QTimer>
 
-FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *database, QObject *parent)
+FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model, QObject *parent)
     : QObject(parent)
     , m_database(database)
+    , m_model(model)
 {
 }
 
@@ -21,10 +23,7 @@ bool FreedesktopNotifications::registerService()
 {
     QDBusConnection bus = QDBusConnection::sessionBus();
     
-    // Register the standard freedesktop service name
     if (!bus.registerService("org.freedesktop.Notifications")) {
-        // On desktop systems, GNOME/KDE/etc may already provide this service
-        // This is expected and not an error - we'll use the system notification daemon
         qDebug() << "[FreedesktopNotifications] org.freedesktop.Notifications already registered (desktop environment)";
         qDebug() << "[FreedesktopNotifications] This is expected on desktop and will work on actual device";
         return false;
@@ -54,12 +53,13 @@ uint FreedesktopNotifications::Notify(const QString &app_name,
     
     qInfo() << "[FreedesktopNotifications] Notify from:" << appId << "title:" << summary;
     
-    // If replacing an existing notification
     if (replaces_id > 0) {
         m_database->dismiss(replaces_id);
+        if (m_model) {
+            m_model->dismissNotification(replaces_id);
+        }
     }
     
-    // Create notification record
     NotificationDatabase::NotificationRecord record;
     record.appId = appId;
     record.title = summary;
@@ -69,21 +69,17 @@ uint FreedesktopNotifications::Notify(const QString &app_name,
     record.read = false;
     record.dismissed = false;
     
-    // Map hints to metadata
     record.metadata = hints;
     record.metadata["expire_timeout"] = expire_timeout;
     
-    // Extract category from hints
     if (hints.contains("category")) {
         record.category = hints.value("category").toString();
     } else {
         record.category = "general";
     }
     
-    // Map urgency to priority
     record.priority = mapUrgencyToPriority(hints);
     
-    // Parse actions (action_key, localized_string pairs)
     QVariantList actionList;
     for (int i = 0; i < actions.size(); i += 2) {
         if (i + 1 < actions.size()) {
@@ -95,14 +91,19 @@ uint FreedesktopNotifications::Notify(const QString &app_name,
     }
     record.actions = actionList;
     
-    // Save to database
     uint id = m_database->saveNotification(record);
     
-    // Handle auto-expire
+    if (m_model) {
+        m_model->addNotification(appId, summary, body, app_icon);
+    }
+    
     if (expire_timeout > 0) {
         QTimer::singleShot(expire_timeout, this, [this, id]() {
             m_database->dismiss(id);
-            emit NotificationClosed(id, 1); // Reason: expired
+            if (m_model) {
+                m_model->dismissNotification(id);
+            }
+            emit NotificationClosed(id, 1);
         });
     }
     
@@ -128,8 +129,18 @@ QStringList FreedesktopNotifications::GetCapabilities()
         "body-markup",          // Supports markup in body (we strip it but declare support)
         "icon-static",          // Supports icon
         "persistence",          // Notifications persist
-        "action-icons"          // Action icons supported
+        "action-icons",         // Action icons supported
+        "inline-reply"          // Inline reply support for quick responses
     };
+}
+
+void FreedesktopNotifications::InvokeReply(uint id, const QString &text)
+{
+    qInfo() << "[FreedesktopNotifications] InvokeReply:" << id << "text:" << text;
+    emit NotificationReplied(id, text);
+    
+    // Emit ActionInvoked for compatibility with apps expecting "default" action
+    emit ActionInvoked(id, "inline-reply");
 }
 
 void FreedesktopNotifications::GetServerInformation(QString &name, QString &vendor, QString &version, QString &spec_version)

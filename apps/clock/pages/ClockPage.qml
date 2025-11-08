@@ -1,7 +1,8 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Effects
 import MarathonOS.Shell
-import "../components" as ClockComponents
+import MarathonUI.Theme
+import "../components"
 
 Item {
     id: clockPage
@@ -33,35 +34,78 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: Colors.background
+        color: MColors.background
         
         // Main analog clock - centered and large, accounting for alarm bar
         Item {
             anchors.centerIn: parent
-            width: Math.min(parent.width * 0.85, parent.height * 0.7)
+            width: Math.min(parent.width * 0.7, parent.height * 0.55)
             height: width
             // Account for alarm bar when centering
-            anchors.verticalCenterOffset: clockApp.alarms.length > 0 ? -Constants.actionBarHeight / 2 : 0
+            anchors.verticalCenterOffset: (clockApp.alarms && clockApp.alarms.length > 0) ? -Constants.actionBarHeight / 2 : 0
             
-            // Squircle clock face (super-ellipse shape) - larger frame ONLY
-            Rectangle {
-                id: clockFace
+            // Squircle clock face with neumorphic design - raised from background
+            Item {
+                id: clockFaceContainer
                 anchors.centerIn: parent
-                width: parent.width * 1.10  // 10% larger frame (smaller than before)
+                width: parent.width * 1.10
                 height: parent.height * 1.10
-                color: Colors.background
-                border.width: Constants.borderWidthThick
-                border.color: Qt.rgba(0.18, 0.18, 0.18, 1.0)  // Darker, more subtle gray border
-                radius: width * 0.22  // Squircle-like radius (22% of width)
+                
+                // Dark shadow layer (bottom-right) - creates depth
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -20
+                    radius: width * 0.22
+                    color: "transparent"
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: Qt.rgba(0, 0, 0, 0.25)
+                        shadowBlur: 1.0
+                        shadowHorizontalOffset: 20
+                        shadowVerticalOffset: 20
+                    }
+                }
+                
+                // Light shadow layer (top-left) - creates raised effect
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: -20
+                    radius: width * 0.22
+                    color: "transparent"
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: Qt.rgba(1, 1, 1, 0.8)
+                        shadowBlur: 1.0
+                        shadowHorizontalOffset: -20
+                        shadowVerticalOffset: -20
+                    }
+                }
+                
+                // Main clock face
+                Rectangle {
+                    id: clockFace
+                    anchors.fill: parent
+                    color: MColors.surface
+                    radius: width * 0.22
+                    
+                    // Subtle inner border for definition
+                    border.width: Constants.borderWidthThin
+                    border.color: Qt.rgba(0, 0, 0, 0.05)
+                }
                 
                 // Scale factor to keep clock content same size inside larger frame
                 property real contentScale: 1.0 / 1.10
                 
-                // Container to scale clock content to original size
+                // Container to scale clock content to original size inside the face
                 Item {
+                    parent: clockFaceContainer
                     anchors.centerIn: parent
-                    width: parent.width * parent.contentScale
-                    height: parent.height * parent.contentScale
+                    width: clockFaceContainer.width * clockFaceContainer.contentScale
+                    height: clockFaceContainer.height * clockFaceContainer.contentScale
                 
                     // Hour markers (all 60 ticks, with emphasis on hours)
                     Repeater {
@@ -77,11 +121,11 @@ Item {
                                 
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.top: parent.top
-                                anchors.topMargin: Constants.spacingMedium
+                                anchors.topMargin: MSpacing.md
                                 
                                 width: isHourMarker ? Constants.borderWidthThick : Constants.borderWidthThin
-                                height: isHourMarker ? Constants.spacingMedium : Constants.spacingSmall
-                                color: Colors.accent
+                                height: isHourMarker ? MSpacing.md : MSpacing.sm
+                                color: MColors.marathonTeal
                             }
                         }
                     }
@@ -90,42 +134,42 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.top: parent.top
-                        anchors.topMargin: Constants.spacingXLarge
+                        anchors.topMargin: MSpacing.xl
                         text: "12"
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: MTypography.sizeXXLarge
                         font.weight: Font.Bold
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // Number: 3 with date
                     Column {
                         anchors.right: parent.right
-                        anchors.rightMargin: Constants.spacingXLarge
+                        anchors.rightMargin: MSpacing.xl
                         anchors.verticalCenter: parent.verticalCenter
-                        spacing: Constants.spacingXSmall
+                        spacing: MSpacing.xs
                         
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: dayOfMonth
-                            font.pixelSize: Constants.fontSizeMedium
+                            font.pixelSize: MTypography.sizeBody
                             font.weight: Font.Normal
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                         
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: dayOfWeek
-                            font.pixelSize: Constants.fontSizeSmall
+                            font.pixelSize: MTypography.sizeSmall
                             font.weight: Font.Normal
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                         
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "3"
-                            font.pixelSize: Constants.fontSizeXXLarge
+                            font.pixelSize: MTypography.sizeXXLarge
                             font.weight: Font.Bold
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                     }
                     
@@ -133,33 +177,33 @@ Item {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.bottom: parent.bottom
-                        anchors.bottomMargin: Constants.spacingXLarge
+                        anchors.bottomMargin: MSpacing.xl
                         text: "6"
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: MTypography.sizeXXLarge
                         font.weight: Font.Bold
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // Number: 9
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: Constants.spacingXLarge
+                        anchors.leftMargin: MSpacing.xl
                         anchors.verticalCenter: parent.verticalCenter
                         text: "9"
-                        font.pixelSize: Constants.fontSizeXXLarge
+                        font.pixelSize: MTypography.sizeXXLarge
                         font.weight: Font.Bold
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // PM indicator
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         anchors.verticalCenter: parent.verticalCenter
-                        anchors.verticalCenterOffset: Constants.spacingXLarge * 1.5
+                        anchors.verticalCenterOffset: MSpacing.xl * 1.5
                         text: hours >= 12 ? "PM" : "AM"
-                        font.pixelSize: Constants.fontSizeMedium
+                        font.pixelSize: MTypography.sizeBody
                         font.weight: Font.Normal
-                        color: Colors.accent
+                        color: MColors.marathonTeal
                     }
                     
                     // Hour hand - darker gray with inner baton stripe (40% from center)
@@ -258,15 +302,15 @@ Item {
                             anchors.verticalCenterOffset: -height / 2
                             width: Constants.borderWidthThin
                             height: parent.height * 0.42
-                            color: Colors.accent
+                            color: MColors.marathonTeal
                         }
                     }
                     
                     // Center pivot point - circular
                     Rectangle {
                         anchors.centerIn: parent
-                        width: Constants.spacingMedium
-                        height: Constants.spacingMedium
+                        width: MSpacing.md
+                        height: MSpacing.md
                         radius: width / 2
                         color: "#404040"  // Dark gray
                         border.width: 1
@@ -283,62 +327,63 @@ Item {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             height: Constants.actionBarHeight
-            color: Colors.background
-            visible: clockApp.alarms.length > 0
+            color: MColors.background
+            visible: clockApp.alarms && clockApp.alarms.length > 0
             
             Column {
                 anchors.left: parent.left
-                anchors.leftMargin: Constants.spacingLarge
+                anchors.leftMargin: MSpacing.lg
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: Constants.spacingXSmall
+                spacing: MSpacing.xs
                 
                 Row {
-                    spacing: Constants.spacingSmall
+                    spacing: MSpacing.sm
                     
                     Text {
                         text: {
-                            if (clockApp.alarms.length === 0) return ""
+                            if (!clockApp.alarms || clockApp.alarms.length === 0) return ""
                             var alarm = clockApp.alarms[0]
-                            var h = alarm.hour % 12
+                            var h = (alarm.hour !== undefined ? alarm.hour : 0) % 12
                             if (h === 0) h = 12
-                            var m = alarm.minute < 10 ? "0" + alarm.minute : alarm.minute
-                            return h + ":" + m
+                            var m = alarm.minute !== undefined ? alarm.minute : 0
+                            var mStr = m < 10 ? "0" + m : m.toString()
+                            return h + ":" + mStr
                         }
-                        font.pixelSize: Constants.fontSizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Normal
-                        color: Colors.text
+                        color: MColors.textPrimary
                     }
                     
                     Text {
-                        text: clockApp.alarms.length > 0 && clockApp.alarms[0].label ? clockApp.alarms[0].label : "Alarm Off"
-                        font.pixelSize: Constants.fontSizeLarge
+                        text: (clockApp.alarms && clockApp.alarms.length > 0 && clockApp.alarms[0].label) ? clockApp.alarms[0].label : "Alarm Off"
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Normal
-                        color: Colors.text
+                        color: MColors.textPrimary
                     }
                 }
                 
                 Text {
                     text: "No Recurrence"
-                    font.pixelSize: Constants.fontSizeSmall
-                    color: Colors.accent
+                    font.pixelSize: MTypography.sizeSmall
+                            color: MColors.marathonTeal
                 }
             }
             
             // Alarm toggle
             Rectangle {
                 anchors.right: parent.right
-                anchors.rightMargin: Constants.spacingLarge
+                anchors.rightMargin: MSpacing.lg
                 anchors.verticalCenter: parent.verticalCenter
                 width: Constants.touchTargetMedium
                 height: Constants.touchTargetMedium
                 radius: width / 2
-                color: Colors.surface
+                color: MColors.surface
                 
-                ClockComponents.ClockIcon {
+                ClockIcon {
                     anchors.centerIn: parent
-                    name: "clock"
+                    name: "bell"
                     size: Constants.iconSizeMedium
-                    color: Colors.textSecondary
+                        color: MColors.textSecondary
                 }
             }
         }

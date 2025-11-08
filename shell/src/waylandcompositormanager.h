@@ -8,19 +8,21 @@
 #include "waylandcompositor.h"
 #endif
 
-// Forward declare for when HAVE_WAYLAND is not defined
+// Forward declarations
 class WaylandCompositor;
+class SettingsManager;
 
 class WaylandCompositorManager : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit WaylandCompositorManager(QObject *parent = nullptr);
+    explicit WaylandCompositorManager(SettingsManager *settingsManager, QObject *parent = nullptr);
     
     Q_INVOKABLE WaylandCompositor* createCompositor(QQuickWindow *window);
 
 private:
+    SettingsManager *m_settingsManager;
 #ifdef HAVE_WAYLAND
     WaylandCompositor *m_compositor = nullptr;
 #endif

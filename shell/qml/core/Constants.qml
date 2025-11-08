@@ -112,11 +112,11 @@ QtObject {
     property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
     
     // =========================================================================
-    // KEYBOARD CONFIGURATION
+    // PEEK GESTURE THRESHOLDS (from legacy Theme.qml)
     // =========================================================================
     
-    readonly property bool keyboardAutoShow: true
-    readonly property bool keyboardAutoDismiss: true
+    readonly property int peekThreshold: 40
+    readonly property int commitThreshold: 100
     
     // =========================================================================
     // LAYOUT DIMENSIONS (responsive)

@@ -1,0 +1,8 @@
+module MarathonUI.Navigation
+MTopBar 1.0 MTopBar.qml
+MTabBar 1.0 MTabBar.qml
+MActionBar 1.0 MActionBar.qml
+MSwipeView 1.0 MSwipeView.qml
+MPageIndicator 1.0 MPageIndicator.qml
+MNavigationPane 1.0 MNavigationPane.qml
+MBottomBar 1.0 MBottomBar.qml

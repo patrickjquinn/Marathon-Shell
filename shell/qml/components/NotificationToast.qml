@@ -1,7 +1,9 @@
 import QtQuick
 import MarathonOS.Shell
-import "../MarathonUI/Theme"
+import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonUI.Containers
+import MarathonUI.Controls
 
 Item {
     id: toastContainer
@@ -10,6 +12,7 @@ Item {
     
     property var toastQueue: []
     property var currentToast: null
+    property bool showInlineReply: false
     
     function showToast(notification) {
         toastQueue.push(notification)
@@ -25,194 +28,198 @@ Item {
         }
         
         currentToast = toastQueue.shift()
-        toast.notification = currentToast
         toast.visible = true
         toast.y = -toast.height
         slideIn.start()
         autoHideTimer.restart()
     }
     
-    Rectangle {
+    MCard {
         id: toast
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
-        width: Math.min(parent.width - 32, 400)
-        height: notification?.actions?.length > 0 ? Constants.hubHeaderHeight + 60 : Constants.hubHeaderHeight
-        radius: Constants.borderRadiusSharp
-        color: MColors.surface
-        border.width: Constants.borderWidthMedium
-        border.color: MColors.borderOuter
-        antialiasing: Constants.enableAntialiasing
+        width: parent.width - MSpacing.sm * 2
+        height: showInlineReply ? 140 : 72
+        elevation: 3
         visible: false
         
-        property var notification: null
-        
-        Behavior on height {
-            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        Behavior on y {
+            NumberAnimation { 
+                duration: MMotion.moderate
+                easing.bezierCurve: MMotion.easingDecelerateCurve
+            }
         }
         
-        // Inner border for depth
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: Constants.borderRadiusSharp
-            color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MColors.borderHighlight
-            antialiasing: Constants.enableAntialiasing
+        Behavior on height {
+            NumberAnimation {
+                duration: MMotion.quick
+                easing.bezierCurve: MMotion.easingDecelerateCurve
+            }
         }
         
         Column {
             anchors.fill: parent
-            anchors.margins: 12
-            spacing: Constants.spacingMedium
+            anchors.leftMargin: MSpacing.xs
+            anchors.rightMargin: MSpacing.xs
+            anchors.topMargin: MSpacing.xs
+            anchors.bottomMargin: MSpacing.xs
+            spacing: MSpacing.sm
             
             Row {
                 width: parent.width
-                height: MSpacing.touchTargetLarge
-                spacing: Constants.spacingMedium
+                height: 56
+            spacing: MSpacing.md
                 
                 Rectangle {
-                    width: MSpacing.touchTargetLarge
-                    height: MSpacing.touchTargetLarge
-                    radius: Constants.borderRadiusSharp
-                    color: MColors.surface1
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.borderOuter
-                    antialiasing: Constants.enableAntialiasing
+                width: 48
+                height: 48
+                radius: MRadius.md
+                color: MColors.elevated
+                anchors.verticalCenter: parent.verticalCenter
                     
                     Icon {
-                        name: toast.notification?.icon || "bell"
-                        size: Constants.iconSizeMedium
-                        color: MColors.text
+                    name: currentToast?.icon || "bell"
+                    size: 24
+                    color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
                 }
                 
                 Column {
-                    width: parent.width - MSpacing.touchTargetLarge - Constants.spacingMedium
+                width: parent.width - 48 - MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 4
-                    
-                    Text {
-                        text: toast.notification?.title || ""
-                        color: MColors.text
+                spacing: 2
+                
+                MLabel {
+                    text: currentToast?.title || ""
+                    variant: "primary"
+                    font.weight: MTypography.weightBold
                         font.pixelSize: MTypography.sizeBody
-                        font.weight: Font.DemiBold
-                        font.family: MTypography.fontFamily
                         elide: Text.ElideRight
                         width: parent.width
                     }
                     
-                    Text {
-                        text: toast.notification?.body || ""
-                        color: MColors.textSecondary
+                MLabel {
+                    text: currentToast?.body || ""
+                    variant: "secondary"
                         font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
                         elide: Text.ElideRight
-                        maximumLineCount: 2
-                        wrapMode: Text.WordWrap
-                        width: parent.width
+                    maximumLineCount: 1
+                width: parent.width
                     }
                 }
             }
             
-            // Action buttons
+            // Inline reply field (for messaging notifications)
             Row {
                 width: parent.width
-                height: 40
-                spacing: Constants.spacingSmall
-                visible: toast.notification?.actions?.length > 0
+                height: 48
+                spacing: MSpacing.sm
+                visible: showInlineReply
                 
-                Repeater {
-                    model: toast.notification?.actions || []
+                MTextInput {
+                    id: replyField
+                    width: parent.width - sendButton.width - MSpacing.sm
+                    height: 40
+                    placeholderText: "Reply..."
                     
-                    Rectangle {
-                        width: (parent.width - (toast.notification.actions.length - 1) * Constants.spacingSmall) / toast.notification.actions.length
-                        height: 40
-                        radius: Constants.borderRadiusSmall
-                        color: actionMouseArea.pressed ? MColors.accentPressed : (actionMouseArea.containsMouse ? MColors.accentHover : MColors.accent)
-                        border.width: Constants.borderWidthThin
-                        border.color: Qt.rgba(255, 255, 255, 0.2)
-                        antialiasing: Constants.enableAntialiasing
-                        
-                        Behavior on color {
-                            ColorAnimation { duration: Constants.animationDurationFast }
-                        }
-                        
-                        Text {
-                            text: {
-                                var action = modelData.toLowerCase()
-                                if (action === "reply") return "Reply"
-                                if (action === "snooze") return "Snooze"
-                                if (action === "view") return "View"
-                                if (action === "dismiss") return "Dismiss"
-                                if (action === "open") return "Open"
-                                if (action === "archive") return "Archive"
-                                if (action === "delete") return "Delete"
-                                return modelData
-                            }
-                            color: MColors.text
-                            font.pixelSize: MTypography.sizeSmall
-                            font.weight: Font.Medium
-                            font.family: MTypography.fontFamily
-                            anchors.centerIn: parent
-                        }
-                        
-                        MouseArea {
-                            id: actionMouseArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            
-                            onClicked: {
-                                Logger.info("NotificationToast", "Action clicked: " + modelData + " for notification " + toast.notification.id)
-                                HapticService.light()
-                                
-                                // Trigger the action
-                                NotificationService.triggerAction(toast.notification.id, modelData)
-                                
-                                // Handle specific actions
-                                if (modelData.toLowerCase() === "reply") {
-                                    // Open the app with reply interface
-                                    Router.launchApp(toast.notification.appId, {"action": "reply", "notificationId": toast.notification.id})
-                                } else if (modelData.toLowerCase() === "snooze") {
-                                    // Snooze the notification for 10 minutes
-                                    Logger.info("NotificationToast", "Snoozing notification for 10 minutes")
-                                    // TODO: Implement snooze functionality
-                                } else if (modelData.toLowerCase() === "view" || modelData.toLowerCase() === "open") {
-                                    // Open the app
-                                    Router.launchApp(toast.notification.appId)
-                                } else if (modelData.toLowerCase() === "dismiss") {
-                                    NotificationService.dismissNotification(toast.notification.id)
-                                }
-                                
-                                // Dismiss the toast
-                                dismissToast()
-                            }
+                    onAccepted: {
+                        if (text.trim().length > 0 && currentToast) {
+                            Logger.info("NotificationToast", "Sending inline reply: " + text)
+                            FreedesktopNotifications.InvokeReply(currentToast.id, text)
+                            text = ""
+                            showInlineReply = false
+                            dismissToast()
                         }
                     }
+                    
+                    Keys.onEscapePressed: {
+                        showInlineReply = false
+                        text = ""
+                    }
+                }
+                
+                MButton {
+                    id: sendButton
+                    text: "Send"
+                    width: 80
+                    height: 40
+                    enabled: replyField.text.trim().length > 0
+                    onClicked: replyField.accepted()
                 }
             }
         }
         
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                Logger.info("NotificationToast", "Toast tapped: " + toast.notification.id)
-                NotificationService.clickNotification(toast.notification.id)
-                Router.goToHub()
-                dismissToast()
-            }
+            z: -1
             
             property real startY: 0
+            property real dragY: 0
             
             onPressed: (mouse) => {
                 startY = mouse.y
+                dragY = 0
+                autoHideTimer.stop()
             }
             
             onPositionChanged: (mouse) => {
-                if (mouse.y - startY < -20) {
+                dragY = mouse.y - startY
+                if (dragY < 0) {
+                    toast.y = Math.max(toast.y + dragY * 0.5, -toast.height)
+                }
+            }
+            
+            onReleased: (mouse) => {
+                if (dragY < -30) {
                     dismissToast()
+                } else {
+                    toast.y = Constants.statusBarHeight + MSpacing.sm
+                    autoHideTimer.restart()
+                }
+            }
+            
+            onClicked: {
+                // Check if this is a messaging notification that supports inline reply
+                var supportsInlineReply = currentToast && (
+                    currentToast.appId === "messages" ||
+                    currentToast.appId === "org.telegram.desktop" ||
+                    currentToast.appId === "signal-desktop" ||
+                    (currentToast.category && currentToast.category.includes("message"))
+                )
+                
+                if (supportsInlineReply && !showInlineReply) {
+                    // Show inline reply field
+                    Logger.info("NotificationToast", "Showing inline reply for: " + currentToast.id)
+                    showInlineReply = true
+                    autoHideTimer.stop()
+                    
+                    // Focus the reply field after a brief delay
+                    Qt.callLater(function() {
+                        replyField.forceActiveFocus()
+                    })
+                } else if (!showInlineReply) {
+                    // Navigate to app
+                Logger.info("NotificationToast", "Toast tapped: " + currentToast.id)
+                NotificationService.clickNotification(currentToast.id)
+                NotificationModel.markAsRead(currentToast.id)
+                
+                if (currentToast.appId) {
+                    NavigationRouter.navigateToDeepLink(
+                        currentToast.appId,
+                        "",
+                        {
+                            "notificationId": currentToast.id,
+                            "action": "view",
+                            "from": "notification"
+                        }
+                    )
+                } else {
+                    Router.goToHub()
+                }
+                
+                dismissToast()
+                }
                 }
             }
         }
@@ -221,9 +228,9 @@ Item {
             id: slideIn
             target: toast
             property: "y"
-            to: Constants.statusBarHeight + 16
-            duration: 300
-            easing.type: Easing.OutCubic
+        to: Constants.statusBarHeight + MSpacing.sm
+        duration: MMotion.moderate
+        easing.bezierCurve: MMotion.easingDecelerateCurve
         }
         
         NumberAnimation {
@@ -231,12 +238,11 @@ Item {
             target: toast
             property: "y"
             to: -toast.height
-            duration: 250
-            easing.type: Easing.InCubic
+        duration: MMotion.quick
+        easing.bezierCurve: MMotion.easingAccelerateCurve
             onFinished: {
                 toast.visible = false
                 toastContainer.showNextToast()
-            }
         }
     }
     
@@ -248,7 +254,8 @@ Item {
     
     function dismissToast() {
         autoHideTimer.stop()
+        showInlineReply = false
+        replyField.text = ""
         slideOut.start()
     }
 }
-

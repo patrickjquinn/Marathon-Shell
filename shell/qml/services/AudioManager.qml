@@ -185,8 +185,8 @@ QtObject {
         
         Logger.info("AudioManager", "Playing ringtone: " + currentRingtone)
         ringtonePlayer.source = currentRingtone
-        ringtonePlayer.volume = ringtoneVolume
-        ringtonePlayer.loops = Audio.Infinite
+        // Volume is bound in the MediaPlayer declaration below
+        ringtonePlayer.loops = MediaPlayer.Infinite
         ringtonePlayer.play()
     }
     
@@ -203,14 +203,14 @@ QtObject {
         
         Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound)
         notificationPlayer.source = currentNotificationSound
-        notificationPlayer.volume = notificationVolume
+        notificationPlayer.audioOutput.volume = notificationVolume
         notificationPlayer.play()
     }
     
     function playAlarmSound() {
         Logger.info("AudioManager", "Playing alarm sound: " + currentAlarmSound)
         alarmPlayer.source = currentAlarmSound
-        alarmPlayer.volume = alarmVolume
+        alarmPlayer.audioOutput.volume = alarmVolume
         alarmPlayer.loops = Audio.Infinite
         alarmPlayer.play()
     }

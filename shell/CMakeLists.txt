@@ -20,8 +20,6 @@ set(SOURCES
     src/modemmanagercpp.cpp
     src/sensormanagercpp.h
     src/sensormanagercpp.cpp
-    src/notificationservice.h
-    src/notificationservice.cpp
     src/settingsmanager.h
     src/settingsmanager.cpp
     src/storagemanager.h
@@ -30,12 +28,8 @@ set(SOURCES
     src/bluetoothmanager.cpp
     src/bluetoothagent.h
     src/bluetoothagent.cpp
-    src/marathonappregistry.h
-    src/marathonappregistry.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
-    src/marathonappscanner.h
-    src/marathonappscanner.cpp
     src/marathonapploader.h
     src/marathonapploader.cpp
     src/marathoninputmethodengine.h
@@ -58,8 +52,12 @@ set(SOURCES
     src/dbus/marathonstorageservice.cpp
     src/dbus/marathonsettingsservice.h
     src/dbus/marathonsettingsservice.cpp
-    src/marathonappinstaller.h
-    src/marathonappinstaller.cpp
+    src/dbus/marathonpermissionportal.h
+    src/dbus/marathonpermissionportal.cpp
+    src/marathonpermissionmanager.h
+    src/marathonpermissionmanager.cpp
+    src/marathonappstoreservice.h
+    src/marathonappstoreservice.cpp
     src/contactsmanager.h
     src/contactsmanager.cpp
     src/telephonyservice.h
@@ -101,34 +99,7 @@ endif()
 set(QML_FILES
     qml/Main.qml
     qml/MarathonShell.qml
-    qml/MarathonUI/Theme/qmldir
-    qml/MarathonUI/Theme/MColors.qml
-    qml/MarathonUI/Theme/MTypography.qml
-    qml/MarathonUI/Theme/MSpacing.qml
-    qml/MarathonUI/Theme/MRadius.qml
-    qml/MarathonUI/Theme/MElevation.qml
-    qml/MarathonUI/Theme/MMotion.qml
-    qml/MarathonUI/Core/qmldir
-    qml/MarathonUI/Core/MButton.qml
-    qml/MarathonUI/Core/MIconButton.qml
-    qml/MarathonUI/Core/MTextInput.qml
-    qml/MarathonUI/Controls/qmldir
-    qml/MarathonUI/Controls/MToggle.qml
-    qml/MarathonUI/Controls/MSlider.qml
-    qml/MarathonUI/Containers/qmldir
-    qml/MarathonUI/Containers/MCard.qml
-    qml/MarathonUI/Containers/MPage.qml
-    qml/MarathonUI/Containers/MSection.qml
-    qml/MarathonUI/Containers/MLayer.qml
-    qml/MarathonUI/Lists/qmldir
-    qml/MarathonUI/Lists/MSectionHeader.qml
-    qml/MarathonUI/Lists/MDivider.qml
-    qml/MarathonUI/Feedback/qmldir
-    qml/MarathonUI/Feedback/MBadge.qml
-    qml/MarathonUI/Navigation/qmldir
-    qml/MarathonUI/Navigation/MTopBar.qml
-    qml/MarathonUI/Navigation/MBottomBar.qml
-    qml/components/Icon.qml
+    qml/utils/Async.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonNavBar.qml
@@ -138,24 +109,20 @@ set(QML_FILES
     qml/components/MarathonQuickSettings.qml
     qml/components/MarathonTaskSwitcher.qml
     qml/components/MarathonPeek.qml
-    qml/components/MarathonToggle.qml
-    qml/components/MarathonCard.qml
-    qml/components/MarathonListItem.qml
     qml/components/MarathonHub.qml
     qml/components/MarathonPinScreen.qml
     qml/components/MarathonAppWindow.qml
     qml/components/MarathonPageView.qml
     qml/components/MarathonSearch.qml
+    qml/components/WaylandShellSurfaceItem.qml
     qml/components/ui/Button.qml
     qml/components/ui/Input.qml
-    qml/components/ui/SettingsListItem.qml
     qml/components/ui/PageIndicator.qml
     qml/components/ui/Modal.qml
     qml/components/ui/TextInputModal.qml
     qml/components/ui/ListPickerModal.qml
     qml/components/ui/StorageDetailsModal.qml
     qml/components/ui/ConfirmDialog.qml
-    qml/components/layout/Section.qml
     qml/components/navigation/InertiaNavBar.qml
     qml/components/NotificationToast.qml
     qml/components/SystemHUD.qml
@@ -165,12 +132,16 @@ set(QML_FILES
     qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
+    qml/components/CompositorConnections.qml
+    qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonOOBE.qml
     qml/components/WiFiPasswordDialog.qml
     qml/components/BluetoothPairDialog.qml
     qml/components/ErrorToast.qml
+    qml/components/IncomingCallOverlay.qml
     qml/components/VirtualKeyboard.qml
+    qml/components/PermissionDialog.qml
         qml/keyboard/Core/qmldir
         qml/keyboard/Core/MarathonKeyboard.qml
         qml/keyboard/Core/KeyboardPerformance.qml
@@ -200,7 +171,7 @@ set(QML_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/Router.qml
-    qml/theme/Colors.qml
+    qml/models/FilteredAppModel.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -222,17 +193,24 @@ set(QML_FILES
     qml/services/AppLifecycleManager.qml
     qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
+    qml/services/AppLaunchService.qml
+    qml/services/DeepLinkHandler.qml
+    qml/services/NotificationHandler.qml
+    qml/services/TelephonyIntegration.qml
+    qml/services/PowerBatteryHandler.qml
+    qml/services/AlarmManager.qml
+    qml/services/AmbientLightSensor.qml
+    qml/services/ProximitySensor.qml
+    qml/services/FlashlightManager.qml
+    qml/services/WakeManager.qml
+    qml/services/CellularManager.qml
+    qml/services/StateManager.qml
 )
 
 qt6_add_executable(marathon-shell ${SOURCES})
 
 # Mark singleton files BEFORE adding QML module
 set(SINGLETON_FILES
-    qml/MarathonUI/Theme/MColors.qml
-    qml/MarathonUI/Theme/MTypography.qml
-    qml/MarathonUI/Theme/MSpacing.qml
-    qml/MarathonUI/Theme/MRadius.qml
-    qml/MarathonUI/Theme/MElevation.qml
     qml/stores/AppStore.qml
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
@@ -242,7 +220,7 @@ set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/Router.qml
-    qml/theme/Colors.qml
+    qml/utils/Async.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -264,6 +242,17 @@ set(SINGLETON_FILES
     qml/services/AppLifecycleManager.qml
     qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
+    qml/services/AppLaunchService.qml
+    qml/services/DeepLinkHandler.qml
+    qml/services/NotificationHandler.qml
+    qml/services/TelephonyIntegration.qml
+    qml/services/PowerBatteryHandler.qml
+    qml/services/AlarmManager.qml
+    qml/services/AmbientLightSensor.qml
+    qml/services/ProximitySensor.qml
+    qml/services/FlashlightManager.qml
+    qml/services/WakeManager.qml
+    qml/services/CellularManager.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -276,6 +265,9 @@ if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
 
+# Include QML linting module
+include(${CMAKE_SOURCE_DIR}/cmake/QMLLint.cmake)
+
 qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
@@ -285,121 +277,10 @@ qt6_add_qml_module(marathon-shell
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 
-# Add MarathonUI.Theme module
-qt6_add_qml_module(marathon-ui-theme
-    URI MarathonUI.Theme
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Theme/MColors.qml
-        qml/MarathonUI/Theme/MTypography.qml
-        qml/MarathonUI/Theme/MSpacing.qml
-        qml/MarathonUI/Theme/MRadius.qml
-        qml/MarathonUI/Theme/MElevation.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Theme
-)
-
-# Add MarathonUI.Containers module
-qt6_add_qml_module(marathon-ui-containers
-    URI MarathonUI.Containers
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Containers/MCard.qml
-        qml/MarathonUI/Containers/MPage.qml
-        qml/MarathonUI/Containers/MSection.qml
-        qml/MarathonUI/Containers/MListItem.qml
-        qml/MarathonUI/Containers/MApp.qml
-        qml/MarathonUI/Containers/MLayer.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Containers
-)
-
-# Add MarathonUI.Core module
-qt6_add_qml_module(marathon-ui-core
-    URI MarathonUI.Core
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Core/MButton.qml
-        qml/MarathonUI/Core/MIconButton.qml
-        qml/MarathonUI/Core/MTextInput.qml
-        qml/MarathonUI/Core/MTextArea.qml
-        qml/MarathonUI/Core/MLabel.qml
-        qml/MarathonUI/Core/MDateTimePicker.qml
-        qml/MarathonUI/Core/MDropDown.qml
-        qml/MarathonUI/Core/MImageButton.qml
-        qml/MarathonUI/Core/MRadioButton.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Core
-)
-
-# Add MarathonUI.Controls module
-qt6_add_qml_module(marathon-ui-controls
-    URI MarathonUI.Controls
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Controls/MSlider.qml
-        qml/MarathonUI/Controls/MToggle.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Controls
-)
-
-# Add MarathonUI.Lists module
-qt6_add_qml_module(marathon-ui-lists
-    URI MarathonUI.Lists
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Lists/MSectionHeader.qml
-        qml/MarathonUI/Lists/MDivider.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Lists
-)
-
-# Add MarathonUI.Navigation module
-qt6_add_qml_module(marathon-ui-navigation
-    URI MarathonUI.Navigation
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Navigation/MTopBar.qml
-        qml/MarathonUI/Navigation/MBottomBar.qml
-        qml/MarathonUI/Navigation/MActionBar.qml
-        qml/MarathonUI/Navigation/MNavigationPane.qml
-        "qml/MarathonUI/Navigation/MTab Control.qml"
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Navigation
-)
-
-# Add MarathonUI.Feedback module
-qt6_add_qml_module(marathon-ui-feedback
-    URI MarathonUI.Feedback
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Feedback/MBadge.qml
-        qml/MarathonUI/Feedback/MActivityIndicator.qml
-        qml/MarathonUI/Feedback/MProgressBar.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Feedback
-)
-
-# Add MarathonUI.Modals module
-qt6_add_qml_module(marathon-ui-modals
-    URI MarathonUI.Modals
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Modals/MModal.qml
-        qml/MarathonUI/Modals/MConfirmDialog.qml
-        qml/MarathonUI/Modals/MSheet.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Modals
-)
-
-# Add MarathonUI.Effects module
-qt6_add_qml_module(marathon-ui-effects
-    URI MarathonUI.Effects
-    VERSION 1.0
-    QML_FILES
-        qml/MarathonUI/Effects/MInset.qml
-        qml/MarathonUI/Effects/MOutset.qml
-        qml/MarathonUI/Effects/MRipple.qml
-    OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI/Effects
-)
-
-# Add MarathonUI.Containers MScrollView
-qt6_target_qml_sources(marathon-ui-containers
-    QML_FILES
-        qml/MarathonUI/Containers/MScrollView.qml
-)
+# Add qmllint validation target - runs BEFORE building
+if(QMLLINT_AVAILABLE)
+    add_qmllint_target(marathon-shell ${QML_FILES})
+endif()
 
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
@@ -410,6 +291,9 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Svg
     Qt6::DBus
     Qt6::Multimedia
+    Qt6::Network
+    MarathonCore
+    asyncfuture
     marathon-ui-theme
     marathon-ui-containers
     marathon-ui-core
@@ -454,26 +338,5 @@ install(TARGETS marathon-shell
 )
 
 # Install QML modules (libraries and plugins)
-install(TARGETS 
-    marathon-ui-theme
-    marathon-ui-containers
-    marathon-ui-core
-    marathon-ui-controls
-    marathon-ui-lists
-    marathon-ui-navigation
-    marathon-ui-feedback
-    marathon-ui-modals
-    marathon-ui-effects
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-# Install QML module files (QML files, qmldir, and plugin libraries)
-install(DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonUI
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/qt6/qml
-    FILES_MATCHING 
-    PATTERN "*.qml"
-    PATTERN "qmldir"
-    PATTERN "*.so"
-    PATTERN "*.qmltypes"
-)
+# MarathonUI modules are installed by marathon-ui/CMakeLists.txt
+# No need to install them here

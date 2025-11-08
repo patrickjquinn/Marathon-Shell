@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Controls
+import MarathonUI.Core
 
 /**
  * Polished WiFi Password Dialog
@@ -90,11 +90,11 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 0
         width: Math.min(parent.width, Math.round(500 * Constants.scaleFactor))
-        height: contentColumn.height + Constants.spacingXXLarge
+        height: contentColumn.height + MSpacing.xxl
         radius: Constants.borderRadiusLarge
         color: MColors.surface
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderOuter
+        border.color: MColors.border
         transform: Translate { id: translateTransform; y: dialogCard.height }
 
         // Glass morphism effect
@@ -108,26 +108,26 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Constants.spacingLarge
-            spacing: Constants.spacingLarge
+            anchors.margins: MSpacing.lg
+            spacing: MSpacing.lg
 
             // Header row
             Row {
                 width: parent.width
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
 
                 // Network icon with signal strength
                 Rectangle {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
                     radius: Constants.borderRadiusSmall
-                    color: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15)
+                    color: Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15)
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
                         name: secured ? "lock" : "wifi"
                         size: Constants.iconSizeMedium
-                        color: MColors.accent
+                        color: MColors.marathonTeal
                         anchors.centerIn: parent
                         opacity: signalStrength / 100
                     }
@@ -135,8 +135,8 @@ Item {
 
                 // Network info
                 Column {
-                    width: parent.width - Constants.touchTargetMedium - Constants.spacingMedium
-                    spacing: Constants.spacingXSmall
+                    width: parent.width - Constants.touchTargetMedium - MSpacing.md
+                    spacing: MSpacing.xs
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
@@ -150,7 +150,7 @@ Item {
                     }
 
                     Row {
-                        spacing: Constants.spacingSmall
+                        spacing: MSpacing.sm
 
                         // Security badge
                         Rectangle {
@@ -187,9 +187,9 @@ Item {
                 width: parent.width
                 height: Constants.inputHeight
                 radius: Constants.borderRadiusSmall
-                color: MColors.backgroundLight || Qt.darker(MColors.background, 1.05)
+                color: MColors.background || Qt.darker(MColors.background, 1.05)
                 border.width: passwordInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.accent : MColors.border)
+                border.color: errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.marathonTeal : MColors.border)
                 visible: secured
 
                 Behavior on border.color {
@@ -198,19 +198,19 @@ Item {
 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingMedium
-                    spacing: Constants.spacingMedium
+                    anchors.margins: MSpacing.md
+                    spacing: MSpacing.md
 
                     Icon {
                         name: "key"
                         size: Constants.iconSizeMedium
-                        color: passwordInput.activeFocus ? MColors.accent : MColors.textSecondary
+                        color: passwordInput.activeFocus ? MColors.marathonTeal : MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
                     TextInput {
                         id: passwordInput
-                        width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - Constants.spacingMedium * 2
+                        width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - MSpacing.md * 2
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
                         font.family: Typography.fontFamily
@@ -243,7 +243,7 @@ Item {
                         width: Constants.touchTargetSmall
                         height: Constants.touchTargetSmall
                         radius: Constants.borderRadiusSmall
-                        color: checked ? Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.15) : "transparent"
+                        color: checked ? Qt.rgba(MColors.marathonTeal.r, MColors.marathonTeal.g, MColors.marathonTeal.b, 0.15) : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
                         Icon {
@@ -267,7 +267,7 @@ Item {
             // Error message
             Rectangle {
                 width: parent.width
-                height: errorText.height + Constants.spacingMedium
+                height: errorText.height + MSpacing.md
                 radius: Constants.borderRadiusSmall
                 color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
                 border.width: Constants.borderWidthThin
@@ -276,8 +276,8 @@ Item {
 
                 Row {
                     anchors.fill: parent
-                    anchors.margins: Constants.spacingSmall
-                    spacing: Constants.spacingSmall
+                    anchors.margins: MSpacing.sm
+                    spacing: MSpacing.sm
 
                     Icon {
                         name: "alert-circle"
@@ -294,7 +294,7 @@ Item {
                         font.family: Typography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
-                        width: parent.width - Constants.iconSizeSmall - Constants.spacingSmall
+                        width: parent.width - Constants.iconSizeSmall - MSpacing.sm
                     }
                 }
             }
@@ -302,12 +302,12 @@ Item {
             // Connection progress
             Column {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
                 visible: isConnecting
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: Constants.spacingMedium
+                    spacing: MSpacing.md
 
                     BusyIndicator {
                         width: Constants.iconSizeMedium
@@ -330,11 +330,11 @@ Item {
             Row {
                 width: parent.width
                 height: Constants.touchTargetMedium
-                spacing: Constants.spacingMedium
+                spacing: MSpacing.md
 
                 // Cancel button
                 Rectangle {
-                    width: (parent.width - Constants.spacingMedium) / 2
+                    width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: "transparent"
@@ -365,10 +365,10 @@ Item {
                 // Connect button
                 Rectangle {
                     id: connectButton
-                    width: (parent.width - Constants.spacingMedium) / 2
+                    width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.accent, 1.5) : MColors.accent
+                    color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.marathonTeal, 1.5) : MColors.marathonTeal
                     opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1.0
 
                     signal clicked()

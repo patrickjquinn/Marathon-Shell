@@ -257,6 +257,31 @@ QString SMSService::generateConversationId(const QString& number)
     return normalized;
 }
 
+void SMSService::simulateIncomingSMS(const QString& sender, const QString& text)
+{
+    qInfo() << "[SMSService] [SIMULATION] Simulating incoming SMS from:" << sender << "text:" << text;
+    
+    qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
+    
+    // Store message in database
+    Message msg;
+    msg.conversationId = generateConversationId(sender);
+    msg.sender = sender;
+    msg.recipient = "me";
+    msg.text = text;
+    msg.timestamp = timestamp;
+    msg.isRead = false;
+    msg.isOutgoing = false;
+    
+    storeMessage(msg);
+    loadConversations();
+    
+    // Emit signal
+    emit messageReceived(sender, text, timestamp);
+    
+    qInfo() << "[SMSService] [SIMULATION] ✓ Incoming SMS simulated and stored";
+}
+
 void SMSService::initDatabase()
 {
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);

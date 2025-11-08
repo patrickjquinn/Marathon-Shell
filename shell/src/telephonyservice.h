@@ -28,6 +28,10 @@ public:
     Q_INVOKABLE void answer();
     Q_INVOKABLE void hangup();
     Q_INVOKABLE void sendDTMF(const QString& digit);
+    
+    // Simulation methods for testing
+    Q_INVOKABLE void simulateIncomingCall(const QString& number);
+    Q_INVOKABLE void simulateCallStateChange(const QString& state);
 
 signals:
     void callStateChanged(const QString& state);

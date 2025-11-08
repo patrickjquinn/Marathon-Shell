@@ -46,8 +46,6 @@ QtObject {
      */
     property int unreadCount: 0
     
-    property int notificationIdCounter: 1000
-    
     /**
      * @brief Whether notifications are globally enabled
      * @type {bool}
@@ -138,8 +136,15 @@ QtObject {
             return -1
         }
         
-        var id = notificationIdCounter++
         var timestamp = new Date().toISOString()
+        
+        // Add to NotificationModel first to get the correct ID
+        var id = NotificationModel.addNotification(
+            appId || "system",
+            title || "",
+            body || "",
+            options?.icon || ""
+        )
         
         var notification = {
             id: id,
@@ -186,6 +191,7 @@ QtObject {
                 notifications.splice(i, 1)
                 notificationDismissed(id)
                 _platformDismissNotification(id)
+                NotificationModel.dismissNotification(id)
                 break
             }
         }
@@ -196,6 +202,7 @@ QtObject {
         notifications = []
         unreadCount = 0
         _platformDismissAllNotifications()
+        NotificationModel.dismissAllNotifications()
     }
     
     function markAsRead(id) {
@@ -203,6 +210,7 @@ QtObject {
             if (notifications[i].id === id && !notifications[i].read) {
                 notifications[i].read = true
                 unreadCount = Math.max(0, unreadCount - 1)
+                NotificationModel.markAsRead(id)
                 break
             }
         }
@@ -211,9 +219,20 @@ QtObject {
     function markAllAsRead() {
         console.log("[NotificationService] Marking all as read")
         for (var i = 0; i < notifications.length; i++) {
+            if (!notifications[i].read) {
             notifications[i].read = true
+                NotificationModel.markAsRead(notifications[i].id)
+            }
         }
         unreadCount = 0
+    }
+    
+    function clearAll() {
+        console.log("[NotificationService] Clearing all notifications")
+        var notifIds = notifications.map(function(n) { return n.id })
+        for (var i = 0; i < notifIds.length; i++) {
+            dismissNotification(notifIds[i])
+        }
     }
     
     function clickNotification(id) {
