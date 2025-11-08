@@ -71,7 +71,10 @@ if [ $? -eq 0 ]; then
     
     # Enable QML validation in debug mode
     if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
-        export QML_DISABLE_DISK_CACHE=1
+        # DON'T disable disk cache - we need it for ARM performance!
+        # export QML_DISABLE_DISK_CACHE=1
+        export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+        mkdir -p "$QT_QML_DISK_CACHE_PATH"
         # Allow all logging in debug mode (same as running binary directly)
         unset QT_LOGGING_RULES
         echo "🔍 Debug mode: Full logging enabled (no filtering)"

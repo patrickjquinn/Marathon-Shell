@@ -395,6 +395,9 @@ int main(int argc, char *argv[])
             qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
         }
         
+        // Expose to QML for inline-reply functionality
+        engine.rootContext()->setContextProperty("FreedesktopNotifications", freedesktopNotif);
+        
         // Register StorageService
         MarathonStorageService *storageService = new MarathonStorageService(storageManager, &app);
         if (storageService->registerService()) {

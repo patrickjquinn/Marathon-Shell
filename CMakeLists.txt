@@ -14,6 +14,31 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# ARM optimizations for older mobile devices
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
+    message(STATUS "🔧 Enabling ARM optimizations for mobile device")
+    
+    # Use NEON SIMD for better performance
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
+        add_compile_options(-mfpu=neon -mfloat-abi=hard)
+        message(STATUS "   ✓ ARM NEON SIMD enabled")
+    endif()
+    
+    # Optimize for size on embedded (older ARM has limited RAM)
+    if(CMAKE_BUILD_TYPE MATCHES "Release")
+        add_compile_options(-Os -fdata-sections -ffunction-sections)
+        add_link_options(-Wl,--gc-sections)
+        message(STATUS "   ✓ Size optimization (-Os) enabled for embedded")
+    endif()
+    
+    # Disable debug output to reduce overhead
+    add_compile_definitions(
+        QT_NO_DEBUG_OUTPUT
+        QT_NO_INFO_OUTPUT
+    )
+    message(STATUS "   ✓ Debug output disabled for performance")
+endif()
+
 # Enable QML Language Server support for IDE/VS Code
 set(QT_QML_GENERATE_QMLLS_INI ON)
 

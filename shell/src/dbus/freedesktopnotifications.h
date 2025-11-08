@@ -42,6 +42,11 @@ signals:
     
     void ActionInvoked(uint id, const QString &action_key);
 
+    void NotificationReplied(uint id, const QString &text);
+
+public slots:
+    void InvokeReply(uint id, const QString &text);
+
 private:
     NotificationDatabase *m_database;
     NotificationModel *m_model;
