@@ -129,8 +129,18 @@ QStringList FreedesktopNotifications::GetCapabilities()
         "body-markup",          // Supports markup in body (we strip it but declare support)
         "icon-static",          // Supports icon
         "persistence",          // Notifications persist
-        "action-icons"          // Action icons supported
+        "action-icons",         // Action icons supported
+        "inline-reply"          // Inline reply support for quick responses
     };
+}
+
+void FreedesktopNotifications::InvokeReply(uint id, const QString &text)
+{
+    qInfo() << "[FreedesktopNotifications] InvokeReply:" << id << "text:" << text;
+    emit NotificationReplied(id, text);
+    
+    // Emit ActionInvoked for compatibility with apps expecting "default" action
+    emit ActionInvoked(id, "inline-reply");
 }
 
 void FreedesktopNotifications::GetServerInformation(QString &name, QString &vendor, QString &version, QString &spec_version)

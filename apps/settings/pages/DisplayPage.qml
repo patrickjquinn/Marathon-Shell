@@ -24,6 +24,48 @@ SettingsPageTemplate {
             topPadding: 24
             
             MSection {
+                title: "Power Profile"
+                subtitle: PowerManagerCpp.powerProfilesSupported ? "Optimize performance or battery life" : "Not supported on this device"
+                width: parent.width - 48
+                visible: PowerManagerCpp.powerProfilesSupported
+                
+                Column {
+                    width: parent.width
+                    spacing: MSpacing.sm
+                    
+                    MSettingsListItem {
+                        title: "Performance"
+                        subtitle: "Maximum performance, higher battery usage"
+                        showToggle: false
+                        trailing: PowerManagerCpp.powerProfile === "performance" ? "✓" : ""
+                        onSettingClicked: {
+                            PowerManagerCpp.setPowerProfile("performance")
+                        }
+                    }
+                    
+                    MSettingsListItem {
+                        title: "Balanced"
+                        subtitle: "Balance between performance and battery"
+                        showToggle: false
+                        trailing: PowerManagerCpp.powerProfile === "balanced" ? "✓" : ""
+                        onSettingClicked: {
+                            PowerManagerCpp.setPowerProfile("balanced")
+                        }
+                    }
+                    
+                    MSettingsListItem {
+                        title: "Power Saver"
+                        subtitle: "Optimize for battery life"
+                        showToggle: false
+                        trailing: PowerManagerCpp.powerProfile === "power-saver" ? "✓" : ""
+                        onSettingClicked: {
+                            PowerManagerCpp.setPowerProfile("power-saver")
+                        }
+                    }
+                }
+            }
+            
+            MSection {
                 title: "Brightness"
                 width: parent.width - 48
                 

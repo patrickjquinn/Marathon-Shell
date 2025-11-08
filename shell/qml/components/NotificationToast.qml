@@ -12,6 +12,7 @@ Item {
     
     property var toastQueue: []
     property var currentToast: null
+    property bool showInlineReply: false
     
     function showToast(notification) {
         toastQueue.push(notification)
@@ -38,7 +39,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
         width: parent.width - MSpacing.sm * 2
-        height: 72
+        height: showInlineReply ? 140 : 72
         elevation: 3
         visible: false
         
@@ -49,10 +50,24 @@ Item {
             }
         }
         
-        Row {
+        Behavior on height {
+            NumberAnimation {
+                duration: MMotion.quick
+                easing.bezierCurve: MMotion.easingDecelerateCurve
+            }
+        }
+        
+        Column {
             anchors.fill: parent
             anchors.leftMargin: MSpacing.xs
             anchors.rightMargin: MSpacing.xs
+            anchors.topMargin: MSpacing.xs
+            anchors.bottomMargin: MSpacing.xs
+            spacing: MSpacing.sm
+            
+            Row {
+                width: parent.width
+                height: 56
             spacing: MSpacing.md
                 
                 Rectangle {
@@ -91,6 +106,46 @@ Item {
                         elide: Text.ElideRight
                     maximumLineCount: 1
                 width: parent.width
+                    }
+                }
+            }
+            
+            // Inline reply field (for messaging notifications)
+            Row {
+                width: parent.width
+                height: 48
+                spacing: MSpacing.sm
+                visible: showInlineReply
+                
+                MTextInput {
+                    id: replyField
+                    width: parent.width - sendButton.width - MSpacing.sm
+                    height: 40
+                    placeholderText: "Reply..."
+                    
+                    onAccepted: {
+                        if (text.trim().length > 0 && currentToast) {
+                            Logger.info("NotificationToast", "Sending inline reply: " + text)
+                            FreedesktopNotifications.InvokeReply(currentToast.id, text)
+                            text = ""
+                            showInlineReply = false
+                            dismissToast()
+                        }
+                    }
+                    
+                    Keys.onEscapePressed: {
+                        showInlineReply = false
+                        text = ""
+                    }
+                }
+                
+                MButton {
+                    id: sendButton
+                    text: "Send"
+                    width: 80
+                    height: 40
+                    enabled: replyField.text.trim().length > 0
+                    onClicked: replyField.accepted()
                 }
             }
         }
@@ -125,6 +180,26 @@ Item {
             }
             
             onClicked: {
+                // Check if this is a messaging notification that supports inline reply
+                var supportsInlineReply = currentToast && (
+                    currentToast.appId === "messages" ||
+                    currentToast.appId === "org.telegram.desktop" ||
+                    currentToast.appId === "signal-desktop" ||
+                    (currentToast.category && currentToast.category.includes("message"))
+                )
+                
+                if (supportsInlineReply && !showInlineReply) {
+                    // Show inline reply field
+                    Logger.info("NotificationToast", "Showing inline reply for: " + currentToast.id)
+                    showInlineReply = true
+                    autoHideTimer.stop()
+                    
+                    // Focus the reply field after a brief delay
+                    Qt.callLater(function() {
+                        replyField.forceActiveFocus()
+                    })
+                } else if (!showInlineReply) {
+                    // Navigate to app
                 Logger.info("NotificationToast", "Toast tapped: " + currentToast.id)
                 NotificationService.clickNotification(currentToast.id)
                 NotificationModel.markAsRead(currentToast.id)
@@ -144,6 +219,7 @@ Item {
                 }
                 
                 dismissToast()
+                }
                 }
             }
         }
@@ -178,6 +254,8 @@ Item {
     
     function dismissToast() {
         autoHideTimer.stop()
+        showInlineReply = false
+        replyField.text = ""
         slideOut.start()
     }
 }

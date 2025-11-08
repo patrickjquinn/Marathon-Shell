@@ -8,11 +8,75 @@
 #include <QProcess>
 #include <QRegularExpression>
 
+// AudioStreamModel implementation
+AudioStreamModel::AudioStreamModel(QObject* parent)
+    : QAbstractListModel(parent)
+{
+}
+
+int AudioStreamModel::rowCount(const QModelIndex& parent) const
+{
+    if (parent.isValid())
+        return 0;
+    return m_streams.count();
+}
+
+QVariant AudioStreamModel::data(const QModelIndex& index, int role) const
+{
+    if (!index.isValid() || index.row() >= m_streams.count())
+        return QVariant();
+    
+    const AudioStream& stream = m_streams.at(index.row());
+    
+    switch (role) {
+        case IdRole: return stream.id;
+        case NameRole: return stream.name;
+        case AppNameRole: return stream.appName;
+        case VolumeRole: return stream.volume;
+        case MutedRole: return stream.muted;
+        case MediaClassRole: return stream.mediaClass;
+        default: return QVariant();
+    }
+}
+
+QHash<int, QByteArray> AudioStreamModel::roleNames() const
+{
+    QHash<int, QByteArray> roles;
+    roles[IdRole] = "streamId";
+    roles[NameRole] = "name";
+    roles[AppNameRole] = "appName";
+    roles[VolumeRole] = "volume";
+    roles[MutedRole] = "muted";
+    roles[MediaClassRole] = "mediaClass";
+    return roles;
+}
+
+void AudioStreamModel::updateStreams(const QList<AudioStream>& streams)
+{
+    beginResetModel();
+    m_streams = streams;
+    endResetModel();
+}
+
+AudioStream* AudioStreamModel::getStream(int streamId)
+{
+    for (int i = 0; i < m_streams.size(); ++i) {
+        if (m_streams[i].id == streamId) {
+            return &m_streams[i];
+        }
+    }
+    return nullptr;
+}
+
+// AudioManagerCpp implementation
 AudioManagerCpp::AudioManagerCpp(QObject* parent)
     : QObject(parent)
     , m_available(false)
+    , m_isPipeWire(false)
     , m_currentVolume(0.6)
     , m_muted(false)
+    , m_streamModel(new AudioStreamModel(this))
+    , m_streamRefreshTimer(new QTimer(this))
 {
     qDebug() << "[AudioManagerCpp] Initializing";
     
@@ -23,7 +87,8 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
     
     if (checkPipewire.exitCode() == 0) {
         m_available = true;
-        qInfo() << "[AudioManagerCpp] PipeWire/WirePlumber available";
+        m_isPipeWire = true;
+        qInfo() << "[AudioManagerCpp] PipeWire/WirePlumber available with per-app volume support";
         
         // Get initial volume
         QProcess process;
@@ -43,6 +108,11 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
             m_muted = true;
             emit mutedChanged();
         }
+        
+        // Parse streams and start monitoring
+        parseWpctlStatus();
+        startStreamMonitoring();
+        
     } else {
         // Fallback to PulseAudio
         QProcess checkPulse;
@@ -51,7 +121,8 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
         
         if (checkPulse.exitCode() == 0) {
             m_available = true;
-            qInfo() << "[AudioManagerCpp] PulseAudio available";
+            m_isPipeWire = false;
+            qInfo() << "[AudioManagerCpp] PulseAudio available (per-app volume not supported)";
             
             QProcess process;
             process.start("pactl", {"get-sink-volume", "@DEFAULT_SINK@"});
@@ -128,5 +199,125 @@ void AudioManagerCpp::setMuted(bool muted)
     m_muted = muted;
     emit mutedChanged();
     qDebug() << "[AudioManagerCpp] Set muted to:" << muted << "(PulseAudio)";
+}
+
+void AudioManagerCpp::setStreamVolume(int streamId, double volume)
+{
+    if (!m_isPipeWire) {
+        qWarning() << "[AudioManagerCpp] Per-stream volume requires PipeWire";
+        return;
+    }
+    
+    volume = qBound(0.0, volume, 1.0);
+    
+    QProcess wpctl;
+    wpctl.start("wpctl", {"set-volume", QString::number(streamId), QString::number(volume)});
+    wpctl.waitForFinished(500);
+    
+    if (wpctl.exitCode() == 0) {
+        qDebug() << "[AudioManagerCpp] Set stream" << streamId << "volume to:" << qRound(volume * 100) << "%";
+        refreshStreams();
+    } else {
+        qWarning() << "[AudioManagerCpp] Failed to set stream volume:" << wpctl.errorString();
+    }
+}
+
+void AudioManagerCpp::setStreamMuted(int streamId, bool muted)
+{
+    if (!m_isPipeWire) {
+        qWarning() << "[AudioManagerCpp] Per-stream mute requires PipeWire";
+        return;
+    }
+    
+    QProcess wpctl;
+    wpctl.start("wpctl", {"set-mute", QString::number(streamId), muted ? "1" : "0"});
+    wpctl.waitForFinished(500);
+    
+    if (wpctl.exitCode() == 0) {
+        qDebug() << "[AudioManagerCpp] Set stream" << streamId << "muted to:" << muted;
+        refreshStreams();
+    } else {
+        qWarning() << "[AudioManagerCpp] Failed to set stream mute:" << wpctl.errorString();
+    }
+}
+
+void AudioManagerCpp::refreshStreams()
+{
+    if (m_isPipeWire) {
+        parseWpctlStatus();
+    }
+}
+
+void AudioManagerCpp::parseWpctlStatus()
+{
+    QProcess process;
+    process.start("wpctl", {"status"});
+    process.waitForFinished(2000);
+    
+    if (process.exitCode() != 0) {
+        return;
+    }
+    
+    QString output = process.readAllStandardOutput();
+    QList<AudioStream> streams;
+    
+    // Parse wpctl status output to find audio streams
+    // Format: " │  ├─ 47. Firefox                      [vol: 0.65]"
+    //        or " │  ├─ 47. Firefox                      [vol: 0.65 MUTED]"
+    QRegularExpression streamRe("^\\s+[│├─]+\\s+(\\d+)\\.\\s+(.+?)\\s+\\[vol:\\s+([0-9.]+)(?:\\s+MUTED)?\\]", QRegularExpression::MultilineOption);
+    
+    bool inSinksSection = false;
+    bool inStreamsSection = false;
+    
+    QStringList lines = output.split('\n');
+    for (const QString& line : lines) {
+        if (line.contains("Sinks:", Qt::CaseInsensitive)) {
+            inSinksSection = true;
+            inStreamsSection = false;
+            continue;
+        }
+        if (line.contains("Sink endpoints:", Qt::CaseInsensitive) || 
+            line.contains("Sources:", Qt::CaseInsensitive)) {
+            inSinksSection = false;
+            continue;
+        }
+        if (line.contains("Streams:", Qt::CaseInsensitive)) {
+            inStreamsSection = true;
+            continue;
+        }
+        
+        // Only parse streams in the Sinks section or Streams section
+        if (!inSinksSection && !inStreamsSection) {
+            continue;
+        }
+        
+        QRegularExpressionMatch match = streamRe.match(line);
+        if (match.hasMatch()) {
+            AudioStream stream;
+            stream.id = match.captured(1).toInt();
+            stream.name = match.captured(2).trimmed();
+            stream.appName = stream.name; // Use name as appName for now
+            stream.volume = match.captured(3).toDouble();
+            stream.muted = line.contains("MUTED");
+            stream.mediaClass = inStreamsSection ? "Stream/Output/Audio" : "Audio/Sink";
+            
+            // Only add output streams (not sinks themselves)
+            if (inStreamsSection && stream.id > 0) {
+                streams.append(stream);
+            }
+        }
+    }
+    
+    qDebug() << "[AudioManagerCpp] Found" << streams.size() << "audio streams";
+    m_streamModel->updateStreams(streams);
+    emit streamsChanged();
+}
+
+void AudioManagerCpp::startStreamMonitoring()
+{
+    // Refresh streams every 5 seconds
+    connect(m_streamRefreshTimer, &QTimer::timeout, this, &AudioManagerCpp::refreshStreams);
+    m_streamRefreshTimer->start(5000);
+    qDebug() << "[AudioManagerCpp] Started stream monitoring (5s interval)";
 }
 
