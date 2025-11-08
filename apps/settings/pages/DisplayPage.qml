@@ -37,7 +37,6 @@ SettingsPageTemplate {
                         title: "Performance"
                         subtitle: "Maximum performance, higher battery usage"
                         showToggle: false
-                        trailing: PowerManagerCpp.powerProfile === "performance" ? "✓" : ""
                         onSettingClicked: {
                             PowerManagerCpp.setPowerProfile("performance")
                         }
@@ -47,7 +46,6 @@ SettingsPageTemplate {
                         title: "Balanced"
                         subtitle: "Balance between performance and battery"
                         showToggle: false
-                        trailing: PowerManagerCpp.powerProfile === "balanced" ? "✓" : ""
                         onSettingClicked: {
                             PowerManagerCpp.setPowerProfile("balanced")
                         }
@@ -57,7 +55,6 @@ SettingsPageTemplate {
                         title: "Power Saver"
                         subtitle: "Optimize for battery life"
                         showToggle: false
-                        trailing: PowerManagerCpp.powerProfile === "power-saver" ? "✓" : ""
                         onSettingClicked: {
                             PowerManagerCpp.setPowerProfile("power-saver")
                         }

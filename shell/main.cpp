@@ -31,6 +31,8 @@
 #include "src/marathonappscanner.h"
 #include "src/marathonapploader.h"
 #include "src/marathonappinstaller.h"
+#include "src/marathonpermissionmanager.h"
+#include "src/marathonappstoreservice.h"
 #include "src/contactsmanager.h"
 #include "src/telephonyservice.h"
 #include "src/callhistorymanager.h"
@@ -54,6 +56,7 @@
 #include "src/dbus/notificationdatabase.h"
 #include "src/dbus/marathonstorageservice.h"
 #include "src/dbus/marathonsettingsservice.h"
+#include "src/dbus/marathonpermissionportal.h"
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
@@ -412,6 +415,24 @@ int main(int argc, char *argv[])
         
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
+    
+    // Register Permission Manager
+    MarathonPermissionManager *permissionManager = new MarathonPermissionManager(&app);
+    engine.rootContext()->setContextProperty("PermissionManager", permissionManager);
+    qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
+    
+    // Register Permission Portal (D-Bus)
+    if (bus.isConnected()) {
+        MarathonPermissionPortal *permissionPortal = new MarathonPermissionPortal(permissionManager, &app);
+        if (permissionPortal->registerService()) {
+            qInfo() << "[MarathonShell]   ✓ PermissionPortal registered";
+        }
+    }
+    
+    // Register App Store Service
+    MarathonAppStoreService *appStoreService = new MarathonAppStoreService(appInstaller, &app);
+    engine.rootContext()->setContextProperty("AppStoreService", appStoreService);
+    qInfo() << "[MarathonShell] ✓ App Store Service initialized";
     
     // Register Telephony & Messaging services
     ContactsManager *contactsManager = new ContactsManager(&app);

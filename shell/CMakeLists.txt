@@ -28,12 +28,8 @@ set(SOURCES
     src/bluetoothmanager.cpp
     src/bluetoothagent.h
     src/bluetoothagent.cpp
-    src/marathonappregistry.h
-    src/marathonappregistry.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
-    src/marathonappscanner.h
-    src/marathonappscanner.cpp
     src/marathonapploader.h
     src/marathonapploader.cpp
     src/marathoninputmethodengine.h
@@ -56,8 +52,12 @@ set(SOURCES
     src/dbus/marathonstorageservice.cpp
     src/dbus/marathonsettingsservice.h
     src/dbus/marathonsettingsservice.cpp
-    src/marathonappinstaller.h
-    src/marathonappinstaller.cpp
+    src/dbus/marathonpermissionportal.h
+    src/dbus/marathonpermissionportal.cpp
+    src/marathonpermissionmanager.h
+    src/marathonpermissionmanager.cpp
+    src/marathonappstoreservice.h
+    src/marathonappstoreservice.cpp
     src/contactsmanager.h
     src/contactsmanager.cpp
     src/telephonyservice.h
@@ -141,6 +141,7 @@ set(QML_FILES
     qml/components/ErrorToast.qml
     qml/components/IncomingCallOverlay.qml
     qml/components/VirtualKeyboard.qml
+    qml/components/PermissionDialog.qml
         qml/keyboard/Core/qmldir
         qml/keyboard/Core/MarathonKeyboard.qml
         qml/keyboard/Core/KeyboardPerformance.qml
@@ -290,6 +291,8 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Svg
     Qt6::DBus
     Qt6::Multimedia
+    Qt6::Network
+    MarathonCore
     asyncfuture
     marathon-ui-theme
     marathon-ui-containers
