@@ -57,18 +57,18 @@ Item {
             }
         }
         
-        Column {
+        Item {
             anchors.fill: parent
-            anchors.leftMargin: MSpacing.xs
-            anchors.rightMargin: MSpacing.xs
-            anchors.topMargin: MSpacing.xs
-            anchors.bottomMargin: MSpacing.xs
-            spacing: MSpacing.sm
             
             Row {
-                width: parent.width
+                id: mainContent
+                width: parent.width - MSpacing.xs * 2
                 height: 56
-            spacing: MSpacing.md
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: showInlineReply ? undefined : parent.verticalCenter
+                anchors.top: showInlineReply ? parent.top : undefined
+                anchors.topMargin: showInlineReply ? MSpacing.xs : 0
+                spacing: MSpacing.md
                 
                 Rectangle {
                 width: 48
@@ -112,8 +112,11 @@ Item {
             
             // Inline reply field (for messaging notifications)
             Row {
-                width: parent.width
+                width: parent.width - MSpacing.xs * 2
                 height: 48
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: mainContent.bottom
+                anchors.topMargin: MSpacing.sm
                 spacing: MSpacing.sm
                 visible: showInlineReply
                 

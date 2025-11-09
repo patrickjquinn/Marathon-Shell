@@ -15,9 +15,9 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_showNotificationPreviews(true)
     , m_timeFormat("12h")
     , m_dateFormat("US")
-    , m_ringtone("qrc:/sounds/phone/bbpro1.wav")
-    , m_notificationSound("qrc:/sounds/text/chime.wav")
-    , m_alarmSound("qrc:/sounds/alarms/alarm_sunrise.wav")
+    , m_ringtone("qrc:/sounds/resources/sounds/phone/bbpro1.wav")
+    , m_notificationSound("qrc:/sounds/resources/sounds/text/chime.wav")
+    , m_alarmSound("qrc:/sounds/resources/sounds/alarms/alarm_sunrise.wav")
     , m_mediaVolume(0.6)
     , m_ringtoneVolume(0.8)
     , m_alarmVolume(0.9)
@@ -58,9 +58,9 @@ void SettingsManager::load() {
     m_dateFormat = m_settings.value("system/dateFormat", "US").toString();
     
     // Audio
-    m_ringtone = m_settings.value("audio/ringtone", "qrc:/sounds/phone/bbpro1.wav").toString();
-    m_notificationSound = m_settings.value("audio/notificationSound", "qrc:/sounds/text/chime.wav").toString();
-    m_alarmSound = m_settings.value("audio/alarmSound", "qrc:/sounds/alarms/alarm_sunrise.wav").toString();
+    m_ringtone = m_settings.value("audio/ringtone", "qrc:/sounds/resources/sounds/phone/bbpro1.wav").toString();
+    m_notificationSound = m_settings.value("audio/notificationSound", "qrc:/sounds/resources/sounds/text/chime.wav").toString();
+    m_alarmSound = m_settings.value("audio/alarmSound", "qrc:/sounds/resources/sounds/alarms/alarm_sunrise.wav").toString();
     m_mediaVolume = m_settings.value("audio/mediaVolume", 0.6).toReal();
     m_ringtoneVolume = m_settings.value("audio/ringtoneVolume", 0.8).toReal();
     m_alarmVolume = m_settings.value("audio/alarmVolume", 0.9).toReal();

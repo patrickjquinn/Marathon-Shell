@@ -116,7 +116,13 @@ Item {
             PropertyChanges {
                 lockScreen.visible: true
                 lockScreen.enabled: true
-                lockScreen.opacity: 1.0
+                lockScreen.expandedNotificationId: -1  // Close expanded notifications
+            }
+            StateChangeScript {
+                script: {
+                    // Reset swipe progress when entering locked state
+                    lockScreen.swipeProgress = 0.0
+                }
             }
             // PIN screen HIDDEN behind lock screen until swipe triggers pinEntry state
             PropertyChanges {
@@ -143,7 +149,6 @@ Item {
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
-                lockScreen.opacity: 0.0
             }
             PropertyChanges {
                 pinScreen.visible: true
@@ -168,7 +173,6 @@ Item {
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
-                lockScreen.opacity: 0.0
             }
             PropertyChanges {
                 pinScreen.visible: false
@@ -219,19 +223,11 @@ Item {
         Transition {
             from: "locked"
             to: "home"
-            SequentialAnimation {
-                NumberAnimation {
-                    target: lockScreen
-                    property: "opacity"
-                    to: 0
-                    duration: Constants.animationSlow
-                    easing.type: Easing.OutCubic
-                }
-                PropertyAction {
-                    target: lockScreen
-                    property: "visible"
-                    value: false
-                }
+            // No animation needed - swipe gesture already animated swipeProgress to 1.0
+            PropertyAction {
+                target: lockScreen
+                property: "visible"
+                value: false
             }
         },
         Transition {
@@ -240,8 +236,8 @@ Item {
             ParallelAnimation {
                 NumberAnimation {
                     target: lockScreen
-                    property: "opacity"
-                    to: 0
+                    property: "swipeProgress"
+                    to: 1.0
                     duration: 200
                     easing.type: Easing.OutCubic
                 }
@@ -1059,9 +1055,11 @@ Item {
         
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
+                // Session valid - just unlock, swipe animation already complete
                 Logger.state("Shell", "locked", "unlocked")
                 SessionStore.unlock()
             } else {
+                // Need authentication - show PIN screen
                 Logger.state("Shell", "locked", "pinEntry")
                 showPinScreen = true
                 pinScreen.show()
@@ -1117,9 +1115,8 @@ Item {
         onPinCorrect: {
             Logger.state("Shell", "pinEntry", "unlocked")
             showPinScreen = false
-            SessionStore.unlock()
-            lockScreen.swipeProgress = 0
             pinScreen.reset()
+            SessionStore.unlock()  // This triggers state change to "home"
         }
         
         onCancelled: {

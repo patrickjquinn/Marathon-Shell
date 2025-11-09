@@ -16,7 +16,7 @@ Item {
     signal notificationTapped(string id)
     
     property real swipeProgress: 0.0
-    property string expandedNotificationId: ""
+    property int expandedNotificationId: -1  // Use int to match model.id type
     
     // Keep lock screen visible during entire swipe (only hide when opacity reaches 0)
     // This prevents home screen flash-through
@@ -49,9 +49,9 @@ Item {
         MouseArea {
             anchors.fill: parent
             z: 1
-            enabled: expandedNotificationId !== ""
+            enabled: expandedNotificationId >= 0
             onClicked: {
-                expandedNotificationId = ""
+                expandedNotificationId = -1
                 Logger.info("LockScreen", "Notifications dismissed")
             }
         }
@@ -108,11 +108,13 @@ Item {
             }
         }
         
-        // Notifications - left side
+        // Notifications - left side, below clock
         Column {
             anchors.left: parent.left
             anchors.leftMargin: Constants.spacingLarge
-            anchors.verticalCenter: parent.verticalCenter
+            anchors.top: parent.verticalCenter
+            anchors.topMargin: Math.round(120 * Constants.scaleFactor)  // Below the clock
+            width: Math.round(350 * Constants.scaleFactor)  // Fixed width for expansion
             spacing: Constants.spacingMedium
             z: 10
             
@@ -120,99 +122,156 @@ Item {
                 model: NotificationModel
                 
                 delegate: Item {
-                    width: expandedNotificationId === model.id ? Math.round(300 * Constants.scaleFactor) : Math.round(48 * Constants.scaleFactor)
-                    height: Math.round(48 * Constants.scaleFactor)
+                    width: expandedNotificationId === model.id ? parent.width : Math.round(48 * Constants.scaleFactor)
+                    height: expandedNotificationId === model.id ? Math.round(100 * Constants.scaleFactor) : Math.round(48 * Constants.scaleFactor)
                     visible: index < 4
                     z: 10
                     
                     Behavior on width {
-                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                    }
+                    
+                    Behavior on height {
+                        NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
                     }
                     
                     Rectangle {
                         anchors.fill: parent
                         color: expandedNotificationId === model.id ? MColors.surface : "transparent"
-                        radius: Constants.borderRadiusSharp
+                        radius: Math.round(12 * Constants.scaleFactor)
                         antialiasing: true
                         z: 10
+                        clip: false
+                        border.width: expandedNotificationId === model.id ? 1 : 0
+                        border.color: MColors.border
                         
                         // GPU layer for notification cards
                         layer.enabled: expandedNotificationId === model.id
                         layer.smooth: true
                         
                         Behavior on color {
-                            ColorAnimation { duration: 200 }
+                            ColorAnimation { duration: 250 }
                         }
                         
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: 4
-                            spacing: Constants.spacingMedium
+                        Behavior on border.width {
+                            NumberAnimation { duration: 250 }
+                        }
+                        
+                        // Icon on left
+                        Rectangle {
+                            id: notificationIcon
+                            width: Constants.touchTargetMinimum
+                            height: Constants.touchTargetMinimum
+                            radius: Math.round(24 * Constants.scaleFactor)
+                            color: expandedNotificationId === model.id ? MColors.elevated : "transparent"
+                            border.width: expandedNotificationId === model.id ? 0 : 1
+                            border.color: MColors.border
+                            anchors.left: parent.left
+                            anchors.leftMargin: expandedNotificationId === model.id ? Constants.spacingMedium : 0
+                            anchors.top: parent.top
+                            anchors.topMargin: expandedNotificationId === model.id ? Constants.spacingMedium : 0
+                            anchors.verticalCenter: expandedNotificationId === model.id ? undefined : parent.verticalCenter
+                            antialiasing: true
+                            clip: false
                             
-                            Rectangle {
-                                width: Constants.touchTargetMinimum
-                                height: Constants.touchTargetMinimum
-                                radius: Math.round(20 * Constants.scaleFactor)
-                                color: expandedNotificationId === model.id ? MColors.elevated : "transparent"
-                                border.width: expandedNotificationId === model.id ? 0 : Constants.borderWidthThin
-                                border.color: MColors.border
-                                anchors.verticalCenter: parent.verticalCenter
-                                antialiasing: true
-                                
-                                Behavior on color {
-                                    ColorAnimation { duration: 200 }
-                                }
-                                Behavior on border.width {
-                                    NumberAnimation { duration: 200 }
-                                }
-                                
-                                Icon {
-                                    name: model.icon || "bell"
-                                    size: 24
-                                    color: MColors.textPrimary
-                                    anchors.centerIn: parent
-                                }
-                                
-                                Rectangle {
-                                    visible: !model.isRead
-                                    anchors.right: parent.right
-                                    anchors.top: parent.top
-                                    anchors.rightMargin: Math.round(-2 * Constants.scaleFactor)
-                                    anchors.topMargin: Math.round(-2 * Constants.scaleFactor)
-                                    width: Math.round(10 * Constants.scaleFactor)
-                                    height: Math.round(10 * Constants.scaleFactor)
-                                    radius: Math.round(5 * Constants.scaleFactor)
-                                    color: MColors.accent
-                                    antialiasing: true
-                                }
+                            Behavior on color {
+                                ColorAnimation { duration: 250 }
+                            }
+                            Behavior on border.width {
+                                NumberAnimation { duration: 250 }
                             }
                             
-                            Column {
-                                visible: expandedNotificationId === model.id
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - Math.round(68 * Constants.scaleFactor)
-                                spacing: Math.round(2 * Constants.scaleFactor)
+                            Icon {
+                                name: model.icon || "bell"
+                                size: 24
+                                color: MColors.textPrimary
+                                anchors.centerIn: parent
+                            }
+                        }
+                        
+                        // Unread badge
+                        Rectangle {
+                            visible: !model.isRead
+                            anchors.right: notificationIcon.right
+                            anchors.top: notificationIcon.top
+                            anchors.rightMargin: Math.round(-2 * Constants.scaleFactor)
+                            anchors.topMargin: Math.round(-2 * Constants.scaleFactor)
+                            width: Math.round(10 * Constants.scaleFactor)
+                            height: Math.round(10 * Constants.scaleFactor)
+                            radius: Math.round(5 * Constants.scaleFactor)
+                            color: MColors.accent
+                            antialiasing: true
+                            z: 100
+                        }
+                        
+                        // Text content - BB10 Hub style
+                        Column {
+                            visible: expandedNotificationId === model.id
+                            opacity: expandedNotificationId === model.id ? 1.0 : 0.0
+                            anchors.left: notificationIcon.right
+                            anchors.leftMargin: Constants.spacingMedium
+                            anchors.right: parent.right
+                            anchors.rightMargin: Constants.spacingMedium
+                            anchors.top: parent.top
+                            anchors.topMargin: Constants.spacingMedium
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: Constants.spacingMedium
+                            spacing: Math.round(4 * Constants.scaleFactor)
+                            
+                            Behavior on opacity {
+                                NumberAnimation { duration: 250 }
+                            }
+                            
+                            // App name + timestamp row
+                            Row {
+                                width: parent.width
+                                spacing: Constants.spacingSmall
                                 
                                 Text {
-                                    text: model.title || ""
-                                    color: MColors.textPrimary
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.weight: Font.Bold
-                                    font.family: MTypography.fontFamily
-                                    elide: Text.ElideRight
-                                    width: parent.width
-                                    renderType: Text.NativeRendering
-                                }
-                                
-                                Text {
-                                    text: model.body || ""
+                                    text: model.appId || "Notification"
                                     color: MColors.textSecondary
                                     font.pixelSize: MTypography.sizeXSmall
                                     font.family: MTypography.fontFamily
-                                    elide: Text.ElideRight
-                                    width: parent.width
+                                    font.weight: Font.Medium
                                     renderType: Text.NativeRendering
                                 }
+                                
+                                Text {
+                                    text: "•"
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeXSmall
+                                    renderType: Text.NativeRendering
+                                }
+                                
+                                Text {
+                                    text: Qt.formatTime(new Date(model.timestamp), "h:mm AP")
+                                    color: MColors.textSecondary
+                                    font.pixelSize: MTypography.sizeXSmall
+                                    font.family: MTypography.fontFamily
+                                    renderType: Text.NativeRendering
+                                }
+                            }
+                            
+                            Text {
+                                text: model.title || ""
+                                color: MColors.textPrimary
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: Font.Bold
+                                font.family: MTypography.fontFamily
+                                elide: Text.ElideRight
+                                width: parent.width
+                                renderType: Text.NativeRendering
+                            }
+                            
+                            Text {
+                                text: model.body || ""
+                                color: MColors.textSecondary
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
+                                wrapMode: Text.WordWrap
+                                maximumLineCount: 3
+                                width: parent.width
+                                renderType: Text.NativeRendering
                             }
                         }
                         
@@ -222,18 +281,19 @@ Item {
                             preventStealing: true
                             
                             onPressed: {
-                                Logger.info("LockScreen", "Notification MouseArea pressed: " + model.title)
+                                Logger.info("LockScreen", "Notification pressed: " + model.title + ", id: " + model.id)
                             }
                             
                             onClicked: {
                                 HapticService.light()
-                                Logger.info("LockScreen", "Notification clicked: " + model.title)
+                                Logger.info("LockScreen", "Notification clicked: " + model.title + ", current expanded: " + expandedNotificationId + ", this id: " + model.id + " (types: " + typeof expandedNotificationId + ", " + typeof model.id + ")")
                                 if (expandedNotificationId === model.id) {
-                                    expandedNotificationId = ""
-                                    Logger.info("LockScreen", "Notification dismissed: " + model.title)
+                                    expandedNotificationId = -1
+                                    Logger.info("LockScreen", "Collapsing notification")
                                 } else {
                                     expandedNotificationId = model.id
-                                    Logger.info("LockScreen", "Notification expanded: " + model.title)
+                                    Logger.info("LockScreen", "Expanding notification to id: " + model.id)
+                                    Logger.info("LockScreen", "Visible check: " + (expandedNotificationId === model.id))
                                 }
                             }
                         }
@@ -371,7 +431,7 @@ Item {
                 } else {
                     // Snap back
                     swipeProgress = 0
-                    expandedNotificationId = ""
+                    expandedNotificationId = -1
                 }
             } else {
                 // Was a tap, not a swipe - notifications will handle it via their MouseAreas
