@@ -99,7 +99,7 @@ Rectangle {
             dragVelocityY = 0
             lastDragTime = Date.now()
             isDragging = true
-            console.log("🎯 Nav drag started at:", mouse.x, mouse.y)
+            console.log(" Nav drag started at:", mouse.x, mouse.y)
         }
         
         onPositionChanged: (mouse) => {
@@ -120,13 +120,13 @@ Rectangle {
             lastDragY = mouse.y
             lastDragTime = now
             
-            console.log("🎯 Dragging:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0))
+            console.log(" Dragging:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0))
         }
         
         onReleased: (mouse) => {
             if (!isDragging) return
             
-            console.log("🎯 Released. Distance:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "Velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0))
+            console.log(" Released. Distance:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "Velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0))
             
             var absX = Math.abs(dragCurrentX)
             var absY = Math.abs(dragCurrentY)
@@ -135,16 +135,16 @@ Rectangle {
             
             if (absY > absX) {
                 if (dragCurrentY < -swipeThreshold || dragVelocityY < -500) {
-                    console.log("⬆️ SWIPE UP detected!")
+                    console.log("⬆ SWIPE UP detected!")
                     swipeUp()
                     swipeUpRelease(Math.abs(dragVelocityY))
                 }
             } else {
                 if (dragCurrentX > swipeThreshold || dragVelocityX > 500) {
-                    console.log("➡️ SWIPE RIGHT detected!")
+                    console.log("➡ SWIPE RIGHT detected!")
                     swipeRight()
                 } else if (dragCurrentX < -swipeThreshold || dragVelocityX < -500) {
-                    console.log("⬅️ SWIPE LEFT detected!")
+                    console.log("⬅ SWIPE LEFT detected!")
                     swipeLeft()
                 }
             }

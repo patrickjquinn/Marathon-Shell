@@ -124,14 +124,14 @@ cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
 ACTION=="add|change", KERNEL=="sd[a-z]|mmcblk[0-9]*|nvme[0-9]*", ATTR{queue/scheduler}="kyber"
 EOF
 echo "  ✓ Created /etc/udev/rules.d/60-ioschedulers.rules"
-udevadm control --reload-rules 2>/dev/null || echo "  ⚠ udevadm control requires root"
+udevadm control --reload-rules 2>/dev/null || echo "   udevadm control requires root"
 echo "  ✓ Reloaded udev rules"
 
 # Done
 echo ""
 echo "=== Configuration Complete ==="
 echo ""
-echo "⚠️  IMPORTANT: You must REBOOT for RT limits to take effect"
+echo "  IMPORTANT: You must REBOOT for RT limits to take effect"
 echo ""
 echo "After reboot, verify Marathon RT scheduling with:"
 echo "  ulimit -r                                          # Should show 90"

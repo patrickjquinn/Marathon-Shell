@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
     if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
         qInfo() << "[MarathonShell] ✓ Main thread (input handling) set to RT priority 85 (SCHED_FIFO)";
     } else {
-        qWarning() << "[MarathonShell] ⚠ Failed to set RT priority for input handling";
+        qWarning() << "[MarathonShell]  Failed to set RT priority for input handling";
         qInfo() << "[MarathonShell]   Configure /etc/security/limits.d/99-marathon.conf:";
         qInfo() << "[MarathonShell]     @marathon-users  -  rtprio  90";
     }

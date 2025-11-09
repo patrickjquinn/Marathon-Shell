@@ -19,7 +19,7 @@ echo "💻 Detected $CORES CPU cores"
 
 # Clean build if requested
 if [ "$CLEAN" = "1" ]; then
-    echo "🧹 Clean build requested, removing build directories..."
+    echo " Clean build requested, removing build directories..."
     rm -rf build build-apps build-ui
 fi
 
@@ -34,15 +34,15 @@ echo "============================================"
 echo ""
 
 # Build everything using build-all.sh script
-echo "🏗️  Building Marathon Shell and Apps..."
+echo "🏗  Building Marathon Shell and Apps..."
 # CRITICAL: Always reinstall apps to ensure source changes are deployed
 ./scripts/build-all.sh install
 
 if [ $? -eq 0 ]; then
     echo ""
-    echo "✅ Complete build successful!"
+    echo " Complete build successful!"
     echo ""
-    echo "🚀 Starting Marathon Shell..."
+    echo " Starting Marathon Shell..."
     echo ""
     
     # Check for debug mode
@@ -66,7 +66,7 @@ if [ $? -eq 0 ]; then
     else
         # Force 1:1 scaling (no DPI scaling from host)
         export QT_SCALE_FACTOR=1
-        echo "🖥️  Compositor scaling: 1:1 (native resolution, no HiDPI from host)"
+        echo "🖥  Compositor scaling: 1:1 (native resolution, no HiDPI from host)"
     fi
     
     # Enable QML validation in debug mode
@@ -77,7 +77,7 @@ if [ $? -eq 0 ]; then
         mkdir -p "$QT_QML_DISK_CACHE_PATH"
         # Allow all logging in debug mode (same as running binary directly)
         unset QT_LOGGING_RULES
-        echo "🔍 Debug mode: Full logging enabled (no filtering)"
+        echo " Debug mode: Full logging enabled (no filtering)"
         echo ""
     else
         # Disable all debug logging in production
@@ -104,6 +104,6 @@ if [ $? -eq 0 ]; then
         ./build/shell/marathon-shell-bin
     fi
 else
-    echo "❌ Build failed!"
+    echo " Build failed!"
     exit 1
 fi

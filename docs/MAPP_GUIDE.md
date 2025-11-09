@@ -289,7 +289,7 @@ MApp {
 
 ## Best Practices
 
-### ✅ DO
+###  DO
 
 1. **Always set `appId`, `appName`**
    ```qml
@@ -331,11 +331,11 @@ MApp {
    }
    ```
 
-### ❌ DON'T
+###  DON'T
 
 1. **Don't use manual connection management**
    ```qml
-   // ❌ Bad
+   //  Bad
    property var backConnection: null
    Component.onCompleted: {
        backConnection = myApp.backPressed.connect(...)
@@ -344,7 +344,7 @@ MApp {
 
 2. **Don't forget to update `navigationDepth`**
    ```qml
-   // ❌ Bad - back gesture won't work
+   //  Bad - back gesture won't work
    StackView {
        // Missing onDepthChanged
    }
@@ -352,7 +352,7 @@ MApp {
 
 3. **Don't perform heavy operations in lifecycle signals**
    ```qml
-   // ❌ Bad - blocks UI
+   //  Bad - blocks UI
    onAppResumed: {
        loadEntireDatabase()  // Use async loading instead
    }
@@ -360,7 +360,7 @@ MApp {
 
 4. **Don't override `appIcon` unless necessary**
    ```qml
-   // ❌ Bad - icon from manifest is automatically injected
+   //  Bad - icon from manifest is automatically injected
    MApp {
        appIcon: "assets/icon.svg"  // Usually redundant
    }

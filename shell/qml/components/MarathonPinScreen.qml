@@ -45,14 +45,14 @@ Item {
         target: SecurityManagerCpp
         
         function onAuthenticationSuccess() {
-            Logger.info("PinScreen", "✅ Authentication successful, hiding spinner")
+            Logger.info("PinScreen", " Authentication successful, hiding spinner")
             authenticating = false
             HapticService.medium()
             pinCorrect()
         }
         
         function onAuthenticationFailed(reason) {
-            Logger.warn("PinScreen", "❌ Authentication failed, hiding spinner:", reason)
+            Logger.warn("PinScreen", " Authentication failed, hiding spinner:", reason)
             authenticating = false
             HapticService.heavy()
             error = reason

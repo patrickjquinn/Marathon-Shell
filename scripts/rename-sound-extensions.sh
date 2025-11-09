@@ -35,7 +35,7 @@ echo "Backup created: ${RESOURCES_FILE}.bak"
 sed -i '' 's/\.m4a\.mp3/\.mp3/g' "$RESOURCES_FILE"
 
 echo ""
-echo "✅ Done!"
+echo " Done!"
 echo "- Sound files renamed"
 echo "- resources.qrc updated"
 echo "- Backup saved as resources.qrc.bak"

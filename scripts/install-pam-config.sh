@@ -16,31 +16,31 @@ PAM_DEST="/etc/pam.d/marathon-shell"
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "❌ This script must be run with sudo:"
+    echo " This script must be run with sudo:"
     echo "   sudo $0"
     exit 1
 fi
 
 # Check if source file exists
 if [ ! -f "$PAM_SOURCE" ]; then
-    echo "❌ PAM configuration file not found: $PAM_SOURCE"
+    echo " PAM configuration file not found: $PAM_SOURCE"
     exit 1
 fi
 
 # Backup existing config if present
 if [ -f "$PAM_DEST" ]; then
     BACKUP="$PAM_DEST.backup.$(date +%Y%m%d-%H%M%S)"
-    echo "📦 Backing up existing PAM config to: $BACKUP"
+    echo " Backing up existing PAM config to: $BACKUP"
     cp "$PAM_DEST" "$BACKUP"
 fi
 
 # Install the configuration
-echo "📝 Installing Marathon Shell PAM configuration..."
+echo " Installing Marathon Shell PAM configuration..."
 cp "$PAM_SOURCE" "$PAM_DEST"
 chmod 644 "$PAM_DEST"
 chown root:root "$PAM_DEST"
 
-echo "✅ PAM configuration installed successfully!"
+echo " PAM configuration installed successfully!"
 echo ""
 echo "Configuration details:"
 echo "  - Location: $PAM_DEST"

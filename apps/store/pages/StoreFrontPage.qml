@@ -80,10 +80,10 @@ Rectangle {
                         model: [
                             { title: "Curated Catalog", desc: "Browse hand-picked Marathon apps", icon: "📱" },
                             { title: "Secure Installation", desc: "GPG-verified packages with signature checking", icon: "🔒" },
-                            { title: "Smart Permissions", desc: "Runtime permission prompts for user privacy", icon: "🛡️" },
+                            { title: "Smart Permissions", desc: "Runtime permission prompts for user privacy", icon: "🛡" },
                             { title: "Automatic Updates", desc: "Keep your apps up-to-date automatically", icon: "🔄" },
-                            { title: "Developer Tools", desc: "CLI tools for packaging and signing apps", icon: "⚙️" },
-                            { title: "Fast & Native", desc: "QML apps optimized for ARM performance", icon: "⚡" }
+                            { title: "Developer Tools", desc: "CLI tools for packaging and signing apps", icon: "" },
+                            { title: "Fast & Native", desc: "QML apps optimized for ARM performance", icon: "" }
                         ]
                         
                         delegate: Rectangle {

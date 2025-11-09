@@ -13,7 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo "🔍 QML Validation with Full Type Resolution"
+echo " QML Validation with Full Type Resolution"
 echo "============================================="
 echo ""
 
@@ -92,7 +92,7 @@ for file in $QML_FILES; do
         WARNINGS=$(echo "$LINT_OUTPUT" | grep "Warning:" || true)
         if [ -n "$WARNINGS" ]; then
             WARNING_COUNT=$((WARNING_COUNT + 1))
-            echo -e " ${YELLOW}⚠${NC}"
+            echo -e " ${YELLOW}${NC}"
         else
             echo -e " ${GREEN}✓${NC}"
         fi
@@ -119,7 +119,7 @@ echo ""
 else
     echo -e "${GREEN}Errors: 0${NC}"
     echo ""
-    echo -e "${GREEN}✅ All QML files validated successfully!${NC}"
+    echo -e "${GREEN} All QML files validated successfully!${NC}"
     if [ "$WARNING_COUNT" -gt 0 ]; then
         echo ""
         echo -e "${YELLOW}Note: $WARNING_COUNT warning(s) found but these don't affect functionality${NC}"

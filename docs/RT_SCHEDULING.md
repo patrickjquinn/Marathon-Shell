@@ -21,9 +21,9 @@ This directory contains the implementation of RT thread priorities per **Maratho
 Priority 99  - Kernel critical tasks
 Priority 90  - ModemManager (telephony)
 Priority 88  - PipeWire (audio)
-Priority 85  - Input handling (Marathon main thread) ✅ IMPLEMENTED
+Priority 85  - Input handling (Marathon main thread)  IMPLEMENTED
 Priority 80  - Default user RT apps
-Priority 75  - Compositor rendering ✅ IMPLEMENTED
+Priority 75  - Compositor rendering  IMPLEMENTED
 Priority 50  - Kernel IRQ handlers
 Priority 0   - SCHED_OTHER (normal tasks)
 ```
@@ -40,7 +40,7 @@ Priority 0   - SCHED_OTHER (normal tasks)
 
 - Code compiles and runs
 - `pthread_setschedparam()` calls fail with permission errors
-- Logs: `"⚠ Failed to set RT priority (need CAP_SYS_NICE or limits.conf)"`
+- Logs: `" Failed to set RT priority (need CAP_SYS_NICE or limits.conf)"`
 - Shell continues to work normally (SCHED_OTHER)
 
 #### With PREEMPT_RT Kernel + Configuration
@@ -153,7 +153,7 @@ systemctl show ModemManager | grep CPUScheduling
 
 ## Troubleshooting
 
-### "⚠ No RT scheduling permissions"
+### " No RT scheduling permissions"
 
 **Solution**: Run `configure-rt-linux.sh` as root, then reboot.
 
@@ -168,7 +168,7 @@ cat /etc/security/limits.d/99-marathon.conf
 # Re-login or reboot
 ```
 
-### "⚠ Not running on PREEMPT_RT kernel"
+### " Not running on PREEMPT_RT kernel"
 
 **Solution**: Rebuild kernel with `CONFIG_PREEMPT_RT=y`.
 
@@ -235,16 +235,16 @@ RTScheduler.setRealtimePriority(80)
 
 ## Future Work (Spec Implementation)
 
-### Completed ✅
+### Completed 
 - [x] RT thread priorities (compositor: 75, input: 85)
 - [x] App launch time measurement (<300ms)
 - [x] Active Frames throttling (10 FPS)
 
-### In Progress 🚧
+### In Progress 
 - [ ] Touch latency optimization (<16ms target) - needs hardware testing
 - [ ] Performance profiling hooks
 
-### Planned 📋
+### Planned 
 - [ ] VSync-synchronized frame delivery
 - [ ] App sandboxing (Landlock/seccomp)
 - [ ] D-Bus permission system

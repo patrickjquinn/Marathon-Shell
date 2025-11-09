@@ -156,11 +156,11 @@ Item {
         
         // Try direct registration first (works in shell context)
         if (typeof AppLifecycleManager !== 'undefined' && appId) {
-            console.log("  ✅ Calling AppLifecycleManager.registerApp() directly")
+            console.log("   Calling AppLifecycleManager.registerApp() directly")
             AppLifecycleManager.registerApp(appId, root)
         } else {
             // Fallback: emit signal for external registration (works in app loader context)
-            console.log("  ℹ️  AppLifecycleManager not available, emitting requestRegister signal")
+            console.log("  ℹ  AppLifecycleManager not available, emitting requestRegister signal")
             requestRegister(appId, root)
         }
         console.log("━━━━━━━ MApp.onCompleted COMPLETE ━━━━━━━")

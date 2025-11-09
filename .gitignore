@@ -9,4 +9,6 @@ build-ui/
 .qtc_clangd/
 *.qmlc
 *.jsc
+*.log
+check_output.cpp
 

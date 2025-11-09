@@ -73,12 +73,12 @@ ShellSurfaceItem {
             Logger.info("WaylandShellSurfaceItem", "  surfaceObj.toplevel: " + (surfaceObj && surfaceObj.toplevel ? "exists" : "null"))
             scheduleSizeUpdate()
         } else {
-            Logger.warn("WaylandShellSurfaceItem", "❌ ShellSurface is NULL!")
+            Logger.warn("WaylandShellSurfaceItem", " ShellSurface is NULL!")
         }
     }
     
     Component.onCompleted: {
-        Logger.info("WaylandShellSurfaceItem", "🎬 Component created - initial state:")
+        Logger.info("WaylandShellSurfaceItem", " Component created - initial state:")
         Logger.info("WaylandShellSurfaceItem", "  width: " + width + ", height: " + height)
         Logger.info("WaylandShellSurfaceItem", "  shellSurface: " + (shellSurface ? "exists" : "null"))
         Logger.info("WaylandShellSurfaceItem", "  surfaceObj: " + (surfaceObj ? "exists" : "null"))

@@ -27,7 +27,7 @@ Rectangle {
             
             MLabel {
                 anchors.centerIn: parent
-                text: dialedNumber.length > 0 ? dialedNumber : "🔥 420 BLAZE IT! 🔥"
+                text: dialedNumber.length > 0 ? dialedNumber : "Dial a number"
                 variant: dialedNumber.length > 0 ? "primary" : "secondary"
                 font.pixelSize: MTypography.sizeXLarge
                 font.family: "Courier New"

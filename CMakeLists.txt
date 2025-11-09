@@ -16,7 +16,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARM optimizations for older mobile devices
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
-    message(STATUS "🔧 Enabling ARM optimizations for mobile device")
+    message(STATUS " Enabling ARM optimizations for mobile device")
     
     # Use NEON SIMD for better performance
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
