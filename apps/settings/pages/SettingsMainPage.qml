@@ -203,6 +203,22 @@ Page {
             
             // Apps & Filters
             MSection {
+                title: "Customization"
+                subtitle: "Personalize your Marathon experience"
+                width: parent.width - 48
+                
+                MSettingsListItem {
+                    title: "Quick Settings"
+                    subtitle: "Customize Quick Settings tiles"
+                    iconName: "sliders"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("quicksettings")
+                    }
+                }
+            }
+            
+            MSection {
                 title: "Apps & Filters"
                 subtitle: "Control which apps are displayed"
                 width: parent.width - 48

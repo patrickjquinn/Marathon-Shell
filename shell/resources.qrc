@@ -144,6 +144,11 @@
         <file alias="keyboard.svg">resources/images/icons/lucide/keyboard.svg</file>
         <file alias="keyboard-off.svg">resources/images/icons/lucide/keyboard-off.svg</file>
         <file alias="corner-down-left.svg">resources/images/icons/lucide/corner-down-left.svg</file>
+        <file alias="flashlight.svg">resources/images/icons/lucide/flashlight.svg</file>
+        <file alias="sun-moon.svg">resources/images/icons/lucide/sun-moon.svg</file>
+        <file alias="wifi-tethering.svg">resources/images/icons/lucide/wifi-tethering.svg</file>
+        <file alias="vibrate.svg">resources/images/icons/lucide/vibrate.svg</file>
+        <file alias="vibrate-off.svg">resources/images/icons/lucide/vibrate-off.svg</file>
     </qresource>
     <qresource prefix="/sounds">
         <file>resources/sounds/alarms/alarm_antelope.wav</file>
