@@ -1,6 +1,21 @@
-# Marathon Shell
-
-**A modern, gesture-driven mobile shell for Linux** built with Qt6/QML, inspired by BlackBerry 10 and designed for touch-first interaction.
+<div align="center">
+  <img src="github-media/marathon.png" alt="Marathon Shell Logo" width="200"/>
+  
+  # Marathon Shell
+  
+  **A modern, gesture-driven mobile shell for Linux** built with Qt6/QML, inspired by BlackBerry 10 and designed for touch-first interaction.
+  
+  [**📹 Watch Demo Video**](github-media/Screencast%20From%202025-11-09%2004-01-02.mp4)
+  
+  _Click above to see Marathon Shell in action: Gesture navigation, Quick Settings, and App Grid_
+  
+  <!-- For embedded video playback in README:
+       1. Go to any GitHub Issue in this repo
+       2. Drag-drop the video file from github-media/ into the comment box
+       3. GitHub will upload and give you a user-images.githubusercontent.com URL
+       4. Replace this link with: <video src="that-url" controls></video>
+  -->
+</div>
 
 Marathon Shell is a Wayland compositor and application shell that provides a complete mobile OS experience on Linux, with native support for both Marathon apps (built in QML) and standard Linux desktop applications.
 
@@ -73,19 +88,34 @@ sudo apt install cmake ninja-build g++ \
 
 ## 🔨 Building
 
+### Initial Setup
+
+```bash
+# Clone the repository with submodules
+git clone --recursive https://github.com/patrickjquinn/Marathon-Shell.git
+cd Marathon-Shell
+
+# If you already cloned without --recursive, initialize submodules:
+git submodule update --init --recursive
+```
+
+**Note:** The project uses the [AsyncFuture](https://github.com/vpicaver/asyncfuture) library as a Git submodule (`third-party/asyncfuture/`). This provides Promise-like async programming with QFuture.
+
 ### Quick Start
 ```bash
-# Build everything (shell + apps)
+# Build everything (shell + apps + UI library)
 ./scripts/build-all.sh
 
 # Or build individually:
-./scripts/build-shell.sh    # Shell only
-./scripts/build-apps.sh      # Apps only
+cd build && cmake --build .     # Shell only (after initial build-all.sh)
+./scripts/build-apps.sh         # Apps only
 ```
+
+**Note:** There is no separate `build-shell.sh` - use `build-all.sh` for initial builds, then incremental builds via `run.sh`.
 
 ### Development Build
 ```bash
-# Incremental build (fast)
+# Incremental build (fast) - automatically rebuilds everything
 ./run.sh
 
 # Clean rebuild
@@ -147,44 +177,137 @@ Marathon-Shell/
 │   ├── qml/                   # QML UI files
 │   │   ├── Main.qml           # Application root
 │   │   ├── MarathonShell.qml  # Main shell orchestration
-│   │   ├── MarathonUI/        # Design system components
 │   │   ├── components/        # Shell UI components
-│   │   ├── stores/            # Global state management
+│   │   ├── stores/            # Global state management (UIStore, SystemControlStore, etc.)
 │   │   ├── services/          # System service integrations
-│   │   └── apps/              # Built-in app templates
-│   └── src/                   # C++ backend
-│       ├── waylandcompositor.cpp      # Wayland compositor
-│       ├── waylandcompositor_dbus.cpp # D-Bus session management
-│       ├── desktopfileparser.cpp      # .desktop file parser
-│       ├── appmodel.cpp               # App registry
-│       ├── networkmanagercpp.cpp      # NetworkManager integration
-│       ├── powermanagercpp.cpp        # UPower integration
-│       └── ...                        # Other services
+│   │   ├── core/              # Core utilities (Logger, Constants)
+│   │   └── utils/             # Utility functions (Async wrapper)
+│   ├── src/                   # C++ backend
+│   │   ├── waylandcompositor*.{cpp,h}     # Wayland compositor + D-Bus
+│   │   ├── desktopfileparser.{cpp,h}      # .desktop file parser
+│   │   ├── appmodel.{cpp,h}               # App registry
+│   │   ├── networkmanagercpp.{cpp,h}      # NetworkManager integration
+│   │   ├── powermanagercpp.{cpp,h}        # UPower integration
+│   │   ├── marathonapp*.{cpp,h}           # App packaging/verification/installation
+│   │   └── ...                            # Other service managers
+│   └── resources/             # Embedded assets
+│       ├── images/            # Icons (Lucide icon set)
+│       ├── fonts/             # Slate font family
+│       └── sounds/            # System sounds (BB10-inspired)
+├── marathon-ui/                # MarathonUI Design System (monorepo)
+│   ├── Theme/                 # Colors, typography, spacing
+│   ├── Core/                  # Buttons, labels, inputs, icons
+│   ├── Controls/              # Toggles, sliders, radio buttons
+│   ├── Containers/            # Pages, cards, sections, scroll views
+│   ├── Lists/                 # List items, dividers
+│   ├── Navigation/            # Top bar, bottom bar, action bar
+│   ├── Feedback/              # Badges, progress bars
+│   ├── Modals/                # Dialogs, sheets, overlays
+│   └── Effects/               # Ripple, inset/outset effects
+├── marathon-core/              # Shared C++ library (monorepo)
+│   └── src/                   # App management infrastructure
+│       ├── marathonapppackager.{cpp,h}    # .marathon package creation
+│       ├── marathonappverifier.{cpp,h}    # GPG signature verification
+│       ├── marathonappinstaller.{cpp,h}   # App installation logic
+│       ├── marathonappregistry.{cpp,h}    # App catalog
+│       └── marathonappscanner.{cpp,h}     # App discovery
 ├── apps/                       # Bundled Marathon apps
 │   ├── browser/               # Web browser
 │   ├── calculator/            # Calculator
-│   ├── calendar/              # Calendar
+│   ├── calendar/              # Calendar & events
 │   ├── settings/              # System settings
-│   ├── terminal/              # Terminal (with C++ plugin)
-│   └── ...                    # Other apps
+│   ├── store/                 # App Store (uses marathon-core)
+│   ├── terminal/              # Terminal emulator
+│   └── ...                    # Phone, Messages, Clock, Maps, etc.
+├── tools/                      # Developer tools
+│   └── marathon-dev/          # CLI tool for app development
+│       └── main.cpp           # package, sign, verify, install, init commands
+├── third-party/                # External dependencies
+│   └── asyncfuture/           # Git submodule: Promise-like QFuture API
 ├── scripts/                    # Build and utility scripts
-│   ├── build-all.sh           # Build shell + apps
+│   ├── build-all.sh           # Build UI lib + shell + apps
 │   ├── build-apps.sh          # Build apps only
-│   └── validate-qml.sh        # QML linting
+│   ├── validate-qml.sh        # QML linting
+│   ├── configure-rt-linux.sh  # Real-time scheduling setup
+│   └── ...                    # Other utilities
 ├── docs/                       # Documentation
 │   ├── APP_DEVELOPMENT.md     # Creating Marathon apps
 │   ├── UI_DESIGN_SYSTEM.md    # MarathonUI components
-│   └── ...                    # Architecture docs
-└── run.sh                      # Quick run script
+│   ├── DEVELOPER_GUIDE.md     # marathon-dev CLI usage
+│   ├── CODE_SIGNING_GUIDE.md  # GPG signing for apps
+│   └── ...                    # More architecture docs
+├── systemd/                    # Service files
+│   └── marathon-shell.service # Systemd unit for Marathon
+├── udev/                       # Hardware access rules
+│   └── 70-marathon-shell.rules
+├── polkit/                     # Privilege elevation policies
+│   └── org.marathonos.shell.policy
+├── CMakeLists.txt              # Root build configuration
+├── marathon-config.json        # Build-time configuration system
+├── .gitmodules                 # Git submodule definitions
+└── run.sh                      # Quick development run script
 ```
+
+## 📦 Marathon App Ecosystem
+
+Marathon has a complete app distribution system with packaging, code signing, and an integrated App Store.
+
+### `.marathon` Package Format
+- **ZIP-based** archive containing app files
+- **manifest.json**: App metadata (id, name, version, permissions)
+- **SIGNATURE.txt**: GPG detached signature (optional but recommended)
+- **Structured layout**: QML files, assets, optional C++ plugins
+
+### Code Signing with GPG
+```bash
+# Generate GPG key for signing
+gpg --full-generate-key
+
+# Sign your app
+marathon-dev sign apps/myapp
+
+# Verify signature
+marathon-dev verify myapp.marathon
+```
+
+Apps can be signed with GPG for authenticity. The shell verifies signatures during installation and displays trust status. See `docs/CODE_SIGNING_GUIDE.md`.
+
+### App Store Integration
+Marathon includes a built-in **App Store** app that:
+- **Browses** available Marathon apps
+- **Installs/uninstalls** apps with one tap
+- **Shows** app details, permissions, and trust status
+- **Updates** apps when new versions are available
+
+The App Store uses the `marathon-core` library (same as `marathon-dev`) ensuring consistent behavior between CLI and GUI.
+
+### Runtime Permissions
+Apps can request permissions in `manifest.json`:
+```json
+{
+  "permissions": [
+    "network",
+    "location",
+    "camera",
+    "microphone",
+    "contacts",
+    "calendar",
+    "storage"
+  ]
+}
+```
+
+The shell enforces permissions via a **D-Bus Permission Portal** (`org.marathonos.shell.PermissionPortal`). Users can review and revoke permissions in Settings → Apps.
+
+See `docs/PERMISSION_GUIDE.md` and `docs/ECOSYSTEM_IMPLEMENTATION_SUMMARY.md` for details.
 
 ## 🎨 MarathonUI Design System
 
 Marathon includes a comprehensive design system with:
 
 - **Theme**: Colors, typography, spacing, radius, elevation, motion
-- **Core**: Buttons, text inputs, labels, dropdowns, pickers
-- **Controls**: Toggles, sliders, radio buttons
+- **Core**: Buttons, text inputs, labels, dropdowns, pickers, icons
+- **Controls**: Toggles, sliders, radio buttons, checkboxes
 - **Containers**: Cards, pages, sections, layers, scroll views
 - **Lists**: Section headers, dividers, list items
 - **Navigation**: Top bar, bottom bar, action bar, navigation panes
@@ -192,7 +315,7 @@ Marathon includes a comprehensive design system with:
 - **Modals**: Dialogs, sheets, overlays
 - **Effects**: Inset, outset, ripple effects
 
-All components are themeable and responsive.
+All components are themeable and responsive. The UI library is built as a **monorepo** (`marathon-ui/`) and installed to `~/.local/share/marathon-ui/` for use by both the shell and apps.
 
 ## ⚙️ Configuration System
 
@@ -270,7 +393,49 @@ cp marathon-config-oneplus6.json marathon-config.json
 
 ## 🔧 Development
 
-### Creating a Marathon App
+### Marathon Developer CLI (`marathon-dev`)
+
+The `marathon-dev` tool is a comprehensive CLI for app development, packaging, and distribution.
+
+**Build the tool:**
+```bash
+./scripts/build-all.sh  # Builds marathon-dev along with everything else
+# Tool location: ./build/tools/marathon-dev/marathon-dev
+```
+
+**Available Commands:**
+```bash
+# Create a new app from template
+marathon-dev init myapp
+
+# Package an app into .marathon format
+marathon-dev package apps/myapp myapp.marathon
+
+# Sign an app with GPG
+marathon-dev sign apps/myapp [key-id]
+
+# Verify app signature
+marathon-dev verify myapp.marathon
+
+# Install app to Marathon
+marathon-dev install myapp.marathon
+
+# Uninstall app
+marathon-dev uninstall myapp
+
+# List installed apps
+marathon-dev list
+
+# Show app details
+marathon-dev info myapp
+
+# Validate app structure
+marathon-dev validate apps/myapp
+```
+
+See `docs/DEVELOPER_GUIDE.md` and `docs/CODE_SIGNING_GUIDE.md` for full details.
+
+### Creating a Marathon App (Manual)
 
 1. Create app directory in `apps/`:
    ```bash
