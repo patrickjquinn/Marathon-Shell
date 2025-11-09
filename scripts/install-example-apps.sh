@@ -25,7 +25,7 @@ else
 fi
 
 echo ""
-echo "✅ Example apps installed successfully!"
+echo " Example apps installed successfully!"
 echo ""
 echo "Installed apps:"
 ls -1 "$INSTALL_DIR" | grep -v "settings" || true

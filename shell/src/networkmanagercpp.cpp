@@ -51,7 +51,7 @@ NetworkManagerCpp::NetworkManagerCpp(QObject* parent)
         
         qInfo() << "[NetworkManagerCpp] Initial state - WiFi:" << m_wifiConnected << "Ethernet:" << m_ethernetConnected;
     } else {
-        qInfo() << "[NetworkManagerCpp] ❌ NetworkManager D-Bus not available:" << m_nmInterface->lastError().message();
+        qInfo() << "[NetworkManagerCpp]  NetworkManager D-Bus not available:" << m_nmInterface->lastError().message();
         qInfo() << "[NetworkManagerCpp] Using mock mode (no hardware available)";
         // Fallback to simulated mode - no hardware available
         m_wifiAvailable = false;

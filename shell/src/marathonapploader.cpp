@@ -86,7 +86,7 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
         qDebug() << "  Using cached component, status:" << component->status();
     }
     
-    // ❌ REMOVED BLOCKING CODE - NO MORE QEventLoop!
+    //  REMOVED BLOCKING CODE - NO MORE QEventLoop!
     // Instead, check status and either return immediately or return null
     // QML should use loadAppAsync() for truly async loading
     

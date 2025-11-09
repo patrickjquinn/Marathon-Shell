@@ -494,14 +494,14 @@ Item {
                 if (typeof AppLifecycleManager !== 'undefined') {
                     Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()")
                     var result = AppLifecycleManager.minimizeForegroundApp()
-                    Logger.info("NavBar", "  ✅ AppLifecycleManager.minimizeForegroundApp() returned: " + result)
+                    Logger.info("NavBar", "   AppLifecycleManager.minimizeForegroundApp() returned: " + result)
                 } else {
-                    Logger.error("NavBar", "  ❌ AppLifecycleManager is undefined!")
+                    Logger.error("NavBar", "   AppLifecycleManager is undefined!")
                 }
                 
-                Logger.info("NavBar", "  🎬 Hiding appWindow")
+                Logger.info("NavBar", "   Hiding appWindow")
                 appWindow.hide()
-                Logger.info("NavBar", "  🎬 Calling UIStore.minimizeApp()")
+                Logger.info("NavBar", "   Calling UIStore.minimizeApp()")
                 UIStore.minimizeApp()
             } else {
                 Logger.info("NavBar", "📍 No app open - just navigating to task switcher")
@@ -509,9 +509,9 @@ Item {
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen)
             }
             
-            Logger.info("NavBar", "  🎯 Setting pageView.currentIndex = 1")
+            Logger.info("NavBar", "   Setting pageView.currentIndex = 1")
             pageView.currentIndex = 1
-            Logger.info("NavBar", "  🎯 Calling Router.goToFrames()")
+            Logger.info("NavBar", "   Calling Router.goToFrames()")
             Router.goToFrames()
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP COMPLETE ━━━━━━━")
         }

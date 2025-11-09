@@ -302,12 +302,12 @@ function predict(prefix) {
 ## 7. SUCCESS CRITERIA
 
 ### Must Have:
-✅ Faster typing than Qt InputPanel  
-✅ Word predictions with 70%+ accuracy  
-✅ Flick gestures working smoothly  
-✅ Marathon design system integration  
-✅ No crashes or segfaults  
-✅ Works with all Marathon apps  
+ Faster typing than Qt InputPanel  
+ Word predictions with 70%+ accuracy  
+ Flick gestures working smoothly  
+ Marathon design system integration  
+ No crashes or segfaults  
+ Works with all Marathon apps  
 
 ### Nice to Have:
 - Auto-correction

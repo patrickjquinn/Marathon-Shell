@@ -531,5 +531,5 @@ marathon-dev sign ./my-app [your-key-id]
 - **Documentation**: docs.marathonos.org
 - **Bug Reports**: github.com/marathonos/marathon-shell/issues
 
-Happy coding! 🚀
+Happy coding! 
 
