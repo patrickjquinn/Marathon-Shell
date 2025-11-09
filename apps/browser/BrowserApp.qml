@@ -96,7 +96,7 @@ MApp {
     }
     
     onAppLaunched: {
-        Logger.warn("Browser", "🚀 onAppLaunched")
+        Logger.warn("Browser", " onAppLaunched")
     }
     
     onAppResumed: {

@@ -61,7 +61,7 @@ void RTScheduler::detectKernelCapabilities()
     } else {
         m_hasRTPermissions = false;
         qCritical() << "╔════════════════════════════════════════════════════════════╗";
-        qCritical() << "║ [RTScheduler] ⚠ RT SCHEDULING NOT AVAILABLE               ║";
+        qCritical() << "║ [RTScheduler]  RT SCHEDULING NOT AVAILABLE               ║";
         qCritical() << "╠════════════════════════════════════════════════════════════╣";
         qCritical() << "║ IMPACT: Shell will run with DEGRADED performance          ║";
         qCritical() << "║         - Touch latency may be higher                     ║";

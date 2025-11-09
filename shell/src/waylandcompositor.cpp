@@ -623,7 +623,7 @@ void WaylandCompositor::setCompositorRealtimePriority()
     if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
         qInfo() << "[WaylandCompositor] ✓ Compositor thread set to RT priority 75 (SCHED_FIFO)";
     } else {
-        qWarning() << "[WaylandCompositor] ⚠ Failed to set RT priority (need CAP_SYS_NICE or limits.conf)";
+        qWarning() << "[WaylandCompositor]  Failed to set RT priority (need CAP_SYS_NICE or limits.conf)";
     }
 #else
     qDebug() << "[WaylandCompositor] RT scheduling not available (not Linux)";

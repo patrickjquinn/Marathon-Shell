@@ -201,6 +201,23 @@ Page {
                 }
             }
             
+            // Security & Privacy
+            MSection {
+                title: "Security & Privacy"
+                subtitle: "Lock screen, authentication, and security"
+                width: parent.width - 48
+                
+                MSettingsListItem {
+                    title: "Security"
+                    subtitle: "Lock screen, PIN, fingerprint, and authentication"
+                    iconName: "shield"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("security")
+                    }
+                }
+            }
+            
             // Apps & Filters
             MSection {
                 title: "Customization"

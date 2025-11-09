@@ -1,0 +1,32 @@
+#%PAM-1.0
+#
+# Marathon Shell PAM Configuration
+# This file configures authentication for the Marathon mobile shell
+#
+# Security stack:
+# 1. Try fingerprint authentication first (if enrolled)
+# 2. Fall back to system password
+# 3. Rate limiting via pam_faillock
+# 4. Session integration with systemd-logind
+#
+
+# Authentication: Fingerprint -> Password with rate limiting
+auth    [success=2 default=ignore]  pam_fprintd.so
+auth    required    pam_faillock.so preauth
+auth    sufficient  pam_unix.so try_first_pass nullok
+auth    [default=die] pam_faillock.so authfail
+auth    required    pam_deny.so
+auth    required    pam_faillock.so authsucc
+
+# Account validation
+account required    pam_unix.so
+account required    pam_faillock.so
+
+# Session management - integrate with systemd-logind
+session required    pam_systemd.so
+session required    pam_unix.so
+session optional    pam_gnome_keyring.so auto_start
+
+# Password management (for future password change functionality)
+password required   pam_unix.so sha512 shadow nullok
+

@@ -4,7 +4,7 @@
 
 set -e
 
-echo "🔨 Building Marathon Shell..."
+echo " Building Marathon Shell..."
 
 # Build main shell
 cmake -B build -G Ninja \
@@ -13,7 +13,7 @@ cmake -B build -G Ninja \
 
 cmake --build build
 
-echo "✅ Shell built successfully"
+echo " Shell built successfully"
 
 # Build apps
 cmake -B build-apps -S apps -G Ninja \
@@ -22,10 +22,10 @@ cmake -B build-apps -S apps -G Ninja \
 
 cmake --build build-apps
 
-echo "✅ Apps built successfully"
+echo " Apps built successfully"
 
 echo ""
-echo "📦 Build complete!"
+echo " Build complete!"
 echo "Now sync to Marathon-Image and build the package:"
 echo ""
 echo "  cd /home/patrickquinn/Developer/Marathon-Image"

@@ -26,13 +26,13 @@ for app in settings notes clock calendar gallery music messages phone maps camer
 done
 
 echo ""
-echo "✅ System apps installed successfully!"
+echo " System apps installed successfully!"
 
 # Clear QML cache to ensure fresh loading of updated apps
-echo "🧹 Clearing QML cache..."
+echo " Clearing QML cache..."
 rm -rf ~/.cache/qmlcache ~/.cache/QtQml* ~/.cache/marathon* 2>/dev/null || true
 find "$INSTALL_DIR" -name "*.qmlc" -delete 2>/dev/null || true
-echo "✅ Cache cleared"
+echo " Cache cleared"
 
 echo "Installed apps:"
 ls "$INSTALL_DIR"

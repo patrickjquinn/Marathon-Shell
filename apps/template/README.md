@@ -1,6 +1,6 @@
 # Template App
 
-⚠️ **THIS IS A TEMPLATE - DO NOT INSTALL THIS APP** ⚠️
+ **THIS IS A TEMPLATE - DO NOT INSTALL THIS APP** 
 
 This is a starter template for creating new Marathon apps. It demonstrates best practices for MApp lifecycle management, navigation, and UI design.
 
@@ -8,13 +8,13 @@ This is a starter template for creating new Marathon apps. It demonstrates best 
 
 ## Features
 
-- ✅ Proper MApp lifecycle hooks
-- ✅ Stack-based navigation with back gesture support
-- ✅ State persistence using SettingsManagerCpp
-- ✅ Marathon UI components (MActionBar, MCard, MButton, etc.)
-- ✅ Smooth page transitions
-- ✅ Haptic feedback
-- ✅ Logging integration
+-  Proper MApp lifecycle hooks
+-  Stack-based navigation with back gesture support
+-  State persistence using SettingsManagerCpp
+-  Marathon UI components (MActionBar, MCard, MButton, etc.)
+-  Smooth page transitions
+-  Haptic feedback
+-  Logging integration
 
 ## Getting Started
 

@@ -135,11 +135,11 @@ MButton {
 ```
 
 **Features:**
-- ✅ Spring physics press animation (scale: 0.98)
-- ✅ Ripple effect on touch
-- ✅ Loading/success/error states
-- ✅ Dual-border depth
-- ✅ Teal accent colors
+-  Spring physics press animation (scale: 0.98)
+-  Ripple effect on touch
+-  Loading/success/error states
+-  Dual-border depth
+-  Teal accent colors
 
 ### MIconButton - Icon-Only Buttons
 
@@ -154,10 +154,10 @@ MIconButton {
 ```
 
 **Features:**
-- ✅ Spring physics press animation
-- ✅ Ripple effect
-- ✅ Circular or square shapes
-- ✅ Consistent with MButton
+-  Spring physics press animation
+-  Ripple effect
+-  Circular or square shapes
+-  Consistent with MButton
 
 ### MCard - Elevated Containers
 
@@ -182,10 +182,10 @@ MCard {
 ```
 
 **Features:**
-- ✅ Dynamic elevation (changes on hover/press)
-- ✅ Spring physics scale animation
-- ✅ Dual-border depth technique
-- ✅ Interactive mode for clickable cards
+-  Dynamic elevation (changes on hover/press)
+-  Spring physics scale animation
+-  Dual-border depth technique
+-  Interactive mode for clickable cards
 
 ### MRipple - Touch Feedback
 
@@ -210,10 +210,10 @@ Rectangle {
 ```
 
 **Features:**
-- ✅ Expands from touch point
-- ✅ Fades out naturally
-- ✅ Configurable color
-- ✅ Performance-optimized
+-  Expands from touch point
+-  Fades out naturally
+-  Configurable color
+-  Performance-optimized
 
 ### MNavigationPane - Page Transitions
 
@@ -229,11 +229,11 @@ MNavigationPane {
 ```
 
 **Features:**
-- ✅ Parallax depth (background page shifts 30%)
-- ✅ Scale animations (0.95 → 1.0, 1.0 → 0.92)
-- ✅ Smooth fade transitions
-- ✅ Emphasized easing curves
-- ✅ iOS-inspired feel
+-  Parallax depth (background page shifts 30%)
+-  Scale animations (0.95 → 1.0, 1.0 → 0.92)
+-  Smooth fade transitions
+-  Emphasized easing curves
+-  iOS-inspired feel
 
 ---
 
@@ -273,14 +273,14 @@ currentElevation: pressed ? 0 : (hovered ? 2 : 1)
 
 ### 1. Spring Physics Over Linear
 
-❌ **Bad:**
+ **Bad:**
 ```qml
 Behavior on scale {
     NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
 }
 ```
 
-✅ **Good:**
+ **Good:**
 ```qml
 Behavior on scale {
     SpringAnimation { 
@@ -358,8 +358,8 @@ Never use `FastBlur`, `GaussianBlur`, etc. Use subtle opacity or darker backgrou
 ### 5. Spring Physics Performance
 
 Spring animations are CPU-bound but provide natural motion. Use sparingly:
-- ✅ Buttons, cards, modals
-- ❌ Large lists, rapid-fire interactions
+-  Buttons, cards, modals
+-  Large lists, rapid-fire interactions
 
 ---
 
@@ -427,13 +427,13 @@ Rectangle {
 
 ### Visual Testing
 
-1. ✅ Black background everywhere
-2. ✅ Dark grey cards with clear hierarchy (surface1-5)
-3. ✅ Teal accent colors pop against dark background
-4. ✅ Depth perception through dual-borders
-5. ✅ Spring animations feel natural, not robotic
-6. ✅ Ripple effects visible on all interactions
-7. ✅ Page transitions smooth with parallax
+1.  Black background everywhere
+2.  Dark grey cards with clear hierarchy (surface1-5)
+3.  Teal accent colors pop against dark background
+4.  Depth perception through dual-borders
+5.  Spring animations feel natural, not robotic
+6.  Ripple effects visible on all interactions
+7.  Page transitions smooth with parallax
 
 ### Performance Testing
 
@@ -470,7 +470,7 @@ QSG_VISUALIZE=batches ./marathon-shell
 **Version**: 2.0  
 **Last Updated**: October 18, 2025  
 **Target**: Raspberry Pi 4 (ARM Cortex-A72)  
-**Status**: Production Ready ✅
+**Status**: Production Ready 
 
 
 ## Performance Principles
@@ -487,17 +487,17 @@ QSG_VISUALIZE=batches ./marathon-shell
 - Icon colorization: Icons use `layer.enabled` for SVG tinting (acceptable, small textures)
 
 ```qml
-// ✅ GOOD - Fully opaque
+//  GOOD - Fully opaque
 Rectangle {
     color: "#1A1A1A"  // or MColors.surface
 }
 
-// ❌ BAD - Unnecessary alpha
+//  BAD - Unnecessary alpha
 Rectangle {
     color: Qt.rgba(0.1, 0.1, 0.1, 0.95)
 }
 
-// ✅ ACCEPTABLE - Modal overlay only
+//  ACCEPTABLE - Modal overlay only
 Rectangle {
     color: MColors.overlay  // Qt.rgba(0, 0, 0, 0.8)
 }
@@ -514,7 +514,7 @@ Rectangle {
 
 **Only Exception**: `Icon.qml` for SVG colorization
 ```qml
-// ✅ ONLY ACCEPTABLE USE
+//  ONLY ACCEPTABLE USE
 Image {
     layer.enabled: true
     layer.effect: MultiEffect {
@@ -526,7 +526,7 @@ Image {
 
 **Alternatives**:
 ```qml
-// ❌ BAD - Creates FBO for shadow
+//  BAD - Creates FBO for shadow
 Rectangle {
     layer.enabled: true
     layer.effect: MultiEffect {
@@ -534,7 +534,7 @@ Rectangle {
     }
 }
 
-// ✅ GOOD - Use dual-border technique instead
+//  GOOD - Use dual-border technique instead
 Rectangle {
     color: MColors.surface
     border.width: 1
@@ -557,12 +557,12 @@ Rectangle {
 **Why**: Clipping forces the renderer to use stencil buffers, which are expensive on embedded GPUs.
 
 ```qml
-// ❌ BAD - Unnecessary clip
+//  BAD - Unnecessary clip
 ListView {
     clip: true  // Not needed if content doesn't overflow
 }
 
-// ✅ GOOD - Only clip when necessary
+//  GOOD - Only clip when necessary
 ListView {
     clip: model.count > visibleItems  // Conditional
 }
@@ -577,7 +577,7 @@ ListView {
 **Alternative**: Use subtle opacity or darker backgrounds.
 
 ```qml
-// ❌ BAD - Extremely expensive
+//  BAD - Extremely expensive
 Rectangle {
     layer.enabled: true
     layer.effect: FastBlur {
@@ -585,7 +585,7 @@ Rectangle {
     }
 }
 
-// ✅ GOOD - Subtle opacity
+//  GOOD - Subtle opacity
 Rectangle {
     color: MColors.glass  // Qt.rgba(0.05, 0.05, 0.05, 0.97)
 }
@@ -744,17 +744,17 @@ Behavior on color {
 4. **Use SmoothedAnimation**: Better frame pacing than NumberAnimation
 
 ```qml
-// ✅ GOOD - Color animation
+//  GOOD - Color animation
 Behavior on color {
     ColorAnimation { duration: 150 }
 }
 
-// ❌ BAD - Scale animation triggers layout
+//  BAD - Scale animation triggers layout
 Behavior on scale {
     NumberAnimation { duration: 100 }
 }
 
-// ✅ GOOD - Opacity animation
+//  GOOD - Opacity animation
 Behavior on opacity {
     NumberAnimation { duration: 150 }
 }
@@ -765,16 +765,16 @@ Behavior on opacity {
 ### No Manual Garbage Collection
 
 ```qml
-// ❌ BAD - Blocks GUI thread
+//  BAD - Blocks GUI thread
 gc()
 
-// ✅ GOOD - Let Qt handle it automatically
+//  GOOD - Let Qt handle it automatically
 ```
 
 ### Loader Pattern
 
 ```qml
-// ✅ GOOD - Explicit control
+//  GOOD - Explicit control
 Loader {
     id: dynamicContent
     active: false  // Load explicitly

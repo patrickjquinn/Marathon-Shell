@@ -261,7 +261,7 @@ Rectangle {
         
         // Performance logging - measure total time to visible
         var totalTime = Date.now() - launchStartTime
-        Logger.info("AppWindow", "⚡ " + name + " launched in " + totalTime + "ms")
+        Logger.info("AppWindow", " " + name + " launched in " + totalTime + "ms")
     }
     
     function hide() {

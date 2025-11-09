@@ -1,7 +1,7 @@
 #!/bin/bash
 # Marathon Shell - Run with full service environment
 
-echo "🚀 Starting Marathon Shell with full service environment..."
+echo " Starting Marathon Shell with full service environment..."
 echo ""
 
 # Check service status
@@ -11,7 +11,7 @@ for svc in NetworkManager bluetooth ModemManager upower geoclue; do
     if [[ "$status" == "active" ]]; then
         echo "  ✓ $svc"
     else
-        echo "  ⚠️  $svc ($status)"
+        echo "    $svc ($status)"
     fi
 done
 

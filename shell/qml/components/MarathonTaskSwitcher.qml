@@ -323,7 +323,7 @@ Item {
                     property bool gestureDecided: false
                     
                     onPressed: function(mouse) {
-                        Logger.info("TaskSwitcher", "⬇️ PRESSED card: " + model.appId + " at (" + mouse.x + ", " + mouse.y + ")")
+                        Logger.info("TaskSwitcher", "⬇ PRESSED card: " + model.appId + " at (" + mouse.x + ", " + mouse.y + ")")
                         
                         // Check if click is on close button - let it handle
                         var buttonPos = closeButtonArea.mapToItem(cardDragArea, 0, 0)
@@ -384,7 +384,7 @@ Item {
                                 isVerticalGesture = true
                                 isHorizontalGesture = false
                                 preventStealing = true  // Prevent parent from stealing
-                                Logger.info("TaskSwitcher", "↕️ Vertical swipe detected - handling for card dismissal")
+                                Logger.info("TaskSwitcher", "↕ Vertical swipe detected - handling for card dismissal")
                             } else {
                                 // Ambiguous - don't claim yet, treat as potential tap
                                 Logger.debug("TaskSwitcher", "❓ Ambiguous gesture - will treat as tap if quick")
@@ -414,7 +414,7 @@ Item {
                     }
                     
                     onReleased: function(mouse) {
-                        Logger.info("TaskSwitcher", "⬆️ RELEASED card: " + model.appId + 
+                        Logger.info("TaskSwitcher", "⬆ RELEASED card: " + model.appId + 
                             " (time: " + (Date.now() - startTime) + "ms, " +
                             "dragging: " + isDragging + ", " +
                             "vertical: " + isVerticalGesture + ", " +
@@ -452,7 +452,7 @@ Item {
                             var isDragUp = dragDistance < -50
                             
                             if (isFlickUp || isDragUp) {
-                                Logger.info("TaskSwitcher", "❌ Closing card: " + model.appId + " (velocity: " + velocity.toFixed(2) + "px/ms, distance: " + dragDistance.toFixed(0) + "px)")
+                                Logger.info("TaskSwitcher", " Closing card: " + model.appId + " (velocity: " + velocity.toFixed(2) + "px/ms, distance: " + dragDistance.toFixed(0) + "px)")
                                 
                                 var appIdToClose = model.appId
                                 
@@ -482,7 +482,7 @@ Item {
                             }
                         } else if (!isDragging && !isVerticalGesture && !isHorizontalGesture && totalTime < 250) {
                             // TAP DETECTED - Quick press/release with minimal movement
-                            Logger.info("TaskSwitcher", "🎯 TAP DETECTED - Opening task: " + model.appId)
+                            Logger.info("TaskSwitcher", " TAP DETECTED - Opening task: " + model.appId)
                             var appId = model.appId
                             var appTitle = model.title
                             var appIcon = model.icon

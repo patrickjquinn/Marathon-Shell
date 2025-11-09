@@ -35,14 +35,14 @@ We've integrated **qmllint** into the CMake build system to catch QML errors **b
 
 qmllint will catch errors like:
 ```qml
-// ❌ ERROR: QtObject cannot have child components
+//  ERROR: QtObject cannot have child components
 QtObject {
     Connections { ... }  // This will fail at build time!
 }
 ```
 
 ```qml
-// ❌ ERROR: Missing import
+//  ERROR: Missing import
 Item {
     MButton { ... }  // MarathonUI.Core not imported - caught at build time!
 }

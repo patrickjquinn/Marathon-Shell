@@ -17,7 +17,7 @@ echo ""
 
 # Check if running with appropriate privileges for some operations
 if [[ $EUID -ne 0 ]]; then
-    echo "⚠️  Note: Some operations require root privileges."
+    echo "  Note: Some operations require root privileges."
     echo "    The script will use sudo when needed."
     echo ""
 fi
@@ -33,7 +33,7 @@ service_active() {
 }
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📦 STEP 1: Installing Required Packages"
+echo " STEP 1: Installing Required Packages"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 PACKAGES=(
@@ -53,7 +53,7 @@ echo "Checking and installing missing packages..."
 for pkg in "${PACKAGES[@]}"; do
     if ! rpm -q "$pkg" &>/dev/null; then
         echo "  Installing: $pkg"
-        sudo dnf install -y "$pkg" || echo "  ⚠️  Failed to install $pkg (may not be available)"
+        sudo dnf install -y "$pkg" || echo "    Failed to install $pkg (may not be available)"
     else
         echo "  ✓ Already installed: $pkg"
     fi
@@ -61,86 +61,86 @@ done
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🔧 STEP 2: Starting and Enabling Services"
+echo " STEP 2: Starting and Enabling Services"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Bluetooth
 if service_exists "bluetooth"; then
     echo "Starting bluetooth.service..."
-    sudo systemctl start bluetooth || echo "  ⚠️  Failed to start bluetooth"
-    sudo systemctl enable bluetooth || echo "  ⚠️  Failed to enable bluetooth"
+    sudo systemctl start bluetooth || echo "    Failed to start bluetooth"
+    sudo systemctl enable bluetooth || echo "    Failed to enable bluetooth"
     if service_active "bluetooth"; then
         echo "  ✓ Bluetooth service is running"
     else
-        echo "  ⚠️  Bluetooth service failed to start (may need hardware)"
+        echo "    Bluetooth service failed to start (may need hardware)"
     fi
 else
-    echo "  ⚠️  bluetooth.service not found"
+    echo "    bluetooth.service not found"
 fi
 
 # iio-sensor-proxy
 if service_exists "iio-sensor-proxy"; then
     echo "Starting iio-sensor-proxy.service..."
-    sudo systemctl start iio-sensor-proxy 2>/dev/null || echo "  ⚠️  iio-sensor-proxy requires IIO sensors (will start on-demand)"
-    echo "  ℹ️  iio-sensor-proxy is socket-activated (starts when needed)"
+    sudo systemctl start iio-sensor-proxy 2>/dev/null || echo "    iio-sensor-proxy requires IIO sensors (will start on-demand)"
+    echo "  ℹ  iio-sensor-proxy is socket-activated (starts when needed)"
 else
-    echo "  ⚠️  iio-sensor-proxy not found"
+    echo "    iio-sensor-proxy not found"
 fi
 
 # ModemManager
 if service_exists "ModemManager"; then
     echo "Starting ModemManager.service..."
-    sudo systemctl start ModemManager || echo "  ⚠️  Failed to start ModemManager"
-    sudo systemctl enable ModemManager || echo "  ⚠️  Failed to enable ModemManager"
+    sudo systemctl start ModemManager || echo "    Failed to start ModemManager"
+    sudo systemctl enable ModemManager || echo "    Failed to enable ModemManager"
     if service_active "ModemManager"; then
         echo "  ✓ ModemManager service is running"
     fi
 else
-    echo "  ⚠️  ModemManager not found"
+    echo "    ModemManager not found"
 fi
 
 # NetworkManager
 if service_exists "NetworkManager"; then
     if ! service_active "NetworkManager"; then
         echo "Starting NetworkManager.service..."
-        sudo systemctl start NetworkManager || echo "  ⚠️  Failed to start NetworkManager"
-        sudo systemctl enable NetworkManager || echo "  ⚠️  Failed to enable NetworkManager"
+        sudo systemctl start NetworkManager || echo "    Failed to start NetworkManager"
+        sudo systemctl enable NetworkManager || echo "    Failed to enable NetworkManager"
     else
         echo "  ✓ NetworkManager already running"
     fi
 else
-    echo "  ⚠️  NetworkManager not found"
+    echo "    NetworkManager not found"
 fi
 
 # UPower
 if service_exists "upower"; then
     if ! service_active "upower"; then
         echo "Starting upower.service..."
-        sudo systemctl start upower || echo "  ⚠️  Failed to start upower"
-        sudo systemctl enable upower || echo "  ⚠️  Failed to enable upower"
+        sudo systemctl start upower || echo "    Failed to start upower"
+        sudo systemctl enable upower || echo "    Failed to enable upower"
     else
         echo "  ✓ UPower already running"
     fi
 else
-    echo "  ⚠️  upower not found"
+    echo "    upower not found"
 fi
 
 # Geoclue
 if service_exists "geoclue"; then
     if ! service_active "geoclue"; then
         echo "Starting geoclue.service..."
-        sudo systemctl start geoclue || echo "  ⚠️  Failed to start geoclue"
-        sudo systemctl enable geoclue || echo "  ⚠️  Failed to enable geoclue"
+        sudo systemctl start geoclue || echo "    Failed to start geoclue"
+        sudo systemctl enable geoclue || echo "    Failed to enable geoclue"
     else
         echo "  ✓ Geoclue already running"
     fi
 else
-    echo "  ⚠️  geoclue not found"
+    echo "    geoclue not found"
 fi
 
 # PipeWire (user session)
 echo "Ensuring PipeWire is running in user session..."
-systemctl --user start pipewire pipewire-pulse wireplumber 2>/dev/null || echo "  ℹ️  PipeWire may already be running"
+systemctl --user start pipewire pipewire-pulse wireplumber 2>/dev/null || echo "  ℹ  PipeWire may already be running"
 echo "  ✓ PipeWire audio configured"
 
 echo ""
@@ -152,8 +152,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 if ! ip link show wlan0 &>/dev/null; then
     echo "Creating virtual WiFi device (wlan0)..."
     sudo modprobe mac80211_hwsim radios=1 2>/dev/null || {
-        echo "  ⚠️  mac80211_hwsim not available (virtual WiFi not created)"
-        echo "  ℹ️  Using existing network interfaces instead"
+        echo "    mac80211_hwsim not available (virtual WiFi not created)"
+        echo "  ℹ  Using existing network interfaces instead"
     }
     
     if ip link show wlan0 &>/dev/null; then
@@ -168,7 +168,7 @@ fi
 # Ensure dummy0 is managed by NetworkManager (already exists from previous setup)
 if ip link show dummy0 &>/dev/null; then
     echo "Configuring dummy0 for NetworkManager..."
-    sudo nmcli device set dummy0 managed yes 2>/dev/null || echo "  ℹ️  dummy0 already configured"
+    sudo nmcli device set dummy0 managed yes 2>/dev/null || echo "  ℹ  dummy0 already configured"
     echo "  ✓ dummy0 configured"
 fi
 
@@ -190,8 +190,8 @@ echo "Virtual battery device active"
 EOF
 chmod +x "$BATTERY_MOCK_SCRIPT"
 
-echo "  ℹ️  Virtual battery requires kernel-level device"
-echo "  ℹ️  Marathon Shell will use 'mains power' mode in VM"
+echo "  ℹ  Virtual battery requires kernel-level device"
+echo "  ℹ  Marathon Shell will use 'mains power' mode in VM"
 echo "  ✓ Battery mock script created: $BATTERY_MOCK_SCRIPT"
 
 echo ""
@@ -202,16 +202,16 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Check if ofono-phonesim is available for virtual modem
 if command -v ofono-phonesim &>/dev/null; then
     echo "  ✓ ofono-phonesim available for virtual modem"
-    echo "  ℹ️  To start virtual modem: ofono-phonesim -p 12345 /path/to/phonesim.xml"
+    echo "  ℹ  To start virtual modem: ofono-phonesim -p 12345 /path/to/phonesim.xml"
 else
-    echo "  ℹ️  ofono-phonesim not installed (optional)"
-    echo "  ℹ️  Install with: sudo dnf install ofono-devel"
-    echo "  ℹ️  ModemManager will work without modems (mobile UI hidden)"
+    echo "  ℹ  ofono-phonesim not installed (optional)"
+    echo "  ℹ  Install with: sudo dnf install ofono-devel"
+    echo "  ℹ  ModemManager will work without modems (mobile UI hidden)"
 fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "⚙️  STEP 6: Setting Permissions & RT Scheduling"
+echo "  STEP 6: Setting Permissions & RT Scheduling"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Add user to required groups
@@ -240,7 +240,7 @@ $USER  -  nice    -20
 @audio -  nice    -20
 EOF
     echo "  ✓ RT limits configured: $LIMITS_FILE"
-    echo "  ⚠️  Log out and back in for group/limit changes to take effect"
+    echo "    Log out and back in for group/limit changes to take effect"
 else
     echo "  ✓ RT limits already configured"
 fi
@@ -256,7 +256,7 @@ cat > "$TEST_ENV_SCRIPT" << 'EOF'
 #!/bin/bash
 # Marathon Shell - Run with full service environment
 
-echo "🚀 Starting Marathon Shell with full service environment..."
+echo " Starting Marathon Shell with full service environment..."
 echo ""
 
 # Check service status
@@ -266,7 +266,7 @@ for svc in NetworkManager bluetooth ModemManager upower geoclue; do
     if [[ "$status" == "active" ]]; then
         echo "  ✓ $svc"
     else
-        echo "  ⚠️  $svc ($status)"
+        echo "    $svc ($status)"
     fi
 done
 
@@ -296,17 +296,17 @@ for svc in NetworkManager bluetooth ModemManager upower geoclue iio-sensor-proxy
         status=$(systemctl is-active "$svc" 2>&1)
         case "$status" in
             active)
-                echo "  ✅ $svc: running"
+                echo "   $svc: running"
                 ;;
             inactive)
-                echo "  ⏸️  $svc: inactive (will start on-demand)"
+                echo "  ⏸  $svc: inactive (will start on-demand)"
                 ;;
             *)
-                echo "  ⚠️  $svc: $status"
+                echo "    $svc: $status"
                 ;;
         esac
     else
-        echo "  ❌ $svc: not installed"
+        echo "   $svc: not installed"
     fi
 done
 
@@ -318,7 +318,7 @@ echo "  Modems: $(mmcli -L 2>/dev/null | grep -c "No modems" && echo "0" || mmcl
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════════════╗"
-echo "║                    ✅ SETUP COMPLETE                               ║"
+echo "║                     SETUP COMPLETE                               ║"
 echo "╠════════════════════════════════════════════════════════════════════╣"
 echo "║                                                                    ║"
 echo "║  Your Fedora system is now configured for Marathon Shell testing! ║"

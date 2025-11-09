@@ -35,7 +35,7 @@ if [ ! -d "$BUILD_UI_DIR" ]; then
 elif [ -f "$BUILD_UI_DIR/CMakeCache.txt" ]; then
     # Check if generator is Ninja
     if ! grep -q "CMAKE_GENERATOR:INTERNAL=Ninja" "$BUILD_UI_DIR/CMakeCache.txt" 2>/dev/null; then
-        echo "⚠️  MarathonUI build directory uses wrong generator, reconfiguring..."
+        echo "  MarathonUI build directory uses wrong generator, reconfiguring..."
         rm -rf "$BUILD_UI_DIR"
         mkdir -p "$BUILD_UI_DIR"
         NEEDS_UI_RECONFIGURE=true
@@ -67,7 +67,7 @@ cmake --install .
 cd "$PROJECT_ROOT"
 
 echo ""
-echo "✅ MarathonUI built and installed successfully!"
+echo " MarathonUI built and installed successfully!"
 echo ""
 
 # Step 2: Build Marathon Shell
@@ -84,7 +84,7 @@ if [ ! -d "build" ]; then
 elif [ -f "build/CMakeCache.txt" ]; then
     # Check if generator is Ninja
     if ! grep -q "CMAKE_GENERATOR:INTERNAL=Ninja" build/CMakeCache.txt 2>/dev/null; then
-        echo "⚠️  Build directory uses wrong generator (not Ninja), reconfiguring..."
+        echo "  Build directory uses wrong generator (not Ninja), reconfiguring..."
         rm -rf build
         mkdir -p build
         NEEDS_RECONFIGURE=true
@@ -106,16 +106,16 @@ cmake --build . --parallel $CORES
 cd ..
 
 echo ""
-echo "✅ Marathon Shell built successfully!"
+echo " Marathon Shell built successfully!"
 echo ""
 
 # Step 3: Build all Marathon Apps
 echo "Step 3/3: Building Marathon Apps..."
 
 # Add QML validation
-echo "🔍 Validating QML files..."
+echo "Validating QML files..."
 find "$PROJECT_ROOT/apps" -name "*.qml" -exec qmllint {} \; 2>/dev/null || {
-    echo "⚠️  QML validation found issues (continuing build...)"
+    echo "  QML validation found issues (continuing build...)"
 }
 echo "----------------------------------------"
 # Pass any arguments (like "install") to build-apps.sh
@@ -123,7 +123,7 @@ echo "----------------------------------------"
 
 echo ""
 echo "============================================"
-echo "✅ Complete Build Successful!"
+echo " Complete Build Successful!"
 echo "============================================"
 echo ""
 echo "To run Marathon Shell:"

@@ -96,7 +96,7 @@ void TerminalEngine::start()
     // This creates a "dumb" shell that doesn't try to control a TTY
     m_process->start(shell, QStringList());
     
-    // ✅ NON-BLOCKING: Connect to started() signal instead of waitForStarted()
+    //  NON-BLOCKING: Connect to started() signal instead of waitForStarted()
     connect(m_process, &QProcess::started, this, [this, shell]() {
         qDebug() << "[TerminalEngine] Shell started successfully (PID:" << m_process->processId() << ")";
         
