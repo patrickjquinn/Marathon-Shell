@@ -82,6 +82,8 @@ set(SOURCES
     src/hapticmanager.cpp
     src/audioroutingmanager.h
     src/audioroutingmanager.cpp
+    src/securitymanager.h
+    src/securitymanager.cpp
 )
 
 list(APPEND SOURCES
@@ -207,6 +209,13 @@ set(QML_FILES
     qml/services/StateManager.qml
 )
 
+# Find PAM library for authentication
+find_library(PAM_LIBRARY pam)
+if(NOT PAM_LIBRARY)
+    message(FATAL_ERROR "PAM library not found. Install libpam-dev (Debian/Ubuntu) or pam-devel (Fedora/RHEL)")
+endif()
+message(STATUS "Found PAM library: ${PAM_LIBRARY}")
+
 qt6_add_executable(marathon-shell ${SOURCES})
 
 # Mark singleton files BEFORE adding QML module
@@ -303,6 +312,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-feedback
     marathon-ui-modals
     marathon-ui-effects
+    ${PAM_LIBRARY}
 )
 
 # Link additional conditional dependencies

@@ -62,12 +62,12 @@ Item {
         // CRITICAL: Connect compositor signals AFTER compositor is created
         // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
-            compositor.surfaceCreated.connect(function(surface, surfaceId, xdgSurface) {
+            compositor.surfaceCreated.connect(shell, function(surface, surfaceId, xdgSurface) {
                 compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp)
                 compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface)
             })
             
-            compositor.surfaceDestroyed.connect(function(surface, surfaceId) {
+            compositor.surfaceDestroyed.connect(shell, function(surface, surfaceId) {
                 // CRITICAL: Remove task from TaskModel when surface is destroyed
                 // This handles both process termination AND surface unmapping (when app closes internally)
                 if (typeof TaskModel !== 'undefined') {
@@ -81,11 +81,11 @@ Item {
                 compositorConnections.handleSurfaceDestroyed(surface, surfaceId)
             })
             
-            compositor.appLaunched.connect(function(command, pid) {
+            compositor.appLaunched.connect(shell, function(command, pid) {
                 compositorConnections.handleAppLaunched(command, pid)
             })
             
-            compositor.appClosed.connect(function(pid) {
+            compositor.appClosed.connect(shell, function(pid) {
                 compositorConnections.handleAppClosed(pid)
             })
         }
@@ -118,15 +118,14 @@ Item {
                 lockScreen.enabled: true
                 lockScreen.opacity: 1.0
             }
-            // ALWAYS render PIN screen underneath when locked (will show if session invalid)
-            // Opacity fades in with swipe when session invalid, hidden when valid
+            // PIN screen HIDDEN behind lock screen until swipe triggers pinEntry state
             PropertyChanges {
-                pinScreen.visible: true
+                pinScreen.visible: false
                 pinScreen.enabled: false
-                pinScreen.opacity: SessionStore.checkSession() ? 0.0 : Math.pow(lockScreen.swipeProgress, 0.7)
+                pinScreen.opacity: 0.0
             }
-            // Hide launcher completely when session invalid (to prevent flicker)
-            // Show and fade in when session valid (opacity fades with swipe)
+            // NEVER show mainContent when session invalid (security!)
+            // Only fade in when session IS valid
             PropertyChanges {
                 mainContent.visible: SessionStore.checkSession()
                 mainContent.enabled: false
@@ -142,7 +141,7 @@ Item {
         State {
             name: "pinEntry"
             PropertyChanges {
-                lockScreen.visible: true
+                lockScreen.visible: false
                 lockScreen.enabled: false
                 lockScreen.opacity: 0.0
             }
@@ -151,10 +150,11 @@ Item {
                 pinScreen.enabled: true
                 pinScreen.opacity: 1.0
             }
-            // Keep mainContent rendered behind PIN screen
+            // HIDE mainContent completely during PIN entry (security!)
             PropertyChanges {
-                mainContent.visible: true
+                mainContent.visible: false
                 mainContent.enabled: false
+                mainContent.opacity: 0.0
             }
             PropertyChanges {
                 appWindow.visible: false
