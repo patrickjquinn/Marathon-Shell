@@ -1,4 +1,14 @@
-# Marathon Shell
+<div align="center">
+  <img src="github-media/marathon.png" alt="Marathon Shell Logo" width="200"/>
+  
+  # Marathon Shell
+  
+  **A Wayland compositor and mobile-oriented application shell for Linux**
+  
+  [Watch Demo Video](github-media/Screencast%20From%202025-11-09%2004-01-02.mp4)
+</div>
+
+---
 
 Marathon Shell is a Wayland compositor and mobile-oriented application shell for Linux, designed for touch-first interaction. The shell provides gesture-based navigation, application management, and system service integration, with support for both QML-based Marathon apps and native Linux desktop applications.
 
@@ -546,7 +556,7 @@ See `docs/DEVELOPMENT_WORKFLOW.md` for detailed contribution workflow.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) file for details.
+Apache License 2.0. See [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
