@@ -19,6 +19,7 @@ class NetworkManagerCpp : public QObject
     Q_PROPERTY(QString ethernetConnectionName READ ethernetConnectionName NOTIFY ethernetConnectionNameChanged)
     Q_PROPERTY(bool wifiAvailable READ wifiAvailable NOTIFY wifiAvailableChanged)
     Q_PROPERTY(bool bluetoothAvailable READ bluetoothAvailable NOTIFY bluetoothAvailableChanged)
+    Q_PROPERTY(bool hotspotSupported READ hotspotSupported NOTIFY hotspotSupportedChanged)
     Q_PROPERTY(bool bluetoothEnabled READ bluetoothEnabled NOTIFY bluetoothEnabledChanged)
     Q_PROPERTY(bool airplaneModeEnabled READ airplaneModeEnabled NOTIFY airplaneModeEnabledChanged)
     Q_PROPERTY(QVariantList availableNetworks READ availableNetworks NOTIFY availableNetworksChanged)
@@ -35,6 +36,7 @@ public:
     QString ethernetConnectionName() const { return m_ethernetConnectionName; }
     bool wifiAvailable() const { return m_wifiAvailable; }
     bool bluetoothAvailable() const { return m_bluetoothAvailable; }
+    bool hotspotSupported() const { return m_wifiAvailable; } // Hotspot requires WiFi hardware
     bool bluetoothEnabled() const { return m_bluetoothEnabled; }
     bool airplaneModeEnabled() const { return m_airplaneModeEnabled; }
     QVariantList availableNetworks() const { return m_availableNetworks; }
@@ -72,6 +74,7 @@ signals:
     void ethernetConnectionNameChanged();
     void wifiAvailableChanged();
     void bluetoothAvailableChanged();
+    void hotspotSupportedChanged();
     void bluetoothEnabledChanged();
     void airplaneModeEnabledChanged();
     void networkError(const QString& message);

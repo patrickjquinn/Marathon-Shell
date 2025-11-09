@@ -36,6 +36,8 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_showFrequentApps(false)
     , m_defaultApps()
     , m_firstRunComplete(false)
+    , m_enabledQuickSettingsTiles()
+    , m_quickSettingsTileOrder()
 {
     qDebug() << "[SettingsManager] Initialized";
     qDebug() << "[SettingsManager] Settings file:" << m_settings.fileName();
@@ -98,6 +100,13 @@ void SettingsManager::load() {
     // OOBE
     m_firstRunComplete = m_settings.value("system/firstRunComplete", false).toBool();
     
+    // Quick Settings - Default to all tiles enabled in default order
+    QStringList defaultTiles = {"wifi", "bluetooth", "flight", "cellular", "rotation", "autobrightness", 
+                                "location", "hotspot", "vibration", "nightlight", "torch", "notifications", 
+                                "battery", "screenshot", "settings", "lock"};
+    m_enabledQuickSettingsTiles = m_settings.value("quicksettings/enabledTiles", defaultTiles).toStringList();
+    m_quickSettingsTileOrder = m_settings.value("quicksettings/tileOrder", defaultTiles).toStringList();
+    
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
     qDebug() << "[SettingsManager] Loaded: firstRunComplete =" << m_firstRunComplete;
@@ -159,6 +168,10 @@ void SettingsManager::save() {
     
     // OOBE
     m_settings.setValue("system/firstRunComplete", m_firstRunComplete);
+    
+    // Quick Settings
+    m_settings.setValue("quicksettings/enabledTiles", m_enabledQuickSettingsTiles);
+    m_settings.setValue("quicksettings/tileOrder", m_quickSettingsTileOrder);
     
     m_settings.sync();
     qDebug() << "[SettingsManager] Saved settings";
@@ -341,6 +354,22 @@ void SettingsManager::setFirstRunComplete(bool complete) {
     save();
     emit firstRunCompleteChanged();
     qDebug() << "[SettingsManager] First run complete changed to" << complete;
+}
+
+void SettingsManager::setEnabledQuickSettingsTiles(const QStringList &tiles) {
+    if (m_enabledQuickSettingsTiles == tiles) return;
+    m_enabledQuickSettingsTiles = tiles;
+    save();
+    emit enabledQuickSettingsTilesChanged();
+    qDebug() << "[SettingsManager] Enabled Quick Settings tiles changed:" << tiles;
+}
+
+void SettingsManager::setQuickSettingsTileOrder(const QStringList &order) {
+    if (m_quickSettingsTileOrder == order) return;
+    m_quickSettingsTileOrder = order;
+    save();
+    emit quickSettingsTileOrderChanged();
+    qDebug() << "[SettingsManager] Quick Settings tile order changed:" << order;
 }
 
 // Sound scanning methods

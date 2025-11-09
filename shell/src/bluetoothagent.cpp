@@ -39,7 +39,9 @@ bool BluetoothAgent::registerAgent()
     QDBusInterface agentManager("org.bluez", "/org/bluez", "org.bluez.AgentManager1", bus);
     
     if (!agentManager.isValid()) {
-        qWarning() << "[BluetoothAgent] BlueZ AgentManager not available:" << agentManager.lastError().message();
+        // Only log as debug - expected when no bluetooth hardware is present
+        qDebug() << "[BluetoothAgent] BlueZ AgentManager not available:" << agentManager.lastError().message();
+        qDebug() << "[BluetoothAgent] This is expected when no bluetooth hardware is present";
         bus.unregisterObject(m_agentPath);
         return false;
     }
