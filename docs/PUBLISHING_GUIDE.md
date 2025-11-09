@@ -200,25 +200,25 @@ Use semantic versioning: `MAJOR.MINOR.PATCH`
 
 ### Do's
 
-✅ Provide clear app description
-✅ Use high-quality screenshots  
-✅ Request only necessary permissions
-✅ Handle errors gracefully
-✅ Support portrait and landscape
-✅ Follow Marathon UI guidelines
-✅ Provide user support
-✅ Keep app updated
+ Provide clear app description
+ Use high-quality screenshots  
+ Request only necessary permissions
+ Handle errors gracefully
+ Support portrait and landscape
+ Follow Marathon UI guidelines
+ Provide user support
+ Keep app updated
 
 ### Don'ts
 
-❌ Copy other apps
-❌ Request unnecessary permissions
-❌ Include hidden functionality
-❌ Collect data without disclosure
-❌ Show inappropriate content
-❌ Spam keywords
-❌ Use misleading screenshots
-❌ Violate trademarks
+ Copy other apps
+ Request unnecessary permissions
+ Include hidden functionality
+ Collect data without disclosure
+ Show inappropriate content
+ Spam keywords
+ Use misleading screenshots
+ Violate trademarks
 
 ## Monetization
 
@@ -303,5 +303,5 @@ Access at https://apps.marathonos.org/dashboard
 - **Discord**: discord.gg/marathonos
 - **Issue Tracker**: github.com/marathonos/marathon-shell/issues
 
-Good luck with your app! 🚀
+Good luck with your app! 
 

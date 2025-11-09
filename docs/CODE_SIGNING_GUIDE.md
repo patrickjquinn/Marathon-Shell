@@ -234,7 +234,7 @@ For team development:
 
 ### Security
 
-✅ **Do**:
+ **Do**:
 - Use strong passphrase
 - Store private key securely
 - Backup key in multiple secure locations
@@ -242,7 +242,7 @@ For team development:
 - Set key expiration (e.g., 2 years)
 - Rotate keys periodically
 
-❌ **Don't**:
+ **Don't**:
 - Share private key publicly
 - Store key in version control
 - Use weak passphrase
@@ -289,7 +289,7 @@ echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 \
   --detach-sign --armor --output SIGNATURE.txt manifest.json
 ```
 
-⚠️ **Security Note**: Use CI/CD secrets management, not plain text!
+ **Security Note**: Use CI/CD secrets management, not plain text!
 
 ## Troubleshooting
 

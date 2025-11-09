@@ -260,7 +260,7 @@ function takePicture() {
 
 ### Request Context
 
-✅ **Good**: Request permission when user initiates action
+ **Good**: Request permission when user initiates action
 ```qml
 MButton {
     text: "Add Photo"
@@ -273,7 +273,7 @@ MButton {
 }
 ```
 
-❌ **Bad**: Request all permissions on app startup
+ **Bad**: Request all permissions on app startup
 ```qml
 Component.onCompleted: {
     // Don't do this!
@@ -302,8 +302,8 @@ MModal {
 
 Only request permissions you actually need:
 
-✅ **Good**: Weather app requesting `location` only
-❌ **Bad**: Weather app requesting `camera`, `contacts`, `sms`
+ **Good**: Weather app requesting `location` only
+ **Bad**: Weather app requesting `camera`, `contacts`, `sms`
 
 ### Graceful Degradation
 
@@ -324,7 +324,7 @@ if (!PermissionManager.hasPermission("myapp", "location")) {
 Don't overwhelm users with multiple permission requests:
 
 ```qml
-// ✅ Good: Request one, then after granted, request another if needed
+//  Good: Request one, then after granted, request another if needed
 function setupApp() {
     if (!PermissionManager.hasPermission("myapp", "location")) {
         PermissionManager.requestPermission("myapp", "location")
@@ -380,11 +380,11 @@ Timer {
 Even with permission, don't store sensitive data unnecessarily:
 
 ```qml
-// ❌ Bad: Storing all contacts
+//  Bad: Storing all contacts
 var allContacts = ContactsManager.getAllContacts()
 localStorage.setItem("contacts", JSON.stringify(allContacts))
 
-// ✅ Good: Only store what's needed
+//  Good: Only store what's needed
 var selectedContact = ContactsManager.getContact(contactId)
 // Use immediately, don't store
 ```

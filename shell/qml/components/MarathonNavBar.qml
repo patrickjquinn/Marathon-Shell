@@ -291,7 +291,7 @@ Rectangle {
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
                 if (diffY > longSwipeThreshold) {
                     // Long swipe up - Always go to task switcher
-                    Logger.info("NavBar", "🔥🔥🔥 LONG SWIPE UP TRIGGERED 🔥🔥🔥")
+                    Logger.info("NavBar", " LONG SWIPE UP TRIGGERED ")
                     Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + longSwipeThreshold)
                     Logger.info("NavBar", "  isAppOpen: " + isAppOpen)
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
@@ -302,7 +302,7 @@ Rectangle {
                     gestureProgress = 0
                 } else if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
                     // Short swipe up while app is open - Minimize app
-                    Logger.info("NavBar", "⬆️⬆️⬆️ MINIMIZE GESTURE TRIGGERED ⬆️⬆️⬆️")
+                    Logger.info("NavBar", "⬆⬆⬆ MINIMIZE GESTURE TRIGGERED ⬆⬆⬆")
                     Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + gestureProgress)
                     Logger.info("NavBar", "  isAppOpen: " + isAppOpen)
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen)
@@ -336,7 +336,7 @@ Rectangle {
                 gestureProgress = 0
             } else {
                 // Cancelled gesture - reset immediately
-                Logger.info("NavBar", "🔴 GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY)
+                Logger.info("NavBar", " GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY)
                 currentX = 0
                 currentY = 0
                 gestureProgress = 0
@@ -353,7 +353,7 @@ Rectangle {
         id: gestureProgressResetTimer
         interval: 300
         onTriggered: {
-            Logger.info("NavBar", "⏱️ GESTURE PROGRESS RESET")
+            Logger.info("NavBar", "⏱ GESTURE PROGRESS RESET")
             navBar.gestureProgress = 0
             navBar.currentX = 0
             navBar.currentY = 0

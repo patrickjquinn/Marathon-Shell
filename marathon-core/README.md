@@ -117,7 +117,7 @@ sudo cmake --install build
 
 ## Comparison: Before vs After
 
-### Before (❌ Bad)
+### Before ( Bad)
 ```cmake
 # tools/marathon-dev/CMakeLists.txt
 set(SOURCES
@@ -136,7 +136,7 @@ set(SOURCES
 - Harder to test in isolation
 - Changes require rebuilding both targets
 
-### After (✅ Good)
+### After ( Good)
 ```cmake
 # tools/marathon-dev/CMakeLists.txt
 set(SOURCES

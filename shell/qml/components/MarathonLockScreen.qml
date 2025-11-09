@@ -18,8 +18,9 @@ Item {
     property real swipeProgress: 0.0
     property string expandedNotificationId: ""
     
-    // Hide lockscreen when fully swiped
-    visible: swipeProgress < 0.99
+    // Keep lock screen visible during entire swipe (only hide when opacity reaches 0)
+    // This prevents home screen flash-through
+    visible: opacity > 0.01
     
     // Performance optimization: use layers for static content
     layer.enabled: true
