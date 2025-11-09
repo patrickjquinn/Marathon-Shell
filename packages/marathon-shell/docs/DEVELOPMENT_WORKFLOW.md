@@ -1,13 +1,13 @@
 # Marathon Shell Development Workflow
 
-## ⚠️ CRITICAL: Where to Edit Files
+##  CRITICAL: Where to Edit Files
 
-### ✅ ALWAYS EDIT SOURCE FILES HERE:
+###  ALWAYS EDIT SOURCE FILES HERE:
 ```
 /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/
 ```
 
-### ❌ NEVER EDIT INSTALLED COPIES HERE:
+###  NEVER EDIT INSTALLED COPIES HERE:
 ```
 ~/.local/share/marathon-apps/
 ```
@@ -74,12 +74,12 @@ If you only changed apps (not the shell):
 
 ## Common Mistakes to Avoid
 
-❌ **DON'T:**
+ **DON'T:**
 - Open files in `~/.local/share/marathon-apps/` in your editor
 - Make changes to files in `~/.local/share/marathon-apps/`
 - Expect changes in `~/.local/share/marathon-apps/` to persist
 
-✅ **DO:**
+ **DO:**
 - Edit files in `./apps/`
 - Run `./run.sh` after making changes
 - Check `./apps/` first when debugging

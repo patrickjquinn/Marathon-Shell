@@ -4,7 +4,7 @@
 
 Marathon Shell is a Wayland compositor and application shell that provides a complete mobile OS experience on Linux, with native support for both Marathon apps (built in QML) and standard Linux desktop applications.
 
-## ✨ Features
+##  Features
 
 ### Core Shell Experience
 - **Gesture Navigation**: Fluid swipe gestures for multitasking
@@ -13,7 +13,7 @@ Marathon Shell is a Wayland compositor and application shell that provides a com
 - **Active Frames**: Live app previews in the task switcher
 - **Inertia Navigation**: Physics-based scrolling and page transitions
 
-### Native Linux App Integration 🚀 **NEW**
+### Native Linux App Integration  **NEW**
 - **Wayland Compositor**: Embed native Linux apps directly in the shell
 - **D-Bus Session**: Full desktop integration with notifications, portals, and services
 - **Flatpak & Snap Support**: Automatic detection and permission handling
@@ -103,7 +103,7 @@ CLEAN=1 ./run.sh
 - Native app embedding not available
 - UI development and testing only
 
-## 🚀 Running
+##  Running
 
 ### Start Marathon Shell
 ```bash
@@ -178,7 +178,7 @@ Marathon-Shell/
 └── run.sh                      # Quick run script
 ```
 
-## 🎨 MarathonUI Design System
+##  MarathonUI Design System
 
 Marathon includes a comprehensive design system with:
 
@@ -194,7 +194,7 @@ Marathon includes a comprehensive design system with:
 
 All components are themeable and responsive.
 
-## 🔧 Development
+##  Development
 
 ### Creating a Marathon App
 
@@ -286,17 +286,17 @@ valgrind --leak-check=full ./build/shell/marathon-shell
 
 ### Supported App Types
 
-✅ **Fully Supported**:
+ **Fully Supported**:
 - Native Wayland apps (GTK4, Qt6)
 - Flatpak apps with Wayland support
 - GNOME apps (with gapplication conversion)
 - Electron apps (with Wayland flags)
 
-⚠️ **Partially Supported**:
+ **Partially Supported**:
 - Snap apps (requires manual interface connection)
 - X11 apps via XWayland (not yet implemented)
 
-❌ **Not Supported**:
+ **Not Supported**:
 - Systemd user services
 - D-Bus system bus services
 - Root/privileged applications
@@ -325,7 +325,7 @@ valgrind --leak-check=full ./build/shell/marathon-shell
 - **[Build System](docs/BUILD_THIS.md)** - Build configuration details
 - **[Development Workflow](docs/DEVELOPMENT_WORKFLOW.md)** - Contributing guide
 
-## 🤝 Contributing
+##  Contributing
 
 1. **Edit source files** in `apps/` or `shell/`
 2. **Never edit** files in `~/.local/share/marathon-apps/` (they're build outputs)
@@ -333,11 +333,11 @@ valgrind --leak-check=full ./build/shell/marathon-shell
 4. **Test thoroughly** before committing
 5. **Follow the coding style** (see existing code)
 
-## 📄 License
+##  License
 
 [Add your license here]
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - Inspired by **BlackBerry 10 OS** gesture navigation and Hub workflow
 - Built with **Qt6/QML** framework

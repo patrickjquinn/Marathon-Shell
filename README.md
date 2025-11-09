@@ -1,164 +1,84 @@
 # Marathon OS
 
-**A Modern Mobile Linux Distribution with BlackBerry 10-Inspired UI**
-
-Marathon OS combines PostmarketOS with a custom Qt6/QML Wayland compositor, bringing the elegance and efficiency of BlackBerry 10's gesture-based interface to modern mobile Linux.
+A modern mobile Linux distribution combining PostmarketOS with a custom Qt6/QML Wayland compositor, inspired by BlackBerry 10's gesture-based interface.
 
 ![Marathon OS](resources/marathon.png)
 
----
-
-## 🎯 Project Status
-
-**✅ Production Ready** - Marathon OS is fully functional and tested on OnePlus 6 (enchilada)
-
-- **60 FPS UI rendering** - Smooth, responsive interface
-- **Gesture-based navigation** - Inspired by BlackBerry 10
-- **Full system integration** - Network, modem, audio, all working
-- **Performance optimized** - Custom kernel config and system tuning
-
----
-
-## 📱 Features
+## Features
 
 ### Marathon Shell
-- **Custom Wayland Compositor** - Built with Qt6/QML
-- **Gesture Navigation** - Swipe from edges for Hub, Active Frames, and app switching
-- **BlackBerry 10 Inspired** - Familiar workflow for BB10 users
-- **60 FPS Performance** - Smooth animations and transitions
+- Custom Wayland compositor built with Qt6/QML
+- Gesture-based navigation inspired by BlackBerry 10
+- 60 FPS performance with hardware acceleration
+- Complete app suite with modern mobile UI
 
 ### System Optimizations
-- **Kyber I/O Scheduler** - Optimized for flash storage
-- **schedutil CPU Governor** - Responsive power management
-- **zram Compression** - Efficient memory usage
-- **BBR TCP Congestion Control** - Better network performance
-- **RT Priorities** - Audio and modem services prioritized
+- Kyber I/O scheduler for flash storage
+- schedutil CPU governor for responsive power management
+- zram compression for efficient memory usage
+- BBR TCP congestion control
+- RT priorities for audio and modem services
 
 ### Included Services
-- **NetworkManager** - Network connectivity
-- **ModemManager** - Cellular modem support
-- **PipeWire** - Modern audio subsystem
-- **greetd** - Display manager with auto-start
+- NetworkManager for network connectivity
+- ModemManager for cellular support
+- PipeWire audio subsystem
+- greetd display manager with auto-login
 
----
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- OnePlus 6 (enchilada) device
-- Unlocked bootloader
+- OnePlus 6 (enchilada) device with unlocked bootloader
 - fastboot tools installed
-- Linux development machine
+- Linux development machine with pmbootstrap
 
-### Building Marathon OS
+### Building
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/patrickjquinn/Marathon-Image.git
-   cd Marathon-Image
-   ```
+```bash
+# Clone repository
+git clone https://github.com/patrickjquinn/Marathon-Image.git
+cd Marathon-Image
 
-2. **Sync latest Marathon Shell and build:**
-   ```bash
-   ./sync-and-build-marathon.sh
-   ```
+# Initialize pmbootstrap (first time only)
+pmbootstrap init
+# Select: edge, oneplus-enchilada, systemd, none
 
-   This will:
-   - Pull latest Marathon Shell from GitHub
-   - Build all packages
-   - Create flashable images
+# Build and create images
+./scripts/sync-and-build-marathon.sh
+```
 
-3. **Flash to device:**
-   ```bash
-   ./flash-marathon.sh
-   ```
+### Flashing
 
-   Or manually:
-   ```bash
-   fastboot flash boot out/enchilada/boot-MARATHON-LATEST.img
-   fastboot flash userdata out/enchilada/oneplus-enchilada-MARATHON-LATEST.img
-   fastboot reboot
-   ```
+```bash
+# Boot device into fastboot mode (Power + Vol Down)
+fastboot flash boot out/enchilada/marathon-boot-LATEST.img
+fastboot flash userdata out/enchilada/marathon-rootfs-LATEST.img
+fastboot reboot
+```
 
----
+## Project Structure
 
-## 📦 What's Included
-
-### Packages
-- **marathon-shell** - Custom Wayland compositor with QML UI
-- **marathon-base-config** - System optimizations and tuning
-- **marathon-boot-logo** - Custom boot splash screen
-
-### Documentation
-- **[Production Ready Guide](docs/PRODUCTION_READY.md)** - Complete system overview
-- **[Flashing Instructions](docs/FLASHING.md)** - Detailed flash guide
-- **[Technical Specification](docs/TECHNICAL_SPECIFICATION.md)** - Full system spec
-- **[Build Documentation](docs/BUILD_THIS.md)** - Build system details
-- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and fixes
-
----
-
-## 🔧 Development
-
-### Project Structure
 ```
 Marathon-Image/
 ├── packages/           # Alpine Linux package definitions
 │   ├── marathon-shell/       # Main UI package
 │   ├── marathon-base-config/ # System configuration
-│   └── marathon-boot-logo/   # Boot splash
+│   ├── marathon-boot-logo/   # Boot splash
+│   └── linux-marathon/       # Custom kernel
 ├── configs/            # System configuration files
 ├── scripts/            # Build and utility scripts
 ├── docs/              # Documentation
-├── resources/         # Images and assets
 └── out/               # Build output (images)
 ```
 
-### Building from Source
+## Documentation
 
-**Requirements:**
-- pmbootstrap 3.5.0+
-- Alpine Linux build environment
-- 20GB free disk space
+- [Build Instructions](BUILD_INSTRUCTIONS.md) - Detailed build guide
+- [Device Support](docs/DEVICE_SUPPORT.md) - Supported devices
+- [Kernel Configuration](docs/KERNEL_CONFIG.md) - Kernel build details
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and fixes
 
-**Build Marathon Shell:**
-```bash
-# Sync latest code from GitHub
-./sync-and-build-marathon.sh
-
-# Or build manually
-pmbootstrap build marathon-shell --force
-pmbootstrap install --add marathon-shell
-pmbootstrap export
-```
-
-### Updating Marathon Shell
-
-When you make changes to Marathon Shell and push to GitHub:
-```bash
-./sync-and-build-marathon.sh
-```
-
-This automatically:
-1. Pulls latest code
-2. Creates source tarball
-3. Rebuilds package
-4. Exports new images
-
----
-
-## 🎨 Marathon Shell
-
-Marathon Shell is a separate project that provides the UI:
-- **Repository:** [Marathon-Shell](https://github.com/patrickjquinn/Marathon-Shell)
-- **Technology:** Qt6, QML, Wayland
-- **Design:** BlackBerry 10 inspired
-
-The Marathon-Image repository packages Marathon Shell for PostmarketOS.
-
----
-
-## 📊 Performance
+## Performance
 
 | Metric | Target | Actual |
 |--------|--------|--------|
@@ -169,60 +89,35 @@ The Marathon-Image repository packages Marathon Shell for PostmarketOS.
 
 Tested on OnePlus 6 (Snapdragon 845, 6GB RAM)
 
----
-
-## 🤝 Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Areas for Contribution
-- Device support (new devices)
-- Performance optimizations
-- Bug fixes
-- Documentation improvements
-- Testing and validation
-
----
-
-## 📱 Supported Devices
+## Supported Devices
 
 ### Currently Supported
-- **OnePlus 6 (enchilada)** - Fully tested and validated
+- OnePlus 6 (enchilada) - Fully tested and validated
 
 ### Planned Support
 - OnePlus 6T (fajita)
 - Poco F1 (beryllium)
 - Other Snapdragon 845 devices
 
----
+## Contributing
 
-## 📄 License
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
 
 Marathon OS is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 Marathon Shell is a separate project with its own license.
 
----
+## Acknowledgments
 
-## 🙏 Acknowledgments
+- PostmarketOS - Mobile Linux foundation
+- BlackBerry 10 - UI/UX inspiration
+- Qt Project - UI framework
+- Alpine Linux - Package management
 
-- **PostmarketOS** - Mobile Linux foundation
-- **BlackBerry 10** - UI/UX inspiration
-- **Qt Project** - UI framework
-- **Alpine Linux** - Package management
+## Contact
 
----
-
-## 📞 Contact
-
-- **Project:** [Marathon-Image on GitHub](https://github.com/patrickjquinn/Marathon-Image)
-- **Marathon Shell:** [Marathon-Shell on GitHub](https://github.com/patrickjquinn/Marathon-Shell)
-- **Issues:** [GitHub Issues](https://github.com/patrickjquinn/Marathon-Image/issues)
-
----
-
-## 🎉 Status
-
-Marathon OS is **production ready** and actively maintained. The system boots to Marathon Shell, runs at 60 FPS, and provides a fully functional mobile Linux experience with BlackBerry 10-inspired gestures and workflow.
-
-**Ready to experience the future of mobile Linux!** 🚀
+- Project: [Marathon-Image on GitHub](https://github.com/patrickjquinn/Marathon-Image)
+- Marathon Shell: [Marathon-Shell on GitHub](https://github.com/patrickjquinn/Marathon-Shell)
+- Issues: [GitHub Issues](https://github.com/patrickjquinn/Marathon-Image/issues)

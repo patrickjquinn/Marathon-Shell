@@ -2,10 +2,10 @@
 
 ## Critical Fixes Applied (2025-01-17)
 
-✅ **Fixed greetd crash**: Removed `QT_QPA_PLATFORM=wayland` (compositors must not set this)
-✅ **Added qt6-qtsql**: Fixes SQLite database errors
-✅ **Fixed app installation path**: Apps now install to `/usr/share/marathon-apps`
-✅ **Added geoclue**: For location services
+ **Fixed greetd crash**: Removed `QT_QPA_PLATFORM=wayland` (compositors must not set this)
+ **Added qt6-qtsql**: Fixes SQLite database errors
+ **Fixed app installation path**: Apps now install to `/usr/share/marathon-apps`
+ **Added geoclue**: For location services
 
 ## Rebuild and Deploy
 
@@ -130,19 +130,19 @@ After successful boot into Marathon Shell:
 
 ## Known Issues (Current Status)
 
-### ✅ Fixed
+###  Fixed
 - ~~greetd crash / core dump~~ (QT_QPA_PLATFORM removed)
 - ~~SQLite driver not loaded~~ (qt6-qtsql added)
 - ~~Apps install to wrong path~~ (now system-wide)
 
-### ⚠️ Non-Critical (Expected in this environment)
+###  Non-Critical (Expected in this environment)
 - **ModemManager not available**: OnePlus 6 modem needs specific drivers
 - **No WiFi/Bluetooth hardware detected**: Check if drivers loaded (`lsmod | grep bcm`)
 - **GeoClue2 not available**: Install with `sudo apk add geoclue`
 - **Wallpaper missing**: Resource file needs wallpaper.jpg added
 - **System clock shows 1970**: Run `sudo setup-timezone` and configure NTP
 
-### 🔧 To Fix (Terminal App)
+###  To Fix (Terminal App)
 - **Terminal plugin missing libterminal-plugin.so**: RPATH issue
   ```bash
   # Check if file exists
@@ -276,14 +276,14 @@ export QT_SCALE_FACTOR=1.5  # Try 1.25, 1.5, or 2.0
 
 Marathon Shell is working correctly if:
 
-1. ✅ Boots into shell automatically via greetd
-2. ✅ No core dumps or crashes
-3. ✅ Hardware controls work (brightness, volume)
-4. ✅ Battery status accurate
-5. ✅ Apps launch and run
-6. ✅ Touch input responsive
-7. ✅ Lock screen functional
-8. ✅ Power button suspends device
+1.  Boots into shell automatically via greetd
+2.  No core dumps or crashes
+3.  Hardware controls work (brightness, volume)
+4.  Battery status accurate
+5.  Apps launch and run
+6.  Touch input responsive
+7.  Lock screen functional
+8.  Power button suspends device
 
 ## Next Steps After Success
 

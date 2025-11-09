@@ -233,14 +233,14 @@ dd if=out/marathon-rpi4.img of=/dev/sdX bs=4M
 
 | SoC Family | Example Devices | Mainline Support | Recommended |
 |------------|----------------|------------------|-------------|
-| Snapdragon 845 | OnePlus 6, Poco F1 | ✅ Excellent | ✅ Yes |
-| Snapdragon 855/+ | OnePlus 7 Pro | ✅ Good | ✅ Yes |
-| Snapdragon 865 | OnePlus 8 | ⚠️ Partial | ⚠️ WIP |
-| Exynos 9820+ | Some Samsungs | ⚠️ Limited | ❌ Not yet |
-| MediaTek Dimensity | Various | ⚠️ Varies | ⚠️ Case by case |
-| Rockchip RK33xx | Pine64, SBCs | ✅ Excellent | ✅ Yes |
-| Broadcom BCM2711 | Raspberry Pi 4 | ✅ Good | ✅ Yes |
-| Allwinner H6/A64 | Pine64 phones | ✅ Good | ✅ Yes |
+| Snapdragon 845 | OnePlus 6, Poco F1 |  Excellent |  Yes |
+| Snapdragon 855/+ | OnePlus 7 Pro |  Good |  Yes |
+| Snapdragon 865 | OnePlus 8 |  Partial |  WIP |
+| Exynos 9820+ | Some Samsungs |  Limited |  Not yet |
+| MediaTek Dimensity | Various |  Varies |  Case by case |
+| Rockchip RK33xx | Pine64, SBCs |  Excellent |  Yes |
+| Broadcom BCM2711 | Raspberry Pi 4 |  Good |  Yes |
+| Allwinner H6/A64 | Pine64 phones |  Good |  Yes |
 
 ## Device-Specific Notes
 

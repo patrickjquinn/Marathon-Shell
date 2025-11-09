@@ -10,10 +10,10 @@
 This guide gets you building Marathon OS's UI layer in under 30 minutes. We're focusing on **QML prototyping first**, with backend integration coming later. By the end, you'll have a live-reloading BB10-style interface running in a desktop window.
 
 **What you'll build:**
-- ✅ Gesture-driven launcher
-- ✅ Active Frames multitasking UI
-- ✅ BB10 design system (colors, typography, design units)
-- ✅ Live preview with hot-reload
+-  Gesture-driven launcher
+-  Active Frames multitasking UI
+-  BB10 design system (colors, typography, design units)
+-  Live preview with hot-reload
 
 ---
 
@@ -730,14 +730,14 @@ Rectangle {
         cellHeight: cellWidth
         
         model: ListModel {
-            ListElement { name: "Phone"; icon: "📞" }
+            ListElement { name: "Phone"; icon: "" }
             ListElement { name: "Messages"; icon: "💬" }
             ListElement { name: "Email"; icon: "📧" }
             ListElement { name: "Browser"; icon: "🌐" }
             ListElement { name: "Camera"; icon: "📷" }
-            ListElement { name: "Photos"; icon: "🖼️" }
+            ListElement { name: "Photos"; icon: "🖼" }
             ListElement { name: "Music"; icon: "🎵" }
-            ListElement { name: "Settings"; icon: "⚙️" }
+            ListElement { name: "Settings"; icon: "⚙" }
         }
         
         delegate: AppIcon {
@@ -959,7 +959,7 @@ Since Qt doesn't have built-in hot reload, use this script:
 ```bash
 cat > watch-and-build.sh << 'EOF'
 #!/bin/bash
-echo "👁️  Watching for QML changes..."
+echo "👁  Watching for QML changes..."
 fswatch -o shell/qml/**/*.qml | while read; do
     echo "🔄 Rebuilding..."
     cmake --build build --parallel && ./build/shell/marathon-shell
@@ -1147,8 +1147,8 @@ marathon-os/
 
 ---
 
-**🎉 You're now ready to build Marathon OS!**
+** You're now ready to build Marathon OS!**
 
 Start with: `code ~/Projects/marathon-os` then press `⌘ + Shift + B` to build.
 
-The BB10 dream lives on! 📱✨
+The BB10 dream lives on! 

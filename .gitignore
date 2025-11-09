@@ -12,6 +12,16 @@ build-*/
 !BUILD_INSTRUCTIONS.txt
 !CONTRIBUTING.txt
 
+# Temporary progress tracking files (vibe coding prevention)
+*BUILD_COMPLETE*.md
+*BUILD_SUMMARY*.md
+*LATEST_BUILD*.md
+*VALIDATION_REPORT*.md
+*PERFORMANCE_TUNING*.md
+*RT_KERNEL_TODO*.md
+*FLASH_INSTRUCTIONS*.md
+*ISSUES_ANALYSIS*.md
+
 # Package build artifacts
 packages/*/build/
 packages/*/pkg/

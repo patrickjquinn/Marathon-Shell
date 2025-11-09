@@ -2,7 +2,7 @@
 
 **Before building Marathon OS on Fedora, verify these items.**
 
-## ✅ System Requirements
+##  System Requirements
 
 ### Hardware
 - [ ] x86_64 or ARM64 Linux machine (Fedora 38+)
@@ -16,7 +16,7 @@
 - [ ] Device charged to 80%+
 - [ ] Backup of existing data (build will wipe device)
 
-## ✅ Software Prerequisites
+##  Software Prerequisites
 
 ### Fedora Packages
 ```bash
@@ -43,7 +43,7 @@ adb version           # Should show Android Debug Bridge
 - [ ] Select UI: **none**
 - [ ] Configuration saved in `~/.config/pmbootstrap.cfg`
 
-## ✅ Repository Verification
+##  Repository Verification
 
 ### File Integrity
 ```bash
@@ -63,7 +63,7 @@ ls -la scripts/build-and-flash.sh
 - [ ] First build will download sources
 - [ ] Generate checksums with: `abuild checksum`
 
-## ✅ External Dependencies
+##  External Dependencies
 
 ### Linux Kernel Source
 - [ ] Linux 6.17 available at kernel.org
@@ -75,7 +75,7 @@ ls -la scripts/build-and-flash.sh
 - [ ] Update `pkgver` in `packages/marathon-shell/APKBUILD` if needed
 - [ ] If no release yet, use `_git` suffix and fetch from main branch
 
-## ✅ Device Preparation
+##  Device Preparation
 
 ### Bootloader Unlock
 ```bash
@@ -112,7 +112,7 @@ fastboot flashing unlock
 # Confirm on device screen
 ```
 
-**⚠️ WARNING:** Unlocking bootloader will **factory reset** the device!
+** WARNING:** Unlocking bootloader will **factory reset** the device!
 
 ### Partition Backup (Optional but Recommended)
 ```bash
@@ -125,7 +125,7 @@ fastboot boot boot.img
 # Or use TWRP recovery to backup partitions
 ```
 
-## ✅ Build Environment Setup
+##  Build Environment Setup
 
 ### pmbootstrap Work Directory
 ```bash
@@ -149,7 +149,7 @@ PMAPORTS="$HOME/.local/var/pmbootstrap/cache_git/pmaports"
 ls -la "$PMAPORTS"
 ```
 
-## ✅ Network Requirements
+##  Network Requirements
 
 ### Download Requirements
 - [ ] Stable internet connection
@@ -164,7 +164,7 @@ ls -la "$PMAPORTS"
 - Qt6 dependencies: ~200 MB
 - Total: ~1 GB
 
-## ✅ Pre-Build Tests
+##  Pre-Build Tests
 
 ### Test pmbootstrap
 ```bash
@@ -193,7 +193,7 @@ pmbootstrap config device
 # Should show: oneplus-enchilada (or your device)
 ```
 
-## ✅ Known Issues & Workarounds
+##  Known Issues & Workarounds
 
 ### Issue: pmbootstrap not found
 ```bash
@@ -233,7 +233,7 @@ sudo tee /etc/udev/rules.d/51-android.rules
 sudo udevadm control --reload-rules
 ```
 
-## ✅ Post-Checklist Next Steps
+##  Post-Checklist Next Steps
 
 Once all items are checked:
 
@@ -263,7 +263,7 @@ Once all items are checked:
    ./validate-system.sh
    ```
 
-## ✅ Emergency Recovery
+##  Emergency Recovery
 
 ### If Build Fails
 ```bash
@@ -290,7 +290,7 @@ fastboot reboot-bootloader
 # Or flash stock ROM from OnePlus website
 ```
 
-## ✅ Support Resources
+##  Support Resources
 
 - **postmarketOS Wiki:** https://wiki.postmarketos.org
 - **OnePlus 6 Device Page:** https://wiki.postmarketos.org/wiki/OnePlus_6_(oneplus-enchilada)
@@ -299,7 +299,7 @@ fastboot reboot-bootloader
 
 ---
 
-**Ready to build?** If all checkboxes are ✅, proceed with: `./scripts/build-and-flash.sh enchilada`
+**Ready to build?** If all checkboxes are , proceed with: `./scripts/build-and-flash.sh enchilada`
 
 **Estimated time:** 30-60 minutes for first build, 10-20 minutes for subsequent builds.
 

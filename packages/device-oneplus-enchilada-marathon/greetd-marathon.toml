@@ -2,6 +2,6 @@
 vt = 1
 
 [default_session]
-command = "agreety --cmd /usr/bin/marathon-shell-session"
+command = "/usr/bin/marathon-shell-session"
 user = "user"
 

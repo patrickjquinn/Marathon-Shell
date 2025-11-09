@@ -3,12 +3,12 @@
 ## Overview
 
 Marathon Shell is fully integrated into Marathon OS and will:
-- ✅ Pull from GitHub on build
-- ✅ Build with all dependencies
-- ✅ Install as default session
-- ✅ Auto-login on boot (no login screen)
-- ✅ Run with real-time priorities
-- ✅ Configure proper environment variables
+-  Pull from GitHub on build
+-  Build with all dependencies
+-  Install as default session
+-  Auto-login on boot (no login screen)
+-  Run with real-time priorities
+-  Configure proper environment variables
 
 ## Build Process
 
@@ -142,9 +142,9 @@ exec /usr/bin/marathon-shell \
 ## Post-Install Actions
 
 The post-install script automatically:
-- ✅ Enables greetd.service (starts on boot)
-- ✅ Disables conflicting display managers (gdm, lightdm, sddm)
-- ✅ Adds user to required groups:
+-  Enables greetd.service (starts on boot)
+-  Disables conflicting display managers (gdm, lightdm, sddm)
+-  Adds user to required groups:
   - `video` - GPU access
   - `input` - Touch/keyboard access
   - `audio` - Real-time audio priority
@@ -288,10 +288,10 @@ With Marathon Shell on Marathon OS:
 - **Active Frames:** 8-10 apps in memory
 - **Battery:** Days of standby
 
-This is the BlackBerry 10 experience you're building! 🚀
+This is the BlackBerry 10 experience you're building! 
 
 ---
 
-**In summary:** Yes, Marathon Shell is fully integrated, pulls from GitHub, builds with all deps, and boots straight into the compositor with no login screen. Everything is automated! ✅
+**In summary:** Yes, Marathon Shell is fully integrated, pulls from GitHub, builds with all deps, and boots straight into the compositor with no login screen. Everything is automated! 
 
 

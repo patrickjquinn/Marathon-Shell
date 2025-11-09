@@ -7,16 +7,16 @@ Marathon Shell is now a **fully functional mobile Linux shell** with comprehensi
 ## Prerequisites
 
 The Marathon Shell has full hardware integration for:
-- ✅ **Power Management** (UPower, systemd-logind, battery, charging, AC detection)
-- ✅ **Network Management** (NetworkManager for WiFi, Ethernet, with hardware detection)
-- ✅ **Cellular/Modem** (ModemManager integration for signal, operator, network type)
-- ✅ **Audio Control** (PulseAudio/PipeWire integration via pactl)
-- ✅ **Display Control** (Backlight via systemd-logind and /sys/class/backlight)
-- ✅ **Bluetooth** (BlueZ D-Bus integration)
-- ✅ **Sensors** (IIO sensor support for proximity, ambient light)
-- ✅ **Wayland Compositor** (Native app embedding via QtWayland)
-- ✅ **Notifications** (D-Bus notification service)
-- ✅ **Lock-before-sleep** (systemd-logind integration)
+-  **Power Management** (UPower, systemd-logind, battery, charging, AC detection)
+-  **Network Management** (NetworkManager for WiFi, Ethernet, with hardware detection)
+-  **Cellular/Modem** (ModemManager integration for signal, operator, network type)
+-  **Audio Control** (PulseAudio/PipeWire integration via pactl)
+-  **Display Control** (Backlight via systemd-logind and /sys/class/backlight)
+-  **Bluetooth** (BlueZ D-Bus integration)
+-  **Sensors** (IIO sensor support for proximity, ambient light)
+-  **Wayland Compositor** (Native app embedding via QtWayland)
+-  **Notifications** (D-Bus notification service)
+-  **Lock-before-sleep** (systemd-logind integration)
 
 ## Required System Dependencies
 
@@ -255,17 +255,17 @@ All files are now installed via CMake instead of manual `install` commands.
 
 Before building the package, ensure these NEW files exist in `/home/patrickquinn/Developer/Marathon-Shell`:
 
-1. ✅ `marathon-shell-session` (root directory, executable)
-2. ✅ `systemd/marathon-shell.service`
-3. ✅ `polkit/org.marathonos.shell.policy`
-4. ✅ `xdg-autostart/marathon-notification-service.desktop`
-5. ✅ `udev/70-marathon-shell.rules`
+1.  `marathon-shell-session` (root directory, executable)
+2.  `systemd/marathon-shell.service`
+3.  `polkit/org.marathonos.shell.policy`
+4.  `xdg-autostart/marathon-notification-service.desktop`
+5.  `udev/70-marathon-shell.rules`
 
 And these files have been UPDATED:
-6. ✅ `marathon.desktop` (updated Exec= line)
-7. ✅ `CMakeLists.txt` (added install targets)
-8. ✅ `shell/CMakeLists.txt` (renamed binary output)
-9. ✅ `APKBUILD` (simplified, added dependencies)
+6.  `marathon.desktop` (updated Exec= line)
+7.  `CMakeLists.txt` (added install targets)
+8.  `shell/CMakeLists.txt` (renamed binary output)
+9.  `APKBUILD` (simplified, added dependencies)
 
 ---
 

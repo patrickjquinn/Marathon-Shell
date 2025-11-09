@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@example.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=8
+pkgrel=11
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -128,11 +128,15 @@ package() {
 	# Install apps
 	DESTDIR="$pkgdir" cmake --install build-apps
 	
+	# Install marathon-config.json
+	install -Dm644 "$builddir/marathon-config.json" \
+		"$pkgdir/usr/share/marathon-shell/marathon-config.json"
+	
 	# Fix session script to use -platform eglfs flag
 	sed -i 's|exec /usr/bin/marathon-shell-bin "$@"|exec /usr/bin/marathon-shell-bin -platform eglfs "$@"|' \
 		"$pkgdir/usr/bin/marathon-shell-session"
 }
 
 sha512sums="
-e79882cf9d4f4cf19a39e4bb89a133bbdf6be97a61d637175a7c5500eae261cc9f44e1ab6b06116fc02c290065aaac7bba2afe57bd7a794398f7ceeb4324cdd8  marathon-shell-1.0.0.tar.gz
+19dae7e07f361678e0fb7bcccf7433e4e97e6ac5bc38f083d128536193c58992b199b3b7ff67527a63d1dc798be7f136a85a3bd2e50409c050606ee6737e3100  marathon-shell-1.0.0.tar.gz
 "

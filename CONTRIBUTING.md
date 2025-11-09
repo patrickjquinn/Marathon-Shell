@@ -282,7 +282,7 @@ See [LICENSE](LICENSE) for details.
 
 ---
 
-**Thank you for contributing to Marathon OS!** 🚀
+**Thank you for contributing to Marathon OS!** 
 
 Together, we're building the mobile Linux experience we've always wanted.
 

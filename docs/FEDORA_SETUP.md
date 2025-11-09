@@ -424,6 +424,6 @@ journalctl -xe                  # System logs
 
 ---
 
-**Setup complete!** You're ready to build Marathon OS on Fedora. 🚀
+**Setup complete!** You're ready to build Marathon OS on Fedora. 
 
 

@@ -287,7 +287,7 @@ PowerManager.isCharging
 
 ### When to Use C++
 
-✅ **Use C++ for:**
+ **Use C++ for:**
 - Heavy computation (image processing, data parsing)
 - System APIs (camera, bluetooth, sensors)
 - File I/O and database operations
@@ -295,7 +295,7 @@ PowerManager.isCharging
 - Performance-critical code
 - Third-party library integration
 
-❌ **Use QML for:**
+ **Use QML for:**
 - UI layout and styling
 - Animations and transitions
 - Simple data binding
