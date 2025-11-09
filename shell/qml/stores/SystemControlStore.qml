@@ -14,6 +14,11 @@ QtObject {
     property bool isCellularDataOn: typeof CellularManager !== 'undefined' ? CellularManager.dataEnabled : false
     property bool isDndMode: AudioManager.dndEnabled
     property bool isAlarmOn: typeof AlarmManager !== 'undefined' ? (AlarmManager.hasActiveAlarm || _hasEnabledAlarm()) : false
+    property bool isAutoBrightnessOn: DisplayManagerCpp.autoBrightnessEnabled
+    property bool isLocationOn: typeof LocationManager !== 'undefined' ? LocationManager.active : false
+    property bool isHotspotOn: typeof NetworkManagerCpp !== 'undefined' ? NetworkManagerCpp.isHotspotActive() : false
+    property bool isVibrationOn: typeof HapticManager !== 'undefined' ? HapticManager.enabled : true
+    property bool isNightLightOn: DisplayManagerCpp.nightLightEnabled
     
     function _hasEnabledAlarm() {
         if (typeof AlarmManager !== 'undefined' && AlarmManager.alarms) {
@@ -79,7 +84,7 @@ QtObject {
     function toggleFlashlight() {
         if (typeof FlashlightManager !== 'undefined') {
             FlashlightManager.toggle()
-            isFlashlightOn = FlashlightManager.enabled
+            // Don't assign - let the binding update automatically
         }
         Logger.info("SystemControl", "Flashlight: " + isFlashlightOn)
     }
@@ -87,7 +92,7 @@ QtObject {
     function toggleCellular() {
         if (typeof CellularManager !== 'undefined') {
             CellularManager.toggleModem()
-            isCellularOn = CellularManager.modemEnabled
+            // Don't assign - let the binding update automatically
         }
         Logger.info("SystemControl", "Cellular: " + isCellularOn)
     }
@@ -95,7 +100,7 @@ QtObject {
     function toggleCellularData() {
         if (typeof CellularManager !== 'undefined') {
             CellularManager.toggleData()
-            isCellularDataOn = CellularManager.dataEnabled
+            // Don't assign - let the binding update automatically
         }
         Logger.info("SystemControl", "Cellular Data: " + isCellularDataOn)
     }
@@ -114,6 +119,57 @@ QtObject {
         var newMode = !isLowPowerMode
         PowerManager.setPowerSaveMode(newMode)
         Logger.info("SystemControl", "Low power mode toggled to: " + newMode)
+    }
+    
+    function toggleAutoBrightness() {
+        var newMode = !isAutoBrightnessOn
+        DisplayManagerCpp.setAutoBrightness(newMode)
+        Logger.info("SystemControl", "Auto-brightness toggled to: " + newMode)
+    }
+    
+    function toggleLocation() {
+        if (typeof LocationManager !== 'undefined') {
+            if (isLocationOn) {
+                LocationManager.stop()
+            } else {
+                LocationManager.start()
+            }
+            Logger.info("SystemControl", "Location toggled to: " + !isLocationOn)
+        }
+    }
+    
+    function toggleHotspot() {
+        if (typeof NetworkManagerCpp !== 'undefined') {
+            if (isHotspotOn) {
+                NetworkManagerCpp.stopHotspot()
+            } else {
+                // Default hotspot config - can be customized later
+                NetworkManagerCpp.createHotspot("Marathon Hotspot", "marathon2025")
+            }
+            Logger.info("SystemControl", "Hotspot toggled")
+        }
+    }
+    
+    function toggleVibration() {
+        if (typeof HapticManager !== 'undefined') {
+            var newMode = !isVibrationOn
+            HapticManager.setEnabled(newMode)
+            Logger.info("SystemControl", "Vibration toggled to: " + newMode)
+        }
+    }
+    
+    function toggleNightLight() {
+        var newMode = !isNightLightOn
+        DisplayManagerCpp.setNightLightEnabled(newMode)
+        Logger.info("SystemControl", "Night Light toggled to: " + newMode)
+    }
+    
+    function captureScreenshot() {
+        Logger.info("SystemControl", "Screenshot captured")
+        // Screenshot logic will be handled by ScreenshotService
+        if (typeof ScreenshotService !== 'undefined') {
+            ScreenshotService.captureScreen()
+        }
     }
     
     function setBrightness(value) {

@@ -15,9 +15,6 @@ Rectangle {
     signal closed()
     signal launchApp(var app)
     
-    property real dragStartY: 0
-    property bool isDragging: false
-    
     // RESPONSIVE GRID CALCULATIONS (like CSS Grid)
     // 2 cols: < 800px (phones including 720x720)
     // 3 cols: 800-1200px (tablets)
@@ -44,16 +41,23 @@ Rectangle {
     property int updateTrigger: 0
     
     // ALL TILES MODEL (accessible from anywhere in quickSettings)
+    // This is the master list of all possible tiles
     property var allTiles: [
         { id: "settings", icon: "settings", label: "Settings", active: false, available: true, trigger: updateTrigger },
         { id: "lock", icon: "lock", label: "Lock device", active: false, available: true, trigger: updateTrigger },
         { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked, available: true, trigger: updateTrigger },
-        { id: "wifi", icon: networkIcon, label: networkLabel, active: SystemControlStore.isWifiOn || SystemStatusStore.ethernetConnected, available: NetworkManager.wifiAvailable || SystemStatusStore.ethernetConnected, subtitle: networkSubtitle, trigger: updateTrigger },
+        { id: "wifi", icon: networkIcon, label: networkLabel, active: SystemControlStore.isWifiOn || SystemStatusStore.ethernetConnected, available: true, subtitle: networkSubtitle, trigger: updateTrigger },
         { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn, available: NetworkManager.bluetoothAvailable, trigger: updateTrigger },
         { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn, available: true, trigger: updateTrigger },
         { id: "cellular", icon: "signal", label: "Mobile network", active: SystemControlStore.isCellularOn, available: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable), subtitle: cellularSubtitle, trigger: updateTrigger },
         { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, available: true, subtitle: SystemControlStore.isDndMode ? "Silent" : "Normal", trigger: updateTrigger },
-        { id: "torch", icon: "sun", label: "Torch", active: SystemControlStore.isFlashlightOn, available: (typeof FlashlightManager !== 'undefined' ? FlashlightManager.available : false), trigger: updateTrigger },
+        { id: "autobrightness", icon: "sun-moon", label: "Auto-brightness", active: SystemControlStore.isAutoBrightnessOn, available: (typeof DisplayManagerCpp !== 'undefined' && DisplayManagerCpp.available), trigger: updateTrigger },
+        { id: "location", icon: "map-pin", label: "Location", active: SystemControlStore.isLocationOn, available: (typeof LocationManager !== 'undefined' && LocationManager.available), trigger: updateTrigger },
+        { id: "hotspot", icon: "wifi-tethering", label: "Hotspot", active: SystemControlStore.isHotspotOn, available: (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp.hotspotSupported), trigger: updateTrigger },
+        { id: "vibration", icon: "vibrate", label: "Vibration", active: SystemControlStore.isVibrationOn, available: (typeof HapticManager !== 'undefined' && HapticManager.available), trigger: updateTrigger },
+        { id: "nightlight", icon: "moon", label: "Night Light", active: SystemControlStore.isNightLightOn, available: (typeof DisplayManagerCpp !== 'undefined' && DisplayManagerCpp.available), trigger: updateTrigger },
+        { id: "torch", icon: "flashlight", label: "Torch", active: SystemControlStore.isFlashlightOn, available: (typeof FlashlightManager !== 'undefined' && FlashlightManager.available), trigger: updateTrigger },
+        { id: "screenshot", icon: "camera", label: "Screenshot", active: false, available: true, trigger: updateTrigger },
         { id: "alarm", icon: "clock", label: "Alarm", active: SystemControlStore.isAlarmOn, available: true, trigger: updateTrigger },
         { id: "battery", icon: "battery", label: "Battery saving", active: SystemControlStore.isLowPowerMode, available: true, trigger: updateTrigger },
         { id: "monitor", icon: "info", label: "Device monitor", active: false, available: true, subtitle: batterySubtitle, trigger: updateTrigger }
@@ -79,36 +83,55 @@ Rectangle {
         function onEthernetConnectionNameChanged() { updateTrigger++ }
     }
     
-    Component.onCompleted: {
-        Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)")
+    // FILTERED TILES based on user preferences from SettingsManager
+    // Force recomputation when any tile state changes
+    property var visibleTiles: {
+        updateTrigger; // Force dependency on updateTrigger for reactivity
+        var enabled = SettingsManagerCpp.enabledQuickSettingsTiles
+        var order = SettingsManagerCpp.quickSettingsTileOrder
+        var result = []
+        
+        // Build tiles in custom order
+        for (var i = 0; i < order.length; i++) {
+            var tileId = order[i]
+            // Only include if enabled
+            if (enabled.indexOf(tileId) !== -1) {
+                // Find tile in allTiles
+                var tile = null
+                for (var j = 0; j < allTiles.length; j++) {
+                    if (allTiles[j].id === tileId) {
+                        tile = allTiles[j]
+                        break
+                    }
+                }
+                // Add all enabled tiles, regardless of availability
+                // Tiles will show as disabled/grayed when not available
+                if (tile) {
+                    result.push(tile)
+                }
+            }
+        }
+        
+        // Add any new tiles not in order list (for backwards compat)
+        for (var k = 0; k < allTiles.length; k++) {
+            if (order.indexOf(allTiles[k].id) === -1 && 
+                enabled.indexOf(allTiles[k].id) !== -1) {
+                result.push(allTiles[k])
+            }
+        }
+        
+        return result
     }
     
-    MouseArea {
-        anchors.fill: parent
-        z: -1
-        propagateComposedEvents: true
-        
-        onPressed: (mouse) => {
-            dragStartY = mouse.y
-            isDragging = false
-        }
-        
-        onPositionChanged: (mouse) => {
-            if (Math.abs(mouse.y - dragStartY) > 10) {
-                isDragging = true
-            }
-            if (isDragging && (mouse.y - dragStartY) < -50) {
-                closed()
-            }
-        }
-        
-        onReleased: {
-            if (isDragging && (dragStartY > 0)) {
-                closed()
-            }
-            isDragging = false
-            dragStartY = 0
-        }
+    Connections {
+        target: SettingsManagerCpp
+        function onEnabledQuickSettingsTilesChanged() { updateTrigger++ }
+        function onQuickSettingsTileOrderChanged() { updateTrigger++ }
+    }
+    
+    Component.onCompleted: {
+        Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)")
+        Logger.info("QuickSettings", "Enabled tiles: " + SettingsManagerCpp.enabledQuickSettingsTiles.length + " of " + allTiles.length)
     }
     
     // Center container for responsive layout
@@ -160,7 +183,7 @@ Rectangle {
                     
                     // Dynamically create pages based on tilesPerPage
                     Repeater {
-                        model: Math.ceil(allTiles.length / tilesPerPage)
+                        model: Math.ceil(visibleTiles.length / tilesPerPage)
                         
                         Item {
                             width: toggleSwipeView.width
@@ -175,8 +198,8 @@ Rectangle {
                                 Repeater {
                                     model: {
                                         var startIdx = index * tilesPerPage
-                                        var endIdx = Math.min(startIdx + tilesPerPage, allTiles.length)
-                                        return allTiles.slice(startIdx, endIdx)
+                                        var endIdx = Math.min(startIdx + tilesPerPage, visibleTiles.length)
+                                        return visibleTiles.slice(startIdx, endIdx)
                                     }
                                     
                                     delegate: QuickSettingsTile {
@@ -268,6 +291,19 @@ Rectangle {
             SystemControlStore.toggleRotationLock()
         } else if (toggleId === "torch") {
             SystemControlStore.toggleFlashlight()
+        } else if (toggleId === "autobrightness") {
+            SystemControlStore.toggleAutoBrightness()
+        } else if (toggleId === "location") {
+            SystemControlStore.toggleLocation()
+        } else if (toggleId === "hotspot") {
+            SystemControlStore.toggleHotspot()
+        } else if (toggleId === "vibration") {
+            SystemControlStore.toggleVibration()
+        } else if (toggleId === "nightlight") {
+            SystemControlStore.toggleNightLight()
+        } else if (toggleId === "screenshot") {
+            SystemControlStore.captureScreenshot()
+            UIStore.closeQuickSettings()
         } else if (toggleId === "alarm") {
             SystemControlStore.toggleAlarm()
             UIStore.closeQuickSettings()

@@ -19,6 +19,11 @@ LocationManager::LocationManager(QObject* parent)
     , m_timestamp(0)
 {
     qDebug() << "[LocationManager] Initializing";
+    
+    // Register custom D-Bus type for GeoClue2 Timestamp to suppress warnings
+    // GeoClue2 uses a tuple type (tu) for timestamps which Qt doesn't recognize by default
+    qDBusRegisterMetaType<quint64>();
+    
     connectToGeoclue();
 }
 

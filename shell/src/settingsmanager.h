@@ -50,6 +50,10 @@ class SettingsManager : public QObject {
     
     // OOBE properties
     Q_PROPERTY(bool firstRunComplete READ firstRunComplete WRITE setFirstRunComplete NOTIFY firstRunCompleteChanged)
+    
+    // Quick Settings customization
+    Q_PROPERTY(QStringList enabledQuickSettingsTiles READ enabledQuickSettingsTiles WRITE setEnabledQuickSettingsTiles NOTIFY enabledQuickSettingsTilesChanged)
+    Q_PROPERTY(QStringList quickSettingsTileOrder READ quickSettingsTileOrder WRITE setQuickSettingsTileOrder NOTIFY quickSettingsTileOrderChanged)
 
 public:
     explicit SettingsManager(QObject *parent = nullptr);
@@ -97,6 +101,10 @@ public:
     
     // OOBE getters
     bool firstRunComplete() const { return m_firstRunComplete; }
+    
+    // Quick Settings getters
+    QStringList enabledQuickSettingsTiles() const { return m_enabledQuickSettingsTiles; }
+    QStringList quickSettingsTileOrder() const { return m_quickSettingsTileOrder; }
 
     // Existing setters
     void setUserScaleFactor(qreal factor);
@@ -140,6 +148,10 @@ public:
     
     // OOBE setters
     void setFirstRunComplete(bool complete);
+    
+    // Quick Settings setters
+    void setEnabledQuickSettingsTiles(const QStringList &tiles);
+    void setQuickSettingsTileOrder(const QStringList &order);
 
     // Invokable methods for sound lists
     Q_INVOKABLE QStringList availableRingtones();
@@ -197,6 +209,10 @@ signals:
     
     // OOBE signals
     void firstRunCompleteChanged();
+    
+    // Quick Settings signals
+    void enabledQuickSettingsTilesChanged();
+    void quickSettingsTileOrderChanged();
 
 private:
     void load();
@@ -246,4 +262,8 @@ private:
     
     // OOBE members
     bool m_firstRunComplete;
+    
+    // Quick Settings members
+    QStringList m_enabledQuickSettingsTiles;
+    QStringList m_quickSettingsTileOrder;
 };
