@@ -82,6 +82,9 @@ Item {
         clip: true
         interactive: !UIStore.searchOpen && !appGrid.searchGestureActive  // Disable when search active
         flickableDirection: Flickable.HorizontalFlick
+        highlightMoveDuration: 0  // Instant transitions - no animation delay
+        preferredHighlightBegin: 0
+        preferredHighlightEnd: width
         
         // Performance optimizations
         cacheBuffer: pageView.width * 2
@@ -455,6 +458,12 @@ Item {
     
     function snapToPage(pageIndex) {
         pageView.positionViewAtIndex(pageIndex, ListView.Beginning)
+    }
+    
+    function navigateToPage(pageIndex) {
+        if (pageIndex >= 0 && pageIndex < pageCount) {
+            pageView.currentIndex = pageIndex
+        }
     }
 }
 

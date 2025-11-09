@@ -19,6 +19,29 @@ Item {
     
     function incrementCurrentIndex() { pageView.incrementCurrentIndex() }
     function decrementCurrentIndex() { pageView.decrementCurrentIndex() }
+    
+    function navigateToPage(page) {
+        // page: -2 = Hub, -1 = Task Switcher, 0+ = App Grid pages
+        if (page === -2) {
+            pageView.currentIndex = 0
+        } else if (page === -1) {
+            pageView.currentIndex = 1
+        } else if (page >= 0) {
+            // Store the target app grid page
+            pageViewContainer.internalAppGridPage = page
+            
+            // Navigate to app grid (index 2)
+            pageView.currentIndex = 2
+            
+            // Use a timer to navigate to the specific page after the grid loads
+            Qt.callLater(function() {
+                var loader = pageView.itemAtIndex(2)
+                if (loader && loader.item && typeof loader.item.navigateToPage === 'function') {
+                    loader.item.navigateToPage(page)
+                }
+            })
+        }
+    }
 
 ListView {
     id: pageView

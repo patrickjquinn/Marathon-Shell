@@ -13,6 +13,7 @@ Item {
     property bool showPageIndicators: true
     
     signal appLaunched(var app)
+    signal pageNavigationRequested(int page)
     
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
     
@@ -76,6 +77,7 @@ Item {
     }
     
     Row {
+        id: pageIndicatorRow
         anchors.centerIn: parent
         anchors.verticalCenterOffset: 0
         spacing: Constants.spacingMedium
@@ -83,6 +85,7 @@ Item {
         visible: bottomBar.showPageIndicators
         
         Rectangle {
+            id: hubIndicator
             width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: 999  // BB10: True circle
@@ -105,9 +108,15 @@ Item {
                 Behavior on width { NumberAnimation { duration: 200 } }
                 Behavior on height { NumberAnimation { duration: 200 } }
             }
+            
+            MouseArea {
+                anchors.fill: parent
+                onClicked: bottomBar.pageNavigationRequested(-2)
+            }
         }
         
         Rectangle {
+            id: framesIndicator
             width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: 999  // BB10: True circle
@@ -130,34 +139,122 @@ Item {
                 Behavior on width { NumberAnimation { duration: 200 } }
                 Behavior on height { NumberAnimation { duration: 200 } }
             }
+            
+            MouseArea {
+                anchors.fill: parent
+                onClicked: bottomBar.pageNavigationRequested(-1)
+            }
         }
         
         Repeater {
+            id: appGridIndicators
             model: bottomBar.totalPages
             
             Rectangle {
+                id: pageIndicator
                 width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 radius: 999  // BB10: True circle
                 color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
                 anchors.verticalCenter: parent.verticalCenter
                 
+                property int pageIndex: index
+                
                 Behavior on width { NumberAnimation { duration: 200 } }
                 Behavior on height { NumberAnimation { duration: 200 } }
                 Behavior on color { ColorAnimation { duration: 200 } }
                 
                 Text {
-                    text: (index + 1).toString()
-                    color: index === bottomBar.currentPage ? "#000000" : "#FFFFFF"
-                    font.pixelSize: index === bottomBar.currentPage ? Constants.fontSizeSmall : Constants.fontSizeXSmall
+                    text: (pageIndicator.pageIndex + 1).toString()
+                    color: "#000000"
+                    font.pixelSize: Constants.fontSizeSmall
                     font.weight: Font.Medium
                     anchors.centerIn: parent
+                    visible: pageIndicator.pageIndex === bottomBar.currentPage
+                    opacity: visible ? 1.0 : 0.0
                     
-                    Behavior on color {
-                        ColorAnimation { duration: 200 }
-                    }
-                    Behavior on font.pixelSize {
+                    Behavior on opacity {
                         NumberAnimation { duration: 200 }
+                    }
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: bottomBar.pageNavigationRequested(pageIndicator.pageIndex)
+                }
+            }
+        }
+    }
+    
+    // Drag/scrub gesture handler
+    MouseArea {
+        id: scrubGesture
+        anchors.fill: pageIndicatorRow
+        anchors.margins: -Constants.spacingSmall
+        z: 2
+        preventStealing: false
+        propagateComposedEvents: false
+        
+        property bool isDragging: false
+        property int lastHoveredPage: -999
+        
+        onPressed: (mouse) => {
+            isDragging = true
+            lastHoveredPage = -999
+            checkPageUnderMouse(mouse.x, mouse.y)
+        }
+        
+        onPositionChanged: (mouse) => {
+            if (isDragging) {
+                checkPageUnderMouse(mouse.x, mouse.y)
+            }
+        }
+        
+        onReleased: {
+            isDragging = false
+            lastHoveredPage = -999
+        }
+        
+        onCanceled: {
+            isDragging = false
+            lastHoveredPage = -999
+        }
+        
+        function checkPageUnderMouse(mouseX, mouseY) {
+            // Check Hub indicator
+            var hubPos = mapToItem(hubIndicator, mouseX, mouseY)
+            if (hubPos.x >= 0 && hubPos.x <= hubIndicator.width && 
+                hubPos.y >= 0 && hubPos.y <= hubIndicator.height) {
+                if (lastHoveredPage !== -2) {
+                    lastHoveredPage = -2
+                    bottomBar.pageNavigationRequested(-2)
+                }
+                return
+            }
+            
+            // Check Frames indicator
+            var framesPos = mapToItem(framesIndicator, mouseX, mouseY)
+            if (framesPos.x >= 0 && framesPos.x <= framesIndicator.width && 
+                framesPos.y >= 0 && framesPos.y <= framesIndicator.height) {
+                if (lastHoveredPage !== -1) {
+                    lastHoveredPage = -1
+                    bottomBar.pageNavigationRequested(-1)
+                }
+                return
+            }
+            
+            // Check each app grid page indicator
+            for (var i = 0; i < appGridIndicators.count; i++) {
+                var indicator = appGridIndicators.itemAt(i)
+                if (indicator) {
+                    var indicatorPos = mapToItem(indicator, mouseX, mouseY)
+                    if (indicatorPos.x >= 0 && indicatorPos.x <= indicator.width && 
+                        indicatorPos.y >= 0 && indicatorPos.y <= indicator.height) {
+                        if (lastHoveredPage !== i) {
+                            lastHoveredPage = i
+                            bottomBar.pageNavigationRequested(i)
+                        }
+                        return
                     }
                 }
             }
