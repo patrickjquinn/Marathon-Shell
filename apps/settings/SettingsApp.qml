@@ -172,6 +172,9 @@ MApp {
             case "quicksettings":
                 component = quickSettingsPageComponent
                 break
+            case "security":
+                component = securityPageComponent
+                break
             default:
                 Logger.error("SettingsApp", "Unknown page: " + pageName)
                 return
@@ -291,6 +294,13 @@ MApp {
     Component {
         id: quickSettingsPageComponent
         QuickSettingsPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: securityPageComponent
+        SecurityPage {
             onNavigateBack: navigationStack.pop()
         }
     }

@@ -49,6 +49,7 @@
 #include "src/locationmanager.h"
 #include "src/hapticmanager.h"
 #include "src/audioroutingmanager.h"
+#include "src/securitymanager.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
@@ -332,6 +333,7 @@ int main(int argc, char *argv[])
     LocationManager *locationManager = new LocationManager(&app);
     HapticManager *hapticManager = new HapticManager(&app);
     AudioRoutingManager *audioRoutingManager = new AudioRoutingManager(&app);
+    SecurityManager *securityManager = new SecurityManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
     engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
@@ -345,6 +347,8 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("LocationManager", locationManager);
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
+    engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+    qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
     
     // Register RT Scheduler for thread priority management
     RTScheduler *rtScheduler = new RTScheduler(&app);
