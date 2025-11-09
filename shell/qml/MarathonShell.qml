@@ -376,6 +376,11 @@ Item {
                     onAppLaunched: (app) => {
                         AppLaunchService.launchApp(app, compositor, appWindow)
                     }
+                    
+                    onPageNavigationRequested: (page) => {
+                        Logger.info("BottomBar", "Navigation requested to page: " + page)
+                        pageView.navigateToPage(page)
+                    }
                 }
             }
         }
