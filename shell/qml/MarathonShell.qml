@@ -898,6 +898,9 @@ Item {
         
         property real startY: 0
         property bool isDraggingDown: false
+        property real lastY: 0
+        property real lastTime: 0
+        property real velocityY: 0
         
         onPressed: (mouse) => {
             if (UIStore.quickSettingsHeight > 0) {
@@ -905,11 +908,23 @@ Item {
                 return
             }
             startY = mouse.y
+            lastY = mouse.y
+            lastTime = Date.now()
+            velocityY = 0
             isDraggingDown = false
         }
         
         onPositionChanged: (mouse) => {
             var dragDistance = mouse.y - startY
+            
+            // Calculate velocity
+            var now = Date.now()
+            var dt = now - lastTime
+            if (dt > 0) {
+                velocityY = (mouse.y - lastY) / dt * 1000
+            }
+            lastY = mouse.y
+            lastTime = now
             
             if (dragDistance > 5 && !isDraggingDown) {
                 isDraggingDown = true
@@ -925,14 +940,20 @@ Item {
         onReleased: (mouse) => {
             if (isDraggingDown) {
                 UIStore.quickSettingsDragging = false
-                if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
+                
+                // Check for fling gesture (velocity > 500 px/s)
+                var isFlingDown = velocityY > 500
+                
+                if (isFlingDown || UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
                     UIStore.openQuickSettings()
                 } else {
                     UIStore.closeQuickSettings()
                 }
-                Logger.gesture("StatusBar", "dragEnd", {height: UIStore.quickSettingsHeight})
+                Logger.gesture("StatusBar", "dragEnd", {height: UIStore.quickSettingsHeight, velocity: velocityY, fling: isFlingDown})
             }
             startY = 0
+            lastY = 0
+            velocityY = 0
             isDraggingDown = false
         }
         
@@ -955,6 +976,9 @@ Item {
         visible: enabled
         
         property real startY: 0
+        property real lastY: 0
+        property real lastTime: 0
+        property real velocityY: 0
         
         Rectangle {
             anchors.fill: parent
@@ -968,6 +992,9 @@ Item {
         
         onPressed: (mouse) => {
             startY = mouse.y
+            lastY = mouse.y
+            lastTime = Date.now()
+            velocityY = 0
             UIStore.quickSettingsDragging = true
             Logger.gesture("QuickSettings", "overlayDragStart", {y: startY})
         }
@@ -976,18 +1003,34 @@ Item {
             var dragDistance = mouse.y - startY
             var newHeight = UIStore.quickSettingsHeight + dragDistance
             UIStore.quickSettingsHeight = Math.max(0, Math.min(shell.maxQuickSettingsHeight, newHeight))
+            
+            // Calculate velocity
+            var now = Date.now()
+            var dt = now - lastTime
+            if (dt > 0) {
+                velocityY = (mouse.y - lastY) / dt * 1000
+            }
+            lastY = mouse.y
+            lastTime = now
+            
             startY = mouse.y
         }
         
         onReleased: (mouse) => {
             UIStore.quickSettingsDragging = false
-            if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
-                UIStore.openQuickSettings()
-            } else {
+            
+            // Check for fling up gesture (velocity < -500 px/s = upward)
+            var isFlingUp = velocityY < -500
+            
+            if (isFlingUp || UIStore.quickSettingsHeight < shell.quickSettingsThreshold) {
                 UIStore.closeQuickSettings()
+            } else {
+                UIStore.openQuickSettings()
             }
             startY = 0
-            Logger.gesture("QuickSettings", "overlayDragEnd", {height: UIStore.quickSettingsHeight})
+            lastY = 0
+            velocityY = 0
+            Logger.gesture("QuickSettings", "overlayDragEnd", {height: UIStore.quickSettingsHeight, velocity: velocityY, fling: isFlingUp})
         }
         
         onCanceled: {

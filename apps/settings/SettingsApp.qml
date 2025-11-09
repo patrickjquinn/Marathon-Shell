@@ -169,6 +169,9 @@ MApp {
             case "appsort":
                 component = appSortPageComponent
                 break
+            case "quicksettings":
+                component = quickSettingsPageComponent
+                break
             default:
                 Logger.error("SettingsApp", "Unknown page: " + pageName)
                 return
@@ -281,6 +284,13 @@ MApp {
     Component {
         id: appSortPageComponent
         AppSortPage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: quickSettingsPageComponent
+        QuickSettingsPage {
             onNavigateBack: navigationStack.pop()
         }
     }

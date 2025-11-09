@@ -174,7 +174,9 @@ Rectangle {
         z: 200
         
         property real velocityX: 0
+        property real velocityY: 0
         property real lastX: 0
+        property real lastY: 0
         property real lastTime: 0
         property bool isVerticalGesture: false
         
@@ -182,8 +184,10 @@ Rectangle {
             startX = mouse.x
             startY = mouse.y
             lastX = mouse.x
+            lastY = mouse.y
             lastTime = Date.now()
             velocityX = 0
+            velocityY = 0
             isVerticalGesture = false
         }
         
@@ -192,8 +196,10 @@ Rectangle {
             var dt = now - lastTime
             if (dt > 0) {
                 velocityX = (mouse.x - lastX) / dt * 1000
+                velocityY = (mouse.y - lastY) / dt * 1000  // Positive = downward, negative = upward (standard)
             }
             lastX = mouse.x
+            lastY = mouse.y
             lastTime = now
             
             var diffX = mouse.x - startX
@@ -238,20 +244,27 @@ Rectangle {
             
             Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen})
             
-            // Snap Quick Settings open/closed based on threshold
+            // Snap Quick Settings open/closed based on threshold or velocity
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
-                Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight)
+                Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY)
                 UIStore.quickSettingsDragging = false
                 var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400
-                if (UIStore.quickSettingsHeight > threshold) {
-                    UIStore.openQuickSettings()
-                } else {
+                
+                // Check for fling up gesture (velocity < -500 px/s = upward swipe, closing)
+                var isFlingUp = velocityY < -500
+                
+                if (isFlingUp || UIStore.quickSettingsHeight < threshold) {
                     UIStore.closeQuickSettings()
+                } else {
+                    UIStore.openQuickSettings()
                 }
+                Logger.gesture("NavBar", "Quick Settings gesture end", {height: UIStore.quickSettingsHeight, velocityY: velocityY, flingUp: isFlingUp})
+                
                 // Reset gesture state
                 startX = 0
                 startY = 0
                 velocityX = 0
+                velocityY = 0
                 isVerticalGesture = false
                 currentX = 0
                 currentY = 0
