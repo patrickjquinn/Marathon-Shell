@@ -1,33 +1,40 @@
 import QtQuick
-import QtQuick.Layouts
+import MarathonOS.Shell
 import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonUI.Containers
 import MarathonUI.Controls
+import MarathonUI.Core
 import MarathonUI.Modals
-import MarathonOS.Shell
+import "../components"
 
-MPage {
+SettingsPageTemplate {
     id: securityPage
-    title: "Security"
+    pageTitle: "Security"
     
-    signal navigateBack()
-    
+    property string pageName: "security"
     property bool showQuickPINDialog: false
     property bool showRemovePINDialog: false
     
-    content: MScrollView {
-        anchors.fill: parent
-        contentWidth: parent.width
+    Component.onCompleted: {
+        Logger.info("SecurityPage", "Initialized")
+    }
+    
+    content: Flickable {
+        contentHeight: securityContent.height + 40
+        clip: true
         
-        ColumnLayout {
+        Column {
+            id: securityContent
             width: parent.width
-            spacing: 0
+            spacing: MSpacing.xl
+            leftPadding: MSpacing.lg
+            rightPadding: MSpacing.lg
+            topPadding: MSpacing.lg
             
             // Authentication Method Section
             MSection {
-                Layout.fillWidth: true
                 title: "Authentication"
+                width: parent.width - parent.leftPadding - parent.rightPadding
                 
                 MSettingsListItem {
                     title: "Lock Method"
@@ -52,7 +59,7 @@ MPage {
                              "Update your convenience PIN" : 
                              "Set a quick 4-6 digit PIN"
                     iconName: "hash"
-                    onClicked: showQuickPINDialog = true
+                    onSettingClicked: showQuickPINDialog = true
                 }
                 
                 MSettingsListItem {
@@ -60,14 +67,14 @@ MPage {
                     subtitle: "Use system password only"
                     iconName: "trash-2"
                     visible: SecurityManagerCpp && SecurityManagerCpp.hasQuickPIN
-                    onClicked: showRemovePINDialog = true
+                    onSettingClicked: showRemovePINDialog = true
                 }
             }
             
             // Biometric Section
             MSection {
-                Layout.fillWidth: true
                 title: "Biometric"
+                width: parent.width - parent.leftPadding - parent.rightPadding
                 
                 MSettingsListItem {
                     title: "Fingerprint"
@@ -75,27 +82,17 @@ MPage {
                              "Enrolled and ready" :
                              "Not enrolled"
                     iconName: "fingerprint"
-                    onClicked: {
+                    onSettingClicked: {
                         // Launch fprintd enrollment
                         Qt.openUrlExternally("fprintd://enroll")
                     }
-                }
-                
-                Text {
-                    Layout.fillWidth: true
-                    Layout.margins: 16
-                    text: "To enroll a fingerprint, run:\nsudo fprintd-enroll " + (SecurityManagerCpp ? SecurityManagerCpp.getCurrentUsername() : "username")
-                    font.pixelSize: 12
-                    color: MColors.textSecondary
-                    wrapMode: Text.WordWrap
-                    visible: SecurityManagerCpp && !SecurityManagerCpp.fingerprintAvailable
                 }
             }
             
             // Security Status Section
             MSection {
-                Layout.fillWidth: true
                 title: "Security Status"
+                width: parent.width - parent.leftPadding - parent.rightPadding
                 
                 MSettingsListItem {
                     title: "Failed Attempts"
@@ -114,40 +111,45 @@ MPage {
                         }
                         return "Active"
                     }
-                    iconName: SecurityManagerCpp && SecurityManagerCpp.isLockedOut ? "lock" : "unlock"
+                    iconName: SecurityManagerCpp && SecurityManagerCpp.isLockedOut ? "lock" : "check-circle"
                     enabled: false
                 }
             }
             
             // Information Section
             MSection {
-                Layout.fillWidth: true
                 title: "How It Works"
+                width: parent.width - parent.leftPadding - parent.rightPadding
                 
                 Text {
-                    Layout.fillWidth: true
-                    Layout.margins: 16
+                    width: parent.width
                     text: "Marathon uses your system password (PAM) for secure authentication. " +
                           "Quick PIN is an optional convenience feature stored encrypted. " +
                           "Fingerprint authentication is provided by fprintd."
-                    font.pixelSize: 14
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
                     color: MColors.textSecondary
                     wrapMode: Text.WordWrap
+                    topPadding: MSpacing.sm
+                    leftPadding: MSpacing.md
+                    rightPadding: MSpacing.md
                 }
                 
                 Text {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 16
-                    Layout.rightMargin: 16
-                    Layout.bottomMargin: 16
+                    width: parent.width
                     text: "Security features:\n" +
                           "• PAM-based authentication\n" +
                           "• Rate limiting (5 attempts)\n" +
                           "• Exponential lockout\n" +
                           "• Audit logging"
-                    font.pixelSize: 12
+                    font.pixelSize: MTypography.sizeXSmall
+                    font.family: MTypography.fontFamily
                     color: MColors.textTertiary
                     wrapMode: Text.WordWrap
+                    topPadding: MSpacing.sm
+                    bottomPadding: MSpacing.sm
+                    leftPadding: MSpacing.md
+                    rightPadding: MSpacing.md
                 }
             }
         }
@@ -165,12 +167,13 @@ MPage {
         
         content: Column {
             width: parent.width
-            spacing: 16
+            spacing: MSpacing.md
             
             Text {
                 width: parent.width
                 text: "Quick PIN is a convenience feature. Your system password will always work."
-                font.pixelSize: 14
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
                 color: MColors.textSecondary
                 wrapMode: Text.WordWrap
             }
@@ -180,17 +183,17 @@ MPage {
                 width: parent.width
                 height: 48
                 color: MColors.bb10Surface
-                radius: 8
+                radius: MRadius.md
                 border.width: 1
                 border.color: newPINField.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
                 
                 TextInput {
                     id: newPINField
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
+                    anchors.leftMargin: MSpacing.md
+                    anchors.rightMargin: MSpacing.md
                     verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: 16
+                    font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     color: MColors.textPrimary
                     echoMode: TextInput.Password
@@ -212,17 +215,17 @@ MPage {
                 width: parent.width
                 height: 48
                 color: MColors.bb10Surface
-                radius: 8
+                radius: MRadius.md
                 border.width: 1
                 border.color: systemPasswordField.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
                 
                 TextInput {
                     id: systemPasswordField
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
+                    anchors.leftMargin: MSpacing.md
+                    anchors.rightMargin: MSpacing.md
                     verticalAlignment: TextInput.AlignVCenter
-                    font.pixelSize: 16
+                    font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     color: MColors.textPrimary
                     echoMode: TextInput.Password
@@ -241,7 +244,8 @@ MPage {
                 id: pinErrorText
                 width: parent.width
                 text: ""
-                font.pixelSize: 12
+                font.pixelSize: MTypography.sizeSmall
+                font.family: MTypography.fontFamily
                 color: MColors.error
                 wrapMode: Text.WordWrap
                 visible: text !== ""
@@ -249,7 +253,7 @@ MPage {
             
             Row {
                 anchors.right: parent.right
-                spacing: 8
+                spacing: MSpacing.sm
                 
                 MButton {
                     text: "Cancel"
@@ -292,7 +296,7 @@ MPage {
     // Remove PIN Confirmation Dialog
     MConfirmDialog {
         id: removePINDialog
-        visible: showRemovePINDialog
+        showing: showRemovePINDialog
         title: "Remove Quick PIN?"
         message: "You will need to enter your system password to unlock. This action requires your system password."
         confirmText: "Remove"
@@ -307,10 +311,6 @@ MPage {
         onCancelled: {
             showRemovePINDialog = false
         }
-        
-        onClosed: {
-            showRemovePINDialog = false
-        }
     }
     
     // SecurityManager signal handlers
@@ -318,7 +318,7 @@ MPage {
         target: SecurityManagerCpp
         
         function onQuickPINChanged() {
-            console.log("Quick PIN changed")
+            Logger.info("SecurityPage", "Quick PIN changed")
         }
         
         function onAuthenticationFailed(reason) {
@@ -326,4 +326,3 @@ MPage {
         }
     }
 }
-

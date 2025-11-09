@@ -150,6 +150,8 @@
         <file alias="wifi-tethering.svg">resources/images/icons/lucide/wifi-tethering.svg</file>
         <file alias="vibrate.svg">resources/images/icons/lucide/vibrate.svg</file>
         <file alias="vibrate-off.svg">resources/images/icons/lucide/vibrate-off.svg</file>
+        <file alias="shield-alert.svg">resources/images/icons/lucide/shield-alert.svg</file>
+        <file alias="hash.svg">resources/images/icons/lucide/hash.svg</file>
     </qresource>
     <qresource prefix="/sounds">
         <file>resources/sounds/alarms/alarm_antelope.wav</file>

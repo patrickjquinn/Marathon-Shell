@@ -31,9 +31,11 @@ SettingsPageTemplate {
                 Column {
                     width: parent.width
                     spacing: MSpacing.md
+                    leftPadding: MSpacing.md
+                    rightPadding: MSpacing.md
                     
                     MSlider {
-                        width: parent.width
+                        width: parent.width - parent.leftPadding - parent.rightPadding
                         from: 0
                         to: 100
                         value: SystemControlStore.volume
@@ -61,9 +63,11 @@ SettingsPageTemplate {
                         Column {
                             width: parent.width
                             spacing: MSpacing.sm
+                            leftPadding: MSpacing.md
+                            rightPadding: MSpacing.md
                             
                             MSlider {
-                                width: parent.width
+                                width: parent.width - parent.leftPadding - parent.rightPadding
                                 from: 0
                                 to: 1
                                 value: model.volume
