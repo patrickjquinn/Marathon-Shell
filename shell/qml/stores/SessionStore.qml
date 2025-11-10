@@ -19,23 +19,24 @@ QtObject {
     function lock() {
         SessionManager.lockSession()
         isLocked = true
-        lastUnlockTime = null
+        // DON'T clear lastUnlockTime - keep it so session can be validated on next unlock
         Logger.state("SessionStore", "unlocked", "locked")
     }
     
     function checkSession() {
-        if (!isLocked && lastUnlockTime) {
+        // Check if we have a recent unlock time within the timeout window
+        if (lastUnlockTime) {
             var elapsed = Date.now() - lastUnlockTime
-            Logger.debug("SessionStore", "Check - elapsed: " + elapsed + "ms")
-            if (elapsed > sessionTimeout) {
-                Logger.info("SessionStore", "Session expired")
-                lock()
+            Logger.debug("SessionStore", "Check - elapsed: " + elapsed + "ms, timeout: " + sessionTimeout + "ms")
+            if (elapsed <= sessionTimeout) {
+                Logger.debug("SessionStore", "Session still valid - no auth required")
+                return true
+            } else {
+                Logger.info("SessionStore", "Session expired after " + elapsed + "ms")
                 return false
             }
-            Logger.debug("SessionStore", "Session valid")
-            return true
         }
-        Logger.debug("SessionStore", "No active session")
+        Logger.debug("SessionStore", "No unlock timestamp - auth required")
         return false
     }
     
@@ -56,7 +57,7 @@ QtObject {
         target: SessionManager
         function onSessionLocked() {
             isLocked = true
-            lastUnlockTime = null
+            // DON'T clear lastUnlockTime - keep it so session can be validated
         }
         function onSessionUnlocked() {
             isLocked = false

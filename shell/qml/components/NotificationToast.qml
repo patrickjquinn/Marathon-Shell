@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -36,12 +37,25 @@ Item {
     
     MCard {
         id: toast
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
         y: -height
-        width: parent.width - MSpacing.sm * 2
+        width: parent.width
         height: showInlineReply ? 140 : 72
-        elevation: 3
+        elevation: 0
+        radius: 0
         visible: false
+        
+        // Custom bottom shadow only
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: "#40000000"
+            shadowOpacity: 0.3
+            shadowBlur: 0.6
+            shadowVerticalOffset: 4
+            shadowHorizontalOffset: 0
+        }
         
         Behavior on y {
             NumberAnimation { 
@@ -57,18 +71,19 @@ Item {
             }
         }
         
-        Column {
+        Item {
             anchors.fill: parent
-            anchors.leftMargin: MSpacing.xs
-            anchors.rightMargin: MSpacing.xs
-            anchors.topMargin: MSpacing.xs
-            anchors.bottomMargin: MSpacing.xs
-            spacing: MSpacing.sm
             
             Row {
-                width: parent.width
+                id: mainContent
+                width: parent.width - MSpacing.md * 2
                 height: 56
-            spacing: MSpacing.md
+                anchors.left: parent.left
+                anchors.leftMargin: MSpacing.md
+                anchors.verticalCenter: showInlineReply ? undefined : parent.verticalCenter
+                anchors.top: showInlineReply ? parent.top : undefined
+                anchors.topMargin: showInlineReply ? MSpacing.xs : 0
+                spacing: MSpacing.md
                 
                 Rectangle {
                 width: 48
@@ -112,8 +127,11 @@ Item {
             
             // Inline reply field (for messaging notifications)
             Row {
-                width: parent.width
+                width: parent.width - MSpacing.xs * 2
                 height: 48
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: mainContent.bottom
+                anchors.topMargin: MSpacing.sm
                 spacing: MSpacing.sm
                 visible: showInlineReply
                 
@@ -174,7 +192,7 @@ Item {
                 if (dragY < -30) {
                     dismissToast()
                 } else {
-                    toast.y = Constants.statusBarHeight + MSpacing.sm
+                    toast.y = Constants.statusBarHeight
                     autoHideTimer.restart()
                 }
             }
@@ -228,9 +246,10 @@ Item {
             id: slideIn
             target: toast
             property: "y"
-        to: Constants.statusBarHeight + MSpacing.sm
-        duration: MMotion.moderate
-        easing.bezierCurve: MMotion.easingDecelerateCurve
+            to: Constants.statusBarHeight
+            duration: 400
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.2
         }
         
         NumberAnimation {
