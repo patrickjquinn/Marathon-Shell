@@ -168,7 +168,7 @@ QtObject {
         notificationReceived(notification)
         
         if (soundEnabled && !AudioManager.dndEnabled) {
-            AudioManager.playSound("notification")
+            AudioManager.playNotificationSound()
         }
         
         if (vibrationEnabled && !AudioManager.dndEnabled) {

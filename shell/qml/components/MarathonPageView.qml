@@ -19,7 +19,7 @@ Item {
     
     function incrementCurrentIndex() { pageView.incrementCurrentIndex() }
     function decrementCurrentIndex() { pageView.decrementCurrentIndex() }
-    
+
     function navigateToPage(page) {
         // page: -2 = Hub, -1 = Task Switcher, 0+ = App Grid pages
         if (page === -2) {

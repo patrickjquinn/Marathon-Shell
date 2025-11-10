@@ -282,7 +282,7 @@ Item {
         
         // Play alarm sound
         if (alarm.sound && typeof AudioManager !== 'undefined') {
-            AudioManager.playSound("alarm")
+            AudioManager.playAlarmSound()
         }
         
         // Vibrate

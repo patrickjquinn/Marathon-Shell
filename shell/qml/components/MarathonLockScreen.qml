@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
+import MarathonOS.Shell 1.0 as Shell
 import MarathonUI.Core
 import "."
 import "./ui"
@@ -13,14 +14,69 @@ Item {
     signal unlockRequested()
     signal cameraLaunched()
     signal phoneLaunched()
-    signal notificationTapped(string id)
+    signal notificationTapped(int notifId, string appId, string title)
     
     property real swipeProgress: 0.0
-    property string expandedNotificationId: ""
+    property string expandedCategory: ""  // Track which notification category is expanded
+    property int idleTimeoutMs: 30000  // 30 seconds idle timeout before blanking screen
     
     // Keep lock screen visible during entire swipe (only hide when opacity reaches 0)
     // This prevents home screen flash-through
     visible: opacity > 0.01
+    
+    // Idle timer to blank screen after inactivity
+    Timer {
+        id: idleTimer
+        interval: idleTimeoutMs
+        running: lockScreen.visible && DisplayManager.screenOn
+        repeat: false
+        onTriggered: {
+            Logger.info("LockScreen", "Idle timeout - blanking screen")
+            DisplayManager.turnScreenOff()
+        }
+    }
+    
+    // Reset idle timer on any user interaction
+    function resetIdleTimer() {
+        if (lockScreen.visible && DisplayManager.screenOn) {
+            idleTimer.restart()
+        }
+    }
+    
+    // Auto-expand notifications when they arrive while on lock screen
+    Connections {
+        target: NotificationService
+        function onNotificationReceived(notification) {
+            if (lockScreen.visible) {
+                Logger.info("LockScreen", "New notification while on lock screen: " + notification.title)
+                
+                // Wake screen if off
+                if (!DisplayManager.screenOn) {
+                    DisplayManager.turnScreenOn()
+                }
+                
+                // Auto-expand the notification's category
+                var appId = notification.appId || "other"
+                expandedCategory = appId
+                
+                // Reset idle timer
+                resetIdleTimer()
+                
+                Logger.info("LockScreen", "Auto-expanded category: " + appId)
+            }
+        }
+    }
+    
+    // Restart idle timer when screen turns on
+    Connections {
+        target: DisplayManager
+        function onScreenStateChanged(isOn) {
+            if (isOn && lockScreen.visible) {
+                Logger.info("LockScreen", "Screen turned on - starting idle timer")
+                resetIdleTimer()
+            }
+        }
+    }
     
     // Performance optimization: use layers for static content
     layer.enabled: true
@@ -49,9 +105,10 @@ Item {
         MouseArea {
             anchors.fill: parent
             z: 1
-            enabled: expandedNotificationId !== ""
+            enabled: expandedCategory !== ""
             onClicked: {
-                expandedNotificationId = ""
+                expandedCategory = ""
+                resetIdleTimer()
                 Logger.info("LockScreen", "Notifications dismissed")
             }
         }
@@ -62,11 +119,18 @@ Item {
             z: 5
         }
         
-        // Time and Date - centered
+        // Time and Date - centered, or pushed up if unread notifications present
         Column {
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: categoryIcons.unreadCategoryCount === 0 ? parent.verticalCenter : undefined
+            anchors.top: categoryIcons.unreadCategoryCount > 0 ? parent.top : undefined
+            anchors.topMargin: categoryIcons.unreadCategoryCount > 0 ? Math.round(80 * Constants.scaleFactor) : 0
+            anchors.verticalCenterOffset: categoryIcons.unreadCategoryCount === 0 ? Math.round(-80 * Constants.scaleFactor) : 0
             spacing: Constants.spacingSmall
+            
+            Behavior on anchors.topMargin {
+                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+            }
             
             // GPU layer for text rendering
             layer.enabled: true
@@ -108,109 +172,141 @@ Item {
             }
         }
         
-        // Notifications - left side
-        Column {
-            anchors.left: parent.left
-            anchors.leftMargin: Constants.spacingLarge
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Constants.spacingMedium
+        // BB10-style Hub Notifications
+        Item {
+            anchors.fill: parent
+            visible: NotificationModel.count > 0
             z: 10
             
-            Repeater {
-                model: NotificationModel
+            // Category icons on left edge
+            Column {
+                id: categoryIcons
+                anchors.left: parent.left
+                anchors.leftMargin: Constants.spacingMedium
+                // Position higher when few notifications, centered when many
+                anchors.top: categoriesModel.count <= 3 ? parent.top : undefined
+                anchors.topMargin: categoriesModel.count <= 3 ? Math.round(250 * Constants.scaleFactor) : 0
+                anchors.verticalCenter: categoriesModel.count > 3 ? parent.verticalCenter : undefined
+                spacing: Constants.spacingLarge
+                z: 100
                 
-                delegate: Item {
-                    width: expandedNotificationId === model.id ? Math.round(300 * Constants.scaleFactor) : Math.round(48 * Constants.scaleFactor)
-                    height: Math.round(48 * Constants.scaleFactor)
-                    visible: index < 4
-                    z: 10
+                // Expose category count for clock positioning
+                property alias unreadCategoryCount: categoriesModel.count
+                
+                // Build categories model from NotificationModel
+                ListModel {
+                    id: categoriesModel
+                }
+                
+                function updateCategories() {
+                    var cats = {}
                     
-                    Behavior on width {
-                        NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    // Iterate through NotificationModel using Repeater pattern
+                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
+                        var idx = NotificationModel.index(i, 0)
+                        var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false
+                        
+                        // Skip read notifications
+                        if (isRead) continue
+                        
+                        var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other"
+                        var icon = NotificationModel.data(idx, Shell.NotificationRoles.IconRole) || "bell"
+                        
+                        if (!cats[appId]) {
+                            cats[appId] = {
+                                appId: appId,
+                                icon: icon,
+                                count: 0
+                            }
+                        }
+                        cats[appId].count++
                     }
                     
-                    Rectangle {
-                        anchors.fill: parent
-                        color: expandedNotificationId === model.id ? MColors.surface : "transparent"
-                        radius: Constants.borderRadiusSharp
-                        antialiasing: true
-                        z: 10
+                    // Rebuild model
+                    categoriesModel.clear()
+                    for (var cat in cats) {
+                        categoriesModel.append(cats[cat])
+                    }
+                }
+                
+                // Update categories when notifications change
+                Connections {
+                    target: NotificationModel
+                    function onCountChanged() {
+                        categoryIcons.updateCategories()
+                    }
+                }
+                
+                Component.onCompleted: updateCategories()
+                
+                Repeater {
+                    model: categoriesModel
+                    
+                    delegate: Item {
+                        width: Math.round(56 * Constants.scaleFactor)
+                        height: Math.round(56 * Constants.scaleFactor)
                         
-                        // GPU layer for notification cards
-                        layer.enabled: expandedNotificationId === model.id
-                        layer.smooth: true
+                        property string category: model.appId
+                        property bool isActive: expandedCategory === category
                         
-                        Behavior on color {
-                            ColorAnimation { duration: 200 }
-                        }
-                        
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: 4
-                            spacing: Constants.spacingMedium
+                        // Category icon
+                        Rectangle {
+                            id: categoryIconBg
+                            width: Math.round(48 * Constants.scaleFactor)
+                            height: Math.round(48 * Constants.scaleFactor)
+                            radius: Math.round(24 * Constants.scaleFactor)
+                            color: isActive ? MColors.elevated : MColors.surface
+                            border.width: 1
+                            border.color: isActive ? MColors.accent : "#3A3A3A"
+                            anchors.centerIn: parent
+                            antialiasing: true
                             
-                            Rectangle {
-                                width: Constants.touchTargetMinimum
-                                height: Constants.touchTargetMinimum
-                                radius: Math.round(20 * Constants.scaleFactor)
-                                color: expandedNotificationId === model.id ? MColors.elevated : "transparent"
-                                border.width: expandedNotificationId === model.id ? 0 : Constants.borderWidthThin
-                                border.color: MColors.border
-                                anchors.verticalCenter: parent.verticalCenter
-                                antialiasing: true
-                                
-                                Behavior on color {
-                                    ColorAnimation { duration: 200 }
-                                }
-                                Behavior on border.width {
-                                    NumberAnimation { duration: 200 }
-                                }
-                                
-                                Icon {
-                                    name: model.icon || "bell"
-                                    size: 24
-                                    color: MColors.textPrimary
-                                    anchors.centerIn: parent
-                                }
-                                
-                                Rectangle {
-                                    visible: !model.isRead
-                                    anchors.right: parent.right
-                                    anchors.top: parent.top
-                                    anchors.rightMargin: Math.round(-2 * Constants.scaleFactor)
-                                    anchors.topMargin: Math.round(-2 * Constants.scaleFactor)
-                                    width: Math.round(10 * Constants.scaleFactor)
-                                    height: Math.round(10 * Constants.scaleFactor)
-                                    radius: Math.round(5 * Constants.scaleFactor)
-                                    color: MColors.accent
-                                    antialiasing: true
-                                }
+                            layer.enabled: true
+                            layer.effect: MultiEffect {
+                                shadowEnabled: true
+                                shadowColor: "#000000"
+                                shadowOpacity: 0.5
+                                shadowBlur: 0.5
+                                shadowVerticalOffset: 2
+                                shadowHorizontalOffset: 1
                             }
                             
-                            Column {
-                                visible: expandedNotificationId === model.id
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: parent.width - Math.round(68 * Constants.scaleFactor)
-                                spacing: Math.round(2 * Constants.scaleFactor)
+                            Behavior on color {
+                                ColorAnimation { duration: 200 }
+                            }
+                            
+                            Behavior on border.color {
+                                ColorAnimation { duration: 200 }
+                            }
+                            
+                            Icon {
+                                name: model.icon
+                                size: 24
+                                color: MColors.textPrimary
+                                anchors.centerIn: parent
+                            }
+                            
+                            // Badge count
+                            Rectangle {
+                                visible: model.count > 0
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.rightMargin: Math.round(-4 * Constants.scaleFactor)
+                                anchors.topMargin: Math.round(-4 * Constants.scaleFactor)
+                                width: Math.round(20 * Constants.scaleFactor)
+                                height: Math.round(20 * Constants.scaleFactor)
+                                radius: Math.round(10 * Constants.scaleFactor)
+                                color: MColors.accent
+                                border.width: 2
+                                border.color: MColors.background
+                                antialiasing: true
                                 
                                 Text {
-                                    text: model.title || ""
-                                    color: MColors.textPrimary
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.weight: Font.Bold
-                                    font.family: MTypography.fontFamily
-                                    elide: Text.ElideRight
-                                    width: parent.width
-                                    renderType: Text.NativeRendering
-                                }
-                                
-                                Text {
-                                    text: model.body || ""
-                                    color: MColors.textSecondary
+                                    text: model.count
+                                    color: "white"
                                     font.pixelSize: MTypography.sizeXSmall
-                                    font.family: MTypography.fontFamily
-                                    elide: Text.ElideRight
-                                    width: parent.width
+                                    font.weight: Font.Bold
+                                    anchors.centerIn: parent
                                     renderType: Text.NativeRendering
                                 }
                             }
@@ -218,24 +314,306 @@ Item {
                         
                         MouseArea {
                             anchors.fill: parent
-                            z: 20
-                            preventStealing: true
-                            
-                            onPressed: {
-                                Logger.info("LockScreen", "Notification MouseArea pressed: " + model.title)
-                            }
-                            
                             onClicked: {
                                 HapticService.light()
-                                Logger.info("LockScreen", "Notification clicked: " + model.title)
-                                if (expandedNotificationId === model.id) {
-                                    expandedNotificationId = ""
-                                    Logger.info("LockScreen", "Notification dismissed: " + model.title)
+                                resetIdleTimer()
+                                if (expandedCategory === category) {
+                                    expandedCategory = ""
+                                    Logger.info("LockScreen", "Collapsed category: " + category)
                                 } else {
-                                    expandedNotificationId = model.id
-                                    Logger.info("LockScreen", "Notification expanded: " + model.title)
+                                    expandedCategory = category
+                                    Logger.info("LockScreen", "Expanded category: " + category)
                                 }
                             }
+                        }
+                    }
+                }
+            }
+            
+            Item {
+                id: lineAndChevron
+                visible: expandedCategory !== ""
+                anchors.left: categoryIcons.right
+                anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
+                anchors.top: categoryIcons.top
+                anchors.bottom: categoryIcons.bottom
+                width: Math.round(24 * Constants.scaleFactor)
+                z: 50
+                
+                // Calculate chevron Y position based on active category
+                function calculateChevronY() {
+                    var activeIndex = -1
+                    for (var i = 0; i < categoriesModel.count; i++) {
+                        if (categoriesModel.get(i).appId === expandedCategory) {
+                            activeIndex = i
+                            break
+                        }
+                    }
+                    
+                    if (activeIndex === -1) activeIndex = 0
+                    
+                    // Account for item height (56px), spacing (20px), and centering
+                    // Icon center: activeIndex * (56 + 20) + 28
+                    // Chevron is 16px, center it: icon_center - 8 = activeIndex * 76 + 20
+                    var itemHeight = Math.round(56 * Constants.scaleFactor)
+                    var itemSpacing = Math.round(20 * Constants.scaleFactor)  // Constants.spacingLarge
+                    var yPos = activeIndex * (itemHeight + itemSpacing) + Math.round(20 * Constants.scaleFactor)
+                    Logger.info("LockScreen", "Chevron Y calculated: " + yPos + " for category: " + expandedCategory + " at index: " + activeIndex)
+                    return yPos
+                }
+                
+                Connections {
+                    target: lockScreen
+                    function onExpandedCategoryChanged() {
+                        chevronCanvas.y = lineAndChevron.calculateChevronY()
+                        topLineSegment.height = chevronCanvas.y  // Line goes right up to chevron
+                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor)  // Start right after chevron
+                    }
+                }
+                
+                // Top line segment (from top to chevron)
+                Rectangle {
+                    id: topLineSegment
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    width: Math.round(2 * Constants.scaleFactor)
+                    height: Math.round(20 * Constants.scaleFactor)
+                    color: "white"
+                    opacity: 0.6
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: "#000000"
+                        shadowOpacity: 0.6
+                        shadowBlur: 0.4
+                        shadowVerticalOffset: 1
+                        shadowHorizontalOffset: 1
+                    }
+                }
+                
+                // Chevron positioned at the active icon's vertical center
+                Canvas {
+                    id: chevronCanvas
+                    anchors.right: topLineSegment.horizontalCenter  // Trailing edge aligned with line center
+                    y: Math.round(20 * Constants.scaleFactor)
+                    width: Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(16 * Constants.scaleFactor)
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: "#000000"
+                        shadowOpacity: 0.6
+                        shadowBlur: 0.4
+                        shadowVerticalOffset: 1
+                        shadowHorizontalOffset: 1
+                    }
+                    
+                    onYChanged: {
+                        Logger.info("LockScreen", "Chevron Y changed to: " + y)
+                        requestPaint()
+                    }
+                    
+                    onPaint: {
+                        var ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.strokeStyle = "white"
+                        ctx.lineWidth = 2
+                        ctx.globalAlpha = 0.6
+                        ctx.beginPath()
+                        // Draw left-pointing chevron (right edge is the trailing edge)
+                        ctx.moveTo(width, 0)
+                        ctx.lineTo(0, height / 2)
+                        ctx.lineTo(width, height)
+                        ctx.stroke()
+                    }
+                }
+                
+                // Bottom line segment (from chevron to bottom)
+                Rectangle {
+                    id: bottomLineSegment
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.topMargin: Math.round(36 * Constants.scaleFactor)
+                    anchors.bottom: parent.bottom
+                    width: Math.round(2 * Constants.scaleFactor)
+                    color: "white"
+                    opacity: 0.6
+                    
+                    layer.enabled: true
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: "#000000"
+                        shadowOpacity: 0.6
+                        shadowBlur: 0.4
+                        shadowVerticalOffset: 1
+                        shadowHorizontalOffset: 1
+                    }
+                }
+            }
+            
+            // Notification list for active category - positioned to the right of line, aligned with icons
+            ListView {
+                id: notificationList
+                visible: expandedCategory !== ""
+                anchors.left: lineAndChevron.right
+                anchors.leftMargin: Math.round(4 * Constants.scaleFactor)
+                anchors.right: parent.right
+                anchors.rightMargin: Math.round(16 * Constants.scaleFactor)
+                anchors.top: categoryIcons.top
+                anchors.topMargin: Math.round(-8 * Constants.scaleFactor)
+                height: Math.min(count * Math.round(80 * Constants.scaleFactor), parent.height * 0.5)
+                spacing: Constants.spacingSmall
+                clip: true
+                z: 40
+                
+                model: ListModel {
+                    id: filteredNotificationsModel
+                }
+                
+                // Update filtered notifications when category changes
+                onVisibleChanged: {
+                    if (visible) updateFilteredNotifications()
+                }
+                
+                Connections {
+                    target: lockScreen
+                    function onExpandedCategoryChanged() {
+                        notificationList.updateFilteredNotifications()
+                    }
+                }
+                
+                Connections {
+                    target: NotificationModel
+                    function onCountChanged() {
+                        if (notificationList.visible) {
+                            notificationList.updateFilteredNotifications()
+                        }
+                    }
+                }
+                
+                function updateFilteredNotifications() {
+                    filteredNotificationsModel.clear()
+                    
+                    if (expandedCategory === "") return
+                    
+                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
+                        var idx = NotificationModel.index(i, 0)
+                        var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false
+                        
+                        // Skip read notifications
+                        if (isRead) continue
+                        
+                        var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other"
+                        
+                        if (appId === expandedCategory) {
+                            filteredNotificationsModel.append({
+                                "notifId": NotificationModel.data(idx, Shell.NotificationRoles.IdRole),
+                                "title": NotificationModel.data(idx, Shell.NotificationRoles.TitleRole),
+                                "body": NotificationModel.data(idx, Shell.NotificationRoles.BodyRole),
+                                "timestamp": NotificationModel.data(idx, Shell.NotificationRoles.TimestampRole)
+                            })
+                        }
+                    }
+                }
+                
+                delegate: Item {
+                    width: notificationList.width
+                    height: Math.round(70 * Constants.scaleFactor)
+                    
+                    Row {
+                        anchors.fill: parent
+                        anchors.margins: Constants.spacingMedium
+                        spacing: 0
+                        
+                        // Left content
+                        Column {
+                            width: parent.width - timestampText.width - Constants.spacingMedium
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Math.round(4 * Constants.scaleFactor)
+                            
+                            Text {
+                                text: model.title || ""
+                                color: "white"
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: Font.Bold
+                                font.family: MTypography.fontFamily
+                                elide: Text.ElideRight
+                                width: parent.width
+                                renderType: Text.NativeRendering
+                                
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowColor: "#80000000"
+                                    shadowBlur: 0.4
+                                    shadowVerticalOffset: 2
+                                }
+                            }
+                            
+                            Text {
+                                text: model.body || ""
+                                color: "#E0FFFFFF"
+                                font.pixelSize: MTypography.sizeSmall
+                                font.family: MTypography.fontFamily
+                                elide: Text.ElideRight
+                                width: parent.width
+                                renderType: Text.NativeRendering
+                                
+                                layer.enabled: true
+                                layer.effect: MultiEffect {
+                                    shadowEnabled: true
+                                    shadowColor: "#80000000"
+                                    shadowBlur: 0.3
+                                    shadowVerticalOffset: 1
+                                }
+                            }
+                        }
+                        
+                        // Timestamp on right
+                        Text {
+                            id: timestampText
+                            text: Qt.formatTime(new Date(model.timestamp), "h:mm AP")
+                            color: "#B0FFFFFF"
+                            font.pixelSize: MTypography.sizeSmall
+                            font.family: MTypography.fontFamily
+                            anchors.verticalCenter: parent.verticalCenter
+                            renderType: Text.NativeRendering
+                            
+                            layer.enabled: true
+                            layer.effect: MultiEffect {
+                                shadowEnabled: true
+                                shadowColor: "#80000000"
+                                shadowBlur: 0.3
+                                shadowVerticalOffset: 1
+                            }
+                        }
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.light()
+                            resetIdleTimer()
+                            Logger.info("LockScreen", "Notification tapped: " + model.title)
+                            
+                            // Get the full notification data
+                            var notifId = model.notifId || 0
+                            var appId = ""
+                            
+                            // Find the appId from the original notification
+                            for (var i = 0; i < NotificationModel.rowCount(); i++) {
+                                var idx = NotificationModel.index(i, 0)
+                                var id = NotificationModel.data(idx, Shell.NotificationRoles.IdRole)
+                                if (id === notifId) {
+                                    appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || ""
+                                    break
+                                }
+                            }
+                            
+                            // Emit signal with notification info
+                            notificationTapped(notifId, appId, model.title)
                         }
                     }
                 }
@@ -324,6 +702,7 @@ Item {
             velocity = 0
             isDragging = false
             lastTime = Date.now()
+            resetIdleTimer()
             // Don't reject here - we need to track the gesture to determine if it's a swipe or tap
         }
         
@@ -371,7 +750,7 @@ Item {
                 } else {
                     // Snap back
                     swipeProgress = 0
-                    expandedNotificationId = ""
+                    expandedCategory = ""
                 }
             } else {
                 // Was a tap, not a swipe - notifications will handle it via their MouseAreas
@@ -401,3 +780,4 @@ Item {
         }
     }
 }
+

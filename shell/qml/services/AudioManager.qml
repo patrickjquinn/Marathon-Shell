@@ -201,10 +201,13 @@ QtObject {
             return
         }
         
-        Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound)
+        Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound + ", volume: " + notificationVolume)
+        console.log("[AudioManager] Notification player state before play:", notificationPlayer.playbackState)
         notificationPlayer.source = currentNotificationSound
-        notificationPlayer.audioOutput.volume = notificationVolume
+        // Don't override volume here - it's already bound in the AudioOutput definition
+        console.log("[AudioManager] Calling play()...")
         notificationPlayer.play()
+        console.log("[AudioManager] Play() called, state:", notificationPlayer.playbackState)
     }
     
     function playAlarmSound() {
@@ -241,6 +244,14 @@ QtObject {
             volume: audioManager.notificationVolume
         }
         loops: MediaPlayer.Once
+        
+        onErrorOccurred: (error, errorString) => {
+            console.error("[AudioManager] Notification player error:", error, errorString)
+        }
+        
+        onPlaybackStateChanged: {
+            console.log("[AudioManager] Notification playback state:", playbackState, "- source:", source)
+        }
     }
 
     property var alarmPlayer: MediaPlayer {

@@ -648,12 +648,14 @@ Item {
     
     function reset() {
         pin = ""
+        password = ""  // Clear password field for security
         error = ""
         entryProgress = 0.0
     }
     
     function show() {
         pin = ""
+        password = ""  // Clear password field for security
         error = ""
         entryProgress = 1.0
         passwordMode = false  // Reset to PIN mode
