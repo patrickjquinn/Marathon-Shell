@@ -62,6 +62,9 @@ Item {
     Component.onCompleted: {
         compositor = shellInitialization.initialize(shell, Window.window)
         
+        // Initialize ScreenshotService with shell window reference
+        ScreenshotService.shellWindow = shell
+        
         // CRITICAL: Connect compositor signals AFTER compositor is created
         // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
@@ -1077,8 +1080,8 @@ Item {
                 Logger.info("Shell", "Session valid, unlocking and navigating to notification")
                 SessionStore.unlock()
                 
-                // Mark as read and navigate
-                NotificationModel.markAsRead(notifId)
+                // Dismiss notification (clears from Marathon, NotificationModel, and DBus)
+                NotificationService.dismissNotification(notifId)
                 if (appId) {
                     NavigationRouter.navigateToDeepLink(
                         appId,
@@ -1154,7 +1157,7 @@ Item {
             // Handle pending notification action
             if (pendingNotification) {
                 Logger.info("Shell", "Executing pending notification action: " + pendingNotification.title)
-                NotificationModel.markAsRead(pendingNotification.id)
+                NotificationService.dismissNotification(pendingNotification.id)
                 if (pendingNotification.appId) {
                     NavigationRouter.navigateToDeepLink(
                         pendingNotification.appId,
@@ -1280,9 +1283,9 @@ Item {
     Connections {
         target: ScreenshotService
         
-        function onScreenshotCaptured(filePath, thumbnail) {
+        function onScreenshotCaptured(filePath, thumbnailPath) {
             Logger.info("Shell", "Screenshot captured: " + filePath)
-            screenshotPreview.show(filePath, thumbnail)
+            screenshotPreview.show(filePath, thumbnailPath)
             HapticService.medium()
         }
         
@@ -1459,9 +1462,38 @@ Item {
         }
     }
     
+    // Track volume up state for screenshot combo
+    property bool volumeUpPressed: false
+    property bool powerButtonPressed: false
+    
     Keys.onPressed: (event) => {
+        // Volume Up button
+        if (event.key === Qt.Key_VolumeUp) {
+            volumeUpPressed = true
+            
+            // Check for Power + Volume Up combo (screenshot)
+            if (powerButtonPressed) {
+                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot")
+                screenshotFlash.trigger()
+                ScreenshotService.captureScreen(shell)
+                event.accepted = true
+                return
+            }
+        }
+        
         // Power button - start timer for long press
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            powerButtonPressed = true
+            
+            // Check for Power + Volume Up combo (screenshot)
+            if (volumeUpPressed) {
+                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot")
+                screenshotFlash.trigger()
+                ScreenshotService.captureScreen(shell)
+                event.accepted = true
+                return
+            }
+            
             if (!powerButtonTimer.running) {
                 powerButtonTimer.start()
             }
@@ -1500,8 +1532,17 @@ Item {
             virtualKeyboard.active = !virtualKeyboard.active
             HapticService.light()
             event.accepted = true
+        } else if (event.key === Qt.Key_Print || event.key === Qt.Key_SysReq) {
+            // Print Screen key (standard on Linux/Windows)
+            Logger.debug("Shell", "Print Screen pressed - Taking Screenshot")
+            screenshotFlash.trigger()
+            ScreenshotService.captureScreen(shell)
+            HapticService.medium()
+            event.accepted = true
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
-            Logger.debug("Shell", "Cmd+Shift+3 pressed - Taking Screenshot")
+            // Ctrl+Shift+3 (Cmd+Shift+3 on macOS) - macOS-style shortcut
+            Logger.debug("Shell", "Ctrl+Shift+3 pressed - Taking Screenshot")
+            screenshotFlash.trigger()
             ScreenshotService.captureScreen(shell)
             HapticService.medium()
             event.accepted = true
@@ -1531,7 +1572,15 @@ Item {
     // because the compositor property is null when this file is first loaded
     
     Keys.onReleased: (event) => {
+        // Reset volume up state
+        if (event.key === Qt.Key_VolumeUp) {
+            volumeUpPressed = false
+            event.accepted = true
+        }
+        
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            powerButtonPressed = false
+            
             if (powerButtonTimer.running) {
                 PowerBatteryHandler.handlePowerButtonPress()
                 powerButtonTimer.stop()
@@ -1557,6 +1606,41 @@ Item {
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu")
             PowerManager.shutdown()
+        }
+    }
+    
+    // Screenshot flash overlay
+    Rectangle {
+        id: screenshotFlash
+        anchors.fill: parent
+        color: "white"
+        opacity: 0
+        z: Constants.zIndexModalOverlay + 200  // Above everything
+        
+        function trigger() {
+            flashAnimation.restart()
+        }
+        
+        SequentialAnimation {
+            id: flashAnimation
+            
+            NumberAnimation {
+                target: screenshotFlash
+                property: "opacity"
+                from: 0
+                to: 0.9
+                duration: 100
+                easing.type: Easing.OutQuad
+            }
+            
+            NumberAnimation {
+                target: screenshotFlash
+                property: "opacity"
+                from: 0.9
+                to: 0
+                duration: 200
+                easing.type: Easing.InQuad
+            }
         }
     }
     

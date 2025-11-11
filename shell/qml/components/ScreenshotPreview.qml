@@ -9,11 +9,11 @@ Item {
     
     property bool showing: false
     property string filePath: ""
-    property var thumbnail: null
+    property string thumbnailPath: ""
     
-    function show(path, image) {
+    function show(path, thumbPath) {
         filePath = path
-        thumbnail = image
+        thumbnailPath = thumbPath
         showing = true
         slideIn.start()
         autoHideTimer.restart()
@@ -62,9 +62,11 @@ Item {
                 
                 Image {
                     anchors.fill: parent
-                    source: thumbnail || ""
+                    source: thumbnailPath || ""
                     fillMode: Image.PreserveAspectFit
                     smooth: true
+                    asynchronous: true
+                    cache: false
                 }
             }
             
@@ -80,8 +82,17 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                Logger.info("ScreenshotPreview", "Opening screenshot: " + filePath)
+                Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath)
                 hide()
+                
+                // Deep link to gallery app with the screenshot
+                if (typeof DeepLinkHandler !== 'undefined') {
+                    DeepLinkHandler.handleDeepLink("gallery", "/image", {
+                        path: filePath
+                    })
+                } else {
+                    Logger.warn("ScreenshotPreview", "DeepLinkHandler not available")
+                }
             }
             
             property real startX: 0
