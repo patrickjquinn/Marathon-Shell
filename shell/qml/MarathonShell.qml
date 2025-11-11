@@ -25,6 +25,9 @@ Item {
     property int currentPage: 0
     property int totalPages: 1
     
+    // Pending notification action after unlock
+    property var pendingNotification: null
+    
     // Dynamic Quick Settings sizing (threshold from config)
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.cfg("gestures", "quickSettingsDismissThreshold", 0.30)
@@ -116,7 +119,7 @@ Item {
             PropertyChanges {
                 lockScreen.visible: true
                 lockScreen.enabled: true
-                lockScreen.expandedNotificationId: -1  // Close expanded notifications
+                lockScreen.expandedCategory: ""  // Close expanded notifications
             }
             StateChangeScript {
                 script: {
@@ -1066,6 +1069,40 @@ Item {
             }
         }
         
+        onNotificationTapped: function(notifId, appId, title) {
+            Logger.info("Shell", "Lock screen notification tapped: " + title + " (id: " + notifId + ", app: " + appId + ")")
+            
+            if (SessionStore.checkSession()) {
+                // Session valid - unlock and deep link immediately
+                Logger.info("Shell", "Session valid, unlocking and navigating to notification")
+                SessionStore.unlock()
+                
+                // Mark as read and navigate
+                NotificationModel.markAsRead(notifId)
+                if (appId) {
+                    NavigationRouter.navigateToDeepLink(
+                        appId,
+                        "",
+                        {
+                            "notificationId": notifId,
+                            "action": "view",
+                            "from": "lockscreen"
+                        }
+                    )
+                }
+            } else {
+                // Need authentication - store pending action and show PIN
+                Logger.info("Shell", "Session expired, requesting PIN")
+                pendingNotification = {
+                    "id": notifId,
+                    "appId": appId,
+                    "title": title
+                }
+                showPinScreen = true
+                pinScreen.show()
+            }
+        }
+        
         onCameraLaunched: {
             Logger.info("LockScreen", "Camera quick action - unlocking and launching camera")
             
@@ -1100,10 +1137,6 @@ Item {
             HapticService.medium()
         }
         
-        onNotificationTapped: (id) => {
-            Logger.info("LockScreen", "Notification tapped: " + id)
-            NotificationModel.markAsRead(id)
-        }
     }
     
     // PIN Entry Screen
@@ -1117,6 +1150,24 @@ Item {
             showPinScreen = false
             pinScreen.reset()
             SessionStore.unlock()  // This triggers state change to "home"
+            
+            // Handle pending notification action
+            if (pendingNotification) {
+                Logger.info("Shell", "Executing pending notification action: " + pendingNotification.title)
+                NotificationModel.markAsRead(pendingNotification.id)
+                if (pendingNotification.appId) {
+                    NavigationRouter.navigateToDeepLink(
+                        pendingNotification.appId,
+                        "",
+                        {
+                            "notificationId": pendingNotification.id,
+                            "action": "view",
+                            "from": "lockscreen"
+                        }
+                    )
+                }
+                pendingNotification = null  // Clear pending action
+            }
         }
         
         onCancelled: {
@@ -1124,6 +1175,12 @@ Item {
             showPinScreen = false
             lockScreen.swipeProgress = 0
             pinScreen.reset()
+            
+            // Clear pending notification action
+            if (pendingNotification) {
+                Logger.info("Shell", "Clearing pending notification action")
+                pendingNotification = null
+            }
         }
     }
     

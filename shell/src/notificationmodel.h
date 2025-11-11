@@ -67,6 +67,7 @@ public:
         TimestampRole,
         IsReadRole
     };
+    Q_ENUM(NotificationRoles)
 
     explicit NotificationModel(QObject* parent = nullptr);
     ~NotificationModel();

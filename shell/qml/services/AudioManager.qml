@@ -204,7 +204,7 @@ QtObject {
         Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound + ", volume: " + notificationVolume)
         console.log("[AudioManager] Notification player state before play:", notificationPlayer.playbackState)
         notificationPlayer.source = currentNotificationSound
-        notificationPlayer.audioOutput.volume = notificationVolume
+        // Don't override volume here - it's already bound in the AudioOutput definition
         console.log("[AudioManager] Calling play()...")
         notificationPlayer.play()
         console.log("[AudioManager] Play() called, state:", notificationPlayer.playbackState)

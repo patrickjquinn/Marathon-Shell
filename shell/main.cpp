@@ -316,6 +316,15 @@ int main(int argc, char *argv[])
     TaskModel *taskModel = new TaskModel(&app);
     NotificationModel *notificationModel = new NotificationModel(&app);
     
+    // Register NotificationModel enums so they're accessible in QML
+    qmlRegisterUncreatableMetaObject(
+        NotificationModel::staticMetaObject,
+        "MarathonOS.Shell",
+        1, 0,
+        "NotificationRoles",
+        "Cannot create NotificationRoles enum"
+    );
+    
     engine.rootContext()->setContextProperty("AppModel", appModel);
     engine.rootContext()->setContextProperty("TaskModel", taskModel);
     engine.rootContext()->setContextProperty("NotificationModel", notificationModel);
