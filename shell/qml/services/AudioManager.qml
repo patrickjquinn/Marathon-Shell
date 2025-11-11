@@ -194,6 +194,12 @@ QtObject {
             // Already loaded, play immediately
             ringtonePlayer.loops = MediaPlayer.Infinite
             ringtonePlayer.play()
+        } else if (ringtonePlayer.mediaStatus === MediaPlayer.EndOfMedia &&
+                   ringtonePlayer.source.toString() === currentRingtone.toString()) {
+            // Media finished (edge case after stop) - stop and replay
+            ringtonePlayer.stop()
+            ringtonePlayer.loops = MediaPlayer.Infinite
+            ringtonePlayer.play()
         } else if (ringtonePlayer.source.toString() !== currentRingtone.toString()) {
             // Source changed - reload
             ringtonePlayer.stop()
@@ -233,6 +239,12 @@ QtObject {
             console.log("[AudioManager] Media already loaded - playing now")
             notificationPlayer.play()
             console.log("[AudioManager] play() called - state:", notificationPlayer.playbackState)
+        } else if (notificationPlayer.mediaStatus === MediaPlayer.EndOfMedia &&
+                   notificationPlayer.source.toString() === currentNotificationSound.toString()) {
+            // Media finished playing but same source - stop and replay
+            console.log("[AudioManager] Media at EndOfMedia - resetting and replaying")
+            notificationPlayer.stop()
+            notificationPlayer.play()
         } else if (notificationPlayer.source.toString() !== currentNotificationSound.toString()) {
             // Source changed - reload
             console.log("[AudioManager] Source changed - reloading")
@@ -255,6 +267,12 @@ QtObject {
         if (alarmPlayer.mediaStatus === MediaPlayer.LoadedMedia && 
             alarmPlayer.source.toString() === currentAlarmSound.toString()) {
             // Already loaded, play immediately
+            alarmPlayer.loops = MediaPlayer.Infinite
+            alarmPlayer.play()
+        } else if (alarmPlayer.mediaStatus === MediaPlayer.EndOfMedia &&
+                   alarmPlayer.source.toString() === currentAlarmSound.toString()) {
+            // Media finished (edge case after stop) - stop and replay
+            alarmPlayer.stop()
             alarmPlayer.loops = MediaPlayer.Infinite
             alarmPlayer.play()
         } else if (alarmPlayer.source.toString() !== currentAlarmSound.toString()) {

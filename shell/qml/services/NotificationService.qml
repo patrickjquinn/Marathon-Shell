@@ -77,6 +77,13 @@ QtObject {
     property bool isDndEnabled: false
     
     /**
+     * @brief Track last notification ID per app for replacement
+     * @type {Object} Map of appId -> notification ID
+     * @private
+     */
+    property var appNotificationIds: ({})
+    
+    /**
      * @brief Emitted when a new notification is received
      * @param {Object} notification - The notification object
      */
@@ -136,65 +143,65 @@ QtObject {
             return -1
         }
         
-        var timestamp = new Date().toISOString()
+        // Following freedesktop.org spec: ALL apps (internal or external) call the DBus interface
+        // The notification daemon (shell) handles everything in _handleExternalNotification()
+        // This prevents duplicate handling and follows the standard architecture
         
-        // Add to NotificationModel first to get the correct ID
-        var id = NotificationModel.addNotification(
-            appId || "system",
-            title || "",
-            body || "",
-            options?.icon || ""
-        )
+        console.log("[NotificationService] Sending notification via DBus:", title)
         
+        // Build notification object for DBus call
         var notification = {
-            id: id,
             appId: appId || "system",
             title: title || "",
             body: body || "",
             icon: options?.icon || "",
-            image: options?.image || "",
             category: options?.category || "message",
             priority: options?.priority || "normal",
             actions: options?.actions || [],
-            persistent: options?.persistent || false,
-            timestamp: timestamp,
-            read: false
+            persistent: options?.persistent || false
         }
         
-        notifications.push(notification)
-        unreadCount++
-        
-        console.log("[NotificationService] Notification sent:", id, title)
-        notificationReceived(notification)
-        
-        if (soundEnabled && !AudioManager.dndEnabled) {
-            AudioManager.playNotificationSound()
-        }
-        
-        if (vibrationEnabled && !AudioManager.dndEnabled) {
-            AudioManager.vibrate([50, 100, 50])
-        }
-        
+        // Call DBus interface - this will trigger _handleExternalNotification() which does:
+        // - Add to NotificationModel
+        // - Add to internal notifications array
+        // - Play sound/haptic
+        // - Show UI
         _platformNotify(notification)
         
-        return id
+        // Return -1 for now (we'll get the real ID from the DBus callback)
+        return -1
     }
     
     function dismissNotification(id) {
         console.log("[NotificationService] Dismissing notification:", id)
         
+        var found = false
         for (var i = 0; i < notifications.length; i++) {
             if (notifications[i].id === id) {
+                found = true
+                var appId = notifications[i].appId
+                
                 if (!notifications[i].read) {
                     unreadCount = Math.max(0, unreadCount - 1)
                 }
                 notifications.splice(i, 1)
                 notificationDismissed(id)
-                _platformDismissNotification(id)
-                NotificationModel.dismissNotification(id)
+                
+                // Clear the tracked ID for this app
+                if (appNotificationIds[appId] === id) {
+                    delete appNotificationIds[appId]
+                }
                 break
             }
         }
+        
+        // CRITICAL: Always dismiss from NotificationModel and DBus, even if not in internal array
+        // This handles race conditions where notification hasn't been fully processed yet
+        if (!found) {
+            console.warn("[NotificationService] Notification", id, "not found in internal array (possible race condition)")
+        }
+        NotificationModel.dismissNotification(id)
+        _platformDismissNotification(id)
     }
     
     function dismissAllNotifications() {
@@ -281,15 +288,71 @@ QtObject {
     
     function _platformNotify(notification) {
         if (Platform.isLinux) {
-            console.log("[NotificationService] Sending D-Bus notification to org.freedesktop.Notifications")
+            // Emit via org.freedesktop.Notifications DBus interface
+            if (typeof FreedesktopNotifications !== 'undefined') {
+                console.log("[NotificationService] Emitting D-Bus notification:", notification.title)
+                
+                // Convert actions array to QStringList format (key, label, key, label, ...)
+                var actionsList = []
+                if (notification.actions && notification.actions.length > 0) {
+                    for (var i = 0; i < notification.actions.length; i++) {
+                        actionsList.push(notification.actions[i])  // key
+                        actionsList.push(notification.actions[i])  // label (same as key for simplicity)
+                    }
+                }
+                
+                // Build hints map
+                var hints = {
+                    "category": notification.category,
+                    "urgency": notification.priority === "high" ? 2 : (notification.priority === "low" ? 0 : 1),
+                    "desktop-entry": notification.appId
+                }
+                
+                // Get the last notification ID for this app (for replacement)
+                // Per freedesktop spec: if replaces_id > 0, the new notification replaces the old one
+                var replacesId = appNotificationIds[notification.appId] || 0
+                
+                // Call the C++ DBus service
+                var newId = FreedesktopNotifications.Notify(
+                    notification.appId,           // app_name
+                    replacesId,                   // replaces_id (0 = new, >0 = replace existing)
+                    notification.icon || "",      // app_icon
+                    notification.title,           // summary
+                    notification.body,            // body
+                    actionsList,                  // actions
+                    hints,                        // hints
+                    notification.persistent ? 0 : 5000  // expire_timeout (0 = never, else milliseconds)
+                )
+                
+                // Store the new ID for future replacements
+                appNotificationIds[notification.appId] = newId
+            } else {
+                console.warn("[NotificationService] FreedesktopNotifications not available")
+            }
         } else if (Platform.isMacOS) {
             console.log("[NotificationService] macOS NSUserNotification")
         }
     }
     
     function _platformDismissNotification(id) {
+        console.log("[NotificationService] _platformDismissNotification called for id:", id)
+        console.log("[NotificationService] Platform.isLinux:", Platform.isLinux)
+        console.log("[NotificationService] FreedesktopNotifications available:", typeof FreedesktopNotifications)
+        
         if (Platform.isLinux) {
-            console.log("[NotificationService] D-Bus CloseNotification:", id)
+            if (typeof FreedesktopNotifications !== 'undefined' && FreedesktopNotifications !== null) {
+                console.log("[NotificationService] D-Bus CloseNotification:", id)
+                try {
+                    FreedesktopNotifications.CloseNotification(id)
+                    console.log("[NotificationService] CloseNotification call completed")
+                } catch (error) {
+                    console.error("[NotificationService] Error calling CloseNotification:", error)
+                }
+            } else {
+                console.warn("[NotificationService] FreedesktopNotifications not available for CloseNotification")
+            }
+        } else {
+            console.log("[NotificationService] Not on Linux, skipping CloseNotification")
         }
     }
     
@@ -332,8 +395,56 @@ QtObject {
         })
     }
     
+    // Handler for ALL notifications coming via DBus (FreedesktopNotifications)
+    // Following freedesktop.org spec: This is the SINGLE point where all notifications are processed
+    // Both internal Marathon OS apps and external apps go through this path
+    function _handleExternalNotification(id) {
+        console.log("[NotificationService] Notification received via DBus:", id)
+        
+        // Get the notification from the model (added by FreedesktopNotifications::Notify)
+        var notification = NotificationModel.getNotification(id)
+        if (!notification) {
+            console.warn("[NotificationService] Notification not found:", id)
+            return
+        }
+        
+        // Create notification object for internal tracking
+        var notif = {
+            id: id,
+            appId: notification.appId,
+            title: notification.title,
+            body: notification.body,
+            icon: notification.icon,
+            timestamp: new Date(notification.timestamp).toISOString(),
+            read: false,
+            category: "message",
+            priority: "normal"
+        }
+        
+        // Add to internal array
+        notifications.push(notif)
+        unreadCount++
+        
+        console.log("[NotificationService] Notification processed:", id, notification.title)
+        
+        // Emit signal for UI updates
+        notificationReceived(notif)
+        
+        // Play sound and vibrate (SINGLE source of audio/haptic feedback)
+        if (soundEnabled && !AudioManager.dndEnabled) {
+            AudioManager.playNotificationSound()
+        }
+        
+        if (vibrationEnabled && !AudioManager.dndEnabled) {
+            AudioManager.vibrate([50, 100, 50])
+        }
+    }
+    
     Component.onCompleted: {
         console.log("[NotificationService] Initialized")
+        
+        // Connect to NotificationModel signal for external notifications
+        NotificationModel.notificationAdded.connect(_handleExternalNotification)
         
         if (!Platform.isLinux && !Platform.isMacOS) {
             _populateTestNotifications()
