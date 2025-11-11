@@ -200,7 +200,7 @@ Item {
                             variant: "accent"
                             onClicked: {
                                 HapticService.light()
-                                LocationService.updateLocation()
+                                LocationService.startUpdating()
                                 Logger.info("TestApp", "Requested location update")
                                 if (testApp) { testApp.passedTests++; testApp.totalTests++; }
                             }
