@@ -192,10 +192,12 @@ Item {
                             name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
                             size: Math.round(24 * Constants.scaleFactor)
                             color: SystemStatusStore.isWifiOn ? MColors.accent : MColors.textSecondary
+                            anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Column {
                             width: parent.width - wifiIcon.width - wifiToggleSwitch.width - (MSpacing.md * 2)
+                            anchors.verticalCenter: parent.verticalCenter
                             spacing: MSpacing.xs
 
                             Text {
@@ -218,6 +220,7 @@ Item {
                             id: wifiToggleSwitch
                             checked: SystemStatusStore.isWifiOn
                             onToggled: SystemControlStore.toggleWifi()
+                            anchors.verticalCenter: parent.verticalCenter
                         }
                     }
                 }
@@ -376,13 +379,15 @@ Item {
 
                 MCard {
                     width: parent.width
-                    height: MTypography.sizeHuge + (MSpacing.lg * 2)
+                    height: Math.round(120 * Constants.scaleFactor)
                     elevation: 2
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: MSpacing.md
-                        width: parent.width - (MSpacing.md * 2)
+                        anchors.topMargin: MSpacing.lg
+                        anchors.bottomMargin: MSpacing.lg
+                        spacing: MSpacing.sm
+                        width: parent.width - (MSpacing.lg * 2)
 
                         Text {
                             text: Qt.formatTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
@@ -418,6 +423,7 @@ Item {
                             name: "clock"
                             size: Math.round(24 * Constants.scaleFactor)
                             color: MColors.text
+                            anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Text {
@@ -426,6 +432,7 @@ Item {
                             font.pixelSize: MTypography.sizeLarge
                             font.family: MTypography.fontFamily
                             color: MColors.text
+                            anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Item {
@@ -436,6 +443,7 @@ Item {
                         Row {
                             id: buttonsRow
                             spacing: MSpacing.md
+                            anchors.verticalCenter: parent.verticalCenter
 
                             MButton {
                                 text: "12h"
