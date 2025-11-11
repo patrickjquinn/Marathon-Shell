@@ -78,6 +78,14 @@ Item {
         }
     }
     
+    // Refresh categories when lock screen becomes visible
+    onVisibleChanged: {
+        if (visible) {
+            Logger.info("LockScreen", "Lock screen visible - refreshing categories")
+            categoryIcons.updateCategories()
+        }
+    }
+    
     // Performance optimization: use layers for static content
     layer.enabled: true
     layer.smooth: true

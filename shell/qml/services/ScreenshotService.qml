@@ -1,22 +1,32 @@
 pragma Singleton
 import QtQuick
+import QtCore
 
 QtObject {
     id: screenshotService
     
-    signal screenshotCaptured(string filePath, var thumbnail)
+    signal screenshotCaptured(string filePath, string thumbnailPath)
     signal screenshotFailed(string error)
     
     property string screenshotsPath: {
-        if (Platform.isMacOS) {
-            return "~/Pictures/Screenshots/"
-        } else if (Platform.isLinux) {
-            return "~/Pictures/Screenshots/"
+        // Use StandardPaths for proper path resolution
+        var homePath = StandardPaths.writableLocation(StandardPaths.HomeLocation)
+        var picturesPath = StandardPaths.writableLocation(StandardPaths.PicturesLocation)
+        
+        if (picturesPath && picturesPath !== "") {
+            return picturesPath + "/Screenshots/"
+        } else if (homePath && homePath !== "") {
+            return homePath + "/Pictures/Screenshots/"
         }
-        return "~/Screenshots/"
+        return "/tmp/Screenshots/"
     }
     
     property var shellWindow: null
+    
+    // Alias for convenience
+    function takeScreenshot(windowItem) {
+        return captureScreen(windowItem)
+    }
     
     function captureScreen(windowItem) {
         console.log("[ScreenshotService] Capturing screenshot")
@@ -34,32 +44,42 @@ QtObject {
         var filename = "Screenshot_" + timestamp + ".png"
         var fullPath = screenshotsPath + filename
         
-        // Ensure screenshots directory exists (FileService may not be available)
-        // Directory will be created by system when saving
+        console.log("[ScreenshotService] Screenshots path:", screenshotsPath)
+        console.log("[ScreenshotService] Full path:", fullPath)
         
         if (targetWindow.grabToImage) {
             targetWindow.grabToImage(function(result) {
                 if (result) {
+                    console.log("[ScreenshotService] Image grabbed, attempting to save...")
                     var saved = result.saveToFile(fullPath)
+                    console.log("[ScreenshotService] Save result:", saved)
                     if (saved) {
                         console.log("[ScreenshotService] Screenshot saved:", fullPath)
-                        screenshotCaptured(fullPath, result.image)
+                        // Emit with file path (not QImage) for preview
+                        screenshotCaptured(fullPath, fullPath)
                         
-                        // Show notification
-                        if (typeof NotificationService !== 'undefined') {
-                            NotificationService.createNotification({
-                                summary: "Screenshot captured",
-                                body: filename,
-                                urgency: "low",
-                                timeout: 3000,
-                                appName: "Marathon Shell",
-                                icon: "camera"
-                            })
+                        // Play camera shutter sound
+                        if (typeof AudioManager !== 'undefined') {
+                            AudioManager.playNotificationSound()
                         }
                         
                         // Haptic feedback
                         if (typeof HapticService !== 'undefined') {
-                            HapticService.light()
+                            HapticService.medium()
+                        }
+                        
+                        // Show notification
+                        if (typeof NotificationService !== 'undefined') {
+                            NotificationService.sendNotification(
+                                "system",
+                                "Screenshot captured",
+                                filename,
+                                {
+                                    icon: "camera",
+                                    category: "system",
+                                    priority: "low"
+                                }
+                            )
                         }
                     } else {
                         console.error("[ScreenshotService] Failed to save screenshot")
