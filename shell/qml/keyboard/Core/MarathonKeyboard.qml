@@ -51,6 +51,14 @@ Rectangle {
         onBackspacePressed: {
             keyboard.updateCurrentWord()
         }
+        
+        // Auto-switch keyboard layout based on input type
+        onRecommendedLayoutChanged: {
+            if (keyboard.active && recommendedLayout !== keyboard.currentLayout) {
+                Logger.info("MarathonKeyboard", "Auto-switching layout from '" + keyboard.currentLayout + "' to '" + recommendedLayout + "'")
+                keyboard.currentLayout = recommendedLayout
+            }
+        }
     }
     
     // Signals
@@ -81,7 +89,15 @@ Rectangle {
     Item {
         id: keyboardLayoutContainer
         width: parent.width
-        implicitHeight: qwertyLayout.visible ? qwertyLayout.implicitHeight : symbolLayout.implicitHeight
+        implicitHeight: {
+            if (qwertyLayout.visible) return qwertyLayout.implicitHeight
+            if (symbolLayout.visible) return symbolLayout.implicitHeight
+            if (emailLayout.visible) return emailLayout.implicitHeight
+            if (urlLayout.visible) return urlLayout.implicitHeight
+            if (numberLayout.visible) return numberLayout.implicitHeight
+            if (phoneLayout.visible) return phoneLayout.implicitHeight
+            return qwertyLayout.implicitHeight  // Default
+        }
         visible: keyboard.active
         
         // QWERTY layout
@@ -92,6 +108,10 @@ Rectangle {
             visible: keyboard.currentLayout === "qwerty"
             shifted: keyboard.shifted
             capsLock: keyboard.capsLock
+            
+            // Word Fling (BB10 feature)
+            currentWord: keyboard.currentWord
+            predictions: keyboard.currentPredictions
             
             onKeyClicked: function(text) {
                 keyboard.handleKeyPress(text)
@@ -120,38 +140,85 @@ Rectangle {
             onDismissClicked: {
                 keyboard.dismissRequested()
             }
+            
+            onWordFlung: function(word) {
+                keyboard.acceptPrediction(word)
+            }
         }
         
         // Symbol layout
         SymbolLayout {
             id: symbolLayout
             anchors.fill: parent
-            anchors.margins: 0  // Edge-to-edge
+            anchors.margins: 0
             visible: keyboard.currentLayout === "symbols"
             
-            onKeyClicked: function(text) {
-                keyboard.handleKeyPress(text)
-            }
+            onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
+            onBackspaceClicked: { keyboard.handleBackspace() }
+            onEnterClicked: { keyboard.handleEnter() }
+            onSpaceClicked: { keyboard.handleSpace() }
+            onLayoutSwitchClicked: function(layout) { keyboard.currentLayout = layout }
+            onDismissClicked: { keyboard.dismissRequested() }
+        }
+        
+        // Email layout
+        EmailLayout {
+            id: emailLayout
+            anchors.fill: parent
+            anchors.margins: 0
+            visible: keyboard.currentLayout === "email"
             
-            onBackspaceClicked: {
-                keyboard.handleBackspace()
-            }
+            onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
+            onBackspaceClicked: { keyboard.handleBackspace() }
+            onEnterClicked: { keyboard.handleEnter() }
+            onSpaceClicked: { keyboard.handleSpace() }
+            onLayoutSwitchClicked: function(layout) { keyboard.currentLayout = layout }
+            onDismissClicked: { keyboard.dismissRequested() }
+        }
+        
+        // URL layout
+        UrlLayout {
+            id: urlLayout
+            anchors.fill: parent
+            anchors.margins: 0
+            visible: keyboard.currentLayout === "url"
             
-            onEnterClicked: {
-                keyboard.handleEnter()
-            }
+            onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
+            onBackspaceClicked: { keyboard.handleBackspace() }
+            onEnterClicked: { keyboard.handleEnter() }
+            onSpaceClicked: { keyboard.handleSpace() }
+            onLayoutSwitchClicked: function(layout) { keyboard.currentLayout = layout }
+            onDismissClicked: { keyboard.dismissRequested() }
+        }
+        
+        // Number layout
+        NumberLayout {
+            id: numberLayout
+            anchors.fill: parent
+            anchors.margins: 0
+            visible: keyboard.currentLayout === "number"
             
-            onSpaceClicked: {
-                keyboard.handleSpace()
-            }
+            onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
+            onBackspaceClicked: { keyboard.handleBackspace() }
+            onEnterClicked: { keyboard.handleEnter() }
+            onSpaceClicked: { keyboard.handleSpace() }
+            onLayoutSwitchClicked: function(layout) { keyboard.currentLayout = layout }
+            onDismissClicked: { keyboard.dismissRequested() }
+        }
+        
+        // Phone layout
+        PhoneLayout {
+            id: phoneLayout
+            anchors.fill: parent
+            anchors.margins: 0
+            visible: keyboard.currentLayout === "phone"
             
-            onLayoutSwitchClicked: function(layout) {
-                keyboard.currentLayout = layout
-            }
-            
-            onDismissClicked: {
-                keyboard.dismissRequested()
-            }
+            onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
+            onBackspaceClicked: { keyboard.handleBackspace() }
+            onEnterClicked: { keyboard.handleEnter() }
+            onSpaceClicked: { keyboard.handleSpace() }
+            onLayoutSwitchClicked: function(layout) { keyboard.currentLayout = layout }
+            onDismissClicked: { keyboard.dismissRequested() }
         }
     }
     
@@ -162,7 +229,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: keyboardLayoutContainer.top
         height: (active && item) ? item.implicitHeight : 0
-        active: keyboard.currentWord.length > 0
+        active: keyboard.currentWord.length > 0 && inputContextInstance.shouldShowPredictions
         visible: active
         z: 100
         
@@ -194,11 +261,15 @@ Rectangle {
         commitTimer.pendingText = text
         commitTimer.restart()
         
-        // 3. Update predictions asynchronously (non-blocking)
-        updatePredictions()
+        // 3. Update predictions asynchronously (non-blocking) - only if context allows
+        if (inputContextInstance.shouldShowPredictions) {
+            updatePredictions()
+        } else {
+            keyboard.currentPredictions = []
+        }
         
-        // Auto-shift logic: shift only applies to next character
-        if (keyboard.shifted && !keyboard.capsLock) {
+        // Auto-shift logic: shift only applies to next character (and only if auto-cap is enabled)
+        if (keyboard.shifted && !keyboard.capsLock && inputContextInstance.shouldAutoCapitalize) {
             keyboard.shifted = false
         }
     }
@@ -212,7 +283,13 @@ Rectangle {
         // Update current word
         if (keyboard.currentWord.length > 0) {
             keyboard.currentWord = keyboard.currentWord.slice(0, -1)
-            updatePredictions()
+            
+            // If word is now empty, clear predictions immediately
+            if (keyboard.currentWord.length === 0) {
+                keyboard.currentPredictions = []
+            } else {
+                updatePredictions()
+            }
         }
         
         keyboard.backspace()
@@ -221,26 +298,29 @@ Rectangle {
     function handleSpace() {
         Logger.info("MarathonKeyboard", "Space pressed")
         
-        // If we have a word, check for auto-correction then learn it
+        // If we have a word, check for auto-correction then learn it (only if context allows)
         if (keyboard.currentWord.length > 0) {
             var originalWord = keyboard.currentWord
-            var correctedWord = AutoCorrect.correct(originalWord)
             
-            if (correctedWord !== originalWord) {
-                // Auto-correct was applied
-                Logger.info("MarathonKeyboard", "Auto-corrected: " + originalWord + " -> " + correctedWord)
-                inputContextInstance.replaceCurrentWord(correctedWord)
-                Dictionary.learnWord(correctedWord)
-            } else {
-                // No correction, just learn the word
-                Dictionary.learnWord(originalWord)
+            if (inputContextInstance.shouldAutoCorrect) {
+                var correctedWord = AutoCorrect.correct(originalWord)
+                
+                if (correctedWord !== originalWord) {
+                    // Auto-correct was applied
+                    Logger.info("MarathonKeyboard", "Auto-corrected: " + originalWord + " -> " + correctedWord)
+                    inputContextInstance.replaceCurrentWord(correctedWord)
+                    Dictionary.learnWord(correctedWord)
+                } else {
+                    // No correction, just learn the word
+                    Dictionary.learnWord(originalWord)
+                }
             }
             
             keyboard.currentWord = ""
         }
         
-        // Auto-capitalize after space (start of new sentence)
-        if (!keyboard.capsLock) {
+        // Auto-capitalize after space (start of new sentence) - only if context allows
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize) {
             keyboard.shifted = true
         }
         
@@ -257,8 +337,8 @@ Rectangle {
             keyboard.currentWord = ""
         }
         
-        // Auto-capitalize after newline
-        if (!keyboard.capsLock) {
+        // Auto-capitalize after newline - only if context allows
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize) {
             keyboard.shifted = true
         }
         
@@ -282,14 +362,27 @@ Rectangle {
     function acceptPrediction(word) {
         Logger.info("MarathonKeyboard", "Prediction accepted: " + word)
         
-        // Use InputContext to replace current word
-        inputContextInstance.replaceCurrentWord(word)
+        // Delete the current word (send backspace for each character)
+        var charsToDelete = keyboard.currentWord.length
+        for (var i = 0; i < charsToDelete; i++) {
+            inputContextInstance.handleBackspace()
+        }
+        
+        // Insert the predicted word
+        inputContextInstance.insertText(word)
+        keyboard.keyPressed(word)
         
         // Learn the word
         Dictionary.learnWord(word)
         
-        // Clear current word
+        // Clear current word and predictions
         keyboard.currentWord = ""
+        keyboard.currentPredictions = []
+        
+        // Auto-capitalize after word completion (if context allows)
+        if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize) {
+            keyboard.shifted = true
+        }
     }
     
     function updatePredictions() {
@@ -302,16 +395,25 @@ Rectangle {
     }
     
     function updateCurrentWord() {
-        // Get current word from InputContext
-        keyboard.currentWord = inputContextInstance.getCurrentWord()
+        // Note: currentWord is tracked internally in handleKeyPress/handleBackspace
+        // This function is called when external input events occur (e.g. from InputContext)
+        // We just update predictions based on the internally-tracked currentWord
         updatePredictions()
     }
     
     function show() {
         keyboard.active = true
-        // Auto-capitalize at start
-        keyboard.shifted = true
-        Logger.info("MarathonKeyboard", "Keyboard shown")
+        
+        // Detect input mode FIRST before setting shift state
+        inputContextInstance.detectInputMode()
+        
+        // Auto-capitalize at start - only if context allows (e.g. not for URLs/emails)
+        if (inputContextInstance.shouldAutoCapitalize) {
+            keyboard.shifted = true
+        } else {
+            keyboard.shifted = false  // Ensure lowercase for URL/email fields
+        }
+        Logger.info("MarathonKeyboard", "Keyboard shown (shifted: " + keyboard.shifted + ", input mode: " + inputContextInstance.inputMode + ")")
     }
     
     function hide() {

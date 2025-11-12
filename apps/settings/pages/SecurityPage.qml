@@ -229,6 +229,7 @@ SettingsPageTemplate {
                     font.family: MTypography.fontFamily
                     color: MColors.textPrimary
                     echoMode: TextInput.Password
+                    inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                     
                     Text {
                         text: "System password (required)"

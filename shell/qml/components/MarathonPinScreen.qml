@@ -433,6 +433,7 @@ Item {
                         selectionColor: MColors.marathonTeal
                         font.pixelSize: Math.round(18 * Constants.scaleFactor)
                         font.family: MTypography.fontFamily
+                        inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                         echoMode: TextInput.Password
                         
                         onAccepted: verifyPasswordInput()

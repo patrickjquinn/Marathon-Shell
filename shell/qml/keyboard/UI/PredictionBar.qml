@@ -41,14 +41,14 @@ Rectangle {
                 antialiasing: Constants.enableAntialiasing
                 
                 Behavior on color {
-                    ColorAnimation { duration: MMotion.quick; easing.type: Easing.OutCubic }
+                    ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
                 }
                 
                 Behavior on scale {
                     SpringAnimation { 
-                        spring: MMotion.springMedium
-                        damping: MMotion.dampingMedium
-                        epsilon: MMotion.epsilon
+                        spring: 3.0
+                        damping: 0.2
+                        epsilon: 0.01
                     }
                 }
                 

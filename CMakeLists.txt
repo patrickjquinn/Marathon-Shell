@@ -90,6 +90,19 @@ else()
     set(HAVE_WEBENGINE FALSE)
 endif()
 
+# Hunspell for spell-checking and word predictions
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+    pkg_check_modules(HUNSPELL QUIET hunspell)
+endif()
+if(HUNSPELL_FOUND)
+    message(STATUS "Hunspell found - enabling spell-checking")
+    set(HAVE_HUNSPELL TRUE)
+else()
+    message(STATUS "Hunspell not found - spell-checking disabled (keyboard will use basic dictionary)")
+    set(HAVE_HUNSPELL FALSE)
+endif()
+
 # WaylandCompositor is only available on Linux, skip on macOS
 if(APPLE)
     message(STATUS "Skipping WaylandCompositor search on macOS (not supported)")

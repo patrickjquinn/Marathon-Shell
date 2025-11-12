@@ -18,6 +18,10 @@ Rectangle {
     property string iconName: ""       // Lucide icon for special keys
     property int keyCode: Qt.Key_unknown
     
+    // Word Fling (BB10 feature) - prediction shown above key
+    property string predictedWord: ""  // Word to insert if user swipes up
+    property bool showPrediction: predictedWord !== "" && !isSpecial
+    
     // State
     property bool pressed: false
     property bool highlighted: false
@@ -32,6 +36,7 @@ Rectangle {
     signal pressAndHold()
     signal released()
     signal alternateSelected(string character)
+    signal wordFlung(string word)  // BB10 Word Fling gesture detected
     
     // Styling - BlackBerry style: BLACK keys, dark grey special keys
     width: Math.round(60 * Constants.scaleFactor)
@@ -145,6 +150,78 @@ Rectangle {
             anchors.top: parent.top
             anchors.margins: Math.round(2 * Constants.scaleFactor)
             opacity: 0.6
+        }
+    }
+    
+    // Word Fling Prediction Overlay (BB10 style)
+    // Shows the predicted word above the key that would complete it
+    Rectangle {
+        id: predictionOverlay
+        visible: key.showPrediction && !key.pressed && !key.showingAlternates
+        width: Math.max(predictionText.width + Math.round(16 * Constants.scaleFactor), Math.round(60 * Constants.scaleFactor))
+        height: Math.round(32 * Constants.scaleFactor)
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.top
+        anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
+        z: 999
+        
+        radius: Math.round(16 * Constants.scaleFactor)  // Pill shape
+        color: MColors.accent
+        border.width: 0
+        antialiasing: true
+        opacity: 0.75  // Semi-transparent
+        
+        // Shadow effect
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: MColors.marathonTealHoverGradient
+            shadowBlur: 0.6
+            shadowOpacity: 0.8
+        }
+        
+        // Prediction text
+        Text {
+            id: predictionText
+            text: key.predictedWord
+            color: MColors.bb10Black  // Dark text on bright teal
+            font.pixelSize: Math.round(16 * Constants.scaleFactor)
+            font.weight: Font.DemiBold
+            anchors.centerIn: parent
+        }
+        
+        // Smooth fade in/out
+        Behavior on opacity {
+            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+        }
+    }
+    
+    // DragHandler for Word Fling gesture
+    DragHandler {
+        id: dragHandler
+        enabled: key.showPrediction
+        target: null  // Don't actually move anything
+        
+        property real startY: 0
+        property bool flungThisGesture: false
+        
+        onActiveChanged: {
+            if (active) {
+                startY = centroid.pressPosition.y
+                flungThisGesture = false
+            } else {
+                // Gesture ended - check if it was an upward fling
+                var deltaY = centroid.position.y - startY
+                
+                if (!flungThisGesture && deltaY < -20 && key.predictedWord !== "") {
+                    // Swipe up detected (at least 20px upward)
+                    flungThisGesture = true
+                    if (key.keyboard) {
+                        key.keyboard.hapticRequested()
+                    }
+                    key.wordFlung(key.predictedWord)
+                }
+            }
         }
     }
     

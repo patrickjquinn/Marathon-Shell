@@ -794,6 +794,7 @@ MApp {
                             selectedTextColor: MColors.background
                             selectionColor: MColors.accent
                             clip: true
+                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
                             text: {
                                 var currentTab = getCurrentTab()
                                 return currentTab ? currentTab.url : ""

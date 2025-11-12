@@ -217,6 +217,7 @@ Item {
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         echoMode: showPasswordToggle.checked ? TextInput.Normal : TextInput.Password
+                        inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                         enabled: !isConnecting
                         selectByMouse: true
                         clip: true

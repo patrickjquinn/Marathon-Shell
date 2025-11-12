@@ -302,6 +302,7 @@ MApp {
                         font.pixelSize: MTypography.sizeBody
                         selectByMouse: true
                         verticalAlignment: TextInput.AlignVCenter
+                        inputMethodHints: Qt.ImhNoPredictiveText
                         
                         onAccepted: {
                             if (text.trim() !== "") {

@@ -12,6 +12,10 @@ Item {
     property bool shifted: false
     property bool capsLock: false
     
+    // Word Fling predictions (from MarathonKeyboard)
+    property string currentWord: ""
+    property var predictions: []  // Array of prediction strings
+    
     // Expose Column's implicit height
     implicitHeight: layoutColumn.implicitHeight
     
@@ -23,6 +27,27 @@ Item {
     signal spaceClicked()
     signal layoutSwitchClicked(string layout)
     signal dismissClicked()
+    signal wordFlung(string word)  // Forward Word Fling from keys
+    
+    // Helper: Get prediction for a specific key character
+    function getPredictionForKey(keyChar) {
+        if (!currentWord || predictions.length === 0) {
+            return ""
+        }
+        
+        // Find predictions where the next character is keyChar
+        for (var i = 0; i < predictions.length; i++) {
+            var pred = predictions[i]
+            if (pred.length > currentWord.length) {
+                var nextChar = pred.charAt(currentWord.length)
+                if (nextChar.toLowerCase() === keyChar.toLowerCase()) {
+                    return pred
+                }
+            }
+        }
+        
+        return ""
+    }
     
     // Key definitions with alternates
     readonly property var row1Keys: [
@@ -77,6 +102,7 @@ Item {
                     text: modelData.char
                     displayText: layout.shifted || layout.capsLock ? modelData.char.toUpperCase() : modelData.char
                     alternateChars: modelData.alts
+                    predictedWord: layout.getPredictionForKey(modelData.char)
                     
                     onClicked: {
                         layout.keyClicked(displayText)
@@ -84,6 +110,10 @@ Item {
                     
                     onAlternateSelected: function(character) {
                         layout.keyClicked(character)
+                    }
+                    
+                    onWordFlung: function(word) {
+                        layout.wordFlung(word)
                     }
                 }
             }
@@ -111,6 +141,7 @@ Item {
                     text: modelData.char
                     displayText: layout.shifted || layout.capsLock ? modelData.char.toUpperCase() : modelData.char
                     alternateChars: modelData.alts
+                    predictedWord: layout.getPredictionForKey(modelData.char)
                     
                     onClicked: {
                         layout.keyClicked(displayText)
@@ -118,6 +149,10 @@ Item {
                     
                     onAlternateSelected: function(character) {
                         layout.keyClicked(character)
+                    }
+                    
+                    onWordFlung: function(word) {
+                        layout.wordFlung(word)
                     }
                 }
             }
