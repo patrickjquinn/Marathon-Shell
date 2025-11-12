@@ -1,0 +1,3 @@
+module MarathonKeyboard.Core
+MarathonKeyboard 1.0 MarathonKeyboard.qml
+KeyboardPerformance 1.0 KeyboardPerformance.qml

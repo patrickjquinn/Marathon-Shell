@@ -50,6 +50,7 @@
 #include "src/hapticmanager.h"
 #include "src/audioroutingmanager.h"
 #include "src/securitymanager.h"
+#include "src/platformcpp.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
@@ -357,6 +358,10 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
     engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+    
+    // Platform utilities (hardware detection, etc.)
+    PlatformCpp *platformCpp = new PlatformCpp(&app);
+    engine.rootContext()->setContextProperty("PlatformCpp", platformCpp);
     qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
     
     // Register RT Scheduler for thread priority management
@@ -586,7 +591,8 @@ int main(int argc, char *argv[])
     engine.addImportPath(buildPath);
     qDebug() << "Added QML import path:" << buildPath;
     
-    const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
+    // Qt 6.5+ uses ':/qt/qml/' as the default resource prefix for QML modules
+    const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
         &app, [url](QObject *obj, const QUrl &objUrl) {

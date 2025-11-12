@@ -2,12 +2,14 @@
 // Optimized for zero-latency input
 import QtQuick
 import QtQuick.Effects
-import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
+import MarathonUI.Core 2.0
 
 Rectangle {
     id: key
+    
+    // Reference to parent keyboard for theme access
+    property var keyboard: null
+    property real scaleFactor: keyboard ? keyboard.scaleFactor : 1.0
     
     // Key properties
     property string text: ""
@@ -34,25 +36,25 @@ Rectangle {
     signal alternateSelected(string character)
     
     // Styling - BlackBerry style: BLACK keys, dark grey special keys
-    width: Math.round(60 * Constants.scaleFactor)
-    height: Math.round(45 * Constants.scaleFactor)
-    radius: Constants.borderRadiusSharp
+    width: Math.round(60 * scaleFactor)
+    height: Math.round(45 * scaleFactor)
+    radius: keyboard ? keyboard.borderRadius : 4
     color: {
-        if (pressed) return MColors.accentBright
+        if (pressed) return keyboard ? keyboard.keyPressedColor : "#007ACC"
         if (isSpecial) return "#1a1a1a"  // Dark grey for special keys
-        return "#000000"  // Pure black for letter keys
+        return keyboard ? keyboard.keyBackgroundColor : "#000000"  // Key background
     }
     
     // Physical button styling - DARK borders, partial (bottom/right only)
     border.width: 0  // No full border
-    antialiasing: Constants.enableAntialiasing
+    antialiasing: true
     
     // Bottom border (darker, creates depth)
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: Math.round(2 * Constants.scaleFactor)
+        height: Math.round(2 * scaleFactor)
         color: "#0a0a0a"  // Very dark, almost black
         radius: 0
     }
@@ -62,7 +64,7 @@ Rectangle {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        width: Math.round(2 * Constants.scaleFactor)
+        width: Math.round(2 * scaleFactor)
         color: "#0a0a0a"  // Very dark, almost black
         radius: 0
     }
@@ -82,40 +84,51 @@ Rectangle {
         }
     }
     
-    // PERFORMANCE: Use NumberAnimation instead of SpringAnimation for scale
-    // SpringAnimation is expensive - only use for special effects
+    // PERFORMANCE: Use NumberAnimation for scale and translate
     Behavior on scale {
         NumberAnimation {
-            duration: 50
-            easing.type: Easing.OutCubic
+            duration: 80
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.2
         }
     }
     
-    scale: pressed ? 0.95 : 1.0
+    Behavior on y {
+        NumberAnimation {
+            duration: 80
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.2
+        }
+    }
+    
+    // Pop over effect when pressed: scale up slightly and lift
+    scale: pressed ? 1.05 : 1.0
+    y: pressed ? -Math.round(3 * scaleFactor) : 0
+    z: pressed ? 100 : 1
     
     // Inner border for physical button depth (shine effect)
     Rectangle {
         anchors.fill: parent
-        anchors.margins: Math.round(2 * Constants.scaleFactor)
+        anchors.margins: Math.round(2 * scaleFactor)
         radius: parent.radius > 0 ? parent.radius - 2 : 0
         color: "transparent"
-        border.width: Math.round(1 * Constants.scaleFactor)
-        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555"  // Lighter grey for depth
+        border.width: Math.round(1 * scaleFactor)
+        border.color: key.pressed ? (keyboard ? keyboard.keyPressedColor : "#007ACC") : "#555555"  // Lighter grey for depth
         antialiasing: parent.antialiasing
     }
     
     // Content: Either icon or text
     Item {
         anchors.centerIn: parent
-        width: parent.width - Math.round(12 * Constants.scaleFactor)
-        height: parent.height - Math.round(8 * Constants.scaleFactor)
+        width: parent.width - Math.round(12 * scaleFactor)
+        height: parent.height - Math.round(8 * scaleFactor)
         
         // Icon for special keys
         Icon {
             visible: key.iconName !== ""
             name: key.iconName
-            size: Math.round(20 * Constants.scaleFactor)
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style
+            size: Math.round(20 * scaleFactor)
+            color: keyboard ? keyboard.textColor : "#FFFFFF"
             anchors.centerIn: parent
             opacity: key.pressed ? 1.0 : 0.9
         }
@@ -124,10 +137,10 @@ Rectangle {
         Text {
             visible: key.iconName === ""
             text: key.displayText
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style
+            color: keyboard ? keyboard.textColor : "#FFFFFF"
             font.pixelSize: key.isSpecial ? 
-                Math.round(14 * Constants.scaleFactor) : 
-                Math.round(18 * Constants.scaleFactor)
+                Math.round(14 * scaleFactor) : 
+                Math.round(18 * scaleFactor)
             font.weight: key.isSpecial ? Font.Medium : Font.Normal
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
@@ -139,11 +152,11 @@ Rectangle {
         Text {
             visible: key.alternateText !== "" && !key.pressed
             text: key.alternateText
-            color: MColors.textSecondary
-            font.pixelSize: Math.round(10 * Constants.scaleFactor)
+            color: keyboard ? keyboard.textSecondaryColor : "#A0A0A0"
+            font.pixelSize: Math.round(10 * scaleFactor)
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: Math.round(2 * Constants.scaleFactor)
+            anchors.margins: Math.round(2 * scaleFactor)
             opacity: 0.6
         }
     }
@@ -152,26 +165,26 @@ Rectangle {
     Rectangle {
         id: preview
         visible: key.pressed && !key.isSpecial && !key.showingAlternates
-        width: Math.round(70 * Constants.scaleFactor)
-        height: Math.round(80 * Constants.scaleFactor)
+        width: Math.round(70 * scaleFactor)
+        height: Math.round(80 * scaleFactor)
         x: (parent.width - width) / 2
-        y: -height - Math.round(10 * Constants.scaleFactor)
+        y: -height - Math.round(10 * scaleFactor)
         z: 1000
         
-        radius: Constants.borderRadiusMedium
-        color: MColors.elevated
-        border.width: Constants.borderWidthMedium
-        border.color: MColors.border
+        radius: keyboard ? keyboard.borderRadius : 4
+        color: keyboard ? keyboard.keyBackgroundColor : "#2D2D30"
+        border.width: Math.round(1 * scaleFactor)
+        border.color: keyboard ? keyboard.borderColor : "#3E3E42"
         antialiasing: true
         
-        // Inner border
+        // Inner border - Marathon teal highlight
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
             radius: parent.radius - 1
             color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MColors.highlightMedium
+            border.width: Math.round(1 * scaleFactor)
+            border.color: keyboard ? keyboard.keyPressedColor : "#00D4AA"  // Marathon teal
             antialiasing: true
         }
         
@@ -187,8 +200,8 @@ Rectangle {
         // Preview text (larger)
         Text {
             text: key.displayText
-            color: MColors.textPrimary
-            font.pixelSize: Math.round(32 * Constants.scaleFactor)
+            color: keyboard ? keyboard.textColor : "#FFFFFF"
+            font.pixelSize: Math.round(32 * scaleFactor)
             font.weight: Font.Normal
             anchors.centerIn: parent
         }
@@ -201,9 +214,9 @@ Rectangle {
         z: 2000
         
         // Dynamic positioning based on key location
-        property real popupWidth: Math.round((60 * key.alternateChars.length + 4 * (key.alternateChars.length - 1)) * Constants.scaleFactor)
+        property real popupWidth: Math.round((60 * key.alternateChars.length + 4 * (key.alternateChars.length - 1)) * scaleFactor)
         property real keyGlobalX: key.mapToItem(null, 0, 0).x
-        property real screenWidth: Constants.screenWidth
+        property real screenWidth: keyboard ? keyboard.width : 540
         
         // Center by default, but shift if too close to edge
         x: {
@@ -224,15 +237,15 @@ Rectangle {
         }
         
         anchors.bottom: parent.top
-        anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
+        anchors.bottomMargin: Math.round(8 * scaleFactor)
         
         sourceComponent: Rectangle {
             width: alternatePopup.popupWidth
-            height: Math.round(50 * Constants.scaleFactor)
-            radius: Constants.borderRadiusMedium
-            color: MColors.elevated
-            border.width: Constants.borderWidthMedium
-            border.color: MColors.accentBright
+            height: Math.round(50 * scaleFactor)
+            radius: keyboard ? keyboard.borderRadius : 4
+            color: keyboard ? keyboard.keyBackgroundColor : "#2D2D30"
+            border.width: Math.round(2 * scaleFactor)
+            border.color: keyboard ? keyboard.keyPressedColor : "#00D4AA"  // Marathon teal
             antialiasing: true
             
             layer.enabled: true
@@ -245,29 +258,29 @@ Rectangle {
             
             Row {
                 anchors.centerIn: parent
-                spacing: Math.round(4 * Constants.scaleFactor)
+                spacing: Math.round(4 * scaleFactor)
                 
                 Repeater {
                     model: key.alternateChars
                     
                     Rectangle {
-                        width: Math.round(50 * Constants.scaleFactor)
-                        height: Math.round(40 * Constants.scaleFactor)
-                        radius: Constants.borderRadiusSmall
-                        color: altMouseArea.pressed ? MColors.accentBright : "transparent"
+                        width: Math.round(50 * scaleFactor)
+                        height: Math.round(40 * scaleFactor)
+                        radius: Math.round(3 * scaleFactor)
+                        color: altMouseArea.pressed ? (keyboard ? keyboard.keyPressedColor : "#00D4AA") : "transparent"
                         
                         Text {
                             anchors.centerIn: parent
                             text: modelData
-                            color: MColors.textPrimary
-                            font.pixelSize: Math.round(20 * Constants.scaleFactor)
+                            color: keyboard ? keyboard.textColor : "#FFFFFF"
+                            font.pixelSize: Math.round(20 * scaleFactor)
                         }
                         
                         MouseArea {
                             id: altMouseArea
                             anchors.fill: parent
                             onClicked: {
-                                HapticService.light()
+                                if (keyboard) keyboard.hapticRequested("light")
                                 key.alternateSelected(modelData)
                                 key.showingAlternates = false
                             }
@@ -290,7 +303,7 @@ Rectangle {
         onPressed: function(mouse) {
             key.pressed = true  // INSTANT visual change
             longPressTriggered = false
-            HapticService.light()
+            if (keyboard) keyboard.hapticRequested("light")
             
             // Start long-press timer if alternates exist
             if (key.alternateChars.length > 0) {
@@ -331,7 +344,7 @@ Rectangle {
         repeat: false
         onTriggered: {
             if (key.alternateChars.length > 0) {
-                HapticService.medium()
+                if (keyboard) keyboard.hapticRequested("medium")
                 key.showingAlternates = true
                 mouseArea.longPressTriggered = true
                 key.pressAndHold()

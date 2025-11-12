@@ -1,10 +1,11 @@
 # QMLLint.cmake - Build-time QML validation
 # This module integrates qmllint into the CMake build process to catch QML errors before runtime
 
-# Find qmllint executable
+# Find qmllint executable (Fedora uses qmllint-qt6 or /usr/lib64/qt6/bin/qmllint)
 find_program(QMLLINT_EXECUTABLE
-    NAMES qmllint
+    NAMES qmllint-qt6 qmllint
     PATHS
+        /usr/lib64/qt6/bin
         ${Qt6_DIR}/../../../bin
         ${Qt6_DIR}/../../../libexec/qt6/bin
         /opt/homebrew/opt/qt@6/bin

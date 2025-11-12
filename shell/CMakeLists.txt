@@ -22,6 +22,7 @@ set(SOURCES
     src/sensormanagercpp.cpp
     src/settingsmanager.h
     src/settingsmanager.cpp
+    src/platformcpp.h
     src/storagemanager.h
     src/storagemanager.cpp
     src/bluetoothmanager.h
@@ -144,19 +145,14 @@ set(QML_FILES
     qml/components/IncomingCallOverlay.qml
     qml/components/VirtualKeyboard.qml
     qml/components/PermissionDialog.qml
-        qml/keyboard/Core/qmldir
-        qml/keyboard/Core/MarathonKeyboard.qml
-        qml/keyboard/Core/KeyboardPerformance.qml
-    qml/keyboard/UI/qmldir
+    qml/keyboard/Core/MarathonKeyboard.qml
+    qml/keyboard/Core/KeyboardPerformance.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
     qml/keyboard/UI/LongPressPopup.qml
-    qml/keyboard/Layouts/qmldir
     qml/keyboard/Layouts/QwertyLayout.qml
     qml/keyboard/Layouts/SymbolLayout.qml
-    qml/keyboard/Input/qmldir
     qml/keyboard/Input/InputContext.qml
-    qml/keyboard/Data/qmldir
     qml/keyboard/Data/Dictionary.qml
     qml/keyboard/Data/AutoCorrect.qml
     qml/components/PowerMenu.qml
@@ -277,12 +273,26 @@ endif()
 # Include QML linting module
 include(${CMAKE_SOURCE_DIR}/cmake/QMLLint.cmake)
 
+# Set Qt QML policies for Qt 6.5+ compatibility
+# QTP0001: Use ':/qt/qml/' as the default resource prefix (required for proper QML module loading)
+# QTP0004: Require qmldir files for each directory containing QML files (improves module structure)
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+endif()
+
+# Qt6 QML module configuration
 qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
     RESOURCES
         resources.qrc
+        qml/keyboard/Core/qmldir
+        qml/keyboard/UI/qmldir
+        qml/keyboard/Layouts/qmldir
+        qml/keyboard/Input/qmldir
+        qml/keyboard/Data/qmldir
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 
@@ -316,11 +326,6 @@ target_link_libraries(marathon-shell PRIVATE
 )
 
 # Link additional conditional dependencies
-
-if(TARGET Qt6::VirtualKeyboard)
-    target_link_libraries(marathon-shell PRIVATE Qt6::VirtualKeyboard)
-    target_compile_definitions(marathon-shell PRIVATE HAVE_VIRTUALKEYBOARD)
-endif()
 
 if(TARGET Qt6::WaylandCompositor)
     target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositor)
