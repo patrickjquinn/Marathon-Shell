@@ -10,6 +10,9 @@ QtObject {
     property real minVolume: 0.0
     property real maxVolume: 1.0
     
+    // Audio device detection
+    property var audioDevices: MediaDevices
+    
     property bool muted: false
     property bool vibrationEnabled: true
     property bool dndEnabled: false
@@ -51,17 +54,17 @@ QtObject {
     signal headphonesStateChanged(bool connected)
     
     function setRingtone(path) {
-        currentRingtone = path
+        // Only set C++ property - binding will update currentRingtone automatically
         SettingsManagerCpp.ringtone = path
     }
     
     function setNotificationSound(path) {
-        currentNotificationSound = path
+        // Only set C++ property - binding will update currentNotificationSound automatically
         SettingsManagerCpp.notificationSound = path
     }
     
     function setAlarmSound(path) {
-        currentAlarmSound = path
+        // Only set C++ property - binding will update currentAlarmSound automatically
         SettingsManagerCpp.alarmSound = path
     }
     
@@ -184,14 +187,29 @@ QtObject {
         }
         
         Logger.info("AudioManager", "Playing ringtone: " + currentRingtone)
-        ringtonePlayer.source = currentRingtone
-        // Volume is bound in the MediaPlayer declaration below
-        ringtonePlayer.loops = MediaPlayer.Infinite
-        ringtonePlayer.play()
+        
+        // Check if media is already loaded and ready
+        if (ringtonePlayer.mediaStatus === MediaPlayer.LoadedMedia && 
+            ringtonePlayer.source.toString() === currentRingtone.toString()) {
+            // Already loaded, play immediately
+            ringtonePlayer.loops = MediaPlayer.Infinite
+            ringtonePlayer.play()
+        } else if (ringtonePlayer.source.toString() !== currentRingtone.toString()) {
+            // Source changed - reload
+            ringtonePlayer.stop()
+            ringtonePlayer.source = currentRingtone
+            ringtonePlayPending = true
+        } else {
+            // Source is set but not loaded yet - wait
+            ringtonePlayPending = true
+        }
     }
+    
+    property bool ringtonePlayPending: false
     
     function stopRingtone() {
         Logger.info("AudioManager", "Stopping ringtone")
+        ringtonePlayPending = false
         ringtonePlayer.stop()
     }
     
@@ -201,26 +219,106 @@ QtObject {
             return
         }
         
-        Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound + ", volume: " + notificationVolume)
-        console.log("[AudioManager] Notification player state before play:", notificationPlayer.playbackState)
-        notificationPlayer.source = currentNotificationSound
-        // Don't override volume here - it's already bound in the AudioOutput definition
-        console.log("[AudioManager] Calling play()...")
-        notificationPlayer.play()
-        console.log("[AudioManager] Play() called, state:", notificationPlayer.playbackState)
+        Logger.info("AudioManager", "Playing notification sound: " + currentNotificationSound)
+        console.log("[AudioManager] Current player source:", notificationPlayer.source)
+        console.log("[AudioManager] Current setting:", currentNotificationSound)
+        console.log("[AudioManager] Sources match:", notificationPlayer.source.toString() === currentNotificationSound.toString())
+        console.log("[AudioManager] Current player state:", notificationPlayer.playbackState)
+        console.log("[AudioManager] Current player media status:", notificationPlayer.mediaStatus)
+        
+        // Check if media is already loaded and ready
+        if (notificationPlayer.mediaStatus === MediaPlayer.LoadedMedia && 
+            notificationPlayer.source.toString() === currentNotificationSound.toString()) {
+            // Already loaded, play immediately
+            console.log("[AudioManager] Media already loaded - playing now")
+            notificationPlayer.play()
+            console.log("[AudioManager] play() called - state:", notificationPlayer.playbackState)
+        } else if (notificationPlayer.source.toString() !== currentNotificationSound.toString()) {
+            // Source changed - reload
+            console.log("[AudioManager] Source changed - reloading")
+            notificationPlayer.stop()
+            notificationPlayer.source = currentNotificationSound
+            notificationPlayPending = true
+        } else {
+            // Source is set but not loaded yet - wait
+            console.log("[AudioManager] Waiting for media to load...")
+            notificationPlayPending = true
+        }
     }
+    
+    property bool notificationPlayPending: false
     
     function playAlarmSound() {
         Logger.info("AudioManager", "Playing alarm sound: " + currentAlarmSound)
-        alarmPlayer.source = currentAlarmSound
-        alarmPlayer.audioOutput.volume = alarmVolume
-        alarmPlayer.loops = Audio.Infinite
-        alarmPlayer.play()
+        
+        // Check if media is already loaded and ready
+        if (alarmPlayer.mediaStatus === MediaPlayer.LoadedMedia && 
+            alarmPlayer.source.toString() === currentAlarmSound.toString()) {
+            // Already loaded, play immediately
+            alarmPlayer.loops = MediaPlayer.Infinite
+            alarmPlayer.play()
+        } else if (alarmPlayer.source.toString() !== currentAlarmSound.toString()) {
+            // Source changed - reload
+            alarmPlayer.stop()
+            alarmPlayer.source = currentAlarmSound
+            alarmPlayPending = true
+        } else {
+            // Source is set but not loaded yet - wait
+            alarmPlayPending = true
+        }
     }
+    
+    property bool alarmPlayPending: false
     
     function stopAlarmSound() {
         Logger.info("AudioManager", "Stopping alarm sound")
+        alarmPlayPending = false
         alarmPlayer.stop()
+    }
+    
+    // Dedicated preview player - separate from main audio system to avoid conflicts
+    property var previewPlayer: MediaPlayer {
+        id: previewAudio
+        audioOutput: AudioOutput {
+            volume: 0.7  // Fixed preview volume
+            muted: false
+        }
+        loops: MediaPlayer.Once
+        
+        onErrorOccurred: (error, errorString) => {
+            console.error("[AudioManager] Preview player error:", error, errorString)
+        }
+    }
+    
+    // Preview functions for settings app - use dedicated preview player
+    function previewRingtone(soundPath) {
+        Logger.info("AudioManager", "Previewing ringtone: " + soundPath)
+        previewPlayer.stop()
+        previewPlayer.source = soundPath
+        // Use Qt.callLater to ensure source is set before playing
+        Qt.callLater(function() {
+            previewPlayer.play()
+        })
+    }
+    
+    function previewNotificationSound(soundPath) {
+        Logger.info("AudioManager", "Previewing notification: " + soundPath)
+        previewPlayer.stop()
+        previewPlayer.source = soundPath
+        // Use Qt.callLater to ensure source is set before playing
+        Qt.callLater(function() {
+            previewPlayer.play()
+        })
+    }
+    
+    function previewAlarmSound(soundPath) {
+        Logger.info("AudioManager", "Previewing alarm: " + soundPath)
+        previewPlayer.stop()
+        previewPlayer.source = soundPath
+        // Use Qt.callLater to ensure source is set before playing
+        Qt.callLater(function() {
+            previewPlayer.play()
+        })
     }
     
     function vibrate(pattern) {
@@ -233,33 +331,100 @@ QtObject {
     property var ringtonePlayer: MediaPlayer {
         id: ringtoneAudio
         audioOutput: AudioOutput {
+            // Don't set device - let GStreamer auto-detect via pulsesink
             volume: audioManager.ringtoneVolume
+            
+            Component.onCompleted: {
+                console.log("[AudioManager] Ringtone AudioOutput - letting GStreamer auto-detect device")
+            }
         }
         loops: MediaPlayer.Infinite
+        
+        onMediaStatusChanged: {
+            console.log("[AudioManager] Ringtone media status:", mediaStatus)
+            if (mediaStatus === MediaPlayer.LoadedMedia && audioManager.ringtonePlayPending) {
+                audioManager.ringtonePlayPending = false
+                loops = MediaPlayer.Infinite
+                play()
+            }
+        }
+        
+        onErrorOccurred: (error, errorString) => {
+            console.error("[AudioManager] Ringtone player error:", error, errorString)
+            audioManager.ringtonePlayPending = false
+        }
     }
 
     property var notificationPlayer: MediaPlayer {
         id: notificationAudio
         audioOutput: AudioOutput {
+            id: notifAudioOutput
+            // Don't set device - let GStreamer auto-detect via pulsesink
             volume: audioManager.notificationVolume
+            muted: false
+            
+            Component.onCompleted: {
+                console.log("[AudioManager] Notification AudioOutput - letting GStreamer auto-detect device")
+                console.log("[AudioManager] Notification AudioOutput volume:", volume)
+                console.log("[AudioManager] Notification AudioOutput muted:", muted)
+            }
+            
+            onVolumeChanged: {
+                console.log("[AudioManager] Notification AudioOutput volume changed to:", volume)
+            }
+            
+            onMutedChanged: {
+                console.log("[AudioManager] Notification AudioOutput muted changed to:", muted)
+            }
         }
         loops: MediaPlayer.Once
         
+        onMediaStatusChanged: {
+            console.log("[AudioManager] Notification media status:", mediaStatus)
+            if (mediaStatus === MediaPlayer.LoadedMedia && audioManager.notificationPlayPending) {
+                audioManager.notificationPlayPending = false
+                play()
+            }
+        }
+        
         onErrorOccurred: (error, errorString) => {
             console.error("[AudioManager] Notification player error:", error, errorString)
+            audioManager.notificationPlayPending = false
         }
         
         onPlaybackStateChanged: {
             console.log("[AudioManager] Notification playback state:", playbackState, "- source:", source)
+            if (playbackState === MediaPlayer.PlayingState) {
+                console.log("[AudioManager] PLAYING - AudioOutput volume:", audioOutput.volume, "muted:", audioOutput.muted)
+            }
         }
     }
 
     property var alarmPlayer: MediaPlayer {
         id: alarmAudio
         audioOutput: AudioOutput {
+            // Don't set device - let GStreamer auto-detect via pulsesink
             volume: audioManager.alarmVolume
+            
+            Component.onCompleted: {
+                console.log("[AudioManager] Alarm AudioOutput - letting GStreamer auto-detect device")
+            }
         }
         loops: MediaPlayer.Infinite
+        
+        onMediaStatusChanged: {
+            console.log("[AudioManager] Alarm media status:", mediaStatus)
+            if (mediaStatus === MediaPlayer.LoadedMedia && audioManager.alarmPlayPending) {
+                audioManager.alarmPlayPending = false
+                loops = MediaPlayer.Infinite
+                play()
+            }
+        }
+        
+        onErrorOccurred: (error, errorString) => {
+            console.error("[AudioManager] Alarm player error:", error, errorString)
+            audioManager.alarmPlayPending = false
+        }
     }
     
     function _platformSetVolume(value) {
@@ -324,6 +489,33 @@ QtObject {
         console.log("[AudioManager] Initialized")
         console.log("[AudioManager] PulseAudio available:", Platform.hasPulseAudio)
         console.log("[AudioManager] Current profile:", audioProfile)
+        
+        // Log available audio devices (Qt MediaDevices API may not work with all backends)
+        var outputs = audioDevices.audioOutputs
+        if (outputs && outputs.length !== undefined) {
+            console.log("[AudioManager] Available audio outputs:", outputs.length)
+            for (var i = 0; i < outputs.length; i++) {
+                console.log("[AudioManager]  - Device", i + ":", outputs[i].description, 
+                           "(id:", outputs[i].id + ")")
+            }
+        } else {
+            console.log("[AudioManager] Qt MediaDevices API unavailable - using GStreamer auto-detection")
+        }
+        
+        var defaultOutput = audioDevices.defaultAudioOutput
+        if (defaultOutput) {
+            console.log("[AudioManager] Default audio output:", defaultOutput.description,
+                       "(id:", defaultOutput.id + ")")
+        } else {
+            console.log("[AudioManager] No Qt default audio output - GStreamer will auto-select device")
+        }
+        
+        // Preload media sources to avoid blocking on first play
+        console.log("[AudioManager] Preloading media sources...")
+        ringtonePlayer.source = currentRingtone
+        notificationPlayer.source = currentNotificationSound
+        alarmPlayer.source = currentAlarmSound
+        previewPlayer.source = ""  // Start empty
     }
 }
 

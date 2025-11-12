@@ -375,22 +375,23 @@ void SettingsManager::setQuickSettingsTileOrder(const QStringList &order) {
 // Sound scanning methods
 QStringList SettingsManager::availableRingtones() {
     // Qt resources don't support directory listing, so we hardcode the list
+    // Note: The full path includes 'resources/sounds' because that's how they're stored in resources.qrc
     QStringList ringtones = {
-        "qrc:/sounds/phone/bbpro1.wav",
-        "qrc:/sounds/phone/bbpro2.wav",
-        "qrc:/sounds/phone/bbpro3.wav",
-        "qrc:/sounds/phone/bbpro4.wav",
-        "qrc:/sounds/phone/bbpro5.wav",
-        "qrc:/sounds/phone/bbpro6.wav",
-        "qrc:/sounds/phone/bonjour.wav",
-        "qrc:/sounds/phone/classicphone.wav",
-        "qrc:/sounds/phone/clean.wav",
-        "qrc:/sounds/phone/evolving_destiny.wav",
-        "qrc:/sounds/phone/fresh.wav",
-        "qrc:/sounds/phone/lively.wav",
-        "qrc:/sounds/phone/open.wav",
-        "qrc:/sounds/phone/radiant.wav",
-        "qrc:/sounds/phone/spirit.wav"
+        "qrc:/sounds/resources/sounds/phone/bbpro1.wav",
+        "qrc:/sounds/resources/sounds/phone/bbpro2.wav",
+        "qrc:/sounds/resources/sounds/phone/bbpro3.wav",
+        "qrc:/sounds/resources/sounds/phone/bbpro4.wav",
+        "qrc:/sounds/resources/sounds/bbm/bbpro5.wav",  // bbpro5-6 are in the bbm folder
+        "qrc:/sounds/resources/sounds/bbm/bbpro6.wav",
+        "qrc:/sounds/resources/sounds/phone/bonjour.wav",
+        "qrc:/sounds/resources/sounds/phone/classicphone.wav",
+        "qrc:/sounds/resources/sounds/phone/clean.wav",
+        "qrc:/sounds/resources/sounds/phone/evolving_destiny.wav",
+        "qrc:/sounds/resources/sounds/phone/fresh.wav",
+        "qrc:/sounds/resources/sounds/phone/lively.wav",
+        "qrc:/sounds/resources/sounds/phone/open.wav",
+        "qrc:/sounds/resources/sounds/phone/radiant.wav",
+        "qrc:/sounds/resources/sounds/phone/spirit.wav"
     };
     
     qDebug() << "[SettingsManager] Available ringtones:" << ringtones.size();
@@ -400,23 +401,23 @@ QStringList SettingsManager::availableRingtones() {
 QStringList SettingsManager::availableNotificationSounds() {
     QStringList sounds = {
         // Text sounds
-        "qrc:/sounds/text/bikebell.wav",
-        "qrc:/sounds/text/brief.wav",
-        "qrc:/sounds/text/caffeine.wav",
-        "qrc:/sounds/text/chigong.wav",
-        "qrc:/sounds/text/chime.wav",
-        "qrc:/sounds/text/crystal.wav",
-        "qrc:/sounds/text/lucid.wav",
-        "qrc:/sounds/text/presto.wav",
-        "qrc:/sounds/text/pure.wav",
-        "qrc:/sounds/text/tight.wav",
-        "qrc:/sounds/text/ufo.wav",
+        "qrc:/sounds/resources/sounds/text/bikebell.wav",
+        "qrc:/sounds/resources/sounds/text/brief.wav",
+        "qrc:/sounds/resources/sounds/text/caffeine.wav",
+        "qrc:/sounds/resources/sounds/text/chigong.wav",
+        "qrc:/sounds/resources/sounds/text/chime.wav",
+        "qrc:/sounds/resources/sounds/text/crystal.wav",
+        "qrc:/sounds/resources/sounds/text/lucid.wav",
+        "qrc:/sounds/resources/sounds/text/presto.wav",
+        "qrc:/sounds/resources/sounds/text/pure.wav",
+        "qrc:/sounds/resources/sounds/text/tight.wav",
+        "qrc:/sounds/resources/sounds/text/ufo.wav",
         // Message sounds
-        "qrc:/sounds/messages/bright.wav",
-        "qrc:/sounds/messages/confident.wav",
-        "qrc:/sounds/messages/contentment.wav",
-        "qrc:/sounds/messages/eager.wav",
-        "qrc:/sounds/messages/gungho.wav"
+        "qrc:/sounds/resources/sounds/messages/bright.wav",
+        "qrc:/sounds/resources/sounds/messages/confident.wav",
+        "qrc:/sounds/resources/sounds/messages/contentment.wav",
+        "qrc:/sounds/resources/sounds/messages/eager.wav",
+        "qrc:/sounds/resources/sounds/messages/gungho.wav"
     };
     
     qDebug() << "[SettingsManager] Available notification sounds:" << sounds.size();
@@ -425,15 +426,15 @@ QStringList SettingsManager::availableNotificationSounds() {
 
 QStringList SettingsManager::availableAlarmSounds() {
     QStringList alarms = {
-        "qrc:/sounds/alarms/alarm_antelope.wav",
-        "qrc:/sounds/alarms/alarm_bbproalarm.wav",
-        "qrc:/sounds/alarms/alarm_definite.wav",
-        "qrc:/sounds/alarms/alarm_earlyriser.wav",
-        "qrc:/sounds/alarms/alarm_electronic.wav",
-        "qrc:/sounds/alarms/alarm_highalert.wav",
-        "qrc:/sounds/alarms/alarm_sunrise.wav",
-        "qrc:/sounds/alarms/alarm_transition.wav",
-        "qrc:/sounds/alarms/alarm_vintagealarm.wav"
+        "qrc:/sounds/resources/sounds/alarms/alarm_antelope.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_bbproalarm.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_definite.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_earlyriser.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_electronic.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_highalert.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_sunrise.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_transition.wav",
+        "qrc:/sounds/resources/sounds/alarms/alarm_vintagealarm.wav"
     };
     
     qDebug() << "[SettingsManager] Available alarm sounds:" << alarms.size();

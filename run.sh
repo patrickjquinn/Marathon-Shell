@@ -95,6 +95,11 @@ if [ $? -eq 0 ]; then
     # Set QML import path for MarathonUI modules
     export QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$QML_IMPORT_PATH"
     
+    # Force Qt Multimedia to use GStreamer backend (better PulseAudio/PipeWire support)
+    export QT_MEDIA_BACKEND=gstreamer
+    echo "🔊 Audio backend: $QT_MEDIA_BACKEND (GStreamer has native PulseAudio support)"
+    echo ""
+    
     # Run the app (detect OS)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS .app bundle

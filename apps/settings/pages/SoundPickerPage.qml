@@ -136,8 +136,19 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 onClicked: {
                                     Logger.info("SoundPickerPage", "Selected sound: " + modelData)
+                                    
+                                    // Save selection
                                     soundPickerPage.currentSound = modelData
                                     soundPickerPage.soundSelected(modelData)
+                                    
+                                    // Preview the sound using dedicated preview player
+                                    if (soundPickerPage.soundType === "ringtone") {
+                                        AudioManager.previewRingtone(modelData)
+                                    } else if (soundPickerPage.soundType === "notification") {
+                                        AudioManager.previewNotificationSound(modelData)
+                                    } else if (soundPickerPage.soundType === "alarm") {
+                                        AudioManager.previewAlarmSound(modelData)
+                                    }
                                 }
                             }
                         }
