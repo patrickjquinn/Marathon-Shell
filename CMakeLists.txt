@@ -105,15 +105,6 @@ else()
     endif()
 endif()
 
-find_package(Qt6 6.5 COMPONENTS VirtualKeyboard)
-if(TARGET Qt6::VirtualKeyboard)
-    message(STATUS "Qt VirtualKeyboard found - enabling on-screen keyboard")
-    set(HAVE_VIRTUALKEYBOARD TRUE)
-else()
-    message(STATUS "Qt VirtualKeyboard not found - keyboard support disabled")
-    set(HAVE_VIRTUALKEYBOARD FALSE)
-endif()
-
 # Add asyncfuture library
 add_subdirectory(third-party/asyncfuture)
 message(STATUS "AsyncFuture library added for promise-based async operations")

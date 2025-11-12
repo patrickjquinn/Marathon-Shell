@@ -515,8 +515,8 @@ Marathon Shell implements a Wayland compositor that embeds native Linux applicat
 ### Build Warnings
 
 - `Qt6WebEngineQuick not found` - Browser uses mockup UI (expected if QtWebEngine not installed)
-- `Qt6VirtualKeyboard not found` - Virtual keyboard disabled (expected if not installed)
-- QML module policy warnings (QTP0001/QTP0004) - Harmless CMake warnings
+
+**Note:** Marathon OS uses a fully custom keyboard implementation (not Qt VirtualKeyboard). The custom keyboard is BlackBerry 10-inspired with Marathon design system integration.
 
 ### Runtime
 

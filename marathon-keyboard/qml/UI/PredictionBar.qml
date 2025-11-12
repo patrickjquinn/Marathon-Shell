@@ -1,7 +1,6 @@
 // Marathon Virtual Keyboard - Prediction Bar
 // Word suggestions bar above keyboard (BlackBerry style)
 import QtQuick
-import MarathonOS.Shell
 
 Rectangle {
     id: predictionBar
@@ -12,19 +11,19 @@ Rectangle {
     signal predictionSelected(string word)
     
     // Always expose a stable height via implicitHeight
-    implicitHeight: Math.round(40 * Constants.scaleFactor)
+    implicitHeight: Math.round(40 * scaleFactor)
     
     // HIDE when no predictions (user request)
     visible: predictions.length > 0
     height: visible ? implicitHeight : 0
-    color: typeof MColors !== 'undefined' ? MColors.surface : "#0d0d0e"
+    color: MColors.surface
     border.width: 0
     border.color: "transparent"
     
     // Predictions display
     Row {
         anchors.centerIn: parent
-        spacing: Math.round(12 * Constants.scaleFactor)
+        spacing: Math.round(12 * scaleFactor)
         visible: predictionBar.predictions.length > 0
         
         Repeater {
@@ -32,12 +31,12 @@ Rectangle {
             
             // Prediction button
             Rectangle {
-                width: Math.round(100 * Constants.scaleFactor)
-                height: Math.round(32 * Constants.scaleFactor)
+                width: Math.round(100 * scaleFactor)
+                height: Math.round(32 * scaleFactor)
                 radius: Constants.borderRadiusSmall
-                color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.accent : "#00bfa5") : (typeof MColors !== 'undefined' ? MColors.elevated : "#161718")
+                color: predictionMouseArea.pressed ? MColors.accent : MColors.elevated
                 border.width: Constants.borderWidthMedium
-                border.color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.accentBright : "#1de9b6") : (typeof MColors !== 'undefined' ? MColors.border : "rgba(1, 1, 1, 0.08)")
+                border.color: index === 0 ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
                 
                 Behavior on color {
@@ -61,7 +60,7 @@ Rectangle {
                     radius: parent.radius - 1
                     color: "transparent"
                     border.width: Constants.borderWidthThin
-                    border.color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.marathonTealHoverGradient : "rgba(0, 191, 165, 0.03)") : (typeof MColors !== 'undefined' ? MColors.borderSubtle : "rgba(1, 1, 1, 0.05)")
+                    border.color: index === 0 ? MColors.marathonTealHoverGradient : MColors.borderSubtle
                     antialiasing: parent.antialiasing
                 }
                 
@@ -69,8 +68,8 @@ Rectangle {
                 Text {
                     anchors.centerIn: parent
                     text: modelData
-                    color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.textOnAccent : "#ffffff") : (typeof MColors !== 'undefined' ? MColors.text : "#f5f5f5")
-                    font.pixelSize: Math.round(15 * Constants.scaleFactor)
+                    color: predictionMouseArea.pressed ? MColors.textOnAccent : MColors.text
+                    font.pixelSize: Math.round(15 * scaleFactor)
                     font.weight: index === 0 ? Font.DemiBold : Font.Normal
                 }
                 
@@ -79,7 +78,7 @@ Rectangle {
                     anchors.fill: parent
                     
                     onClicked: {
-                        HapticService.light()
+                        keyboard.hapticRequested("light")
                         predictionBar.predictionSelected(modelData)
                     }
                 }
@@ -91,8 +90,8 @@ Rectangle {
     Text {
         anchors.centerIn: parent
         text: predictionBar.currentWord ? "..." : ""
-        color: typeof MColors !== 'undefined' ? MColors.textSecondary : "#6a6a6a"
-        font.pixelSize: Math.round(14 * Constants.scaleFactor)
+        color: MColors.textSecondary
+        font.pixelSize: Math.round(14 * scaleFactor)
         visible: predictionBar.predictions.length === 0
         opacity: 0.5
     }
