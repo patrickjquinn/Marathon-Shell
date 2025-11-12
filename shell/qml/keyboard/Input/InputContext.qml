@@ -15,8 +15,49 @@ Item {
     // Track if we're in an input field using Qt.inputMethod
     readonly property bool hasActiveFocus: Qt.inputMethod && Qt.inputMethod.visible
     
-    // Input mode (for context-aware predictions)
-    property string inputMode: "text" // text, email, url, number
+    // Input mode (for context-aware predictions and layout switching)
+    property string inputMode: "text" // text, email, url, number, phone
+    
+    // Recommended keyboard layout based on input type
+    readonly property string recommendedLayout: {
+        switch(inputMode) {
+            case "email": return "email"
+            case "url": return "url"
+            case "number": return "number"
+            case "phone": return "phone"
+            default: return "qwerty"
+        }
+    }
+    
+    // Context-aware keyboard behavior flags (based on input type)
+    readonly property bool shouldAutoCapitalize: {
+        switch(inputMode) {
+            case "email": return false
+            case "url": return false
+            case "number": return false
+            case "phone": return false
+            default: return true  // text, search
+        }
+    }
+    
+    readonly property bool shouldAutoCorrect: {
+        switch(inputMode) {
+            case "email": return false  // Don't correct email addresses
+            case "url": return false    // Don't correct URLs
+            case "number": return false
+            case "phone": return false
+            default: return true
+        }
+    }
+    
+    readonly property bool shouldShowPredictions: {
+        switch(inputMode) {
+            case "url": return false    // No predictions in URL bar
+            case "number": return false
+            case "phone": return false
+            default: return true  // Show for text, email, search
+        }
+    }
     
     signal textInserted(string text)
     signal backspacePressed()
@@ -88,9 +129,36 @@ Item {
     
     // Detect input mode from focused input
     function detectInputMode() {
-        // For now, default to "text" - could be enhanced to detect from Qt.inputMethod hints
-        inputMode = "text"
-        Logger.info("InputContext", "Input mode: " + inputMode)
+        if (!Qt.inputMethod) {
+            inputMode = "text"
+            return
+        }
+        
+        // Read Qt.inputMethod hints
+        var hints = Qt.inputMethod.inputItemHints
+        
+        // Check for email
+        if (hints & Qt.ImhEmailCharactersOnly) {
+            inputMode = "email"
+        }
+        // Check for URL
+        else if (hints & Qt.ImhUrlCharactersOnly) {
+            inputMode = "url"
+        }
+        // Check for numbers only
+        else if (hints & Qt.ImhDigitsOnly) {
+            inputMode = "number"
+        }
+        // Check for phone number
+        else if (hints & Qt.ImhDialableCharactersOnly) {
+            inputMode = "phone"
+        }
+        // Default to text
+        else {
+            inputMode = "text"
+        }
+        
+        Logger.info("InputContext", "Detected input mode: " + inputMode + " (recommended layout: " + recommendedLayout + ")")
     }
 }
 

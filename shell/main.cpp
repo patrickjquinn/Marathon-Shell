@@ -51,6 +51,7 @@
 #include "src/audioroutingmanager.h"
 #include "src/securitymanager.h"
 #include "src/platformcpp.h"
+#include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
@@ -363,6 +364,13 @@ int main(int argc, char *argv[])
     PlatformCpp *platformCpp = new PlatformCpp(&app);
     engine.rootContext()->setContextProperty("PlatformCpp", platformCpp);
     qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
+    
+    // Word Engine for spell-checking and predictions
+    WordEngine *wordEngine = new WordEngine(&app);
+    wordEngine->setLanguage("en_US");
+    wordEngine->setEnabled(true);
+    engine.rootContext()->setContextProperty("WordEngine", wordEngine);
+    qInfo() << "[MarathonShell] ✓ Word Engine initialized";
     
     // Register RT Scheduler for thread priority management
     RTScheduler *rtScheduler = new RTScheduler(&app);

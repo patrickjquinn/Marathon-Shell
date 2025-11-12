@@ -8,6 +8,8 @@ set(SOURCES
     src/taskmodel.cpp
     src/notificationmodel.h
     src/notificationmodel.cpp
+    qml/keyboard/Data/WordEngine.h
+    qml/keyboard/Data/WordEngine.cpp
     src/networkmanagercpp.h
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
@@ -152,6 +154,10 @@ set(QML_FILES
     qml/keyboard/UI/LongPressPopup.qml
     qml/keyboard/Layouts/QwertyLayout.qml
     qml/keyboard/Layouts/SymbolLayout.qml
+    qml/keyboard/Layouts/EmailLayout.qml
+    qml/keyboard/Layouts/UrlLayout.qml
+    qml/keyboard/Layouts/NumberLayout.qml
+    qml/keyboard/Layouts/PhoneLayout.qml
     qml/keyboard/Input/InputContext.qml
     qml/keyboard/Data/Dictionary.qml
     qml/keyboard/Data/AutoCorrect.qml
@@ -338,6 +344,14 @@ target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
 if(HAVE_WEBENGINE)
     target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(marathon-shell PRIVATE HAVE_WEBENGINE)
+endif()
+
+# Link Hunspell for spell-checking
+if(HAVE_HUNSPELL)
+    target_link_libraries(marathon-shell PRIVATE ${HUNSPELL_LIBRARIES})
+    target_include_directories(marathon-shell PRIVATE ${HUNSPELL_INCLUDE_DIRS})
+    target_compile_definitions(marathon-shell PRIVATE HAVE_HUNSPELL)
+    message(STATUS "Linking Hunspell to marathon-shell")
 endif()
 
 set_target_properties(marathon-shell PROPERTIES

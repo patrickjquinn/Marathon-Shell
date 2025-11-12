@@ -63,7 +63,9 @@ sudo dnf install cmake ninja-build gcc-c++ \
     qt6-qtsvg-devel \
     qt6-qtdbus-devel \
     pam-devel \
-    dbus-daemon
+    dbus-daemon \
+    hunspell-devel \
+    hunspell-en-US
 ```
 
 **Ubuntu/Debian:**
@@ -76,7 +78,9 @@ sudo apt install cmake ninja-build g++ \
     qt6-svg-dev \
     qt6-dbus-dev \
     libpam0g-dev \
-    dbus-daemon
+    dbus-daemon \
+    libhunspell-dev \
+    hunspell-en-us
 ```
 
 ### Runtime Requirements
@@ -516,7 +520,11 @@ Marathon Shell implements a Wayland compositor that embeds native Linux applicat
 
 - `Qt6WebEngineQuick not found` - Browser uses mockup UI (expected if QtWebEngine not installed)
 
-**Note:** Marathon OS uses a fully custom keyboard implementation (not Qt VirtualKeyboard). The custom keyboard is BlackBerry 10-inspired with Marathon design system integration.
+**Note:** Marathon OS uses a fully custom keyboard implementation (not Qt VirtualKeyboard). The custom keyboard is BlackBerry 10-inspired with Marathon design system integration and includes:
+- **Hunspell spell-checking** for word prediction and auto-correction
+- **Content-aware layouts** (email, URL, number, phone)
+- **Word Fling** gesture (swipe up on a key to accept prediction)
+- **Predictive Spacing** (BB10-style automatic spacing)
 
 ### Runtime
 

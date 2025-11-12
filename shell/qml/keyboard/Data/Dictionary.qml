@@ -4,7 +4,7 @@ pragma Singleton
 import QtQuick
 import MarathonOS.Shell
 
-QtObject {
+Item {
     id: dictionary
     
     // Top 1000 most common English words with frequencies
@@ -56,15 +56,42 @@ QtObject {
     // User's personal dictionary (learned words)
     property var userWords: []
     
+    // Predictions cache (updated by WordEngine async)
+    property var cachedPredictions: []
+    property string lastPredictionPrefix: ""
+    
+    // Connect to WordEngine predictions
+    Connections {
+        target: typeof WordEngine !== 'undefined' ? WordEngine : null
+        function onPredictionsReady(prefix, predictions) {
+            if (prefix === dictionary.lastPredictionPrefix) {
+                dictionary.cachedPredictions = predictions
+                Logger.info("Dictionary", "Hunspell predictions for '" + prefix + "': " + predictions.join(", "))
+            }
+        }
+    }
+    
     // Get predictions for a given prefix
     function predict(prefix) {
         if (!prefix || prefix.length === 0) {
             return []
         }
         
+        dictionary.lastPredictionPrefix = prefix
         const lowerPrefix = prefix.toLowerCase()
         
-        // Combine system and user dictionaries
+        // Use WordEngine if available (Hunspell-based)
+        if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            // Request async predictions from Hunspell
+            WordEngine.requestPredictions(prefix, 3)
+            
+            // Return cached predictions from previous request (or fallback)
+            if (cachedPredictions.length > 0) {
+                return cachedPredictions
+            }
+        }
+        
+        // Fallback: Use built-in dictionary
         const allWords = words.concat(userWords)
         
         // Filter words that start with prefix
@@ -89,7 +116,12 @@ QtObject {
             return
         }
         
-        // Check if word already exists in user dictionary
+        // Use WordEngine if available
+        if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            WordEngine.learnWord(word)
+        }
+        
+        // Also update local user dictionary as fallback
         const existing = userWords.findIndex(function(entry) {
             return entry.word.toLowerCase() === word.toLowerCase()
         })
@@ -109,6 +141,12 @@ QtObject {
     function hasWord(word) {
         const lowerWord = word.toLowerCase()
         
+        // Use WordEngine if available (more accurate)
+        if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            return WordEngine.hasWord(word)
+        }
+        
+        // Fallback: Check local dictionaries
         const inSystem = words.some(function(entry) {
             return entry.word.toLowerCase() === lowerWord
         })
