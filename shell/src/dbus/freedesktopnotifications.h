@@ -9,6 +9,7 @@
 #include "notificationdatabase.h"
 
 class NotificationModel;
+class PowerManagerCpp;
 
 class FreedesktopNotifications : public QObject, protected QDBusContext
 {
@@ -16,7 +17,7 @@ class FreedesktopNotifications : public QObject, protected QDBusContext
     Q_CLASSINFO("D-Bus Interface", "org.freedesktop.Notifications")
 
 public:
-    explicit FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model, QObject *parent = nullptr);
+    explicit FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model, PowerManagerCpp *powerManager, QObject *parent = nullptr);
     ~FreedesktopNotifications();
 
     bool registerService();
@@ -50,6 +51,7 @@ public slots:
 private:
     NotificationDatabase *m_database;
     NotificationModel *m_model;
+    PowerManagerCpp *m_powerManager;
     
     QString extractAppName(const QString &provided, const QVariantMap &hints);
     

@@ -1,5 +1,6 @@
 #include "freedesktopnotifications.h"
 #include "../notificationmodel.h"
+#include "../powermanagercpp.h"
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QDBusMessage>
@@ -8,10 +9,11 @@
 #include <QCoreApplication>
 #include <QTimer>
 
-FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model, QObject *parent)
+FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model, PowerManagerCpp *powerManager, QObject *parent)
     : QObject(parent)
     , m_database(database)
     , m_model(model)
+    , m_powerManager(powerManager)
 {
 }
 
@@ -79,6 +81,22 @@ uint FreedesktopNotifications::Notify(const QString &app_name,
     }
     
     record.priority = mapUrgencyToPriority(hints);
+    
+    // Acquire temporary wakelock for high-priority notifications
+    // Urgency: 0 = low, 1 = normal, 2 = critical
+    int urgency = hints.value("urgency", 1).toInt();
+    if (urgency >= 2 && m_powerManager) {
+        m_powerManager->acquireWakelock("notification");
+        qInfo() << "[FreedesktopNotifications] Acquired wakelock for critical notification";
+        
+        // Release after 5 seconds
+        QTimer::singleShot(5000, this, [this]() {
+            if (m_powerManager) {
+                m_powerManager->releaseWakelock("notification");
+                qInfo() << "[FreedesktopNotifications] Released notification wakelock";
+            }
+        });
+    }
     
     QVariantList actionList;
     for (int i = 0; i < actions.size(); i += 2) {

@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+import MarathonOS.Shell
 
 /**
  * @singleton
@@ -23,7 +24,7 @@ import QtQuick
  *     onClicked: PowerManager.suspend()
  * }
  */
-QtObject {
+Item {
     id: powerManager
     
     /**
@@ -106,6 +107,29 @@ QtObject {
      */
     property bool canRestart: true
     
+    // ============================================================================
+    // Wakelock Management (merged from WakeManager)
+    // ============================================================================
+    
+    property var activeWakelocks: []
+    property var scheduledWakes: []
+    property bool systemAwake: !systemSuspended
+    property bool screenOn: true
+    property string wakeReason: ""
+    property int wakeLockCount: activeWakelocks.length
+    property bool hasActiveCalls: false
+    property bool hasActiveAlarm: false
+    
+    readonly property bool canSleep: wakeLockCount === 0 && !hasActiveCalls && !hasActiveAlarm
+    readonly property bool systemSuspended: PowerManagerCpp ? PowerManagerCpp.systemSuspended : false
+    readonly property bool wakelockSupported: PowerManagerCpp ? PowerManagerCpp.wakelockSupported : false
+    readonly property bool rtcAlarmSupported: PowerManagerCpp ? PowerManagerCpp.rtcAlarmSupported : false
+    
+    signal systemWaking(string reason)
+    signal systemSleeping()
+    signal wakeLockAcquired(string lockId, string reason)
+    signal wakeLockReleased(string lockId)
+    
     /**
      * @brief Emitted when battery reaches critical level (5%)
      */
@@ -186,13 +210,195 @@ QtObject {
         }
     }
     
+    // ============================================================================
+    // Wakelock Functions
+    // ============================================================================
+    
+    function acquireWakelock(name) {
+        if (typeof PowerManagerCpp !== 'undefined') {
+            var success = PowerManagerCpp.acquireWakelock(name)
+            if (success) {
+                var lock = {
+                    id: name,
+                    reason: name,
+                    timestamp: Date.now()
+                }
+                activeWakelocks.push(lock)
+                activeWakelocksChanged()
+                Logger.info("PowerManager", "Acquired wakelock: " + name)
+                wakeLockAcquired(name, name)
+            }
+            return success
+        }
+        return false
+    }
+    
+    function releaseWakelock(name) {
+        if (typeof PowerManagerCpp !== 'undefined') {
+            var success = PowerManagerCpp.releaseWakelock(name)
+            if (success) {
+                for (var i = 0; i < activeWakelocks.length; i++) {
+                    if (activeWakelocks[i].id === name) {
+                        activeWakelocks.splice(i, 1)
+                        activeWakelocksChanged()
+                        Logger.info("PowerManager", "Released wakelock: " + name)
+                        wakeLockReleased(name)
+                        break
+                    }
+                }
+            }
+            return success
+        }
+        return false
+    }
+    
+    function hasWakelock(name) {
+        if (typeof PowerManagerCpp !== 'undefined') {
+            return PowerManagerCpp.hasWakelock(name)
+        }
+        return false
+    }
+    
+    function wake(reason) {
+        Logger.info("PowerManager", "Waking system: " + reason)
+        wakeReason = reason
+        systemAwake = true
+        
+        // Turn on screen if needed
+        if (!screenOn && DisplayManager) {
+            DisplayManager.turnScreenOn()
+            screenOn = true
+        }
+        
+        systemWaking(reason)
+        
+        // Auto-acquire temporary wake lock
+        var lockId = acquireWakelock(reason)
+        return lockId
+    }
+    
+    function sleep() {
+        if (!canSleep) {
+            Logger.warn("PowerManager", "Cannot sleep - wake locks active: " + wakeLockCount)
+            return false
+        }
+        
+        Logger.info("PowerManager", "Putting system to sleep")
+        systemAwake = false
+        systemSleeping()
+        
+        // Turn off screen first
+        if (DisplayManager) {
+            DisplayManager.turnScreenOff()
+            screenOn = false
+        }
+        
+        // Suspend via C++ backend
+        suspend()
+        return true
+    }
+    
+    // ============================================================================
+    // RTC Alarm Functions
+    // ============================================================================
+    
+    function setRtcAlarm(epochTime) {
+        if (typeof PowerManagerCpp !== 'undefined') {
+            return PowerManagerCpp.setRtcAlarm(epochTime)
+        }
+        return false
+    }
+    
+    function clearRtcAlarm() {
+        if (typeof PowerManagerCpp !== 'undefined') {
+            return PowerManagerCpp.clearRtcAlarm()
+        }
+        return false
+    }
+    
+    function scheduleWake(wakeTime, reason) {
+        var wakeId = Qt.md5(Date.now() + reason)
+        var wake = {
+            id: wakeId,
+            time: wakeTime,
+            reason: reason,
+            timestamp: Date.now()
+        }
+        
+        scheduledWakes.push(wake)
+        scheduledWakesChanged()
+        
+        var msUntil = wakeTime - new Date()
+        Logger.info("PowerManager", "Scheduled wake in " + Math.round(msUntil / 1000 / 60) + " minutes for: " + reason)
+        
+        // Set RTC alarm
+        var epochTime = Math.floor(wakeTime.getTime() / 1000)
+        setRtcAlarm(epochTime)
+        
+        return wakeId
+    }
+    
+    function cancelScheduledWake(wakeId) {
+        for (var i = 0; i < scheduledWakes.length; i++) {
+            if (scheduledWakes[i].id === wakeId) {
+                scheduledWakes.splice(i, 1)
+                scheduledWakesChanged()
+                Logger.info("PowerManager", "Cancelled scheduled wake: " + wakeId)
+                return true
+            }
+        }
+        return false
+    }
+    
+    // ============================================================================
+    // C++ Signal Connections
+    // ============================================================================
+    
+    Connections {
+        target: typeof PowerManagerCpp !== 'undefined' ? PowerManagerCpp : null
+        
+        function onPrepareForSuspend() {
+            Logger.info("PowerManager", "System preparing to suspend")
+            systemSleeping()
+        }
+        
+        function onResumedFromSuspend() {
+            Logger.info("PowerManager", "System resumed from suspend")
+            systemAwake = true
+            systemWaking("resume")
+        }
+    }
+    
+    // ============================================================================
+    // Integration with other services
+    // ============================================================================
+    
+    Connections {
+        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
+        
+        function onAlarmTriggered(alarm) {
+            hasActiveAlarm = true
+            wake("alarm")
+        }
+        
+        function onAlarmDismissed(alarmId) {
+            hasActiveAlarm = false
+        }
+    }
+    
     Component.onCompleted: {
-        console.log("[PowerManager] Initialized (proxying to C++ backend)")
+        console.log("[PowerManager] Initialized (merged with WakeManager)")
         if (typeof PowerManagerCpp !== 'undefined') {
             console.log("[PowerManager] C++ backend available")
+            console.log("[PowerManager] Wakelock support:", wakelockSupported)
+            console.log("[PowerManager] RTC alarm support:", rtcAlarmSupported)
         } else {
             console.log("[PowerManager] C++ backend not available, using mock data")
         }
+        
+        // Initial state
+        systemAwake = true
+        screenOn = DisplayManager ? DisplayManager.screenOn : true
     }
 }
 
