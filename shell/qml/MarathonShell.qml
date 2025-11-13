@@ -1431,6 +1431,25 @@ Item {
         anchors.bottom: parent.bottom
     }
     
+    // Auto-show keyboard when text input is focused (if no hardware keyboard)
+    Connections {
+        target: Qt.inputMethod
+        
+        function onVisibleChanged() {
+            // Only auto-show if no hardware keyboard is detected
+            if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
+                if (Qt.inputMethod.visible && !virtualKeyboard.active) {
+                    Logger.info("Shell", "Text input focused - auto-showing virtual keyboard")
+                    virtualKeyboard.active = true
+                } else if (!Qt.inputMethod.visible && virtualKeyboard.active) {
+                    // Don't auto-hide - let user dismiss manually or by clicking outside
+                    // This prevents keyboard from hiding when cycling between inputs
+                    Logger.debug("Shell", "Text input unfocused - keeping keyboard visible")
+                }
+            }
+        }
+    }
+    
     // Auto-dismiss keyboard when clicking above it (user request)
     MouseArea {
         id: keyboardDismissArea
@@ -1450,7 +1469,7 @@ Item {
         propagateComposedEvents: false
     }
     
-    // Keyboard visibility now managed by navBar.keyboardVisible binding
+    // Keyboard visibility managed by: 1) Auto-show on input focus (no hardware KB), 2) Manual nav bar toggle
     
     // Power button press timer for long-press detection
     Timer {

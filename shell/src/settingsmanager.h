@@ -54,6 +54,13 @@ class SettingsManager : public QObject {
     // Quick Settings customization
     Q_PROPERTY(QStringList enabledQuickSettingsTiles READ enabledQuickSettingsTiles WRITE setEnabledQuickSettingsTiles NOTIFY enabledQuickSettingsTilesChanged)
     Q_PROPERTY(QStringList quickSettingsTileOrder READ quickSettingsTileOrder WRITE setQuickSettingsTileOrder NOTIFY quickSettingsTileOrderChanged)
+    
+    // Keyboard settings
+    Q_PROPERTY(bool keyboardAutoCorrection READ keyboardAutoCorrection WRITE setKeyboardAutoCorrection NOTIFY keyboardAutoCorrectionChanged)
+    Q_PROPERTY(bool keyboardPredictiveText READ keyboardPredictiveText WRITE setKeyboardPredictiveText NOTIFY keyboardPredictiveTextChanged)
+    Q_PROPERTY(bool keyboardWordFling READ keyboardWordFling WRITE setKeyboardWordFling NOTIFY keyboardWordFlingChanged)
+    Q_PROPERTY(bool keyboardPredictiveSpacing READ keyboardPredictiveSpacing WRITE setKeyboardPredictiveSpacing NOTIFY keyboardPredictiveSpacingChanged)
+    Q_PROPERTY(QString keyboardHapticStrength READ keyboardHapticStrength WRITE setKeyboardHapticStrength NOTIFY keyboardHapticStrengthChanged)
 
 public:
     explicit SettingsManager(QObject *parent = nullptr);
@@ -105,6 +112,13 @@ public:
     // Quick Settings getters
     QStringList enabledQuickSettingsTiles() const { return m_enabledQuickSettingsTiles; }
     QStringList quickSettingsTileOrder() const { return m_quickSettingsTileOrder; }
+    
+    // Keyboard getters
+    bool keyboardAutoCorrection() const { return m_keyboardAutoCorrection; }
+    bool keyboardPredictiveText() const { return m_keyboardPredictiveText; }
+    bool keyboardWordFling() const { return m_keyboardWordFling; }
+    bool keyboardPredictiveSpacing() const { return m_keyboardPredictiveSpacing; }
+    QString keyboardHapticStrength() const { return m_keyboardHapticStrength; }
 
     // Existing setters
     void setUserScaleFactor(qreal factor);
@@ -152,6 +166,13 @@ public:
     // Quick Settings setters
     void setEnabledQuickSettingsTiles(const QStringList &tiles);
     void setQuickSettingsTileOrder(const QStringList &order);
+    
+    // Keyboard setters
+    void setKeyboardAutoCorrection(bool enabled);
+    void setKeyboardPredictiveText(bool enabled);
+    void setKeyboardWordFling(bool enabled);
+    void setKeyboardPredictiveSpacing(bool enabled);
+    void setKeyboardHapticStrength(const QString &strength);
 
     // Invokable methods for sound lists
     Q_INVOKABLE QStringList availableRingtones();
@@ -213,6 +234,13 @@ signals:
     // Quick Settings signals
     void enabledQuickSettingsTilesChanged();
     void quickSettingsTileOrderChanged();
+    
+    // Keyboard signals
+    void keyboardAutoCorrectionChanged();
+    void keyboardPredictiveTextChanged();
+    void keyboardWordFlingChanged();
+    void keyboardPredictiveSpacingChanged();
+    void keyboardHapticStrengthChanged();
 
 private:
     void load();
@@ -266,4 +294,11 @@ private:
     // Quick Settings members
     QStringList m_enabledQuickSettingsTiles;
     QStringList m_quickSettingsTileOrder;
+    
+    // Keyboard members
+    bool m_keyboardAutoCorrection;
+    bool m_keyboardPredictiveText;
+    bool m_keyboardWordFling;
+    bool m_keyboardPredictiveSpacing;
+    QString m_keyboardHapticStrength;
 };

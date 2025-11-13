@@ -29,10 +29,20 @@ else()
     set(HAVE_WEBENGINE FALSE)
 endif()
 
-# Installation directory - system-wide for production, user-local for dev
-if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
-    set(MARATHON_APPS_DIR "${CMAKE_INSTALL_PREFIX}/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
-else()
+# Installation directory - defaults to user-local for better DX
+# 
+# Development (default):
+#   Apps install to: ~/.local/share/marathon-apps
+#   No sudo required, works out of the box
+#
+# System-wide production install:
+#   Override with: -DMARATHON_APPS_DIR=/usr/share/marathon-apps
+#   Or set: -DCMAKE_INSTALL_PREFIX=/usr
+#
+# This prevents permission errors for new developers using raw CMake commands
+# while still supporting system-wide deployment for production environments.
+#
+if(NOT DEFINED MARATHON_APPS_DIR)
     set(MARATHON_APPS_DIR "$ENV{HOME}/.local/share/marathon-apps" CACHE PATH "Marathon apps installation directory")
 endif()
 

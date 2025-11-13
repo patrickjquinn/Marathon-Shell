@@ -67,6 +67,11 @@ Rectangle {
         radius: 0
     }
     
+    // PERFORMANCE: Enable layer for GPU-accelerated scale/transform animations
+    // This moves rendering to GPU, preventing CPU-bound repaints on every frame
+    layer.enabled: true
+    layer.smooth: true
+    
     // PERFORMANCE: Use fast color animation instead of general Behavior
     Behavior on color {
         ColorAnimation { 
@@ -115,7 +120,7 @@ Rectangle {
             visible: key.iconName !== ""
             name: key.iconName
             size: Math.round(20 * Constants.scaleFactor)
-            color: MColors.textPrimary
+            color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style
             anchors.centerIn: parent
             opacity: key.pressed ? 1.0 : 0.9
         }
@@ -124,7 +129,7 @@ Rectangle {
         Text {
             visible: key.iconName === ""
             text: key.displayText
-            color: MColors.textPrimary
+            color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style
             font.pixelSize: key.isSpecial ? 
                 Math.round(14 * Constants.scaleFactor) : 
                 Math.round(18 * Constants.scaleFactor)
