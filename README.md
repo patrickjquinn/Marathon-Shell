@@ -101,6 +101,8 @@ sudo apt install cmake ninja-build g++ \
 
 ## Building
 
+> **⚠️ Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
+
 ### Initial Setup
 
 Clone the repository with submodules:
@@ -118,7 +120,7 @@ git submodule update --init --recursive
 
 The project uses [AsyncFuture](https://github.com/vpicaver/asyncfuture) as a git submodule for Promise-like async programming with QFuture.
 
-### Build All Components
+### Build All Components (Recommended)
 
 ```bash
 # Build shell, UI library, and apps
@@ -126,11 +128,13 @@ The project uses [AsyncFuture](https://github.com/vpicaver/asyncfuture) as a git
 ```
 
 This builds:
-- Marathon Shell executable
-- MarathonUI design system library
-- Marathon Core library (app management)
+- **MarathonUI** design system library (QML modules)
+- **Marathon Core** library (app management)
+- **Marathon Shell** executable
 - All bundled applications
 - Developer tools
+
+**And installs** MarathonUI to `~/.local/share/marathon-ui` (required for shell to run).
 
 ### Incremental Builds
 
@@ -153,22 +157,32 @@ cd build && cmake --build .
 The provided build scripts are recommended, but you can also use CMake directly:
 
 ```bash
-# Shell
+# CRITICAL: Build and install MarathonUI FIRST (required for shell to run)
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
+cmake --install build  # Installs MarathonUI to ~/.local/share/marathon-ui
 
-# Apps (installs to ~/.local/share/marathon-apps by default)
+# Now run the shell
+./build/shell/marathon-shell-bin
+
+# Apps (optional, installs to ~/.local/share/marathon-apps by default)
 cmake -B build-apps -S apps -DCMAKE_BUILD_TYPE=Release
 cmake --build build-apps -j$(nproc)
 cmake --install build-apps
 ```
 
-**For system-wide app installation** (requires root):
+**For system-wide installation** (requires root):
 ```bash
-# Override install directory
+# System-wide MarathonUI (installs to /usr/lib/qt6/qml/MarathonUI)
+cmake -B build -S . -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
+sudo cmake --install build
+
+# System-wide apps (installs to /usr/share/marathon-apps)
 cmake -B build-apps -S apps -DMARATHON_APPS_DIR=/usr/share/marathon-apps
 sudo cmake --install build-apps
 ```
+
+> **⚠️ CRITICAL**: Marathon Shell **requires MarathonUI to be installed** before it can run. If you see `module "MarathonUI.Theme" is not installed`, run `cmake --install build`.
 
 > **Note**: Apps default to `~/.local/share/marathon-apps` to avoid permission issues during development. This ensures the build works out of the box without sudo, making it IDE-friendly.
 
