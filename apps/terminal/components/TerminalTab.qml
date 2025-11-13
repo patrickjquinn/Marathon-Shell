@@ -163,6 +163,7 @@ Rectangle {
                     color: MColors.text
                     selectionColor: MColors.accent
                     selectedTextColor: MColors.textOnAccent
+                    inputMethodHints: Qt.ImhNoPredictiveText
                     
                     focus: true
                     

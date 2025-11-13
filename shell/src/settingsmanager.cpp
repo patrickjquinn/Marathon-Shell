@@ -38,6 +38,11 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_firstRunComplete(false)
     , m_enabledQuickSettingsTiles()
     , m_quickSettingsTileOrder()
+    , m_keyboardAutoCorrection(true)
+    , m_keyboardPredictiveText(true)
+    , m_keyboardWordFling(true)
+    , m_keyboardPredictiveSpacing(false)
+    , m_keyboardHapticStrength("medium")
 {
     qDebug() << "[SettingsManager] Initialized";
     qDebug() << "[SettingsManager] Settings file:" << m_settings.fileName();
@@ -107,6 +112,13 @@ void SettingsManager::load() {
     m_enabledQuickSettingsTiles = m_settings.value("quicksettings/enabledTiles", defaultTiles).toStringList();
     m_quickSettingsTileOrder = m_settings.value("quicksettings/tileOrder", defaultTiles).toStringList();
     
+    // Keyboard settings - BB10-style defaults (all features enabled except predictive spacing)
+    m_keyboardAutoCorrection = m_settings.value("keyboard/autoCorrection", true).toBool();
+    m_keyboardPredictiveText = m_settings.value("keyboard/predictiveText", true).toBool();
+    m_keyboardWordFling = m_settings.value("keyboard/wordFling", true).toBool();
+    m_keyboardPredictiveSpacing = m_settings.value("keyboard/predictiveSpacing", false).toBool();
+    m_keyboardHapticStrength = m_settings.value("keyboard/hapticStrength", "medium").toString();
+    
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
     qDebug() << "[SettingsManager] Loaded: firstRunComplete =" << m_firstRunComplete;
@@ -172,6 +184,13 @@ void SettingsManager::save() {
     // Quick Settings
     m_settings.setValue("quicksettings/enabledTiles", m_enabledQuickSettingsTiles);
     m_settings.setValue("quicksettings/tileOrder", m_quickSettingsTileOrder);
+    
+    // Keyboard settings
+    m_settings.setValue("keyboard/autoCorrection", m_keyboardAutoCorrection);
+    m_settings.setValue("keyboard/predictiveText", m_keyboardPredictiveText);
+    m_settings.setValue("keyboard/wordFling", m_keyboardWordFling);
+    m_settings.setValue("keyboard/predictiveSpacing", m_keyboardPredictiveSpacing);
+    m_settings.setValue("keyboard/hapticStrength", m_keyboardHapticStrength);
     
     m_settings.sync();
     qDebug() << "[SettingsManager] Saved settings";
@@ -370,6 +389,47 @@ void SettingsManager::setQuickSettingsTileOrder(const QStringList &order) {
     save();
     emit quickSettingsTileOrderChanged();
     qDebug() << "[SettingsManager] Quick Settings tile order changed:" << order;
+}
+
+// Keyboard setters
+void SettingsManager::setKeyboardAutoCorrection(bool enabled) {
+    if (m_keyboardAutoCorrection == enabled) return;
+    m_keyboardAutoCorrection = enabled;
+    save();
+    emit keyboardAutoCorrectionChanged();
+    qDebug() << "[SettingsManager] Keyboard auto-correction:" << enabled;
+}
+
+void SettingsManager::setKeyboardPredictiveText(bool enabled) {
+    if (m_keyboardPredictiveText == enabled) return;
+    m_keyboardPredictiveText = enabled;
+    save();
+    emit keyboardPredictiveTextChanged();
+    qDebug() << "[SettingsManager] Keyboard predictive text:" << enabled;
+}
+
+void SettingsManager::setKeyboardWordFling(bool enabled) {
+    if (m_keyboardWordFling == enabled) return;
+    m_keyboardWordFling = enabled;
+    save();
+    emit keyboardWordFlingChanged();
+    qDebug() << "[SettingsManager] Keyboard Word Fling:" << enabled;
+}
+
+void SettingsManager::setKeyboardPredictiveSpacing(bool enabled) {
+    if (m_keyboardPredictiveSpacing == enabled) return;
+    m_keyboardPredictiveSpacing = enabled;
+    save();
+    emit keyboardPredictiveSpacingChanged();
+    qDebug() << "[SettingsManager] Keyboard predictive spacing:" << enabled;
+}
+
+void SettingsManager::setKeyboardHapticStrength(const QString &strength) {
+    if (m_keyboardHapticStrength == strength) return;
+    m_keyboardHapticStrength = strength;
+    save();
+    emit keyboardHapticStrengthChanged();
+    qDebug() << "[SettingsManager] Keyboard haptic strength:" << strength;
 }
 
 // Sound scanning methods

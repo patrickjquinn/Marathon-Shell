@@ -50,6 +50,8 @@
 #include "src/hapticmanager.h"
 #include "src/audioroutingmanager.h"
 #include "src/securitymanager.h"
+#include "src/platformcpp.h"
+#include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/marathonapplicationservice.h"
 #include "src/dbus/marathonsystemservice.h"
 #include "src/dbus/marathonnotificationservice.h"
@@ -357,7 +359,18 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
     engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+    
+    // Platform utilities (hardware detection, etc.)
+    PlatformCpp *platformCpp = new PlatformCpp(&app);
+    engine.rootContext()->setContextProperty("PlatformCpp", platformCpp);
     qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
+    
+    // Word Engine for spell-checking and predictions
+    WordEngine *wordEngine = new WordEngine(&app);
+    wordEngine->setLanguage("en_US");
+    wordEngine->setEnabled(true);
+    engine.rootContext()->setContextProperty("WordEngine", wordEngine);
+    qInfo() << "[MarathonShell] ✓ Word Engine initialized";
     
     // Register RT Scheduler for thread priority management
     RTScheduler *rtScheduler = new RTScheduler(&app);
@@ -570,23 +583,83 @@ int main(int argc, char *argv[])
     engine.addImportPath("qrc:/");
     engine.addImportPath(":/");
     
-    // Add MarathonUI installation path (from independent build)
-    // On macOS: ~/.local/share/marathon-ui (from CMAKE_INSTALL_PREFIX)
-    // On Linux: ~/.local/share/marathon-ui or /usr/lib/qt6/qml/MarathonUI
-    QString marathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
-    engine.addImportPath(marathonUIPath);
-    qDebug() << "Added MarathonUI import path:" << marathonUIPath;
+    // ============================================================================
+    // CRITICAL: MarathonUI QML Module Import Paths
+    // 
+    // MarathonUI is a separate QML module library that must be built and either:
+    // 1. Installed to a known location, OR
+    // 2. Found in the build directory (for development without install)
+    //
+    // Qt searches for QML modules in paths added via engine.addImportPath().
+    // For a module URI like "MarathonUI.Theme", Qt looks for:
+    //   <importPath>/MarathonUI/Theme/qmldir
+    // ============================================================================
     
-    // Also try system location for production builds
-    QString systemMarathonUIPath = "/usr/lib/qt6/qml/MarathonUI";
+    // Priority 1: User-local installation (recommended for development)
+    // This is where `cmake --install .` installs to by default (without sudo)
+    QString userMarathonUIPath = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
+    engine.addImportPath(userMarathonUIPath);
+    qDebug() << "[QML Import] User-local MarathonUI:" << userMarathonUIPath;
+    
+    // Priority 2: System-wide installation (production deployments)
+    // This is where system packages would install MarathonUI
+    QString systemMarathonUIPath = "/usr/lib/qt6/qml";  // Parent of MarathonUI/
     engine.addImportPath(systemMarathonUIPath);
+    qDebug() << "[QML Import] System-wide Qt modules:" << systemMarathonUIPath;
     
-    // Add build directory path for MarathonUI modules (for development)
-    QString buildPath = QCoreApplication::applicationDirPath() + "/../../../qml";
-    engine.addImportPath(buildPath);
-    qDebug() << "Added QML import path:" << buildPath;
+    // Priority 3: Build directory (for development without install)
+    // When running from build dir, MarathonUI modules are in build/MarathonUI/
+    // QCoreApplication::applicationDirPath() = <project>/build/shell
+    // So ../MarathonUI = <project>/build/MarathonUI (WRONG - this doesn't exist!)
+    // Correct path: ../ = <project>/build (contains MarathonUI/ subdirectory)
+    QString buildMarathonUIPath = QCoreApplication::applicationDirPath() + "/..";
+    engine.addImportPath(buildMarathonUIPath);
+    qDebug() << "[QML Import] Build directory:" << buildMarathonUIPath;
     
-    const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
+    // Verify MarathonUI.Theme is loadable (most critical dependency)
+    QDir themeCheck1(userMarathonUIPath + "/MarathonUI/Theme");
+    QDir themeCheck2(systemMarathonUIPath + "/MarathonUI/Theme");
+    QDir themeCheck3(buildMarathonUIPath + "/MarathonUI/Theme");
+    
+    bool marathonUIFound = themeCheck1.exists() || themeCheck2.exists() || themeCheck3.exists();
+    
+    if (!marathonUIFound) {
+        qCritical() << "";
+        qCritical() << "========================================================================";
+        qCritical() << " FATAL: MarathonUI QML modules not found!";
+        qCritical() << "========================================================================";
+        qCritical() << "";
+        qCritical() << "MarathonUI must be built and installed before running Marathon Shell.";
+        qCritical() << "";
+        qCritical() << "QUICK FIX:";
+        qCritical() << "  cd" << QDir::current().absolutePath();
+        qCritical() << "  ./scripts/build-all.sh";
+        qCritical() << "";
+        qCritical() << "MANUAL BUILD (if build-all.sh fails):";
+        qCritical() << "  cd" << QDir::current().absolutePath();
+        qCritical() << "  cmake -B build -S . -DCMAKE_BUILD_TYPE=Release";
+        qCritical() << "  cmake --build build -j$(nproc)";
+        qCritical() << "  cmake --install build  # Installs to ~/.local/share/marathon-ui";
+        qCritical() << "";
+        qCritical() << "CHECKED PATHS:";
+        qCritical() << "  1." << themeCheck1.absolutePath() << (themeCheck1.exists() ? " [FOUND]" : " [NOT FOUND]");
+        qCritical() << "  2." << themeCheck2.absolutePath() << (themeCheck2.exists() ? " [FOUND]" : " [NOT FOUND]");
+        qCritical() << "  3." << themeCheck3.absolutePath() << (themeCheck3.exists() ? " [FOUND]" : " [NOT FOUND]");
+        qCritical() << "";
+        qCritical() << "========================================================================";
+        qCritical() << "";
+        
+        // Don't exit immediately - let QML engine fail with detailed error
+        // This helps users see which specific module import failed
+    } else {
+        qInfo() << "[MarathonShell] ✓ MarathonUI modules found";
+        if (themeCheck1.exists()) qDebug() << "  - Using user-local installation";
+        else if (themeCheck2.exists()) qDebug() << "  - Using system-wide installation";
+        else if (themeCheck3.exists()) qDebug() << "  - Using build directory (development mode)";
+    }
+    
+    // Qt 6.5+ uses ':/qt/qml/' as the default resource prefix for QML modules
+    const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
         &app, [url](QObject *obj, const QUrl &objUrl) {

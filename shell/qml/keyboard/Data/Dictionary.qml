@@ -4,7 +4,7 @@ pragma Singleton
 import QtQuick
 import MarathonOS.Shell
 
-QtObject {
+Item {
     id: dictionary
     
     // Top 1000 most common English words with frequencies
@@ -56,29 +56,78 @@ QtObject {
     // User's personal dictionary (learned words)
     property var userWords: []
     
+    // Predictions cache (updated by WordEngine async)
+    property var cachedPredictions: []
+    property string lastPredictionPrefix: ""
+    
+    // Connect to WordEngine predictions
+    Connections {
+        target: typeof WordEngine !== 'undefined' ? WordEngine : null
+        function onPredictionsReady(prefix, predictions) {
+            if (prefix === dictionary.lastPredictionPrefix) {
+                dictionary.cachedPredictions = predictions
+                Logger.info("Dictionary", "Hunspell predictions for '" + prefix + "': " + predictions.join(", "))
+            }
+        }
+    }
+    
     // Get predictions for a given prefix
     function predict(prefix) {
         if (!prefix || prefix.length === 0) {
             return []
         }
         
+        dictionary.lastPredictionPrefix = prefix
         const lowerPrefix = prefix.toLowerCase()
         
-        // Combine system and user dictionaries
-        const allWords = words.concat(userWords)
+        // Use WordEngine if available (Hunspell-based)
+        if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            // Clear stale predictions from previous request to avoid race condition
+            if (dictionary.lastPredictionPrefix !== prefix) {
+                dictionary.cachedPredictions = []
+            }
+            
+            // Request async predictions from Hunspell
+            WordEngine.requestPredictions(prefix, 3)
+            
+            // Return cached predictions from previous request (or fallback)
+            if (cachedPredictions.length > 0) {
+                return cachedPredictions
+            }
+        }
         
-        // Filter words that start with prefix
-        const matches = allWords.filter(function(entry) {
-            return entry.word.toLowerCase().startsWith(lowerPrefix)
-        })
+        // Fallback: Use built-in dictionary (OPTIMIZED)
+        // Cache toLowerCase to avoid repeated calls
+        var results = []
+        var count = 0
+        const maxResults = 3
         
-        // Sort by frequency (higher first)
-        matches.sort(function(a, b) {
+        // PERFORMANCE: Early exit when we have enough matches
+        // Check system dictionary first (more common words)
+        for (var i = 0; i < words.length && count < maxResults; i++) {
+            if (words[i].word.toLowerCase().startsWith(lowerPrefix)) {
+                results.push({word: words[i].word, freq: words[i].freq})
+                count++
+            }
+        }
+        
+        // Check user dictionary if needed
+        if (count < maxResults) {
+            for (var j = 0; j < userWords.length && count < maxResults; j++) {
+                if (userWords[j].word.toLowerCase().startsWith(lowerPrefix)) {
+                    results.push({word: userWords[j].word, freq: userWords[j].freq})
+                    count++
+                }
+            }
+        }
+        
+        // Sort only the results we found (much smaller array)
+        results.sort(function(a, b) {
             return b.freq - a.freq
         })
         
-        // Return top 3 matches
-        return matches.slice(0, 3).map(function(entry) {
+        // Extract words
+        return results.map(function(entry) {
             return entry.word
         })
     }
@@ -89,7 +138,12 @@ QtObject {
             return
         }
         
-        // Check if word already exists in user dictionary
+        // Use WordEngine if available
+        if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            WordEngine.learnWord(word)
+        }
+        
+        // Also update local user dictionary as fallback
         const existing = userWords.findIndex(function(entry) {
             return entry.word.toLowerCase() === word.toLowerCase()
         })
@@ -109,6 +163,12 @@ QtObject {
     function hasWord(word) {
         const lowerWord = word.toLowerCase()
         
+        // Use WordEngine if available (more accurate)
+        if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            return WordEngine.hasWord(word)
+        }
+        
+        // Fallback: Check local dictionaries
         const inSystem = words.some(function(entry) {
             return entry.word.toLowerCase() === lowerWord
         })

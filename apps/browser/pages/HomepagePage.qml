@@ -196,6 +196,7 @@ Rectangle {
                             selectByMouse: true
                             selectedTextColor: MColors.background
                             selectionColor: MColors.accent
+                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
                             text: homepagePage.currentHomepage
                             
                             onAccepted: {

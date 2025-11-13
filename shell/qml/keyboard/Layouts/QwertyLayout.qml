@@ -173,12 +173,36 @@ Item {
             
             // Backspace key (wider)
             Key {
+                id: backspaceKey
                 width: row3.availableWidth * 0.15
                 text: "backspace"
                 iconName: "delete"
                 isSpecial: true
                 
                 onClicked: {
+                    // Only fire on short tap (not long press)
+                    if (!backspaceRepeatTimer.running) {
+                        layout.backspaceClicked()
+                    }
+                }
+                
+                onPressAndHold: {
+                    // Start repeat timer on long press
+                    backspaceRepeatTimer.start()
+                }
+                
+                onReleased: {
+                    // Stop repeat when released
+                    backspaceRepeatTimer.stop()
+                }
+            }
+            
+            // Backspace repeat timer (managed at layout level)
+            Timer {
+                id: backspaceRepeatTimer
+                interval: 50  // Delete every 50ms when holding
+                repeat: true
+                onTriggered: {
                     layout.backspaceClicked()
                 }
             }
