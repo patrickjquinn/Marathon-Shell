@@ -161,6 +161,7 @@ set(QML_FILES
     qml/keyboard/Input/InputContext.qml
     qml/keyboard/Data/Dictionary.qml
     qml/keyboard/Data/AutoCorrect.qml
+    qml/keyboard/Data/DomainSuggestions.qml
     qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml

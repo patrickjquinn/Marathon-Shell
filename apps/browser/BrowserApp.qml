@@ -97,10 +97,22 @@ MApp {
     
     onAppLaunched: {
         Logger.warn("Browser", " onAppLaunched")
+        // Focus URL bar on launch for better keyboard integration
+        Qt.callLater(function() {
+            if (urlInput) {
+                urlInput.focus = true
+            }
+        })
     }
     
     onAppResumed: {
         Logger.warn("Browser", "Browser app resumed")
+        // Re-focus URL bar when app resumes (helps keyboard context)
+        Qt.callLater(function() {
+            if (urlInput) {
+                urlInput.focus = true
+            }
+        })
     }
 
     function loadBookmarks() {
@@ -794,7 +806,10 @@ MApp {
                             selectedTextColor: MColors.background
                             selectionColor: MColors.accent
                             clip: true
-                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
+                            // ISSUE C & D FIX: Enable URL-specific predictions (domain suggestions)
+                            // Qt.ImhUrlCharactersOnly tells keyboard this is a URL field
+                            // Removing Qt.ImhNoPredictiveText allows our smart domain suggestions to work
+                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                             text: {
                                 var currentTab = getCurrentTab()
                                 return currentTab ? currentTab.url : ""

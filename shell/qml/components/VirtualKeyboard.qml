@@ -15,6 +15,14 @@ Item {
     width: parent ? parent.width : 0
     height: active ? keyboardHeight : 0
     
+    // DEBUG: Monitor height changes (disabled for performance)
+    // onKeyboardHeightChanged: {
+    //     Logger.debug("VirtualKeyboard", "keyboardHeight changed: " + keyboardHeight)
+    // }
+    // onHeightChanged: {
+    //     Logger.debug("VirtualKeyboard", "container height changed: " + height)
+    // }
+    
     // Proper Qt anchoring - ABOVE nav bar
     anchors.left: parent.left
     anchors.right: parent.right

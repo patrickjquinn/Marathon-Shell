@@ -40,15 +40,20 @@ Rectangle {
                 border.color: index === 0 ? (typeof MColors !== 'undefined' ? MColors.accentBright : "#1de9b6") : (typeof MColors !== 'undefined' ? MColors.border : "rgba(1, 1, 1, 0.08)")
                 antialiasing: Constants.enableAntialiasing
                 
+                // PERFORMANCE: Enable layer for GPU-accelerated animations
+                layer.enabled: true
+                layer.smooth: true
+                
                 Behavior on color {
-                    ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+                    ColorAnimation { duration: 100; easing.type: Easing.OutCubic }
                 }
                 
+                // PERFORMANCE: Replace SpringAnimation with fast NumberAnimation
+                // SpringAnimation is expensive (physics simulation), unnecessary for simple scale
                 Behavior on scale {
-                    SpringAnimation { 
-                        spring: 3.0
-                        damping: 0.2
-                        epsilon: 0.01
+                    NumberAnimation { 
+                        duration: 80
+                        easing.type: Easing.OutCubic
                     }
                 }
                 
