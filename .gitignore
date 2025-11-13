@@ -10,5 +10,6 @@ build-ui/
 *.qmlc
 *.jsc
 *.log
+*.ini
 check_output.cpp
 
