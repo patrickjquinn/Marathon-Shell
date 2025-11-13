@@ -148,6 +148,30 @@ CLEAN=1 ./run.sh
 cd build && cmake --build .
 ```
 
+### Manual CMake Build (Alternative)
+
+The provided build scripts are recommended, but you can also use CMake directly:
+
+```bash
+# Shell
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+
+# Apps (installs to ~/.local/share/marathon-apps by default)
+cmake -B build-apps -S apps -DCMAKE_BUILD_TYPE=Release
+cmake --build build-apps -j$(nproc)
+cmake --install build-apps
+```
+
+**For system-wide app installation** (requires root):
+```bash
+# Override install directory
+cmake -B build-apps -S apps -DMARATHON_APPS_DIR=/usr/share/marathon-apps
+sudo cmake --install build-apps
+```
+
+> **Note**: Apps default to `~/.local/share/marathon-apps` to avoid permission issues during development. This ensures the build works out of the box without sudo, making it IDE-friendly.
+
 ### Platform Support
 
 **Linux (Primary Target):**

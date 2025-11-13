@@ -334,6 +334,9 @@ void WordEngineWorker::computePredictions(const QString &prefix, int maxResults)
     // Get suggestions from Hunspell
     auto suggestions = m_hunspell->suggest(prefix.toStdString());
     
+    // Determine if prefix is lowercase for case normalization
+    bool isLowercase = prefix[0].isLower();
+    
     QStringList results;
     for (const auto &s : suggestions) {
         if (results.size() >= maxResults)
@@ -342,6 +345,10 @@ void WordEngineWorker::computePredictions(const QString &prefix, int maxResults)
         QString word = QString::fromStdString(s);
         // Only include words that start with the prefix
         if (word.toLower().startsWith(prefix.toLower())) {
+            // Normalize case to match user input (Maliit behavior)
+            if (isLowercase) {
+                word = word.toLower();
+            }
             results.append(word);
         }
     }

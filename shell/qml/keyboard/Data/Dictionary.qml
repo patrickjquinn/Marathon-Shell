@@ -82,6 +82,11 @@ Item {
         
         // Use WordEngine if available (Hunspell-based)
         if (typeof WordEngine !== 'undefined' && WordEngine !== null && WordEngine.enabled) {
+            // Clear stale predictions from previous request to avoid race condition
+            if (dictionary.lastPredictionPrefix !== prefix) {
+                dictionary.cachedPredictions = []
+            }
+            
             // Request async predictions from Hunspell
             WordEngine.requestPredictions(prefix, 3)
             
@@ -91,21 +96,38 @@ Item {
             }
         }
         
-        // Fallback: Use built-in dictionary
-        const allWords = words.concat(userWords)
+        // Fallback: Use built-in dictionary (OPTIMIZED)
+        // Cache toLowerCase to avoid repeated calls
+        var results = []
+        var count = 0
+        const maxResults = 3
         
-        // Filter words that start with prefix
-        const matches = allWords.filter(function(entry) {
-            return entry.word.toLowerCase().startsWith(lowerPrefix)
-        })
+        // PERFORMANCE: Early exit when we have enough matches
+        // Check system dictionary first (more common words)
+        for (var i = 0; i < words.length && count < maxResults; i++) {
+            if (words[i].word.toLowerCase().startsWith(lowerPrefix)) {
+                results.push({word: words[i].word, freq: words[i].freq})
+                count++
+            }
+        }
         
-        // Sort by frequency (higher first)
-        matches.sort(function(a, b) {
+        // Check user dictionary if needed
+        if (count < maxResults) {
+            for (var j = 0; j < userWords.length && count < maxResults; j++) {
+                if (userWords[j].word.toLowerCase().startsWith(lowerPrefix)) {
+                    results.push({word: userWords[j].word, freq: userWords[j].freq})
+                    count++
+                }
+            }
+        }
+        
+        // Sort only the results we found (much smaller array)
+        results.sort(function(a, b) {
             return b.freq - a.freq
         })
         
-        // Return top 3 matches
-        return matches.slice(0, 3).map(function(entry) {
+        // Extract words
+        return results.map(function(entry) {
             return entry.word
         })
     }

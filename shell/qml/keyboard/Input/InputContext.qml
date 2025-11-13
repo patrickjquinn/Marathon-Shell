@@ -52,10 +52,11 @@ Item {
     
     readonly property bool shouldShowPredictions: {
         switch(inputMode) {
-            case "url": return false    // No predictions in URL bar
+            case "url": return true     // ISSUE D FIX: Show domain suggestions in URL mode
+            case "email": return true   // Show email domain suggestions
             case "number": return false
             case "phone": return false
-            default: return true  // Show for text, email, search
+            default: return true  // Show for text, search
         }
     }
     
@@ -131,18 +132,28 @@ Item {
     function detectInputMode() {
         if (!Qt.inputMethod) {
             inputMode = "text"
+            Logger.warn("InputContext", "Qt.inputMethod not available, defaulting to text mode")
             return
         }
         
         // Read Qt.inputMethod hints
         var hints = Qt.inputMethod.inputItemHints
         
+        // Handle undefined hints (happens when keyboard is manually invoked without input focus)
+        if (typeof hints === 'undefined' || hints === null) {
+            inputMode = "text"
+            Logger.warn("InputContext", "Input hints undefined (no focused input field), defaulting to text mode")
+            return
+        }
+        
+        // ISSUE C FIX: More robust hint detection
         // Check for email
         if (hints & Qt.ImhEmailCharactersOnly) {
             inputMode = "email"
         }
-        // Check for URL
-        else if (hints & Qt.ImhUrlCharactersOnly) {
+        // Check for URL - also detect if NoAutoUppercase is set with UrlCharactersOnly
+        else if (hints & Qt.ImhUrlCharactersOnly || 
+                 ((hints & Qt.ImhNoAutoUppercase) && (hints & Qt.ImhNoPredictiveText))) {
             inputMode = "url"
         }
         // Check for numbers only
@@ -158,7 +169,7 @@ Item {
             inputMode = "text"
         }
         
-        Logger.info("InputContext", "Detected input mode: " + inputMode + " (recommended layout: " + recommendedLayout + ")")
+        Logger.info("InputContext", "Detected input mode: " + inputMode + " (hints: " + hints + ", recommended layout: " + recommendedLayout + ")")
     }
 }
 
