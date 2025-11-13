@@ -49,6 +49,7 @@ class AudioManagerCpp : public QObject
     Q_PROPERTY(bool muted READ muted NOTIFY mutedChanged)
     Q_PROPERTY(AudioStreamModel* streams READ streams CONSTANT)
     Q_PROPERTY(bool perAppVolumeSupported READ perAppVolumeSupported CONSTANT)
+    Q_PROPERTY(bool isPlaying READ isPlaying NOTIFY isPlayingChanged)
 
 public:
     explicit AudioManagerCpp(QObject* parent = nullptr);
@@ -58,6 +59,7 @@ public:
     bool muted() const { return m_muted; }
     AudioStreamModel* streams() { return m_streamModel; }
     bool perAppVolumeSupported() const { return m_available && m_isPipeWire; }
+    bool isPlaying() const { return m_isPlaying; }
     
     Q_INVOKABLE void setVolume(double volume);
     Q_INVOKABLE void setMuted(bool muted);
@@ -70,15 +72,19 @@ signals:
     void volumeChanged();
     void mutedChanged();
     void streamsChanged();
+    void isPlayingChanged();
+    void streamPlaybackStateChanged(int streamId, bool playing);
 
 private:
     void parseWpctlStatus();
     void startStreamMonitoring();
+    void updatePlaybackState();
     
     bool m_available;
     bool m_isPipeWire;
     double m_currentVolume;
     bool m_muted;
+    bool m_isPlaying;
     AudioStreamModel* m_streamModel;
     QTimer* m_streamRefreshTimer;
 };

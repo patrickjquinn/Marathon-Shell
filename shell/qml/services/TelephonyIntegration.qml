@@ -51,8 +51,8 @@ QtObject {
         root.lastCallerNumber = number
         root.callWasAnswered = false
         
-        if (typeof WakeManager !== 'undefined') {
-            WakeManager.wake("call")
+        if (typeof PowerManager !== 'undefined') {
+            PowerManager.wake("call")
         }
         if (typeof DisplayManager !== 'undefined') {
             DisplayManager.turnScreenOn()
@@ -104,8 +104,8 @@ QtObject {
     function handleMessageReceived(sender, text, timestamp) {
         Logger.info("TelephonyIntegration", "💬 SMS RECEIVED from: " + sender)
         
-        if (typeof WakeManager !== 'undefined') {
-            WakeManager.wake("notification")
+        if (typeof PowerManager !== 'undefined') {
+            PowerManager.wake("notification")
         }
         
         var contactName = root.resolveContactName(sender)

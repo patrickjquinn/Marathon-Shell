@@ -4,7 +4,9 @@
 #include <QObject>
 #include <QString>
 #include <QDBusInterface>
+#include <QDBusUnixFileDescriptor>
 #include <QTimer>
+#include <QMap>
 
 class PowerManagerCpp : public QObject
 {
@@ -17,6 +19,9 @@ class PowerManagerCpp : public QObject
     Q_PROPERTY(bool powerProfilesSupported READ powerProfilesSupported CONSTANT)
     Q_PROPERTY(int idleTimeout READ idleTimeout WRITE setIdleTimeout NOTIFY idleTimeoutChanged)
     Q_PROPERTY(bool autoSuspendEnabled READ autoSuspendEnabled WRITE setAutoSuspendEnabled NOTIFY autoSuspendEnabledChanged)
+    Q_PROPERTY(bool systemSuspended READ isSystemSuspended NOTIFY systemSuspendedChanged)
+    Q_PROPERTY(bool wakelockSupported READ wakelockSupported CONSTANT)
+    Q_PROPERTY(bool rtcAlarmSupported READ rtcAlarmSupported CONSTANT)
 
 public:
     enum PowerProfile {
@@ -37,6 +42,9 @@ public:
     bool powerProfilesSupported() const { return m_powerProfilesSupported; }
     int idleTimeout() const { return m_idleTimeout; }
     bool autoSuspendEnabled() const { return m_autoSuspendEnabled; }
+    bool isSystemSuspended() const { return m_systemSuspended; }
+    bool wakelockSupported() const { return m_wakelockSupported; }
+    bool rtcAlarmSupported() const { return m_rtcAlarmSupported; }
 
     Q_INVOKABLE void suspend();
     Q_INVOKABLE void hibernate();
@@ -47,6 +55,17 @@ public:
     Q_INVOKABLE void setPowerProfile(const QString& profile);
     Q_INVOKABLE void setIdleTimeout(int seconds);
     Q_INVOKABLE void setAutoSuspendEnabled(bool enabled);
+    
+    // Wakelock management
+    Q_INVOKABLE bool acquireWakelock(const QString &name);
+    Q_INVOKABLE bool releaseWakelock(const QString &name);
+    Q_INVOKABLE bool hasWakelock(const QString &name) const;
+    Q_INVOKABLE bool inhibitSuspend(const QString &who, const QString &why);
+    Q_INVOKABLE void releaseInhibitor();
+    
+    // RTC alarm support
+    Q_INVOKABLE bool setRtcAlarm(qint64 epochTime);
+    Q_INVOKABLE bool clearRtcAlarm();
 
 signals:
     void batteryLevelChanged();
@@ -56,10 +75,13 @@ signals:
     void powerProfileChanged();
     void idleTimeoutChanged();
     void autoSuspendEnabledChanged();
+    void systemSuspendedChanged();
     void criticalBattery();
     void powerError(const QString& message);
     void aboutToSleep();      // Emitted before system suspends
     void resumedFromSleep();  // Emitted after system resumes
+    void prepareForSuspend(); // Emitted when system is about to suspend (from PrepareForSleep signal)
+    void resumedFromSuspend(); // Emitted when system resumes from suspend
     void idleStateChanged(bool idle);  // Emitted when idle state changes
 
 private slots:
@@ -72,6 +94,11 @@ private:
     void simulateBatteryUpdate();
     void applyCPUGovernor(PowerProfile profile);
     void checkCPUGovernorSupport();
+    void checkWakelockSupport();
+    void checkRtcAlarmSupport();
+    void cleanupWakelocks();
+    bool writeToFile(const QString &path, const QString &content);
+    bool writeToRtcWakeAlarm(const QString &value);
 
     QDBusInterface* m_upowerInterface;
     QDBusInterface* m_logindInterface;
@@ -92,6 +119,16 @@ private:
     bool m_autoSuspendEnabled;
     bool m_isIdle;
     qint64 m_lastActivityTime;
+    
+    // Wakelock support
+    QMap<QString, bool> m_activeWakelocks;
+    QDBusUnixFileDescriptor m_inhibitorFd;
+    bool m_systemSuspended;
+    bool m_wakelockSupported;
+    QString m_fallbackMode;  // "wakelock", "inhibitor", or "none"
+    
+    // RTC alarm support
+    bool m_rtcAlarmSupported;
 };
 
 #endif // POWERMANAGERCPP_H
