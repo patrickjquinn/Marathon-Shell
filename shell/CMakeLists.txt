@@ -207,7 +207,6 @@ set(QML_FILES
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
     qml/services/FlashlightManager.qml
-    qml/services/WakeManager.qml
     qml/services/CellularManager.qml
     qml/services/StateManager.qml
 )
@@ -263,7 +262,6 @@ set(SINGLETON_FILES
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
     qml/services/FlashlightManager.qml
-    qml/services/WakeManager.qml
     qml/services/CellularManager.qml
 )
 

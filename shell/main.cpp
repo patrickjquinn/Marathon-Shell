@@ -334,7 +334,7 @@ int main(int argc, char *argv[])
     // Register C++ services (SettingsManager already created above for compositor)
     NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
     PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
-    DisplayManagerCpp *displayManager = new DisplayManagerCpp(&app);
+    DisplayManagerCpp *displayManager = new DisplayManagerCpp(powerManager, &app);
     AudioManagerCpp *audioManager = new AudioManagerCpp(&app);
     ModemManagerCpp *modemManager = new ModemManagerCpp(&app);
     SensorManagerCpp *sensorManager = new SensorManagerCpp(&app);
@@ -359,6 +359,19 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
     engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+    
+    // Wire AudioManager to PowerManager for audio playback wakelocks
+    QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged,
+                     powerManager, [powerManager, audioManager]() {
+        if (audioManager->isPlaying()) {
+            powerManager->acquireWakelock("audio_playback");
+            qInfo() << "[MarathonShell] Audio playback started - acquired wakelock";
+        } else {
+            powerManager->releaseWakelock("audio_playback");
+            qInfo() << "[MarathonShell] Audio playback stopped - released wakelock";
+        }
+    });
+    qInfo() << "[MarathonShell] ✓ Audio playback wakelock integration enabled";
     
     // Platform utilities (hardware detection, etc.)
     PlatformCpp *platformCpp = new PlatformCpp(&app);
@@ -419,7 +432,7 @@ int main(int argc, char *argv[])
         }
         
         // Register freedesktop.org Notifications (standard interface for 3rd-party apps)
-        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, notificationModel, &app);
+        FreedesktopNotifications *freedesktopNotif = new FreedesktopNotifications(notifDb, notificationModel, powerManager, &app);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
         }

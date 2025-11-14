@@ -24,6 +24,10 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
     , m_autoSuspendEnabled(true)
     , m_isIdle(false)
     , m_lastActivityTime(QDateTime::currentMSecsSinceEpoch())
+    , m_systemSuspended(false)
+    , m_wakelockSupported(false)
+    , m_fallbackMode("none")
+    , m_rtcAlarmSupported(false)
 {
     qDebug() << "[PowerManagerCpp] Initializing";
     
@@ -71,6 +75,10 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
     // Check CPU governor support
     checkCPUGovernorSupport();
     
+    // Check wakelock and RTC alarm support
+    checkWakelockSupport();
+    checkRtcAlarmSupport();
+    
     // Setup idle timer
     m_idleTimer = new QTimer(this);
     m_idleTimer->setInterval(10000); // Check idle every 10 seconds
@@ -79,10 +87,16 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
     
     qInfo() << "[PowerManagerCpp] Power profiles supported:" << m_powerProfilesSupported;
     qInfo() << "[PowerManagerCpp] Current power profile:" << m_powerProfileString;
+    qInfo() << "[PowerManagerCpp] Wakelock support:" << (m_wakelockSupported ? "enabled" : "disabled (will use inhibitors)");
+    qInfo() << "[PowerManagerCpp] RTC alarm support:" << (m_rtcAlarmSupported ? "enabled" : "disabled");
 }
 
 PowerManagerCpp::~PowerManagerCpp()
 {
+    // Clean up all wakelocks before shutdown
+    cleanupWakelocks();
+    releaseInhibitor();
+    
     if (m_upowerInterface) delete m_upowerInterface;
     if (m_logindInterface) delete m_logindInterface;
 }
@@ -217,11 +231,29 @@ void PowerManagerCpp::queryBatteryState()
 void PowerManagerCpp::onPrepareForSleep(bool beforeSleep)
 {
     if (beforeSleep) {
-        qInfo() << "[PowerManagerCpp] System about to sleep - emitting aboutToSleep signal";
+        qInfo() << "[PowerManagerCpp] System about to sleep";
+        m_systemSuspended = true;
+        emit systemSuspendedChanged();
         emit aboutToSleep();
+        emit prepareForSuspend();
+        
+        // Release inhibitor if we had one (delay inhibitor releases automatically)
+        releaseInhibitor();
     } else {
-        qInfo() << "[PowerManagerCpp] System resumed from sleep - emitting resumedFromSleep signal";
+        qInfo() << "[PowerManagerCpp] System resumed from sleep";
+        m_systemSuspended = false;
+        emit systemSuspendedChanged();
         emit resumedFromSleep();
+        emit resumedFromSuspend();
+        
+        // Re-acquire wakelocks that were held before suspend
+        // (kernel wakelocks persist across suspend, but we re-apply for safety)
+        for (auto it = m_activeWakelocks.begin(); it != m_activeWakelocks.end(); ++it) {
+            if (it.value()) {
+                qDebug() << "[PowerManagerCpp] Re-acquiring wakelock after resume:" << it.key();
+                writeToFile("/sys/power/wake_lock", it.key());
+            }
+        }
     }
 }
 
@@ -433,5 +465,243 @@ void PowerManagerCpp::checkCPUGovernorSupport()
         m_powerProfilesSupported = false;
         qDebug() << "[PowerManagerCpp] CPU frequency scaling not available";
     }
+}
+
+// ============================================================================
+// Wakelock Management
+// ============================================================================
+
+void PowerManagerCpp::checkWakelockSupport()
+{
+    // Check if kernel wakelock interface is available
+    QFile wakeLockFile("/sys/power/wake_lock");
+    m_wakelockSupported = wakeLockFile.exists();
+    
+    if (m_wakelockSupported) {
+        qInfo() << "[PowerManagerCpp] Kernel wakelock support detected";
+        // Test if we can write to it (requires CAP_BLOCK_SUSPEND or appropriate permissions)
+        if (wakeLockFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            wakeLockFile.close();
+            m_fallbackMode = "wakelock";
+            qInfo() << "[PowerManagerCpp] Wakelock write access granted";
+        } else {
+            qDebug() << "[PowerManagerCpp] Wakelock write access denied - will use inhibitors";
+            m_wakelockSupported = false;
+            m_fallbackMode = "inhibitor";
+        }
+    } else {
+        qDebug() << "[PowerManagerCpp] Kernel wakelock interface not available (CONFIG_PM_WAKELOCKS not enabled)";
+        m_fallbackMode = "inhibitor";
+    }
+}
+
+bool PowerManagerCpp::acquireWakelock(const QString &name)
+{
+    if (m_activeWakelocks.contains(name) && m_activeWakelocks[name]) {
+        qDebug() << "[PowerManagerCpp] Wakelock already held:" << name;
+        return true;
+    }
+    
+    // Try kernel wakelock first
+    if (m_wakelockSupported && m_fallbackMode != "inhibitor") {
+        if (writeToFile("/sys/power/wake_lock", name)) {
+            m_activeWakelocks[name] = true;
+            m_fallbackMode = "wakelock";
+            qInfo() << "[PowerManagerCpp] Acquired wakelock:" << name;
+            return true;
+        } else {
+            qWarning() << "[PowerManagerCpp] Failed to acquire wakelock, falling back to inhibitor";
+            m_fallbackMode = "inhibitor";
+        }
+    }
+    
+    // Fallback to systemd-logind inhibitor
+    if (m_hasLogind) {
+        bool success = inhibitSuspend("Marathon Shell", "Wakelock: " + name);
+        if (success) {
+            m_activeWakelocks[name] = true;
+            qInfo() << "[PowerManagerCpp] Acquired inhibitor lock for:" << name;
+            return true;
+        }
+    }
+    
+    qWarning() << "[PowerManagerCpp] Failed to acquire wakelock:" << name;
+    return false;
+}
+
+bool PowerManagerCpp::releaseWakelock(const QString &name)
+{
+    if (!m_activeWakelocks.contains(name) || !m_activeWakelocks[name]) {
+        qDebug() << "[PowerManagerCpp] Wakelock not held:" << name;
+        return true;
+    }
+    
+    bool success = false;
+    
+    // Release kernel wakelock if that's what we're using
+    if (m_fallbackMode == "wakelock") {
+        success = writeToFile("/sys/power/wake_unlock", name);
+        if (success) {
+            qInfo() << "[PowerManagerCpp] Released wakelock:" << name;
+        } else {
+            qWarning() << "[PowerManagerCpp] Failed to release wakelock:" << name;
+        }
+    } else if (m_fallbackMode == "inhibitor") {
+        // For inhibitors, we release all at once (single FD)
+        // This is a limitation of the inhibitor API
+        releaseInhibitor();
+        qInfo() << "[PowerManagerCpp] Released inhibitor lock for:" << name;
+        success = true;
+    }
+    
+    if (success || m_fallbackMode == "inhibitor") {
+        m_activeWakelocks[name] = false;
+    }
+    
+    return success;
+}
+
+bool PowerManagerCpp::hasWakelock(const QString &name) const
+{
+    return m_activeWakelocks.value(name, false);
+}
+
+bool PowerManagerCpp::inhibitSuspend(const QString &who, const QString &why)
+{
+    if (!m_hasLogind) {
+        qWarning() << "[PowerManagerCpp] Cannot inhibit - logind not available";
+        return false;
+    }
+    
+    // Call Inhibit method: Inhibit(what, who, why, mode)
+    // Mode "delay" allows system to delay suspend for up to 5 seconds (safer for mobile)
+    QDBusReply<QDBusUnixFileDescriptor> reply = m_logindInterface->call(
+        "Inhibit",
+        "sleep",      // what: sleep, shutdown, idle, handle-power-key
+        who,          // who: human-readable application name
+        why,          // why: human-readable reason
+        "delay"       // mode: "block" or "delay"
+    );
+    
+    if (reply.isValid()) {
+        m_inhibitorFd = reply.value();
+        qDebug() << "[PowerManagerCpp] Acquired inhibitor lock:" << who << "-" << why;
+        return true;
+    } else {
+        qWarning() << "[PowerManagerCpp] Failed to acquire inhibitor lock:" << reply.error().message();
+        return false;
+    }
+}
+
+void PowerManagerCpp::releaseInhibitor()
+{
+    // Closing the file descriptor releases the inhibitor lock
+    // QDBusUnixFileDescriptor automatically closes FD when reset
+    if (m_inhibitorFd.isValid()) {
+        m_inhibitorFd = QDBusUnixFileDescriptor();
+        qDebug() << "[PowerManagerCpp] Released inhibitor lock";
+    }
+}
+
+void PowerManagerCpp::cleanupWakelocks()
+{
+    // Release all active wakelocks
+    qInfo() << "[PowerManagerCpp] Cleaning up wakelocks...";
+    for (auto it = m_activeWakelocks.begin(); it != m_activeWakelocks.end(); ++it) {
+        if (it.value()) {
+            releaseWakelock(it.key());
+        }
+    }
+}
+
+bool PowerManagerCpp::writeToFile(const QString &path, const QString &content)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+    
+    QTextStream out(&file);
+    out << content;
+    file.close();
+    
+    return true;
+}
+
+// ============================================================================
+// RTC Alarm Support
+// ============================================================================
+
+void PowerManagerCpp::checkRtcAlarmSupport()
+{
+    // Check if RTC wakealarm interface is available
+    QFile rtcWakeAlarm("/sys/class/rtc/rtc0/wakealarm");
+    m_rtcAlarmSupported = rtcWakeAlarm.exists();
+    
+    if (m_rtcAlarmSupported) {
+        qInfo() << "[PowerManagerCpp] RTC wakealarm support detected";
+        // Test if we can write to it
+        if (rtcWakeAlarm.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            rtcWakeAlarm.close();
+            qInfo() << "[PowerManagerCpp] RTC wakealarm write access granted";
+        } else {
+            qDebug() << "[PowerManagerCpp] RTC wakealarm write access denied";
+            m_rtcAlarmSupported = false;
+        }
+    } else {
+        qDebug() << "[PowerManagerCpp] RTC wakealarm interface not available";
+    }
+}
+
+bool PowerManagerCpp::setRtcAlarm(qint64 epochTime)
+{
+    if (!m_rtcAlarmSupported) {
+        qWarning() << "[PowerManagerCpp] RTC alarm not supported";
+        return false;
+    }
+    
+    // Clear existing alarm first
+    if (!writeToRtcWakeAlarm("0")) {
+        qWarning() << "[PowerManagerCpp] Failed to clear existing RTC alarm";
+        return false;
+    }
+    
+    // Set new alarm
+    if (!writeToRtcWakeAlarm(QString::number(epochTime))) {
+        qWarning() << "[PowerManagerCpp] Failed to set RTC alarm";
+        return false;
+    }
+    
+    QDateTime wakeTime = QDateTime::fromSecsSinceEpoch(epochTime);
+    qInfo() << "[PowerManagerCpp] RTC alarm set for:" << wakeTime.toString();
+    return true;
+}
+
+bool PowerManagerCpp::clearRtcAlarm()
+{
+    if (!m_rtcAlarmSupported) {
+        return false;
+    }
+    
+    bool success = writeToRtcWakeAlarm("0");
+    if (success) {
+        qInfo() << "[PowerManagerCpp] RTC alarm cleared";
+    }
+    return success;
+}
+
+bool PowerManagerCpp::writeToRtcWakeAlarm(const QString &value)
+{
+    QFile file("/sys/class/rtc/rtc0/wakealarm");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "[PowerManagerCpp] Failed to open wakealarm:" << file.errorString();
+        return false;
+    }
+    
+    QTextStream out(&file);
+    out << value;
+    file.close();
+    
+    return true;
 }
 
