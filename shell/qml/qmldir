@@ -38,7 +38,6 @@ singleton SessionManager 1.0 services/SessionManager.qml
 singleton TelephonyIntegration 1.0 services/TelephonyIntegration.qml
 singleton TelephonyManager 1.0 services/TelephonyManager.qml
 singleton UnifiedSearchService 1.0 services/UnifiedSearchService.qml
-singleton WakeManager 1.0 services/WakeManager.qml
 singleton HapticService 1.0 services/HapticService.qml
 singleton StatusBarIconService 1.0 services/StatusBarIconService.qml
 singleton ClipboardService 1.0 services/ClipboardService.qml

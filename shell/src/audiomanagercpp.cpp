@@ -75,6 +75,7 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
     , m_isPipeWire(false)
     , m_currentVolume(0.6)
     , m_muted(false)
+    , m_isPlaying(false)
     , m_streamModel(new AudioStreamModel(this))
     , m_streamRefreshTimer(new QTimer(this))
 {
@@ -311,6 +312,9 @@ void AudioManagerCpp::parseWpctlStatus()
     qDebug() << "[AudioManagerCpp] Found" << streams.size() << "audio streams";
     m_streamModel->updateStreams(streams);
     emit streamsChanged();
+    
+    // Update playback state based on active streams
+    updatePlaybackState();
 }
 
 void AudioManagerCpp::startStreamMonitoring()
@@ -319,5 +323,26 @@ void AudioManagerCpp::startStreamMonitoring()
     connect(m_streamRefreshTimer, &QTimer::timeout, this, &AudioManagerCpp::refreshStreams);
     m_streamRefreshTimer->start(5000);
     qDebug() << "[AudioManagerCpp] Started stream monitoring (5s interval)";
+}
+
+void AudioManagerCpp::updatePlaybackState()
+{
+    // Check if any streams are currently playing
+    // A stream is considered "playing" if it exists and is not muted
+    // (wpctl doesn't provide explicit playback state, so we use stream existence as a proxy)
+    
+    bool wasPlaying = m_isPlaying;
+    bool isNowPlaying = false;
+    
+    // If we have any active streams in the model, consider audio as playing
+    if (m_streamModel->rowCount() > 0) {
+        isNowPlaying = true;
+    }
+    
+    if (wasPlaying != isNowPlaying) {
+        m_isPlaying = isNowPlaying;
+        qInfo() << "[AudioManagerCpp] Playback state changed:" << (isNowPlaying ? "PLAYING" : "STOPPED");
+        emit isPlayingChanged();
+    }
 }
 

@@ -213,6 +213,61 @@ sudo cmake --install build-apps
 MARATHON_DEBUG=1 ./run.sh
 ```
 
+## System Configuration
+
+### Power Management Permissions
+
+Marathon Shell implements opportunistic suspend with kernel wakelocks and RTC wake alarms. These features require specific permissions to function optimally.
+
+#### Wakelock Support
+
+For kernel wakelock support (`/sys/power/wake_lock`), the shell process needs `CAP_BLOCK_SUSPEND` capability:
+
+```bash
+# Option 1: Grant capability to the binary (recommended for production)
+sudo setcap cap_block_suspend+ep /path/to/marathon-shell-bin
+
+# Option 2: Use udev rules for development (easier for testing)
+# Create /etc/udev/rules.d/99-marathon-power.rules:
+SUBSYSTEM=="power", ACTION=="add", RUN+="/bin/chmod 666 /sys/power/wake_lock /sys/power/wake_unlock"
+SUBSYSTEM=="rtc", KERNEL=="rtc0", MODE="0664", GROUP="users"
+
+# Reload udev rules:
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+**Note**: If wakelock permissions are not available, Marathon Shell automatically falls back to systemd-logind inhibitor locks, which provide similar functionality without requiring special permissions.
+
+#### RTC Wake Alarm
+
+For RTC alarm support (`/sys/class/rtc/rtc0/wakealarm`), the shell needs write access to the RTC device:
+
+```bash
+# Add your user to the appropriate group (usually dialout or users)
+sudo usermod -a -G dialout $USER
+
+# Or use udev rule (included in the snippet above)
+SUBSYSTEM=="rtc", KERNEL=="rtc0", MODE="0664", GROUP="dialout"
+```
+
+#### Verification
+
+Check if power management features are available:
+
+```bash
+# Check wakelock support
+ls -la /sys/power/wake_lock /sys/power/wake_unlock
+
+# Check RTC alarm support
+ls -la /sys/class/rtc/rtc0/wakealarm
+
+# Test wakelock (should not error if permissions are correct)
+echo "test_lock" | sudo tee /sys/power/wake_lock
+cat /sys/power/wake_lock
+echo "test_lock" | sudo tee /sys/power/wake_unlock
+```
+
 ### First Launch
 
 On first launch, Marathon Shell scans for applications in:

@@ -214,8 +214,8 @@ Item {
             // In production, this would set a system wake alarm via:
             // - Linux: /sys/class/rtc/rtc0/wakealarm
             // - OR: systemd timer with WakeSystem=true
-            if (typeof WakeManager !== 'undefined') {
-                WakeManager.scheduleWake(nextTime, "alarm")
+            if (typeof PowerManager !== 'undefined') {
+                PowerManager.scheduleWake(nextTime, "alarm")
             }
             
             checkTimer.interval = Math.min(msUntil, 60000)  // Check at least every minute
@@ -230,8 +230,8 @@ Item {
         var snoozeTime = new Date()
         snoozeTime.setMinutes(snoozeTime.getMinutes() + minutes)
         
-        if (typeof WakeManager !== 'undefined') {
-            WakeManager.scheduleWake(snoozeTime, "alarm_snooze")
+        if (typeof PowerManager !== 'undefined') {
+            PowerManager.scheduleWake(snoozeTime, "alarm_snooze")
         }
     }
     
@@ -271,8 +271,8 @@ Item {
         activeAlarmsChanged()
         
         // Wake the system
-        if (typeof WakeManager !== 'undefined') {
-            WakeManager.wake("alarm")
+        if (typeof PowerManager !== 'undefined') {
+            PowerManager.wake("alarm")
         }
         
         // Turn on screen

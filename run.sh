@@ -42,6 +42,88 @@ if [ $? -eq 0 ]; then
     echo ""
     echo " Complete build successful!"
     echo ""
+    
+    # Setup power management permissions (Linux only)
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo "🔋 Checking power management permissions..."
+        
+        NEED_WAKELOCK_SETUP=false
+        NEED_RTC_SETUP=false
+        
+        # Check wakelock support
+        if [ -e "/sys/power/wake_lock" ]; then
+            if [ ! -w "/sys/power/wake_lock" ]; then
+                NEED_WAKELOCK_SETUP=true
+                echo "   ⚠️  Wakelock interface found but not writable"
+            else
+                echo "   ✓ Wakelock interface: accessible"
+            fi
+        else
+            echo "   ℹ️  Kernel wakelock interface not available (CONFIG_PM_WAKELOCKS not enabled)"
+            echo "      Will use systemd-logind inhibitors as fallback"
+        fi
+        
+        # Check RTC alarm support
+        if [ -e "/sys/class/rtc/rtc0/wakealarm" ]; then
+            if [ ! -w "/sys/class/rtc/rtc0/wakealarm" ]; then
+                NEED_RTC_SETUP=true
+                echo "   ⚠️  RTC wake alarm found but not writable"
+            else
+                echo "   ✓ RTC wake alarm: accessible"
+            fi
+        else
+            echo "   ℹ️  RTC wake alarm interface not available"
+        fi
+        
+        # Offer to set up permissions if needed
+        if [ "$NEED_WAKELOCK_SETUP" = true ] || [ "$NEED_RTC_SETUP" = true ]; then
+            echo ""
+            echo "   Power management features need permissions setup."
+            echo "   This will enable:"
+            if [ "$NEED_WAKELOCK_SETUP" = true ]; then
+                echo "     - Kernel wakelocks (prevent opportunistic suspend)"
+            fi
+            if [ "$NEED_RTC_SETUP" = true ]; then
+                echo "     - RTC wake alarms (wake from suspend)"
+            fi
+            echo ""
+            
+            # Auto-setup in CI/non-interactive mode, otherwise ask
+            if [ -n "$CI" ] || [ "$AUTO_SETUP_PERMISSIONS" = "1" ]; then
+                SETUP_PERMS="y"
+            else
+                read -p "   Set up permissions now? (y/N) " -n 1 -r SETUP_PERMS
+                echo ""
+            fi
+            
+            if [[ $SETUP_PERMS =~ ^[Yy]$ ]]; then
+                echo "   Setting up permissions (requires sudo)..."
+                
+                if [ "$NEED_WAKELOCK_SETUP" = true ] && [ -e "/sys/power/wake_lock" ]; then
+                    sudo chmod 666 /sys/power/wake_lock /sys/power/wake_unlock 2>/dev/null || true
+                    echo "   ✓ Wakelock permissions set"
+                fi
+                
+                if [ "$NEED_RTC_SETUP" = true ] && [ -e "/sys/class/rtc/rtc0/wakealarm" ]; then
+                    sudo chmod 664 /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
+                    sudo chgrp $USER /sys/class/rtc/rtc0/wakealarm 2>/dev/null || true
+                    echo "   ✓ RTC alarm permissions set"
+                fi
+                
+                echo ""
+                echo "   ✅ Power management permissions configured!"
+                echo "      (Note: These are temporary and will reset on reboot)"
+                echo "      For persistent setup, see README.md Power Management section"
+            else
+                echo "   ⏭️  Skipping permission setup"
+                echo "      Shell will use fallback methods (systemd-logind inhibitors)"
+            fi
+        else
+            echo "   ✅ Power management: ready"
+        fi
+        echo ""
+    fi
+    
     echo " Starting Marathon Shell..."
     echo ""
     

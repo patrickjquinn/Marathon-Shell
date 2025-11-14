@@ -1,4 +1,5 @@
 #include "displaymanagercpp.h"
+#include "powermanagercpp.h"
 #include "platform.h"
 #include <QDebug>
 #include <QFile>
@@ -7,7 +8,7 @@
 #include <QProcess>
 #include <QtMath>
 
-DisplayManagerCpp::DisplayManagerCpp(QObject* parent)
+DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* parent)
     : QObject(parent)
     , m_available(false)
     , m_maxBrightness(100)
@@ -18,6 +19,7 @@ DisplayManagerCpp::DisplayManagerCpp(QObject* parent)
     , m_nightLightEnabled(false)
     , m_nightLightTemperature(3400) // Warm default (between 2700-6500K)
     , m_nightLightSchedule("off")
+    , m_powerManager(powerManager)
 {
     qDebug() << "[DisplayManagerCpp] Initializing";
     
@@ -282,6 +284,17 @@ void DisplayManagerCpp::setScreenState(bool on)
         // Silently fail in VM/desktop environments where framebuffer doesn't exist
         // This is expected behavior and will work on real hardware
         qDebug() << "[DisplayManagerCpp] Framebuffer control not available (expected in VM/desktop)";
+    }
+    
+    // Manage display wakelock based on screen state
+    if (m_powerManager) {
+        if (on) {
+            m_powerManager->acquireWakelock("display");
+            qInfo() << "[DisplayManagerCpp] Acquired display wakelock";
+        } else {
+            m_powerManager->releaseWakelock("display");
+            qInfo() << "[DisplayManagerCpp] Released display wakelock";
+        }
     }
 }
 
