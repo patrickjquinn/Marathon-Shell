@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -179,15 +178,8 @@ Item {
             }
         }
         
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: Qt.rgba(0, 0, 0, 0.6)
-            shadowVerticalOffset: 4
-            shadowBlur: 0.6
-            blurMax: 16
-            paddingRect: Qt.rect(0, 0, 0, 20)
-        }
+        layer.enabled: false // Qt 6.4: effects disabled
+        
         
         Rectangle {
             anchors.fill: parent

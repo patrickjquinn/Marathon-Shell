@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -116,16 +115,8 @@ Item {
                     }
                 }
                 
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: MColors.marathonTeal
-                    shadowVerticalOffset: 0
-                    shadowHorizontalOffset: 0
-                    shadowBlur: 0.4
-                    blurMax: 8
-                    paddingRect: Qt.rect(0, 0, 0, 0)
-                }
+                layer.enabled: false // Qt 6.4: effects disabled
+                
             }
         }
         

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonUI.Theme
 
 Rectangle {
@@ -119,14 +118,8 @@ Rectangle {
             border.width: 1
             border.color: MColors.borderSubtle
             
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: Qt.rgba(0, 0, 0, 0.4)
-                shadowVerticalOffset: 1
-                shadowBlur: 0.2
-                blurMax: 2
-            }
+            layer.enabled: false // Qt 6.4: effects disabled
+            
             
             Rectangle {
                 anchors.fill: parent

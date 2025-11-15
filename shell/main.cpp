@@ -672,7 +672,7 @@ int main(int argc, char *argv[])
     }
     
     // Qt 6.5+ uses ':/qt/qml/' as the default resource prefix for QML modules
-    const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
+    const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
         &app, [url](QObject *obj, const QUrl &objUrl) {

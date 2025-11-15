@@ -1,6 +1,9 @@
 #!/bin/sh
 # Marathon Shell Wayland Session Startup Script
-# Sets up environment and launches the shell
+
+# Save original display state
+ORIGINAL_WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+ORIGINAL_DISPLAY="$DISPLAY"
 
 # Set session name
 export XDG_SESSION_TYPE=wayland
@@ -11,26 +14,23 @@ export XDG_CURRENT_DESKTOP=marathon
 export MARATHON_PREFIX=/usr
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
 
-# Qt/QML environment - DO NOT set QT_QPA_PLATFORM for a Wayland compositor
-# The shell IS the compositor, not a client. Qt will auto-select the correct backend.
-# export QT_QPA_PLATFORM=wayland  # WRONG - causes crash
+# Qt/QML environment
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export QT_QUICK_CONTROLS_STYLE=Basic
-export QML_IMPORT_PATH=/usr/lib/qml:$QML_IMPORT_PATH
-export QML2_IMPORT_PATH=/usr/lib/qml:$QML2_IMPORT_PATH
+export QML_IMPORT_PATH=/usr/local/lib/qt6/qml:/usr/lib/qt6/qml:/usr/lib/qml:$QML_IMPORT_PATH
+export QML2_IMPORT_PATH=/usr/local/lib/qt6/qml:/usr/lib/qt6/qml:/usr/lib/qml:$QML2_IMPORT_PATH
 
-# Enable QML disk cache for ARM performance (caches compiled QML at runtime)
+# Enable QML disk cache
 export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
 mkdir -p "$QT_QML_DISK_CACHE_PATH"
 
-# Display scaling for OnePlus 6 (1080x2280, ~402 DPI)
+# Display scaling
 export QT_SCALE_FACTOR=1
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 export QT_SCREEN_SCALE_FACTORS=1
 export QT_ENABLE_HIGHDPI_SCALING=0
 
 # Wayland environment
-export WAYLAND_DISPLAY=wayland-0
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 
 # D-Bus session
@@ -38,29 +38,32 @@ if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
     eval $(dbus-launch --sh-syntax --exit-with-session)
 fi
 
-# Enable debug logging if requested
-if [ "$MARATHON_DEBUG" = "1" ]; then
-    export QT_LOGGING_RULES="*.debug=true;marathon.*.info=true"
-else
-    export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
-fi
+# Logging
+export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
 
-# Performance: Disable QML AOT compilation (causes slowdowns and excessive temp files)
+# Performance settings
 export QML_DISABLE_DISK_CACHE=0
-export QT_QUICK_CONTROLS_IMAGINE_PATH=""
-export QML_DISABLE_OPTIMIZER=0
-
-# Use QML cache for faster startup
 export QML_FORCE_DISK_CACHE=1
 
-# Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
+# Accessibility
 export NO_AT_BRIDGE=1
 export GTK_A11Y=none
 export QT_ACCESSIBILITY=0
 
-# GIO/GSettings - use memory backend if no dconf
+# GIO/GSettings
 export GIO_USE_VFS=local
 export GSETTINGS_BACKEND=memory
 
 # Start the compositor
-exec /usr/bin/marathon-shell-bin "$@"
+if [ -n "$ORIGINAL_WAYLAND_DISPLAY" ] || [ -n "$ORIGINAL_DISPLAY" ]; then
+    # Running nested - use wayland client  
+    exec /usr/bin/marathon-shell-bin -platform wayland --fullscreen "$@"
+else
+    # Running as primary compositor
+    # Try linuxfb first (software rendering, fewer permissions needed)
+    # Fall back to eglfs if that doesn't work
+    /usr/bin/marathon-shell-bin -platform eglfs "$@" 2>/tmp/marathon-linuxfb.log
+    if [ $? -ne 0 ]; then
+        exec /usr/bin/marathon-shell-bin -platform eglfs "$@"
+    fi
+fi

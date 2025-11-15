@@ -292,7 +292,6 @@ qt6_add_qml_module(marathon-shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
     RESOURCES
-        resources.qrc
         qml/keyboard/Core/qmldir
         qml/keyboard/UI/qmldir
         qml/keyboard/Layouts/qmldir
@@ -300,6 +299,10 @@ qt6_add_qml_module(marathon-shell
         qml/keyboard/Data/qmldir
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
+
+# Qt 6.4: Add resources.qrc directly to target sources so CMake processes it
+# qt6_add_qml_module doesn't handle .qrc files properly in Qt 6.4
+target_sources(marathon-shell PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/resources.qrc)
 
 # Add qmllint validation target - runs BEFORE building
 if(QMLLINT_AVAILABLE)

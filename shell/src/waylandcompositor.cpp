@@ -7,6 +7,8 @@
 #include <QFile>
 #include <QDir>
 #include <QTextStream>
+#include <QCoreApplication>
+#include <QCoreApplication>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QtMath>

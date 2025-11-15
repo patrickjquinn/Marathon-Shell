@@ -1,7 +1,6 @@
 // Marathon Virtual Keyboard - Key Component
 // Optimized for zero-latency input
 import QtQuick
-import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -182,12 +181,7 @@ Rectangle {
         
         // Shadow effect
         layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "#000000"
-            shadowBlur: 0.4
-            shadowOpacity: 0.6
-        }
+        
         
         // Preview text (larger)
         Text {
@@ -241,12 +235,7 @@ Rectangle {
             antialiasing: true
             
             layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: "#000000"
-                shadowBlur: 0.4
-                shadowOpacity: 0.6
-            }
+            
             
             Row {
                 anchors.centerIn: parent

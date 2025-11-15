@@ -10,8 +10,8 @@ QtObject {
     
     property int idleTimeout: 300000
     property int lockTimeout: 60000
-    property int lastActivityTime: 0
-    property int idleTime: 0
+    property double lastActivityTime: Date.now()
+    property double idleTime: 0
     
     property string sessionId: ""
     property string sessionType: "user"
@@ -160,7 +160,7 @@ QtObject {
     
     property Timer idleMonitor: Timer {
         interval: 5000
-        running: idleDetectionEnabled && sessionActive
+        running: idleDetectionEnabled && sessionActive && !screenLocked
         repeat: true
         onTriggered: _checkIdleState()
     }

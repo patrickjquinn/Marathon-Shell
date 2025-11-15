@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonUI.Theme
 import MarathonUI.Effects
 import MarathonOS.Shell
@@ -146,14 +145,8 @@ Item {
             border.color: Qt.rgba(0, 0, 0, 0.15)
             
             // Shadow on thumb
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: Qt.rgba(0, 0, 0, 0.4)
-                shadowVerticalOffset: 2
-                shadowBlur: 0.4
-                blurMax: 6
-            }
+            layer.enabled: false // Qt 6.4: effects disabled
+            
             
             // Inner highlight for polish
             Rectangle {

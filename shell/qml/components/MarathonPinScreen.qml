@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
@@ -103,16 +102,7 @@ Item {
         }
         
         // Apply blur effect (Qt6 MultiEffect)
-        MultiEffect {
-            anchors.fill: parent
-            source: wallpaperCapture
-            blurEnabled: true
-            blur: 1.0
-            blurMax: 64
-            blurMultiplier: 1.0
-            saturation: 0.3
-            brightness: -0.2
-        }
+        
     }
     
     // Solid background overlay for better contrast
@@ -147,12 +137,7 @@ Item {
                 antialiasing: true
                 
                 layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Qt.rgba(0, 0, 0, 0.2)
-                    shadowBlur: 0.4
-                    shadowVerticalOffset: 4
-                }
+                
                 
                 Icon {
                     name: "lock"
