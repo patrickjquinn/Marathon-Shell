@@ -111,8 +111,10 @@ Item {
     
     // State-based navigation using centralized stores
     // Don't show lock screen until OOBE is complete
+    // Use showLockScreen (not isLocked) to determine if lock screen should be visible
+    // This allows lock screen to show with unlocked icon during grace period
     state: SettingsManagerCpp.firstRunComplete ? 
-           (SessionStore.isLocked ? (showPinScreen ? "pinEntry" : "locked") : 
+           (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : 
             (UIStore.appWindowOpen ? "app" : "home")) : 
            "home"
     
@@ -171,7 +173,8 @@ Item {
                 appWindow.visible: false
             }
             PropertyChanges {
-                navBar.visible: false
+                navBar.visible: true  // Show nav bar for keyboard access
+                navBar.pinScreenMode: true  // Hide pill and search, keep keyboard button
             }
         },
         State {
@@ -195,6 +198,7 @@ Item {
             }
             PropertyChanges {
                 navBar.visible: true
+                navBar.pinScreenMode: false  // Normal mode with pill and search
             }
         },
         State {
@@ -221,6 +225,7 @@ Item {
             PropertyChanges {
                 navBar.visible: true
                 navBar.z: Constants.zIndexNavBarApp
+                navBar.pinScreenMode: false  // Normal mode with pill and search
             }
         }
     ]

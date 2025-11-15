@@ -26,6 +26,17 @@ Item {
     layer.enabled: true
     layer.smooth: true
     
+    // Update SessionStore to show lock icon in status bar when PIN screen visible
+    onVisibleChanged: {
+        if (visible) {
+            SessionStore.isOnLockScreen = true
+            Logger.info("PinScreen", "PIN screen visible - showing lock icon in status bar")
+        } else {
+            SessionStore.isOnLockScreen = false
+            Logger.info("PinScreen", "PIN screen hidden - showing clock in status bar")
+        }
+    }
+    
     Keys.onPressed: function(event) {
         if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
             var digit = String.fromCharCode(event.key)
@@ -48,7 +59,12 @@ Item {
             Logger.info("PinScreen", " Authentication successful, hiding spinner")
             authenticating = false
             HapticService.medium()
-            pinCorrect()
+            
+            // Trigger unlock animation in status bar
+            SessionStore.triggerUnlockAnimation()
+            
+            // Delay unlock to allow animation to play (350ms for smooth unlock visual)
+            unlockDelayTimer.start()
         }
         
         function onAuthenticationFailed(reason) {
@@ -58,6 +74,9 @@ Item {
             error = reason
             errorTimer.start()
             biometricInProgress = false
+            
+            // Trigger shake animation in status bar
+            SessionStore.triggerShakeAnimation()
         }
         
         function onBiometricPrompt(message) {
@@ -137,30 +156,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(24 * Constants.scaleFactor)
             
-            // Lock icon - larger and cleaner
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: Math.round(80 * Constants.scaleFactor)
-                height: Math.round(80 * Constants.scaleFactor)
-                radius: Math.round(40 * Constants.scaleFactor)
-                color: MColors.surface
-                antialiasing: true
-                
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: Qt.rgba(0, 0, 0, 0.2)
-                    shadowBlur: 0.4
-                    shadowVerticalOffset: 4
-                }
-                
-                Icon {
-                    name: "lock"
-                    size: Math.round(40 * Constants.scaleFactor)
-                    color: MColors.accentBright
-                    anchors.centerIn: parent
-                }
-            }
+            // Lock icon removed - now shown in status bar for consistency
             
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -644,6 +640,14 @@ Item {
         onTriggered: {
             pin = ""
             error = ""
+        }
+    }
+    
+    Timer {
+        id: unlockDelayTimer
+        interval: 350  // Match unlock animation duration
+        onTriggered: {
+            pinCorrect()  // Now emit the unlock signal
         }
     }
     
