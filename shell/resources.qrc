@@ -63,6 +63,8 @@
         <file alias="globe.svg">resources/images/icons/lucide/globe.svg</file>
         <file alias="hard-drive.svg">resources/images/icons/lucide/hard-drive.svg</file>
         <file alias="lock.svg">resources/images/icons/lucide/lock.svg</file>
+        <file alias="lock-open.svg">resources/images/icons/lucide/lock-open.svg</file>
+        <file alias="lock-keyhole-open.svg">resources/images/icons/lucide/lock-keyhole-open.svg</file>
         <file alias="grid-black.svg">resources/images/icons/lucide/grid-black.svg</file>
         <file alias="inbox-black.svg">resources/images/icons/lucide/inbox-black.svg</file>
         <file alias="settings.svg">resources/images/icons/lucide/settings.svg</file>
