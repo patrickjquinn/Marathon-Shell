@@ -1,6 +1,4 @@
 import QtQuick
-import QtQuick.Effects
-
 Image {
     id: icon
     property string name: "clock"
@@ -17,7 +15,7 @@ Image {
     cache: true
     
     layer.enabled: true
-    layer.effect: MultiEffect {
+    layer.effect: Item { // MultiEffect disabled for Qt 6.4
         brightness: 1.0
         colorization: 1.0
         colorizationColor: icon.color

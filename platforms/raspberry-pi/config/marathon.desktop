@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Marathon Shell
+Comment=Marathon OS Mobile Interface
+Exec=/usr/local/bin/marathon-shell-session
+Type=Application

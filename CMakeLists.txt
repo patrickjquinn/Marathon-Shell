@@ -66,7 +66,7 @@ elseif(UNIX)
     message(STATUS "Using system Qt6 at ${Qt6_DIR}")
 endif()
 
-find_package(Qt6 6.5...6.9.3 REQUIRED COMPONENTS
+find_package(Qt6 6.4...6.9.3 REQUIRED COMPONENTS
     Core
     Gui
     Qml
@@ -81,7 +81,7 @@ find_package(Qt6 6.5...6.9.3 REQUIRED COMPONENTS
 )
 
 # Try to find Qt6WebEngineQuick
-find_package(Qt6 6.5 COMPONENTS WebEngineQuick)
+find_package(Qt6 6.4 COMPONENTS WebEngineQuick)
 if(TARGET Qt6::WebEngineQuick)
     message(STATUS "Qt WebEngineQuick found - enabling web browser")
     set(HAVE_WEBENGINE TRUE)
@@ -108,7 +108,7 @@ if(APPLE)
     message(STATUS "Skipping WaylandCompositor search on macOS (not supported)")
     set(HAVE_WAYLAND FALSE)
 else()
-find_package(Qt6 6.5 COMPONENTS WaylandCompositor)
+find_package(Qt6 6.4 COMPONENTS WaylandCompositor)
 if(TARGET Qt6::WaylandCompositor)
     message(STATUS "Qt WaylandCompositor found - enabling Wayland support")
     set(HAVE_WAYLAND TRUE)
