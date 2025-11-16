@@ -30,7 +30,7 @@ Rectangle {
                 text: dialedNumber.length > 0 ? dialedNumber : "Dial a number"
                 variant: dialedNumber.length > 0 ? "primary" : "secondary"
                 font.pixelSize: MTypography.sizeXLarge
-                font.family: "Courier New"
+                font.family: MTypography.fontFamilyMono
             }
         }
         

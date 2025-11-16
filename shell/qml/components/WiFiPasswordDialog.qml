@@ -30,7 +30,7 @@ Item {
     property bool isConnecting: false
     property string errorMessage: ""
 
-    signal connectRequested(string password)
+    signal connectRequested(string ssid, string password)
     signal cancelled()
 
     // Show the dialog
@@ -391,7 +391,7 @@ Item {
                             Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid)
                             HapticService.medium()
                             wifiDialog.showConnecting()
-                            wifiDialog.connectRequested(passwordInput.text)
+                            wifiDialog.connectRequested(networkSsid, passwordInput.text)
                         }
                     }
                 }

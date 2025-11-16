@@ -169,7 +169,7 @@ Item {
                         text: bluetoothPairDialog.deviceName
                         font.pixelSize: Typography.sizeLarge
                         font.weight: Font.Medium
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         elide: Text.ElideRight
                         width: parent.width
@@ -178,7 +178,7 @@ Item {
                     Text {
                         text: getPairingModeText(bluetoothPairDialog.pairingMode)
                         font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         width: parent.width
                     }
@@ -217,7 +217,7 @@ Item {
                         width: parent.width - Constants.iconSizeMedium - MSpacing.md
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
                         maximumLength: 6
@@ -246,7 +246,7 @@ Item {
                         width: parent.width - Constants.iconSizeMedium - MSpacing.md
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
                         maximumLength: 6
@@ -298,7 +298,7 @@ Item {
                     Text {
                         text: "Verify this code matches on " + deviceName
                         font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.horizontalCenter: parent.horizontalCenter
                     }
@@ -332,7 +332,7 @@ Item {
                         id: errorText
                         text: errorMessage
                         font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
                         width: parent.width - Constants.iconSizeSmall - MSpacing.sm
@@ -360,7 +360,7 @@ Item {
                     Text {
                         text: "Pairing with " + deviceName + "..."
                         font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -386,7 +386,7 @@ Item {
                     Text {
                         text: pairingMode === "confirm" ? "Reject" : "Cancel"
                         font.pixelSize: Typography.sizeLarge
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
@@ -423,7 +423,7 @@ Item {
                         text: pairingMode === "confirm" ? "Accept" : "Pair"
                         font.pixelSize: Typography.sizeLarge
                         font.weight: Font.Medium
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.background
                         anchors.centerIn: parent
                     }
@@ -455,7 +455,7 @@ Item {
             Text {
                 text: getHelpText(pairingMode)
                 font.pixelSize: Typography.sizeXSmall
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width

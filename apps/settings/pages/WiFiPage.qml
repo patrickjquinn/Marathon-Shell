@@ -64,7 +64,14 @@ SettingsPageTemplate {
                         spacing: MSpacing.md
                         
                         Icon {
-                            name: "wifi"
+                            // Use proper signal bar icons based on current connection strength
+                            name: {
+                                var strength = NetworkManager.wifiSignalStrength
+                                if (strength === 0) return "wifi-zero"
+                                if (strength <= 33) return "wifi-low"     // 1-2 bars (weak)
+                                if (strength <= 66) return "wifi"         // 2-3 bars (good)
+                                return "wifi-high"                        // 3-4 bars (excellent)
+                            }
                             size: 28
                             color: Qt.rgba(20, 184, 166, 1.0)
                             anchors.verticalCenter: parent.verticalCenter
@@ -154,9 +161,15 @@ SettingsPageTemplate {
                             
                             MSettingsListItem {
                                 width: parent.width
-                                title: modelData.ssid
-                                subtitle: (modelData.security || "Open") + (modelData.frequency ? (" • " + modelData.frequency + " GHz") : "")
-                                iconName: "wifi"
+                                title: modelData.ssid + (modelData.connected ? " (Connected)" : "")
+                                subtitle: (modelData.security || "Open") + " • " + modelData.strength + "% signal" + (modelData.frequency ? (" • " + modelData.frequency + " GHz") : "")
+                                // Use proper signal bar icons based on strength, not opacity
+                                iconName: {
+                                    if (modelData.strength === 0) return "wifi-zero"
+                                    if (modelData.strength <= 33) return "wifi-low"     // 1-2 bars (weak)
+                                    if (modelData.strength <= 66) return "wifi"         // 2-3 bars (good)
+                                    return "wifi-high"                                   // 3-4 bars (excellent)
+                                }
                                 showChevron: true
                                 onSettingClicked: {
                                     HapticService.light()
@@ -218,9 +231,9 @@ SettingsPageTemplate {
                 anchors.fill: parent
                 
                 // Use direct signal handlers instead of .connect()
-                onConnectRequested: (password) => {
-                    Logger.info("WiFiPage", "Attempting WiFi connection")
-                    NetworkManager.connectToWifi(networkSsid, password)
+                onConnectRequested: (ssid, password) => {
+                    Logger.info("WiFiPage", "Attempting WiFi connection to:", ssid)
+                    NetworkManager.connectToWifi(ssid, password)
                 }
                 
                 onCancelled: {

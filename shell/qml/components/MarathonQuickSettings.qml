@@ -45,6 +45,7 @@ Rectangle {
     property var allTiles: [
         { id: "settings", icon: "settings", label: "Settings", active: false, available: true, trigger: updateTrigger },
         { id: "lock", icon: "lock", label: "Lock device", active: false, available: true, trigger: updateTrigger },
+        { id: "power", icon: "power", label: "Power menu", active: false, available: true, trigger: updateTrigger },
         { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked, available: true, trigger: updateTrigger },
         { id: "wifi", icon: networkIcon, label: networkLabel, active: SystemControlStore.isWifiOn || SystemStatusStore.ethernetConnected, available: true, subtitle: networkSubtitle, trigger: updateTrigger },
         { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn, available: NetworkManager.bluetoothAvailable, trigger: updateTrigger },
@@ -324,6 +325,11 @@ Rectangle {
             Qt.callLater(function() {
                 SessionStore.lock()
             })
+        } else if (toggleId === "power") {
+            UIStore.closeQuickSettings()
+            Qt.callLater(function() {
+                shell.showPowerMenu()
+            })
         } else if (toggleId === "cellular") {
             SystemControlStore.toggleCellular()
         } else if (toggleId === "notifications") {
@@ -337,8 +343,8 @@ Rectangle {
     function handleLongPress(toggleId) {
         Logger.info("QuickSettings", "Toggle long-pressed: " + toggleId)
         
-        // Ignore long press for settings, lock, and monitor (info-only) tiles
-        if (toggleId === "settings" || toggleId === "lock" || toggleId === "monitor") {
+        // Ignore long press for settings, lock, power, and monitor (info-only/action tiles)
+        if (toggleId === "settings" || toggleId === "lock" || toggleId === "power" || toggleId === "monitor") {
             return
         }
         

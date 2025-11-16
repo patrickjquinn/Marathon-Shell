@@ -60,6 +60,11 @@ Item {
             authenticating = false
             HapticService.medium()
             
+            // Clear password field for security
+            pin = ""
+            password = ""
+            passwordTextInput.text = ""
+            
             // Trigger unlock animation in status bar
             SessionStore.triggerUnlockAnimation()
             
@@ -617,6 +622,7 @@ Item {
         passwordMode = true
         pin = ""
         password = ""
+        passwordTextInput.text = ""  // Explicitly clear TextInput
         error = ""
         Logger.info("PinScreen", "Switched to password mode")
         
@@ -630,6 +636,7 @@ Item {
         passwordMode = false
         pin = ""
         password = ""
+        passwordTextInput.text = ""  // Explicitly clear TextInput
         error = ""
         Logger.info("PinScreen", "Switched to PIN mode")
     }
@@ -653,14 +660,16 @@ Item {
     
     function reset() {
         pin = ""
-        password = ""  // Clear password field for security
+        password = ""
+        passwordTextInput.text = ""  // Explicitly clear TextInput for security
         error = ""
         entryProgress = 0.0
     }
     
     function show() {
         pin = ""
-        password = ""  // Clear password field for security
+        password = ""
+        passwordTextInput.text = ""  // Explicitly clear TextInput for security
         error = ""
         entryProgress = 1.0
         passwordMode = false  // Reset to PIN mode

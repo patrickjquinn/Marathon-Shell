@@ -3,210 +3,420 @@ import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
 
-Rectangle {
-    id: powerMenu
+/**
+ * World-Class Power Menu - Tile Grid Design
+ * Modern, visual, with large touchable tiles
+ */
+Item {
+    id: root
     anchors.fill: parent
-    color: Qt.rgba(0, 0, 0, 0.85)
     visible: false
-    z: Constants.zIndexModal + 100  // Above everything
+    z: Constants.zIndexModal + 100
     
+    signal sleepRequested()
     signal rebootRequested()
     signal shutdownRequested()
-    signal sleepRequested()
     signal canceled()
     
+    property bool showing: false
+    
     function show() {
+        showing = true
         visible = true
         HapticService.medium()
+        fadeIn.start()
     }
     
     function hide() {
-        visible = false
+        showing = false
+        fadeOut.start()
     }
     
-    // Click outside to dismiss
-    MouseArea {
+    // Dark backdrop
+    Rectangle {
+        id: backdrop
         anchors.fill: parent
-        onClicked: {
-            powerMenu.canceled()
-            powerMenu.hide()
+        color: "#000000"
+        opacity: 0
+        
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                root.canceled()
+                root.hide()
+            }
         }
     }
     
     // Power menu dialog
     Rectangle {
+        id: dialog
         anchors.centerIn: parent
-        width: Math.min(parent.width - 48, 320)
-        height: contentColumn.height + 48
-        radius: Constants.borderRadiusLarge
-        color: MColors.surface
-        border.width: 1
+        width: Math.min(parent.width * 0.85, Math.round(360 * Constants.scaleFactor))
+        height: contentColumn.height + MSpacing.xxl * 2
+        radius: MRadius.lg
+        color: Qt.rgba(15/255, 15/255, 15/255, 0.98)
+        border.width: Math.max(1, Math.round(Constants.scaleFactor))
         border.color: MColors.border
+        layer.enabled: true
+        opacity: 0
+        scale: 0.9
+        
+        // Inner glow
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: Math.max(1, Math.round(Constants.scaleFactor))
+            radius: parent.radius - Math.max(1, Math.round(Constants.scaleFactor))
+            color: "transparent"
+            border.width: Math.max(1, Math.round(Constants.scaleFactor))
+            border.color: Qt.rgba(255/255, 255/255, 255/255, 0.05)
+        }
+        
+        // Prevent click propagation
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {}
+        }
         
         Column {
             id: contentColumn
-            width: parent.width - 48
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: Constants.spacingLarge
-            spacing: Constants.spacingMedium
+            anchors.centerIn: parent
+            width: parent.width - MSpacing.xxl * 2
+            spacing: MSpacing.lg
             
+            // Title
             Text {
                 text: "Power Options"
-                color: MColors.textPrimary
-                font.pixelSize: Constants.fontSizeLarge
-                font.weight: Font.Bold
+                font.pixelSize: MTypography.sizeLarge
+                font.weight: MTypography.weightBold
                 font.family: MTypography.fontFamily
-                anchors.horizontalCenter: parent.horizontalCenter
+                color: MColors.textPrimary
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
             }
             
-            // Sleep
-            Rectangle {
+            // 2x2 Grid of power tiles
+            Grid {
                 width: parent.width
-                height: Constants.touchTargetSmall
-                radius: Constants.borderRadiusSmall
-                color: sleepMouseArea.pressed ? MColors.surfaceDark : "transparent"
-                border.width: 1
-                border.color: MColors.border
+                columns: 2
+                rowSpacing: MSpacing.md
+                columnSpacing: MSpacing.md
                 
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingMedium
+                // Sleep Tile
+                Rectangle {
+                    id: sleepTile
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    color: sleepMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
+                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
+                    border.color: MColors.border
                     
-                    Icon {
-                        name: "moon"
-                        size: Constants.iconSizeMedium
-                        color: MColors.textPrimary
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                    
-                    Text {
-                        text: "Sleep"
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: sleepMouseArea
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticService.medium()
-                        powerMenu.sleepRequested()
-                        powerMenu.hide()
-                    }
-                }
-            }
-            
-            // Reboot
-            Rectangle {
-                width: parent.width
-                height: Constants.touchTargetSmall
-                radius: Constants.borderRadiusSmall
-                color: rebootMouseArea.pressed ? MColors.surfaceDark : "transparent"
-                border.width: 1
-                border.color: MColors.border
-                
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingMedium
-                    
-                    Icon {
-                        name: "rotate-ccw"
-                        size: Constants.iconSizeMedium
-                        color: MColors.warning
-                        anchors.verticalCenter: parent.verticalCenter
+                    scale: sleepMouseArea.pressed ? 0.95 : 1.0
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
+                        }
                     }
                     
-                    Text {
-                        text: "Reboot"
-                        color: MColors.warning
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-                
-                MouseArea {
-                    id: rebootMouseArea
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticService.medium()
-                        powerMenu.rebootRequested()
-                        powerMenu.hide()
-                    }
-                }
-            }
-            
-            // Shutdown
-            Rectangle {
-                width: parent.width
-                height: Constants.touchTargetSmall
-                radius: Constants.borderRadiusSmall
-                color: shutdownMouseArea.pressed ? MColors.surfaceDark : "transparent"
-                border.width: 1
-                border.color: MColors.border
-                
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Constants.spacingMedium
-                    
-                    Icon {
-                        name: "zap"
-                        size: Constants.iconSizeMedium
-                        color: MColors.error
-                        anchors.verticalCenter: parent.verticalCenter
+                    Behavior on color {
+                        ColorAnimation { duration: MMotion.xs }
                     }
                     
-                    Text {
-                        text: "Power Off"
-                        color: MColors.error
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        anchors.verticalCenter: parent.verticalCenter
+                    // Inner border
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        radius: parent.radius - 1
+                        color: "transparent"
+                        border.width: 1
+                        border.color: MColors.borderSubtle
+                    }
+                    
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: MSpacing.sm
+                        
+                        Icon {
+                            name: "moon"
+                            size: Math.round(32 * Constants.scaleFactor)
+                            color: MColors.textPrimary
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                        
+                        Text {
+                            text: "Sleep"
+                            font.pixelSize: MTypography.sizeBody
+                            font.weight: MTypography.weightMedium
+                            font.family: MTypography.fontFamily
+                            color: MColors.textPrimary
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
+                    
+                    MouseArea {
+                        id: sleepMouseArea
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.medium()
+                            root.sleepRequested()
+                            root.hide()
+                        }
                     }
                 }
                 
-                MouseArea {
-                    id: shutdownMouseArea
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticService.medium()
-                        powerMenu.shutdownRequested()
-                        powerMenu.hide()
+                // Reboot Tile
+                Rectangle {
+                    id: rebootTile
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    color: rebootMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
+                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
+                    border.color: MColors.border
+                    
+                    scale: rebootMouseArea.pressed ? 0.95 : 1.0
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
+                        }
+                    }
+                    
+                    Behavior on color {
+                        ColorAnimation { duration: MMotion.xs }
+                    }
+                    
+                    // Inner border
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        radius: parent.radius - 1
+                        color: "transparent"
+                        border.width: 1
+                        border.color: MColors.borderSubtle
+                    }
+                    
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: MSpacing.sm
+                        
+                        Icon {
+                            name: "rotate-ccw"
+                            size: Math.round(32 * Constants.scaleFactor)
+                            color: MColors.textPrimary
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                        
+                        Text {
+                            text: "Reboot"
+                            font.pixelSize: MTypography.sizeBody
+                            font.weight: MTypography.weightMedium
+                            font.family: MTypography.fontFamily
+                            color: MColors.textPrimary
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
+                    
+                    MouseArea {
+                        id: rebootMouseArea
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.medium()
+                            root.rebootRequested()
+                            root.hide()
+                        }
                     }
                 }
-            }
-            
-            // Cancel button
-            Rectangle {
-                width: parent.width
-                height: Constants.touchTargetIndicator
-                radius: Constants.borderRadiusSmall
-                color: cancelMouseArea.pressed ? MColors.accentDark : MColors.accent
                 
-                Text {
-                    text: "Cancel"
-                    color: MColors.textOnAccent
-                    font.pixelSize: MTypography.sizeBody
-                    font.weight: Font.DemiBold
-                    font.family: MTypography.fontFamily
-                    anchors.centerIn: parent
+                // Power Off Tile (primary/teal)
+                Rectangle {
+                    id: powerOffTile
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: powerOffMouseArea.pressed ? MColors.marathonTealDark : MColors.marathonTealBright }
+                        GradientStop { position: 0.5; color: MColors.marathonTeal }
+                        GradientStop { position: 1.0; color: MColors.marathonTealDark }
+                    }
+                    
+                    border.width: 0
+                    
+                    scale: powerOffMouseArea.pressed ? 0.95 : 1.0
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
+                        }
+                    }
+                    
+                    // Outer glow
+                    Rectangle {
+                        visible: true
+                        anchors.centerIn: parent
+                        width: parent.width + Math.round(6 * Constants.scaleFactor)
+                        height: parent.height + Math.round(6 * Constants.scaleFactor)
+                        radius: parent.radius + Math.round(3 * Constants.scaleFactor)
+                        color: "transparent"
+                        border.width: Math.round(3 * Constants.scaleFactor)
+                        border.color: Qt.rgba(0, 191/255, 165/255, 0.3)
+                        z: -1
+                    }
+                    
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: MSpacing.sm
+                        
+                        Icon {
+                            name: "power"
+                            size: Math.round(32 * Constants.scaleFactor)
+                            color: "#000000"
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                        
+                        Text {
+                            text: "Power Off"
+                            font.pixelSize: MTypography.sizeBody
+                            font.weight: MTypography.weightBold
+                            font.family: MTypography.fontFamily
+                            color: "#000000"
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
+                    
+                    MouseArea {
+                        id: powerOffMouseArea
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.medium()
+                            root.shutdownRequested()
+                            root.hide()
+                        }
+                    }
                 }
                 
-                MouseArea {
-                    id: cancelMouseArea
-                    anchors.fill: parent
-                    onClicked: {
-                        HapticService.light()
-                        powerMenu.canceled()
-                        powerMenu.hide()
+                // Cancel Tile
+                Rectangle {
+                    id: cancelTile
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    color: "transparent"
+                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
+                    border.color: cancelMouseArea.pressed ? MColors.borderGlass : MColors.border
+                    
+                    scale: cancelMouseArea.pressed ? 0.95 : 1.0
+                    Behavior on scale {
+                        SpringAnimation { 
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
+                        }
+                    }
+                    
+                    Behavior on border.color {
+                        ColorAnimation { duration: MMotion.xs }
+                    }
+                    
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: MSpacing.sm
+                        
+                        Icon {
+                            name: "x"
+                            size: Math.round(32 * Constants.scaleFactor)
+                            color: MColors.textSecondary
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                        
+                        Text {
+                            text: "Cancel"
+                            font.pixelSize: MTypography.sizeBody
+                            font.weight: MTypography.weightMedium
+                            font.family: MTypography.fontFamily
+                            color: MColors.textSecondary
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+                    }
+                    
+                    MouseArea {
+                        id: cancelMouseArea
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.light()
+                            root.canceled()
+                            root.hide()
+                        }
                     }
                 }
             }
         }
     }
+    
+    // Fade in animation
+    ParallelAnimation {
+        id: fadeIn
+        NumberAnimation {
+            target: backdrop
+            property: "opacity"
+            to: 0.7
+            duration: MMotion.quick
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: dialog
+            property: "opacity"
+            to: 1
+            duration: MMotion.quick
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: dialog
+            property: "scale"
+            to: 1
+            duration: MMotion.quick
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.2
+        }
+    }
+    
+    // Fade out animation
+    SequentialAnimation {
+        id: fadeOut
+        ParallelAnimation {
+            NumberAnimation {
+                target: backdrop
+                property: "opacity"
+                to: 0
+                duration: MMotion.fast
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: dialog
+                property: "opacity"
+                to: 0
+                duration: MMotion.fast
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: dialog
+                property: "scale"
+                to: 0.9
+                duration: MMotion.fast
+                easing.type: Easing.InCubic
+            }
+        }
+        PropertyAction {
+            target: root
+            property: "visible"
+            value: false
+        }
+    }
 }
-

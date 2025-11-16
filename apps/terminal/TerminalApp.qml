@@ -250,7 +250,7 @@ MApp {
                         width: parent.width
                         height: Math.max(implicitHeight, terminalContent.height - MSpacing.md * 2)
                         color: MColors.success
-                        font.family: "Monaco, 'Courier New', monospace"
+                        font.family: MTypography.fontFamilyMono
                         font.pixelSize: MTypography.sizeSmall
                         selectByMouse: true
                         readOnly: true
@@ -288,7 +288,7 @@ MApp {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "$ "
                         color: MColors.success
-                        font.family: "Monaco, 'Courier New', monospace"
+                        font.family: MTypography.fontFamilyMono
                         font.pixelSize: MTypography.sizeBody
                         font.weight: Font.DemiBold
                     }
@@ -298,7 +298,7 @@ MApp {
                         anchors.verticalCenter: parent.verticalCenter
                         width: parent.width - 40
                         color: MColors.text
-                        font.family: "Monaco, 'Courier New', monospace"
+                        font.family: MTypography.fontFamilyMono
                         font.pixelSize: MTypography.sizeBody
                         selectByMouse: true
                         verticalAlignment: TextInput.AlignVCenter
