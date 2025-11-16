@@ -1,0 +1,69 @@
+#!/bin/sh
+# Marathon Shell Wayland Session Startup Script
+
+# Save original display state
+ORIGINAL_WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+ORIGINAL_DISPLAY="$DISPLAY"
+
+# Set session name
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=marathon
+export XDG_CURRENT_DESKTOP=marathon
+
+# Marathon-specific paths
+export MARATHON_PREFIX=/usr
+export MARATHON_APPS_DIR=~/.local/share/marathon-apps
+
+# Qt/QML environment
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export QT_QUICK_CONTROLS_STYLE=Basic
+export QML_IMPORT_PATH=/usr/local/lib/qt6/qml:/usr/lib/qt6/qml:/usr/lib/qml:$QML_IMPORT_PATH
+export QML2_IMPORT_PATH=/usr/local/lib/qt6/qml:/usr/lib/qt6/qml:/usr/lib/qml:$QML2_IMPORT_PATH
+
+# Enable QML disk cache
+export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QT_QML_DISK_CACHE_PATH"
+
+# Display scaling
+export QT_SCALE_FACTOR=1
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_SCREEN_SCALE_FACTORS=1
+export QT_ENABLE_HIGHDPI_SCALING=0
+
+# Wayland environment
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+
+# D-Bus session
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# Logging
+export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
+
+# Performance settings
+export QML_DISABLE_DISK_CACHE=0
+export QML_FORCE_DISK_CACHE=1
+
+# Accessibility
+export NO_AT_BRIDGE=1
+export GTK_A11Y=none
+export QT_ACCESSIBILITY=0
+
+# GIO/GSettings
+export GIO_USE_VFS=local
+export GSETTINGS_BACKEND=memory
+
+# Start the compositor
+if [ -n "$ORIGINAL_WAYLAND_DISPLAY" ] || [ -n "$ORIGINAL_DISPLAY" ]; then
+    # Running nested - use wayland client  
+    exec /usr/bin/marathon-shell-bin -platform wayland --fullscreen "$@"
+else
+    # Running as primary compositor
+    # Try linuxfb first (software rendering, fewer permissions needed)
+    # Fall back to eglfs if that doesn't work
+    /usr/bin/marathon-shell-bin -platform eglfs "$@" 2>/tmp/marathon-linuxfb.log
+    if [ $? -ne 0 ]; then
+        exec /usr/bin/marathon-shell-bin -platform eglfs "$@"
+    fi
+fi

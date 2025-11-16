@@ -278,13 +278,34 @@ QtObject {
         screenHeight = height
         screenDiagonal = Math.sqrt(width * width + height * height)
         
-        // For desktop testing with scaled-down windows (< 800px wide),
-        // use baseDPI to get 1:1 rendering. User can adjust with userScaleFactor in settings.
-        if (width < 800) {
-            dpi = baseDPI  // Desktop testing: 160 DPI for 1:1 rendering
-            console.log("[Constants] Desktop mode: Using baseDPI=" + baseDPI + " for 1:1 scaling")
+        // Priority order: Config > Reported > Fallback
+        var configDeviceDpi = cfg("responsive", "deviceDPI", 0)
+        var dpiMin = cfg("responsive", "dpiMinValid", 50)
+        var dpiMax = cfg("responsive", "dpiMaxValid", 1000)
+        var newDpi = baseDPI  // Default fallback
+        var dpiSource = "fallback"
+        
+        if (configDeviceDpi > 0) {
+            // Trust config for device-specific override (highest priority)
+            newDpi = configDeviceDpi
+            dpiSource = "config"
+        } else if (deviceDpi && deviceDpi >= dpiMin && deviceDpi <= dpiMax) {
+            // Trust reported DPI if reasonable (validated range)
+            newDpi = deviceDpi
+            dpiSource = "reported"
         } else {
-            dpi = deviceDpi || 320  // Real device: Use actual screen DPI
+            // Fallback to baseDPI for unknown/invalid cases
+            newDpi = baseDPI
+            dpiSource = "fallback"
+            if (deviceDpi && (deviceDpi < dpiMin || deviceDpi > dpiMax)) {
+                console.warn("[Constants] Invalid deviceDPI (" + deviceDpi + "), using baseDPI: " + newDpi)
+            }
+        }
+        
+        // Only update if changed (avoid unnecessary property updates and cascading recalculations)
+        if (Math.abs(dpi - newDpi) > 0.1) {
+            dpi = newDpi
+            console.log("[Constants] Screen: " + width.toFixed(0) + "×" + height.toFixed(0) + " @ " + dpi.toFixed(0) + " DPI (source: " + dpiSource + ", scaleFactor: " + scaleFactor.toFixed(2) + ")")
         }
     }
 }

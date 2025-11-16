@@ -71,17 +71,37 @@ Item {
     Connections {
         target: DisplayManager
         function onScreenStateChanged(isOn) {
-            if (isOn && lockScreen.visible) {
-                Logger.info("LockScreen", "Screen turned on - starting idle timer")
-                resetIdleTimer()
+            if (isOn) {
+                // Show lock screen when screen turns on (preserves grace period if unlocked)
+                SessionStore.showLock()
+                if (lockScreen.visible) {
+                    Logger.info("LockScreen", "Screen turned on - starting idle timer")
+                    resetIdleTimer()
+                }
             }
+            // Note: Don't lock the session when screen turns off - preserve grace period!
+            // When screen turns on, showLock() displays lock screen but keeps isLocked state
         }
     }
     
     // Refresh categories when lock screen becomes visible
+    // Update SessionStore to show lock icon in status bar
     onVisibleChanged: {
         if (visible) {
             Logger.info("LockScreen", "Lock screen visible - refreshing categories")
+            categoryIcons.updateCategories()
+            SessionStore.isOnLockScreen = true
+        } else {
+            SessionStore.isOnLockScreen = false
+        }
+    }
+    
+    // Set initial state on component creation
+    Component.onCompleted: {
+        if (visible) {
+            Logger.info("LockScreen", "Lock screen created visible - setting initial state")
+            console.log("[LockScreen] SessionStore.isLocked =", SessionStore.isLocked)
+            SessionStore.isOnLockScreen = true
             categoryIcons.updateCategories()
         }
     }

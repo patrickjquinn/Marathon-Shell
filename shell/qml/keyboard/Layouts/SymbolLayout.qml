@@ -107,12 +107,12 @@ Item {
                 }
             }
             
-            // Symbol keys
+            // Symbol keys (smaller to fit backspace on screen)
             Repeater {
                 model: row3Keys
                 
                 Key {
-                    width: row3.availableWidth * 0.10
+                    width: row3.availableWidth * 0.075  // Reduced from 0.10 to fit all keys
                     text: modelData
                     displayText: modelData
                     
@@ -122,9 +122,9 @@ Item {
                 }
             }
             
-            // Backspace key
+            // Backspace key (slightly wider to fill remaining space and touch edge)
             Key {
-                width: row3.availableWidth * 0.15
+                width: row3.availableWidth * 0.175  // Increased from 0.15 to 0.175 to fill gap
                 text: "backspace"
                 iconName: "delete"
                 isSpecial: true

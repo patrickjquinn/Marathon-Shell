@@ -25,6 +25,9 @@
     </qresource>
     <qresource prefix="/images/icons/lucide">
         <file alias="wifi.svg">resources/images/icons/lucide/wifi.svg</file>
+        <file alias="wifi-low.svg">resources/images/icons/lucide/wifi-low.svg</file>
+        <file alias="wifi-high.svg">resources/images/icons/lucide/wifi-high.svg</file>
+        <file alias="wifi-zero.svg">resources/images/icons/lucide/wifi-zero.svg</file>
         <file alias="bluetooth.svg">resources/images/icons/lucide/bluetooth.svg</file>
         <file alias="battery.svg">resources/images/icons/lucide/battery.svg</file>
         <file alias="battery-charging.svg">resources/images/icons/lucide/battery-charging.svg</file>
@@ -32,6 +35,10 @@
         <file alias="battery-medium.svg">resources/images/icons/lucide/battery-medium.svg</file>
         <file alias="battery-full.svg">resources/images/icons/lucide/battery-full.svg</file>
         <file alias="signal.svg">resources/images/icons/lucide/signal.svg</file>
+        <file alias="signal-low.svg">resources/images/icons/lucide/signal-low.svg</file>
+        <file alias="signal-medium.svg">resources/images/icons/lucide/signal-medium.svg</file>
+        <file alias="signal-high.svg">resources/images/icons/lucide/signal-high.svg</file>
+        <file alias="signal-zero.svg">resources/images/icons/lucide/signal-zero.svg</file>
         <file alias="plane.svg">resources/images/icons/lucide/plane.svg</file>
         <file alias="plug-zap.svg">resources/images/icons/lucide/plug-zap.svg</file>
         <file alias="rotate-ccw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
@@ -63,6 +70,9 @@
         <file alias="globe.svg">resources/images/icons/lucide/globe.svg</file>
         <file alias="hard-drive.svg">resources/images/icons/lucide/hard-drive.svg</file>
         <file alias="lock.svg">resources/images/icons/lucide/lock.svg</file>
+        <file alias="lock-open.svg">resources/images/icons/lucide/lock-open.svg</file>
+        <file alias="lock-keyhole-open.svg">resources/images/icons/lucide/lock-keyhole-open.svg</file>
+        <file alias="power.svg">resources/images/icons/lucide/power.svg</file>
         <file alias="grid-black.svg">resources/images/icons/lucide/grid-black.svg</file>
         <file alias="inbox-black.svg">resources/images/icons/lucide/inbox-black.svg</file>
         <file alias="settings.svg">resources/images/icons/lucide/settings.svg</file>

@@ -29,7 +29,7 @@ Item {
     property bool isConnecting: false
     property string errorMessage: ""
 
-    signal connectRequested(string password)
+    signal connectRequested(string ssid, string password)
     signal cancelled()
 
     // Show the dialog
@@ -143,7 +143,7 @@ Item {
                         text: networkSsid
                         font.pixelSize: Typography.sizeLarge
                         font.weight: Font.Medium
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         elide: Text.ElideRight
                         width: parent.width
@@ -164,7 +164,7 @@ Item {
                                 text: secured ? securityType : "Open"
                                 font.pixelSize: Typography.sizeXSmall
                                 font.weight: Font.Medium
-                                font.family: Typography.fontFamily
+                                font.family: MTypography.fontFamily
                                 color: secured ? MColors.warning : MColors.success
                                 anchors.centerIn: parent
                             }
@@ -174,7 +174,7 @@ Item {
                         Text {
                             text: signalStrength >= 75 ? "Excellent" : signalStrength >= 50 ? "Good" : signalStrength >= 25 ? "Fair" : "Weak"
                             font.pixelSize: Typography.sizeXSmall
-                            font.family: Typography.fontFamily
+                            font.family: MTypography.fontFamily
                             color: MColors.textTertiary
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -213,7 +213,7 @@ Item {
                         width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - MSpacing.md * 2
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         echoMode: showPasswordToggle.checked ? TextInput.Normal : TextInput.Password
                         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
@@ -292,7 +292,7 @@ Item {
                         id: errorText
                         text: errorMessage
                         font.pixelSize: Typography.sizeSmall
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
                         width: parent.width - Constants.iconSizeSmall - MSpacing.sm
@@ -320,7 +320,7 @@ Item {
                     Text {
                         text: "Connecting to " + networkSsid + "..."
                         font.pixelSize: Typography.sizeBody
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -346,7 +346,7 @@ Item {
                     Text {
                         text: "Cancel"
                         font.pixelSize: Typography.sizeLarge
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         anchors.centerIn: parent
                     }
@@ -378,7 +378,7 @@ Item {
                         text: "Connect"
                         font.pixelSize: Typography.sizeLarge
                         font.weight: Font.Medium
-                        font.family: Typography.fontFamily
+                        font.family: MTypography.fontFamily
                         color: MColors.background
                         anchors.centerIn: parent
                     }
@@ -390,7 +390,7 @@ Item {
                             Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid)
                             HapticService.medium()
                             wifiDialog.showConnecting()
-                            wifiDialog.connectRequested(passwordInput.text)
+                            wifiDialog.connectRequested(networkSsid, passwordInput.text)
                         }
                     }
                 }
@@ -400,7 +400,7 @@ Item {
             Text {
                 text: secured ? "Password must be at least 8 characters" : "This network is not secured"
                 font.pixelSize: Typography.sizeXSmall
-                font.family: Typography.fontFamily
+                font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width
