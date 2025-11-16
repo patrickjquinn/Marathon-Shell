@@ -10,8 +10,8 @@ QtObject {
     
     property int idleTimeout: 300000
     property int lockTimeout: 60000
-    property int lastActivityTime: 0
-    property int idleTime: 0
+    property double lastActivityTime: 0  // Use double to avoid overflow with Date.now()
+    property double idleTime: 0
     
     property string sessionId: ""
     property string sessionType: "user"
@@ -40,6 +40,12 @@ QtObject {
         screenLocked = false
         sessionState = "active"
         lastActivityTime = Date.now()
+        idleTime = 0
+        
+        // Aggressively reset idle timer to prevent immediate re-lock
+        idleMonitor.stop()
+        idleMonitor.start()
+        
         DisplayManager.turnScreenOn()  // Turn on screen when unlocking
         sessionUnlocked()
         _platformUnlock()
