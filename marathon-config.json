@@ -5,13 +5,17 @@
   "version": "1.0.0",
   
   "responsive": {
-    "description": "Base screen dimensions and DPI configuration - TUNED FOR ONEPLUS 6",
-    "baseDPI": 160,
+    "description": "Base screen dimensions and DPI configuration - TUNED FOR ONEPLUS 6 @ 50% HiDPI",
+    "baseDPI": 100,
     "baseHeight": 800,
     "defaultUserScaleFactor": 1.0,
     "userScaleOptions": [0.75, 1.0, 1.25, 1.5],
     "tallScreenRatio": 1.2,
-    "squareScreenTolerance": 100
+    "squareScreenTolerance": 100,
+    "dpiMinValid": 50,
+    "dpiMaxValid": 1000,
+    "comment_baseDPI": "100 DPI matches Qt's actual logical DPI in 50% HiDPI scaled mode (540x1140 @ 100 DPI)",
+    "comment_deviceDPI": "DISABLED: Do not set deviceDPI when running HiDPI scaled mode. Qt reports correct logical DPI."
   },
   
   "zIndex": {
@@ -166,7 +170,7 @@
     "xxlarge": 32,
     "huge": 48,
     "gigantic": 96,
-    "fontFamily": "Inter",
+    "fontFamily": "Slate",
     "fontFamilyMono": "JetBrains Mono"
   },
   

@@ -38,7 +38,8 @@ Rectangle {
         height: Constants.spacingXSmall
         radius: Constants.borderRadiusSharp
         color: MColors.text
-        opacity: 0.9
+        opacity: pinScreenMode ? 0.0 : 0.9  // Hide in PIN screen mode
+        visible: !pinScreenMode
         antialiasing: Constants.enableAntialiasing
         
         property real targetX: parent.width / 2 - width / 2
@@ -72,6 +73,7 @@ Rectangle {
     property real gestureProgress: 0
     property bool keyboardVisible: false
     property bool searchActive: false
+    property bool pinScreenMode: false  // When true, hide pill and search button
     
     // Search button (small, bottom left of nav bar)
     Item {
@@ -82,6 +84,8 @@ Rectangle {
         width: 16
         height: 16
         z: 300
+        visible: !pinScreenMode  // Hide in PIN screen mode
+        opacity: pinScreenMode ? 0.0 : 1.0
         
         Rectangle {
             anchors.fill: parent
@@ -179,6 +183,8 @@ Rectangle {
         property real lastY: 0
         property real lastTime: 0
         property bool isVerticalGesture: false
+        property bool isLeftZone: false
+        property bool isRightZone: false
         
         onPressed: (mouse) => {
             startX = mouse.x
@@ -189,6 +195,18 @@ Rectangle {
             velocityX = 0
             velocityY = 0
             isVerticalGesture = false
+            
+            // Detect if press is in left or right zone (narrower zones, more centered on buttons)
+            var leftBoundary = parent.width * 0.15  // Left 15% for search button
+            var rightBoundary = parent.width * 0.85  // Right 15% for keyboard button
+            isLeftZone = !pinScreenMode && mouse.x < leftBoundary  // Left zone disabled in PIN mode (no search)
+            isRightZone = mouse.x > rightBoundary  // Right zone (keyboard) always enabled
+            
+            if (isLeftZone) {
+                Logger.info("NavBar", "🔵 Touch in LEFT ZONE (x=" + mouse.x + ")")
+            } else if (isRightZone) {
+                Logger.info("NavBar", "🔴 Touch in RIGHT ZONE (keyboard) (x=" + mouse.x + ", pinScreenMode=" + pinScreenMode + ")")
+            }
         }
         
         onPositionChanged: (mouse) => {
@@ -243,6 +261,31 @@ Rectangle {
             var diffY = startY - mouse.y
             
             Logger.gesture("NavBar", "released", {diffX: diffX, diffY: diffY, velocity: velocityX, isAppOpen: isAppOpen, quickSettingsOpen: UIStore.quickSettingsOpen})
+            
+            // Check for left/right zone swipe-up quick actions
+            if ((isLeftZone || isRightZone) && diffY > 50) {
+                if (isLeftZone) {
+                    Logger.info("NavBar", "🔵 LEFT ZONE SWIPE-UP → Toggle Search (diffY: " + diffY + ")")
+                    HapticService.medium()
+                    navBar.toggleSearch()
+                } else if (isRightZone) {
+                    Logger.info("NavBar", "🔴 RIGHT ZONE SWIPE-UP → Toggle Keyboard (diffY: " + diffY + ")")
+                    HapticService.medium()
+                    navBar.toggleKeyboard()
+                }
+                // Reset state and return
+                startX = 0
+                startY = 0
+                currentX = 0
+                currentY = 0
+                velocityX = 0
+                velocityY = 0
+                isVerticalGesture = false
+                isLeftZone = false
+                isRightZone = false
+                gestureProgress = 0
+                return
+            }
             
             // Snap Quick Settings open/closed based on threshold or velocity
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
@@ -346,6 +389,8 @@ Rectangle {
             startY = 0
             velocityX = 0
             isVerticalGesture = false
+            isLeftZone = false
+            isRightZone = false
         }
     }
     

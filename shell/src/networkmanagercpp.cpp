@@ -504,6 +504,7 @@ void NetworkManagerCpp::processAccessPoint(const QString& apPath)
     network["security"] = securityType;
     network["frequency"] = (int)frequency;
     network["path"] = apPath;
+    network["connected"] = (m_wifiConnected && m_wifiSsid == ssid);  // Mark if this is the active connection
     
     // Check if we already have this SSID (keep strongest signal)
     bool found = false;

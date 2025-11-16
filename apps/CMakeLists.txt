@@ -15,14 +15,14 @@ set(CMAKE_AUTOUIC ON)
 # Use Homebrew Qt 6.9.3 for compatibility
 set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6" ${CMAKE_PREFIX_PATH})
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS
+find_package(Qt6 6.4 REQUIRED COMPONENTS
     Core
     Qml
     Quick
 )
 
 # Optional WebEngine for browser
-find_package(Qt6 6.5 COMPONENTS WebEngineQuick)
+find_package(Qt6 6.4 COMPONENTS WebEngineQuick)
 if(TARGET Qt6::WebEngineQuick)
     set(HAVE_WEBENGINE TRUE)
 else()

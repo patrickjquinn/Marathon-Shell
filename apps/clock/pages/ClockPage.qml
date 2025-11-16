@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
 import "../components"
@@ -59,7 +58,7 @@ Item {
                     color: "transparent"
                     
                     layer.enabled: true
-                    layer.effect: MultiEffect {
+                    layer.effect: Item { // MultiEffect disabled for Qt 6.4
                         shadowEnabled: true
                         shadowColor: Qt.rgba(0, 0, 0, 0.25)
                         shadowBlur: 1.0
@@ -76,7 +75,7 @@ Item {
                     color: "transparent"
                     
                     layer.enabled: true
-                    layer.effect: MultiEffect {
+                    layer.effect: Item { // MultiEffect disabled for Qt 6.4
                         shadowEnabled: true
                         shadowColor: Qt.rgba(1, 1, 1, 0.8)
                         shadowBlur: 1.0

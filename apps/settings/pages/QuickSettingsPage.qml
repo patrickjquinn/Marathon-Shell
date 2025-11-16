@@ -53,7 +53,8 @@ SettingsPageTemplate {
                             { id: "battery", label: "Battery Saver", icon: "battery", desc: "Low power mode" },
                             { id: "screenshot", label: "Screenshot", icon: "camera", desc: "Capture screen" },
                             { id: "settings", label: "Settings", icon: "settings", desc: "Open Settings app" },
-                            { id: "lock", label: "Lock Device", icon: "lock", desc: "Lock the screen" }
+                            { id: "lock", label: "Lock Device", icon: "lock", desc: "Lock the screen" },
+                            { id: "power", label: "Power Menu", icon: "power", desc: "Show power options" }
                         ]
                         
                         delegate: MSettingsListItem {

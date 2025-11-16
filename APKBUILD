@@ -59,20 +59,16 @@ builddir="$srcdir/$pkgname-$pkgver"
 build() {
 	cd "$builddir"
 	
-	# Build main shell
+	# CRITICAL: Build everything together in ONE build directory
+	# The shell binary embeds MarathonUI modules as Qt resources (qrc:/qt/qml/MarathonUI/)
+	# and needs them in build/MarathonUI/ during the build process.
+	# Building MarathonUI separately will cause "No such file or directory" errors at runtime.
 	cmake -B build -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
 	cmake --build build
-	
-	# Build apps
-	cmake -B build-apps -S apps -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_INSTALL_PREFIX=/usr \
-		-DQt6_DIR=/usr/lib/cmake/Qt6
-	cmake --build build-apps
 }
 
 check() {
@@ -84,11 +80,8 @@ check() {
 package() {
 	cd "$builddir"
 	
-	# Install main shell (includes binary, session files, systemd, polkit, etc.)
+	# Install everything (MarathonUI, Shell, Apps)
 	DESTDIR="$pkgdir" cmake --install build
-	
-	# Install apps
-	DESTDIR="$pkgdir" cmake --install build-apps
 }
 
 sha512sums="

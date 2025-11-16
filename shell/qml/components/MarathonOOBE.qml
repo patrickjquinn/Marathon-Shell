@@ -253,33 +253,44 @@ Item {
                                 onPressedChanged: {
                                     border.color = pressed ? MColors.accent : MColors.border
                                 }
+                                
+                                // Use MCard's built-in onClicked signal instead of redundant MouseArea
+                                onClicked: {
+                                    Logger.info("OOBE", "WiFi network selected:", modelData.ssid)
+                                    HapticService.light()
+                                    wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security, modelData.secured)
+                                }
 
                                 Row {
                                     anchors.fill: parent
                                     anchors.margins: MSpacing.md
                                     spacing: MSpacing.md
 
-                                    // Signal strength icon
+                                    // Signal strength icon (proper signal bars, not opacity)
                                     Icon {
-                                        name: "wifi"
+                                        name: {
+                                            // Use proper signal bar icons based on strength
+                                            if (modelData.strength === 0) return "wifi-zero"
+                                            if (modelData.strength <= 33) return "wifi-low"     // 1-2 bars (weak)
+                                            if (modelData.strength <= 66) return "wifi"         // 2-3 bars (good)
+                                            return "wifi-high"                                   // 3-4 bars (excellent)
+                                        }
                                         size: Math.round(24 * Constants.scaleFactor)
-                                        color: modelData.strength > 60 ? MColors.accent : 
-                                               modelData.strength > 30 ? MColors.text : MColors.textSecondary
-                                        opacity: modelData.strength > 60 ? 1.0 :
-                                                 modelData.strength > 30 ? 0.7 : 0.4
+                                        color: modelData.connected ? MColors.accent : MColors.text
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
 
                                     Column {
                                         anchors.verticalCenter: parent.verticalCenter
                                         spacing: MSpacing.xs
+                                        width: parent.width - Math.round(24 * Constants.scaleFactor) - MSpacing.md * 2 - (modelData.connected ? Math.round(24 * Constants.scaleFactor) + MSpacing.md : 0)
 
                                         Text {
                                             text: modelData.ssid
                                             font.pixelSize: MTypography.sizeBody
-                                            font.weight: Font.Medium
+                                            font.weight: modelData.connected ? Font.DemiBold : Font.Medium
                                             font.family: MTypography.fontFamily
-                                            color: MColors.text
+                                            color: modelData.connected ? MColors.accent : MColors.text
                                             elide: Text.ElideRight
                                             width: parent.width
                                         }
@@ -287,17 +298,20 @@ Item {
                                         Row {
                                             spacing: MSpacing.sm
 
+                                            // Show "Connected" for active network
                                             Text {
-                                                text: modelData.security || "Open"
+                                                text: modelData.connected ? "Connected" : (modelData.security || "Open")
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
-                                                color: MColors.textSecondary
+                                                color: modelData.connected ? MColors.accent : MColors.textSecondary
+                                                font.weight: modelData.connected ? Font.Medium : Font.Normal
                                             }
 
                                             Text {
                                                 text: "•"
                                                 font.pixelSize: MTypography.sizeSmall
                                                 color: MColors.textSecondary
+                                                visible: !modelData.connected  // Hide separator for connected networks
                                             }
 
                                             Text {
@@ -305,24 +319,26 @@ Item {
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
                                                 color: MColors.textSecondary
+                                                visible: !modelData.connected  // Hide strength % for connected networks (icon is enough)
                                             }
 
                                             Icon {
                                                 name: "lock"
                                                 size: Math.round(16 * Constants.scaleFactor)
                                                 color: MColors.textTertiary
-                                                visible: modelData.secured
+                                                visible: modelData.secured && !modelData.connected  // Hide lock for connected networks
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
                                         }
                                     }
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        HapticService.light()
-                                        wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security, modelData.secured)
+                                    
+                                    // Checkmark for connected network
+                                    Icon {
+                                        name: "check-circle"
+                                        size: Math.round(24 * Constants.scaleFactor)
+                                        color: MColors.accent
+                                        visible: modelData.connected
+                                        anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }
                             }
@@ -759,10 +775,13 @@ Item {
         anchors.fill: parent
         active: false
         sourceComponent: WiFiPasswordDialog {
-            onConnectRequested: (password) => {
-                NetworkManager.connectToWifi(networkSsid, password)
+            onConnectRequested: (ssid, password) => {
+                Logger.info("OOBE", "Connecting to WiFi:", ssid)
+                NetworkManager.connectToWifi(ssid, password)
             }
-            onCancelled: {}
+            onCancelled: {
+                Logger.info("OOBE", "WiFi connection cancelled")
+            }
         }
         
         function show(ssid, strength, security, secured) {
