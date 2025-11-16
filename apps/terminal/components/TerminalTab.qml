@@ -120,7 +120,7 @@ Rectangle {
                 selectByKeyboard: true
                 wrapMode: TextEdit.NoWrap
                 
-                font.family: "Menlo, Monaco, 'Courier New', monospace"
+                font.family: MTypography.fontFamilyMono
                 font.pixelSize: MTypography.sizeBody
                 color: MColors.text
                 
@@ -148,7 +148,7 @@ Rectangle {
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: "❯"
-                    font.family: "Menlo, Monaco, 'Courier New', monospace"
+                    font.family: MTypography.fontFamilyMono
                     font.pixelSize: MTypography.sizeLarge
                     color: MColors.accent
                 }
@@ -158,7 +158,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - 80
                     
-                    font.family: "Menlo, Monaco, 'Courier New', monospace"
+                    font.family: MTypography.fontFamilyMono
                     font.pixelSize: MTypography.sizeBody
                     color: MColors.text
                     selectionColor: MColors.accent

@@ -13,6 +13,7 @@ Item {
     // Determine if this is a toggleable tile (has on/off state) vs a link tile
     readonly property bool isToggleable: toggleData.id !== "settings" && 
                                           toggleData.id !== "lock" && 
+                                          toggleData.id !== "power" &&  // Power is an action menu
                                           toggleData.id !== "monitor" &&
                                           toggleData.id !== "alarm" &&  // Alarm is a link to Clock app
                                           toggleData.id !== "screenshot"  // Screenshot is an action

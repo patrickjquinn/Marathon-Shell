@@ -108,7 +108,7 @@ void SettingsManager::load() {
     // Quick Settings - Default to all tiles enabled in default order
     QStringList defaultTiles = {"wifi", "bluetooth", "flight", "cellular", "rotation", "autobrightness", 
                                 "location", "hotspot", "vibration", "nightlight", "torch", "notifications", 
-                                "battery", "screenshot", "settings", "lock"};
+                                "battery", "screenshot", "settings", "lock", "power"};
     m_enabledQuickSettingsTiles = m_settings.value("quicksettings/enabledTiles", defaultTiles).toStringList();
     m_quickSettingsTileOrder = m_settings.value("quicksettings/tileOrder", defaultTiles).toStringList();
     
