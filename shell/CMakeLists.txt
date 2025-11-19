@@ -8,6 +8,10 @@ set(SOURCES
     src/taskmodel.cpp
     src/notificationmodel.h
     src/notificationmodel.cpp
+    src/crashhandler.h
+    src/crashhandler.cpp
+    src/marathonappprocess.h
+    src/marathonappprocess.cpp
     qml/keyboard/Data/WordEngine.h
     qml/keyboard/Data/WordEngine.cpp
     src/networkmanagercpp.h
@@ -309,6 +313,7 @@ endif()
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
+    Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2

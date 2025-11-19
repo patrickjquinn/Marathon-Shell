@@ -1,241 +1,320 @@
 #include "TerminalEngine.h"
+#include "TerminalScreen.h"
 #include <QDebug>
-#include <QStandardPaths>
-#include <QDir>
-#include <QProcessEnvironment>
+#include <QSocketNotifier>
+#include <QCoreApplication>
 
-#ifdef Q_OS_MACOS
-#include <signal.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+
+#if defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
+#include <termios.h>
+#if defined(Q_OS_MACOS)
+#include <util.h>
+#else
+#include <pty.h>
+#endif
 #endif
 
 TerminalEngine::TerminalEngine(QObject *parent)
     : QObject(parent)
-    , m_process(nullptr)
-    , m_output("")
-    , m_workingDirectory(QDir::homePath())
+    , m_masterFd(-1)
+    , m_pid(-1)
+    , m_notifier(nullptr)
+    , m_title("Terminal")
+    , m_screen(new TerminalScreen(this))
+    , m_state(Normal)
 {
-    qDebug() << "[TerminalEngine] Initialized";
+    qDebug() << "[TerminalEngine] Created";
 }
 
 TerminalEngine::~TerminalEngine()
 {
-    if (m_process) {
-        m_process->terminate();
-        m_process->waitForFinished(1000);
-        m_process->deleteLater();
-    }
+    terminate();
 }
 
-QString TerminalEngine::getDefaultShell()
+void TerminalEngine::start(const QString &shell)
 {
-#ifdef Q_OS_MACOS
-    // macOS typically uses zsh or bash
-    QString shell = qEnvironmentVariable("SHELL");
-    if (!shell.isEmpty()) {
-        return shell;
+    if (m_pid > 0) return;
+    
+    QString shellProgram = shell;
+    if (shellProgram.isEmpty()) {
+        shellProgram = qEnvironmentVariable("SHELL");
+        if (shellProgram.isEmpty()) shellProgram = "/bin/bash";
     }
-    return "/bin/zsh";
-#else
-    // Linux
-    QString shell = qEnvironmentVariable("SHELL");
-    if (!shell.isEmpty()) {
-        return shell;
-    }
-    return "/bin/bash";
-#endif
-}
-
-void TerminalEngine::setWorkingDirectory(const QString &dir)
-{
-    if (m_workingDirectory != dir) {
-        m_workingDirectory = dir;
-        if (m_process) {
-            m_process->setWorkingDirectory(dir);
-        }
-        emit workingDirectoryChanged();
-    }
-}
-
-void TerminalEngine::start()
-{
-    if (m_process) {
-        qWarning() << "[TerminalEngine] Process already running";
+    
+    struct winsize winp;
+    winp.ws_col = m_screen->cols();
+    winp.ws_row = m_screen->rows();
+    winp.ws_xpixel = 0;
+    winp.ws_ypixel = 0;
+    
+    pid_t pid = forkpty(&m_masterFd, nullptr, nullptr, &winp);
+    
+    if (pid < 0) {
+        qCritical() << "[TerminalEngine] forkpty failed";
         return;
     }
     
-    m_process = new QProcess(this);
-    m_process->setWorkingDirectory(m_workingDirectory);
-    
-    // CRITICAL: Separate the process channels from parent
-    // This prevents the child shell from stealing the parent terminal's stdin/stdout
-    m_process->setProcessChannelMode(QProcess::SeparateChannels);
-    m_process->setInputChannelMode(QProcess::ManagedInputChannel);
-    
-    // Set up environment
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("TERM", "xterm-256color");
-    env.insert("COLORTERM", "truecolor");
-    // Prevent inheriting terminal control
-    env.remove("TERMINFO");
-    env.remove("TERM_PROGRAM");
-    m_process->setProcessEnvironment(env);
-    
-    // Connect signals
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &TerminalEngine::handleReadyRead);
-    connect(m_process, &QProcess::readyReadStandardError, this, &TerminalEngine::handleReadyRead);
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), 
-            this, &TerminalEngine::handleFinished);
-    connect(m_process, &QProcess::errorOccurred, this, &TerminalEngine::handleError);
-    
-    // Start shell in non-interactive mode (no TTY)
-    QString shell = getDefaultShell();
-    qDebug() << "[TerminalEngine] Starting shell:" << shell;
-    
-    // Start shell WITHOUT terminal control flags
-    // This creates a "dumb" shell that doesn't try to control a TTY
-    m_process->start(shell, QStringList());
-    
-    //  NON-BLOCKING: Connect to started() signal instead of waitForStarted()
-    connect(m_process, &QProcess::started, this, [this, shell]() {
-        qDebug() << "[TerminalEngine] Shell started successfully (PID:" << m_process->processId() << ")";
+    if (pid == 0) {
+        setenv("TERM", "xterm-256color", 1);
+        setenv("COLORTERM", "truecolor", 1);
+        QByteArray shellPath = shellProgram.toUtf8();
+        const char *argv[] = { shellPath.constData(), "-i", nullptr };
+        execvp(argv[0], (char * const *)argv);
+        _exit(1);
+    } else {
+        m_pid = pid;
+        int flags = fcntl(m_masterFd, F_GETFL);
+        fcntl(m_masterFd, F_SETFL, flags | O_NONBLOCK);
         
-        // Send initial prompt
-        m_output = "Marathon Terminal\n";
-        m_output += "Ready.\n\n";
-        emit outputChanged();
+        m_notifier = new QSocketNotifier(m_masterFd, QSocketNotifier::Read, this);
+        connect(m_notifier, &QSocketNotifier::activated, this, &TerminalEngine::onReadActivated);
+        
         emit runningChanged();
-    });
+    }
+}
+
+void TerminalEngine::onReadActivated()
+{
+    char buffer[4096];
+    ssize_t bytesRead = read(m_masterFd, buffer, sizeof(buffer));
+    
+    if (bytesRead > 0) {
+        processOutput(QByteArray(buffer, bytesRead));
+    } else if (bytesRead <= 0 && errno != EAGAIN) {
+        terminate();
+    }
+}
+
+void TerminalEngine::processOutput(const QByteArray &data)
+{
+    for (char ch : data) {
+        if (m_state == Normal) {
+            if (ch == '\x1b') {
+                m_state = Escape;
+            } else if (ch == '\r') {
+                m_screen->setCursorX(0);
+            } else if (ch == '\n') {
+                m_screen->newLine();
+            } else if (ch == '\b') {
+                m_screen->backspace();
+            } else if (ch == '\t') {
+                // Simple tab handling (every 8 chars)
+                int x = m_screen->cursorX();
+                int nextTab = (x / 8 + 1) * 8;
+                m_screen->setCursorX(nextTab);
+            } else if (ch == '\a') {
+                // Bell - ignore
+            } else if (static_cast<unsigned char>(ch) >= 32) {
+                m_screen->putChar(ch);
+            }
+        } else {
+            parseEscapeSequence(ch);
+        }
+    }
+}
+
+void TerminalEngine::parseEscapeSequence(char ch)
+{
+    if (m_state == Escape) {
+        if (ch == '[') {
+            m_state = CSI;
+            m_sequenceBuffer.clear();
+            m_params.clear();
+        } else if (ch == ']') {
+            m_state = OSC;
+            m_sequenceBuffer.clear();
+        } else if (ch == '(' || ch == ')') {
+            m_state = Charset;
+        } else {
+            // Unknown escape sequence, reset
+            m_state = Normal;
+        }
+    } else if (m_state == CSI) {
+        if (isdigit(ch)) {
+            m_sequenceBuffer.append(ch);
+        } else if (ch == ';') {
+            m_params.append(m_sequenceBuffer.toInt());
+            m_sequenceBuffer.clear();
+        } else if (ch >= 0x40 && ch <= 0x7E) {
+            // Final byte
+            m_params.append(m_sequenceBuffer.toInt());
+            handleCSI(QString(ch));
+            m_state = Normal;
+        }
+    } else if (m_state == OSC) {
+        if (ch == '\a' || ch == '\x9c') { // BEL or ST
+            handleOSC(m_sequenceBuffer);
+            m_state = Normal;
+        } else {
+            m_sequenceBuffer.append(ch);
+        }
+    } else if (m_state == Charset) {
+        // Ignore charset selection
+        m_state = Normal;
+    }
+}
+
+void TerminalEngine::handleCSI(const QString &seq)
+{
+    int p1 = m_params.value(0, 0);
+    int p2 = m_params.value(1, 0);
+    
+    if (seq == "m") { // SGR - Select Graphic Rendition
+        if (m_params.isEmpty()) {
+            m_screen->resetStyle();
+        } else {
+            for (int param : m_params) {
+                if (param == 0) m_screen->resetStyle();
+                else if (param == 1) m_screen->setBold(true);
+                else if (param == 7) m_screen->setInverse(true);
+                else if (param == 22) m_screen->setBold(false);
+                else if (param == 27) m_screen->setInverse(false);
+                else if (param >= 30 && param <= 37) {
+                    // Standard FG
+                    const uint32_t colors[] = {
+                        0xFF000000, 0xFFCC0000, 0xFF4E9A06, 0xFFC4A000,
+                        0xFF3465A4, 0xFF75507B, 0xFF06989A, 0xFFD3D7CF
+                    };
+                    m_screen->setFgColor(colors[param - 30]);
+                } else if (param >= 40 && param <= 47) {
+                    // Standard BG
+                    const uint32_t colors[] = {
+                        0xFF000000, 0xFFCC0000, 0xFF4E9A06, 0xFFC4A000,
+                        0xFF3465A4, 0xFF75507B, 0xFF06989A, 0xFFD3D7CF
+                    };
+                    m_screen->setBgColor(colors[param - 40]);
+                } else if (param == 39) m_screen->setFgColor(0xFFFFFFFF); // Default FG
+                else if (param == 49) m_screen->setBgColor(0xFF000000); // Default BG
+                else if (param >= 90 && param <= 97) {
+                    // Bright FG
+                    const uint32_t colors[] = {
+                        0xFF555753, 0xFFEF2929, 0xFF8AE234, 0xFFFCE94F,
+                        0xFF729FCF, 0xFFAD7FA8, 0xFF34E2E2, 0xFFEEEEEC
+                    };
+                    m_screen->setFgColor(colors[param - 90]);
+                }
+            }
+        }
+    } else if (seq == "A") { // Cursor Up
+        m_screen->moveCursorRelative(0, -std::max(1, p1));
+    } else if (seq == "B") { // Cursor Down
+        m_screen->moveCursorRelative(0, std::max(1, p1));
+    } else if (seq == "C") { // Cursor Forward
+        m_screen->moveCursorRelative(std::max(1, p1), 0);
+    } else if (seq == "D") { // Cursor Back
+        m_screen->moveCursorRelative(-std::max(1, p1), 0);
+    } else if (seq == "H" || seq == "f") { // Cursor Position
+        int row = std::max(1, p1) - 1;
+        int col = std::max(1, p2) - 1;
+        m_screen->moveCursor(col, row);
+    } else if (seq == "J") { // Erase in Display
+        m_screen->clearScreen(p1);
+    } else if (seq == "K") { // Erase in Line
+        m_screen->clearLine(p1);
+    } else if (seq == "P") { // Delete Characters
+        m_screen->deleteChars(std::max(1, p1));
+    } else if (seq == "@") { // Insert Characters
+        m_screen->insertChars(std::max(1, p1));
+    }
+}
+
+void TerminalEngine::handleOSC(const QString &seq)
+{
+    if (seq.startsWith("0;") || seq.startsWith("2;")) {
+        int semi = seq.indexOf(';');
+        if (semi != -1) {
+            m_title = seq.mid(semi + 1);
+            emit titleChanged();
+        }
+    }
 }
 
 void TerminalEngine::sendInput(const QString &text)
 {
-    if (!m_process || m_process->state() != QProcess::Running) {
-        qWarning() << "[TerminalEngine] Cannot send input - process not running";
-        return;
+    if (m_masterFd != -1) {
+        QByteArray data = text.toUtf8();
+        write(m_masterFd, data.constData(), data.size());
     }
+}
+
+void TerminalEngine::sendKey(int key, const QString &text, int modifiers)
+{
+    if (m_masterFd == -1) return;
     
-    QString input = text;
-    if (!input.endsWith('\n')) {
-        input += '\n';
-    }
+    QByteArray data;
     
-    QByteArray data = input.toUtf8();
-    qint64 written = m_process->write(data);
-    
-    if (written != data.size()) {
-        qWarning() << "[TerminalEngine] Write failed - expected" << data.size() << "bytes, wrote" << written;
+    if (modifiers & Qt::ControlModifier) {
+        if (key >= Qt::Key_A && key <= Qt::Key_Z) {
+            data.append((char)(key - Qt::Key_A + 1));
+        } else if (key == Qt::Key_BracketLeft) data.append('\x1b');
+        else if (key == Qt::Key_Backslash) data.append('\x1c');
+        else if (key == Qt::Key_BracketRight) data.append('\x1d');
     } else {
-        qDebug() << "[TerminalEngine] Sent input:" << text;
-    }
-}
-
-void TerminalEngine::sendCtrlC()
-{
-    if (!m_process || m_process->state() != QProcess::Running) {
-        return;
-    }
-    
-#ifdef Q_OS_MACOS
-    // Send SIGINT (Ctrl+C)
-    ::kill(m_process->processId(), SIGINT);
-#else
-    // Linux - send Ctrl+C character
-    m_process->write("\x03");
-#endif
-    
-    qDebug() << "[TerminalEngine] Sent Ctrl+C";
-}
-
-void TerminalEngine::sendCtrlD()
-{
-    if (!m_process || m_process->state() != QProcess::Running) {
-        return;
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) data.append('\r');
+        else if (key == Qt::Key_Backspace) data.append('\x7f');
+        else if (key == Qt::Key_Tab) data.append('\t');
+        else if (key == Qt::Key_Up) data.append("\x1b[A");
+        else if (key == Qt::Key_Down) data.append("\x1b[B");
+        else if (key == Qt::Key_Right) data.append("\x1b[C");
+        else if (key == Qt::Key_Left) data.append("\x1b[D");
+        else if (key == Qt::Key_Escape) data.append('\x1b');
+        else if (key == Qt::Key_Home) data.append("\x1b[H");
+        else if (key == Qt::Key_End) data.append("\x1b[F");
+        else if (key == Qt::Key_PageUp) data.append("\x1b[5~");
+        else if (key == Qt::Key_PageDown) data.append("\x1b[6~");
+        else if (!text.isEmpty()) data.append(text.toUtf8());
     }
     
-    // Send EOF (Ctrl+D)
-    m_process->write("\x04");
-    qDebug() << "[TerminalEngine] Sent Ctrl+D";
-}
-
-void TerminalEngine::clear()
-{
-    m_output.clear();
-    emit outputChanged();
-    
-    // Send clear command to terminal
-    if (m_process && m_process->state() == QProcess::Running) {
-        m_process->write("clear\n");
+    if (!data.isEmpty()) {
+        write(m_masterFd, data.constData(), data.size());
     }
 }
 
 void TerminalEngine::terminate()
 {
-    if (m_process) {
-        m_process->terminate();
-        if (!m_process->waitForFinished(1000)) {
-            m_process->kill();
+    if (m_pid > 0) {
+        if (m_notifier) {
+            m_notifier->setEnabled(false);
+            delete m_notifier;
+            m_notifier = nullptr;
         }
+        if (m_masterFd != -1) {
+            close(m_masterFd);
+            m_masterFd = -1;
+        }
+        kill(m_pid, SIGKILL);
+        waitpid(m_pid, nullptr, 0);
+        m_pid = -1;
+        emit runningChanged();
+        emit finished(-1);
     }
 }
 
-void TerminalEngine::handleReadyRead()
+void TerminalEngine::resize(int cols, int rows)
 {
-    if (!m_process) return;
-    
-    // Read stdout
-    QByteArray stdoutData = m_process->readAllStandardOutput();
-    if (!stdoutData.isEmpty()) {
-        QString text = QString::fromUtf8(stdoutData);
-        m_output += text;
-        emit newOutput(text);
-        emit outputChanged();
-    }
-    
-    // Read stderr
-    QByteArray stderrData = m_process->readAllStandardError();
-    if (!stderrData.isEmpty()) {
-        QString text = QString::fromUtf8(stderrData);
-        m_output += text;
-        emit newOutput(text);
-        emit outputChanged();
+    if (m_masterFd != -1) {
+        struct winsize winp;
+        winp.ws_col = cols;
+        winp.ws_row = rows;
+        winp.ws_xpixel = 0;
+        winp.ws_ypixel = 0;
+        ioctl(m_masterFd, TIOCSWINSZ, &winp);
+        
+        m_screen->resize(cols, rows);
     }
 }
 
-void TerminalEngine::handleFinished(int exitCode, QProcess::ExitStatus exitStatus)
+void TerminalEngine::sendSignal(int signal)
 {
-    qDebug() << "[TerminalEngine] Process finished with exit code:" << exitCode 
-             << "status:" << (exitStatus == QProcess::NormalExit ? "normal" : "crashed");
-    
-    emit processExited(exitCode);
-    emit runningChanged();
+    if (m_pid > 0) kill(m_pid, signal);
 }
 
-void TerminalEngine::handleError(QProcess::ProcessError error)
-{
-    QString errorMsg;
-    switch (error) {
-        case QProcess::FailedToStart:
-            errorMsg = "Failed to start shell";
-            break;
-        case QProcess::Crashed:
-            errorMsg = "Shell crashed";
-            break;
-        case QProcess::Timedout:
-            errorMsg = "Shell timed out";
-            break;
-        case QProcess::WriteError:
-            errorMsg = "Write error";
-            break;
-        case QProcess::ReadError:
-            errorMsg = "Read error";
-            break;
-        default:
-            errorMsg = "Unknown error";
-    }
-    
-    qWarning() << "[TerminalEngine] Error:" << errorMsg;
-    m_output += "\n[ERROR] " + errorMsg + "\n";
-    emit outputChanged();
-}
-
+void TerminalEngine::sendMousePress(int x, int y, int button) { /* TODO */ }
+void TerminalEngine::sendMouseRelease(int x, int y, int button) { /* TODO */ }
+void TerminalEngine::sendMouseMove(int x, int y, int buttons) { /* TODO */ }
