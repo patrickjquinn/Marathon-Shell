@@ -1,4 +1,4 @@
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QDebug>
@@ -16,6 +16,7 @@
 #endif
 
 #include "src/desktopfileparser.h"
+#include "src/crashhandler.h"
 #include "src/appmodel.h"
 #include "src/taskmodel.h"
 #include "src/notificationmodel.h"
@@ -181,8 +182,8 @@ int main(int argc, char *argv[])
         );
     }
     
-    QGuiApplication::setApplicationName("Marathon Shell");
-    QGuiApplication::setOrganizationName("Marathon OS");
+    QApplication::setApplicationName("Marathon Shell");
+    QApplication::setOrganizationName("Marathon OS");
     
 #ifdef HAVE_WEBENGINE
     QtWebEngineQuick::initialize();
@@ -198,10 +199,33 @@ int main(int argc, char *argv[])
     // Combined with m_output->setScaleFactor(1) in the compositor, this forces apps to render
     // at the exact window size (540x1140) without any scaling artifacts.
     //
-    // Must be called BEFORE creating QGuiApplication.
-    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+    // Must be called BEFORE creating QApplication.
+    // NOTE: We use QApplication (not QGuiApplication) to support QWidget-based components
+    // like QTermWidget. QApplication inherits from QGuiApplication and adds widget support.
+    QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
+    
+    // ============================================================================
+    // CRITICAL: Install Crash Protection (MITIGATION ONLY - NOT A FIX!)
+    // ============================================================================
+    // This installs signal handlers to catch crashes from apps running in-process.
+    // WARNING: This is a band-aid, not a solution. The PROPER fix is to run each
+    // app in its own process. Signal handlers have limitations and can't always
+    // prevent all crashes from taking down the shell.
+    //
+    // TODO: Implement multi-process app architecture (see MarathonAppLoader)
+    // ============================================================================
+    CrashHandler *crashHandler = CrashHandler::instance();
+    crashHandler->install();
+    crashHandler->setCrashCallback([](const QString& msg) {
+        qCritical() << "[Marathon] App crash detected:" << msg;
+        qCritical() << "[Marathon] This crash was likely caused by an app, but due to";
+        qCritical() << "[Marathon] poor isolation, it's taking down the entire shell.";
+    });
+    qInfo() << "[Marathon] Crash protection installed (signal handlers active)";
+    qInfo() << "[Marathon] ⚠ WARNING: Apps run in-process - crashes can still kill the shell";
+    qInfo() << "[Marathon] ⚠ TODO: Implement proper multi-process architecture";
     
     // Set RT priority for input handling (Priority 85 per Marathon OS spec)
 #ifdef Q_OS_LINUX

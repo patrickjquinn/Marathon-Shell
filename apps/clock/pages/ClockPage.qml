@@ -50,39 +50,25 @@ Item {
                 width: parent.width * 1.10
                 height: parent.height * 1.10
                 
-                // Dark shadow layer (bottom-right) - creates depth
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -20
-                    radius: width * 0.22
-                    color: "transparent"
-                    
-                    layer.enabled: true
-                    layer.effect: Item { // MultiEffect disabled for Qt 6.4
-                        shadowEnabled: true
-                        shadowColor: Qt.rgba(0, 0, 0, 0.25)
-                        shadowBlur: 1.0
-                        shadowHorizontalOffset: 20
-                        shadowVerticalOffset: 20
-                    }
-                }
+                // Dark shadow layer (bottom-right) - disabled (requires Qt 6.5+ MultiEffect)
+                // Rectangle {
+                //     anchors.fill: parent
+                //     anchors.margins: -20
+                //     radius: width * 0.22
+                //     color: "transparent"
+                //     
+                //     layer.enabled: false
+                // }
                 
-                // Light shadow layer (top-left) - creates raised effect
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -20
-                    radius: width * 0.22
-                    color: "transparent"
-                    
-                    layer.enabled: true
-                    layer.effect: Item { // MultiEffect disabled for Qt 6.4
-                        shadowEnabled: true
-                        shadowColor: Qt.rgba(1, 1, 1, 0.8)
-                        shadowBlur: 1.0
-                        shadowHorizontalOffset: -20
-                        shadowVerticalOffset: -20
-                    }
-                }
+                // Light shadow layer (top-left) - disabled (requires Qt 6.5+ MultiEffect)
+                // Rectangle {
+                //     anchors.fill: parent
+                //     anchors.margins: -20
+                //     radius: width * 0.22
+                //     color: "transparent"
+                //     
+                //     layer.enabled: false
+                // }
                 
                 // Main clock face
                 Rectangle {
