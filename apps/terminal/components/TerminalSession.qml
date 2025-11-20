@@ -22,6 +22,10 @@ Item {
         terminalEngine.terminate()
     }
     
+    function sendKey(key, text, modifiers) {
+        terminalEngine.sendKey(key, text, modifiers)
+    }
+    
     TerminalEngine {
         id: terminalEngine
         
@@ -66,6 +70,7 @@ Item {
                 
                 textColor: MColors.text
                 backgroundColor: "transparent"
+                selectionColor: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.4)
                 
                 focus: true // Capture keyboard input
                 
@@ -80,6 +85,47 @@ Item {
                         if (cols > 0 && rows > 0) {
                             terminalEngine.resize(cols, rows)
                         }
+                    }
+                }
+                
+                MouseArea {
+                    anchors.fill: parent
+                    preventStealing: true
+                    
+                    property point startPos
+                    property bool selecting: false
+                    
+                    onPressed: function(mouse) {
+                        terminalRenderer.clearSelection()
+                        startPos = Qt.point(mouse.x, mouse.y)
+                        selecting = true
+                        
+                        // Focus the hidden input to ensure keyboard works
+                        terminalRenderer.forceActiveFocus() // Assuming terminalRenderer is the input field
+                    }
+                    
+                    onPositionChanged: function(mouse) {
+                        if (selecting) {
+                            var startGrid = terminalRenderer.positionToGrid(startPos.x, startPos.y)
+                            var endGrid = terminalRenderer.positionToGrid(mouse.x, mouse.y)
+                            terminalRenderer.select(startGrid.x, startGrid.y, endGrid.x, endGrid.y)
+                        }
+                    }
+                    
+                    onReleased: function(mouse) {
+                        selecting = false
+                        var text = terminalRenderer.selectedText()
+                        if (text.length > 0) {
+                            // Auto-copy to clipboard on selection end (Linux terminal style)
+                            // Or show a menu? For now, let's just log it or keep it selected.
+                            // Ideally we'd have a context menu.
+                            console.log("Selected text:", text)
+                        }
+                    }
+                    
+                    onPressAndHold: function(mouse) {
+                         // TODO: Show context menu (Copy/Paste)
+                         // HapticService.light() // HapticService is not defined in this context
                     }
                 }
                 
@@ -147,14 +193,6 @@ Item {
             }
         }
         
-        // Virtual Key Row
-        VirtualKeyRow {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 48
-            
-            onKeyTriggered: (key, modifiers) => {
-                terminalEngine.sendKey(key, "", modifiers)
-            }
-        }
+
     }
 }

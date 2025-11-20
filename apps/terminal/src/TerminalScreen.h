@@ -69,6 +69,13 @@ public:
     int cursorY() const { return m_cursorY; }
     const TerminalCell& cell(int x, int y) const;
     
+    // Selection
+    void setSelection(int startX, int startY, int endX, int endY);
+    void clearSelection();
+    bool hasSelection() const { return m_hasSelection; }
+    bool isSelected(int x, int y) const;
+    QString getSelectedText() const;
+    
     // Thread safety
     QMutex* mutex() { return &m_mutex; }
     
@@ -94,6 +101,11 @@ private:
     uint32_t m_currentBg;
     bool m_currentBold;
     bool m_currentInverse;
+    
+    // Selection State
+    bool m_hasSelection;
+    int m_selStartX, m_selStartY;
+    int m_selEndX, m_selEndY;
     
     // Grid: [row][col]
     // We use a flat vector for better cache locality? Or vector of vectors?

@@ -17,11 +17,15 @@ class TerminalRenderer : public QQuickPaintedItem {
     Q_PROPERTY(qreal charHeight READ charHeight NOTIFY charSizeChanged)
     Q_PROPERTY(QColor textColor READ textColor WRITE setTextColor NOTIFY textColorChanged)
     Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged)
+    Q_PROPERTY(QColor selectionColor READ selectionColor WRITE setSelectionColor NOTIFY selectionColorChanged)
     
 public:
     explicit TerminalRenderer(QQuickItem *parent = nullptr);
     
-
+    Q_INVOKABLE void select(int startX, int startY, int endX, int endY);
+    Q_INVOKABLE void clearSelection();
+    Q_INVOKABLE QString selectedText() const;
+    Q_INVOKABLE QPoint positionToGrid(qreal x, qreal y);
     
     TerminalEngine* terminal() const { return m_terminal; }
     void setTerminal(TerminalEngine* terminal);
@@ -35,6 +39,9 @@ public:
     QColor backgroundColor() const { return m_backgroundColor; }
     void setBackgroundColor(const QColor &color);
     
+    QColor selectionColor() const { return m_selectionColor; }
+    void setSelectionColor(const QColor &color);
+    
     qreal charWidth() const { return m_charWidth; }
     qreal charHeight() const { return m_charHeight; }
     
@@ -44,6 +51,7 @@ signals:
     void charSizeChanged();
     void textColorChanged();
     void backgroundColorChanged();
+    void selectionColorChanged();
 
 protected:
     void paint(QPainter *painter) override;
@@ -60,6 +68,7 @@ private:
     QFont m_font;
     QColor m_textColor;
     QColor m_backgroundColor;
+    QColor m_selectionColor;
     qreal m_charWidth;
     qreal m_charHeight;
     qreal m_ascent;

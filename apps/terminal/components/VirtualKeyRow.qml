@@ -26,51 +26,58 @@ Rectangle {
         { label: "C", key: Qt.Key_C, isModifier: false, modifier: 0, requireCtrl: true }
     ]
     
-    RowLayout {
+    ScrollView {
+        id: scrollView
         anchors.fill: parent
-        anchors.leftMargin: MSpacing.sm
-        anchors.rightMargin: MSpacing.sm
-        spacing: MSpacing.xs
-        
-        Repeater {
-            model: root.keyModel
+        contentHeight: parent.height
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
+
+        Row {
+            id: keyRow
+            padding: MSpacing.sm
+            spacing: MSpacing.xs
+            height: parent.height
             
-            MButton {
-                Layout.fillHeight: true
-                Layout.preferredWidth: 48
-                Layout.margins: 4
-                text: (modelData && modelData.label) ? modelData.label : ""
-                variant: {
-                    if (modelData && modelData.isModifier) {
-                        if (modelData.modifier === Qt.ControlModifier && root.ctrlActive) return "primary"
-                        if (modelData.modifier === Qt.AltModifier && root.altActive) return "primary"
-                    }
-                    return "secondary"
-                }
+            Repeater {
+                model: root.keyModel
                 
-                onClicked: {
-                    HapticService.light()
+                MButton {
+                    width: 48
+                    height: keyRow.height - (keyRow.padding * 2)
+                    anchors.verticalCenter: parent.verticalCenter
                     
-                    if (!modelData) return
+                    required property int index
+                    required property var modelData
                     
-                    if (modelData.isModifier) {
-                        if (modelData.modifier === Qt.ControlModifier) root.ctrlActive = !root.ctrlActive
-                        if (modelData.modifier === Qt.AltModifier) root.altActive = !root.altActive
-                        return
+                    text: modelData.label
+                    
+                    variant: {
+                        if (modelData.isModifier) {
+                            if (modelData.modifier === Qt.ControlModifier && root.ctrlActive) return "primary"
+                            if (modelData.modifier === Qt.AltModifier && root.altActive) return "primary"
+                        }
+                        return "secondary"
                     }
                     
-                    var modifiers = 0
-                    if (root.ctrlActive) modifiers |= Qt.ControlModifier
-                    if (root.altActive) modifiers |= Qt.AltModifier
-                    
-                    if (modelData.requireCtrl) {
-                        modifiers |= Qt.ControlModifier
+                    onClicked: {
+                        if (modelData.isModifier) {
+                            if (modelData.modifier === Qt.ControlModifier) root.ctrlActive = !root.ctrlActive
+                            if (modelData.modifier === Qt.AltModifier) root.altActive = !root.altActive
+                            return
+                        }
+                        
+                        var modifiers = 0
+                        if (root.ctrlActive) modifiers |= Qt.ControlModifier
+                        if (root.altActive) modifiers |= Qt.AltModifier
+                        
+                        if (modelData.requireCtrl) {
+                            modifiers |= Qt.ControlModifier
+                        }
+                        
+                        root.keyTriggered(modelData.key, modifiers)
                     }
-                    
-                    root.keyTriggered(modelData.key, modifiers)
-                    
-                    // Reset modifiers after single use if desired, or keep them latched
-                    // For mobile, latching is usually better.
                 }
             }
         }

@@ -28,8 +28,7 @@ MApp {
         currentTabIndex = tabs.length - 1
         tabsChanged()
         
-        Logger.info("Terminal", "Created new tab: " + currentTabIndex)
-        HapticService.light()
+            Logger.info("Terminal", "Created new tab: " + currentTabIndex)
     }
     
     function closeTab(index) {
@@ -50,7 +49,6 @@ MApp {
             
             tabsChanged()
             Logger.info("Terminal", "Closed tab: " + index)
-            HapticService.light()
         }
     }
     
@@ -165,6 +163,19 @@ MApp {
                             iconSize: 20
                             onClicked: terminalApp.createNewTab()
                         }
+                    }
+                }
+            }
+            
+            // Virtual Key Row (Bottom)
+            VirtualKeyRow {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 48
+                
+                onKeyTriggered: (key, modifiers) => {
+                    var tab = terminalApp.tabs[currentTabIndex]
+                    if (tab && tab.session) {
+                        tab.session.sendKey(key, "", modifiers)
                     }
                 }
             }
