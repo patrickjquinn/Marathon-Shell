@@ -3,7 +3,14 @@
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusMetaType>
+#include <QDBusPendingCallWatcher>
 #include <QDebug>
+#include <QProcess>
+
+// Define types for GetManagedObjects return value
+typedef QMap<QString, QVariant> StringVariantMap;
+typedef QMap<QDBusObjectPath, StringVariantMap> ManagedObjectMap;
+Q_DECLARE_METATYPE(ManagedObjectMap)
 
 // BluetoothDevice implementation
 BluetoothDevice::BluetoothDevice(const QString &path, QObject *parent)
@@ -81,6 +88,10 @@ BluetoothManager::BluetoothManager(QObject *parent)
 {
     qDebug() << "[BluetoothManager] Initializing";
     
+    // Register the complex type for DBus
+    qRegisterMetaType<ManagedObjectMap>("ManagedObjectMap");
+    qDBusRegisterMetaType<ManagedObjectMap>();
+    
     if (!m_bus.isConnected()) {
         qWarning() << "[BluetoothManager] Failed to connect to system bus";
         return;
@@ -124,39 +135,64 @@ BluetoothManager::~BluetoothManager() {
 
 void BluetoothManager::initializeAdapter() {
     QDBusInterface manager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_bus);
-    QDBusReply<QMap<QDBusObjectPath, QVariantMap>> reply = manager.call("GetManagedObjects");
+    QDBusPendingCall asyncCall = manager.asyncCall("GetManagedObjects");
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(asyncCall, this);
     
-    if (!reply.isValid()) {
-        // Log once only - bluez may not be running in VM or on systems without Bluetooth
-        static bool hasLogged = false;
-        if (!hasLogged) {
-            qDebug() << "[BluetoothManager] Bluetooth not available (bluez service not running or no hardware)";
-            hasLogged = true;
-        }
-        m_available = false;
-        emit availableChanged();
-        return;
-    }
-    
-    auto objects = reply.value();
-    for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        if (it.value().contains("org.bluez.Adapter1")) {
-            m_adapterPath = it.key().path();
-            qDebug() << "[BluetoothManager] Found adapter:" << m_adapterPath;
-            
-            m_adapter = new QDBusInterface("org.bluez", m_adapterPath, "org.bluez.Adapter1", m_bus, this);
-            m_available = true;
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
+        QDBusPendingReply<QMap<QDBusObjectPath, QVariantMap>> reply = *call;
+        
+        if (reply.isError()) {
+            // Log once only - bluez may not be running in VM or on systems without Bluetooth
+            static bool hasLogged = false;
+            if (!hasLogged) {
+                qDebug() << "[BluetoothManager] Bluetooth not available (bluez service not running or no hardware)";
+                hasLogged = true;
+            }
+            m_available = false;
             emit availableChanged();
-            
-            updateAdapterProperties();
-            refreshDevices();
+            call->deleteLater();
             return;
         }
-    }
-    
-    qDebug() << "[BluetoothManager] No Bluetooth adapter found (no hardware detected)";
-    m_available = false;
-    emit availableChanged();
+        
+        auto objects = reply.value();
+        bool adapterFound = false;
+        
+        // First pass: Find adapter
+        for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
+            if (it.value().contains("org.bluez.Adapter1")) {
+                m_adapterPath = it.key().path();
+                qDebug() << "[BluetoothManager] Found adapter:" << m_adapterPath;
+                
+                m_adapter = new QDBusInterface("org.bluez", m_adapterPath, "org.bluez.Adapter1", m_bus, this);
+                m_available = true;
+                emit availableChanged();
+                
+                updateAdapterProperties();
+                adapterFound = true;
+                break;
+            }
+        }
+        
+        if (!adapterFound) {
+            qDebug() << "[BluetoothManager] No Bluetooth adapter found (no hardware detected)";
+            m_available = false;
+            emit availableChanged();
+            call->deleteLater();
+            return;
+        }
+        
+        // Second pass: Find devices (using the same response, avoiding extra DBus call)
+        for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
+            if (it.value().contains("org.bluez.Device1")) {
+                QString path = it.key().path();
+                if (!findDeviceByPath(path)) {
+                    addDevice(path);
+                }
+            }
+        }
+        
+        call->deleteLater();
+    });
 }
 
 void BluetoothManager::connectToBlueZ() {
@@ -238,6 +274,11 @@ void BluetoothManager::setEnabled(bool enabled) {
     props.call("Set", "org.bluez.Adapter1", "Powered", QVariant::fromValue(QDBusVariant(enabled)));
     
     qDebug() << "[BluetoothManager] Setting powered to" << enabled;
+    
+    if (enabled) {
+        // Ensure RFKILL is unblocked
+        QProcess::execute("rfkill", {"unblock", "bluetooth"});
+    }
 }
 
 void BluetoothManager::setDiscoverable(bool discoverable) {

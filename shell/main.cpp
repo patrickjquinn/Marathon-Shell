@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QStandardPaths>
 #include <QLoggingCategory>
+#include <QInputDevice>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -697,6 +698,16 @@ int main(int argc, char *argv[])
     
     // Qt 6.5+ uses ':/qt/qml/' as the default resource prefix for QML modules
     const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
+    
+    // Debug: List input devices to diagnose touchscreen issues
+    const auto devices = QInputDevice::devices();
+    qInfo() << "[MarathonShell] Detected Input Devices:";
+    for (const QInputDevice *device : devices) {
+        qInfo() << "  -" << device->name() 
+                << "Type:" << device->type() 
+                << "ID:" << device->systemId()
+                << "Seat:" << device->seatName();
+    }
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
         &app, [url](QObject *obj, const QUrl &objUrl) {
