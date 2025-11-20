@@ -14,11 +14,8 @@ Image {
     asynchronous: true
     cache: true
     
-    layer.enabled: true
-    layer.effect: Item { // MultiEffect disabled for Qt 6.4
-        brightness: 1.0
-        colorization: 1.0
-        colorizationColor: icon.color
-    }
+    // Color filtering disabled - requires Qt 6.5+ MultiEffect or Qt 5.15 ColorOverlay
+    // For now, use icon as-is. TODO: Add colorization support for Qt 6.4
+    layer.enabled: false
 }
 
