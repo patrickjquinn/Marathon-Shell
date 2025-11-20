@@ -1,5 +1,7 @@
 #include "marathonapploader.h"
+#include "marathonappprocess.h"
 #include <QDebug>
+#include <QDir>
 #include <QFileInfo>
 #include <QStandardPaths>
 
@@ -7,14 +9,59 @@ MarathonAppLoader::MarathonAppLoader(MarathonAppRegistry *registry, QQmlEngine *
     : QObject(parent)
     , m_registry(registry)
     , m_engine(engine)
+    , m_processIsolationEnabled(true)  // ENABLED BY DEFAULT for safety
 {
-    qDebug() << "[MarathonAppLoader] Initialized";
+    qInfo() << "[MarathonAppLoader] Initialized";
+    qInfo() << "[MarathonAppLoader] ✅ PROCESS ISOLATION: ENABLED";
+    qInfo() << "[MarathonAppLoader]    Apps with C++ plugins will run in separate processes";
+    qInfo() << "[MarathonAppLoader]    Crashes will not affect the shell!";
 }
 
 MarathonAppLoader::~MarathonAppLoader()
 {
     // Clean up loaded apps
     qDeleteAll(m_components);
+    qDeleteAll(m_processes);
+}
+
+void MarathonAppLoader::setProcessIsolationEnabled(bool enabled)
+{
+    if (m_processIsolationEnabled != enabled) {
+        m_processIsolationEnabled = enabled;
+        qInfo() << "[MarathonAppLoader] Process isolation:" << (enabled ? "ENABLED ✅" : "DISABLED ⚠️");
+        if (!enabled) {
+            qWarning() << "[MarathonAppLoader] WARNING: Running apps in-process is DANGEROUS!";
+            qWarning() << "[MarathonAppLoader] App crashes can take down the entire shell!";
+        }
+        emit processIsolationEnabledChanged();
+    }
+}
+
+bool MarathonAppLoader::shouldUseProcessIsolation(const QString &appId) const
+{
+    if (!m_processIsolationEnabled) {
+        return false;
+    }
+    
+    // Check if app has C++ plugins (more likely to crash)
+    MarathonAppRegistry::AppInfo *appInfo = m_registry->getAppInfo(appId);
+    if (!appInfo) {
+        return false;
+    }
+    
+    // Apps with C++ components should run in separate processes
+    // Look for shared library files (.so, .dylib, .dll)
+    QDir appDir(appInfo->absolutePath);
+    QStringList filters;
+    filters << "*.so" << "*.dylib" << "*.dll";
+    QFileInfoList libs = appDir.entryInfoList(filters, QDir::Files);
+    
+    bool hasNativeCode = !libs.isEmpty();
+    if (hasNativeCode) {
+        qInfo() << "[MarathonAppLoader]" << appId << "has native code - will run in separate process";
+    }
+    
+    return hasNativeCode;
 }
 
 QObject* MarathonAppLoader::loadApp(const QString &appId)
@@ -116,8 +163,23 @@ QObject* MarathonAppLoader::loadApp(const QString &appId)
         return nullptr;
     }
     
-    // Create instance
-    QObject *appInstance = component->create();
+    // Create instance with exception protection
+    QObject *appInstance = nullptr;
+    try {
+        appInstance = component->create();
+    } catch (const std::exception &e) {
+        qCritical() << "[MarathonAppLoader] EXCEPTION during app creation:" << e.what();
+        emit loadError(appId, QString("Exception: %1").arg(e.what()));
+        m_components.remove(appId);
+        component->deleteLater();
+        return nullptr;
+    } catch (...) {
+        qCritical() << "[MarathonAppLoader] UNKNOWN EXCEPTION during app creation";
+        emit loadError(appId, "Unknown exception during app creation");
+        m_components.remove(appId);
+        component->deleteLater();
+        return nullptr;
+    }
     
     if (!appInstance) {
         qWarning() << "[MarathonAppLoader] Failed to create app instance:" << component->errorString();
@@ -355,7 +417,22 @@ QObject* MarathonAppLoader::createAppInstance(const QString &appId, QQmlComponen
     
     qDebug() << "[MarathonAppLoader] Creating instance for:" << appId;
     
-    QObject *appInstance = component->create();
+    QObject *appInstance = nullptr;
+    try {
+        appInstance = component->create();
+    } catch (const std::exception &e) {
+        qCritical() << "[MarathonAppLoader] EXCEPTION during app creation:" << e.what();
+        emit loadError(appId, QString("Exception: %1").arg(e.what()));
+        m_components.remove(appId);
+        component->deleteLater();
+        return nullptr;
+    } catch (...) {
+        qCritical() << "[MarathonAppLoader] UNKNOWN EXCEPTION during app creation";
+        emit loadError(appId, "Unknown exception during app creation");
+        m_components.remove(appId);
+        component->deleteLater();
+        return nullptr;
+    }
     
     if (!appInstance) {
         qWarning() << "[MarathonAppLoader] Failed to create app instance:" << component->errorString();

@@ -52,6 +52,15 @@ else
 fi
 
 echo ""
+# Validate qmldir files
+echo "🔍 Validating qmldir files..."
+find "$PROJECT_ROOT/apps" -name "qmldir" -not -path "*/.*" | xargs "$PROJECT_ROOT/scripts/validate_qmldir.py"
+if [ $? -ne 0 ]; then
+    echo "❌ qmldir validation failed!"
+    exit 1
+fi
+
+# Run qmllint if available
 echo "Linting QML files..."
 find "$PROJECT_ROOT/apps" -name "*.qml" -exec qmllint {} \; 2>/dev/null || {
     echo "  QML linting found issues (continuing build...)"
