@@ -1,6 +1,7 @@
 #include "rotationmanager.h"
 #include <QDBusConnection>
 #include <QDBusReply>
+#include <QDBusPendingCallWatcher>
 #include <QDebug>
 
 RotationManager::RotationManager(QObject* parent)
@@ -50,17 +51,26 @@ void RotationManager::connectToSensorProxy()
     
     qInfo() << "[RotationManager] ✓ Connected to iio-sensor-proxy";
     
-    // Check if accelerometer is available
-    QDBusReply<bool> hasAccel = m_sensorProxy->call("HasAccelerometer");
-    if (!hasAccel.isValid() || !hasAccel.value()) {
-        qDebug() << "[RotationManager] No accelerometer available";
-        m_available = false;
-        emit availableChanged();
-        return;
-    }
+    // Check if accelerometer is available asynchronously
+    QDBusPendingCall asyncCall = m_sensorProxy->asyncCall("HasAccelerometer");
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(asyncCall, this);
     
-    m_available = true;
-    emit availableChanged();
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
+        QDBusPendingReply<bool> reply = *call;
+        if (reply.isValid() && reply.value()) {
+            qInfo() << "[RotationManager] Accelerometer detected";
+            m_available = true;
+            emit availableChanged();
+            
+            if (m_autoRotateEnabled) {
+                claimAccelerometer();
+                queryOrientation();
+            }
+        } else {
+            qDebug() << "[RotationManager] No accelerometer available (yet)";
+        }
+        call->deleteLater();
+    });
     
     // Monitor property changes
     QDBusConnection::systemBus().connect(
@@ -72,12 +82,6 @@ void RotationManager::connectToSensorProxy()
         SLOT(onPropertiesChanged(QString,QVariantMap,QStringList))
     );
     
-    // Claim accelerometer and start monitoring
-    if (m_autoRotateEnabled) {
-        claimAccelerometer();
-        queryOrientation();
-    }
-    
     qInfo() << "[RotationManager] Initialized with accelerometer support";
 }
 
@@ -87,14 +91,19 @@ void RotationManager::claimAccelerometer()
         return;
     }
     
-    QDBusReply<void> reply = m_sensorProxy->call("ClaimAccelerometer");
-    if (!reply.isValid()) {
-        qWarning() << "[RotationManager] Failed to claim accelerometer:" << reply.error().message();
-        return;
-    }
+    QDBusPendingCall asyncCall = m_sensorProxy->asyncCall("ClaimAccelerometer");
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(asyncCall, this);
     
-    m_claimed = true;
-    qDebug() << "[RotationManager] Accelerometer claimed";
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
+        QDBusPendingReply<void> reply = *call;
+        if (reply.isError()) {
+            qWarning() << "[RotationManager] Failed to claim accelerometer:" << reply.error().message();
+        } else {
+            m_claimed = true;
+            qDebug() << "[RotationManager] Accelerometer claimed";
+        }
+        call->deleteLater();
+    });
 }
 
 void RotationManager::releaseAccelerometer()
@@ -163,7 +172,18 @@ void RotationManager::onPropertiesChanged(const QString& interface, const QVaria
             emit orientationChanged();
             qInfo() << "[RotationManager] Orientation changed to:" << orientation << "(" << m_currentRotation << "°)";
         }
-    }
+    } else if (changed.contains("HasAccelerometer")) {
+        bool hasAccel = changed.value("HasAccelerometer").toBool();
+        qInfo() << "[RotationManager] HasAccelerometer changed to:" << hasAccel;
+        if (hasAccel) {
+            m_available = true;
+            emit availableChanged();
+            if (m_autoRotateEnabled) {
+                claimAccelerometer();
+                queryOrientation();
+            }
+        }
+}
 }
 
 void RotationManager::checkSensorProxy()
