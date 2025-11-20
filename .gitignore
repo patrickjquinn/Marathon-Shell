@@ -12,4 +12,5 @@ build-ui/
 *.log
 *.ini
 check_output.cpp
+cmake/
 

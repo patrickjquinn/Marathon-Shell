@@ -30,6 +30,7 @@ TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     // Default colors (can be overridden by QML)
     m_textColor = QColor(Qt::white);
     m_backgroundColor = QColor(Qt::black);
+    m_selectionColor = QColor(255, 255, 255, 64); // Semi-transparent white
     
     updateCharSize();
 }
@@ -84,6 +85,14 @@ void TerminalRenderer::setBackgroundColor(const QColor &color)
     update();
 }
 
+void TerminalRenderer::setSelectionColor(const QColor &color)
+{
+    if (m_selectionColor == color) return;
+    m_selectionColor = color;
+    emit selectionColorChanged();
+    update();
+}
+
 void TerminalRenderer::updateCharSize()
 {
     QFontMetricsF fm(m_font);
@@ -101,6 +110,43 @@ void TerminalRenderer::onScreenChanged()
 void TerminalRenderer::onCursorChanged()
 {
     update();
+}
+
+void TerminalRenderer::select(int startX, int startY, int endX, int endY)
+{
+    if (m_screen) {
+        m_screen->setSelection(startX, startY, endX, endY);
+    }
+}
+
+void TerminalRenderer::clearSelection()
+{
+    if (m_screen) {
+        m_screen->clearSelection();
+    }
+}
+
+QString TerminalRenderer::selectedText() const
+{
+    if (m_screen) {
+        return m_screen->getSelectedText();
+    }
+    return QString();
+}
+
+QPoint TerminalRenderer::positionToGrid(qreal x, qreal y)
+{
+    if (m_charWidth <= 0 || m_charHeight <= 0) return QPoint(0, 0);
+    
+    int col = static_cast<int>(x / m_charWidth);
+    int row = static_cast<int>(y / m_charHeight);
+    
+    // Clamp? Or let caller handle?
+    // Let's clamp to screen bounds if possible, but we don't know max cols/rows easily without locking
+    // Caller (QML) usually handles bounds or passes raw coords.
+    // We'll just return raw grid coords.
+    
+    return QPoint(col, row);
 }
 
 void TerminalRenderer::paint(QPainter *painter)
@@ -153,6 +199,29 @@ void TerminalRenderer::paint(QPainter *painter)
                 
                 QRectF bgRect(x * m_charWidth, y * m_charHeight, (runEnd - x) * m_charWidth, m_charHeight);
                 painter->fillRect(bgRect, bg);
+            }
+            
+            // Draw Selection Overlay
+            // We need to check each cell in the run for selection
+            // Optimization: Check if the whole run is selected or not
+            // But selection boundaries might be in the middle of a style run.
+            // So we iterate.
+            if (m_screen->hasSelection()) {
+                int selStart = x;
+                while (selStart < runEnd) {
+                    if (m_screen->isSelected(selStart, y)) {
+                        int selEnd = selStart + 1;
+                        while (selEnd < runEnd && m_screen->isSelected(selEnd, y)) {
+                            selEnd++;
+                        }
+                        // Draw selection rect
+                        QRectF selRect(selStart * m_charWidth, y * m_charHeight, (selEnd - selStart) * m_charWidth, m_charHeight);
+                        painter->fillRect(selRect, m_selectionColor);
+                        selStart = selEnd;
+                    } else {
+                        selStart++;
+                    }
+                }
             }
             
             // Draw Cursor (if in this run)

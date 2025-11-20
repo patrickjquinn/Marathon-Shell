@@ -14,6 +14,9 @@ TerminalScreen::TerminalScreen(QObject *parent)
     , m_currentBg(0xFF000000)
     , m_currentBold(false)
     , m_currentInverse(false)
+    , m_hasSelection(false)
+    , m_selStartX(0), m_selStartY(0)
+    , m_selEndX(0), m_selEndY(0)
 {
     // Initialize grid with history capacity
     m_grid.resize(m_historySize);
@@ -290,4 +293,76 @@ void TerminalScreen::scrollUp()
     }
     
     emit screenChanged();
+}
+
+void TerminalScreen::setSelection(int startX, int startY, int endX, int endY)
+{
+    QMutexLocker locker(&m_mutex);
+    m_hasSelection = true;
+    
+    // Normalize coordinates (start should be before end)
+    if (startY > endY || (startY == endY && startX > endX)) {
+        std::swap(startX, endX);
+        std::swap(startY, endY);
+    }
+    
+    m_selStartX = std::clamp(startX, 0, m_cols - 1);
+    m_selStartY = std::clamp(startY, 0, m_rows - 1);
+    m_selEndX = std::clamp(endX, 0, m_cols - 1);
+    m_selEndY = std::clamp(endY, 0, m_rows - 1);
+    
+    emit screenChanged();
+}
+
+void TerminalScreen::clearSelection()
+{
+    QMutexLocker locker(&m_mutex);
+    if (m_hasSelection) {
+        m_hasSelection = false;
+        emit screenChanged();
+    }
+}
+
+bool TerminalScreen::isSelected(int x, int y) const
+{
+    if (!m_hasSelection) return false;
+    
+    if (y < m_selStartY || y > m_selEndY) return false;
+    
+    if (y == m_selStartY && y == m_selEndY) {
+        return x >= m_selStartX && x <= m_selEndX;
+    }
+    
+    if (y == m_selStartY) return x >= m_selStartX;
+    if (y == m_selEndY) return x <= m_selEndX;
+    
+    return true; // In between rows
+}
+
+QString TerminalScreen::getSelectedText() const
+{
+    if (!m_hasSelection) return QString();
+    
+    // Note: We can't easily lock here if this is called from GUI thread while worker is writing
+    // Ideally, caller locks mutex()
+    
+    QString text;
+    for (int y = m_selStartY; y <= m_selEndY; ++y) {
+        int startX = (y == m_selStartY) ? m_selStartX : 0;
+        int endX = (y == m_selEndY) ? m_selEndX : m_cols - 1;
+        
+        for (int x = startX; x <= endX; ++x) {
+            const TerminalCell& c = cell(x, y);
+            if (c.codePoint) {
+                text.append(QChar(c.codePoint));
+            } else {
+                text.append(' '); // Empty cells are spaces
+            }
+        }
+        
+        if (y < m_selEndY) {
+            text.append('\n');
+        }
+    }
+    return text;
 }
