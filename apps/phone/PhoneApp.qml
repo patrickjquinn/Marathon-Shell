@@ -12,8 +12,8 @@ MApp {
     appId: "phone"
     appName: "Phone"
     appIcon: "assets/icon.svg"
-    
-    property var contacts: typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
+    property bool hasContactsPermission: false
+    property var contacts: hasContactsPermission && typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
     property var callHistory: typeof CallHistoryManager !== 'undefined' ? CallHistoryManager.history : []
     
     property string dialedNumber: ""
@@ -23,6 +23,49 @@ MApp {
     property string editingContactName: ""
     property string editingContactPhone: ""
     property string editingContactEmail: ""
+    
+    // Check contacts permission on launch
+    Component.onCompleted: {
+        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
+            var number = TelephonyService.activeNumber
+            var contactName = resolveContactName(number)
+            activeCallPage.show(number, contactName)
+            Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")")
+        }
+        
+        // Check contacts permission
+        if (typeof PermissionManager !== 'undefined') {
+            if (PermissionManager.hasPermission(appId, "contacts")) {
+                Logger.info("Phone", "Contacts permission already granted")
+                hasContactsPermission = true
+            } else {
+                Logger.info("Phone", "Requesting contacts permission")
+                PermissionManager.requestPermission(appId, "contacts")
+            }
+        } else {
+            Logger.warn("Phone", "PermissionManager not available, auto-granting")
+            hasContactsPermission = true
+        }
+    }
+    
+    // Listen for permission responses
+    Connections {
+        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+        
+        function onPermissionGranted(grantedAppId, permission) {
+            if (grantedAppId === appId && permission === "contacts") {
+                Logger.info("Phone", "Contacts permission granted")
+                hasContactsPermission = true
+            }
+        }
+        
+        function onPermissionDenied(deniedAppId, permission) {
+            if (deniedAppId === appId && permission === "contacts") {
+                Logger.warn("Phone", "Contacts permission denied")
+                hasContactsPermission = false
+            }
+        }
+    }
     
     Connections {
         target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
@@ -555,14 +598,5 @@ MApp {
         id: activeCallPage
         anchors.fill: parent
     }
-    
-    Component.onCompleted: {
-        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
-            var number = TelephonyService.activeNumber
-            var contactName = resolveContactName(number)
-            activeCallPage.show(number, contactName)
-            Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")")
-        }
     }
-}
 }

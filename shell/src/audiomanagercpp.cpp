@@ -112,7 +112,35 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
         
         // Parse streams and start monitoring
         parseWpctlStatus();
-        startStreamMonitoring();
+        
+        // Check if we actually found any streams/sinks. If not, and we are on Droidian, 
+        // wpctl might report success but not actually work for audio control if PulseAudio is the real backend.
+        if (m_streamModel->rowCount() == 0) {
+             // Double check with pactl if we didn't find anything useful with wpctl
+             QProcess checkPulse;
+             checkPulse.start("pactl", {"info"});
+             checkPulse.waitForFinished(1000);
+             if (checkPulse.exitCode() == 0) {
+                 qInfo() << "[AudioManagerCpp] PipeWire found but no streams - falling back to PulseAudio";
+                 m_isPipeWire = false;
+                 // Re-run initialization for PulseAudio
+                 QProcess process;
+                 process.start("pactl", {"get-sink-volume", "@DEFAULT_SINK@"});
+                 process.waitForFinished();
+                 QString output = process.readAllStandardOutput();
+                 
+                 QRegularExpression re("Volume: .*? (\\d+)%");
+                 QRegularExpressionMatch match = re.match(output);
+                 if (match.hasMatch()) {
+                     m_currentVolume = match.captured(1).toDouble() / 100.0;
+                     emit volumeChanged();
+                 }
+             } else {
+                 startStreamMonitoring();
+             }
+        } else {
+            startStreamMonitoring();
+        }
         
     } else {
         // Fallback to PulseAudio

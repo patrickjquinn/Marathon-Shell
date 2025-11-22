@@ -108,14 +108,43 @@ QtObject {
     }
     
     function _platformRequestPermission() {
-        if (Platform.isLinux) {
-            console.log("[LocationService] GeoClue permission request")
-            hasPermission = true
-            permissionChanged(true)
-        } else if (Platform.isMacOS) {
-            console.log("[LocationService] macOS location permission dialog")
-            hasPermission = true
-            permissionChanged(true)
+        if (Platform.isLinux || Platform.isMacOS) {
+            console.log("[LocationService] Requesting location permission via PermissionManager")
+            // Request permission via system permission manager
+            // The appId is "shell" since LocationService is a system service
+            if (typeof PermissionManager !== 'undefined') {
+                PermissionManager.requestPermission("shell", "location")
+            } else {
+                console.warn("[LocationService] PermissionManager not available, auto-granting")
+                hasPermission = true
+                permissionChanged(true)
+            }
+        }
+    }
+    
+    // Listen for permission responses
+    property var _permissionConnections: Connections {
+        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+        
+        function onPermissionGranted(appId, permission) {
+            if (appId === "shell" && permission === "location") {
+                console.log("[LocationService] Location permission granted")
+                hasPermission = true
+                permissionChanged(true)
+                // Auto-start location updates if enabled
+                if (locationEnabled) {
+                    startUpdating()
+                }
+            }
+        }
+        
+        function onPermissionDenied(appId, permission) {
+            if (appId === "shell" && permission === "location") {
+                console.log("[LocationService] Location permission denied")
+                hasPermission = false
+                permissionChanged(false)
+                locationEnabled = false
+            }
         }
     }
     

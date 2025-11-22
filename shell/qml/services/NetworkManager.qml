@@ -23,8 +23,8 @@ Item {
     property bool cellularRoaming: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.roaming : false
     property bool cellularDataEnabled: typeof ModemManagerCpp !== 'undefined' ? ModemManagerCpp.dataEnabled : false
     
-    property bool bluetoothEnabled: NetworkManagerCpp ? NetworkManagerCpp.bluetoothEnabled : false
-    property int bluetoothConnectedDevices: 0
+    property bool bluetoothEnabled: BluetoothManagerCpp ? BluetoothManagerCpp.enabled : false
+    property int bluetoothConnectedDevices: 0 // TODO: Calculate from BluetoothManagerCpp devices
     
     property bool airplaneModeEnabled: NetworkManagerCpp ? NetworkManagerCpp.airplaneModeEnabled : false
     property bool vpnConnected: false
@@ -34,7 +34,7 @@ Item {
     readonly property bool hasInternet: isOnline && !airplaneModeEnabled
     
     property var availableWifiNetworks: NetworkManagerCpp ? NetworkManagerCpp.availableNetworks : []
-    property var pairedBluetoothDevices: []
+    property var pairedBluetoothDevices: BluetoothManagerCpp ? BluetoothManagerCpp.pairedDevices : []
     
     property bool isScanning: false
     property alias availableNetworks: networkManager.availableWifiNetworks
@@ -119,20 +119,20 @@ Item {
     }
     
     function enableBluetooth() {
-        if (typeof NetworkManagerCpp !== 'undefined') {
-            NetworkManagerCpp.enableBluetooth()
+        if (typeof BluetoothManagerCpp !== 'undefined') {
+            BluetoothManagerCpp.enabled = true
         }
     }
     
     function disableBluetooth() {
-        if (typeof NetworkManagerCpp !== 'undefined') {
-            NetworkManagerCpp.disableBluetooth()
+        if (typeof BluetoothManagerCpp !== 'undefined') {
+            BluetoothManagerCpp.enabled = false
         }
     }
     
     function toggleBluetooth() {
-        if (typeof NetworkManagerCpp !== 'undefined') {
-            NetworkManagerCpp.toggleBluetooth()
+        if (typeof BluetoothManagerCpp !== 'undefined') {
+            BluetoothManagerCpp.enabled = !BluetoothManagerCpp.enabled
         }
     }
     

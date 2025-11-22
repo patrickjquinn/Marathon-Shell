@@ -234,12 +234,22 @@ Rectangle {
                 } else {
                     // Load external Marathon app asynchronously
                     Logger.info("AppWindow", "Loading external app from: " + appInfo.absolutePath)
+                    console.log("[DEBUG] MarathonAppLoader exists:", typeof MarathonAppLoader !== 'undefined')
+                    console.log("[DEBUG] MarathonAppLoader value:", MarathonAppLoader)
                     
                     // Show loading splash while component loads
                     appWindow.isLoadingComponent = true
                     
                     // Use async loading to avoid blocking UI
-                    MarathonAppLoader.loadAppAsync(id)
+                    if (typeof MarathonAppLoader !== 'undefined' && MarathonAppLoader !== null) {
+                        console.log("[DEBUG] Calling MarathonAppLoader.loadAppAsync for:", id)
+                        MarathonAppLoader.loadAppAsync(id)
+                    } else {
+                        console.error("[ERROR] MarathonAppLoader is not available!")
+                        appWindow.hasError = true
+                        appWindow.loadError = "MarathonAppLoader not available"
+                        appWindow.isLoadingComponent = false
+                    }
                 }
             } else {
                 // Load placeholder template app

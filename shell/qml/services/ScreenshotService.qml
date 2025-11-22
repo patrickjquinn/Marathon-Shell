@@ -13,12 +13,21 @@ QtObject {
         var homePath = StandardPaths.writableLocation(StandardPaths.HomeLocation)
         var picturesPath = StandardPaths.writableLocation(StandardPaths.PicturesLocation)
         
+        var path = ""
         if (picturesPath && picturesPath !== "") {
-            return picturesPath + "/Screenshots/"
+            path = picturesPath + "/Screenshots/"
         } else if (homePath && homePath !== "") {
-            return homePath + "/Pictures/Screenshots/"
+            path = homePath + "/Pictures/Screenshots/"
+        } else {
+            path = "/tmp/Screenshots/"
         }
-        return "/tmp/Screenshots/"
+        
+        // Remove file:// prefix if present
+        if (path.indexOf("file://") === 0) {
+            path = path.substring(7)
+        }
+        
+        return path
     }
     
     property var shellWindow: null

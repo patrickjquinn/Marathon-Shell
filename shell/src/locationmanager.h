@@ -5,6 +5,18 @@
 #include <QString>
 #include <QDBusInterface>
 #include <QDBusObjectPath>
+#include <QDBusArgument>
+#include <QMetaType>
+
+// GeoClue2 Timestamp is (tt) - seconds and microseconds
+struct GeoClueTimestamp {
+    qulonglong seconds;
+    qulonglong microseconds;
+};
+Q_DECLARE_METATYPE(GeoClueTimestamp)
+
+QDBusArgument &operator<<(QDBusArgument &argument, const GeoClueTimestamp &ts);
+const QDBusArgument &operator>>(const QDBusArgument &argument, GeoClueTimestamp &ts);
 
 class LocationManager : public QObject
 {

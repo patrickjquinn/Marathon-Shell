@@ -388,7 +388,7 @@ SettingsPageTemplate {
         Logger.info("BluetoothPage", "Initialized")
         // Start scanning if Bluetooth is enabled
         if (BluetoothManagerCpp.enabled) {
-            BluetoothManagerCpp.startScanning()
+            BluetoothManagerCpp.startScan()
         }
     }
 }

@@ -1,4 +1,5 @@
 #include "marathonpermissionmanager.h"
+#include "portalmanager.h"
 #include <QDebug>
 #include <QDir>
 #include <QFile>
@@ -28,6 +29,25 @@ MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     };
     
     loadPermissions();
+    
+    // Initialize Portal Manager
+    m_portalManager = new PortalManager(this);
+    
+    // Connect Portal signals
+    connect(m_portalManager, &PortalManager::cameraAccessGranted, this, [this](const QString &appId) {
+        setPermission(appId, "camera", true, true);
+    });
+    connect(m_portalManager, &PortalManager::cameraAccessDenied, this, [this](const QString &appId) {
+        setPermission(appId, "camera", false, true);
+    });
+    
+    connect(m_portalManager, &PortalManager::locationAccessGranted, this, [this](const QString &appId) {
+        setPermission(appId, "location", true, true);
+    });
+    connect(m_portalManager, &PortalManager::locationAccessDenied, this, [this](const QString &appId) {
+        setPermission(appId, "location", false, true);
+    });
+    
     qDebug() << "[MarathonPermissionManager] Initialized";
 }
 
@@ -150,7 +170,21 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
         return;
     }
     
-    // Show prompt
+    // Try to use XDG Portal if available
+    if (m_portalManager->isPortalAvailable(permission)) {
+        qInfo() << "[MarathonPermissionManager] Delegating request to XDG Portal for" << permission;
+        
+        if (permission == "camera") {
+            m_portalManager->requestCameraAccess(appId);
+            return;
+        } else if (permission == "location") {
+            m_portalManager->requestLocationAccess(appId);
+            return;
+        }
+        // Fall through for other permissions not yet supported by our PortalManager wrapper
+    }
+    
+    // Fallback to custom dialog
     m_promptActive = true;
     m_currentAppId = appId;
     m_currentPermission = permission;
@@ -159,7 +193,7 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
     emit currentRequestChanged();
     emit permissionRequested(appId, permission);
     
-    qDebug() << "[MarathonPermissionManager] Showing permission prompt";
+    qDebug() << "[MarathonPermissionManager] Showing custom permission prompt";
 }
 
 void MarathonPermissionManager::setPermission(const QString &appId, const QString &permission, bool granted, bool remember)

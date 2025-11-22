@@ -63,6 +63,8 @@ set(SOURCES
     src/dbus/marathonpermissionportal.cpp
     src/marathonpermissionmanager.h
     src/marathonpermissionmanager.cpp
+    src/portalmanager.h
+    src/portalmanager.cpp
     src/marathonappstoreservice.h
     src/marathonappstoreservice.cpp
     src/contactsmanager.h
