@@ -61,9 +61,9 @@ sudo dnf install cmake ninja-build gcc-c++ \
     qt6-qtwayland-devel \
     qt6-qtmultimedia-devel \
     qt6-qtsvg-devel \
-    qt6-qtdbus-devel \
+    qt6-qtlocation-devel \
+    qt6-qtpositioning-devel \
     pam-devel \
-    dbus-daemon \
     hunspell-devel \
     hunspell-en-US
 ```
