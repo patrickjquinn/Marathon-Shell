@@ -3,6 +3,7 @@
 #include <QDBusReply>
 #include <QDBusConnection>
 #include <QDBusError>
+#include <QDBusPendingCallWatcher>
 #include <QDateTime>
 #include <QFile>
 #include <QProcess>
@@ -147,85 +148,95 @@ void PowerManagerCpp::queryBatteryState()
         return;
     }
     
-    // Query battery devices from UPower
-    QDBusReply<QList<QDBusObjectPath>> devicesReply = m_upowerInterface->call("EnumerateDevices");
-    if (!devicesReply.isValid()) {
-        qDebug() << "[PowerManagerCpp] Failed to enumerate UPower devices";
-        return;
-    }
+    // Query battery devices from UPower asynchronously
+    QDBusPendingCall asyncCall = m_upowerInterface->asyncCall("EnumerateDevices");
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(asyncCall, this);
     
-    QList<QDBusObjectPath> devices = devicesReply.value();
-    qInfo() << "[PowerManagerCpp] Found" << devices.count() << "power devices";
-    
-    // Handle VM/no-battery scenario
-    if (devices.isEmpty()) {
-        qInfo() << "[PowerManagerCpp] No power devices found (VM/virtualized environment)";
-        qInfo() << "[PowerManagerCpp] Set to 100% (mains power, no battery hardware)";
-        if (m_batteryLevel != 100 || !m_isCharging) {
-            m_batteryLevel = 100;
-            m_isCharging = true;
-            emit batteryLevelChanged();
-            emit isChargingChanged();
-        }
-        return;
-    }
-    
-    // Find the first battery device
-    for (const QDBusObjectPath& devicePath : devices) {
-        QDBusInterface device(
-            "org.freedesktop.UPower",
-            devicePath.path(),
-            "org.freedesktop.UPower.Device",
-            QDBusConnection::systemBus()
-        );
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
+        QDBusPendingReply<QList<QDBusObjectPath>> devicesReply = *call;
         
-        if (!device.isValid()) continue;
-        
-        // Check if it's a battery (Type == 2)
-        uint type = device.property("Type").toUInt();
-        if (type != 2) continue; // Not a battery
-        
-        // Get battery percentage
-        double percentage = device.property("Percentage").toDouble();
-        int newLevel = qRound(percentage);
-        
-        // Get charging state
-        uint state = device.property("State").toUInt();
-        // 0=Unknown, 1=Charging, 2=Discharging, 3=Empty, 4=Fully charged, 5=Pending charge, 6=Pending discharge
-        bool charging = (state == 1 || state == 5);
-        
-        // Check if on AC power
-        bool onBattery = device.property("IsPresent").toBool();
-        if (!onBattery) {
-            newLevel = 100;
-            charging = true;
+        if (!devicesReply.isValid()) {
+            qDebug() << "[PowerManagerCpp] Failed to enumerate UPower devices";
+            call->deleteLater();
+            return;
         }
         
-        // Update state if changed
-        bool changed = false;
-        if (m_batteryLevel != newLevel) {
-            m_batteryLevel = newLevel;
-            emit batteryLevelChanged();
-            changed = true;
-            
-            // Check for critical battery
-            if (m_batteryLevel <= 5 && !charging) {
-                emit criticalBattery();
+        QList<QDBusObjectPath> devices = devicesReply.value();
+        qInfo() << "[PowerManagerCpp] Found" << devices.count() << "power devices";
+        
+        // Handle VM/no-battery scenario
+        if (devices.isEmpty()) {
+            qInfo() << "[PowerManagerCpp] No power devices found (VM/virtualized environment)";
+            qInfo() << "[PowerManagerCpp] Set to 100% (mains power, no battery hardware)";
+            if (m_batteryLevel != 100 || !m_isCharging) {
+                m_batteryLevel = 100;
+                m_isCharging = true;
+                emit batteryLevelChanged();
+                emit isChargingChanged();
             }
+            call->deleteLater();
+            return;
         }
         
-        if (m_isCharging != charging) {
-            m_isCharging = charging;
-            emit isChargingChanged();
-            changed = true;
+        // Find the first battery device
+        for (const QDBusObjectPath& devicePath : devices) {
+            QDBusInterface device(
+                "org.freedesktop.UPower",
+                devicePath.path(),
+                "org.freedesktop.UPower.Device",
+                QDBusConnection::systemBus()
+            );
+            
+            if (!device.isValid()) continue;
+            
+            // Check if it's a battery (Type == 2)
+            uint type = device.property("Type").toUInt();
+            if (type != 2) continue; // Not a battery
+            
+            // Get battery percentage
+            double percentage = device.property("Percentage").toDouble();
+            int newLevel = qRound(percentage);
+            
+            // Get charging state
+            uint state = device.property("State").toUInt();
+            // 0=Unknown, 1=Charging, 2=Discharging, 3=Empty, 4=Fully charged, 5=Pending charge, 6=Pending discharge
+            bool charging = (state == 1 || state == 5);
+            
+            // Check if on AC power
+            bool onBattery = device.property("IsPresent").toBool();
+            if (!onBattery) {
+                newLevel = 100;
+                charging = true;
+            }
+            
+            // Update state if changed
+            bool changed = false;
+            if (m_batteryLevel != newLevel) {
+                m_batteryLevel = newLevel;
+                emit batteryLevelChanged();
+                changed = true;
+                
+                // Check for critical battery
+                if (m_batteryLevel <= 5 && !charging) {
+                    emit criticalBattery();
+                }
+            }
+            
+            if (m_isCharging != charging) {
+                m_isCharging = charging;
+                emit isChargingChanged();
+                changed = true;
+            }
+            
+            if (changed) {
+                qInfo() << "[PowerManagerCpp] Battery:" << m_batteryLevel << "% Charging:" << m_isCharging;
+            }
+            
+            break; // Use first battery found
         }
         
-        if (changed) {
-            qInfo() << "[PowerManagerCpp] Battery:" << m_batteryLevel << "% Charging:" << m_isCharging;
-        }
-        
-        break; // Use first battery found
-    }
+        call->deleteLater();
+    });
 }
 
 void PowerManagerCpp::onPrepareForSleep(bool beforeSleep)

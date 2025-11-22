@@ -34,6 +34,7 @@ depends="
 	polkit
 	bluez
 	geoclue
+	xdg-desktop-portal
 	"
 makedepends="
 	cmake
