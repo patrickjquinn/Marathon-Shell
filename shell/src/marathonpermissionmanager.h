@@ -75,5 +75,7 @@ private:
     
     // Permission descriptions
     QMap<QString, QString> m_permissionDescriptions;
+    
+    class PortalManager *m_portalManager;
 };
 

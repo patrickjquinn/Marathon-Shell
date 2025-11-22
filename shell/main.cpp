@@ -10,6 +10,8 @@
 #include <QStandardPaths>
 #include <QLoggingCategory>
 #include <QInputDevice>
+#include <QDBusMetaType>
+#include "src/locationmanager.h"
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -699,6 +701,10 @@ int main(int argc, char *argv[])
     // Qt 6.5+ uses ':/qt/qml/' as the default resource prefix for QML modules
     const QUrl url(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
     
+    // Register custom D-Bus types
+    qRegisterMetaType<GeoClueTimestamp>("GeoClueTimestamp");
+    qDBusRegisterMetaType<GeoClueTimestamp>();
+
     // Debug: List input devices to diagnose touchscreen issues
     const auto devices = QInputDevice::devices();
     qInfo() << "[MarathonShell] Detected Input Devices:";

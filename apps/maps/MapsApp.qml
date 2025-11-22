@@ -16,9 +16,44 @@ MApp {
     property var searchResults: []
     property bool isSearching: false
     property bool mapLoaded: false
+    property bool hasLocationPermission: false
     
     onAppLaunched: {
         loadTimer.start()
+        
+        // Check location permission
+        if (typeof PermissionManager !== 'undefined') {
+            if (PermissionManager.hasPermission(appId, "location")) {
+                Logger.info("Maps", "Location permission already granted")
+                hasLocationPermission = true
+            } else {
+                Logger.info("Maps", "Requesting location permission")
+                PermissionManager.requestPermission(appId, "location")
+            }
+        } else {
+            Logger.warn("Maps", "PermissionManager not available, auto-granting")
+            hasLocationPermission = true
+        }
+    }
+    
+    // Listen for permission responses
+    Connections {
+        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+        
+        function onPermissionGranted(grantedAppId, permission) {
+            if (grantedAppId === appId && permission === "location") {
+                Logger.info("Maps", "Location permission granted")
+                hasLocationPermission = true
+                positionSource.active = true
+            }
+        }
+        
+        function onPermissionDenied(deniedAppId, permission) {
+            if (deniedAppId === appId && permission === "location") {
+                Logger.warn("Maps", "Location permission denied")
+                hasLocationPermission = false
+            }
+        }
     }
     
     Timer {
@@ -31,7 +66,7 @@ MApp {
     
     PositionSource {
         id: positionSource
-        active: mapLoaded
+        active: mapLoaded && hasLocationPermission
         updateInterval: 5000
         
         onPositionChanged: {

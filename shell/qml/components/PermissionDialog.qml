@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonUI.Core
-import MarathonUI.Controls
 import MarathonUI.Modals
 import MarathonUI.Theme
 import MarathonOS.Shell
@@ -9,14 +8,21 @@ import MarathonOS.Shell
 MModal {
     id: permissionDialog
     
-    visible: PermissionManager.promptActive
+    // CRITICAL: Must be parented to shell root overlay to appear above apps
+    parent: Overlay.overlay
+    
+    // MModal uses 'showing' property for visibility/animation
+    showing: PermissionManager.promptActive
     
     property string appId: PermissionManager.currentAppId
     property string permission: PermissionManager.currentPermission
     property string appName: getAppName(appId)
     property string permissionDesc: PermissionManager.getPermissionDescription(permission)
     
-    width: Math.min(parent.width * 0.9, 400)
+    // MModal already handles width/height in its internal container, 
+    // but we can override content size if needed.
+    // However, MModal's contentItem fills the remaining space.
+    // Let's just let MModal handle the container size.
     
     title: "Permission Request"
     
