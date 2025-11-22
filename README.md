@@ -215,6 +215,24 @@ MARATHON_DEBUG=1 ./run.sh
 
 ## System Configuration
 
+### PAM Authentication Setup (Required)
+
+> **⚠️ CRITICAL**: Marathon Shell requires a PAM configuration file to authenticate users. Without this file, password authentication will fail with "Authentication failure" errors.
+
+The shell uses PAM (Pluggable Authentication Modules) for system password authentication. Install the PAM configuration file:
+
+```bash
+sudo cp pam.d/marathon-shell /etc/pam.d/marathon-shell
+```
+
+This file configures:
+- System password authentication via `pam_unix.so`
+- Rate limiting (5 failed attempts = 5 minute lockout) via `pam_faillock.so`
+- Optional fingerprint authentication via `pam_fprintd.so`
+- Session integration with systemd-logind
+
+**Note**: Without this file, you won't be able to unlock the shell with your password. If you see PAM authentication failures in the logs, this is the fix.
+
 ### Power Management Permissions
 
 Marathon Shell implements opportunistic suspend with kernel wakelocks and RTC wake alarms. These features require specific permissions to function optimally.
