@@ -5,6 +5,20 @@
 #include <QDBusPendingCallWatcher>
 #include <QDebug>
 
+QDBusArgument &operator<<(QDBusArgument &argument, const GeoClueTimestamp &ts) {
+    argument.beginStructure();
+    argument << ts.seconds << ts.microseconds;
+    argument.endStructure();
+    return argument;
+}
+
+const QDBusArgument &operator>>(const QDBusArgument &argument, GeoClueTimestamp &ts) {
+    argument.beginStructure();
+    argument >> ts.seconds >> ts.microseconds;
+    argument.endStructure();
+    return argument;
+}
+
 LocationManager::LocationManager(QObject* parent)
     : QObject(parent)
     , m_manager(nullptr)
@@ -21,9 +35,9 @@ LocationManager::LocationManager(QObject* parent)
 {
     qDebug() << "[LocationManager] Initializing";
     
-    // Register custom D-Bus type for GeoClue2 Timestamp to suppress warnings
-    // GeoClue2 uses a tuple type (tu) for timestamps which Qt doesn't recognize by default
-    qDBusRegisterMetaType<quint64>();
+    // Register custom D-Bus type for GeoClue2 Timestamp
+    qRegisterMetaType<GeoClueTimestamp>("GeoClueTimestamp");
+    qDBusRegisterMetaType<GeoClueTimestamp>();
     
     connectToGeoclue();
 }
@@ -198,9 +212,28 @@ void LocationManager::updateLocation(const QString& locationPath)
     m_speed = location.property("Speed").toDouble();
     m_heading = location.property("Heading").toDouble();
     
-    // Timestamp is in seconds since epoch
-    quint64 ts = location.property("Timestamp").toULongLong();
-    m_timestamp = ts * 1000; // Convert to milliseconds
+    // Timestamp is (seconds, microseconds) - (tt)
+    // We use the Properties interface directly to avoid QDBusAbstractInterface property() issues with custom types
+    QDBusInterface props("org.freedesktop.GeoClue2", 
+                        location.path(), 
+                        "org.freedesktop.DBus.Properties", 
+                        QDBusConnection::systemBus());
+                        
+    QDBusReply<QVariant> reply = props.call("Get", "org.freedesktop.GeoClue2.Location", "Timestamp");
+    if (reply.isValid()) {
+        QVariant val = reply.value();
+        if (val.userType() == qMetaTypeId<QDBusArgument>()) {
+            const QDBusArgument &arg = val.value<QDBusArgument>();
+            GeoClueTimestamp ts;
+            arg >> ts;
+            m_timestamp = (ts.seconds * 1000) + (ts.microseconds / 1000);
+        } else if (val.canConvert<GeoClueTimestamp>()) {
+             GeoClueTimestamp ts = val.value<GeoClueTimestamp>();
+             m_timestamp = (ts.seconds * 1000) + (ts.microseconds / 1000);
+        }
+    } else {
+        qWarning() << "[LocationManager] Failed to read Timestamp:" << reply.error().message();
+    }
     
     emit locationChanged();
     

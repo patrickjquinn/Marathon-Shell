@@ -268,6 +268,19 @@ cat /sys/power/wake_lock
 echo "test_lock" | sudo tee /sys/power/wake_unlock
 ```
 
+### XDG Desktop Portals
+
+Marathon Shell uses XDG Desktop Portals for secure permission management (Camera, Location, Microphone).
+
+**Droidian / Linux Mobile:**
+Ensure `xdg-desktop-portal` and a backend (e.g., `xdg-desktop-portal-phosh` or `xdg-desktop-portal-gtk`) are installed.
+
+```bash
+sudo apt install xdg-desktop-portal xdg-desktop-portal-phosh
+```
+
+If portals are not available, Marathon Shell automatically falls back to a custom permission dialog.
+
 ### First Launch
 
 On first launch, Marathon Shell scans for applications in:
