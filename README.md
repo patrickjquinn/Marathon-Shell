@@ -200,6 +200,20 @@ sudo cmake --install build-apps
 
 ## Running
 
+### First-Time System Setup (Required)
+
+> **⚠️ CRITICAL**: Marathon Shell requires system permissions and services for full mobile functionality. Run the setup script once before first use:
+
+```bash
+# One-time system setup (requires sudo)
+./scripts/setup-system.sh
+```
+
+This configures:
+- **Brightness control** permissions (udev rule for `/sys/class/backlight`)
+- **Bluetooth** service (installs and enables BlueZ)  
+- **PAM authentication** (copies config to `/etc/pam.d/marathon-shell`)
+
 ### Start Marathon Shell
 
 ```bash

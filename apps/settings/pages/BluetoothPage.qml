@@ -176,10 +176,12 @@ SettingsPageTemplate {
                 Column {
                     width: parent.width
                     spacing: MSpacing.md
+                    topPadding: MSpacing.md
                     
                     MButton {
                         width: parent.width
                         text: BluetoothManagerCpp.scanning ? "Stop Scanning" : "Scan for Devices"
+                        variant: BluetoothManagerCpp.scanning ? "primary" : "default"
                         onClicked: {
                             if (BluetoothManagerCpp.scanning) {
                                 BluetoothManagerCpp.stopScan()
@@ -314,14 +316,12 @@ SettingsPageTemplate {
                     } else {
                         BluetoothManagerCpp.confirmPairing(deviceAddress, false)
                         bluetoothPairDialogLoader.item.hide()
-                        bluetoothPairDialogLoader.active = false
                     }
                 }
                 
                 onCancelled: {
                     Logger.info("BluetoothPage", "Pairing cancelled")
                     BluetoothManagerCpp.cancelPairing(deviceAddress)
-                    bluetoothPairDialogLoader.active = false
                 }
             }
         }
@@ -337,12 +337,19 @@ SettingsPageTemplate {
     Connections {
         target: BluetoothManagerCpp
         
+        function onEnabledChanged() {
+            if (BluetoothManagerCpp.enabled) {
+                BluetoothManagerCpp.startScan()
+            } else {
+                BluetoothManagerCpp.stopScan()
+            }
+        }
+
         function onPairingSucceeded(address) {
             Logger.info("BluetoothPage", "✓ Successfully paired with: " + address)
             
             if (bluetoothPairDialogLoader.active && bluetoothPairDialogLoader.item) {
                 bluetoothPairDialogLoader.item.hide()
-                bluetoothPairDialogLoader.active = false
             }
             
             HapticService.medium()

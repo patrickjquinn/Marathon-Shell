@@ -78,6 +78,8 @@ signals:
 private:
     void parseWpctlStatus();
     void startStreamMonitoring();
+    void startVolumeMonitoring();
+    void checkExternalVolumeChange();
     void updatePlaybackState();
     
     bool m_available;

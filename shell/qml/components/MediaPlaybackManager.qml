@@ -10,7 +10,7 @@ Rectangle {
     id: mediaManager
     
     width: parent.width
-    height: hasMedia ? 120 : 80  // Show collapsed state when no media
+    height: hasMedia ? 140 : 80  // Increased from 120 to 140 for more space
     visible: true  // Always visible
     radius: Constants.borderRadiusSmall
     color: Qt.rgba(255, 255, 255, 0.04)
@@ -94,13 +94,12 @@ Rectangle {
         
         // Playback controls
         Row {
-            width: parent.width
+            anchors.horizontalCenter: parent.horizontalCenter
             height: Constants.touchTargetMinimum
             visible: mediaManager.hasMedia
+            spacing: Constants.spacingSmall
             
             readonly property real buttonWidth: Constants.touchTargetMinimum
-            readonly property real spacing: Constants.spacingSmall
-            readonly property real totalButtonsWidth: (buttonWidth * 3) + (spacing * 4)  // 3 buttons + 4 spacers
             
             // Previous button
             Rectangle {
@@ -134,8 +133,6 @@ Rectangle {
                 }
             }
             
-            Item { width: parent.spacing; height: 1 }
-            
             // Play/Pause button
             Rectangle {
                 width: parent.buttonWidth
@@ -168,8 +165,6 @@ Rectangle {
                 }
             }
             
-            Item { width: parent.spacing; height: 1 }
-            
             // Next button
             Rectangle {
                 width: parent.buttonWidth
@@ -201,22 +196,12 @@ Rectangle {
                     }
                 }
             }
-            
-            // Spacer (calculated properly now!)
-            Item {
-                width: parent.width - parent.totalButtonsWidth
-                height: 1
-            }
-            
-            // Time display
-            Text {
-                text: formatTime(mediaManager.progress) + " / " + formatTime(mediaManager.duration)
-                color: MColors.textSecondary
-                font.pixelSize: Constants.fontSizeSmall
-                font.family: MTypography.fontFamily
-                anchors.verticalCenter: parent.verticalCenter
-                visible: mediaManager.duration > 0
-            }
+        }
+        
+        // Bottom padding
+        Item {
+            width: parent.width
+            height: Constants.spacingLarge  // Increased from spacingMedium
         }
     }
     

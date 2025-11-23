@@ -68,7 +68,12 @@ private:
     bool detectBacklightDevice();
     void loadSettings();
     void saveSettings();
+    void setupBrightnessMonitoring();
+    void pollBrightness();  // Fallback method
+
+private slots:
+    void onExternalBrightnessChanged();
+    void onDBusPropertiesChanged(const QString& interface, const QVariantMap& changed, const QStringList& invalidated);
 };
 
 #endif // DISPLAYMANAGERCPP_H
-

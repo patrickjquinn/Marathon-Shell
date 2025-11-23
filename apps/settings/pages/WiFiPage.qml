@@ -4,6 +4,7 @@ import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Modals
 import "../components"
 
 SettingsPageTemplate {
@@ -114,8 +115,8 @@ SettingsPageTemplate {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            // TODO: Show network details
-                            Logger.info("WiFiPage", "Show details for: " + NetworkManager.wifiSsid)
+                            HapticService.light()
+                            disconnectSheet.show()
                         }
                     }
                 }
@@ -161,7 +162,7 @@ SettingsPageTemplate {
                             
                             MSettingsListItem {
                                 width: parent.width
-                                title: modelData.ssid + (modelData.connected ? " (Connected)" : "")
+                                title: modelData.ssid
                                 subtitle: (modelData.security || "Open") + " • " + modelData.strength + "% signal" + (modelData.frequency ? (" • " + modelData.frequency + " GHz") : "")
                                 // Use proper signal bar icons based on strength, not opacity
                                 iconName: {
@@ -173,15 +174,21 @@ SettingsPageTemplate {
                                 showChevron: true
                                 onSettingClicked: {
                                     HapticService.light()
-                                    Logger.info("WiFiPage", "Connect to: " + modelData.ssid)
                                     
-                                    // Show password dialog (works for both secured and open networks)
-                                    wifiPasswordDialogLoader.show(
-                                        modelData.ssid,
-                                        modelData.strength,
-                                        modelData.security || "Open",
-                                        modelData.secured
-                                    )
+                                    // If this is the currently connected network, show disconnect dialog
+                                    if (NetworkManager.wifiConnected && modelData.ssid === NetworkManager.wifiSsid) {
+                                        Logger.info("WiFiPage", "Show disconnect dialog for: " + modelData.ssid)
+                                        disconnectSheet.show()
+                                    } else {
+                                        Logger.info("WiFiPage", "Connect to: " + modelData.ssid)
+                                        // Show password dialog (works for both secured and open networks)
+                                        wifiPasswordDialogLoader.show(
+                                            modelData.ssid,
+                                            modelData.strength,
+                                            modelData.security || "Open",
+                                            modelData.secured
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -218,6 +225,52 @@ SettingsPageTemplate {
         }
     }
     
+    MSheet {
+        id: disconnectSheet
+        title: "Disconnect WiFi"
+        sheetHeight: 0.35
+        onClosed: disconnectSheet.hide()
+        
+        content: Column {
+            width: parent.width
+            spacing: MSpacing.xl
+            
+            Text {
+                text: "Are you sure you want to disconnect from " + (NetworkManager.wifiSsid || "this network") + "?"
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                color: MColors.textSecondary
+                wrapMode: Text.WordWrap
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+            }
+            
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: MSpacing.md
+                
+                MButton {
+                    text: "Cancel"
+                    variant: "secondary"
+                    width: 140
+                    onClicked: {
+                        disconnectSheet.hide()
+                    }
+                }
+                
+                MButton {
+                    text: "Disconnect"
+                    variant: "primary"
+                    width: 140
+                    onClicked: {
+                        NetworkManager.disconnectWifi()
+                        disconnectSheet.hide()
+                    }
+                }
+            }
+        }
+    }
+
     // WiFi password dialog loader (using shell component)
     Loader {
         id: wifiPasswordDialogLoader

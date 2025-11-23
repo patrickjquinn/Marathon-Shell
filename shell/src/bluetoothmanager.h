@@ -8,6 +8,17 @@
 #include <QDBusPendingCallWatcher>
 #include <QTimer>
 
+#include <QTimer>
+#include <QMap>
+#include <QVariant>
+#include <QDBusObjectPath>
+
+// Define types for GetManagedObjects return value
+typedef QMap<QString, QVariant> PropertyMap;
+typedef QMap<QString, PropertyMap> InterfaceMap;
+typedef QMap<QDBusObjectPath, InterfaceMap> ManagedObjectMap;
+Q_DECLARE_METATYPE(ManagedObjectMap)
+
 class BluetoothAgent;
 
 class BluetoothDevice : public QObject {
@@ -86,12 +97,14 @@ public:
 
     Q_INVOKABLE void startScan();
     Q_INVOKABLE void stopScan();
-    Q_INVOKABLE void pairDevice(const QString &address);
+    Q_INVOKABLE void pairDevice(const QString &address, const QString &pin = "");
     Q_INVOKABLE void unpairDevice(const QString &address);
     Q_INVOKABLE void connectDevice(const QString &address);
     Q_INVOKABLE void disconnectDevice(const QString &address);
     Q_INVOKABLE void trustDevice(const QString &address, bool trusted);
     Q_INVOKABLE void removeDevice(const QString &address);
+    Q_INVOKABLE void cancelPairing(const QString &address);
+    Q_INVOKABLE void confirmPairing(const QString &address, bool confirmed);
 
 signals:
     void enabledChanged();
@@ -109,19 +122,20 @@ signals:
     void passkeyConfirmation(const QString &address, const QString &deviceName, quint32 passkey);
 
 private slots:
-    void onDeviceAdded(const QString &path);
-    void onDeviceRemoved(const QString &path);
+    void onDeviceAdded(const QDBusObjectPath &objectPath, const InterfaceMap &interfaces);
+    void onDeviceRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
     void onPropertiesChanged(const QString &interface, const QVariantMap &changed, const QStringList &invalidated);
     void updateAdapterProperties();
     void refreshDevices();
 
-private:
-    void initializeAdapter();
     void connectToBlueZ();
     BluetoothDevice* findDeviceByPath(const QString &path);
     BluetoothDevice* findDeviceByAddress(const QString &address);
     void addDevice(const QString &path);
     void removeDeviceByPath(const QString &path);
+
+private:
+    void initializeAdapter();
 
     QDBusConnection m_bus;
     QDBusInterface *m_adapter = nullptr;

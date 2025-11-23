@@ -167,7 +167,7 @@ Item {
 
                     Text {
                         text: bluetoothPairDialog.deviceName
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
@@ -177,7 +177,7 @@ Item {
 
                     Text {
                         text: getPairingModeText(bluetoothPairDialog.pairingMode)
-                        font.pixelSize: Typography.sizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         width: parent.width
@@ -216,7 +216,7 @@ Item {
                         visible: pairingMode === "pin"
                         width: parent.width - Constants.iconSizeMedium - MSpacing.md
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
@@ -245,7 +245,7 @@ Item {
                         visible: pairingMode === "passkey"
                         width: parent.width - Constants.iconSizeMedium - MSpacing.md
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         inputMethodHints: Qt.ImhDigitsOnly
@@ -287,9 +287,9 @@ Item {
 
                     Text {
                         text: displayedPasskey
-                        font.pixelSize: Typography.sizeGigantic
+                        font.pixelSize: MTypography.sizeGigantic
                         font.weight: Font.Light
-                        font.family: Typography.fontMonospace || "monospace"
+                        font.family: MTypography.fontMonospace || "monospace"
                         font.letterSpacing: 8
                         color: MColors.marathonTeal
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -297,7 +297,7 @@ Item {
 
                     Text {
                         text: "Verify this code matches on " + deviceName
-                        font.pixelSize: Typography.sizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -331,7 +331,7 @@ Item {
                     Text {
                         id: errorText
                         text: errorMessage
-                        font.pixelSize: Typography.sizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
@@ -359,7 +359,7 @@ Item {
 
                     Text {
                         text: "Pairing with " + deviceName + "..."
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
@@ -385,7 +385,7 @@ Item {
 
                     Text {
                         text: pairingMode === "confirm" ? "Reject" : "Cancel"
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         anchors.centerIn: parent
@@ -397,13 +397,13 @@ Item {
                             Logger.info("BluetoothPairDialog", "Pairing cancelled/rejected")
                             HapticService.light()
                             
+                            bluetoothPairDialog.hide()
+                            
                             if (pairingMode === "confirm") {
                                 bluetoothPairDialog.pairConfirmed(false)
                             } else {
                                 bluetoothPairDialog.cancelled()
                             }
-                            
-                            bluetoothPairDialog.hide()
                         }
                     }
                 }
@@ -421,7 +421,7 @@ Item {
 
                     Text {
                         text: pairingMode === "confirm" ? "Accept" : "Pair"
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily
                         color: MColors.background
@@ -454,7 +454,7 @@ Item {
             // Help text
             Text {
                 text: getHelpText(pairingMode)
-                font.pixelSize: Typography.sizeXSmall
+                font.pixelSize: MTypography.sizeXSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter

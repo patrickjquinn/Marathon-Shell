@@ -173,6 +173,11 @@ void MPRIS2Controller::connectToPlayer(const QString& busName)
     // Start position timer
     m_positionTimer->start();
     
+    // Poll metadata every 2 seconds (some players don't emit PropertiesChanged for metadata)
+    QTimer* metadataTimer = new QTimer(this);
+    connect(metadataTimer, &QTimer::timeout, this, &MPRIS2Controller::updateMetadata);
+    metadataTimer->start(2000);
+    
     emit activePlayerChanged();
 }
 
@@ -212,8 +217,43 @@ void MPRIS2Controller::updateMetadata()
 {
     if (!m_playerInterface) return;
     
-    QVariant metadataVar = m_playerInterface->property("Metadata");
-    QVariantMap metadata = qdbus_cast<QVariantMap>(metadataVar);
+    // Use explicit DBus call to Properties.Get to handle the a{sv} type correctly
+    QDBusMessage call = QDBusMessage::createMethodCall(
+        m_currentBusName,
+        "/org/mpris/MediaPlayer2",
+        "org.freedesktop.DBus.Properties",
+        "Get"
+    );
+    call << "org.mpris.MediaPlayer2.Player" << "Metadata";
+    
+    QDBusReply<QDBusVariant> reply = QDBusConnection::sessionBus().call(call);
+    QVariantMap metadata;
+    
+    if (reply.isValid()) {
+        // The Get call returns a VARIANT, which contains our a{sv} (QVariantMap)
+        QVariant innerValue = reply.value().variant();
+        
+        if (innerValue.canConvert<QVariantMap>()) {
+            metadata = innerValue.value<QVariantMap>();
+        } else if (innerValue.canConvert<QDBusArgument>()) {
+            // Fallback: manual extraction if automatic conversion fails
+            QDBusArgument arg = innerValue.value<QDBusArgument>();
+            if (arg.currentType() == QDBusArgument::MapType) {
+                arg >> metadata;
+            }
+        }
+    } else {
+        // Try the property getter directly as fallback
+        QVariant val = m_playerInterface->property("Metadata");
+        if (val.canConvert<QVariantMap>()) {
+            metadata = val.value<QVariantMap>();
+        } else if (val.canConvert<QDBusArgument>()) {
+             const QDBusArgument arg = val.value<QDBusArgument>();
+             arg >> metadata;
+        }
+    }
+    
+    // QVariantMap metadata = qdbus_cast<QVariantMap>(metadataVar); // Old broken way
     
     QString title = extractMetadataString(metadata, "xesam:title");
     QStringList artists = extractMetadataStringList(metadata, "xesam:artist");

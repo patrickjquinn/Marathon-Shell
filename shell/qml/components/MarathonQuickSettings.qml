@@ -48,7 +48,7 @@ Rectangle {
         { id: "power", icon: "power", label: "Power menu", active: false, available: true, trigger: updateTrigger },
         { id: "rotation", icon: "rotate-ccw", label: "Rotation lock", active: SystemControlStore.isRotationLocked, available: true, trigger: updateTrigger },
         { id: "wifi", icon: networkIcon, label: networkLabel, active: SystemControlStore.isWifiOn || SystemStatusStore.ethernetConnected, available: true, subtitle: networkSubtitle, trigger: updateTrigger },
-        { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn, available: NetworkManager.bluetoothAvailable, trigger: updateTrigger },
+        { id: "bluetooth", icon: "bluetooth", label: "Bluetooth", active: SystemControlStore.isBluetoothOn, available: NetworkManager.bluetoothAvailable, subtitle: SystemControlStore.isBluetoothOn ? (NetworkManager.bluetoothConnectedDevices > 0 ? NetworkManager.bluetoothConnectedDevices + " devices" : "On") : "Off", trigger: updateTrigger },
         { id: "flight", icon: "plane", label: "Flight mode", active: SystemControlStore.isAirplaneModeOn, available: true, trigger: updateTrigger },
         { id: "cellular", icon: "signal", label: "Mobile network", active: SystemControlStore.isCellularOn, available: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable), subtitle: cellularSubtitle, trigger: updateTrigger },
         { id: "notifications", icon: "bell", label: "Notifications", active: SystemControlStore.isDndMode, available: true, subtitle: SystemControlStore.isDndMode ? "Silent" : "Normal", trigger: updateTrigger },
@@ -240,12 +240,38 @@ Rectangle {
                 }
                 
                 MSlider {
+                    id: brightnessSlider
                     width: parent.width
                     from: 0
                     to: 100
-                    value: SystemControlStore.brightness
+                    
+                    // Don't bind value - causes double-click issue
+                    Component.onCompleted: value = SystemControlStore.brightness
+                    
                     onMoved: {
-                        SystemControlStore.setBrightness(value)
+                        brightnessDebounce.restart()
+                    }
+                    
+                    onReleased: {
+                        brightnessDebounce.stop()
+                        SystemControlStore.setBrightness(brightnessSlider.value)
+                    }
+                    
+                    // Debounce timer to prevent UI freezing during drag
+                    Timer {
+                        id: brightnessDebounce
+                        interval: 150
+                        onTriggered: SystemControlStore.setBrightness(brightnessSlider.value)
+                    }
+                    
+                    // Update from external changes
+                    Connections {
+                        target: SystemControlStore
+                        function onBrightnessChanged() {
+                            if (!brightnessSlider.pressed) {
+                                brightnessSlider.value = SystemControlStore.brightness
+                            }
+                        }
                     }
                 }
             }
@@ -262,12 +288,38 @@ Rectangle {
                 }
                 
                 MSlider {
+                    id: volumeSlider
                     width: parent.width
                     from: 0
                     to: 100
-                    value: SystemControlStore.volume
+                    
+                    // Don't bind value - causes double-click issue
+                    Component.onCompleted: value = SystemControlStore.volume
+                    
                     onMoved: {
-                        SystemControlStore.setVolume(value)
+                        volumeDebounce.restart()
+                    }
+                    
+                    onReleased: {
+                        volumeDebounce.stop()
+                        SystemControlStore.setVolume(volumeSlider.value)
+                    }
+                    
+                    // Debounce timer to prevent UI freezing during drag
+                    Timer {
+                        id: volumeDebounce
+                        interval: 150
+                        onTriggered: SystemControlStore.setVolume(volumeSlider.value)
+                    }
+                    
+                    // Update from external changes
+                    Connections {
+                        target: SystemControlStore
+                        function onVolumeChanged() {
+                            if (!volumeSlider.pressed) {
+                                volumeSlider.value = SystemControlStore.volume
+                            }
+                        }
                     }
                 }
             }

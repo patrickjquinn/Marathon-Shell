@@ -63,9 +63,25 @@ QtObject {
         }
     }
     
+    property Connections brightnessConnections: Connections {
+        target: typeof DisplayManagerCpp !== 'undefined' ? DisplayManagerCpp : null
+        ignoreUnknownSignals: true
+        function onBrightnessChanged() {
+            if (typeof DisplayManagerCpp === 'undefined') return
+            
+            var newBrightness = DisplayManagerCpp.brightness
+            // Only sync if the difference is significant
+            if (Math.abs(displayManager.brightness - newBrightness) > 0.01) {
+                console.log("[DisplayManager] Syncing brightness from system:", newBrightness)
+                displayManager.brightness = newBrightness
+                displayManager.brightnessSet(newBrightness)
+            }
+        }
+    }
+    
     function setBrightness(value) {
         var clamped = Math.max(minBrightness, Math.min(maxBrightness, value))
-        console.log("[DisplayManager] Setting brightness:", clamped)
+        // console.log("[DisplayManager] Setting brightness:", clamped)
         brightness = clamped
         brightnessSet(clamped)
         _platformSetBrightness(clamped)
@@ -139,16 +155,16 @@ QtObject {
     }
     
     function _platformSetBrightness(value) {
-        if (Platform.isLinux) {
-            console.log("[DisplayManager] Writing to /sys/class/backlight/*/brightness")
+        if (Platform.isLinux && typeof DisplayManagerCpp !== 'undefined') {
+            DisplayManagerCpp.brightness = value  // Use property assignment, not function call
         } else if (Platform.isMacOS) {
             console.log("[DisplayManager] macOS brightness via IOKit")
         }
     }
     
     function _platformSetAutoBrightness(enabled) {
-        if (Platform.isLinux) {
-            console.log("[DisplayManager] Auto-brightness via iio-sensor-proxy")
+        if (Platform.isLinux && typeof DisplayManagerCpp !== 'undefined') {
+            DisplayManagerCpp.setAutoBrightness(enabled)
         } else if (Platform.isMacOS) {
             console.log("[DisplayManager] macOS auto-brightness system preference")
         }
@@ -193,7 +209,14 @@ QtObject {
     Component.onCompleted: {
         console.log("[DisplayManager] Initialized")
         console.log("[DisplayManager] Display:", displayWidth + "x" + displayHeight + "@" + refreshRate + "Hz")
-        console.log("[DisplayManager] DPI:", displayDpi)
+        
+        // Sync initial brightness from system
+        if (typeof DisplayManagerCpp !== 'undefined') {
+            var initialBrightness = DisplayManagerCpp.brightness
+            console.log("[DisplayManager] Initial brightness from system:", initialBrightness)
+            brightness = initialBrightness
+            // Don't call setBrightness here to avoid loop on startup
+        }
     }
 }
 

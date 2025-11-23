@@ -11,6 +11,9 @@ Item {
     property bool disabled: false
     
     signal moved()
+    signal released()
+    
+    readonly property alias pressed: handleArea.pressed
     
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
     readonly property real trackHeight: Math.max(1, Math.round(4 * scaleFactor))
@@ -107,6 +110,8 @@ Item {
             handle.x = newX
             updateValue()
         }
+        
+        onReleased: root.released()
         
         onPositionChanged: {
             if (drag.active) {

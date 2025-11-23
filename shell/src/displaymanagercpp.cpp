@@ -7,6 +7,10 @@
 #include <QTextStream>
 #include <QProcess>
 #include <QtMath>
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QTimer>
+#include <QFileSystemWatcher>
 
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* parent)
     : QObject(parent)
@@ -28,6 +32,9 @@ DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* par
         if (m_available) {
             qInfo() << "[DisplayManagerCpp] Backlight control available:" << m_backlightDevice;
             m_brightness = getBrightness();
+            
+            // Monitor brightness changes from hardware keys via D-Bus
+            setupBrightnessMonitoring();
         } else {
             qInfo() << "[DisplayManagerCpp] No backlight devices found";
         }
@@ -50,8 +57,15 @@ bool DisplayManagerCpp::detectBacklightDevice()
         return false;
     }
     
-    // Use the first backlight device found
-    m_backlightDevice = devices.first();
+    // Prioritize apple-panel-bl (Apple Silicon) or intel_backlight
+    if (devices.contains("apple-panel-bl")) {
+        m_backlightDevice = "apple-panel-bl";
+    } else if (devices.contains("intel_backlight")) {
+        m_backlightDevice = "intel_backlight";
+    } else {
+        m_backlightDevice = devices.first();
+    }
+    
     QString maxBrightnessPath = QString("/sys/class/backlight/%1/max_brightness").arg(m_backlightDevice);
     
     QFile maxFile(maxBrightnessPath);
@@ -101,9 +115,12 @@ void DisplayManagerCpp::setBrightness(double brightness)
     // Clamp brightness to 0.0-1.0
     brightness = qBound(0.0, brightness, 1.0);
     
-    if (qAbs(m_brightness - brightness) < 0.01) {
-        return; // No significant change
-    }
+    // Force update even if value seems same, to ensure hardware sync
+    // if (qAbs(m_brightness - brightness) < 0.01) {
+    //    return; 
+    // }
+    
+    qInfo() << "[DisplayManagerCpp] Setting brightness to" << brightness << " (current internal:" << m_brightness << ")";
     
     m_brightness = brightness;
     
@@ -111,30 +128,59 @@ void DisplayManagerCpp::setBrightness(double brightness)
     
     QString brightnessPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
     
-    // Try using systemd-logind SetBrightness method first (requires no root)
+    // 1. Try GNOME Settings Daemon (GSD) via D-Bus
+    // This is the preferred method when GSD is running (as indicated by logs)
+    QDBusMessage message = QDBusMessage::createMethodCall(
+        "org.gnome.SettingsDaemon.Power",
+        "/org/gnome/SettingsDaemon/Power",
+        "org.freedesktop.DBus.Properties",
+        "Set"
+    );
+    
+    QList<QVariant> args;
+    args << "org.gnome.SettingsDaemon.Power.Screen";
+    args << "Brightness";
+    // GSD expects integer percentage (0-100), NOT the raw hardware value
+    int gsdValue = static_cast<int>(brightness * 100.0);
+    args << QVariant::fromValue(QDBusVariant(gsdValue)); 
+    message.setArguments(args);
+    
+    QDBusMessage reply = QDBusConnection::sessionBus().call(message);
+    if (reply.type() != QDBusMessage::ErrorMessage) {
+        qInfo() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue << "% via GSD D-Bus";
+        emit brightnessChanged();
+        return;
+    } else {
+        qDebug() << "[DisplayManagerCpp] GSD D-Bus call failed:" << reply.errorMessage();
+    }
+
+    // 2. Try using systemd-logind SetBrightness method (Standard for Droidian/pmOS/Linux)
+    // This works without root if the session is active
     if (Platform::hasLogind()) {
-        QProcess process;
-        process.start("busctl", {
-            "call",
+        QDBusMessage logindMsg = QDBusMessage::createMethodCall(
             "org.freedesktop.login1",
             "/org/freedesktop/login1/session/auto",
             "org.freedesktop.login1.Session",
-            "SetBrightness",
-            "ssu",
-            "backlight",
-            m_backlightDevice,
-            QString::number(brightnessValue)
-        });
+            "SetBrightness"
+        );
         
-        if (process.waitForFinished(1000) && process.exitCode() == 0) {
-            qDebug() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue 
-                     << "(" << (brightness * 100) << "%) via logind";
+        QList<QVariant> logindArgs;
+        logindArgs << "backlight";           // Subsystem
+        logindArgs << m_backlightDevice;     // Device name
+        logindArgs << (uint)brightnessValue; // Brightness value (uint32)
+        logindMsg.setArguments(logindArgs);
+        
+        QDBusMessage logindReply = QDBusConnection::systemBus().call(logindMsg);
+        if (logindReply.type() != QDBusMessage::ErrorMessage) {
+            qInfo() << "[DisplayManagerCpp] Set brightness to:" << brightnessValue << "via logind";
             emit brightnessChanged();
             return;
+        } else {
+            qDebug() << "[DisplayManagerCpp] logind call failed:" << logindReply.errorMessage();
         }
     }
     
-    // Fallback: Try direct sysfs write (requires permissions)
+    // 3. Fallback: Try direct sysfs write (requires permissions/udev rules)
     QFile file(brightnessPath);
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream stream(&file);
@@ -144,7 +190,7 @@ void DisplayManagerCpp::setBrightness(double brightness)
                  << "(" << (brightness * 100) << "%) via sysfs";
         emit brightnessChanged();
     } else {
-        qDebug() << "[DisplayManagerCpp] Failed to set brightness: permission denied";
+        qDebug() << "[DisplayManagerCpp] Failed to set brightness: permission denied (sysfs) and D-Bus methods failed";
     }
 }
 
@@ -284,6 +330,9 @@ void DisplayManagerCpp::setScreenState(bool on)
         // Silently fail in VM/desktop environments where framebuffer doesn't exist
         // This is expected behavior and will work on real hardware
         qDebug() << "[DisplayManagerCpp] Framebuffer control not available (expected in VM/desktop)";
+        
+        // Fallback: Try DPMS for desktop/laptop testing
+        QProcess::execute("xset", QStringList() << "dpms" << "force" << (on ? "on" : "off"));
     }
     
     // Manage display wakelock based on screen state
@@ -298,3 +347,116 @@ void DisplayManagerCpp::setScreenState(bool on)
     }
 }
 
+void DisplayManagerCpp::setupBrightnessMonitoring()
+{
+    // 1. Monitor sysfs via QFileSystemWatcher (already implemented)
+    if (!m_backlightDevice.isEmpty()) {
+        QString actualPath = QString("/sys/class/backlight/%1/actual_brightness").arg(m_backlightDevice);
+        QString reqPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+        
+        QFileSystemWatcher* watcher = new QFileSystemWatcher(this);
+        watcher->addPath(actualPath);
+        watcher->addPath(reqPath);
+        
+        connect(watcher, &QFileSystemWatcher::fileChanged, this, &DisplayManagerCpp::onExternalBrightnessChanged);
+        qInfo() << "[DisplayManagerCpp] Monitoring sysfs paths:" << actualPath << "and" << reqPath;
+    }
+    
+    // 2. Monitor GNOME Settings Daemon (GSD)
+    // GSD handles hardware keys and updates brightness. We listen for its property changes.
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    bool connected = bus.connect(
+        "org.gnome.SettingsDaemon.Power",
+        "/org/gnome/SettingsDaemon/Power",
+        "org.freedesktop.DBus.Properties",
+        "PropertiesChanged",
+        this,
+        SLOT(onDBusPropertiesChanged(QString,QVariantMap,QStringList))
+    );
+    
+    if (connected) {
+        qInfo() << "[DisplayManagerCpp] Connected to GSD Power properties changes";
+    } else {
+        qWarning() << "[DisplayManagerCpp] Failed to connect to GSD Power properties";
+    }
+}
+
+void DisplayManagerCpp::onExternalBrightnessChanged()
+{
+    // Re-using the existing logic but ensuring we read the file
+    
+    if (m_backlightDevice.isEmpty()) return;
+    
+    // Poll actual_brightness (hardware state)
+    QString actualPath = QString("/sys/class/backlight/%1/actual_brightness").arg(m_backlightDevice);
+    QFile actualFile(actualPath);
+    int actualVal = -1;
+    
+    if (actualFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&actualFile);
+        actualVal = in.readAll().trimmed().toInt();
+        actualFile.close();
+    }
+    
+    // Poll brightness (requested state)
+    QString reqPath = QString("/sys/class/backlight/%1/brightness").arg(m_backlightDevice);
+    QFile reqFile(reqPath);
+    int reqVal = -1;
+    
+    if (reqFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&reqFile);
+        reqVal = in.readAll().trimmed().toInt();
+        reqFile.close();
+    }
+    
+    double currentBrightness = m_brightness;
+    bool changed = false;
+    
+    if (actualVal != -1) {
+        double actualNorm = (double)actualVal / m_maxBrightness;
+        if (qAbs(actualNorm - m_brightness) > 0.02) {
+            currentBrightness = actualNorm;
+            changed = true;
+            qDebug() << "[DisplayManagerCpp] Hardware brightness changed (actual):" << actualVal;
+        }
+    }
+    
+    if (!changed && reqVal != -1) {
+        double reqNorm = (double)reqVal / m_maxBrightness;
+        if (qAbs(reqNorm - m_brightness) > 0.02) {
+            currentBrightness = reqNorm;
+            changed = true;
+            qDebug() << "[DisplayManagerCpp] Hardware brightness changed (requested):" << reqVal;
+        }
+    }
+    
+    if (changed) {
+        m_brightness = currentBrightness;
+        emit brightnessChanged();
+    }
+}
+
+
+void DisplayManagerCpp::onDBusPropertiesChanged(const QString& interface, const QVariantMap& changed, const QStringList& invalidated)
+{
+    Q_UNUSED(invalidated)
+    
+    if (interface == "org.gnome.SettingsDaemon.Power.Screen") {
+        if (changed.contains("Brightness")) {
+            int gsdBrightness = changed["Brightness"].toInt();
+            // GSD usually reports 0-100
+            double newBrightness = gsdBrightness / 100.0;
+            
+            if (qAbs(newBrightness - m_brightness) > 0.01) {
+                qInfo() << "[DisplayManagerCpp] GSD Brightness changed to:" << gsdBrightness;
+                m_brightness = newBrightness;
+                emit brightnessChanged();
+            }
+        }
+    }
+}
+
+void DisplayManagerCpp::pollBrightness()
+{
+    // DEPRECATED - Replaced by QFileSystemWatcher
+}

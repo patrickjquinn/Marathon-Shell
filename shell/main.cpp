@@ -140,8 +140,30 @@ static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &con
     }
 }
 
+#include "src/mpris_types.h"
+
 int main(int argc, char *argv[])
 {
+    // Register D-Bus types needed for MPRIS2 metadata (a{sv} -> QVariantMap)
+    registerMprisTypes();
+    
+    // Set env variables
+    // Request X11 platform as we need XWayland for compatibility
+    qputenv("QT_QPA_PLATFORM", "wayland;xcb");
+    
+    // Force Qt to use the Linux QPA theme
+    qputenv("QT_QPA_PLATFORMTHEME", "gtk3");
+    
+    // Use the xcb backend for input handling to avoid Wayland quirks
+    // This helps with mouse and keyboard input in the embedded Wayland compositor
+    qputenv("QT_QPA_PLATFORM", "wayland;xcb");
+    
+    // Disable Qt Quick Compiler for better compatibility with dynamic QML
+    qputenv("QML_DISABLE_DISK_CACHE", "1");
+    
+    // Enable software rendering for better compatibility in VMs or low-end hardware
+    // qputenv("QMLSCENE_DEVICE", "software");  // Commented out - let Qt choose best renderer
+    
     // Check debug mode FIRST before setting any logging rules
     QString debugEnv = qgetenv("MARATHON_DEBUG");
     bool debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
@@ -150,19 +172,15 @@ int main(int argc, char *argv[])
     if (debugEnabled) {
         // Debug mode: enable OUR logs but suppress Qt internal spam
         QLoggingCategory::setFilterRules(
-            "*.debug=false\n"           // Disable debug by default (too spammy)
+            // Enable all our C++ service logs by default
+            "*.debug=true\n"           // Enable debug for our code
             "*.info=true\n"
             "*.warning=true\n"
             "*.error=true\n"
-            // Suppress Qt internal spam
-            "qt.qpa.*=false\n"
-            "qt.pointer.*=false\n"
-            "qt.quick.*=false\n"
-            "qt.scenegraph.*=false\n"
-            "qt.qml.connections=false\n"  // Suppress only QML connections spam
-            "qt.qml.binding=false\n"      // Suppress only QML binding spam
-            "qt.core.*=false\n"
-            "qt.rhi.*=false\n"            // Disable RHI (rendering) spam
+            // AGGRESSIVE: Suppress ALL Qt internal debug spam
+            "qt.*.debug=false\n"
+            "qt.*.info=false\n"
+            "qt.*.warning=true\n"      // Keep Qt warnings/errors
             // CRITICAL: Enable console.log() from QML (uses QtDebugMsg)
             "qml.debug=true\n"            // Enable QML console.log()
             "js.debug=true\n"             // Enable JS console.log()

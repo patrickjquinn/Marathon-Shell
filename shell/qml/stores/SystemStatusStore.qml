@@ -12,6 +12,7 @@ QtObject {
     property bool isWifiOn: NetworkManager.wifiEnabled
     property int wifiStrength: NetworkManager.wifiSignalStrength
     property string wifiNetwork: NetworkManager.wifiSsid
+    property bool wifiConnected: NetworkManager.wifiConnected
     property bool ethernetConnected: NetworkManager.ethernetConnected
     
     property bool isBluetoothOn: NetworkManager.bluetoothEnabled

@@ -141,7 +141,7 @@ Item {
 
                     Text {
                         text: networkSsid
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
@@ -162,7 +162,7 @@ Item {
                             Text {
                                 id: securityBadgeText
                                 text: secured ? securityType : "Open"
-                                font.pixelSize: Typography.sizeXSmall
+                                font.pixelSize: MTypography.sizeXSmall
                                 font.weight: Font.Medium
                                 font.family: MTypography.fontFamily
                                 color: secured ? MColors.warning : MColors.success
@@ -173,7 +173,7 @@ Item {
                         // Signal strength text
                         Text {
                             text: signalStrength >= 75 ? "Excellent" : signalStrength >= 50 ? "Good" : signalStrength >= 25 ? "Fair" : "Weak"
-                            font.pixelSize: Typography.sizeXSmall
+                            font.pixelSize: MTypography.sizeXSmall
                             font.family: MTypography.fontFamily
                             color: MColors.textTertiary
                             anchors.verticalCenter: parent.verticalCenter
@@ -212,7 +212,7 @@ Item {
                         id: passwordInput
                         width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - MSpacing.md * 2
                         anchors.verticalCenter: parent.verticalCenter
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         echoMode: showPasswordToggle.checked ? TextInput.Normal : TextInput.Password
@@ -222,10 +222,11 @@ Item {
                         clip: true
 
                         // Placeholder text (TextInput doesn't render placeholderText, so we fake it)
-                        Text {
-                            text: "Enter password"
-                            font: passwordInput.font
-                            color: MColors.textTertiary
+                        MTypography {
+                            text: "Enter Password"
+                            font.pixelSize: 24
+                            font.weight: Font.Bold
+                            color: MColors.text
                             visible: passwordInput.text.length === 0 && !passwordInput.activeFocus
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -291,7 +292,7 @@ Item {
                     Text {
                         id: errorText
                         text: errorMessage
-                        font.pixelSize: Typography.sizeSmall
+                        font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.error
                         wrapMode: Text.WordWrap
@@ -319,7 +320,7 @@ Item {
 
                     Text {
                         text: "Connecting to " + networkSsid + "..."
-                        font.pixelSize: Typography.sizeBody
+                        font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
                         anchors.verticalCenter: parent.verticalCenter
@@ -345,7 +346,7 @@ Item {
 
                     Text {
                         text: "Cancel"
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.family: MTypography.fontFamily
                         color: MColors.textPrimary
                         anchors.centerIn: parent
@@ -376,7 +377,7 @@ Item {
 
                     Text {
                         text: "Connect"
-                        font.pixelSize: Typography.sizeLarge
+                        font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily
                         color: MColors.background
@@ -399,7 +400,7 @@ Item {
             // Help text
             Text {
                 text: secured ? "Password must be at least 8 characters" : "This network is not secured"
-                font.pixelSize: Typography.sizeXSmall
+                font.pixelSize: MTypography.sizeXSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter

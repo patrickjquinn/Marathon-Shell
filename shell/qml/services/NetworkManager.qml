@@ -11,7 +11,7 @@ Item {
     property bool ethernetConnected: NetworkManagerCpp ? NetworkManagerCpp.ethernetConnected : false
     property string ethernetConnectionName: NetworkManagerCpp ? NetworkManagerCpp.ethernetConnectionName : ""
     property bool wifiAvailable: NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false
-    property bool bluetoothAvailable: NetworkManagerCpp ? NetworkManagerCpp.bluetoothAvailable : false
+    property bool bluetoothAvailable: BluetoothManagerCpp ? BluetoothManagerCpp.available : false
     property string wifiSecurity: "WPA2"
     property string wifiIpAddress: "192.168.1.100"
     

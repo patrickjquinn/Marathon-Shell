@@ -168,6 +168,9 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
             qInfo() << "[AudioManagerCpp] Neither PipeWire nor PulseAudio available, using mock mode";
         }
     }
+    
+    // Start monitoring for external volume changes (hardware keys)
+    startVolumeMonitoring();
 }
 
 void AudioManagerCpp::setVolume(double volume)
@@ -351,6 +354,65 @@ void AudioManagerCpp::startStreamMonitoring()
     connect(m_streamRefreshTimer, &QTimer::timeout, this, &AudioManagerCpp::refreshStreams);
     m_streamRefreshTimer->start(5000);
     qDebug() << "[AudioManagerCpp] Started stream monitoring (5s interval)";
+}
+
+void AudioManagerCpp::startVolumeMonitoring()
+{
+    // Poll volume every 500ms to detect external changes (hardware keys)
+    QTimer* volumeMonitor = new QTimer(this);
+    connect(volumeMonitor, &QTimer::timeout, this, &AudioManagerCpp::checkExternalVolumeChange);
+    volumeMonitor->start(500);
+    qDebug() << "[AudioManagerCpp] Started volume monitoring (500ms polling)";
+}
+
+void AudioManagerCpp::checkExternalVolumeChange()
+{
+    if (!m_available) return;
+    
+    double externalVolume = 0.0;
+    
+    // Try PipeWire first
+    QProcess wpctl;
+    wpctl.start("wpctl", {"get-volume", "@DEFAULT_AUDIO_SINK@"});
+    wpctl.waitForFinished(200);
+    
+    if (wpctl.exitCode() == 0) {
+        QString output = wpctl.readAllStandardOutput();
+        QRegularExpression re("Volume: ([0-9.]+)");
+        QRegularExpressionMatch match = re.match(output);
+        if (match.hasMatch()) {
+            externalVolume = match.captured(1).toDouble();
+            
+            // Check if volume changed externally
+            if (qAbs(externalVolume - m_currentVolume) > 0.01) {
+                qDebug() << "[AudioManagerCpp] Volume changed externally:" << qRound(externalVolume * 100) << "%";
+                m_currentVolume = externalVolume;
+                emit volumeChanged();
+            }
+        }
+        return;
+    }
+    
+    // Fallback to PulseAudio
+    QProcess pactl;
+    pactl.start("pactl", {"get-sink-volume", "@DEFAULT_SINK@"});
+    pactl.waitForFinished(200);
+    
+    if (pactl.exitCode() == 0) {
+        QString output = pactl.readAllStandardOutput();
+        QRegularExpression re("Volume: .*? (\\d+)%");
+        QRegularExpressionMatch match = re.match(output);
+        if (match.hasMatch()) {
+            externalVolume = match.captured(1).toDouble() / 100.0;
+            
+            // Check if volume changed externally
+            if (qAbs(externalVolume - m_currentVolume) > 0.01) {
+                qDebug() << "[AudioManagerCpp] Volume changed externally:" << qRound(externalVolume * 100) << "%";
+                m_currentVolume = externalVolume;
+                emit volumeChanged();
+            }
+        }
+    }
 }
 
 void AudioManagerCpp::updatePlaybackState()

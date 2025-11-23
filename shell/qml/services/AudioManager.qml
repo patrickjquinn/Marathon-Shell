@@ -5,8 +5,8 @@ import MarathonOS.Shell
 
 QtObject {
     id: audioManager
-    
-    property real volume: 0.6
+    // Volume
+    property real volume: 0.6  // Managed by binding below
     property real minVolume: 0.0
     property real maxVolume: 1.0
     
@@ -41,6 +41,25 @@ QtObject {
     readonly property var availableRingtones: SettingsManagerCpp.availableRingtones()
     readonly property var availableNotificationSounds: SettingsManagerCpp.availableNotificationSounds()
     readonly property var availableAlarmSounds: SettingsManagerCpp.availableAlarmSounds()
+    
+    // Monitor AudioManagerCpp for hardware key volume changes
+    property Connections volumeMonitor: Connections {
+        target: typeof AudioManagerCpp !== 'undefined' ? AudioManagerCpp : null
+        
+        function onVolumeChanged() {
+            if (AudioManagerCpp && AudioManagerCpp.available) {
+                console.log("[AudioManager] Volume changed externally:", (AudioManagerCpp.volume * 100).toFixed(0) + "%")
+                audioManager.volume = AudioManagerCpp.volume
+            }
+        }
+        
+        function onMutedChanged() {
+            if (AudioManagerCpp && AudioManagerCpp.available) {
+                console.log("[AudioManager] Mute changed externally:", AudioManagerCpp.muted)
+                audioManager.muted = AudioManagerCpp.muted
+            }
+        }
+    }
     
     // Friendly names for UI display
     readonly property string currentRingtoneName: SettingsManagerCpp.formatSoundName(currentRingtone)
@@ -376,23 +395,22 @@ QtObject {
     property var notificationPlayer: MediaPlayer {
         id: notificationAudio
         audioOutput: AudioOutput {
-            id: notifAudioOutput
-            // Don't set device - let GStreamer auto-detect via pulsesink
+            id: notificationOutput
             volume: audioManager.notificationVolume
             muted: false
             
             Component.onCompleted: {
                 console.log("[AudioManager] Notification AudioOutput - letting GStreamer auto-detect device")
-                console.log("[AudioManager] Notification AudioOutput volume:", volume)
-                console.log("[AudioManager] Notification AudioOutput muted:", muted)
+                console.log("[AudioManager] Notification AudioOutput volume:", notificationOutput.volume)
+                console.log("[AudioManager] Notification AudioOutput muted:", notificationOutput.muted)
             }
             
             onVolumeChanged: {
-                console.log("[AudioManager] Notification AudioOutput volume changed to:", volume)
+                console.log("[AudioManager] Notification AudioOutput volume changed to:", notificationOutput.volume)
             }
             
             onMutedChanged: {
-                console.log("[AudioManager] Notification AudioOutput muted changed to:", muted)
+                console.log("[AudioManager] Notification AudioOutput muted changed to:", notificationOutput.muted)
             }
         }
         loops: MediaPlayer.Once
@@ -446,16 +464,20 @@ QtObject {
     }
     
     function _platformSetVolume(value) {
-        if (Platform.hasPulseAudio) {
-            console.log("[AudioManager] PulseAudio pactl set-sink-volume")
-        } else if (Platform.isMacOS) {
-            console.log("[AudioManager] macOS osascript set volume")
+        // Use existing AudioManagerCpp backend
+        if (typeof AudioManagerCpp !== 'undefined' && AudioManagerCpp.available) {
+            AudioManagerCpp.setVolume(value)
+        } else {
+            console.log("[AudioManager] AudioManagerCpp not available, volume set to:", (value * 100).toFixed(0) + "%")
         }
     }
     
     function _platformSetMuted(mute) {
         if (Platform.hasPulseAudio) {
-            console.log("[AudioManager] PulseAudio pactl set-sink-mute", mute)
+            // Use pactl to mute/unmute system
+            Qt.callLater(function() {
+                Platform.execute("pactl", ["set-sink-mute", "@DEFAULT_SINK@", mute ? "1" : "0"])
+            })
         } else if (Platform.isMacOS) {
             console.log("[AudioManager] macOS osascript set volume", mute ? 0 : volume)
         }
@@ -487,7 +509,11 @@ QtObject {
     
     function _platformSetStreamVolume(stream, value) {
         if (Platform.hasPulseAudio) {
-            console.log("[AudioManager] PulseAudio set stream volume:", stream, value)
+            // Set volume for specific stream types
+            var percentage = Math.round(value * 100)
+            Qt.callLater(function() {
+                Platform.execute("pactl", ["set-sink-volume", "@DEFAULT_SINK@", percentage + "%"])
+            })
         }
     }
     
