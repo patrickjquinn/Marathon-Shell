@@ -13,9 +13,14 @@ Rectangle {
     height: hasMedia ? 140 : 80  // Increased from 120 to 140 for more space
     visible: true  // Always visible
     radius: Constants.borderRadiusSmall
-    color: Qt.rgba(255, 255, 255, 0.04)
+    // Dark teal gradient background
+    gradient: Gradient {
+        GradientStop { position: 0.0; color: Qt.rgba(0, 191/255, 165/255, 0.15) } // MColors.marathonTealGlowTop approx
+        GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.2) }
+    }
+    
     border.width: Constants.borderWidthThin
-    border.color: MColors.border
+    border.color: Qt.rgba(0, 191/255, 165/255, 0.3) // MColors.marathonTealBorder approx
     
     // MPRIS2 Integration - Real media player control
     readonly property bool hasMedia: MPRIS2Controller ? MPRIS2Controller.hasActivePlayer : false
@@ -28,6 +33,29 @@ Rectangle {
     
     Behavior on height {
         NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+    }
+    
+    // Tap to launch app
+    MouseArea {
+        anchors.fill: parent
+        // Z-index 0 is default, children (Column) are on top by default in QML order? 
+        // No, children declared later are on top. Column is declared AFTER this if I put it here.
+        // Wait, I am inserting this BEFORE Column (line 33).
+        // So this MouseArea is BEHIND the Column.
+        // Buttons in Column will capture clicks first.
+        
+        onClicked: {
+            if (mediaManager.hasMedia && MPRIS2Controller) {
+                var appId = MPRIS2Controller.desktopEntry
+                if (appId && appId !== "") {
+                    HapticService.light()
+                    Logger.info("MediaPlayback", "Launching app: " + appId)
+                    AppLaunchService.launchApp(appId)
+                } else {
+                    Logger.warn("MediaPlayback", "No desktop entry found for player")
+                }
+            }
+        }
     }
     
     Column {
@@ -147,7 +175,7 @@ Rectangle {
                 Icon {
                     name: mediaManager.isPlaying ? "pause" : "play"
                     size: Constants.iconSizeSmall
-                    color: "#FFFFFF"
+                    color: MColors.bb10Black  // Black icon on teal accent for better contrast
                     anchors.centerIn: parent
                 }
                 

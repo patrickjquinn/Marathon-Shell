@@ -222,13 +222,14 @@ Item {
                         clip: true
 
                         // Placeholder text (TextInput doesn't render placeholderText, so we fake it)
-                        MTypography {
+                        Text {
                             text: "Enter Password"
-                            font.pixelSize: 24
-                            font.weight: Font.Bold
-                            color: MColors.text
+                            font.pixelSize: MTypography.sizeBody
+                            font.family: MTypography.fontFamily
+                            color: MColors.textSecondary
                             visible: passwordInput.text.length === 0 && !passwordInput.activeFocus
                             anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
                         }
 
                         Keys.onReturnPressed: {

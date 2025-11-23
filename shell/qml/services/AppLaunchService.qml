@@ -6,6 +6,7 @@ QtObject {
     id: root
     
     property var compositor: null
+    property var appWindow: null
     property var pendingNativeApp: null
     property var launchingApps: ({})  // Track apps currently launching
     
@@ -16,11 +17,56 @@ QtObject {
     signal appLaunchProgress(string appId, int percent)
     
     function launchApp(app, compositorRef, appWindowRef) {
+        // Resolve references
+        var comp = compositorRef || root.compositor
+        var win = appWindowRef || root.appWindow
+        
+        // Handle string input (appId)
+        if (typeof app === 'string') {
+            var appId = app
+            Logger.info("AppLaunchService", "Looking up app by ID: " + appId)
+            
+            if (typeof AppModel !== 'undefined') {
+                var appObj = AppModel.getApp(appId)
+                if (appObj) {
+                    app = appObj
+                    Logger.info("AppLaunchService", "Found app in AppModel: " + app.name)
+                } else {
+                    // Fallback: Check if it's a running task (e.g. launched externally)
+                    if (typeof TaskModel !== 'undefined') {
+                        var task = TaskModel.getTaskByAppId(appId)
+                        if (task) {
+                            Logger.info("AppLaunchService", "Found running task for: " + appId)
+                            // Create a temporary app object from task info
+                            app = {
+                                id: appId,
+                                name: task.title || appId,
+                                icon: task.icon || "",
+                                type: task.appType || "native",
+                                exec: "" // Not needed for bringing to foreground
+                            }
+                        } else {
+                            Logger.error("AppLaunchService", "App not found in AppModel or TaskModel: " + appId)
+                            root.appLaunchFailed(appId, "Unknown", "App not found")
+                            return false
+                        }
+                    } else {
+                        Logger.error("AppLaunchService", "App not found in AppModel: " + appId)
+                        root.appLaunchFailed(appId, "Unknown", "App not found")
+                        return false
+                    }
+                }
+            } else {
+                Logger.error("AppLaunchService", "AppModel not available")
+                return false
+            }
+        }
+        
         Logger.info("AppLaunchService", "Launching app: " + app.name + " (type: " + app.type + ")")
         
         // Validation
-        if (!appWindowRef) {
-            Logger.error("AppLaunchService", "appWindow reference not provided")
+        if (!win) {
+            Logger.error("AppLaunchService", "appWindow reference not provided (and root.appWindow is null)")
             root.appLaunchFailed(app.id, app.name, "No app window reference")
             return false
         }
@@ -42,9 +88,9 @@ QtObject {
         root.appLaunchStarted(app.id, app.name)
         
         if (app.type === "native") {
-            return launchNativeApp(app, compositorRef, appWindowRef)
+            return launchNativeApp(app, comp, win)
         } else {
-            return launchMarathonApp(app, compositorRef, appWindowRef)
+            return launchMarathonApp(app, comp, win)
         }
     }
     

@@ -27,6 +27,21 @@ bool FreedesktopNotifications::registerService()
     
     if (!bus.registerService("org.freedesktop.Notifications")) {
         qDebug() << "[FreedesktopNotifications] org.freedesktop.Notifications already registered (desktop environment)";
+        
+        // Fallback for nested testing: Register org.marathon.Notifications
+        if (bus.registerService("org.marathon.Notifications")) {
+            qInfo() << "[FreedesktopNotifications] ✓ Registered fallback service: org.marathon.Notifications";
+            
+            // Register the object path for the fallback service too
+            if (!bus.registerObject("/org/freedesktop/Notifications", this,
+                                   QDBusConnection::ExportAllSlots |
+                                   QDBusConnection::ExportAllSignals)) {
+                qWarning() << "[FreedesktopNotifications] Failed to register object on fallback:" << bus.lastError().message();
+                return false;
+            }
+            return true;
+        }
+        
         qDebug() << "[FreedesktopNotifications] This is expected on desktop and will work on actual device";
         return false;
     }

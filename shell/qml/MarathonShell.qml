@@ -71,6 +71,10 @@ Item {
     Component.onCompleted: {
         compositor = shellInitialization.initialize(shell, Window.window)
         
+        // Initialize global services
+        AppLaunchService.compositor = compositor
+        AppLaunchService.appWindow = appWindow
+        
         // Initialize ScreenshotService with shell window reference
         ScreenshotService.shellWindow = shell
         

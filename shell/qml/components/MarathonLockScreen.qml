@@ -84,12 +84,59 @@ Item {
         }
     }
     
+    // Categories Model - Moved to top level for reliable access
+    ListModel {
+        id: categoriesModel
+    }
+    
+    // Update categories function
+    function updateCategories() {
+        var cats = {}
+        
+        // Iterate through NotificationModel using Repeater pattern
+        for (var i = 0; i < NotificationModel.rowCount(); i++) {
+            var idx = NotificationModel.index(i, 0)
+            var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false
+            
+            // Skip read notifications
+            if (isRead) continue
+            
+            var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other"
+            var icon = NotificationModel.data(idx, Shell.NotificationRoles.IconRole) || "bell"
+            
+            if (!cats[appId]) {
+                cats[appId] = {
+                    appId: appId,
+                    icon: icon,
+                    count: 0
+                }
+            }
+            cats[appId].count++
+        }
+        
+        // Rebuild model
+        categoriesModel.clear()
+        for (var cat in cats) {
+            categoriesModel.append(cats[cat])
+        }
+        
+        Logger.info("LockScreen", "Updated categories. Count: " + categoriesModel.count)
+    }
+    
+    // Update categories when notifications change
+    Connections {
+        target: NotificationModel
+        function onCountChanged() {
+            lockScreen.updateCategories()
+        }
+    }
+    
     // Refresh categories when lock screen becomes visible
     // Update SessionStore to show lock icon in status bar
     onVisibleChanged: {
         if (visible) {
             Logger.info("LockScreen", "Lock screen visible - refreshing categories")
-            categoryIcons.updateCategories()
+            lockScreen.updateCategories()
             SessionStore.isOnLockScreen = true
         } else {
             SessionStore.isOnLockScreen = false
@@ -102,7 +149,7 @@ Item {
             Logger.info("LockScreen", "Lock screen created visible - setting initial state")
             console.log("[LockScreen] SessionStore.isLocked =", SessionStore.isLocked)
             SessionStore.isOnLockScreen = true
-            categoryIcons.updateCategories()
+            lockScreen.updateCategories()
         }
     }
     
@@ -149,12 +196,16 @@ Item {
         
         // Time and Date - centered, or pushed up if unread notifications present
         Column {
+            id: clockColumn
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: categoryIcons.unreadCategoryCount === 0 ? parent.verticalCenter : undefined
-            anchors.top: categoryIcons.unreadCategoryCount > 0 ? parent.top : undefined
-            anchors.topMargin: categoryIcons.unreadCategoryCount > 0 ? Math.round(80 * Constants.scaleFactor) : 0
-            anchors.verticalCenterOffset: categoryIcons.unreadCategoryCount === 0 ? Math.round(-80 * Constants.scaleFactor) : 0
+            anchors.verticalCenter: categoriesModel.count === 0 ? parent.verticalCenter : undefined
+            anchors.top: categoriesModel.count > 0 ? parent.top : undefined
+            anchors.topMargin: categoriesModel.count > 0 ? Math.round(80 * Constants.scaleFactor) : 0
+            anchors.verticalCenterOffset: categoriesModel.count === 0 ? Math.round(-80 * Constants.scaleFactor) : 0
             spacing: Constants.spacingSmall
+            width: parent.width * 0.9  // Constrain width for children
+            
+            onYChanged: Logger.info("LockScreen", "ClockColumn Y changed to: " + y)
             
             Behavior on anchors.topMargin {
                 NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
@@ -198,74 +249,62 @@ Item {
                     shadowVerticalOffset: 2
                 }
             }
+            
+            // Media Player on Lock Screen
+            Item {
+                width: parent.width
+                height: Constants.spacingMedium
+                visible: lockScreenMediaPlayer.visible
+            }
+            
+            MediaPlaybackManager {
+                id: lockScreenMediaPlayer
+                width: Math.min(parent.width, 400 * Constants.scaleFactor)
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: hasMedia
+                
+                // Override background opacity for lock screen integration
+                // Dark teal gradient background
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.rgba(0, 191/255, 165/255, 0.15) } // MColors.marathonTealGlowTop approx
+                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.2) }
+                }
+                
+                border.width: Constants.borderWidthThin
+                border.color: Qt.rgba(0, 191/255, 165/255, 0.3) // MColors.marathonTealBorder approx
+            }
         }
         
         // BB10-style Hub Notifications
         Item {
-            anchors.fill: parent
-            visible: NotificationModel.count > 0
+            id: notificationContainer
+            // Anchor to clockColumn to ensure no overlap
+            anchors.top: clockColumn.bottom
+            anchors.topMargin: Constants.spacingMedium
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: categoriesModel.count > 0
             z: 10
+            
+            onYChanged: Logger.info("LockScreen", "NotificationContainer Y changed to: " + y)
             
             // Category icons on left edge
             Column {
                 id: categoryIcons
                 anchors.left: parent.left
                 anchors.leftMargin: Constants.spacingMedium
-                // Position higher when few notifications, centered when many
+                
+                // Position relative to container
                 anchors.top: categoriesModel.count <= 3 ? parent.top : undefined
-                anchors.topMargin: categoriesModel.count <= 3 ? Math.round(250 * Constants.scaleFactor) : 0
+                anchors.topMargin: categoriesModel.count <= 3 ? Math.round(20 * Constants.scaleFactor) : 0
+                
                 anchors.verticalCenter: categoriesModel.count > 3 ? parent.verticalCenter : undefined
                 spacing: Constants.spacingLarge
                 z: 100
                 
-                // Expose category count for clock positioning
-                property alias unreadCategoryCount: categoriesModel.count
-                
-                // Build categories model from NotificationModel
-                ListModel {
-                    id: categoriesModel
-                }
-                
-                function updateCategories() {
-                    var cats = {}
-                    
-                    // Iterate through NotificationModel using Repeater pattern
-                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
-                        var idx = NotificationModel.index(i, 0)
-                        var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false
-                        
-                        // Skip read notifications
-                        if (isRead) continue
-                        
-                        var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other"
-                        var icon = NotificationModel.data(idx, Shell.NotificationRoles.IconRole) || "bell"
-                        
-                        if (!cats[appId]) {
-                            cats[appId] = {
-                                appId: appId,
-                                icon: icon,
-                                count: 0
-                            }
-                        }
-                        cats[appId].count++
-                    }
-                    
-                    // Rebuild model
-                    categoriesModel.clear()
-                    for (var cat in cats) {
-                        categoriesModel.append(cats[cat])
-                    }
-                }
-                
-                // Update categories when notifications change
-                Connections {
-                    target: NotificationModel
-                    function onCountChanged() {
-                        categoryIcons.updateCategories()
-                    }
-                }
-                
-                Component.onCompleted: updateCategories()
+                // Expose category count for clock positioning - NO LONGER NEEDED, using top level model
+                // property alias unreadCategoryCount: categoriesModel.count
                 
                 Repeater {
                     model: categoriesModel

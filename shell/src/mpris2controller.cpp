@@ -13,6 +13,7 @@ MPRIS2Controller::MPRIS2Controller(QObject *parent)
     , m_scanTimer(nullptr)
     , m_hasActivePlayer(false)
     , m_playerName("")
+    , m_desktopEntry("")
     , m_playbackStatus("Stopped")
     , m_trackTitle("")
     , m_trackArtist("")
@@ -152,6 +153,20 @@ void MPRIS2Controller::connectToPlayer(const QString& busName)
     }
     m_playerName = name.at(0).toUpper() + name.mid(1); // Capitalize
     
+    // Fetch DesktopEntry (app ID) from root interface
+    QDBusInterface rootInterface(
+        busName,
+        "/org/mpris/MediaPlayer2",
+        "org.mpris.MediaPlayer2",
+        QDBusConnection::sessionBus()
+    );
+    if (rootInterface.isValid()) {
+        m_desktopEntry = rootInterface.property("DesktopEntry").toString();
+        qInfo() << "[MPRIS2Controller] App ID (DesktopEntry):" << m_desktopEntry;
+    } else {
+        m_desktopEntry = name.toLower(); // Fallback to bus name suffix
+    }
+    
     qInfo() << "[MPRIS2Controller] ✓ Connected to" << m_playerName;
     
     // Connect to property changes
@@ -190,6 +205,7 @@ void MPRIS2Controller::disconnectFromPlayer()
         m_currentBusName.clear();
         m_hasActivePlayer = false;
         m_playerName.clear();
+        m_desktopEntry.clear();
         m_playbackStatus = "Stopped";
         
         emit activePlayerChanged();

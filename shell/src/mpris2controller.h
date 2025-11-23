@@ -28,6 +28,7 @@ class MPRIS2Controller : public QObject
     Q_PROPERTY(QString playbackStatus READ playbackStatus NOTIFY playbackStatusChanged)
     Q_PROPERTY(bool isPlaying READ isPlaying NOTIFY playbackStatusChanged)
     Q_PROPERTY(bool isPaused READ isPaused NOTIFY playbackStatusChanged)
+    Q_PROPERTY(QString desktopEntry READ desktopEntry NOTIFY activePlayerChanged)
     
     // Metadata
     Q_PROPERTY(QString trackTitle READ trackTitle NOTIFY metadataChanged)
@@ -54,6 +55,7 @@ public:
     QString playbackStatus() const { return m_playbackStatus; }
     bool isPlaying() const { return m_playbackStatus == "Playing"; }
     bool isPaused() const { return m_playbackStatus == "Paused"; }
+    QString desktopEntry() const { return m_desktopEntry; }
     
     QString trackTitle() const { return m_trackTitle; }
     QString trackArtist() const { return m_trackArtist; }
@@ -116,6 +118,7 @@ private:
     QString m_currentBusName;
     bool m_hasActivePlayer;
     QString m_playerName;
+    QString m_desktopEntry;
     QString m_playbackStatus;
     
     // Metadata
