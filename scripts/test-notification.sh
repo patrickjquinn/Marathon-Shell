@@ -4,7 +4,7 @@
 APP_NAME="Test Script"
 TITLE="Hello Marathon"
 BODY="This is a test notification from the command line."
-ICON="dialog-information"
+ICON="info"
 
 echo "Sending test notification..."
 echo "Title: $TITLE"

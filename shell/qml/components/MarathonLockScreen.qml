@@ -198,17 +198,34 @@ Item {
         Column {
             id: clockColumn
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: categoriesModel.count === 0 ? parent.verticalCenter : undefined
-            anchors.top: categoriesModel.count > 0 ? parent.top : undefined
-            anchors.topMargin: categoriesModel.count > 0 ? Math.round(80 * Constants.scaleFactor) : 0
-            anchors.verticalCenterOffset: categoriesModel.count === 0 ? Math.round(-80 * Constants.scaleFactor) : 0
             spacing: Constants.spacingSmall
             width: parent.width * 0.9  // Constrain width for children
             
+            // Default state (centered)
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
+            
             onYChanged: Logger.info("LockScreen", "ClockColumn Y changed to: " + y)
             
-            Behavior on anchors.topMargin {
-                NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+            // States for layout transitions
+            states: State {
+                name: "hasNotifications"
+                when: categoriesModel.count > 0
+                AnchorChanges {
+                    target: clockColumn
+                    anchors.verticalCenter: undefined
+                    anchors.top: parent.top
+                }
+                PropertyChanges {
+                    target: clockColumn
+                    anchors.topMargin: Math.round(80 * Constants.scaleFactor)
+                    anchors.verticalCenterOffset: 0
+                }
+            }
+            
+            transitions: Transition {
+                AnchorAnimation { duration: 300; easing.type: Easing.OutCubic }
+                NumberAnimation { properties: "anchors.topMargin,anchors.verticalCenterOffset"; duration: 300; easing.type: Easing.OutCubic }
             }
             
             // GPU layer for text rendering
