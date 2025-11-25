@@ -7,6 +7,7 @@ QtObject {
     
     property int batteryLevel: PowerManager.batteryLevel
     property bool isCharging: PowerManager.isCharging
+    property bool isPluggedIn: PowerManager.isPluggedIn
     property string chargingType: PowerManager.isCharging ? "usb" : "none"
     
     property bool isWifiOn: NetworkManager.wifiEnabled

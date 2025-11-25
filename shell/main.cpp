@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
     SecurityManager *securityManager = new SecurityManager(&app);
     
     engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
-    engine.rootContext()->setContextProperty("PowerManagerCpp", powerManager);
+    engine.rootContext()->setContextProperty("PowerManagerService", powerManager);
     engine.rootContext()->setContextProperty("DisplayManagerCpp", displayManager);
     engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
     engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);

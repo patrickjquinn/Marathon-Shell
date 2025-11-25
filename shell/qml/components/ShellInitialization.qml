@@ -56,7 +56,7 @@ QtObject {
     function logSystemServices() {
         Logger.info("ShellInitialization", "System Services:")
         Logger.info("ShellInitialization", "  - NetworkManager: " + (typeof NetworkManagerCpp !== 'undefined' ? "✓" : "✗"))
-        Logger.info("ShellInitialization", "  - PowerManager: " + (typeof PowerManagerCpp !== 'undefined' ? "✓" : "✗"))
+        Logger.info("ShellInitialization", "  - PowerManager: " + (typeof PowerManagerService !== 'undefined' ? "✓" : "✗"))
         Logger.info("ShellInitialization", "  - AudioManager: " + (typeof AudioManagerCpp !== 'undefined' ? "✓" : "✗"))
         Logger.info("ShellInitialization", "  - BluetoothManager: " + (typeof BluetoothManagerCpp !== 'undefined' ? "✓" : "✗"))
         Logger.info("ShellInitialization", "  - ModemManager: " + (typeof ModemManagerCpp !== 'undefined' ? "✓" : "✗"))

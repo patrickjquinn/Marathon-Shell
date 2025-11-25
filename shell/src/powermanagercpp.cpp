@@ -14,6 +14,7 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
     , m_logindInterface(nullptr)
     , m_batteryLevel(75)
     , m_isCharging(false)
+    , m_isPluggedIn(false)
     , m_isPowerSaveMode(false)
     , m_estimatedBatteryTime(-1)
     , m_hasUPower(false)
@@ -30,7 +31,7 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
     , m_fallbackMode("none")
     , m_rtcAlarmSupported(false)
 {
-    qDebug() << "[PowerManagerCpp] Initializing";
+    qCritical() << "[PowerManagerCpp] Initializing PowerManagerCpp Service";
     
     // Try to connect to UPower D-Bus
     m_upowerInterface = new QDBusInterface(
@@ -45,7 +46,7 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
         m_hasUPower = true;
         qInfo() << "[PowerManagerCpp] Connected to UPower D-Bus";
         setupDBusConnections();
-        queryBatteryState();
+        scanForDevices();
     } else {
         qDebug() << "[PowerManagerCpp] UPower D-Bus not available:" << m_upowerInterface->lastError().message();
         qDebug() << "[PowerManagerCpp] Using simulated battery";
@@ -69,8 +70,8 @@ PowerManagerCpp::PowerManagerCpp(QObject* parent)
     
     // Setup battery monitor
     m_batteryMonitor = new QTimer(this);
-    m_batteryMonitor->setInterval(30000); // Update every 30 seconds
-    connect(m_batteryMonitor, &QTimer::timeout, this, &PowerManagerCpp::queryBatteryState);
+    m_batteryMonitor->setInterval(60000); // Update every 60 seconds (fallback)
+    connect(m_batteryMonitor, &QTimer::timeout, this, &PowerManagerCpp::scanForDevices);
     m_batteryMonitor->start();
     
     // Check CPU governor support
@@ -105,26 +106,34 @@ PowerManagerCpp::~PowerManagerCpp()
 void PowerManagerCpp::setupDBusConnections()
 {
     if (m_hasUPower) {
-        // Connect to UPower device changes
-        bool connected = QDBusConnection::systemBus().connect(
+        QDBusConnection system = QDBusConnection::systemBus();
+        
+        // Connect to DeviceAdded
+        system.connect(
             "org.freedesktop.UPower",
             "/org/freedesktop/UPower",
             "org.freedesktop.UPower",
-            "DeviceChanged",
+            "DeviceAdded",
             this,
-            SLOT(queryBatteryState())
+            SLOT(deviceAdded(QDBusObjectPath))
         );
         
-        if (!connected) {
-            qDebug() << "[PowerManagerCpp] UPower DeviceChanged signal connection failed (expected - using polling instead)";
-        } else {
-            qInfo() << "[PowerManagerCpp] Connected to UPower DeviceChanged signal";
-        }
+        // Connect to DeviceRemoved
+        system.connect(
+            "org.freedesktop.UPower",
+            "/org/freedesktop/UPower",
+            "org.freedesktop.UPower",
+            "DeviceRemoved",
+            this,
+            SLOT(deviceRemoved(QDBusObjectPath))
+        );
+        
+        qInfo() << "[PowerManagerCpp] Connected to UPower signals";
     }
     
     // Connect to PrepareForSleep signal for lock-before-suspend
     if (m_hasLogind) {
-        bool sleepConnected = QDBusConnection::systemBus().connect(
+        QDBusConnection::systemBus().connect(
             "org.freedesktop.login1",
             "/org/freedesktop/login1",
             "org.freedesktop.login1.Manager",
@@ -132,16 +141,108 @@ void PowerManagerCpp::setupDBusConnections()
             this,
             SLOT(onPrepareForSleep(bool))
         );
-        
-        if (sleepConnected) {
-            qInfo() << "[PowerManagerCpp] Connected to PrepareForSleep signal";
-        } else {
-            qDebug() << "[PowerManagerCpp] PrepareForSleep signal connection failed";
-        }
     }
 }
 
-void PowerManagerCpp::queryBatteryState()
+void PowerManagerCpp::deviceAdded(const QDBusObjectPath &path)
+{
+    QString devicePath = path.path();
+    if (m_devices.contains(devicePath)) return;
+
+    QDBusInterface device(
+        "org.freedesktop.UPower",
+        devicePath,
+        "org.freedesktop.UPower.Device",
+        QDBusConnection::systemBus()
+    );
+    
+    if (!device.isValid()) {
+        qWarning() << "[PowerManagerCpp] Device interface invalid:" << devicePath << device.lastError().message();
+        return;
+    }
+    
+    PowerDevice pd;
+    pd.path = devicePath;
+    pd.type = device.property("Type").toUInt();
+    pd.online = device.property("Online").toBool();
+    pd.isPresent = device.property("IsPresent").toBool();
+    pd.percentage = qRound(device.property("Percentage").toDouble());
+    pd.state = device.property("State").toUInt();
+    
+    m_devices.insert(devicePath, pd);
+    qDebug() << "[PowerManagerCpp] Device added to cache:" << devicePath << "Type:" << pd.type;
+    
+    // Connect to PropertiesChanged
+    QDBusConnection::systemBus().connect(
+        "org.freedesktop.UPower",
+        devicePath,
+        "org.freedesktop.DBus.Properties",
+        "PropertiesChanged",
+        this,
+        SLOT(devicePropertiesChanged(QString,QVariantMap,QStringList))
+    );
+    
+    updateAggregateState();
+}
+
+void PowerManagerCpp::deviceRemoved(const QDBusObjectPath &path)
+{
+    QString devicePath = path.path();
+    if (m_devices.remove(devicePath) > 0) {
+        qDebug() << "[PowerManagerCpp] Device removed from cache:" << devicePath;
+        updateAggregateState();
+    }
+}
+
+void PowerManagerCpp::devicePropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps)
+{
+    Q_UNUSED(invalidatedProps);
+    
+    if (interface != "org.freedesktop.UPower.Device") return;
+    
+    // Get sender path from D-Bus context
+    QString devicePath = message().path();
+    
+    if (!m_devices.contains(devicePath)) {
+        // If we don't know this device, maybe we should add it?
+        // Or just ignore. For robustness, let's ignore but log.
+        // Actually, if we missed the Added signal, we might want to add it.
+        // But for now, just ignore.
+        // qWarning() << "[PowerManagerCpp] PropertiesChanged for unknown device:" << devicePath;
+        return;
+    }
+    
+    PowerDevice& pd = m_devices[devicePath];
+    bool changed = false;
+
+    if (changedProps.contains("Type")) {
+        pd.type = changedProps["Type"].toUInt();
+        changed = true;
+    }
+    if (changedProps.contains("Online")) {
+        pd.online = changedProps["Online"].toBool();
+        changed = true;
+    }
+    if (changedProps.contains("IsPresent")) {
+        pd.isPresent = changedProps["IsPresent"].toBool();
+        changed = true;
+    }
+    if (changedProps.contains("Percentage")) {
+        pd.percentage = qRound(changedProps["Percentage"].toDouble());
+        changed = true;
+    }
+    if (changedProps.contains("State")) {
+        pd.state = changedProps["State"].toUInt();
+        changed = true;
+    }
+
+    if (changed) {
+        qDebug() << "[PowerManagerCpp] Properties changed for device:" << devicePath;
+        updateAggregateState();
+    }
+}
+
+void PowerManagerCpp::scanForDevices()
 {
     if (!m_hasUPower) {
         simulateBatteryUpdate();
@@ -164,85 +265,107 @@ void PowerManagerCpp::queryBatteryState()
         QList<QDBusObjectPath> devices = devicesReply.value();
         qInfo() << "[PowerManagerCpp] Found" << devices.count() << "power devices";
         
-        // Handle VM/no-battery scenario
-        if (devices.isEmpty()) {
-            qInfo() << "[PowerManagerCpp] No power devices found (VM/virtualized environment)";
-            qInfo() << "[PowerManagerCpp] Set to 100% (mains power, no battery hardware)";
-            if (m_batteryLevel != 100 || !m_isCharging) {
-                m_batteryLevel = 100;
-                m_isCharging = true;
-                emit batteryLevelChanged();
-                emit isChargingChanged();
-            }
-            call->deleteLater();
-            return;
+        for (const QDBusObjectPath& devicePath : devices) {
+            deviceAdded(devicePath);
         }
         
-        // Find the first battery device
-        for (const QDBusObjectPath& devicePath : devices) {
-            QDBusInterface device(
-                "org.freedesktop.UPower",
-                devicePath.path(),
-                "org.freedesktop.UPower.Device",
-                QDBusConnection::systemBus()
-            );
-            
-            if (!device.isValid()) continue;
-            
-            // Check if it's a battery (Type == 2)
-            uint type = device.property("Type").toUInt();
-            if (type != 2) continue; // Not a battery
-            
-            // Get battery percentage
-            double percentage = device.property("Percentage").toDouble();
-            int newLevel = qRound(percentage);
-            
-            // Get charging state
-            uint state = device.property("State").toUInt();
-            // 0=Unknown, 1=Charging, 2=Discharging, 3=Empty, 4=Fully charged, 5=Pending charge, 6=Pending discharge
-            bool charging = (state == 1 || state == 5);
-            
-            // Check if on AC power
-            bool onBattery = device.property("IsPresent").toBool();
-            if (!onBattery) {
-                newLevel = 100;
-                charging = true;
-            }
-            
-            // Update state if changed
-            bool changed = false;
-            if (m_batteryLevel != newLevel) {
-                m_batteryLevel = newLevel;
-                emit batteryLevelChanged();
-                changed = true;
-                
-                // Check for critical battery
-                if (m_batteryLevel <= 5 && !charging) {
-                    emit criticalBattery();
-                }
-            }
-            
-            if (m_isCharging != charging) {
-                m_isCharging = charging;
-                emit isChargingChanged();
-                changed = true;
-            }
-            
-            if (changed) {
-                qInfo() << "[PowerManagerCpp] Battery:" << m_batteryLevel << "% Charging:" << m_isCharging;
-            }
-            
-            break; // Use first battery found
+        // Handle VM/no-battery scenario if empty
+        if (devices.isEmpty()) {
+            updateAggregateState();
         }
         
         call->deleteLater();
     });
 }
 
+void PowerManagerCpp::updateAggregateState()
+{
+    if (m_devices.isEmpty()) {
+        // VM/No Battery Fallback
+        if (m_batteryLevel != 100 || !m_isCharging || !m_isPluggedIn) {
+            m_batteryLevel = 100;
+            m_isCharging = false; // "Fully Charged" usually means not charging, but for VM we can say plugged in.
+            m_isPluggedIn = true;
+            emit batteryLevelChanged();
+            emit isChargingChanged();
+            emit isPluggedInChanged();
+        }
+        return;
+    }
+
+    bool foundLinePower = false;
+    bool isLinePowerOnline = false;
+    bool foundBattery = false;
+    
+    // Initialize with current values to prevent zeroing out if no relevant device found
+    int newLevel = m_batteryLevel;
+    bool newCharging = m_isCharging;
+    
+    // Iterate cache
+    for (const PowerDevice& pd : m_devices) {
+        qDebug() << "[PowerManagerCpp] Cache Item:" << pd.path << "Type:" << pd.type << "State:" << pd.state << "%:" << pd.percentage;
+        
+        if (pd.type == 1) { // Line Power
+            foundLinePower = true;
+            if (pd.online) isLinePowerOnline = true;
+        }
+        else if (pd.type == 2) { // Battery
+            foundBattery = true;
+            newLevel = pd.percentage;
+            // 1=Charging, 5=Pending Charge
+            if (pd.state == 1 || pd.state == 5) {
+                newCharging = true;
+            }
+        }
+    }
+    
+    // Determine Plugged In State
+    bool newPluggedIn = isLinePowerOnline;
+    if (!foundLinePower && foundBattery) {
+        // Fallback: if battery is charging or full, we are likely plugged in
+        // State 4 = Fully Charged
+        for (const PowerDevice& pd : m_devices) {
+            if (pd.type == 2) {
+                if (pd.state == 1 || pd.state == 4 || pd.state == 5) {
+                    newPluggedIn = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Safety check: If we have Line Power but NO Battery, don't report 0%
+    if (foundLinePower && !foundBattery) {
+        qInfo() << "[PowerManagerCpp] Line Power found but NO Battery. Assuming Desktop/VM or full battery.";
+        newLevel = 100; // Default to 100% if running on AC without battery
+        newCharging = false; // Not charging (full/none)
+        newPluggedIn = true;
+    }
+
+    // Update Properties
+    if (m_batteryLevel != newLevel) {
+        qInfo() << "[PowerManagerCpp] Battery Level Changed:" << m_batteryLevel << "->" << newLevel;
+        m_batteryLevel = newLevel;
+        emit batteryLevelChanged();
+    }
+    
+    if (m_isCharging != newCharging) {
+        m_isCharging = newCharging;
+        emit isChargingChanged();
+    }
+    
+    if (m_isPluggedIn != newPluggedIn) {
+        m_isPluggedIn = newPluggedIn;
+        emit isPluggedInChanged();
+    }
+    
+    qDebug() << "[PowerManagerCpp] State Updated - Level:" << m_batteryLevel << "% Charging:" << m_isCharging << "PluggedIn:" << m_isPluggedIn;
+}
+
 void PowerManagerCpp::onPrepareForSleep(bool beforeSleep)
 {
     if (beforeSleep) {
-        qInfo() << "[PowerManagerCpp] System about to sleep";
+        qInfo() << "[PowerManagerCpp] System preparing for sleep";
         m_systemSuspended = true;
         emit systemSuspendedChanged();
         emit aboutToSleep();
@@ -362,7 +485,7 @@ void PowerManagerCpp::setPowerSaveMode(bool enabled)
 void PowerManagerCpp::refreshBatteryInfo()
 {
     qDebug() << "[PowerManagerCpp] Refreshing battery info";
-    queryBatteryState();
+    scanForDevices();
 }
 
 void PowerManagerCpp::setPowerProfile(const QString& profile)

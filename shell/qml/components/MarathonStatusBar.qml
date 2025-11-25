@@ -25,24 +25,17 @@ Item {
         z: 1
         
         Icon {
-            name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
-            color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
+            name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
+            color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
         }
         
-        // Charging indicator (bolt icon overlay)
-        Icon {
-            name: "zap"
-            color: MColors.success
-            size: Constants.iconSizeSmall
-            anchors.verticalCenter: parent.verticalCenter
-            visible: SystemStatusStore.isCharging
-        }
+
         
         Text {
             text: SystemStatusStore.batteryLevel + "%"
-            color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isCharging)
+            color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             font.pixelSize: Constants.fontSizeSmall
             font.family: MTypography.fontFamily
             anchors.verticalCenter: parent.verticalCenter

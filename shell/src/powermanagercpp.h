@@ -7,12 +7,21 @@
 #include <QDBusUnixFileDescriptor>
 #include <QTimer>
 #include <QMap>
+#include <QSet>
 
-class PowerManagerCpp : public QObject
+#include <QDBusContext>
+
+class PowerManagerCpp : public QObject, protected QDBusContext
 {
     Q_OBJECT
+    // ... properties ...
+
+// ...
+
+
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY isChargingChanged)
+    Q_PROPERTY(bool isPluggedIn READ isPluggedIn NOTIFY isPluggedInChanged)
     Q_PROPERTY(bool isPowerSaveMode READ isPowerSaveMode NOTIFY isPowerSaveModeChanged)
     Q_PROPERTY(int estimatedBatteryTime READ estimatedBatteryTime NOTIFY estimatedBatteryTimeChanged)
     Q_PROPERTY(QString powerProfile READ powerProfile NOTIFY powerProfileChanged)
@@ -36,6 +45,7 @@ public:
 
     int batteryLevel() const { return m_batteryLevel; }
     bool isCharging() const { return m_isCharging; }
+    bool isPluggedIn() const { return m_isPluggedIn; }
     bool isPowerSaveMode() const { return m_isPowerSaveMode; }
     int estimatedBatteryTime() const { return m_estimatedBatteryTime; }
     QString powerProfile() const { return m_powerProfileString; }
@@ -70,6 +80,7 @@ public:
 signals:
     void batteryLevelChanged();
     void isChargingChanged();
+    void isPluggedInChanged();
     void isPowerSaveModeChanged();
     void estimatedBatteryTimeChanged();
     void powerProfileChanged();
@@ -85,9 +96,17 @@ signals:
     void idleStateChanged(bool idle);  // Emitted when idle state changes
 
 private slots:
-    void queryBatteryState();
+    void updateAggregateState();
+    void scanForDevices();
     void onPrepareForSleep(bool beforeSleep);
     void checkIdleState();
+    
+    // UPower signals
+    void deviceAdded(const QDBusObjectPath &path);
+    void deviceRemoved(const QDBusObjectPath &path);
+    void devicePropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps);
+    
+
 
 private:
     void setupDBusConnections();
@@ -107,6 +126,7 @@ private:
     
     int m_batteryLevel;
     bool m_isCharging;
+    bool m_isPluggedIn;
     bool m_isPowerSaveMode;
     int m_estimatedBatteryTime;
     bool m_hasUPower;
@@ -127,9 +147,21 @@ private:
     bool m_wakelockSupported;
     QString m_fallbackMode;  // "wakelock", "inhibitor", or "none"
     
+    struct PowerDevice {
+        QString path;
+        uint type;      // 1=Line Power, 2=Battery
+        bool online;    // For Line Power
+        bool isPresent; // For Battery
+        int percentage;
+        uint state;     // Charging/Discharging/etc
+    };
+
+    QMap<QString, PowerDevice> m_devices; // Cache of known devices
+    
     // RTC alarm support
     bool m_rtcAlarmSupported;
 };
 
 #endif // POWERMANAGERCPP_H
+
 

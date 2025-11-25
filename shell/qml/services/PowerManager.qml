@@ -8,7 +8,7 @@ import MarathonOS.Shell
  * 
  * PowerManager provides access to battery status, power state, and system
  * power actions (suspend, hibernate, shutdown, restart). Integrates with
- * C++ backend (PowerManagerCpp) for actual hardware control.
+ * C++ backend (PowerManagerService) for actual hardware control.
  * 
  * @example
  * // Monitor battery level
@@ -32,20 +32,33 @@ Item {
      * @type {int}
      * @readonly
      */
-    property int batteryLevel: PowerManagerCpp ? PowerManagerCpp.batteryLevel : 75
+    property int batteryLevel: PowerManagerService ? PowerManagerService.batteryLevel : 75
     
     /**
      * @brief Whether device is currently charging
      * @type {bool}
      * @readonly
      */
-    property bool isCharging: PowerManagerCpp ? PowerManagerCpp.isCharging : false
+    /**
+     * @brief Whether device is currently charging
+     * @type {bool}
+     * @readonly
+     */
+    property bool isCharging: PowerManagerService ? PowerManagerService.isCharging : false
+    
+    /**
+     * @brief Whether device is plugged into power source (charging or fully charged)
+     * @type {bool}
+     * @readonly
+     */
+    property bool isPluggedIn: PowerManagerService ? PowerManagerService.isPluggedIn : false
+    
     
     /**
      * @brief Whether power saving mode is active
      * @type {bool}
      */
-    property bool isPowerSaveMode: PowerManagerCpp ? PowerManagerCpp.isPowerSaveMode : false
+    property bool isPowerSaveMode: PowerManagerService ? PowerManagerService.isPowerSaveMode : false
     
     property string powerState: "normal"
     
@@ -54,7 +67,7 @@ Item {
      * @type {int}
      * @readonly
      */
-    property int estimatedBatteryTime: PowerManagerCpp ? PowerManagerCpp.estimatedBatteryTime : -1
+    property int estimatedBatteryTime: PowerManagerService ? PowerManagerService.estimatedBatteryTime : -1
     
     property string batteryHealth: "good"
     property real batteryVoltage: 0.0
@@ -121,9 +134,9 @@ Item {
     property bool hasActiveAlarm: false
     
     readonly property bool canSleep: wakeLockCount === 0 && !hasActiveCalls && !hasActiveAlarm
-    readonly property bool systemSuspended: PowerManagerCpp ? PowerManagerCpp.systemSuspended : false
-    readonly property bool wakelockSupported: PowerManagerCpp ? PowerManagerCpp.wakelockSupported : false
-    readonly property bool rtcAlarmSupported: PowerManagerCpp ? PowerManagerCpp.rtcAlarmSupported : false
+    readonly property bool systemSuspended: PowerManagerService ? PowerManagerService.systemSuspended : false
+    readonly property bool wakelockSupported: PowerManagerService ? PowerManagerService.wakelockSupported : false
+    readonly property bool rtcAlarmSupported: PowerManagerService ? PowerManagerService.rtcAlarmSupported : false
     
     signal systemWaking(string reason)
     signal systemSleeping()
@@ -143,8 +156,8 @@ Item {
      */
     function suspend() {
         console.log("[PowerManager] Suspending system...")
-        if (typeof PowerManagerCpp !== 'undefined') {
-            PowerManagerCpp.suspend()
+        if (typeof PowerManagerService !== 'undefined') {
+            PowerManagerService.suspend()
         }
     }
     
@@ -156,8 +169,8 @@ Item {
      */
     function hibernate() {
         console.log("[PowerManager] Hibernating system...")
-        if (typeof PowerManagerCpp !== 'undefined') {
-            PowerManagerCpp.hibernate()
+        if (typeof PowerManagerService !== 'undefined') {
+            PowerManagerService.hibernate()
         }
     }
     
@@ -168,8 +181,8 @@ Item {
      */
     function shutdown() {
         console.log("[PowerManager] Shutting down...")
-        if (typeof PowerManagerCpp !== 'undefined') {
-            PowerManagerCpp.shutdown()
+        if (typeof PowerManagerService !== 'undefined') {
+            PowerManagerService.shutdown()
         }
     }
     
@@ -180,8 +193,8 @@ Item {
      */
     function restart() {
         console.log("[PowerManager] Restarting...")
-        if (typeof PowerManagerCpp !== 'undefined') {
-            PowerManagerCpp.restart()
+        if (typeof PowerManagerService !== 'undefined') {
+            PowerManagerService.restart()
         }
     }
     
@@ -195,8 +208,8 @@ Item {
      */
     function setPowerSaveMode(enabled) {
         console.log("[PowerManager] Power save mode:", enabled)
-        if (typeof PowerManagerCpp !== 'undefined') {
-            PowerManagerCpp.setPowerSaveMode(enabled)
+        if (typeof PowerManagerService !== 'undefined') {
+            PowerManagerService.setPowerSaveMode(enabled)
         }
     }
     
@@ -205,8 +218,8 @@ Item {
     }
     
     function refreshBatteryInfo() {
-        if (typeof PowerManagerCpp !== 'undefined') {
-            PowerManagerCpp.refreshBatteryInfo()
+        if (typeof PowerManagerService !== 'undefined') {
+            PowerManagerService.refreshBatteryInfo()
         }
     }
     
@@ -215,8 +228,8 @@ Item {
     // ============================================================================
     
     function acquireWakelock(name) {
-        if (typeof PowerManagerCpp !== 'undefined') {
-            var success = PowerManagerCpp.acquireWakelock(name)
+        if (typeof PowerManagerService !== 'undefined') {
+            var success = PowerManagerService.acquireWakelock(name)
             if (success) {
                 var lock = {
                     id: name,
@@ -234,8 +247,8 @@ Item {
     }
     
     function releaseWakelock(name) {
-        if (typeof PowerManagerCpp !== 'undefined') {
-            var success = PowerManagerCpp.releaseWakelock(name)
+        if (typeof PowerManagerService !== 'undefined') {
+            var success = PowerManagerService.releaseWakelock(name)
             if (success) {
                 for (var i = 0; i < activeWakelocks.length; i++) {
                     if (activeWakelocks[i].id === name) {
@@ -253,8 +266,8 @@ Item {
     }
     
     function hasWakelock(name) {
-        if (typeof PowerManagerCpp !== 'undefined') {
-            return PowerManagerCpp.hasWakelock(name)
+        if (typeof PowerManagerService !== 'undefined') {
+            return PowerManagerService.hasWakelock(name)
         }
         return false
     }
@@ -303,15 +316,15 @@ Item {
     // ============================================================================
     
     function setRtcAlarm(epochTime) {
-        if (typeof PowerManagerCpp !== 'undefined') {
-            return PowerManagerCpp.setRtcAlarm(epochTime)
+        if (typeof PowerManagerService !== 'undefined') {
+            return PowerManagerService.setRtcAlarm(epochTime)
         }
         return false
     }
     
     function clearRtcAlarm() {
-        if (typeof PowerManagerCpp !== 'undefined') {
-            return PowerManagerCpp.clearRtcAlarm()
+        if (typeof PowerManagerService !== 'undefined') {
+            return PowerManagerService.clearRtcAlarm()
         }
         return false
     }
@@ -355,7 +368,7 @@ Item {
     // ============================================================================
     
     Connections {
-        target: typeof PowerManagerCpp !== 'undefined' ? PowerManagerCpp : null
+        target: typeof PowerManagerService !== 'undefined' ? PowerManagerService : null
         
         function onPrepareForSuspend() {
             Logger.info("PowerManager", "System preparing to suspend")
@@ -388,7 +401,7 @@ Item {
     
     Component.onCompleted: {
         console.log("[PowerManager] Initialized (merged with WakeManager)")
-        if (typeof PowerManagerCpp !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined') {
             console.log("[PowerManager] C++ backend available")
             console.log("[PowerManager] Wakelock support:", wakelockSupported)
             console.log("[PowerManager] RTC alarm support:", rtcAlarmSupported)

@@ -3,7 +3,9 @@
 #include <QCoreApplication>
 #include <csignal>
 #include <cstdlib>
+#ifdef __GLIBC__
 #include <execinfo.h>
+#endif
 #include <unistd.h>
 
 CrashHandler* CrashHandler::s_instance = nullptr;
@@ -43,6 +45,8 @@ void CrashHandler::install()
         }
         
         // Try to print backtrace
+        // Try to print backtrace
+#ifdef __GLIBC__
         void* array[50];
         size_t size = backtrace(array, 50);
         qCritical() << "[CrashHandler] Backtrace:";
@@ -51,6 +55,9 @@ void CrashHandler::install()
             qCritical() << "  " << messages[i];
         }
         free(messages);
+#else
+        qCritical() << "[CrashHandler] Backtrace not available (musl libc)";
+#endif
         
         // Don't call the default terminate handler (which would abort)
         // Instead, try to continue (may not always work)
@@ -114,6 +121,8 @@ void CrashHandler::signalHandler(int signum)
     qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
     
     // Print backtrace
+    // Print backtrace
+#ifdef __GLIBC__
     void* array[50];
     size_t size = backtrace(array, 50);
     qCritical() << "[CrashHandler] Backtrace:";
@@ -122,6 +131,9 @@ void CrashHandler::signalHandler(int signum)
         qCritical() << "  " << messages[i];
     }
     free(messages);
+#else
+    qCritical() << "[CrashHandler] Backtrace not available (musl libc)";
+#endif
     
     qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
     qCritical() << "[CrashHandler] CRITICAL ARCHITECTURAL ISSUE:";
