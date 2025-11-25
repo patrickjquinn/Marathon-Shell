@@ -1,0 +1,43 @@
+#!/bin/bash
+# Complete Marathon OS Build - Updates checksums and builds image
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_DIR"
+
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║          MARATHON OS - COMPLETE BUILD WORKFLOW              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Step 1: Update checksums
+echo "═══ STEP 1: Updating checksums ═══"
+echo "Copying latest package definition to pmaports..."
+
+# Copy to pmaports (same logic as sync-and-build-marathon.sh)
+PMAPORTS_DIR=~/.local/var/pmbootstrap/cache_git/pmaports
+mkdir -p "$PMAPORTS_DIR/device/marathon/"
+rm -rf "$PMAPORTS_DIR/device/marathon/marathon-shell"
+cp -r packages/marathon-shell "$PMAPORTS_DIR/device/marathon/"
+
+echo "This will ask for your sudo password..."
+echo ""
+pmbootstrap checksum marathon-shell
+
+echo ""
+echo "✅ Checksums updated"
+echo "Syncing updated APKBUILD back to local packages..."
+cp "$PMAPORTS_DIR/device/marathon/marathon-shell/APKBUILD" "packages/marathon-shell/APKBUILD"
+echo ""
+
+# Step 2: Run the build
+echo "═══ STEP 2: Building Marathon OS ═══"
+echo ""
+./scripts/sync-and-build-marathon.sh
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                  ✅ BUILD COMPLETE ✅                         ║"
+echo "╚══════════════════════════════════════════════════════════════╝"

@@ -64,20 +64,33 @@ makedepends="
 	eudev-dev
 	libinput-dev
 	git
+	linux-pam-dev
 	"
 install=""
 subpackages="$pkgname-doc"
-source="$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz"
+source="
+	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz
+	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
+	"
 builddir="$srcdir/Marathon-Shell-main"
 options="!check"
 
 prepare() {
 	default_prepare
 	
+	# Extract asyncfuture submodule
+	mkdir -p "$builddir/third-party/asyncfuture"
+	cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
+	
 	# Disable QML cache generation to save memory during build
 	# Add NO_CACHEGEN to all qt6_add_qml_module calls
 	sed -i '/qt6_add_qml_module/,/^)/ { /^)/i\    NO_CACHEGEN
 	}' "$builddir/shell/CMakeLists.txt"
+	
+	# EMERGENCY FIX: Strip heavy assets (sounds/wallpapers) from resources.qrc to prevent OOM
+	# This removes the lines referencing these files from the qrc file
+	sed -i '/sounds\//d' "$builddir/shell/resources.qrc"
+	sed -i '/wallpapers\//d' "$builddir/shell/resources.qrc"
 	
 	# Fix timestamps from GitHub archive
 	find "$builddir" -exec touch {} +
@@ -94,21 +107,19 @@ build() {
 	export QT_DISABLE_QML_CACHE=1
 	
 	# Build main shell with SINGLE CORE and MinSizeRel to reduce memory
-	cmake -B build \
+	cmake -B build -G Ninja \
 		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
 		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
-		-DQt6_DIR=/usr/lib/cmake/Qt6 \
-		-DQT_QMAKE_EXECUTABLE=/usr/bin/qmake6
+		-DQt6_DIR=/usr/lib/cmake/Qt6
 	
-	# Build with single job to minimize memory
 	cmake --build build -j1
 	
 	# Build apps with single core
-	cmake -B build-apps -S apps \
+	cmake -B build-apps -S apps -G Ninja \
 		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DMARATHON_APPS_DIR=/usr/share/marathon-apps \
@@ -138,5 +149,6 @@ package() {
 }
 
 sha512sums="
-19dae7e07f361678e0fb7bcccf7433e4e97e6ac5bc38f083d128536193c58992b199b3b7ff67527a63d1dc798be7f136a85a3bd2e50409c050606ee6737e3100  marathon-shell-1.0.0.tar.gz
+97f156c14175a9a2aa369f1f7a7db03c66b412baabb355f99e1c69cee6834d0208795ea9350c1cc490f4c44abfd5ef3f7d00217fda59adc90c02eeb0f04dc750  marathon-shell-1.0.0.tar.gz
+9a63d75247d4b3fbe6a17c5eb7e9d69a7e00b9aff21158c81268c70af0e841645bb301c39eac05d34c8d9ebf067ad028ae231962737240ae8dc09ec37e031518  asyncfuture.tar.gz
 "

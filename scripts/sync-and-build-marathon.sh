@@ -74,7 +74,7 @@ echo "═══ STEP 4: Installing Marathon Shell ═══"
 echo ""
 
 echo "Installing marathon-shell in rootfs..."
-pmbootstrap chroot --suffix rootfs -- apk add --force-reinstall marathon-shell
+pmbootstrap chroot --rootfs -- apk add --force-overwrite marathon-shell
 
 echo "✅ Marathon Shell installed"
 echo ""
@@ -84,11 +84,11 @@ echo "═══ STEP 5: Verifying Installation ═══"
 echo ""
 
 echo "Checking Marathon Shell binary..."
-pmbootstrap chroot --suffix rootfs -- ls -lh /usr/bin/marathon-shell-bin | awk '{print "   " $0}'
+pmbootstrap chroot --rootfs -- ls -lh /usr/bin/marathon-shell-bin | awk '{print "   " $0}'
 
 echo ""
 echo "Checking QML modules..."
-pmbootstrap chroot --suffix rootfs -- ls /usr/lib/qt6/qml/MarathonUI/ 2>/dev/null | head -8
+pmbootstrap chroot --rootfs -- ls /usr/lib/qt6/qml/MarathonUI/ 2>/dev/null | head -8
 
 echo ""
 echo "✅ Installation verified"
@@ -98,9 +98,10 @@ echo ""
 echo "═══ STEP 6: Exporting Images ═══"
 echo ""
 
-pmbootstrap export
+EXPORT_DIR="/tmp/marathon-export-${TIMESTAMP}"
+pmbootstrap export "$EXPORT_DIR"
 
-echo "✅ Images exported"
+echo "✅ Images exported to $EXPORT_DIR"
 echo ""
 
 # Step 7: Copy to out directory
@@ -109,8 +110,8 @@ echo ""
 
 mkdir -p out/enchilada
 
-BOOT_SRC=~/.local/var/pmbootstrap/chroot_rootfs_${DEVICE}/boot/boot.img
-ROOT_SRC=~/.local/var/pmbootstrap/chroot_native/home/pmos/rootfs/${DEVICE}.img
+BOOT_SRC="$EXPORT_DIR/boot.img"
+ROOT_SRC="$EXPORT_DIR/${DEVICE}.img"
 
 cp "$BOOT_SRC" "out/enchilada/boot-MARATHON-SYNCED-${TIMESTAMP}.img"
 cp "$ROOT_SRC" "out/enchilada/oneplus-enchilada-MARATHON-SYNCED-${TIMESTAMP}.img"
