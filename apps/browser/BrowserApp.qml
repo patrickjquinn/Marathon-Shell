@@ -4,6 +4,7 @@ import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonUI.Core
+import QtQuick.Layouts
 import "components"
 
 MApp {
@@ -40,79 +41,12 @@ MApp {
     property var webView: null
     property bool updatingTabUrl: false
     
-    onCurrentTabIndexChanged: {
-        Logger.warn("Browser", "Tab switched to index: " + currentTabIndex)
-        updateNavigationDepth()
-        if (webView && currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-            Logger.warn("Browser", "Loading tab URL: " + tabs[currentTabIndex].url)
-            updatingTabUrl = true
-            webView.url = tabs[currentTabIndex].url
-            Qt.callLater(function() {
-                updatingTabUrl = false
-            })
-        }
-    }
-    
-    function updateNavigationDepth() {
-        var currentTab = getCurrentTab()
-        
-        // Set navigation depth based on back capability
-        if (currentTab && currentTab.canGoBack) {
-            navigationDepth = 1
-        } else {
-            navigationDepth = 0
-        }
-        
-        // Set forward capability independently
-        canNavigateForward = currentTab ? (currentTab.canGoForward || false) : false
-    }
-    
-    Component.onCompleted: {
-        backConnection = browserApp.backPressed.connect(function() {
-            if (webView && webView.canGoBack) {
-                webView.goBack()
-            }
-        })
-        
-        forwardConnection = browserApp.forwardPressed.connect(function() {
-            if (webView && webView.canGoForward) {
-                webView.goForward()
-            }
-        })
-        
-        loadBookmarks()
-        loadHistory()
-        loadTabs()
-        
-        if (tabs.length === 0) {
-            Logger.warn("Browser", "No tabs found, creating default tab")
-            createNewTab("https://duckduckgo.com")
-        }
-        
-        Logger.warn("Browser", "After setup - Tab count: " + tabs.length)
-        if (tabs.length > 0) {
-            Logger.warn("Browser", "Tab 0 URL: " + tabs[0].url)
-        }
-    }
-    
     onAppLaunched: {
         Logger.warn("Browser", " onAppLaunched")
-        // Focus URL bar on launch for better keyboard integration
-        Qt.callLater(function() {
-            if (urlInput) {
-                urlInput.focus = true
-            }
-        })
     }
     
     onAppResumed: {
         Logger.warn("Browser", "Browser app resumed")
-        // Re-focus URL bar when app resumes (helps keyboard context)
-        Qt.callLater(function() {
-            if (urlInput) {
-                urlInput.focus = true
-            }
-        })
     }
 
     function loadBookmarks() {
@@ -249,7 +183,7 @@ MApp {
     function loadTabs() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
             var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]")
-            var defaultUrl = SettingsManagerCpp.get("browser/homepage", "https://www.google.com")
+            var defaultUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com")
             
             try {
                 var loadedTabs = JSON.parse(savedTabs)
@@ -257,7 +191,7 @@ MApp {
                     var normalizedTabs = loadedTabs.map(function(tab) {
                         return {
                             id: tab.id,
-                            url: tab.url || defaultUrl,
+                            url: (tab.url && tab.url !== "about:blank") ? tab.url : defaultUrl,
                             title: tab.title || "New Tab",
                             isLoading: false,
                             canGoBack: false,
@@ -294,7 +228,7 @@ MApp {
             return -1
         }
         
-        var defaultUrl = drawerRef && drawerRef.settingsPage ? drawerRef.settingsPage.homepage : "https://www.google.com"
+        var defaultUrl = drawerRef && drawerRef.settingsPage ? drawerRef.settingsPage.homepage : "https://duckduckgo.com"
         
         var newTab = {
             id: nextTabId++,
@@ -707,16 +641,17 @@ MApp {
                     }
                 }
                 
-                Row {
+                RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: MSpacing.sm
                     anchors.rightMargin: MSpacing.sm
                     spacing: MSpacing.xs
                     
+                    // Back Button
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Constants.touchTargetSmall
-                        height: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetSmall
+                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
                         
                         Icon {
@@ -748,45 +683,13 @@ MApp {
                         }
                     }
                     
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Constants.touchTargetSmall
-                        height: Constants.touchTargetSmall
-                        color: "transparent"
-                        
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "chevron-right"
-                            size: Constants.iconSizeSmall
-                            color: {
-                                var currentTab = getCurrentTab()
-                                return (currentTab && currentTab.canGoForward) ? MColors.text : MColors.textTertiary
-                            }
-                        }
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: {
-                                if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                                    var tab = tabs[currentTabIndex]
-                                    return tab && tab.canGoForward === true
-                                }
-                                return false
-                            }
-                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                            onClicked: {
-                                HapticService.light()
-                                if (webView && webView.canGoForward) {
-                                    webView.goForward()
-                                }
-                            }
-                        }
-                    }
+                    // Forward button removed to save space
                     
+                    // Address Bar
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width - Constants.touchTargetSmall * 5 - parent.spacing * 6
-                        height: parent.height - MSpacing.sm * 2
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: parent.height - MSpacing.sm * 2
+                        Layout.alignment: Qt.AlignVCenter
                         radius: Constants.borderRadiusSmall
                         color: MColors.elevated
                         border.width: Constants.borderWidthThin
@@ -795,9 +698,12 @@ MApp {
                         
                         TextInput {
                             id: urlInput
-                            anchors.fill: parent
+                            anchors.left: parent.left
+                            anchors.right: actionRow.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
                             anchors.leftMargin: MSpacing.md
-                            anchors.rightMargin: clearButton.visible ? clearButton.width + MSpacing.md : MSpacing.md
+                            anchors.rightMargin: MSpacing.xs
                             verticalAlignment: TextInput.AlignVCenter
                             color: MColors.text
                             font.pixelSize: MTypography.sizeBody
@@ -806,13 +712,26 @@ MApp {
                             selectedTextColor: MColors.background
                             selectionColor: MColors.accent
                             clip: true
-                            // ISSUE C & D FIX: Enable URL-specific predictions (domain suggestions)
-                            // Qt.ImhUrlCharactersOnly tells keyboard this is a URL field
-                            // Removing Qt.ImhNoPredictiveText allows our smart domain suggestions to work
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                             text: {
                                 var currentTab = getCurrentTab()
                                 return currentTab ? currentTab.url : ""
+                            }
+                            
+                            Connections {
+                                target: browserApp
+                                function onAppLaunched() {
+                                    Qt.callLater(function() {
+                                        urlInput.focus = true
+                                        urlInput.selectAll()
+                                    })
+                                }
+                                function onAppResumed() {
+                                    Qt.callLater(function() {
+                                        urlInput.focus = true
+                                        urlInput.selectAll()
+                                    })
+                                }
                             }
                             
                             onActiveFocusChanged: {
@@ -838,111 +757,122 @@ MApp {
                             }
                         }
                         
-                        Rectangle {
-                            id: clearButton
+                        // Actions inside Address Bar
+                        Row {
+                            id: actionRow
                             anchors.right: parent.right
-                            anchors.rightMargin: MSpacing.sm
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Constants.touchTargetSmall * 0.7
-                            height: Constants.touchTargetSmall * 0.7
-                            radius: width / 2
-                            color: clearMouseArea.pressed ? Qt.rgba(0.5, 0.5, 0.5, 0.3) : Qt.rgba(0.5, 0.5, 0.5, 0.15)
-                            visible: urlInput.text && urlInput.text.length > 0
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            anchors.rightMargin: MSpacing.xs
+                            spacing: 0
                             
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "x"
-                                size: Constants.iconSizeSmall * 0.7
-                                color: MColors.textSecondary
-                            }
-                            
-                            MouseArea {
-                                id: clearMouseArea
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticService.light()
-                                    urlInput.text = ""
-                                    urlInput.focus = true
-                                }
-                            }
-                        }
-                    }
-                    
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Constants.touchTargetSmall
-                        height: Constants.touchTargetSmall
-                        color: "transparent"
-                        
-                        Icon {
-                            anchors.centerIn: parent
-                            name: {
-                                var currentTab = getCurrentTab()
-                                return (currentTab && currentTab.isLoading) ? "x" : "refresh-cw"
-                            }
-                            size: Constants.iconSizeSmall
-                            color: MColors.text
-                        }
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                HapticService.light()
-                                Logger.warn("Browser", "Reload/Stop button clicked")
-                                if (webView) {
-                                    var currentTab = getCurrentTab()
-                                    if (currentTab && currentTab.isLoading) {
-                                        Logger.warn("Browser", "Stopping page load")
-                                        webView.stop()
-                                    } else {
-                                        Logger.warn("Browser", "Reloading page")
-                                        webView.reload()
+                            // Clear Button
+                            Rectangle {
+                                width: Constants.touchTargetSmall * 0.8
+                                height: parent.height
+                                color: "transparent"
+                                visible: urlInput.text && urlInput.text.length > 0 && urlInput.activeFocus
+                                
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: Constants.touchTargetSmall * 0.6
+                                    height: Constants.touchTargetSmall * 0.6
+                                    radius: width / 2
+                                    color: clearMouseArea.pressed ? Qt.rgba(0.5, 0.5, 0.5, 0.3) : Qt.rgba(0.5, 0.5, 0.5, 0.15)
+                                    
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "x"
+                                        size: Constants.iconSizeSmall * 0.6
+                                        color: MColors.textSecondary
                                     }
-                                } else {
-                                    Logger.warn("Browser", "webView is null")
                                 }
-                            }
-                        }
-                    }
-                    
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Constants.touchTargetSmall
-                        height: Constants.touchTargetSmall
-                        color: "transparent"
-                        
-                        Icon {
-                            anchors.centerIn: parent
-                            name: "star"
-                            size: Constants.iconSizeSmall
-                            color: {
-                                var currentTab = getCurrentTab()
-                                return (currentTab && isBookmarked(currentTab.url)) ? MColors.accent : MColors.textSecondary
-                            }
-                        }
-                        
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                HapticService.light()
-                                var currentTab = getCurrentTab()
-                                if (currentTab) {
-                                    if (isBookmarked(currentTab.url)) {
-                                        removeBookmark(currentTab.url)
-                                    } else {
-                                        addBookmark(currentTab.url, currentTab.title)
+                                
+                                MouseArea {
+                                    id: clearMouseArea
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticService.light()
+                                        urlInput.text = ""
+                                        urlInput.focus = true
                                     }
                                 }
                             }
+                            
+                            // Star Button
+                            Rectangle {
+                                width: Constants.touchTargetSmall * 0.8
+                                height: parent.height
+                                color: "transparent"
+                                visible: !urlInput.activeFocus
+                                
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "star"
+                                    size: Constants.iconSizeSmall * 0.8
+                                    color: {
+                                        var currentTab = getCurrentTab()
+                                        return (currentTab && isBookmarked(currentTab.url)) ? MColors.accent : MColors.textSecondary
+                                    }
+                                }
+                                
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        HapticService.light()
+                                        var currentTab = getCurrentTab()
+                                        if (currentTab) {
+                                            if (isBookmarked(currentTab.url)) {
+                                                removeBookmark(currentTab.url)
+                                            } else {
+                                                addBookmark(currentTab.url, currentTab.title)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Refresh/Stop Button
+                            Rectangle {
+                                width: Constants.touchTargetSmall * 0.8
+                                height: parent.height
+                                color: "transparent"
+                                
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: {
+                                        var currentTab = getCurrentTab()
+                                        return (currentTab && currentTab.isLoading) ? "x" : "refresh-cw"
+                                    }
+                                    size: Constants.iconSizeSmall * 0.8
+                                    color: MColors.text
+                                }
+                                
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        HapticService.light()
+                                        if (webView) {
+                                            var currentTab = getCurrentTab()
+                                            if (currentTab && currentTab.isLoading) {
+                                                webView.stop()
+                                            } else {
+                                                webView.reload()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     
+                    // Tabs Button
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Constants.touchTargetSmall * 1.6
-                        height: Constants.touchTargetSmall
+                        Layout.preferredWidth: Constants.touchTargetSmall * 1.6
+                        Layout.preferredHeight: Constants.touchTargetSmall
+                        Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
                         
                         Row {
