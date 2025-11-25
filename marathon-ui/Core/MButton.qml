@@ -25,8 +25,8 @@ Item {
     readonly property real borderGlowOffset: Math.max(1, Math.round(3 * scaleFactor))
     readonly property real iconSize: Math.round(18 * scaleFactor)
     
-    implicitWidth: buttonRect.implicitWidth + (variant === "primary" ? borderGlowOffset * 2 : 0)
-    implicitHeight: buttonRect.implicitHeight + (variant === "primary" ? borderGlowOffset * 2 : 0)
+    implicitWidth: buttonRect.implicitWidth + borderGlowOffset * 2
+    implicitHeight: buttonRect.implicitHeight + borderGlowOffset * 2
     
     Accessible.role: Accessible.Button
     Accessible.name: text
@@ -54,6 +54,11 @@ Item {
         
         implicitWidth: contentRow.width + MSpacing.xl * 2
         implicitHeight: MSpacing.touchTargetMin
+        
+        // Always subtract glow offset to ensure containment and stability
+        // This prevents jumping when switching variants and clipping in tight layouts
+        width: (root.width > 0 ? root.width : root.implicitWidth) - borderGlowOffset * 2
+        height: (root.height > 0 ? root.height : root.implicitHeight) - borderGlowOffset * 2
         
         radius: root.shape === "circular" ? width / 2 : MRadius.md
         color: {

@@ -96,8 +96,12 @@ sudo apt install cmake ninja-build g++ \
 - UPower - Battery and power profile management  
 - BlueZ - Bluetooth device management
 - ModemManager - Cellular modem and telephony support
-- qt6-qtwebengine-devel - Real web browser (otherwise uses mockup UI)
 - qt6-qtvirtualkeyboard-devel - On-screen keyboard support
+
+### Browser Requirement
+- **qt6-qtwebengine-devel** (Fedora) / **qml-module-qtwebengine** (Ubuntu/Debian)
+  - Required for the **Browser** app to function.
+  - If missing, the Browser app will fail to launch with `module "QtWebEngine" is not installed`.
 
 ## Building
 

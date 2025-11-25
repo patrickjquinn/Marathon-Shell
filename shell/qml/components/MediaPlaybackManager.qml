@@ -10,7 +10,7 @@ Rectangle {
     id: mediaManager
     
     width: parent.width
-    height: hasMedia ? 140 : 80  // Increased from 120 to 140 for more space
+    height: contentColumn.implicitHeight + (Constants.spacingMedium * 2)
     visible: true  // Always visible
     radius: Constants.borderRadiusSmall
     // Dark teal gradient background
@@ -59,7 +59,10 @@ Rectangle {
     }
     
     Column {
-        anchors.fill: parent
+        id: contentColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
         anchors.margins: Constants.spacingMedium
         spacing: Constants.spacingSmall
         
@@ -130,107 +133,52 @@ Rectangle {
             readonly property real buttonWidth: Constants.touchTargetMinimum
             
             // Previous button
-            Rectangle {
-                width: parent.buttonWidth
-                height: parent.buttonWidth
-                radius: Constants.borderRadiusSmall
-                color: prevMouseArea.pressed ? MColors.elevated : MColors.surface
+            MCircularIconButton {
+                buttonSize: Constants.touchTargetMinimum
+                iconName: "skip-back"
+                variant: "secondary"
+                enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious
                 
-                Behavior on color {
-                    ColorAnimation { duration: Constants.animationFast }
-                }
-                
-                Icon {
-                    name: "skip-back"
-                    size: Constants.iconSizeSmall
-                    color: MColors.text
-                    anchors.centerIn: parent
-                }
-                
-                MouseArea {
-                    id: prevMouseArea
-                    anchors.fill: parent
-                    enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious
-                    onClicked: {
-                        HapticService.light()
-                        if (MPRIS2Controller) {
-                            MPRIS2Controller.previous()
-                            Logger.info("MediaPlayback", "Previous track")
-                        }
+                onClicked: {
+                    if (MPRIS2Controller) {
+                        MPRIS2Controller.previous()
+                        Logger.info("MediaPlayback", "Previous track")
                     }
                 }
             }
             
             // Play/Pause button
-            Rectangle {
-                width: parent.buttonWidth
-                height: parent.buttonWidth
-                radius: Constants.borderRadiusSmall
-                color: playMouseArea.pressed ? MColors.accentBright : MColors.accent
+            MCircularIconButton {
+                buttonSize: Constants.touchTargetMinimum
+                iconName: mediaManager.isPlaying ? "pause" : "play"
+                variant: "primary"
+                enabled: mediaManager.hasMedia && MPRIS2Controller && (MPRIS2Controller.canPlay || MPRIS2Controller.canPause)
                 
-                Behavior on color {
-                    ColorAnimation { duration: Constants.animationFast }
-                }
-                
-                Icon {
-                    name: mediaManager.isPlaying ? "pause" : "play"
-                    size: Constants.iconSizeSmall
-                    color: MColors.bb10Black  // Black icon on teal accent for better contrast
-                    anchors.centerIn: parent
-                }
-                
-                MouseArea {
-                    id: playMouseArea
-                    anchors.fill: parent
-                    enabled: mediaManager.hasMedia && MPRIS2Controller && (MPRIS2Controller.canPlay || MPRIS2Controller.canPause)
-                    onClicked: {
-                        HapticService.medium()
-                        if (MPRIS2Controller) {
-                            MPRIS2Controller.playPause()
-                            Logger.info("MediaPlayback", "Play/Pause")
-                        }
+                onClicked: {
+                    if (MPRIS2Controller) {
+                        MPRIS2Controller.playPause()
+                        Logger.info("MediaPlayback", "Play/Pause")
                     }
                 }
             }
             
             // Next button
-            Rectangle {
-                width: parent.buttonWidth
-                height: parent.buttonWidth
-                radius: Constants.borderRadiusSmall
-                color: nextMouseArea.pressed ? MColors.elevated : MColors.surface
+            MCircularIconButton {
+                buttonSize: Constants.touchTargetMinimum
+                iconName: "skip-forward"
+                variant: "secondary"
+                enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext
                 
-                Behavior on color {
-                    ColorAnimation { duration: Constants.animationFast }
-                }
-                
-                Icon {
-                    name: "skip-forward"
-                    size: Constants.iconSizeSmall
-                    color: MColors.text
-                    anchors.centerIn: parent
-                }
-                
-                MouseArea {
-                    id: nextMouseArea
-                    anchors.fill: parent
-                    enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext
-                    onClicked: {
-                        HapticService.light()
-                        if (MPRIS2Controller) {
-                            MPRIS2Controller.next()
-                            Logger.info("MediaPlayback", "Next track")
-                        }
+                onClicked: {
+                    if (MPRIS2Controller) {
+                        MPRIS2Controller.next()
+                        Logger.info("MediaPlayback", "Next track")
                     }
                 }
             }
         }
         
-        // Bottom padding
-        Item {
-            width: parent.width
-            height: Constants.spacingLarge  // Increased from spacingMedium
-        }
+
     }
     
     // Format time helper

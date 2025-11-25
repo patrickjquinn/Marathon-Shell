@@ -179,7 +179,8 @@ SettingsPageTemplate {
                     topPadding: MSpacing.md
                     
                     MButton {
-                        width: parent.width
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        // width: parent.width - removed to allow implicit sizing
                         text: BluetoothManagerCpp.scanning ? "Stop Scanning" : "Scan for Devices"
                         variant: BluetoothManagerCpp.scanning ? "primary" : "default"
                         onClicked: {

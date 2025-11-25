@@ -50,6 +50,37 @@ If this file exists, MarathonUI is installed correctly.
 
 ---
 
+### ❌ Error: `module "QtWebEngine" is not installed`
+
+**Symptom:**
+The **Browser** app fails to launch, and logs show:
+```
+[WARNING] [MarathonAppLoader] Component error: ".../BrowserApp.qml:2 module "QtWebEngine" is not installed"
+```
+
+**Root Cause:**
+The `QtWebEngine` QML module is missing from your system. This is required for the Browser app.
+
+**Fix:**
+Install the missing dependency:
+
+**Fedora:**
+```bash
+sudo dnf install qt6-qtwebengine-devel
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install qml-module-qtwebengine
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S qt6-webengine
+```
+
+---
+
 ### 🐛 Debugging QML Module Loading
 
 If you're still getting module not found errors, enable debug mode:

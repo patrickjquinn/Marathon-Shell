@@ -35,6 +35,7 @@ depends="
 	bluez
 	geoclue
 	xdg-desktop-portal
+	hunspell
 	"
 makedepends="
 	cmake
@@ -55,6 +56,7 @@ makedepends="
 	libinput-dev
 	git
 	linux-pam-dev
+	hunspell-dev
 	"
 install=""
 subpackages="$pkgname-doc"
@@ -130,5 +132,4 @@ package() {
 		"$pkgdir/usr/bin/marathon-shell-session"
 }
 
-sha512sums="
-"
+sha512sums=""
