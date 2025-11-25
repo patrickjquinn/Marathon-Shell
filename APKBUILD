@@ -45,31 +45,65 @@ makedepends="
 	qt6-qtwebengine-dev
 	qt6-qtmultimedia-dev
 	qt6-qtsvg-dev
+	qt6-qtlocation-dev
+	qt6-qtpositioning-dev
 	wayland-dev
 	wayland-protocols
 	mesa-dev
 	dbus-dev
+	eudev-dev
+	libinput-dev
+	git
+	linux-pam-dev
 	"
 install=""
 subpackages="$pkgname-doc"
 source="
 	$pkgname-$pkgver.tar.gz
+	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
 	"
 builddir="$srcdir/$pkgname-$pkgver"
+
+prepare() {
+	default_prepare
+	
+	# Extract asyncfuture submodule
+	mkdir -p "$builddir/third-party/asyncfuture"
+	cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
+}
 
 build() {
 	cd "$builddir"
 	
-	# CRITICAL: Build everything together in ONE build directory
-	# The shell binary embeds MarathonUI modules as Qt resources (qrc:/qt/qml/MarathonUI/)
-	# and needs them in build/MarathonUI/ during the build process.
-	# Building MarathonUI separately will cause "No such file or directory" errors at runtime.
+	# Clean any existing build directories
+	rm -rf build build-apps
+	
+	# Disable QML cache to reduce memory usage during build
+	export QML_DISABLE_DISK_CACHE=1
+	export QT_DISABLE_QML_CACHE=1
+	
+	# Build main shell
 	cmake -B build -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_BUILD_TYPE=MinSizeRel \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
+		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
+	
 	cmake --build build
+	
+	# Build apps
+	cmake -B build-apps -S apps -G Ninja \
+		-DCMAKE_BUILD_TYPE=MinSizeRel \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DMARATHON_APPS_DIR=/usr/share/marathon-apps \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
+		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
+		-DQt6_DIR=/usr/lib/cmake/Qt6
+	cmake --build build-apps
 }
 
 check() {
@@ -81,10 +115,20 @@ check() {
 package() {
 	cd "$builddir"
 	
-	# Install everything (MarathonUI, Shell, Apps)
+	# Install main shell
 	DESTDIR="$pkgdir" cmake --install build
+	
+	# Install apps
+	DESTDIR="$pkgdir" cmake --install build-apps
+	
+	# Install marathon-config.json
+	install -Dm644 "$builddir/marathon-config.json" \
+		"$pkgdir/usr/share/marathon-shell/marathon-config.json"
+	
+	# Fix session script to use -platform eglfs flag
+	sed -i 's|exec /usr/bin/marathon-shell-bin "$@"|exec /usr/bin/marathon-shell-bin -platform eglfs "$@"|' \
+		"$pkgdir/usr/bin/marathon-shell-session"
 }
 
 sha512sums="
 "
-
