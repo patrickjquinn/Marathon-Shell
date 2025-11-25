@@ -412,24 +412,44 @@ void MPRIS2Controller::stop()
 
 void MPRIS2Controller::next()
 {
-    if (!m_playerInterface || !m_canGoNext) return;
+    if (!m_playerInterface) return;
     
-    qDebug() << "[MPRIS2Controller] Calling Next()";
-    m_playerInterface->asyncCall("Next");
+    // Smart Skip Logic:
+    // If track is long (> 20 mins) and seekable, skip forward 30 seconds (Podcast mode)
+    // Otherwise, go to next track (Music mode)
+    const qint64 podcastThreshold = 20 * 60 * 1000000; // 20 minutes in microseconds
     
-    // Metadata will change, so update it
-    QTimer::singleShot(500, this, &MPRIS2Controller::updateMetadata);
+    if (m_canSeek && m_trackLength > podcastThreshold) {
+        qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength << "us), seeking +30s";
+        seek(30000000); // +30 seconds
+    } else if (m_canGoNext) {
+        qDebug() << "[MPRIS2Controller] Calling Next()";
+        m_playerInterface->asyncCall("Next");
+        
+        // Metadata will change, so update it
+        QTimer::singleShot(500, this, &MPRIS2Controller::updateMetadata);
+    }
 }
 
 void MPRIS2Controller::previous()
 {
-    if (!m_playerInterface || !m_canGoPrevious) return;
+    if (!m_playerInterface) return;
     
-    qDebug() << "[MPRIS2Controller] Calling Previous()";
-    m_playerInterface->asyncCall("Previous");
+    // Smart Skip Logic:
+    // If track is long (> 20 mins) and seekable, skip back 10 seconds (Podcast mode)
+    // Otherwise, go to previous track (Music mode)
+    const qint64 podcastThreshold = 20 * 60 * 1000000; // 20 minutes in microseconds
     
-    // Metadata will change, so update it
-    QTimer::singleShot(500, this, &MPRIS2Controller::updateMetadata);
+    if (m_canSeek && m_trackLength > podcastThreshold) {
+        qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength << "us), seeking -10s";
+        seek(-10000000); // -10 seconds
+    } else if (m_canGoPrevious) {
+        qDebug() << "[MPRIS2Controller] Calling Previous()";
+        m_playerInterface->asyncCall("Previous");
+        
+        // Metadata will change, so update it
+        QTimer::singleShot(500, this, &MPRIS2Controller::updateMetadata);
+    }
 }
 
 void MPRIS2Controller::seek(qint64 offset)

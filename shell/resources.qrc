@@ -76,7 +76,7 @@
         <file alias="grid-black.svg">resources/images/icons/lucide/grid-black.svg</file>
         <file alias="inbox-black.svg">resources/images/icons/lucide/inbox-black.svg</file>
         <file alias="settings.svg">resources/images/icons/lucide/settings.svg</file>
-        <file alias="rotate-cw.svg">resources/images/icons/lucide/rotate-ccw.svg</file>
+        <file alias="rotate-cw.svg">resources/images/icons/lucide/rotate-cw.svg</file>
         <file alias="layers.svg">resources/images/icons/lucide/grid.svg</file>
         <file alias="activity.svg">resources/images/icons/lucide/zap.svg</file>
         <file alias="calculator.svg">resources/images/icons/lucide/calculator.svg</file>

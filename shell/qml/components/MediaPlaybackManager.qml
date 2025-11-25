@@ -10,7 +10,7 @@ Rectangle {
     id: mediaManager
     
     width: parent.width
-    height: contentColumn.implicitHeight + (Constants.spacingMedium * 2)
+    height: contentColumn.implicitHeight + Constants.spacingMedium + Constants.spacingLarge
     visible: true  // Always visible
     radius: Constants.borderRadiusSmall
     // Dark teal gradient background
@@ -126,7 +126,7 @@ Rectangle {
         // Playback controls
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            height: Constants.touchTargetMinimum
+            // height: Constants.touchTargetMinimum // REMOVED: Let Row expand to fit buttons (including glow)
             visible: mediaManager.hasMedia
             spacing: Constants.spacingSmall
             
@@ -135,9 +135,11 @@ Rectangle {
             // Previous button
             MCircularIconButton {
                 buttonSize: Constants.touchTargetMinimum
-                iconName: "skip-back"
+                // Smart Skip: Use rotate-ccw (10s back) for long tracks, otherwise skip-back
+                iconName: (MPRIS2Controller && MPRIS2Controller.canSeek && MPRIS2Controller.trackLength > 20 * 60 * 1000000) ? "rotate-ccw" : "skip-back"
                 variant: "secondary"
-                enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoPrevious
+                // Smart Skip: Enable if we can go previous OR if it's a long track we can seek in
+                enabled: mediaManager.hasMedia && MPRIS2Controller && (MPRIS2Controller.canGoPrevious || (MPRIS2Controller.canSeek && MPRIS2Controller.trackLength > 20 * 60 * 1000000))
                 
                 onClicked: {
                     if (MPRIS2Controller) {
@@ -165,9 +167,11 @@ Rectangle {
             // Next button
             MCircularIconButton {
                 buttonSize: Constants.touchTargetMinimum
-                iconName: "skip-forward"
+                // Smart Skip: Use rotate-cw (30s forward) for long tracks, otherwise skip-forward
+                iconName: (MPRIS2Controller && MPRIS2Controller.canSeek && MPRIS2Controller.trackLength > 20 * 60 * 1000000) ? "rotate-cw" : "skip-forward"
                 variant: "secondary"
-                enabled: mediaManager.hasMedia && MPRIS2Controller && MPRIS2Controller.canGoNext
+                // Smart Skip: Enable if we can go next OR if it's a long track we can seek in
+                enabled: mediaManager.hasMedia && MPRIS2Controller && (MPRIS2Controller.canGoNext || (MPRIS2Controller.canSeek && MPRIS2Controller.trackLength > 20 * 60 * 1000000))
                 
                 onClicked: {
                     if (MPRIS2Controller) {
