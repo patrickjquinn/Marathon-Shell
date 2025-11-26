@@ -1071,6 +1071,9 @@ Item {
         }
     }
     
+    // Pending app launch after unlock
+    property var pendingLaunch: null
+
     // Lock Screen
     MarathonLockScreen {
         id: lockScreen
@@ -1082,6 +1085,13 @@ Item {
                 // Session valid - just unlock, swipe animation already complete
                 Logger.state("Shell", "locked", "unlocked")
                 SessionStore.unlock()
+                
+                // Handle pending launch if any
+                if (pendingLaunch) {
+                    Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName)
+                    UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "")
+                    pendingLaunch = null
+                }
             } else {
                 // Need authentication - show PIN screen
                 Logger.state("Shell", "locked", "pinEntry")
@@ -1125,36 +1135,36 @@ Item {
         }
         
         onCameraLaunched: {
-            Logger.info("LockScreen", "Camera quick action - unlocking and launching camera")
+            Logger.info("LockScreen", "Camera quick action tapped")
             
-            // Unlock device first
             if (SessionStore.checkSession()) {
-                // Session is valid, just unlock
+                // Session is valid, just unlock and launch
                 SessionStore.unlock()
+                UIStore.openApp("camera", "Camera", "")
             } else {
-                // Need PIN - skip PIN for quick actions (security exception for camera)
-                SessionStore.unlock()
+                // Need PIN - enforce security!
+                Logger.info("LockScreen", "Session locked - requesting PIN for Camera")
+                pendingLaunch = { appId: "camera", appName: "Camera" }
+                showPinScreen = true
+                pinScreen.show()
             }
-            
-            // Launch camera app
-            UIStore.openApp("camera", "Camera", "")
             HapticService.medium()
         }
         
         onPhoneLaunched: {
-            Logger.info("LockScreen", "Phone quick action - unlocking and launching phone")
+            Logger.info("LockScreen", "Phone quick action tapped")
             
-            // Unlock device first
             if (SessionStore.checkSession()) {
-                // Session is valid, just unlock
+                // Session is valid, just unlock and launch
                 SessionStore.unlock()
+                UIStore.openApp("phone", "Phone", "")
             } else {
-                // Need PIN - skip PIN for quick actions (security exception for quick dial)
-                SessionStore.unlock()
+                // Need PIN - enforce security!
+                Logger.info("LockScreen", "Session locked - requesting PIN for Phone")
+                pendingLaunch = { appId: "phone", appName: "Phone" }
+                showPinScreen = true
+                pinScreen.show()
             }
-            
-            // Launch phone app
-            UIStore.openApp("phone", "Phone", "")
             HapticService.medium()
         }
         
@@ -1171,6 +1181,13 @@ Item {
             showPinScreen = false
             pinScreen.reset()
             SessionStore.unlock()  // This triggers state change to "home"
+            
+            // Handle pending launch if any
+            if (pendingLaunch) {
+                Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName)
+                UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "")
+                pendingLaunch = null
+            }
             
             // Handle pending notification action
             if (pendingNotification) {
@@ -1196,6 +1213,12 @@ Item {
             showPinScreen = false
             lockScreen.swipeProgress = 0
             pinScreen.reset()
+            
+            // Clear pending launch
+            if (pendingLaunch) {
+                Logger.info("Shell", "Clearing pending launch")
+                pendingLaunch = null
+            }
             
             // Clear pending notification action
             if (pendingNotification) {

@@ -184,8 +184,15 @@ if [ $? -eq 0 ]; then
     
     # Run the app (detect OS)
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS .app bundle
-        ./build/shell/marathon-shell-bin.app/Contents/MacOS/marathon-shell-bin
+        # macOS .app# Set Chromium Flags for embedded stability
+# --disable-gpu: Prevent GPU instability
+# --renderer-process-limit=1: Limit renderer processes to save memory (Aggressive)
+# --disable-dev-shm-usage: Fix crash in containers/low-memory
+export QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu --renderer-process-limit=1 --disable-dev-shm-usage"
+export QT_WEBENGINE_DISABLE_SANDBOX=1
+
+# Run the shell
+./build/shell/marathon-shell-bin.app/Contents/MacOS/marathon-shell-bin
     else
         # Linux executable
         ./build/shell/marathon-shell-bin

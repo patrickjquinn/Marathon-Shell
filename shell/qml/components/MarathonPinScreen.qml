@@ -149,7 +149,7 @@ Item {
     Column {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: Math.round(-20 * Constants.scaleFactor)
-        spacing: Math.round(40 * Constants.scaleFactor)
+        spacing: Math.round(24 * Constants.scaleFactor) // Reduced from 40
         z: 100  // PIN UI on top of blur
         
         // GPU layer for column content
@@ -159,7 +159,7 @@ Item {
         // Header
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(24 * Constants.scaleFactor)
+            spacing: Math.round(16 * Constants.scaleFactor) // Reduced from 24
             
             // Lock icon removed - now shown in status bar for consistency
             
@@ -167,7 +167,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: passwordMode ? "Enter Password" : "Enter PIN"
                 color: MColors.text
-                font.pixelSize: Math.round(28 * Constants.scaleFactor)
+                font.pixelSize: Math.round(24 * Constants.scaleFactor) // Reduced from 28
                 font.weight: Font.Medium
                 renderType: Text.NativeRendering
                 
@@ -284,14 +284,14 @@ Item {
         // Number pad - larger, cleaner, faster (only visible in PIN mode)
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(16 * Constants.scaleFactor)
+            spacing: Math.round(12 * Constants.scaleFactor) // Reduced from 16
             visible: !passwordMode
             
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
                 columnSpacing: Math.round(16 * Constants.scaleFactor)
-                rowSpacing: Math.round(16 * Constants.scaleFactor)
+                rowSpacing: Math.round(12 * Constants.scaleFactor) // Reduced from 16
                 
                 // GPU layer for grid
                 layer.enabled: true
@@ -301,16 +301,16 @@ Item {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
                     
                     delegate: Item {
-                        width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                        height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                        width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor) // Reduced from 80
+                        height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor) // Reduced from 80
                         
                         property string digit: modelData
                         
                         MCircularIconButton {
                             anchors.centerIn: parent
                             text: digit
-                            iconSize: Math.round(32 * Constants.scaleFactor)
-                            buttonSize: Math.round(80 * Constants.scaleFactor)
+                            iconSize: Math.round(28 * Constants.scaleFactor) // Reduced from 32
+                            buttonSize: Math.round(70 * Constants.scaleFactor) // Reduced from 80
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: {
@@ -329,14 +329,14 @@ Item {
                 
                 // Keyboard button (switch to password mode)
                 Item { 
-                    width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "keyboard"
                         iconSize: Math.round(24 * Constants.scaleFactor)
-                        buttonSize: Math.round(80 * Constants.scaleFactor)
+                        buttonSize: Math.round(70 * Constants.scaleFactor)
                         variant: "secondary"
                         visible: !passwordMode
                         onClicked: {
@@ -348,14 +348,14 @@ Item {
                 
                 // Zero button
                 Item {
-                    width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     
                     MCircularIconButton {
                         anchors.centerIn: parent
                         text: "0"
-                        iconSize: Math.round(32 * Constants.scaleFactor)
-                        buttonSize: Math.round(80 * Constants.scaleFactor)
+                        iconSize: Math.round(28 * Constants.scaleFactor)
+                        buttonSize: Math.round(70 * Constants.scaleFactor)
                         variant: "secondary"
                         textColor: MColors.textPrimary
                         onClicked: {
@@ -367,14 +367,14 @@ Item {
                 
                 // Backspace button
                 Item {
-                    width: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(80 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "delete"
-                        iconSize: Math.round(28 * Constants.scaleFactor)
-                        buttonSize: Math.round(80 * Constants.scaleFactor)
+                        iconSize: Math.round(24 * Constants.scaleFactor)
+                        buttonSize: Math.round(70 * Constants.scaleFactor)
                         variant: "secondary"
                         iconColor: MColors.textSecondary
                         onClicked: {
