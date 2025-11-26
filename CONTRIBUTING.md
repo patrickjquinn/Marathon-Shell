@@ -246,7 +246,7 @@ Update documentation when you:
 - `docs/ARCHITECTURE.md` - System architecture
 - `docs/APP_DEVELOPMENT.md` - App development guide
 - `docs/DEVELOPER_GUIDE.md` - Developer tools
-- `docs/BUILD_THIS.md` - Build system details
+
 - Other docs in `docs/` for specific topics
 
 ### Documentation Style

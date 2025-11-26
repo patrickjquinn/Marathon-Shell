@@ -233,9 +233,7 @@
         <file>resources/sounds/bbm/reflect.wav</file>
         <file>resources/sounds/bbm/sparkle.wav</file>
     </qresource>
-    <qresource prefix="/">
-        <file alias="marathon-config.json">../marathon-config.json</file>
-    </qresource>
+
     <qresource prefix="/fonts">
         <file alias="Slate-Light.ttf">resources/fonts/SlateLight.TTF</file>
         <file alias="Slate-LightItalic.ttf">resources/fonts/SlateLightIt.TTF</file>

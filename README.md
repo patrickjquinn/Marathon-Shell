@@ -446,48 +446,7 @@ See `docs/PERMISSION_GUIDE.md` for implementation details.
 
 Marathon includes an integrated App Store for browsing, installing, and updating Marathon apps. The store uses the same `marathon-core` library as the `marathon-dev` CLI tool, ensuring consistent behavior.
 
-## Configuration System
 
-Marathon Shell uses `marathon-config.json` for build-time configuration. This provides a centralized location for customizing shell behavior without modifying code.
-
-### Configurable Parameters
-
-- Responsive sizing (DPI, scale factors, breakpoints)
-- Z-index layering for UI components
-- Gesture physics (swipe thresholds, velocities, inertia)
-- Animation timing (durations for all transitions)
-- Layout dimensions (status bar, nav bar, action bar heights)
-- Typography (font sizes, families)
-- Spacing system (XS/S/M/L/XL/XXL values)
-- Touch target sizes
-- App grid layout (columns, rows, breakpoints)
-- Quick settings layout
-- Feature flags (Wayland, Bluetooth, WiFi, etc.)
-
-### Customization
-
-Edit `marathon-config.json` and rebuild:
-
-```bash
-vim marathon-config.json
-./run.sh
-```
-
-Changes take effect immediately on next launch.
-
-### Device-Specific Configs
-
-Create device-specific configuration files:
-
-```bash
-# Create OnePlus 6 config
-cp marathon-config.json marathon-config-oneplus6.json
-# Edit for 2280x1080, 402 DPI
-
-# Build with specific config
-cp marathon-config-oneplus6.json marathon-config.json
-./run.sh
-```
 
 ## Development
 
@@ -684,7 +643,7 @@ Marathon Shell implements a Wayland compositor that embeds native Linux applicat
 
 - [App Development Guide](docs/APP_DEVELOPMENT.md) - Creating Marathon apps
 - [UI Design System](docs/UI_DESIGN_SYSTEM.md) - MarathonUI component reference
-- [Build System](docs/BUILD_THIS.md) - CMake configuration details
+
 - [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Development process and conventions
 - [Developer CLI Guide](docs/DEVELOPER_GUIDE.md) - marathon-dev tool usage
 - [Code Signing Guide](docs/CODE_SIGNING_GUIDE.md) - GPG signing for apps

@@ -224,7 +224,7 @@ Services are initialized in `main.cpp` in dependency order:
 
 ```cpp
 // 1. Core services
-ConfigManager *configManager = new ConfigManager(&app);
+
 SettingsManager *settingsManager = new SettingsManager(&app);
 
 // 2. Display compositor
@@ -389,40 +389,7 @@ If velocity < threshold: cancel gesture (return to previous state)
 SpringAnimation: animates to final position with physics
 ```
 
-## Configuration System
 
-### marathon-config.json
-
-The configuration system provides build-time customization without code changes:
-
-```json
-{
-  "responsive": {
-    "baseDPI": 160,
-    "userScaleFactor": 1.0,
-    "phoneScaleFactor": 1.0
-  },
-  "gestures": {
-    "quickSettingsThreshold": 100,
-    "quickSettingsDismissThreshold": 0.25,
-    "appGridThreshold": 100
-  },
-  "animations": {
-    "fast": 100,
-    "normal": 150,
-    "slow": 250
-  }
-}
-```
-
-**Loading Process:**
-
-1. `ConfigManager` reads `marathon-config.json` at startup
-2. Parses JSON and exposes as `Q_PROPERTY`
-3. QML accesses via `MarathonConfig` singleton
-4. Values used throughout UI: `MarathonConfig.animations.fast`
-
-This allows device-specific builds (phone, tablet, desktop) with different gesture thresholds, animations, and layouts.
 
 ## Build System
 

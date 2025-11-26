@@ -79,8 +79,7 @@ set(SOURCES
     src/medialibrarymanager.cpp
     src/musiclibrarymanager.h
     src/musiclibrarymanager.cpp
-    src/configmanager.h
-    src/configmanager.cpp
+
     src/mpris2controller.h
     src/mpris2controller.cpp
     src/rotationmanager.h

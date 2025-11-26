@@ -47,7 +47,7 @@
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
-#include "src/configmanager.h"
+
 #include "src/mpris2controller.h"
 #include "src/rotationmanager.h"
 #include "src/locationmanager.h"
@@ -307,11 +307,7 @@ int main(int argc, char *argv[])
     
     QQmlApplicationEngine engine;
     
-    // Load Marathon Configuration (marathon-config.json)
-    ConfigManager *configManager = new ConfigManager(&app);
-    configManager->loadConfig(":/marathon-config.json");
-    engine.rootContext()->setContextProperty("MarathonConfig", configManager);
-    qInfo() << "[MarathonShell] ✓ Configuration loaded from marathon-config.json";
+
     
     // Initialize MPRIS2 Controller (media player control)
     MPRIS2Controller *mpris2Controller = new MPRIS2Controller(&app);

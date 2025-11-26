@@ -388,6 +388,6 @@ diff -r ./apps/phone ~/.local/share/marathon-apps/phone  # Compare source vs ins
 ## Additional Resources
 
 - [App Development Guide](APP_DEVELOPMENT.md) - Creating Marathon apps
-- [Build System Details](BUILD_THIS.md) - CMake configuration
+
 - [Developer CLI Guide](DEVELOPER_GUIDE.md) - Using marathon-dev tool
 - [Code Signing Guide](CODE_SIGNING_GUIDE.md) - GPG signing for apps

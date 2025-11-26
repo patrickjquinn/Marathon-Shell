@@ -4,20 +4,8 @@ import QtQuick
 QtObject {
     id: constants
     
-    // =======================================================================
-    // CONFIG HELPER (Load from marathon-config.json with fallbacks)
     // =========================================================================
-    
-    function cfg(section, key, fallback) {
-        if (typeof MarathonConfig === 'undefined') return fallback
-        var sec = MarathonConfig[section]
-        if (!sec) return fallback
-        var val = sec[key]
-        return (val !== undefined) ? val : fallback
-    }
-    
-    // =========================================================================
-    // RESPONSIVE SIZING SYSTEM (Loaded from marathon-config.json)
+    // RESPONSIVE SIZING SYSTEM
     // =========================================================================
     
     // Base screen dimensions (set by shell on startup via updateScreenSize)
@@ -26,8 +14,8 @@ QtObject {
     property real screenDiagonal: 1263.15  // Updated by updateScreenSize()
     property real dpi: 120  // Matches baseDPI for 1:1 scaling in desktop testing (device: 320)
     
-    // Responsive scaling - scale everything based on ACTUAL DPI (from config)
-    readonly property real baseDPI: cfg("responsive", "baseDPI", 160)
+    // Responsive scaling - scale everything based on ACTUAL DPI
+    readonly property real baseDPI: 160
     property real userScaleFactor: 1.0  // Initialized from SettingsManagerCpp
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
     
@@ -35,65 +23,65 @@ QtObject {
     property Binding userScaleFactorBinding: Binding {
         target: constants
         property: "userScaleFactor"
-        value: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp.userScaleFactor : cfg("responsive", "defaultUserScaleFactor", 1.0)
+        value: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp.userScaleFactor : 1.0
         restoreMode: Binding.RestoreBinding
         when: typeof SettingsManagerCpp !== 'undefined'
     }
     
-    // Legacy height-based scaling (from config)
-    readonly property real baseHeight: cfg("responsive", "baseHeight", 800)
+    // Legacy height-based scaling
+    readonly property real baseHeight: 800
     readonly property real heightScaleFactor: screenHeight / baseHeight
     
-    // Aspect ratio detection (from config)
-    readonly property real tallScreenRatio: cfg("responsive", "tallScreenRatio", 1.2)
-    readonly property real squareScreenTolerance: cfg("responsive", "squareScreenTolerance", 100)
+    // Aspect ratio detection
+    readonly property real tallScreenRatio: 1.2
+    readonly property real squareScreenTolerance: 100
     readonly property bool isTallScreen: screenHeight / screenWidth > tallScreenRatio
     readonly property bool isSquareScreen: Math.abs(screenWidth - screenHeight) < squareScreenTolerance
     
     // =========================================================================
-    // Z-INDEX LAYERS (Loaded from marathon-config.json)
+    // Z-INDEX LAYERS
     // =========================================================================
     
-    readonly property int zIndexBackground: cfg("zIndex", "background", 0)
-    readonly property int zIndexMainContent: cfg("zIndex", "mainContent", 90)
-    readonly property int zIndexBottomSection: cfg("zIndex", "bottomSection", 150)
-    readonly property int zIndexTaskSwitcher: cfg("zIndex", "taskSwitcher", 200)
-    readonly property int zIndexAppWindow: cfg("zIndex", "appWindow", 600)
-    readonly property int zIndexPeekGesture: cfg("zIndex", "peekGesture", 650)
-    readonly property int zIndexPeek: cfg("zIndex", "peek", 700)
-    readonly property int zIndexSettings: cfg("zIndex", "settings", 700)
-    readonly property int zIndexSettingsPage: cfg("zIndex", "settingsPage", 700)
-    readonly property int zIndexLockScreen: cfg("zIndex", "lockScreen", 1000)
-    readonly property int zIndexPinScreen: cfg("zIndex", "pinScreen", 1100)
-    readonly property int zIndexSearch: cfg("zIndex", "search", 1150)
-    readonly property int zIndexStatusBarApp: cfg("zIndex", "statusBarApp", 1200)
-    readonly property int zIndexQuickSettings: cfg("zIndex", "quickSettings", 1200)
-    readonly property int zIndexQuickSettingsOverlay: cfg("zIndex", "quickSettingsOverlay", 1300)
-    readonly property int zIndexNavBarApp: cfg("zIndex", "navBarApp", 1600)
-    readonly property int zIndexStatusBarDrag: cfg("zIndex", "statusBarDrag", 1700)
-    readonly property int zIndexModalOverlay: cfg("zIndex", "modalOverlay", 2000)
-    readonly property int zIndexKeyboard: cfg("zIndex", "keyboard", 3000)
+    readonly property int zIndexBackground: 0
+    readonly property int zIndexMainContent: 90
+    readonly property int zIndexBottomSection: 150
+    readonly property int zIndexTaskSwitcher: 200
+    readonly property int zIndexAppWindow: 600
+    readonly property int zIndexPeekGesture: 650
+    readonly property int zIndexPeek: 700
+    readonly property int zIndexSettings: 700
+    readonly property int zIndexSettingsPage: 700
+    readonly property int zIndexLockScreen: 1000
+    readonly property int zIndexPinScreen: 1100
+    readonly property int zIndexSearch: 1150
+    readonly property int zIndexStatusBarApp: 1200
+    readonly property int zIndexQuickSettings: 1200
+    readonly property int zIndexQuickSettingsOverlay: 1300
+    readonly property int zIndexNavBarApp: 1600
+    readonly property int zIndexStatusBarDrag: 1700
+    readonly property int zIndexModalOverlay: 2000
+    readonly property int zIndexKeyboard: 3000
     
     // =========================================================================
-    // GESTURE THRESHOLDS (responsive, from config)
+    // GESTURE THRESHOLDS (responsive)
     // =========================================================================
     
-    readonly property real gestureEdgeWidth: Math.round(cfg("gestures", "edgeWidth", 50) * scaleFactor)
-    readonly property real gesturePeekThreshold: Math.round(cfg("gestures", "peekThreshold", 100) * scaleFactor)
-    readonly property real gestureCommitThreshold: Math.round(cfg("gestures", "commitThreshold", 200) * scaleFactor)
-    readonly property real gestureSwipeShort: Math.round(cfg("gestures", "swipeShort", 80) * scaleFactor)
-    readonly property real gestureSwipeLong: Math.round(cfg("gestures", "swipeLong", 150) * scaleFactor)
+    readonly property real gestureEdgeWidth: Math.round(50 * scaleFactor)
+    readonly property real gesturePeekThreshold: Math.round(100 * scaleFactor)
+    readonly property real gestureCommitThreshold: Math.round(200 * scaleFactor)
+    readonly property real gestureSwipeShort: Math.round(80 * scaleFactor)
+    readonly property real gestureSwipeLong: Math.round(150 * scaleFactor)
     
     // =========================================================================
-    // ANIMATION DURATIONS (time-based, not size-based, from config)
+    // ANIMATION DURATIONS (time-based, not size-based)
     // =========================================================================
     
-    readonly property int animationFast: cfg("animations", "fast", 150)
-    readonly property int animationNormal: cfg("animations", "normal", 200)
-    readonly property int animationSlow: cfg("animations", "slow", 300)
-    readonly property int animationDurationFast: cfg("animations", "durationFast", 150)
-    readonly property int animationDurationNormal: cfg("animations", "durationNormal", 250)
-    readonly property int animationDurationSlow: cfg("animations", "durationSlow", 400)
+    readonly property int animationFast: 150
+    readonly property int animationNormal: 200
+    readonly property int animationSlow: 300
+    readonly property int animationDurationFast: 150
+    readonly property int animationDurationNormal: 250
+    readonly property int animationDurationSlow: 400
     
     // =========================================================================
     // SESSION & TIMEOUT
@@ -278,18 +266,13 @@ QtObject {
         screenHeight = height
         screenDiagonal = Math.sqrt(width * width + height * height)
         
-        // Priority order: Config > Reported > Fallback
-        var configDeviceDpi = cfg("responsive", "deviceDPI", 0)
-        var dpiMin = cfg("responsive", "dpiMinValid", 50)
-        var dpiMax = cfg("responsive", "dpiMaxValid", 1000)
+        // Priority order: Reported > Fallback
+        var dpiMin = 50
+        var dpiMax = 1000
         var newDpi = baseDPI  // Default fallback
         var dpiSource = "fallback"
         
-        if (configDeviceDpi > 0) {
-            // Trust config for device-specific override (highest priority)
-            newDpi = configDeviceDpi
-            dpiSource = "config"
-        } else if (deviceDpi && deviceDpi >= dpiMin && deviceDpi <= dpiMax) {
+        if (deviceDpi && deviceDpi >= dpiMin && deviceDpi <= dpiMax) {
             // Trust reported DPI if reasonable (validated range)
             newDpi = deviceDpi
             dpiSource = "reported"
