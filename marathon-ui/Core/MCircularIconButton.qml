@@ -10,7 +10,7 @@ Item {
     property string iconName: ""
     property string text: ""
     property int iconSize: 28
-    property color iconColor: MColors.textOnAccent
+    property color iconColor: variant === "primary" ? "#000000" : MColors.textOnAccent
     property color textColor: MColors.textPrimary
     property bool disabled: false
     property string variant: "primary"  // "primary" or "secondary"
