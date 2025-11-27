@@ -154,6 +154,9 @@ MApp {
             case "storage":
                 component = storagePageComponent
                 break
+            case "battery":
+                component = batteryPageComponent
+                break
             case "about":
                 component = aboutPageComponent
                 break
@@ -252,6 +255,13 @@ MApp {
     Component {
         id: storagePageComponent
         StoragePage {
+            onNavigateBack: navigationStack.pop()
+        }
+    }
+    
+    Component {
+        id: batteryPageComponent
+        BatteryPage {
             onNavigateBack: navigationStack.pop()
         }
     }

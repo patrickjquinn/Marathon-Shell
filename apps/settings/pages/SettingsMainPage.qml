@@ -163,13 +163,12 @@ Page {
                 }
                 
                 MSettingsListItem {
-                    title: "Battery Saver"
-                    subtitle: "Extend battery life"
+                    title: "Battery"
+                    subtitle: "Power saver, battery usage, and profiles"
                     iconName: "battery"
-                    showToggle: true
-                    toggleValue: SystemControlStore.isLowPowerMode
-                    onToggleChanged: (value) => {
-                        SystemControlStore.toggleLowPowerMode()
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("battery")
                     }
                 }
             }
