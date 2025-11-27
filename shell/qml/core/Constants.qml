@@ -71,6 +71,7 @@ QtObject {
     readonly property real gestureCommitThreshold: Math.round(200 * scaleFactor)
     readonly property real gestureSwipeShort: Math.round(80 * scaleFactor)
     readonly property real gestureSwipeLong: Math.round(150 * scaleFactor)
+    readonly property real quickSettingsDismissThreshold: 0.30
     
     // =========================================================================
     // ANIMATION DURATIONS (time-based, not size-based)

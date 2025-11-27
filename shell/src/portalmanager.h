@@ -2,7 +2,7 @@
 #define PORTALMANAGER_H
 
 #include <QObject>
-#include <QDBusInterface>
+
 #include <QDBusPendingCallWatcher>
 #include <QMap>
 #include <QVariant>
@@ -45,7 +45,7 @@ public:
 
 private:
     bool m_portalsAvailable;
-    QDBusInterface *m_desktopPortal;
+
     
     // Map request handle paths to appIds to track pending requests
     QMap<QString, QString> m_pendingCameraRequests;

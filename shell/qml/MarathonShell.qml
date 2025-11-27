@@ -30,7 +30,7 @@ Item {
     
     // Dynamic Quick Settings sizing (threshold from config)
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
-    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.cfg("gestures", "quickSettingsDismissThreshold", 0.30)
+    readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.quickSettingsDismissThreshold
     
     // Debounce timer for window resize events (prevent layout thrashing)
     Timer {
@@ -524,6 +524,14 @@ Item {
                     Logger.error("NavBar", "   AppLifecycleManager is undefined!")
                 }
                 
+                // CRITICAL: Detach app instance to background container so it stays alive for preview
+                var appInstance = appWindow.detachCurrentApp()
+                if (appInstance) {
+                    Logger.info("NavBar", "   Detached app instance to background container")
+                    appInstance.parent = backgroundAppsContainer
+                    appInstance.visible = true
+                }
+                
                 Logger.info("NavBar", "   Hiding appWindow")
                 appWindow.hide()
                 Logger.info("NavBar", "   Calling UIStore.minimizeApp()")
@@ -608,6 +616,15 @@ Item {
         }
     }
     
+    // Background container for minimized apps (keeps them alive for previews)
+    Item {
+        id: backgroundAppsContainer
+        anchors.fill: parent
+        visible: true // Must be visible for ShaderEffectSource
+        opacity: 0.0  // But fully transparent to user
+        z: -1         // And behind everything
+    }
+
     // App Window
     Item {
         id: appWindowContainer

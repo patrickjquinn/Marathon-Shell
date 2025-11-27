@@ -274,6 +274,18 @@ Rectangle {
         Logger.info("AppWindow", " " + name + " launched in " + totalTime + "ms")
     }
     
+    function detachCurrentApp() {
+        Logger.info("AppWindow", "Detaching current app instance")
+        if (appContentLoader.item && appContentLoader.item.children.length > 0) {
+            var app = appContentLoader.item.children[0]
+            if (app) {
+                app.parent = null
+                return app
+            }
+        }
+        return null
+    }
+
     function hide() {
         appContentLoader.source = ""
         slideOut.start()

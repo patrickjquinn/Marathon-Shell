@@ -1,6 +1,5 @@
 pragma Singleton
 import QtQuick
-// Qt 6.4 compatibility: Qt.labs.settings works in both 6.4 and 6.5+
 import Qt.labs.settings 1.0
 
 QtObject {

@@ -688,7 +688,7 @@ Item {
                                                     sourceItem: previewContainer.liveApp
                                                     live: true
                                                     recursive: true
-                                                    visible: previewContainer.liveApp !== null && model.appId !== "browser"
+                                                    visible: previewContainer.liveApp !== null
                                                     hideSource: false
                                                     mipmap: false
                                                     smooth: false
@@ -832,52 +832,7 @@ Item {
                                                     }
                                                 }
                                                 
-                                                // Special browser preview fallback
-                                                Rectangle {
-                                                    anchors.top: parent.top
-                                                    anchors.horizontalCenter: parent.horizontalCenter
-                                                    width: parent.width
-                                                    height: (Constants.screenHeight / Constants.screenWidth) * width
-                                                    visible: previewContainer.liveApp !== null && model.appId === "browser"
-                                                    color: MColors.background
-                                                    
-                                                    // Browser UI elements
-                                                    Rectangle {
-                                                        id: browserUrlBar
-                                                        anchors.top: parent.top
-                                                        anchors.left: parent.left
-                                                        anchors.right: parent.right
-                                                        height: Math.round(50 * Constants.scaleFactor)
-                                                        color: MColors.surface
-                                                        border.width: Constants.borderWidthThin
-                                                        border.color: Qt.rgba(255, 255, 255, 0.1)
-                                                        
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "Browser"
-                                                            color: MColors.text
-                                                            font.pixelSize: MTypography.sizeBody
-                                                            font.weight: Font.DemiBold
-                                                        }
-                                                    }
-                                                    
-                                                    Rectangle {
-                                                        anchors.top: browserUrlBar.bottom
-                                                        anchors.left: parent.left
-                                                        anchors.right: parent.right
-                                                        anchors.bottom: parent.bottom
-                                                        color: MColors.background
-                                                        
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "Web content preview\nnot available"
-                                                            color: MColors.textSecondary
-                                                            font.pixelSize: MTypography.sizeSmall
-                                                            horizontalAlignment: Text.AlignHCenter
-                                                            opacity: 0.7
-                                                        }
-                                                    }
-                                                }
+
                                                 
                                                 // REMOVED: Banner overlay that was showing app title
                                                 // This was always visible for native apps since they don't have liveApp instances

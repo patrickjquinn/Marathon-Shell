@@ -16,43 +16,41 @@ const QString PORTAL_REQUEST_INTERFACE = "org.freedesktop.portal.Request";
 PortalManager::PortalManager(QObject *parent)
     : QObject(parent)
     , m_portalsAvailable(false)
-    , m_desktopPortal(nullptr)
 {
     checkPortals();
 }
 
 PortalManager::~PortalManager()
 {
-    if (m_desktopPortal) {
-        delete m_desktopPortal;
-    }
 }
 
 void PortalManager::checkPortals()
 {
-    m_desktopPortal = new QDBusInterface(PORTAL_SERVICE, PORTAL_PATH, 
-                                        "org.freedesktop.DBus.Properties", 
-                                        QDBusConnection::sessionBus(), this);
-                                        
-    if (m_desktopPortal->isValid()) {
-        QDBusReply<QVariant> version = m_desktopPortal->call("Get", PORTAL_ACCESS_INTERFACE, "version");
-        if (version.isValid()) {
-            qInfo() << "[PortalManager] XDG Desktop Portal detected (version" << version.value().toUInt() << ")";
+    // Use QDBusMessage directly to avoid introspection warnings (e.g. invalid property names in PowerProfileMonitor)
+    QDBusMessage message = QDBusMessage::createMethodCall(PORTAL_SERVICE, PORTAL_PATH, 
+                                                         "org.freedesktop.DBus.Properties", "Get");
+    message << PORTAL_ACCESS_INTERFACE << "version";
+    
+    QDBusReply<QVariant> reply = QDBusConnection::sessionBus().call(message);
+    
+    if (reply.isValid()) {
+        qInfo() << "[PortalManager] XDG Desktop Portal detected (version" << reply.value().toUInt() << ")";
+        m_portalsAvailable = true;
+    } else {
+        // Try checking another interface if Access isn't available
+        QDBusMessage camMessage = QDBusMessage::createMethodCall(PORTAL_SERVICE, PORTAL_PATH, 
+                                                                "org.freedesktop.DBus.Properties", "Get");
+        camMessage << PORTAL_CAMERA_INTERFACE << "version";
+        
+        QDBusReply<QVariant> camReply = QDBusConnection::sessionBus().call(camMessage);
+        
+        if (camReply.isValid()) {
+            qInfo() << "[PortalManager] XDG Desktop Portal detected (Camera available)";
             m_portalsAvailable = true;
         } else {
-            // Try checking another interface if Access isn't available
-            QDBusReply<QVariant> camVersion = m_desktopPortal->call("Get", PORTAL_CAMERA_INTERFACE, "version");
-            if (camVersion.isValid()) {
-                qInfo() << "[PortalManager] XDG Desktop Portal detected (Camera available)";
-                m_portalsAvailable = true;
-            } else {
-                qWarning() << "[PortalManager] XDG Desktop Portal service found but interfaces not responding";
-                m_portalsAvailable = false;
-            }
+            qWarning() << "[PortalManager] XDG Desktop Portal service found but interfaces not responding";
+            m_portalsAvailable = false;
         }
-    } else {
-        qWarning() << "[PortalManager] XDG Desktop Portal NOT available";
-        m_portalsAvailable = false;
     }
 }
 
@@ -68,8 +66,12 @@ bool PortalManager::isPortalAvailable(const QString &portalName)
     else if (portalName == "location") interface = PORTAL_LOCATION_INTERFACE;
     else return true; // Assume available if generic
     
-    QDBusReply<QVariant> version = m_desktopPortal->call("Get", interface, "version");
-    return version.isValid();
+    QDBusMessage message = QDBusMessage::createMethodCall(PORTAL_SERVICE, PORTAL_PATH, 
+                                                         "org.freedesktop.DBus.Properties", "Get");
+    message << interface << "version";
+    
+    QDBusReply<QVariant> reply = QDBusConnection::sessionBus().call(message);
+    return reply.isValid();
 }
 
 QString PortalManager::getRequestHandleToken(const QString &appId)
@@ -87,12 +89,15 @@ void PortalManager::requestCameraAccess(const QString &appId)
 
     qInfo() << "[PortalManager] Requesting Camera access for" << appId << "via portal";
 
-    QDBusInterface cameraPortal(PORTAL_SERVICE, PORTAL_PATH, PORTAL_CAMERA_INTERFACE, QDBusConnection::sessionBus());
+    QDBusMessage message = QDBusMessage::createMethodCall(PORTAL_SERVICE, PORTAL_PATH, 
+                                                         PORTAL_CAMERA_INTERFACE, "AccessCamera");
     
     QVariantMap options;
     // options.insert("handle_token", getRequestHandleToken(appId)); // Optional, system can generate one
     
-    QDBusPendingCall call = cameraPortal.asyncCall("AccessCamera", options);
+    message << options;
+    
+    QDBusPendingCall call = QDBusConnection::sessionBus().asyncCall(message);
     QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
     watcher->setProperty("appId", appId);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, &PortalManager::onCameraRequestFinished);
@@ -152,12 +157,15 @@ void PortalManager::requestLocationAccess(const QString &appId)
 
     qInfo() << "[PortalManager] Requesting Location access for" << appId << "via portal";
 
-    QDBusInterface locationPortal(PORTAL_SERVICE, PORTAL_PATH, PORTAL_LOCATION_INTERFACE, QDBusConnection::sessionBus());
+    QDBusMessage message = QDBusMessage::createMethodCall(PORTAL_SERVICE, PORTAL_PATH, 
+                                                         PORTAL_LOCATION_INTERFACE, "CreateSession");
     
     QVariantMap options;
     options.insert("session_handle_token", getRequestHandleToken(appId));
     
-    QDBusPendingCall call = locationPortal.asyncCall("CreateSession", options);
+    message << options;
+    
+    QDBusPendingCall call = QDBusConnection::sessionBus().asyncCall(message);
     QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
     watcher->setProperty("appId", appId);
     connect(watcher, &QDBusPendingCallWatcher::finished, this, &PortalManager::onLocationRequestFinished);
