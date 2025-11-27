@@ -61,7 +61,7 @@ Add support for new ARM64 mobile devices:
 
 2. **Add upstream remote:**
    ```bash
-   git remote add upstream https://github.com/patrickjquinn/Marathon-Image.git
+   git remote add upstream https://github.com/MarathonOS/Marathon-Image.git
    git fetch upstream
    ```
 
