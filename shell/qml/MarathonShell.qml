@@ -1556,6 +1556,19 @@ Item {
                 event.accepted = true
                 return
             }
+
+            SystemControlStore.setVolume(SystemControlStore.volume + 10)
+            systemHUD.showVolume(AudioManagerCpp.volume)
+            event.accepted = true
+            return
+        }
+
+        // Volume Down button
+        if (event.key === Qt.Key_VolumeDown) {
+            SystemControlStore.setVolume(SystemControlStore.volume - 10)
+            systemHUD.showVolume(AudioManagerCpp.volume)
+            event.accepted = true
+            return
         }
         
         // Power button - start timer for long press
