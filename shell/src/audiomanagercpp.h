@@ -5,6 +5,8 @@
 #include <QAbstractListModel>
 #include <QTimer>
 
+#include <pulse/pulseaudio.h>
+
 struct AudioStream {
     int id;
     QString name;
@@ -53,7 +55,8 @@ class AudioManagerCpp : public QObject
 
 public:
     explicit AudioManagerCpp(QObject* parent = nullptr);
-    
+    ~AudioManagerCpp();
+
     bool available() const { return m_available; }
     double volume() const { return m_currentVolume; }
     bool muted() const { return m_muted; }
@@ -75,12 +78,19 @@ signals:
     void isPlayingChanged();
     void streamPlaybackStateChanged(int streamId, bool playing);
 
+private slots:
+    void updateFromPulse(double vol, bool isMuted);
+
 private:
     void parseWpctlStatus();
     void startStreamMonitoring();
-    void startVolumeMonitoring();
-    void checkExternalVolumeChange();
     void updatePlaybackState();
+    
+    bool initPulseAudio();
+    void cleanupPulseAudio();
+    void requestDefaultSink();
+    static void paContextStateCallback(pa_context *c, void *userdata);
+    static void paSinkInfoCallback(pa_context *c, const pa_sink_info *i, int eol, void *userdata);
     
     bool m_available;
     bool m_isPipeWire;
@@ -89,7 +99,12 @@ private:
     bool m_isPlaying;
     AudioStreamModel* m_streamModel;
     QTimer* m_streamRefreshTimer;
+
+    QString m_defaultSinkName;
+    int m_sinkChannels;
+
+    pa_threaded_mainloop *m_pa_mainloop;
+    pa_context *m_pa_context;
 };
 
 #endif // AUDIOMANAGERCPP_H
-
