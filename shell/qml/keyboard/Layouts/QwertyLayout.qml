@@ -235,14 +235,18 @@ Item {
                 }
             }
             
-            // Comma key
+            // Emoji key (replaces comma)
             Key {
                 width: row4.availableWidth * 0.08
-                text: ","
-                displayText: ","
+                text: "emoji"
+                displayText: "😀"
+                isSpecial: true
+                
+                // Ensure the emoji icon renders correctly
+                fontFamily: "Noto Color Emoji"
                 
                 onClicked: {
-                    layout.keyClicked(",")
+                    layout.layoutSwitchClicked("emoji")
                 }
             }
             

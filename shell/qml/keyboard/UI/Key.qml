@@ -18,6 +18,8 @@ Rectangle {
     property string iconName: ""       // Lucide icon for special keys
     property int keyCode: Qt.Key_unknown
     
+    property alias fontFamily: keyText.font.family
+    
     // State
     property bool pressed: false
     property bool highlighted: false
@@ -127,6 +129,7 @@ Rectangle {
         
         // Text for regular keys
         Text {
+            id: keyText
             visible: key.iconName === ""
             text: key.displayText
             color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style

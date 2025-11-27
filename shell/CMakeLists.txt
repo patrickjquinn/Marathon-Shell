@@ -159,6 +159,7 @@ set(QML_FILES
     qml/keyboard/UI/LongPressPopup.qml
     qml/keyboard/Layouts/QwertyLayout.qml
     qml/keyboard/Layouts/SymbolLayout.qml
+    qml/keyboard/Layouts/EmojiLayout.qml
     qml/keyboard/Layouts/EmailLayout.qml
     qml/keyboard/Layouts/UrlLayout.qml
     qml/keyboard/Layouts/NumberLayout.qml

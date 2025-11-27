@@ -175,7 +175,9 @@ Rectangle {
                 if (emailLayout.visible) return emailLayout.implicitHeight
                 if (urlLayout.visible) return urlLayout.implicitHeight
                 if (numberLayout.visible) return numberLayout.implicitHeight
+                if (numberLayout.visible) return numberLayout.implicitHeight
                 if (phoneLayout.visible) return phoneLayout.implicitHeight
+                if (emojiLayout.visible) return emojiLayout.implicitHeight
                 return qwertyLayout.implicitHeight  // Default
             }
             visible: keyboard.active
@@ -284,6 +286,20 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: 0
             visible: keyboard.currentLayout === "phone"
+            
+            onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
+            onBackspaceClicked: { keyboard.handleBackspace() }
+            onEnterClicked: { keyboard.handleEnter() }
+            onSpaceClicked: { keyboard.handleSpace() }
+            onLayoutSwitchClicked: function(layout) { keyboard.currentLayout = layout }
+            onDismissClicked: { keyboard.dismissRequested() }
+        }
+        // Emoji layout
+        EmojiLayout {
+            id: emojiLayout
+            anchors.fill: parent
+            anchors.margins: 0
+            visible: keyboard.currentLayout === "emoji"
             
             onKeyClicked: function(text) { keyboard.handleKeyPress(text) }
             onBackspaceClicked: { keyboard.handleBackspace() }
