@@ -44,7 +44,13 @@ pmbootstrap init
 # Select: edge, oneplus-enchilada, systemd, none
 
 # Build and create images
+# Build and create images (default: oneplus-enchilada)
 ./scripts/sync-and-build-marathon.sh
+
+# Or build for a specific device:
+# ./scripts/sync-and-build-marathon.sh [device-name]
+# Example:
+# ./scripts/sync-and-build-marathon.sh oneplus-fajita
 ```
 
 ### Flashing

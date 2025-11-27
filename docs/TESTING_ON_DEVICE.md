@@ -12,14 +12,14 @@
 ### 1. On Development Machine
 
 ```bash
-cd /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell
+cd $HOME/Developer/Marathon-Image/packages/marathon-shell
 
 # Pull latest changes from Marathon-Shell repo
 rsync -av --exclude=build --exclude=build-apps \
-    /home/patrickquinn/Developer/Marathon-Shell/ ./
+    $HOME/Developer/Marathon-Shell/ ./
 
 # Rebuild the package
-cd /home/patrickquinn/Developer/Marathon-Image
+cd $HOME/Developer/Marathon-Image
 ./build-marathon.sh
 ```
 

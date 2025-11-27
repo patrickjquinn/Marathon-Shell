@@ -253,7 +253,7 @@ All files are now installed via CMake instead of manual `install` commands.
 
 ## Files That Must Be Created in Marathon-Shell Repo
 
-Before building the package, ensure these NEW files exist in `/home/patrickquinn/Developer/Marathon-Shell`:
+Before building the package, ensure these NEW files exist in `$HOME/Developer/Marathon-Shell`:
 
 1.  `marathon-shell-session` (root directory, executable)
 2.  `systemd/marathon-shell.service`
@@ -435,41 +435,41 @@ After installation and first boot:
 
 1. **Copy files from Marathon-Shell to Marathon-Image package directory:**
    ```bash
-   cd /home/patrickquinn/Developer/Marathon-Shell
+   cd $HOME/Developer/Marathon-Shell
    
    # Create directories in Marathon-Image package
-   mkdir -p /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/systemd
-   mkdir -p /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/polkit
-   mkdir -p /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/xdg-autostart
-   mkdir -p /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/udev
+   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/systemd
+   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/polkit
+   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/xdg-autostart
+   mkdir -p $HOME/Developer/Marathon-Image/packages/marathon-shell/udev
    
    # Copy new deployment files
-   cp marathon-shell-session /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/
-   cp systemd/marathon-shell.service /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/systemd/
-   cp polkit/org.marathonos.shell.policy /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/polkit/
-   cp xdg-autostart/marathon-notification-service.desktop /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/xdg-autostart/
-   cp udev/70-marathon-shell.rules /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/udev/
+   cp marathon-shell-session $HOME/Developer/Marathon-Image/packages/marathon-shell/
+   cp systemd/marathon-shell.service $HOME/Developer/Marathon-Image/packages/marathon-shell/systemd/
+   cp polkit/org.marathonos.shell.policy $HOME/Developer/Marathon-Image/packages/marathon-shell/polkit/
+   cp xdg-autostart/marathon-notification-service.desktop $HOME/Developer/Marathon-Image/packages/marathon-shell/xdg-autostart/
+   cp udev/70-marathon-shell.rules $HOME/Developer/Marathon-Image/packages/marathon-shell/udev/
    
    # Copy updated files
-   cp marathon.desktop /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/
-   cp APKBUILD /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/
+   cp marathon.desktop $HOME/Developer/Marathon-Image/packages/marathon-shell/
+   cp APKBUILD $HOME/Developer/Marathon-Image/packages/marathon-shell/
    ```
 
 2. **Sync the full shell source:**
    ```bash
    # Option A: If marathon-shell package has full source
    rsync -av --exclude=build --exclude=build-apps \
-       /home/patrickquinn/Developer/Marathon-Shell/ \
-       /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell/
+       $HOME/Developer/Marathon-Shell/ \
+       $HOME/Developer/Marathon-Image/packages/marathon-shell/
    
    # Option B: If using git submodule
-   cd /home/patrickquinn/Developer/Marathon-Image/packages/marathon-shell
+   cd $HOME/Developer/Marathon-Image/packages/marathon-shell
    git pull origin main
    ```
 
 3. **Build the updated package:**
    ```bash
-   cd /home/patrickquinn/Developer/Marathon-Image
+   cd $HOME/Developer/Marathon-Image
    ./build-marathon.sh
    ```
 
@@ -479,7 +479,7 @@ After installation and first boot:
 
 ## Support & Troubleshooting
 
-See `/home/patrickquinn/Developer/Marathon-Image/docs/TROUBLESHOOTING.md` for common issues.
+See `$HOME/Developer/Marathon-Image/docs/TROUBLESHOOTING.md` for common issues.
 
 For Marathon Shell-specific issues, check logs:
 ```bash

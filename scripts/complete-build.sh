@@ -17,7 +17,7 @@ echo "═══ STEP 1: Updating checksums ═══"
 echo "Copying latest package definition to pmaports..."
 
 # Copy to pmaports (same logic as sync-and-build-marathon.sh)
-PMAPORTS_DIR=~/.local/var/pmbootstrap/cache_git/pmaports
+PMAPORTS_DIR="$HOME/.local/var/pmbootstrap/cache_git/pmaports"
 mkdir -p "$PMAPORTS_DIR/device/marathon/"
 rm -rf "$PMAPORTS_DIR/device/marathon/marathon-shell"
 cp -r packages/marathon-shell "$PMAPORTS_DIR/device/marathon/"
@@ -35,7 +35,10 @@ echo ""
 # Step 2: Run the build
 echo "═══ STEP 2: Building Marathon OS ═══"
 echo ""
-./scripts/sync-and-build-marathon.sh
+# Default device
+DEVICE="${1:-oneplus-enchilada}"
+
+./scripts/sync-and-build-marathon.sh "$DEVICE"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
