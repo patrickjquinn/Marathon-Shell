@@ -92,6 +92,7 @@ set(SOURCES
     src/audioroutingmanager.cpp
     src/securitymanager.h
     src/securitymanager.cpp
+    resources.qrc
 )
 
 list(APPEND SOURCES
@@ -294,7 +295,7 @@ endif()
 
 # FIX: Use Big Resources for large assets to prevent OOM
 # This compiles resources.qrc into a separate object file that handles large data better
-qt6_add_big_resources(BIG_RESOURCES resources.qrc)
+# qt6_add_big_resources(BIG_RESOURCES resources.qrc)
 
 # Qt6 QML module configuration
 qt6_add_qml_module(marathon-shell
@@ -302,7 +303,7 @@ qt6_add_qml_module(marathon-shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
     RESOURCES
-        # resources.qrc  <-- REMOVED from here (handled by big_resources)
+        resources.qrc
         qml/keyboard/Core/qmldir
         qml/keyboard/UI/qmldir
         qml/keyboard/Layouts/qmldir
@@ -312,7 +313,7 @@ qt6_add_qml_module(marathon-shell
 )
 
 # Link the big resources to the target
-target_sources(marathon-shell PRIVATE ${BIG_RESOURCES})
+# target_sources(marathon-shell PRIVATE ${BIG_RESOURCES})
 
 # Add qmllint validation target - runs BEFORE building
 if(QMLLINT_AVAILABLE)

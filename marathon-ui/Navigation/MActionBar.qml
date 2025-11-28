@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Effects
+
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -207,11 +207,8 @@ Rectangle {
                                 GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.15) }
                                 GradientStop { position: 1.0; color: "transparent" }
                             }
-                            layer.enabled: true
-                            layer.effect: MultiEffect {
-                                blurEnabled: true
-                                blurMax: 4
-                            }
+                            layer.enabled: false
+                            // layer.effect: MultiEffect { ... } removed
                             opacity: 0.4
                         }
                     

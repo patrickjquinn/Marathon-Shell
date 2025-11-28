@@ -9,7 +9,9 @@
 #include <QTextStream>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
+#include <QWaylandXdgSurface>
 #include <QtMath>
+#include <QCoreApplication>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>

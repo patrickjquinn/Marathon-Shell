@@ -13,6 +13,7 @@
 #include <QFileSystemWatcher>
 #include <QScreen>
 #include <qpa/qplatformscreen.h>
+#include <QGuiApplication>
 
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* parent)
     : QObject(parent)

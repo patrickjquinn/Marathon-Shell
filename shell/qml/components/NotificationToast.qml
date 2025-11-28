@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Effects
+
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -47,15 +47,8 @@ Item {
         visible: false
         
         // Custom bottom shadow only
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "#40000000"
-            shadowOpacity: 0.3
-            shadowBlur: 0.6
-            shadowVerticalOffset: 4
-            shadowHorizontalOffset: 0
-        }
+        layer.enabled: false
+        // layer.effect: MultiEffect { ... } removed
         
         Behavior on y {
             NumberAnimation { 

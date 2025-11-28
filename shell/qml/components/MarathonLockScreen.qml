@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Effects
+
 import MarathonOS.Shell
 import MarathonOS.Shell 1.0 as Shell
 import MarathonUI.Core
@@ -240,13 +240,8 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 renderType: Text.NativeRendering
                 
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: "#80000000"
-                    shadowBlur: 0.3
-                    shadowVerticalOffset: 2
-                }
+                layer.enabled: false
+                // layer.effect: MultiEffect { ... } removed
             }
             
             Text {
@@ -258,13 +253,8 @@ Item {
                 opacity: 0.9
                 renderType: Text.NativeRendering
                 
-                layer.enabled: true
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: "#80000000"
-                    shadowBlur: 0.3
-                    shadowVerticalOffset: 2
-                }
+                layer.enabled: false
+                // layer.effect: MultiEffect { ... } removed
             }
             
             // Media Player on Lock Screen
@@ -345,15 +335,8 @@ Item {
                             anchors.centerIn: parent
                             antialiasing: true
                             
-                            layer.enabled: true
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#000000"
-                                shadowOpacity: 0.5
-                                shadowBlur: 0.5
-                                shadowVerticalOffset: 2
-                                shadowHorizontalOffset: 1
-                            }
+                            layer.enabled: false
+                            // layer.effect: MultiEffect { ... } removed
                             
                             Behavior on color {
                                 ColorAnimation { duration: 200 }
@@ -465,15 +448,8 @@ Item {
                     color: "white"
                     opacity: 0.6
                     
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
+                    layer.enabled: false
+                    // layer.effect: MultiEffect { ... } removed
                 }
                 
                 // Chevron positioned at the active icon's vertical center
@@ -484,15 +460,8 @@ Item {
                     width: Math.round(12 * Constants.scaleFactor)
                     height: Math.round(16 * Constants.scaleFactor)
                     
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
+                    layer.enabled: false
+                    // layer.effect: MultiEffect { ... } removed
                     
                     onYChanged: {
                         Logger.info("LockScreen", "Chevron Y changed to: " + y)
@@ -525,15 +494,8 @@ Item {
                     color: "white"
                     opacity: 0.6
                     
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
+                    layer.enabled: false
+                    // layer.effect: MultiEffect { ... } removed
                 }
             }
             
@@ -627,13 +589,8 @@ Item {
                                 width: parent.width
                                 renderType: Text.NativeRendering
                                 
-                                layer.enabled: true
-                                layer.effect: MultiEffect {
-                                    shadowEnabled: true
-                                    shadowColor: "#80000000"
-                                    shadowBlur: 0.4
-                                    shadowVerticalOffset: 2
-                                }
+                                layer.enabled: false
+                                // layer.effect: MultiEffect { ... } removed
                             }
                             
                             Text {
@@ -645,13 +602,8 @@ Item {
                                 width: parent.width
                                 renderType: Text.NativeRendering
                                 
-                                layer.enabled: true
-                                layer.effect: MultiEffect {
-                                    shadowEnabled: true
-                                    shadowColor: "#80000000"
-                                    shadowBlur: 0.3
-                                    shadowVerticalOffset: 1
-                                }
+                                layer.enabled: false
+                                // layer.effect: MultiEffect { ... } removed
                             }
                         }
                         
@@ -665,13 +617,8 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             renderType: Text.NativeRendering
                             
-                            layer.enabled: true
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#80000000"
-                                shadowBlur: 0.3
-                                shadowVerticalOffset: 1
-                            }
+                            layer.enabled: false
+                            // layer.effect: MultiEffect { ... } removed
                         }
                     }
                     

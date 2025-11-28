@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import MarathonUI.Theme
 
 Image {
@@ -17,13 +16,9 @@ Image {
     asynchronous: true
     cache: true
 
-    // Tint the SVG to the specified color
-    layer.enabled: true
-    layer.effect: MultiEffect {
-        brightness: 1.0
-        colorization: 1.0
-        colorizationColor: root.color
-    }
+    // Tinting disabled due to missing QtQuick.Effects/Qt5Compat.GraphicalEffects and qsb tool
+    layer.enabled: false
+    // layer.effect: ShaderEffect { ... } removed
 }
 
 

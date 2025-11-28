@@ -77,9 +77,18 @@ find_package(Qt6 6.4...6.9.3 REQUIRED COMPONENTS
     DBus
     Sql
     Multimedia
-    Location
-    Positioning
+    Multimedia
 )
+
+# Optional components
+find_package(Qt6 6.4 COMPONENTS Location Positioning)
+if(TARGET Qt6::Location AND TARGET Qt6::Positioning)
+    set(HAVE_LOCATION TRUE)
+    message(STATUS "Qt Location/Positioning found - enabling location-aware features")
+else()
+    set(HAVE_LOCATION FALSE)
+    message(STATUS "Qt Location/Positioning not found - location features disabled")
+endif()
 
 # Try to find Qt6WebEngineQuick
 find_package(Qt6 6.4 COMPONENTS WebEngineQuick)

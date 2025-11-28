@@ -102,7 +102,9 @@ function(add_marathon_app APP_NAME)
         )
         
         # Set Qt policy for resource prefix
-        qt_policy(SET QTP0001 NEW)
+        if(COMMAND qt_policy)
+            qt_policy(SET QTP0001 NEW)
+        endif()
         
         # Create proper output directory matching module URI
         string(REPLACE "." "/" MODULE_PATH "${ARG_URI}")
