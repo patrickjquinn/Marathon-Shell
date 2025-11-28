@@ -6,7 +6,15 @@ QtObject {
     id: root
     
     property var shell: null
-    
+    property var compositor: null
+
+    Component.onCompleted: {
+        DisplayManagerCpp.screenStateChanged.connect(function(on) {
+            if (root.compositor)
+                root.compositor.setCompositorActive(on)
+        })
+    }
+
     function initialize(shellRef, rootWindow) {
         root.shell = shellRef
         
@@ -20,7 +28,7 @@ QtObject {
         shellRef.forceActiveFocus()
         Logger.info("ShellInitialization", "Marathon Shell initialized")
         
-        var compositor = root.initializeCompositor(rootWindow)
+        root.compositor = root.initializeCompositor(rootWindow)
         
         if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
             root.startBluetoothReconnect(shellRef)
@@ -28,7 +36,7 @@ QtObject {
         
         root.logSystemServices()
         
-        return compositor
+        return root.compositor
     }
     
     function initializeCompositor(rootWindow) {
@@ -69,4 +77,3 @@ QtObject {
         }
     }
 }
-

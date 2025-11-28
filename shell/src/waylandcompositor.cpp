@@ -673,3 +673,14 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error)
     }
 }
 
+void WaylandCompositor::setCompositorActive(bool active)
+{
+    if (!m_window)
+        return;
+
+    if (active == m_window->isVisible())
+        return;
+
+    qDebug() << "[WaylandCompositor]" << (active ? "Resuming" : "Suspending") << "compositor window";
+    m_window->setVisible(active);
+}

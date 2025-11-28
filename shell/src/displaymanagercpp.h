@@ -51,6 +51,7 @@ signals:
     void nightLightEnabledChanged();
     void nightLightTemperatureChanged();
     void nightLightScheduleChanged();
+    void screenStateChanged(bool on);
 
 private:
     bool m_available;
