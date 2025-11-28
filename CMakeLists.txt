@@ -149,12 +149,13 @@ message(STATUS "==================")
 include(GNUInstallDirs)
 
 # Install session launcher script
-install(PROGRAMS marathon-shell-session
+# Install session launcher script
+install(PROGRAMS platforms/raspberry-pi/config/marathon-shell-session
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 # Install Wayland session file
-install(FILES marathon.desktop
+install(FILES platforms/raspberry-pi/config/marathon.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions
 )
 
