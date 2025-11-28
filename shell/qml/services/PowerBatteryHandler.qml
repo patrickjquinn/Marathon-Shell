@@ -72,19 +72,23 @@ QtObject {
     }
     
     function handlePowerButtonPress() {
-        if (typeof SessionStore !== 'undefined' && SessionStore.isLocked) {
-            Logger.info("PowerBatteryHandler", "Power button SHORT PRESS - waking device")
-            if (typeof DisplayManager !== 'undefined') {
-                DisplayManager.turnScreenOn()
-            }
-        } else {
-            Logger.info("PowerBatteryHandler", "Power button SHORT PRESS - locking device")
-            if (typeof SessionStore !== 'undefined') {
-                SessionStore.lock()
-            }
+        if (!DisplayManager.screenOn) {
+            DisplayManager.turnScreenOn()
+            HapticService?.medium()
+            return
         }
-        if (typeof HapticService !== 'undefined') {
-            HapticService.medium()
+    
+        if (!SessionStore.isLocked) {
+            SessionStore.lock()
+            DisplayManager.turnScreenOff()
+            HapticService?.medium()
+            return
+        }
+    
+        if (SessionStore.isLocked) {
+            DisplayManager.turnScreenOff()
+            HapticService?.medium()
+            return
         }
     }
 }
