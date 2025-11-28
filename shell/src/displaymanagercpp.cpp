@@ -328,6 +328,7 @@ void DisplayManagerCpp::setScreenState(bool on)
                : QPlatformScreen::PowerStateOff
         );
 
+        emit screenStateChanged(on);
         qDebug() << "[DisplayManagerCpp] Screen"
                 << (on ? "ON" : "OFF")
                 << "via QPlatformScreen::setPowerState";

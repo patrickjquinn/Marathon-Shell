@@ -31,6 +31,7 @@ public:
     Q_INVOKABLE void launchApp(const QString &command);
     Q_INVOKABLE void closeWindow(int surfaceId);
     Q_INVOKABLE QObject* getSurfaceById(int surfaceId);
+    Q_INVOKABLE void setCompositorActive(bool active);
 
 signals:
     void surfacesChanged();
