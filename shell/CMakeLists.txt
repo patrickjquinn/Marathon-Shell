@@ -319,6 +319,10 @@ if(QMLLINT_AVAILABLE)
     add_qmllint_target(marathon-shell ${QML_FILES})
 endif()
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
+include_directories(${PULSEAUDIO_INCLUDE_DIRS})
+
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
@@ -341,6 +345,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-feedback
     marathon-ui-modals
     marathon-ui-effects
+    ${PULSEAUDIO_LIBRARIES}
     ${PAM_LIBRARY}
 )
 
