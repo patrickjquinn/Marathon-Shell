@@ -11,6 +11,8 @@
 #include <QDBusMessage>
 #include <QTimer>
 #include <QFileSystemWatcher>
+#include <QScreen>
+#include <qpa/qplatformscreen.h>
 
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* parent)
     : QObject(parent)
@@ -317,22 +319,20 @@ void DisplayManagerCpp::setNightLightSchedule(const QString& schedule)
 
 void DisplayManagerCpp::setScreenState(bool on)
 {
-    QString blankPath = "/sys/class/graphics/fb0/blank";
-    QFile file(blankPath);
-    
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream stream(&file);
-        // 0 = unblank (screen on), 4 = powerdown (screen off)
-        stream << (on ? "0" : "4");
-        file.close();
-        qInfo() << "[DisplayManagerCpp] Screen" << (on ? "ON" : "OFF") << "via" << blankPath;
+    QPlatformScreen *platformScreen =
+        QGuiApplication::primaryScreen()->handle();
+
+    if (platformScreen) {
+        platformScreen->setPowerState(
+            on ? QPlatformScreen::PowerStateOn
+               : QPlatformScreen::PowerStateOff
+        );
+
+        qDebug() << "[DisplayManagerCpp] Screen"
+                << (on ? "ON" : "OFF")
+                << "via QPlatformScreen::setPowerState";
     } else {
-        // Silently fail in VM/desktop environments where framebuffer doesn't exist
-        // This is expected behavior and will work on real hardware
-        qDebug() << "[DisplayManagerCpp] Framebuffer control not available (expected in VM/desktop)";
-        
-        // Fallback: Try DPMS for desktop/laptop testing
-        QProcess::execute("xset", QStringList() << "dpms" << "force" << (on ? "on" : "off"));
+        qDebug() << "[DisplayManagerCpp] No QPlatformScreen handle found!";
     }
     
     // Manage display wakelock based on screen state
