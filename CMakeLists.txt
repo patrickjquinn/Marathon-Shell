@@ -78,6 +78,7 @@ find_package(Qt6 6.4...6.9.3 REQUIRED COMPONENTS
     Sql
     Multimedia
     Multimedia
+    Core5Compat
 )
 
 # Optional components

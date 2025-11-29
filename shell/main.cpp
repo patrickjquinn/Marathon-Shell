@@ -718,40 +718,17 @@ int main(int argc, char *argv[])
     
     // Qt 6.5+ uses ':/qt/qml/' as the default resource prefix for QML modules
     
-    // DEBUG: List resources to find where Main.qml is
-    fprintf(stderr, "DEBUG: Checking if :/images/marathon.png exists: %s\n", 
-            QFile::exists(":/images/marathon.png") ? "YES" : "NO");
-
-    fprintf(stderr, "DEBUG: Listing resources in :/:\n");
-    QDir resDirRoot(":/");
-    QStringList entriesRoot = resDirRoot.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
-    for (const QString &entry : entriesRoot) {
-        fprintf(stderr, "  - %s\n", qPrintable(entry));
+    // Determine the correct path for Main.qml
+    // Qt 6.5+ with QTP0001 NEW policy places resources in :/qt/qml/
+    // Older Qt versions or different policies may use the root prefix
+    QUrl url;
+    if (QFile::exists(":/qt/qml/MarathonOS/Shell/qml/Main.qml")) {
+        qInfo() << "Using Qt 6.5+ resource path for Main.qml";
+        url = QUrl(QStringLiteral("qrc:/qt/qml/MarathonOS/Shell/qml/Main.qml"));
+    } else {
+        qInfo() << "Using legacy resource path for Main.qml";
+        url = QUrl(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     }
-
-    fprintf(stderr, "DEBUG: Listing resources in :/MarathonOS/:\n");
-    QDir resDirMarathon(":/MarathonOS/");
-    QStringList entriesMarathon = resDirMarathon.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
-    for (const QString &entry : entriesMarathon) {
-        fprintf(stderr, "  - %s\n", qPrintable(entry));
-    }
-
-    fprintf(stderr, "DEBUG: Listing resources in :/MarathonOS/Shell/:\n");
-    QDir resDirShell(":/MarathonOS/Shell/");
-    QStringList entriesShell = resDirShell.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
-    for (const QString &entry : entriesShell) {
-        fprintf(stderr, "  - %s\n", qPrintable(entry));
-    }
-    
-    fprintf(stderr, "DEBUG: Listing resources in :/MarathonOS/Shell/qml/:\n");
-    QDir resDirShellQml(":/MarathonOS/Shell/qml/");
-    QStringList entriesShellQml = resDirShellQml.entryList(QDir::AllEntries | QDir::NoDotAndDotDot);
-    for (const QString &entry : entriesShellQml) {
-        fprintf(stderr, "  - %s\n", qPrintable(entry));
-    }
-
-    // Found at root: :/MarathonOS/Shell/qml/Main.qml
-    const QUrl url(QStringLiteral("qrc:/MarathonOS/Shell/qml/Main.qml"));
     
     // Register custom D-Bus types
     qRegisterMetaType<GeoClueTimestamp>("GeoClueTimestamp");

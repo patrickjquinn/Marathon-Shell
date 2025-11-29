@@ -1,5 +1,5 @@
 import QtQuick
-import MarathonUI.Theme
+import Qt5Compat.GraphicalEffects
 
 Image {
     id: root
@@ -16,9 +16,11 @@ Image {
     asynchronous: true
     cache: true
 
-    // Tinting disabled due to missing QtQuick.Effects/Qt5Compat.GraphicalEffects and qsb tool
-    layer.enabled: false
-    // layer.effect: ShaderEffect { ... } removed
+    // Tinting enabled via Qt5Compat.GraphicalEffects (compatible with Qt 6.x)
+    layer.enabled: name !== "" && color !== "transparent"
+    layer.effect: ColorOverlay {
+        color: root.color
+    }
 }
 
 

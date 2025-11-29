@@ -192,6 +192,11 @@ Item {
         },
         State {
             name: "home"
+            StateChangeScript {
+                script: {
+                    shell.forceActiveFocus()
+                }
+            }
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false

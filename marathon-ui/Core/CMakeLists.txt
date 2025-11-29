@@ -31,6 +31,7 @@ qt6_add_qml_module(marathon-ui-core
 
 target_link_libraries(marathon-ui-core PRIVATE
     marathon-ui-theme
+    Qt6::Core5Compat
 )
 
 # Add qmllint validation target - runs BEFORE building

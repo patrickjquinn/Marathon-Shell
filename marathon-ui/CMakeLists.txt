@@ -18,6 +18,7 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS
     Core
     Qml
     Quick
+    Core5Compat
 )
 
 # Installation directory - system-wide for production, user-local for dev

@@ -72,8 +72,8 @@ Item {
                         return iconName
                     }
                     // OFF: standard text color. ON: dark (readable on teal). Unavailable: dim
-                    color: !isAvailable ? MColors.textSecondary : 
-                           (toggleData.active ? MColors.background : MColors.text)
+                    color: toggleData.active ? MColors.background : 
+                           (!isAvailable ? MColors.textSecondary : MColors.text)
                     size: Constants.iconSizeMedium
                     anchors.centerIn: parent
                     

@@ -336,6 +336,7 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::DBus
     Qt6::Multimedia
     Qt6::Network
+    Qt6::Core5Compat
     MarathonCore
     asyncfuture
     marathon-ui-theme
@@ -349,6 +350,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
     ${PAM_LIBRARY}
+    Qt6::Core5Compat
 )
 
 # Link additional conditional dependencies
