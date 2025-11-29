@@ -10,6 +10,7 @@
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QtMath>
+#include <QQuickItem>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -683,4 +684,84 @@ void WaylandCompositor::setCompositorActive(bool active)
 
     qDebug() << "[WaylandCompositor]" << (active ? "Resuming" : "Suspending") << "compositor window";
     m_window->setVisible(active);
+}
+
+void WaylandCompositor::setOutputOrientation(const QString &orientation)
+{
+    if (!m_output || !m_window) {
+        qWarning() << "[WaylandCompositor] Cannot set output orientation: missing output or window";
+        return;
+    }
+    
+    QWaylandOutput::Transform transform = QWaylandOutput::TransformNormal;
+    qreal rotation = 0.0;
+    bool swapDimensions = false;
+    
+    if (orientation == "portrait") {
+        transform = QWaylandOutput::TransformNormal;
+        rotation = 0.0;
+        swapDimensions = false;
+    } else if (orientation == "landscape") {
+        transform = QWaylandOutput::Transform90;
+        rotation = 90.0;
+        swapDimensions = true;
+    } else if (orientation == "portrait-inverted") {
+        transform = QWaylandOutput::Transform180;
+        rotation = 180.0;
+        swapDimensions = false;
+    } else if (orientation == "landscape-inverted") {
+        transform = QWaylandOutput::Transform270;
+        rotation = 270.0;
+        swapDimensions = true;
+    } else {
+        qWarning() << "[WaylandCompositor] Invalid rotation request:" << orientation;
+        return;
+    }
+    
+    qInfo() << "[WaylandCompositor] Applying rotation:" << orientation
+            << "(" << rotation << "degrees, Transform =" << transform << ")";
+    
+    QQuickItem *contentItem = m_window->contentItem();
+    if (contentItem) {
+        qreal W = m_window->width();
+        qreal H = m_window->height();
+        
+        contentItem->setTransformOrigin(QQuickItem::TopLeft);
+        contentItem->setRotation(rotation);
+        
+        if (swapDimensions) {
+            contentItem->setWidth(H); 
+            contentItem->setHeight(W);
+        } else {
+            contentItem->setWidth(W);
+            contentItem->setHeight(H);
+        }
+        
+        switch (static_cast<int>(rotation)) {
+            case 0:
+                contentItem->setX(0);
+                contentItem->setY(0);
+                break;
+                
+            case 90:
+                contentItem->setX(W);
+                contentItem->setY(0);
+                break;
+                
+            case 180:
+                contentItem->setX(W);
+                contentItem->setY(H);
+                break;
+                
+            case 270:
+                contentItem->setX(0);
+                contentItem->setY(H);
+                break;
+        }
+    } else {
+        qWarning() << "[WaylandCompositor] No content item to rotate";
+    }
+    
+    m_output->setTransform(transform); // doesnt actually rotate, notifies clients of rotation???
+    calculateAndSetPhysicalSize();
 }
