@@ -143,7 +143,7 @@ QtObject {
     function setRotationLock(locked) {
         console.log("[DisplayManager] Rotation lock:", locked)
         rotationLocked = locked
-        _platformSetRotationLock(locked)
+        DisplayManagerCpp.setRotationLock(locked)
     }
     
     function setScreenTimeout(milliseconds) {
@@ -187,12 +187,6 @@ QtObject {
             console.log("[DisplayManager] Night mode via Redshift/Gammastep:", enabled, temperature)
         } else if (Platform.isMacOS) {
             console.log("[DisplayManager] macOS Night Shift:", enabled)
-        }
-    }
-    
-    function _platformSetRotationLock(locked) {
-        if (Platform.isLinux) {
-            console.log("[DisplayManager] Rotation lock via sensor control")
         }
     }
     

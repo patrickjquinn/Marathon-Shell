@@ -5,6 +5,7 @@
 #include <QString>
 
 class PowerManagerCpp;
+class RotationManager;
 
 class DisplayManagerCpp : public QObject
 {
@@ -20,7 +21,7 @@ class DisplayManagerCpp : public QObject
     Q_PROPERTY(QString nightLightSchedule READ nightLightSchedule WRITE setNightLightSchedule NOTIFY nightLightScheduleChanged)
 
 public:
-    explicit DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* parent = nullptr);
+    explicit DisplayManagerCpp(PowerManagerCpp* powerManager, RotationManager* rotationManager, QObject* parent = nullptr);
     
     bool available() const { return m_available; }
     bool autoBrightnessEnabled() const { return m_autoBrightnessEnabled; }
@@ -65,6 +66,7 @@ private:
     int m_nightLightTemperature; // 2700K (warm) to 6500K (cool)
     QString m_nightLightSchedule; // "off", "manual", "sunset", "custom"
     PowerManagerCpp* m_powerManager; // For wakelock management
+    RotationManager* m_rotationManager; // For rotation lock
     
     bool detectBacklightDevice();
     void loadSettings();
