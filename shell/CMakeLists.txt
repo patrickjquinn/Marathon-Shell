@@ -335,6 +335,7 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::DBus
     Qt6::Multimedia
     Qt6::Network
+    Qt6::Sensors
     MarathonCore
     asyncfuture
     marathon-ui-theme

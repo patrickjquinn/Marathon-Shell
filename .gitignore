@@ -13,4 +13,4 @@ build-ui/
 *.ini
 check_output.cpp
 cmake/
-
+.cache/

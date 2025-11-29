@@ -1,219 +1,118 @@
 #include "rotationmanager.h"
-#include <QDBusConnection>
-#include <QDBusReply>
-#include <QDBusPendingCallWatcher>
 #include <QDebug>
 
 RotationManager::RotationManager(QObject* parent)
     : QObject(parent)
-    , m_sensorProxy(nullptr)
-    , m_reconnectTimer(new QTimer(this))
     , m_available(false)
     , m_autoRotateEnabled(true)
-    , m_claimed(false)
     , m_currentOrientation("normal")
     , m_currentRotation(0)
 {
-    qDebug() << "[RotationManager] Initializing";
-    
-    connectToSensorProxy();
-    
-    m_reconnectTimer->setInterval(10000);
-    connect(m_reconnectTimer, &QTimer::timeout, this, &RotationManager::checkSensorProxy);
-    m_reconnectTimer->start();
-}
+    m_sensor = new QOrientationSensor(this);
 
-RotationManager::~RotationManager()
-{
-    if (m_claimed) {
-        releaseAccelerometer();
-    }
-    if (m_sensorProxy) {
-        delete m_sensorProxy;
-    }
-}
-
-void RotationManager::connectToSensorProxy()
-{
-    m_sensorProxy = new QDBusInterface(
-        "net.hadess.SensorProxy",
-        "/net/hadess/SensorProxy",
-        "net.hadess.SensorProxy",
-        QDBusConnection::systemBus(),
-        this
-    );
-    
-    if (!m_sensorProxy->isValid()) {
-        m_available = false;
+    if (m_sensor->connectToBackend()) {
+        m_available = true;
         emit availableChanged();
-        return;
+
+        connect(m_sensor, &QOrientationSensor::readingChanged,
+                this, &RotationManager::onOrientationReadingChanged);
+
+        m_sensor->start();
+        qInfo() << "[RotationManager] Using QtSensors orientation backend";
+    } else {
+        qWarning() << "[RotationManager] No orientation sensor backend available";
     }
-    
-    qInfo() << "[RotationManager] ✓ Connected to iio-sensor-proxy";
-    
-    // Check if accelerometer is available asynchronously
-    QDBusPendingCall asyncCall = m_sensorProxy->asyncCall("HasAccelerometer");
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(asyncCall, this);
-    
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
-        QDBusPendingReply<bool> reply = *call;
-        if (reply.isValid() && reply.value()) {
-            qInfo() << "[RotationManager] Accelerometer detected";
-            m_available = true;
-            emit availableChanged();
-            
-            if (m_autoRotateEnabled) {
-                claimAccelerometer();
-                queryOrientation();
-            }
-        } else {
-            qDebug() << "[RotationManager] No accelerometer available (yet)";
-        }
-        call->deleteLater();
-    });
-    
-    // Monitor property changes
-    QDBusConnection::systemBus().connect(
-        "net.hadess.SensorProxy",
-        "/net/hadess/SensorProxy",
-        "org.freedesktop.DBus.Properties",
-        "PropertiesChanged",
-        this,
-        SLOT(onPropertiesChanged(QString,QVariantMap,QStringList))
-    );
-    
-    qInfo() << "[RotationManager] Initialized with accelerometer support";
 }
 
-void RotationManager::claimAccelerometer()
-{
-    if (!m_sensorProxy || !m_sensorProxy->isValid() || m_claimed) {
-        return;
-    }
-    
-    QDBusPendingCall asyncCall = m_sensorProxy->asyncCall("ClaimAccelerometer");
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(asyncCall, this);
-    
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
-        QDBusPendingReply<void> reply = *call;
-        if (reply.isError()) {
-            qWarning() << "[RotationManager] Failed to claim accelerometer:" << reply.error().message();
-        } else {
-            m_claimed = true;
-            qDebug() << "[RotationManager] Accelerometer claimed";
-        }
-        call->deleteLater();
-    });
-}
-
-void RotationManager::releaseAccelerometer()
-{
-    if (!m_sensorProxy || !m_sensorProxy->isValid() || !m_claimed) {
-        return;
-    }
-    
-    m_sensorProxy->call("ReleaseAccelerometer");
-    m_claimed = false;
-    qDebug() << "[RotationManager] Accelerometer released";
-}
+RotationManager::~RotationManager() {}
 
 void RotationManager::setAutoRotateEnabled(bool enabled)
 {
-    if (m_autoRotateEnabled == enabled) {
+    if (m_autoRotateEnabled == enabled)
         return;
-    }
-    
+
     m_autoRotateEnabled = enabled;
     emit autoRotateEnabledChanged();
-    
-    if (enabled) {
-        claimAccelerometer();
-        queryOrientation();
-    } else {
-        releaseAccelerometer();
-    }
-    
-    qInfo() << "[RotationManager] Auto-rotate:" << (enabled ? "enabled" : "disabled");
+
+    if (enabled)
+        m_sensor->start();
+    else
+        m_sensor->stop();
+
+    qInfo() << "[RotationManager] Auto-rotate" << (enabled ? "enabled" : "disabled");
 }
 
-void RotationManager::queryOrientation()
+QString RotationManager::orientationToString(QOrientationReading::Orientation o)
 {
-    if (!m_sensorProxy || !m_sensorProxy->isValid()) {
-        return;
+    switch (o) {
+    case QOrientationReading::TopUp:
+        return "portrait";
+    case QOrientationReading::RightUp:
+        return "landscape";
+    case QOrientationReading::TopDown:
+        return "portrait-inverted";
+    case QOrientationReading::LeftUp:
+        return "landscape-inverted";
+    default:
+        return "portrait";
     }
-    
-    QDBusReply<QString> reply = m_sensorProxy->call("AccelerometerOrientation");
-    if (!reply.isValid()) {
-        return;
+}
+
+
+int RotationManager::orientationToRotation(QOrientationReading::Orientation o)
+{
+    switch (o) {
+    case QOrientationReading::TopUp: // portrait
+        return 0;
+    case QOrientationReading::RightUp: // landscape
+        return 90;
+    case QOrientationReading::TopDown: // portrait-inverted
+        return 180;
+    case QOrientationReading::LeftUp: // landscape-inverted
+        return 270;
+    default:
+        return 0;
     }
-    
-    QString orientation = reply.value();
-    if (orientation != m_currentOrientation) {
-        m_currentOrientation = orientation;
-        m_currentRotation = orientationToRotation(orientation);
+}
+
+void RotationManager::onOrientationReadingChanged()
+{
+    if (!m_autoRotateEnabled)
+        return;
+
+    QOrientationReading* r = m_sensor->reading();
+    auto o = r->orientation();
+
+    QString oriString = orientationToString(o);
+    int angle = orientationToRotation(o);
+
+    if (oriString != m_currentOrientation) {
+        m_currentOrientation = oriString;
+        m_currentRotation = angle;
         emit orientationChanged();
-        qInfo() << "[RotationManager] Orientation changed to:" << orientation << "(" << m_currentRotation << "°)";
-    }
-}
 
-void RotationManager::onPropertiesChanged(const QString& interface, const QVariantMap& changed, const QStringList& invalidated)
-{
-    Q_UNUSED(invalidated)
-    
-    if (interface != "net.hadess.SensorProxy") {
-        return;
-    }
-    
-    if (changed.contains("AccelerometerOrientation")) {
-        QString orientation = changed.value("AccelerometerOrientation").toString();
-        if (orientation != m_currentOrientation && m_autoRotateEnabled) {
-            m_currentOrientation = orientation;
-            m_currentRotation = orientationToRotation(orientation);
-            emit orientationChanged();
-            qInfo() << "[RotationManager] Orientation changed to:" << orientation << "(" << m_currentRotation << "°)";
-        }
-    } else if (changed.contains("HasAccelerometer")) {
-        bool hasAccel = changed.value("HasAccelerometer").toBool();
-        qInfo() << "[RotationManager] HasAccelerometer changed to:" << hasAccel;
-        if (hasAccel) {
-            m_available = true;
-            emit availableChanged();
-            if (m_autoRotateEnabled) {
-                claimAccelerometer();
-                queryOrientation();
-            }
-        }
-}
-}
-
-void RotationManager::checkSensorProxy()
-{
-    if (!m_available) {
-        connectToSensorProxy();
+        qInfo() << "[RotationManager] Orientation:" << oriString << "(" << angle << "° )";
     }
 }
 
 void RotationManager::lockOrientation(const QString& orientation)
 {
-    qInfo() << "[RotationManager] Locking orientation to:" << orientation;
-    setAutoRotateEnabled(false);
+    m_sensor->stop();
+    m_autoRotateEnabled = false;
+
     m_currentOrientation = orientation;
-    m_currentRotation = orientationToRotation(orientation);
+
+    if (orientation == "portrait")           m_currentRotation = 0;
+    else if (orientation == "landscape")     m_currentRotation = 90;
+    else if (orientation == "portrait-inverted") m_currentRotation = 180;
+    else if (orientation == "landscape-inverted") m_currentRotation = 270;
+
     emit orientationChanged();
 }
 
 void RotationManager::unlockOrientation()
 {
-    qInfo() << "[RotationManager] Unlocking orientation";
-    setAutoRotateEnabled(true);
+    m_autoRotateEnabled = true;
+    m_sensor->start();
+    emit autoRotateEnabledChanged();
 }
-
-int RotationManager::orientationToRotation(const QString& orientation)
-{
-    if (orientation == "normal") return 0;
-    if (orientation == "bottom-up") return 180;
-    if (orientation == "left-up") return 270;
-    if (orientation == "right-up") return 90;
-    return 0;
-}
-
