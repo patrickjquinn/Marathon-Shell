@@ -104,7 +104,7 @@ BluetoothManager::BluetoothManager(QObject *parent)
     , m_bus(QDBusConnection::systemBus())
 {
     qDebug() << "[BluetoothManager] Initializing";
-    
+
     // Register the complex type for DBus
     qRegisterMetaType<ManagedObjectMap>("ManagedObjectMap");
     qDBusRegisterMetaType<ManagedObjectMap>();
@@ -114,6 +114,20 @@ BluetoothManager::BluetoothManager(QObject *parent)
         return;
     }
     
+    m_bus.connect("org.bluez",
+              "/",
+              "org.freedesktop.DBus.ObjectManager",
+              "InterfacesAdded",
+              this,
+              SLOT(onDeviceAdded(QDBusObjectPath,InterfaceMap)));
+
+    m_bus.connect("org.bluez",
+              "/",
+              "org.freedesktop.DBus.ObjectManager",
+              "InterfacesRemoved",
+              this,
+              SLOT(onDeviceRemoved(QDBusObjectPath,QStringList)));
+
     initializeAdapter();
 }
 
@@ -187,13 +201,6 @@ void BluetoothManager::initializeAdapter() {
             }
         }
         qDebug() << "[BluetoothManager] Added" << deviceCount << "devices";
-        
-        // Listen for signals
-        m_bus.connect("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "InterfacesAdded",
-                      this, SLOT(onDeviceAdded(QDBusObjectPath,InterfaceMap)));
-        
-        m_bus.connect("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved",
-                      this, SLOT(onDeviceRemoved(QDBusObjectPath,QStringList)));
         
         if (!m_adapterPath.isEmpty()) {
             m_bus.connect("org.bluez", m_adapterPath, "org.freedesktop.DBus.Properties", "PropertiesChanged",
