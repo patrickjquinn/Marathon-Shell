@@ -1,5 +1,6 @@
 #include "displaymanagercpp.h"
 #include "powermanagercpp.h"
+#include "rotationmanager.h"
 #include "platform.h"
 #include <QDebug>
 #include <QFile>
@@ -14,7 +15,7 @@
 #include <QScreen>
 #include <qpa/qplatformscreen.h>
 
-DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* parent)
+DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, RotationManager* rotationManager, QObject* parent)
     : QObject(parent)
     , m_available(false)
     , m_maxBrightness(100)
@@ -26,6 +27,7 @@ DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp* powerManager, QObject* par
     , m_nightLightTemperature(3400) // Warm default (between 2700-6500K)
     , m_nightLightSchedule("off")
     , m_powerManager(powerManager)
+    , m_rotationManager(rotationManager)
 {
     qDebug() << "[DisplayManagerCpp] Initializing";
     
@@ -214,15 +216,28 @@ void DisplayManagerCpp::setAutoBrightness(bool enabled)
 
 void DisplayManagerCpp::setRotationLock(bool locked)
 {
-    if (m_rotationLocked == locked) {
+    if (m_rotationLocked == locked)
         return;
-    }
-    
+
     m_rotationLocked = locked;
     emit rotationLockedChanged();
     saveSettings();
-    
+
     qInfo() << "[DisplayManagerCpp] Rotation lock" << (locked ? "enabled" : "disabled");
+
+    if (!m_rotationManager) {
+        qWarning() << "[DisplayManagerCpp] No RotationManager available";
+        return;
+    }
+
+    if (locked) {
+        QString ori = m_rotationManager->currentOrientation();
+        m_rotationManager->lockOrientation(ori);
+        qInfo() << "[DisplayManagerCpp] Orientation locked to" << ori;
+    } else {
+        m_rotationManager->unlockOrientation();
+        qInfo() << "[DisplayManagerCpp] Orientation unlocked";
+    }
 }
 
 void DisplayManagerCpp::setScreenTimeout(int seconds)

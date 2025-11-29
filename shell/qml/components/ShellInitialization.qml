@@ -13,6 +13,12 @@ QtObject {
             if (root.compositor)
                 root.compositor.setCompositorActive(on)
         })
+
+        DisplayManager.orientationSet.connect(function(orientation) {
+            if (root.compositor)
+            Logger.info("ShellInitialization", "Setting output orientation to: " + orientation)
+                root.compositor.setOutputOrientation(orientation)
+        })
     }
 
     function initialize(shellRef, rootWindow) {

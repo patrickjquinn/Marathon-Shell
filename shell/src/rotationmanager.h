@@ -2,8 +2,8 @@
 #define ROTATIONMANAGER_H
 
 #include <QObject>
-#include <QString>
-#include <QDBusInterface>
+#include <QOrientationSensor>
+#include <QOrientationReading>
 #include <QTimer>
 
 class RotationManager : public QObject
@@ -22,9 +22,9 @@ public:
     bool autoRotateEnabled() const { return m_autoRotateEnabled; }
     QString currentOrientation() const { return m_currentOrientation; }
     int currentRotation() const { return m_currentRotation; }
-    
+
     void setAutoRotateEnabled(bool enabled);
-    
+
     Q_INVOKABLE void lockOrientation(const QString& orientation);
     Q_INVOKABLE void unlockOrientation();
 
@@ -34,24 +34,19 @@ signals:
     void orientationChanged();
 
 private slots:
-    void onPropertiesChanged(const QString& interface, const QVariantMap& changed, const QStringList& invalidated);
-    void checkSensorProxy();
+    void onOrientationReadingChanged();
 
 private:
-    void connectToSensorProxy();
-    void claimAccelerometer();
-    void releaseAccelerometer();
-    void queryOrientation();
-    int orientationToRotation(const QString& orientation);
-    
-    QDBusInterface* m_sensorProxy;
-    QTimer* m_reconnectTimer;
+    int orientationToRotation(QOrientationReading::Orientation o);
+    QString orientationToString(QOrientationReading::Orientation o);
+
     bool m_available;
     bool m_autoRotateEnabled;
-    bool m_claimed;
-    QString m_currentOrientation;  // "normal", "bottom-up", "left-up", "right-up"
-    int m_currentRotation;  // 0, 90, 180, 270
+
+    QString m_currentOrientation;
+    int m_currentRotation;
+
+    QOrientationSensor* m_sensor;
 };
 
 #endif // ROTATIONMANAGER_H
-

@@ -79,6 +79,7 @@ find_package(Qt6 6.4...6.9.3 REQUIRED COMPONENTS
     Multimedia
     Location
     Positioning
+    Sensors
 )
 
 # Try to find Qt6WebEngineQuick

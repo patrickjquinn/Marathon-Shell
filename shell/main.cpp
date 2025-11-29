@@ -375,13 +375,13 @@ int main(int argc, char *argv[])
     // Register C++ services (SettingsManager already created above for compositor)
     NetworkManagerCpp *networkManager = new NetworkManagerCpp(&app);
     PowerManagerCpp *powerManager = new PowerManagerCpp(&app);
-    DisplayManagerCpp *displayManager = new DisplayManagerCpp(powerManager, &app);
+    RotationManager *rotationManager = new RotationManager(&app);
+    DisplayManagerCpp *displayManager = new DisplayManagerCpp(powerManager, rotationManager, &app);
     AudioManagerCpp *audioManager = new AudioManagerCpp(&app);
     ModemManagerCpp *modemManager = new ModemManagerCpp(&app);
     SensorManagerCpp *sensorManager = new SensorManagerCpp(&app);
     StorageManager *storageManager = new StorageManager(&app);
     BluetoothManager *bluetoothManager = new BluetoothManager(&app);
-    RotationManager *rotationManager = new RotationManager(&app);
     LocationManager *locationManager = new LocationManager(&app);
     HapticManager *hapticManager = new HapticManager(&app);
     AudioRoutingManager *audioRoutingManager = new AudioRoutingManager(&app);

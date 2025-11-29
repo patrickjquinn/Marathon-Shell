@@ -78,6 +78,19 @@ QtObject {
             }
         }
     }
+
+    property Connections rotationConnections: Connections {
+        target: typeof RotationManager !== 'undefined' ? RotationManager : null
+        ignoreUnknownSignals: true
+
+        function onOrientationChanged() {
+            console.log("[DisplayManager] Detected orientation change from system:", RotationManager.currentOrientation)
+            if (!displayManager.rotationLocked) {
+                displayManager.orientation = RotationManager.currentOrientation
+                displayManager.orientationSet(displayManager.orientation)
+            }
+        }
+    }
     
     function setBrightness(value) {
         var clamped = Math.max(minBrightness, Math.min(maxBrightness, value))
@@ -125,13 +138,12 @@ QtObject {
         console.log("[DisplayManager] Setting orientation:", orient)
         orientation = orient
         orientationSet(orient)
-        _platformSetOrientation(orient)
     }
     
     function setRotationLock(locked) {
         console.log("[DisplayManager] Rotation lock:", locked)
         rotationLocked = locked
-        _platformSetRotationLock(locked)
+        DisplayManagerCpp.setRotationLock(locked)
     }
     
     function setScreenTimeout(milliseconds) {
@@ -175,18 +187,6 @@ QtObject {
             console.log("[DisplayManager] Night mode via Redshift/Gammastep:", enabled, temperature)
         } else if (Platform.isMacOS) {
             console.log("[DisplayManager] macOS Night Shift:", enabled)
-        }
-    }
-    
-    function _platformSetOrientation(orient) {
-        if (Platform.isLinux) {
-            console.log("[DisplayManager] Setting orientation via xrandr/wlr-randr:", orient)
-        }
-    }
-    
-    function _platformSetRotationLock(locked) {
-        if (Platform.isLinux) {
-            console.log("[DisplayManager] Rotation lock via sensor control")
         }
     }
     
