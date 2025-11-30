@@ -216,6 +216,7 @@ void AudioRoutingManager::detectAudioDevices()
         qWarning() << "[AudioRoutingManager] wpctl command timed out or failed";
         QString error = wpctl.readAllStandardError();
         qWarning() << "[AudioRoutingManager] wpctl error:" << error;
+        m_deviceDetectionTimer->stop();
         return;
     }
     

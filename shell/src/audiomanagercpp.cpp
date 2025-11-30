@@ -115,20 +115,7 @@ AudioManagerCpp::AudioManagerCpp(QObject* parent)
         // Parse streams and start monitoring
         parseWpctlStatus();
         
-        // Check if we actually found any streams/sinks. If not, and we are on Droidian, 
-        // wpctl might report success but not actually work for audio control if PulseAudio is the real backend.
-        if (m_streamModel->rowCount() == 0) {
-             // Double check with pulseaudio if we didn't find anything useful with wpctl
-             if (initPulseAudio()) {
-                 qInfo() << "[AudioManagerCpp] PipeWire found but no streams - falling back to PulseAudio";
-                 m_isPipeWire = false;
-             } else {
-                 startStreamMonitoring();
-             }
-        } else {
-            startStreamMonitoring();
-        }
-        
+        startStreamMonitoring();
     } else {
         // Fallback to PulseAudio
         if (initPulseAudio()) {

@@ -13,6 +13,7 @@ endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ARM optimizations for older mobile devices
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
@@ -66,9 +67,10 @@ elseif(UNIX)
     message(STATUS "Using system Qt6 at ${Qt6_DIR}")
 endif()
 
-find_package(Qt6 6.4...6.9.3 REQUIRED COMPONENTS
+find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Core
     Gui
+    GuiPrivate
     Widgets
     Qml
     Quick

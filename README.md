@@ -78,11 +78,15 @@ sudo apt install cmake ninja-build g++ \
     qt6-multimedia-dev \
     qt6-svg-dev \
     qt6-sensors-dev \
-    qt6-dbus-dev \
+    qdbus-qt6 \
     libpam0g-dev \
     dbus-daemon \
     libhunspell-dev \
-    hunspell-en-us
+    hunspell-en-us \
+    qt6-svg-plugins \
+    qt6-location-dev \
+    qt6-positioning-dev \
+    qt6-base-private-dev
 ```
 
 ### Runtime Requirements
