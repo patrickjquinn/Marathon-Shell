@@ -1,0 +1,55 @@
+name: Code Format Check
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install formatting tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qt6-declarative-dev-tools clang-format
+
+      - name: Run formatters
+        continue-on-error: true
+        run: |
+          echo "=== Running clang-format ==="
+          clang-format -i $(git ls-files '*.cpp' '*.h')
+
+          echo "=== Running qmlformat ==="
+          /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml')
+
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "needs_formatting=true" >> $GITHUB_ENV
+          else
+            echo "needs_formatting=false" >> $GITHUB_ENV
+          fi
+
+      - name: Post comment on PR if needed
+        if: ${{ github.event_name == 'pull_request' && env.needs_formatting == 'true' }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            **Formatting changes required**
+            This PR does not follow the formatting rules.
+            Please run:
+            ```bash
+            clang-format -i <files>
+            qmlformat -i <files> (must be from Qt 6)
+            ```
+            Commit the updated files and push again.
+
+      - name: Fail job
+        if: ${{ env.needs_formatting == 'true' }}
+        run: |
+          echo "Formatting required. Failing."
+          exit 1
