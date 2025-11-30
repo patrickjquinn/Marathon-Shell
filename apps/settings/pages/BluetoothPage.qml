@@ -12,6 +12,16 @@ SettingsPageTemplate {
     
     property string pageName: "bluetooth"
     
+    // Watch for Bluetooth enabled state changes (avoiding Connections.enabled collision)
+    property bool isBluetoothEnabled: BluetoothManagerCpp.enabled
+    onIsBluetoothEnabledChanged: {
+        if (isBluetoothEnabled) {
+            BluetoothManagerCpp.startScan()
+        } else {
+            BluetoothManagerCpp.stopScan()
+        }
+    }
+    
     content: Flickable {
         contentHeight: bluetoothContent.height + Constants.navBarHeight + MSpacing.xl * 3
         clip: true
@@ -338,13 +348,8 @@ SettingsPageTemplate {
     Connections {
         target: BluetoothManagerCpp
         
-        function onEnabledChanged() {
-            if (BluetoothManagerCpp.enabled) {
-                BluetoothManagerCpp.startScan()
-            } else {
-                BluetoothManagerCpp.stopScan()
-            }
-        }
+        // onEnabledChanged removed to avoid collision with Connections.enabled
+
 
         function onPairingSucceeded(address) {
             Logger.info("BluetoothPage", "✓ Successfully paired with: " + address)

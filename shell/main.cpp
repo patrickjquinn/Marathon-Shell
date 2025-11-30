@@ -88,9 +88,15 @@ static void marathonMessageHandler(QtMsgType type, const QMessageLogContext &con
         // In non-debug mode, suppress known benign warnings
         if ((msg.contains("Could not connect") && 
              (msg.contains("NetworkManager") || msg.contains("UPower"))) ||
-            msg.contains("Failed to initialize EGL display")) {
+            msg.contains("Failed to initialize EGL display") ||
+            msg.contains("gst_value_set_int_range_step")) {
             return;
         }
+    }
+    
+    // Always suppress GStreamer int range assertion spam, even in debug mode
+    if (msg.contains("gst_value_set_int_range_step")) {
+        return;
     }
     
     QString logLevel;
@@ -146,6 +152,7 @@ extern void qInitResources_resources();
 
 int main(int argc, char *argv[])
 {
+    fprintf(stderr, "[DEBUG] Entering main()\n");
     qInitResources_resources();
     
     // Register D-Bus types needed for MPRIS2 metadata (a{sv} -> QVariantMap)
@@ -209,27 +216,19 @@ int main(int argc, char *argv[])
     
     QApplication::setApplicationName("Marathon Shell");
     QApplication::setOrganizationName("Marathon OS");
+
+    // CRITICAL: Disable Qt's automatic HiDPI scaling for the compositor window
+    QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     
+    fprintf(stderr, "[DEBUG] Creating QApplication...\n");
+    QApplication app(argc, argv);
+    fprintf(stderr, "[DEBUG] QApplication created.\n");
+
+/*
 #ifdef HAVE_WEBENGINE
     QtWebEngineQuick::initialize();
 #endif
-    
-    // CRITICAL: Disable Qt's automatic HiDPI scaling for the compositor window
-    // 
-    // Problem: On HiDPI host displays (devicePixelRatio=2), Qt automatically doubles the window's
-    // internal resolution. For a 540x1140 window, Qt would render at 1080x2280 internally, then
-    // downscale to fit the window, causing blurriness in embedded Wayland apps.
-    //
-    // Solution: Set PassThrough policy to disable automatic scaling, ensuring 1:1 pixel mapping.
-    // Combined with m_output->setScaleFactor(1) in the compositor, this forces apps to render
-    // at the exact window size (540x1140) without any scaling artifacts.
-    //
-    // Must be called BEFORE creating QApplication.
-    // NOTE: We use QApplication (not QGuiApplication) to support QWidget-based components
-    // like QTermWidget. QApplication inherits from QGuiApplication and adds widget support.
-    QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
-    
-    QApplication app(argc, argv);
+*/
     
     // ============================================================================
     // CRITICAL: Install Crash Protection (MITIGATION ONLY - NOT A FIX!)
@@ -325,7 +324,7 @@ int main(int argc, char *argv[])
     
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
     // Pass SettingsManager for dynamic physical size calculation
-    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(settingsManager, &app);
+    WaylandCompositorManager *compositorManager = new WaylandCompositorManager(settingsManager, &engine, &app);
     engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
     
     // Set debug mode context property

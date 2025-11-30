@@ -10,7 +10,7 @@ Image {
     width: size
     height: size
     source: name ? "qrc:/images/icons/lucide/" + name + ".svg" : ""
-    sourceSize: Qt.size(size, size)
+    // sourceSize: Qt.size(size, size)
     fillMode: Image.PreserveAspectFit
     smooth: true
     asynchronous: true

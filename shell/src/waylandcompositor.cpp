@@ -12,13 +12,16 @@
 #include <QWaylandXdgSurface>
 #include <QtMath>
 #include <QCoreApplication>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QtQml>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
 #include <pthread.h>
 #endif
 
-WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager)
+WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager, QQmlEngine *engine)
     : QWaylandCompositor()
     , m_window(window)
     , m_settingsManager(settingsManager)
@@ -26,6 +29,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
 {
     m_xdgShell = new QWaylandXdgShell(this);
     m_wlShell = new QWaylandWlShell(this);
+
+    // CRITICAL: Explicitly set SHM formats to ensure wl_shm is advertised
+    // This fixes crashes in GTK apps (galculator) that assert display->shm exists
+    QVector<QWaylandCompositor::ShmFormat> formats;
+    formats << QWaylandCompositor::ShmFormat_ARGB8888;
+    formats << QWaylandCompositor::ShmFormat_XRGB8888;
+    setAdditionalShmFormats(formats);
 
     connect(this, &QWaylandCompositor::surfaceCreated,
             this, &WaylandCompositor::handleSurfaceCreated);

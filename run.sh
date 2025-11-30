@@ -17,6 +17,9 @@ fi
 
 echo "💻 Detected $CORES CPU cores"
 
+# Suppress GStreamer spam (CRITICAL warnings about int ranges are harmless V4L2 probing issues)
+export GST_DEBUG=0
+
 # Clean build if requested
 if [ "$CLEAN" = "1" ]; then
     echo " Clean build requested, removing build directories..."

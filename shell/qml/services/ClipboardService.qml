@@ -8,7 +8,7 @@ QtObject {
     property var clipboardHistory: []
     readonly property int maxHistorySize: 20
     
-    property Settings settings: Settings {
+    property var settings: Settings {
         category: "Clipboard"
         property alias history: clipboardService.clipboardHistory
     }

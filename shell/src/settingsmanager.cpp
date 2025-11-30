@@ -27,7 +27,7 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
-    , m_filterMobileFriendlyApps(true)  // Default to ON for better mobile UX
+    , m_filterMobileFriendlyApps(false)  // Default to OFF to show all apps on RPi
     , m_hiddenApps()
     , m_appSortOrder("alphabetical")
     , m_appGridColumns(0)  // 0 = auto
@@ -81,7 +81,7 @@ void SettingsManager::load() {
     m_showNotificationsOnLockScreen = m_settings.value("notifications/showOnLockScreen", true).toBool();
     
     // App Management
-    m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", true).toBool();
+    m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly_v2", false).toBool();
     m_hiddenApps = m_settings.value("apps/hiddenApps", QStringList()).toStringList();
     m_appSortOrder = m_settings.value("apps/sortOrder", "alphabetical").toString();
     m_appGridColumns = m_settings.value("apps/gridColumns", 0).toInt();

@@ -5,6 +5,7 @@
 #include <QWaylandCompositor>
 #include <QWaylandSurface>
 #include <QWaylandQuickSurface>
+#include <QWaylandXdgToplevel>
 #include <QWaylandXdgShell>
 #include <QWaylandXdgSurface>
 #include <QWaylandWlShell>
@@ -24,7 +25,7 @@ class WaylandCompositor : public QWaylandCompositor
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
 
 public:
-    explicit WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager);
+    WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager, QQmlEngine *engine = nullptr);
     ~WaylandCompositor() override;
 
     QQmlListProperty<QObject> surfaces();

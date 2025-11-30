@@ -32,10 +32,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
     endif()
     
     # Disable debug output to reduce overhead
-    add_compile_definitions(
-        QT_NO_DEBUG_OUTPUT
-        QT_NO_INFO_OUTPUT
-    )
+    # add_compile_definitions(
+    #     QT_NO_DEBUG_OUTPUT
+    #     QT_NO_INFO_OUTPUT
+    # )
     message(STATUS "   ✓ Debug output disabled for performance")
 endif()
 

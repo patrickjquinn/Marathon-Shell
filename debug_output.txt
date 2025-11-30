@@ -1,0 +1,138 @@
+[DEBUG] Entering main()
+[DEBUG] Creating QApplication...
+[DEBUG] QApplication created.
+[MarathonShell]  Failed to set RT priority for input handling
+[2025-11-30 08:39:21.667] [CRITICAL] [PowerManagerCpp] Initializing PowerManagerCpp Service
+[2025-11-30 08:39:21.754] [CRITICAL] ╔════════════════════════════════════════════════════════════╗
+[2025-11-30 08:39:21.754] [CRITICAL] ║ [RTScheduler]  RT SCHEDULING NOT AVAILABLE               ║
+[2025-11-30 08:39:21.754] [CRITICAL] ╠════════════════════════════════════════════════════════════╣
+[2025-11-30 08:39:21.754] [CRITICAL] ║ IMPACT: Shell will run with DEGRADED performance          ║
+[2025-11-30 08:39:21.754] [CRITICAL] ║         - Touch latency may be higher                     ║
+[2025-11-30 08:39:21.754] [CRITICAL] ║         - Compositor may drop frames                      ║
+[2025-11-30 08:39:21.754] [CRITICAL] ║         - Audio/video may stutter                         ║
+[2025-11-30 08:39:21.754] [CRITICAL] ╠════════════════════════════════════════════════════════════╣
+[2025-11-30 08:39:21.754] [CRITICAL] ║ REQUIRED FOR: postmarketOS / Mobile device deployment     ║
+[2025-11-30 08:39:21.754] [CRITICAL] ║ OPTIONAL FOR: Desktop testing only                        ║
+[2025-11-30 08:39:21.755] [CRITICAL] ╠════════════════════════════════════════════════════════════╣
+[2025-11-30 08:39:21.755] [CRITICAL] ║ FIX (Option 1): Grant CAP_SYS_NICE capability             ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║   sudo setcap cap_sys_nice+ep /usr/bin/marathon-shell     ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║                                                            ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║ FIX (Option 2): Configure /etc/security/limits.conf       ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║   username  -  rtprio  99                                 ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║   username  -  nice    -20                                ║
+[2025-11-30 08:39:21.755] [CRITICAL] ╠════════════════════════════════════════════════════════════╣
+[2025-11-30 08:39:21.755] [CRITICAL] ║ KERNEL REQUIREMENT: CONFIG_PREEMPT_RT=y                   ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║ Check: cat /sys/kernel/realtime                           ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║ Expected: 1 (PREEMPT_RT enabled)                          ║
+[2025-11-30 08:39:21.755] [CRITICAL] ║ Current kernel:  STANDARD (missing RT!) ✗
+[2025-11-30 08:39:21.755] [CRITICAL] ╚════════════════════════════════════════════════════════════╝
+[2025-11-30 08:39:22.656] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/services/ClipboardService.qml:11:28: QML Settings: The Settings type from Qt.labs.settings is deprecated and will be removed in a future release. Please use the one from QtCore instead. (qrc:/qt/qml/MarathonOS/Shell/qml/services/ClipboardService.qml:11)
+Failed to open VDPAU backend libvdpau_nvidia.so: cannot open shared object file: No such file or directory
+[2025-11-30 08:39:23.291] [WARNING] QStandardPaths: wrong permissions on runtime directory /run/user/1000, 0770 instead of 0700
+[2025-11-30 08:39:23.300] [WARNING] QStandardPaths: wrong permissions on runtime directory /run/user/1000, 0770 instead of 0700
+[2025-11-30 08:39:23.300] [WARNING] [WaylandCompositor]  Failed to set RT priority (need CAP_SYS_NICE or limits.conf)
+[2025-11-30 08:39:23.413] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:23.414] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:23.833] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:23.833] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:23.833] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:23.834] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.179] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.179] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.179] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.179] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.179] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.179] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.315] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.316] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.382] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.382] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.524] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.524] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:24.524] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:205)
+[2025-11-30 08:39:24.524] [WARNING] qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189:37: QML Image: Cannot open: file:///usr/share/pixmaps/xarchiver (qrc:/qt/qml/MarathonOS/Shell/qml/components/MarathonAppGrid.qml:189)
+[2025-11-30 08:39:30.873] [WARNING] [WARN] AppLifecycle: App not in registry yet, deferring foreground (qrc:/qt/qml/MarathonOS/Shell/qml/core/Logger.qml:32)
+[2025-11-30 08:39:30.907] [FATAL] QtWebEngineQuick::initialize() must be called from the Qt gui thread.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CrashHandler] CRASH DETECTED!
+[CrashHandler] Signal: SIGABRT ( 6 )
+[CrashHandler] Description: Abort signal (assertion failed or abort() called)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CrashHandler] Backtrace:
+   ./build/shell/marathon-shell-bin(+0x50d30) [0x5555f06d0d30]
+   linux-vdso.so.1(__kernel_rt_sigreturn+0) [0x7fff4c4dc808]
+   /lib/aarch64-linux-gnu/libc.so.6(+0x87dc0) [0x7fff495a7dc0]
+   /lib/aarch64-linux-gnu/libc.so.6(gsignal+0x20) [0x7fff49556980]
+   /lib/aarch64-linux-gnu/libc.so.6(abort+0x2c) [0x7fff49541ac4]
+   ./build/shell/marathon-shell-bin(+0x6f430) [0x5555f06ef430]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(+0x105210) [0x7fff49b55210]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(+0xfc238) [0x7fff49b4c238]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZNK14QMessageLogger5fatalEPKcz+0xc4) [0x7fff49b2aae8]
+   /lib/aarch64-linux-gnu/libQt6WebEngineCore.so.6(_ZN15QtWebEngineCore10initializeEv+0x190) [0x7ffebd9bbc5c]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_Z14qAddPreRoutinePFvvE+0x6c) [0x7fff49bb7d5c]
+   /lib/ld-linux-aarch64.so.1(+0x3b4c) [0x7fff4c4a7b4c]
+   /lib/ld-linux-aarch64.so.1(+0x3c60) [0x7fff4c4a7c60]
+   /lib/ld-linux-aarch64.so.1(_dl_catch_exception+0xdc) [0x7fff4c4a52bc]
+   /lib/ld-linux-aarch64.so.1(+0x9bb4) [0x7fff4c4adbb4]
+   /lib/ld-linux-aarch64.so.1(_dl_catch_exception+0x64) [0x7fff4c4a5244]
+   /lib/ld-linux-aarch64.so.1(+0x9f7c) [0x7fff4c4adf7c]
+   /lib/aarch64-linux-gnu/libc.so.6(+0x82108) [0x7fff495a2108]
+   /lib/ld-linux-aarch64.so.1(_dl_catch_exception+0x64) [0x7fff4c4a5244]
+   /lib/ld-linux-aarch64.so.1(+0x1370) [0x7fff4c4a5370]
+   /lib/aarch64-linux-gnu/libc.so.6(+0x81b20) [0x7fff495a1b20]
+   /lib/aarch64-linux-gnu/libc.so.6(dlopen+0xa0) [0x7fff495a2200]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(+0x38bae4) [0x7fff49ddbae4]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(+0x38c44c) [0x7fff49ddc44c]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZN13QPluginLoader4loadEv+0x6c) [0x7fff49c26e0c]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(+0x331c98) [0x7fff4ae01c98]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN11QQmlImports15importExtensionEP14QQmlTypeLoaderRK7QString13QTypeRevisionPK27QQmlTypeLoaderQmldirContentP5QListI9QQmlErrorE+0xd8c) [0x7fff4adb3378]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN11QQmlImports16addLibraryImportEP14QQmlTypeLoaderRK7QStringS4_13QTypeRevisionS4_S4_6QFlagsINS_10ImportFlagEEtP5QListI9QQmlErrorE+0x358) [0x7fff4adbc998]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN14QQmlTypeLoader4Blob16addLibraryImportERKSt10shared_ptrINS0_13PendingImportEEP5QListI9QQmlErrorE+0x95c) [0x7fff4ae5771c]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN14QQmlTypeLoader4Blob9addImportEPKN3QV412CompiledData6ImportE6QFlagsIN11QQmlImports10ImportFlagEEP5QListI9QQmlErrorE+0x90) [0x7fff4ae58d00]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(+0x372bc4) [0x7fff4ae42bc4]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN14QQmlTypeLoader7setDataERK14QQmlRefPointerI12QQmlDataBlobERKNS1_14SourceCodeDataE+0x68) [0x7fff4ae52150]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN14QQmlTypeLoader7setDataERK14QQmlRefPointerI12QQmlDataBlobERK7QString+0xa8) [0x7fff4ae53078]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(_ZN14QQmlTypeLoader10loadThreadERK14QQmlRefPointerI12QQmlDataBlobE+0xd4) [0x7fff4ae54294]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(+0x38a878) [0x7fff4ae5a878]
+   /lib/aarch64-linux-gnu/libQt6Qml.so.6(+0x289f80) [0x7fff4ad59f80]
+   /lib/aarch64-linux-gnu/libQt6Widgets.so.6(_ZN19QApplicationPrivate13notify_helperEP7QObjectP6QEvent+0x58) [0x7fff4be72058]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZN16QCoreApplication15notifyInternal2EP7QObjectP6QEvent+0x18c) [0x7fff49bbe394]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZN23QCoreApplicationPrivate16sendPostedEventsEP7QObjectiP11QThreadData+0x294) [0x7fff49bbf294]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(+0x3900f0) [0x7fff49de00f0]
+   /lib/aarch64-linux-gnu/libglib-2.0.so.0(+0x5f354) [0x7fff4887f354]
+   /lib/aarch64-linux-gnu/libglib-2.0.so.0(+0x6181c) [0x7fff4888181c]
+   /lib/aarch64-linux-gnu/libglib-2.0.so.0(g_main_context_iteration+0x38) [0x7fff488820c4]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZN20QEventDispatcherGlib13processEventsE6QFlagsIN10QEventLoop17ProcessEventsFlagEE+0x58) [0x7fff49ddced8]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZN10QEventLoop4execE6QFlagsINS_17ProcessEventsFlagEE+0x28c) [0x7fff49bc0d34]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(_ZN7QThread4execEv+0x120) [0x7fff49ca1e24]
+   /lib/aarch64-linux-gnu/libQt6Core.so.6(+0x2c169c) [0x7fff49d1169c]
+   /lib/aarch64-linux-gnu/libc.so.6(+0x85f78) [0x7fff495a5f78]
+   /lib/aarch64-linux-gnu/libc.so.6(+0xede8c) [0x7fff4960de8c]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CrashHandler] CRITICAL ARCHITECTURAL ISSUE:
+[CrashHandler] Apps are running in the same process as the shell!
+[CrashHandler] This crash likely came from an app, but it's taking down
+[CrashHandler] the entire shell because of poor isolation.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[CrashHandler] RECOMMENDED FIX:
+[CrashHandler] 1. Implement multi-process architecture
+[CrashHandler] 2. Run each app in its own QProcess
+[CrashHandler] 3. Use Qt Application Manager's multi-process mode
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Marathon] App crash detected: "SIGABRT: Abort signal (assertion failed or abort() called)"
+[Marathon] This crash was likely caused by an app, but due to
+[Marathon] poor isolation, it's taking down the entire shell.
+[CrashHandler] Shell will now exit (cannot safely continue)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

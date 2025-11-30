@@ -14,3 +14,6 @@ build-ui/
 check_output.cpp
 cmake/
 
+
+.qmlls.ini
+.qmllint.ini
