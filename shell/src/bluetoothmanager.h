@@ -14,8 +14,8 @@
 #include <QDBusObjectPath>
 
 // Define types for GetManagedObjects return value
-typedef QMap<QString, QVariant> PropertyMap;
-typedef QMap<QString, PropertyMap> InterfaceMap;
+typedef QMap<QString, QVariant>             PropertyMap;
+typedef QMap<QString, PropertyMap>          InterfaceMap;
 typedef QMap<QDBusObjectPath, InterfaceMap> ManagedObjectMap;
 Q_DECLARE_METATYPE(ManagedObjectMap)
 
@@ -32,22 +32,40 @@ class BluetoothDevice : public QObject {
     Q_PROPERTY(int rssi READ rssi NOTIFY rssiChanged)
     Q_PROPERTY(QString icon READ icon NOTIFY iconChanged)
 
-public:
+  public:
     explicit BluetoothDevice(const QString &path, QObject *parent = nullptr);
 
-    QString address() const { return m_address; }
-    QString name() const { return m_name; }
-    QString alias() const { return m_alias; }
-    bool paired() const { return m_paired; }
-    bool connected() const { return m_connected; }
-    bool trusted() const { return m_trusted; }
-    int rssi() const { return m_rssi; }
-    QString icon() const { return m_icon; }
-    QString path() const { return m_path; }
+    QString address() const {
+        return m_address;
+    }
+    QString name() const {
+        return m_name;
+    }
+    QString alias() const {
+        return m_alias;
+    }
+    bool paired() const {
+        return m_paired;
+    }
+    bool connected() const {
+        return m_connected;
+    }
+    bool trusted() const {
+        return m_trusted;
+    }
+    int rssi() const {
+        return m_rssi;
+    }
+    QString icon() const {
+        return m_icon;
+    }
+    QString path() const {
+        return m_path;
+    }
 
     void updateProperties();
 
-signals:
+  signals:
     void nameChanged();
     void aliasChanged();
     void pairedChanged();
@@ -56,15 +74,15 @@ signals:
     void rssiChanged();
     void iconChanged();
 
-private:
+  private:
     QString m_path;
     QString m_address;
     QString m_name;
     QString m_alias;
-    bool m_paired = false;
-    bool m_connected = false;
-    bool m_trusted = false;
-    int m_rssi = 0;
+    bool    m_paired    = false;
+    bool    m_connected = false;
+    bool    m_trusted   = false;
+    int     m_rssi      = 0;
     QString m_icon;
 };
 
@@ -73,27 +91,39 @@ class BluetoothManager : public QObject {
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
     Q_PROPERTY(bool discoverable READ discoverable WRITE setDiscoverable NOTIFY discoverableChanged)
-    Q_PROPERTY(QList<QObject*> devices READ devices NOTIFY devicesChanged)
-    Q_PROPERTY(QList<QObject*> pairedDevices READ pairedDevices NOTIFY pairedDevicesChanged)
+    Q_PROPERTY(QList<QObject *> devices READ devices NOTIFY devicesChanged)
+    Q_PROPERTY(QList<QObject *> pairedDevices READ pairedDevices NOTIFY pairedDevicesChanged)
     Q_PROPERTY(QString adapterName READ adapterName NOTIFY adapterNameChanged)
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
 
-public:
+  public:
     explicit BluetoothManager(QObject *parent = nullptr);
     ~BluetoothManager() override;
 
-    bool enabled() const { return m_enabled; }
+    bool enabled() const {
+        return m_enabled;
+    }
     void setEnabled(bool enabled);
 
-    bool scanning() const { return m_scanning; }
-    bool discoverable() const { return m_discoverable; }
-    void setDiscoverable(bool discoverable);
+    bool scanning() const {
+        return m_scanning;
+    }
+    bool discoverable() const {
+        return m_discoverable;
+    }
+    void             setDiscoverable(bool discoverable);
 
-    QList<QObject*> devices() const { return m_devices; }
-    QList<QObject*> pairedDevices() const;
-    
-    QString adapterName() const { return m_adapterName; }
-    bool available() const { return m_available; }
+    QList<QObject *> devices() const {
+        return m_devices;
+    }
+    QList<QObject *> pairedDevices() const;
+
+    QString          adapterName() const {
+        return m_adapterName;
+    }
+    bool available() const {
+        return m_available;
+    }
 
     Q_INVOKABLE void startScan();
     Q_INVOKABLE void stopScan();
@@ -106,7 +136,7 @@ public:
     Q_INVOKABLE void cancelPairing(const QString &address);
     Q_INVOKABLE void confirmPairing(const QString &address, bool confirmed);
 
-signals:
+  signals:
     void enabledChanged();
     void scanningChanged();
     void discoverableChanged();
@@ -121,32 +151,32 @@ signals:
     void passkeyRequested(const QString &address, const QString &deviceName);
     void passkeyConfirmation(const QString &address, const QString &deviceName, quint32 passkey);
 
-private slots:
+  private slots:
     void onDeviceAdded(const QDBusObjectPath &objectPath, const InterfaceMap &interfaces);
     void onDeviceRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
-    void onPropertiesChanged(const QString &interface, const QVariantMap &changed, const QStringList &invalidated);
+    void onPropertiesChanged(const QString &interface, const QVariantMap &changed,
+                             const QStringList &invalidated);
     void updateAdapterProperties();
     void refreshDevices();
 
     void connectToBlueZ();
-    BluetoothDevice* findDeviceByPath(const QString &path);
-    BluetoothDevice* findDeviceByAddress(const QString &address);
-    void addDevice(const QString &path);
-    void removeDeviceByPath(const QString &path);
+    BluetoothDevice *findDeviceByPath(const QString &path);
+    BluetoothDevice *findDeviceByAddress(const QString &address);
+    void             addDevice(const QString &path);
+    void             removeDeviceByPath(const QString &path);
 
-private:
-    void initializeAdapter();
+  private:
+    void             initializeAdapter();
 
-    QDBusConnection m_bus;
-    QDBusInterface *m_adapter = nullptr;
-    QString m_adapterPath;
-    QString m_adapterName;
-    bool m_enabled = false;
-    bool m_scanning = false;
-    bool m_discoverable = false;
-    bool m_available = false;
-    QList<QObject*> m_devices;
-    QTimer *m_scanTimer = nullptr;
-    BluetoothAgent *m_agent = nullptr;
+    QDBusConnection  m_bus;
+    QDBusInterface  *m_adapter = nullptr;
+    QString          m_adapterPath;
+    QString          m_adapterName;
+    bool             m_enabled      = false;
+    bool             m_scanning     = false;
+    bool             m_discoverable = false;
+    bool             m_available    = false;
+    QList<QObject *> m_devices;
+    QTimer          *m_scanTimer = nullptr;
+    BluetoothAgent  *m_agent     = nullptr;
 };
-

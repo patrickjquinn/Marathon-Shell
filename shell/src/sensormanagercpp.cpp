@@ -1,7 +1,7 @@
 #include "sensormanagercpp.h"
 #include <QDebug>
 
-SensorManagerCpp::SensorManagerCpp(QObject* parent)
+SensorManagerCpp::SensorManagerCpp(QObject *parent)
     : QObject(parent)
     , m_available(false)
     , m_proximityNear(false)
@@ -20,8 +20,8 @@ SensorManagerCpp::SensorManagerCpp(QObject* parent)
 
     // Proximity
     if (ok1) {
-        connect(m_proximity, &QProximitySensor::readingChanged,
-                this, &SensorManagerCpp::onProximityChanged);
+        connect(m_proximity, &QProximitySensor::readingChanged, this,
+                &SensorManagerCpp::onProximityChanged);
         m_proximity->start();
         qInfo() << "[SensorManagerCpp] Proximity sensor active";
     } else {
@@ -30,8 +30,7 @@ SensorManagerCpp::SensorManagerCpp(QObject* parent)
 
     // Ambient light
     if (ok2) {
-        connect(m_light, &QLightSensor::readingChanged,
-                this, &SensorManagerCpp::onLightChanged);
+        connect(m_light, &QLightSensor::readingChanged, this, &SensorManagerCpp::onLightChanged);
         m_light->start();
         qInfo() << "[SensorManagerCpp] Ambient light sensor active";
     } else {
@@ -39,8 +38,7 @@ SensorManagerCpp::SensorManagerCpp(QObject* parent)
     }
 }
 
-void SensorManagerCpp::onProximityChanged()
-{
+void SensorManagerCpp::onProximityChanged() {
     bool near = m_proximity->reading()->close();
     if (near != m_proximityNear) {
         m_proximityNear = near;
@@ -48,8 +46,7 @@ void SensorManagerCpp::onProximityChanged()
     }
 }
 
-void SensorManagerCpp::onLightChanged()
-{
+void SensorManagerCpp::onLightChanged() {
     int lux = int(m_light->reading()->lux());
     if (lux != m_ambientLight) {
         m_ambientLight = lux;
