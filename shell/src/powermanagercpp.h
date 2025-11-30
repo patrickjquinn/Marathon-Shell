@@ -97,17 +97,9 @@ signals:
 
 private slots:
     void updateAggregateState();
-    void scanForDevices();
     void onPrepareForSleep(bool beforeSleep);
     void checkIdleState();
     
-    // UPower signals
-    void deviceAdded(const QDBusObjectPath &path);
-    void deviceRemoved(const QDBusObjectPath &path);
-    void devicePropertiesChanged(const QString &interface, const QVariantMap &changedProps, const QStringList &invalidatedProps);
-    
-
-
 private:
     void setupDBusConnections();
     void simulateBatteryUpdate();
@@ -116,12 +108,13 @@ private:
     void checkWakelockSupport();
     void checkRtcAlarmSupport();
     void cleanupWakelocks();
+    void setupDisplayDevice();
     bool writeToFile(const QString &path, const QString &content);
     bool writeToRtcWakeAlarm(const QString &value);
 
     QDBusInterface* m_upowerInterface;
+    QDBusInterface* m_displayDeviceInterface;
     QDBusInterface* m_logindInterface;
-    QTimer* m_batteryMonitor;
     QTimer* m_idleTimer;
     
     int m_batteryLevel;
@@ -146,17 +139,6 @@ private:
     bool m_systemSuspended;
     bool m_wakelockSupported;
     QString m_fallbackMode;  // "wakelock", "inhibitor", or "none"
-    
-    struct PowerDevice {
-        QString path;
-        uint type;      // 1=Line Power, 2=Battery
-        bool online;    // For Line Power
-        bool isPresent; // For Battery
-        int percentage;
-        uint state;     // Charging/Discharging/etc
-    };
-
-    QMap<QString, PowerDevice> m_devices; // Cache of known devices
     
     // RTC alarm support
     bool m_rtcAlarmSupported;
