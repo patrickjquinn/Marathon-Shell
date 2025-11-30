@@ -147,20 +147,6 @@ int main(int argc, char *argv[])
     // Register D-Bus types needed for MPRIS2 metadata (a{sv} -> QVariantMap)
     registerMprisTypes();
     
-    // Set env variables
-    // Request X11 platform as we need XWayland for compatibility
-    qputenv("QT_QPA_PLATFORM", "wayland;xcb");
-    
-    // Force Qt to use the Linux QPA theme
-    qputenv("QT_QPA_PLATFORMTHEME", "gtk3");
-    
-    // Use the xcb backend for input handling to avoid Wayland quirks
-    // This helps with mouse and keyboard input in the embedded Wayland compositor
-    qputenv("QT_QPA_PLATFORM", "wayland;xcb");
-    
-    // Disable Qt Quick Compiler for better compatibility with dynamic QML
-    qputenv("QML_DISABLE_DISK_CACHE", "1");
-    
     // Enable software rendering for better compatibility in VMs or low-end hardware
     // qputenv("QMLSCENE_DEVICE", "software");  // Commented out - let Qt choose best renderer
     
