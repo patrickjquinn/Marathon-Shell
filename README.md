@@ -63,6 +63,7 @@ sudo dnf install cmake ninja-build gcc-c++ \
     qt6-qtsvg-devel \
     qt6-qtlocation-devel \
     qt6-qtpositioning-devel \
+    qt6-qtsensors-devel \
     pam-devel \
     hunspell-devel \
     hunspell-en-US
@@ -76,6 +77,7 @@ sudo apt install cmake ninja-build g++ \
     qt6-wayland-dev \
     qt6-multimedia-dev \
     qt6-svg-dev \
+    qt6-sensors-dev \
     qt6-dbus-dev \
     libpam0g-dev \
     dbus-daemon \
