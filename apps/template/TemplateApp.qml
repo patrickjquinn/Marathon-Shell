@@ -11,61 +11,61 @@ MApp {
     id: templateApp
     appId: "template"
     appName: "Template App"
-    
+
     property var appData: []
-    
+
     onAppLaunched: {
-        Logger.info("TemplateApp", "App launched")
-        loadAppData()
+        Logger.info("TemplateApp", "App launched");
+        loadAppData();
     }
-    
+
     onAppResumed: {
-        Logger.info("TemplateApp", "App resumed")
+        Logger.info("TemplateApp", "App resumed");
     }
-    
+
     onAppPaused: {
-        Logger.info("TemplateApp", "App paused")
-        saveAppData()
+        Logger.info("TemplateApp", "App paused");
+        saveAppData();
     }
-    
+
     onAppWillTerminate: {
-        Logger.info("TemplateApp", "App terminating")
-        saveAppData()
+        Logger.info("TemplateApp", "App terminating");
+        saveAppData();
     }
-    
+
     function loadAppData() {
-        var savedData = SettingsManagerCpp.get("template/data", "[]")
+        var savedData = SettingsManagerCpp.get("template/data", "[]");
         try {
-            appData = JSON.parse(savedData)
+            appData = JSON.parse(savedData);
         } catch (e) {
-            Logger.error("TemplateApp", "Failed to load data: " + e)
-            appData = []
+            Logger.error("TemplateApp", "Failed to load data: " + e);
+            appData = [];
         }
-        appDataChanged()
+        appDataChanged();
     }
-    
+
     function saveAppData() {
-        var data = JSON.stringify(appData)
-        SettingsManagerCpp.set("template/data", data)
+        var data = JSON.stringify(appData);
+        SettingsManagerCpp.set("template/data", data);
     }
-    
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+
         StackView {
             id: navigationStack
             anchors.fill: parent
             initialItem: mainPage
-            
+
             onDepthChanged: {
-                templateApp.navigationDepth = depth - 1
+                templateApp.navigationDepth = depth - 1;
             }
-            
+
             Component.onCompleted: {
-                templateApp.navigationDepth = depth - 1
+                templateApp.navigationDepth = depth - 1;
             }
-            
+
             pushEnter: Transition {
                 NumberAnimation {
                     property: "x"
@@ -75,7 +75,7 @@ MApp {
                     easing.type: Easing.OutCubic
                 }
             }
-            
+
             pushExit: Transition {
                 NumberAnimation {
                     property: "x"
@@ -91,7 +91,7 @@ MApp {
                     duration: Constants.animationDurationNormal
                 }
             }
-            
+
             popEnter: Transition {
                 NumberAnimation {
                     property: "x"
@@ -107,7 +107,7 @@ MApp {
                     duration: Constants.animationDurationNormal
                 }
             }
-            
+
             popExit: Transition {
                 NumberAnimation {
                     property: "x"
@@ -119,19 +119,18 @@ MApp {
             }
         }
     }
-    
+
     Connections {
         target: templateApp
         function onBackPressed() {
             if (navigationStack.depth > 1) {
-                navigationStack.pop()
+                navigationStack.pop();
             }
         }
     }
-    
+
     Component {
         id: mainPage
         MainPage {}
     }
 }
-

@@ -25,5 +25,3 @@ Image {
         colorizationColor: root.color
     }
 }
-
-

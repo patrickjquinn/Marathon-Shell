@@ -7,34 +7,34 @@ import MarathonUI.Theme
 
 Rectangle {
     id: root
-    
+
     property string title: "Terminal"
     property bool active: false
     property bool canClose: true
-    
-    signal clicked()
-    signal closeClicked()
-    
+
+    signal clicked
+    signal closeClicked
+
     width: 160
     height: 36
     color: active ? MColors.accent : MColors.elevated
     radius: Constants.borderRadiusSmall
     border.width: 1
     border.color: active ? MColors.accentBright : MColors.border
-    
+
     RowLayout {
         anchors.fill: parent
         anchors.leftMargin: MSpacing.md
         anchors.rightMargin: MSpacing.xs
         spacing: MSpacing.xs
-        
+
         Icon {
             name: "terminal"
             size: 16
             color: active ? "black" : MColors.text
             Layout.alignment: Qt.AlignVCenter
         }
-        
+
         Text {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
@@ -46,7 +46,7 @@ Rectangle {
             elide: Text.ElideRight
             verticalAlignment: Text.AlignVCenter
         }
-        
+
         MIconButton {
             iconName: "x"
             iconSize: 12
@@ -59,13 +59,13 @@ Rectangle {
             iconColor: active ? "black" : MColors.text
         }
     }
-    
+
     MouseArea {
         anchors.fill: parent
         z: -1
         onClicked: {
-            root.clicked()
-            HapticService.light()
+            root.clicked();
+            HapticService.light();
         }
     }
 }

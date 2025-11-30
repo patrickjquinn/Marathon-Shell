@@ -10,49 +10,49 @@ MApp {
     appId: "messages"
     appName: "Messages"
     appIcon: "assets/icon.svg"
-    
+
     property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
-    
+
     property int selectedConversationId: -1
-    
+
     Connections {
         target: typeof SMSService !== 'undefined' ? SMSService : null
         function onMessageReceived(sender, text, timestamp) {
-            Logger.info("Messages", "New message from: " + sender)
+            Logger.info("Messages", "New message from: " + sender);
         }
     }
-    
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+
         StackView {
             id: navigationStack
             anchors.fill: parent
             initialItem: conversationsListPage
-            
+
             property var backConnection: null
-            
+
             onDepthChanged: {
-                messagesApp.navigationDepth = depth - 1
+                messagesApp.navigationDepth = depth - 1;
             }
-            
+
             Component.onCompleted: {
-                messagesApp.navigationDepth = depth - 1
-                
-                backConnection = messagesApp.backPressed.connect(function() {
+                messagesApp.navigationDepth = depth - 1;
+
+                backConnection = messagesApp.backPressed.connect(function () {
                     if (depth > 1) {
-                        pop()
+                        pop();
                     }
-                })
+                });
             }
-            
+
             Component.onDestruction: {
                 if (backConnection) {
-                    messagesApp.backPressed.disconnect(backConnection)
+                    messagesApp.backPressed.disconnect(backConnection);
                 }
             }
-            
+
             pushEnter: Transition {
                 NumberAnimation {
                     property: "x"
@@ -62,7 +62,7 @@ MApp {
                     easing.type: Easing.OutCubic
                 }
             }
-            
+
             pushExit: Transition {
                 NumberAnimation {
                     property: "x"
@@ -78,7 +78,7 @@ MApp {
                     duration: Constants.animationDurationNormal
                 }
             }
-            
+
             popEnter: Transition {
                 NumberAnimation {
                     property: "x"
@@ -94,7 +94,7 @@ MApp {
                     duration: Constants.animationDurationNormal
                 }
             }
-            
+
             popExit: Transition {
                 NumberAnimation {
                     property: "x"
@@ -105,41 +105,43 @@ MApp {
                 }
             }
         }
-        
+
         Component {
             id: conversationsListPage
             ConversationsListPage {
-                onOpenConversation: function(conversationId) {
-                    selectedConversationId = conversationId
-                    var conversation = getConversation(conversationId)
+                onOpenConversation: function (conversationId) {
+                    selectedConversationId = conversationId;
+                    var conversation = getConversation(conversationId);
                     if (conversation) {
-                        navigationStack.push(chatPage, { conversation: conversation })
+                        navigationStack.push(chatPage, {
+                            conversation: conversation
+                        });
                     } else {
-                        Logger.warn("Messages", "Conversation not found: " + conversationId)
+                        Logger.warn("Messages", "Conversation not found: " + conversationId);
                     }
                 }
-                onNewMessage: function() {
-                    navigationStack.push(newConversationPage)
+                onNewMessage: function () {
+                    navigationStack.push(newConversationPage);
                 }
             }
         }
-        
+
         Component {
             id: chatPage
             ChatPage {
                 onNavigateBack: {
-                    navigationStack.pop()
+                    navigationStack.pop();
                 }
             }
         }
-        
+
         Component {
             id: newConversationPage
             NewConversationPage {
-                onConversationStarted: function(recipient, recipientName) {
-                    Logger.info("Messages", "Starting conversation with: " + recipient)
-                    var conversationId = typeof SMSService !== 'undefined' ? SMSService.generateConversationId(recipient) : "conv_" + recipient
-                    
+                onConversationStarted: function (recipient, recipientName) {
+                    Logger.info("Messages", "Starting conversation with: " + recipient);
+                    var conversationId = typeof SMSService !== 'undefined' ? SMSService.generateConversationId(recipient) : "conv_" + recipient;
+
                     var conversation = {
                         "id": conversationId,
                         "contactName": recipientName,
@@ -147,55 +149,58 @@ MApp {
                         "lastMessage": "",
                         "timestamp": Date.now(),
                         "unread": false
-                    }
-                    
-                    navigationStack.pop()
-                    navigationStack.push(chatPage, { conversation: conversation })
+                    };
+
+                    navigationStack.pop();
+                    navigationStack.push(chatPage, {
+                        conversation: conversation
+                    });
                 }
-                onCancelled: function() {
-                    navigationStack.pop()
+                onCancelled: function () {
+                    navigationStack.pop();
                 }
             }
         }
     }
-    
+
     function getConversation(id) {
-        if (!id) return null
-        
+        if (!id)
+            return null;
+
         for (var i = 0; i < conversations.length; i++) {
             if (conversations[i].id === id) {
-                return conversations[i]
+                return conversations[i];
             }
         }
-        
-        Logger.warn("Messages", "Conversation not found: " + id)
-        return null
+
+        Logger.warn("Messages", "Conversation not found: " + id);
+        return null;
     }
-    
+
     function refreshConversations() {
         if (typeof SMSService !== 'undefined') {
-            conversations = SMSService.conversations
+            conversations = SMSService.conversations;
         }
     }
-    
+
     Connections {
         target: typeof SMSService !== 'undefined' ? SMSService : null
         function onConversationsChanged() {
-            Logger.info("Messages", "Conversations updated")
-            refreshConversations()
+            Logger.info("Messages", "Conversations updated");
+            refreshConversations();
         }
     }
-    
+
     function formatTimestamp(timestamp) {
-        var now = Date.now()
-        var diff = now - timestamp
-        
+        var now = Date.now();
+        var diff = now - timestamp;
+
         if (diff < 1000 * 60 * 60) {
-            return Math.floor(diff / (1000 * 60)) + "m"
+            return Math.floor(diff / (1000 * 60)) + "m";
         } else if (diff < 1000 * 60 * 60 * 24) {
-            return Math.floor(diff / (1000 * 60 * 60)) + "h"
+            return Math.floor(diff / (1000 * 60 * 60)) + "h";
         } else {
-            return Math.floor(diff / (1000 * 60 * 60 * 24)) + "d"
+            return Math.floor(diff / (1000 * 60 * 60 * 24)) + "d";
         }
     }
 }

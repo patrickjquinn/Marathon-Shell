@@ -10,21 +10,21 @@ Rectangle {
     visible: false
     opacity: 0
     z: 2000
-    
+
     property alias title: modalTitle.text
     default property alias content: contentArea.children
-    
-    signal closed()
-    
+
+    signal closed
+
     function open() {
-        visible = true
-        openAnimation.start()
+        visible = true;
+        openAnimation.start();
     }
-    
+
     function close() {
-        closeAnimation.start()
+        closeAnimation.start();
     }
-    
+
     NumberAnimation {
         id: openAnimation
         target: modal
@@ -34,7 +34,7 @@ Rectangle {
         duration: Constants.animationDurationNormal
         easing.type: Easing.OutCubic
     }
-    
+
     SequentialAnimation {
         id: closeAnimation
         NumberAnimation {
@@ -54,13 +54,13 @@ Rectangle {
             script: modal.closed()
         }
     }
-    
+
     MouseArea {
         anchors.fill: parent
         onClicked: modal.close()
         z: 1
     }
-    
+
     Rectangle {
         id: modalCard
         anchors.centerIn: parent
@@ -71,7 +71,7 @@ Rectangle {
         z: 2
         border.width: 1
         border.color: MColors.border
-        
+
         // Inner glow
         Rectangle {
             anchors.fill: parent
@@ -81,18 +81,18 @@ Rectangle {
             border.width: 1
             border.color: Qt.rgba(255, 255, 255, 0.02)
         }
-        
+
         Column {
             id: modalColumn
             anchors.fill: parent
             anchors.margins: MSpacing.xl
             spacing: MSpacing.lg
-            
+
             Item {
                 id: modalHeader
                 width: parent.width
                 height: MSpacing.touchTargetMedium
-                
+
                 Text {
                     id: modalTitle
                     anchors.left: parent.left
@@ -103,32 +103,31 @@ Rectangle {
                     font.family: MTypography.fontFamily
                     width: parent.width - MSpacing.touchTargetMedium - MSpacing.sm
                 }
-                
+
                 MIconButton {
                     iconName: "x"
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     onClicked: {
-                        Logger.info("Modal", "Close button clicked")
-                        modal.close()
+                        Logger.info("Modal", "Close button clicked");
+                        modal.close();
                     }
                 }
             }
-            
+
             Item {
                 id: contentArea
                 width: parent.width
                 height: childrenRect.height
             }
         }
-        
+
         MouseArea {
             anchors.fill: parent
             z: 5
             onClicked: {
-                console.log("Modal card clicked (blocking background)")
+                console.log("Modal card clicked (blocking background)");
             }
         }
     }
 }
-

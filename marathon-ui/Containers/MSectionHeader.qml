@@ -3,16 +3,16 @@ import MarathonUI.Theme
 
 Rectangle {
     id: root
-    
+
     property alias text: headerText.text
-    
+
     height: 44
     color: MColors.glassHeader
-    
+
     // No blur - clean and crisp
     border.width: 1
     border.color: MColors.borderGlass
-    
+
     Rectangle {
         anchors.fill: parent
         anchors.margins: 1
@@ -20,7 +20,7 @@ Rectangle {
         border.width: 1
         border.color: MColors.highlightSubtle
     }
-    
+
     Text {
         id: headerText
         anchors.left: parent.left
@@ -34,4 +34,3 @@ Rectangle {
         font.letterSpacing: 1.2
     }
 }
-

@@ -4,92 +4,91 @@ import MarathonOS.Shell
 
 QtObject {
     id: root
-    
+
     property int lastBatteryWarningLevel: 100
     property bool hasShownCriticalWarning: false
     property var errorToast: null
     property var shutdownCallback: null
     property var shutdownStopCallback: null
-    
+
     function handleBatteryLevelChanged() {
         if (typeof PowerManager === 'undefined' || !PowerManager) {
-            return
+            return;
         }
-        
-        let level = PowerManager.batteryLevel
-        let isCharging = PowerManager.isCharging
-        
+
+        let level = PowerManager.batteryLevel;
+        let isCharging = PowerManager.isCharging;
+
         if (isCharging) {
-            root.lastBatteryWarningLevel = 100
-            root.hasShownCriticalWarning = false
+            root.lastBatteryWarningLevel = 100;
+            root.hasShownCriticalWarning = false;
             if (root.shutdownStopCallback) {
-                root.shutdownStopCallback()
+                root.shutdownStopCallback();
             }
-            return
+            return;
         }
-        
+
         if (level <= 3 && !root.hasShownCriticalWarning) {
-            Logger.error("PowerBatteryHandler", "Critical battery level: " + level + "% - Initiating emergency shutdown")
+            Logger.error("PowerBatteryHandler", "Critical battery level: " + level + "% - Initiating emergency shutdown");
             if (root.errorToast) {
-                root.errorToast.show("Critical Battery", "Device will shutdown in 10 seconds to prevent data loss", "battery-warning")
+                root.errorToast.show("Critical Battery", "Device will shutdown in 10 seconds to prevent data loss", "battery-warning");
             }
             if (typeof HapticService !== 'undefined') {
-                HapticService.heavy()
+                HapticService.heavy();
             }
-            root.hasShownCriticalWarning = true
-            
+            root.hasShownCriticalWarning = true;
+
             if (root.shutdownCallback) {
-                root.shutdownCallback()
+                root.shutdownCallback();
             }
         } else if (level <= 5 && root.lastBatteryWarningLevel > 5) {
-            Logger.warn("PowerBatteryHandler", "Very low battery: " + level + "%")
+            Logger.warn("PowerBatteryHandler", "Very low battery: " + level + "%");
             if (root.errorToast) {
-                root.errorToast.show("Very Low Battery", level + "% remaining. Connect charger immediately.", "battery-warning")
+                root.errorToast.show("Very Low Battery", level + "% remaining. Connect charger immediately.", "battery-warning");
             }
             if (typeof HapticService !== 'undefined') {
-                HapticService.heavy()
+                HapticService.heavy();
             }
-            root.lastBatteryWarningLevel = 5
+            root.lastBatteryWarningLevel = 5;
         } else if (level <= 10 && root.lastBatteryWarningLevel > 10) {
-            Logger.warn("PowerBatteryHandler", "Low battery: " + level + "%")
+            Logger.warn("PowerBatteryHandler", "Low battery: " + level + "%");
             if (root.errorToast) {
-                root.errorToast.show("Low Battery", level + "% remaining. Connect charger soon.", "battery")
+                root.errorToast.show("Low Battery", level + "% remaining. Connect charger soon.", "battery");
             }
             if (typeof HapticService !== 'undefined') {
-                HapticService.medium()
+                HapticService.medium();
             }
-            root.lastBatteryWarningLevel = 10
+            root.lastBatteryWarningLevel = 10;
         } else if (level <= 20 && root.lastBatteryWarningLevel > 20) {
-            Logger.info("PowerBatteryHandler", "Battery getting low: " + level + "%")
+            Logger.info("PowerBatteryHandler", "Battery getting low: " + level + "%");
             if (root.errorToast) {
-                root.errorToast.show("Battery Low", level + "% remaining", "battery")
+                root.errorToast.show("Battery Low", level + "% remaining", "battery");
             }
             if (typeof HapticService !== 'undefined') {
-                HapticService.light()
+                HapticService.light();
             }
-            root.lastBatteryWarningLevel = 20
+            root.lastBatteryWarningLevel = 20;
         }
     }
-    
+
     function handlePowerButtonPress() {
         if (!DisplayManager.screenOn) {
-            DisplayManager.turnScreenOn()
-            HapticService?.medium()
-            return
+            DisplayManager.turnScreenOn();
+            HapticService?.medium();
+            return;
         }
-    
+
         if (!SessionStore.isLocked) {
-            SessionStore.lock()
-            DisplayManager.turnScreenOff()
-            HapticService?.medium()
-            return
+            SessionStore.lock();
+            DisplayManager.turnScreenOff();
+            HapticService?.medium();
+            return;
         }
-    
+
         if (SessionStore.isLocked) {
-            DisplayManager.turnScreenOff()
-            HapticService?.medium()
-            return
+            DisplayManager.turnScreenOff();
+            HapticService?.medium();
+            return;
         }
     }
 }
-

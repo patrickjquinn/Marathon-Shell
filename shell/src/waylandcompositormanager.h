@@ -12,16 +12,15 @@
 class WaylandCompositor;
 class SettingsManager;
 
-class WaylandCompositorManager : public QObject
-{
+class WaylandCompositorManager : public QObject {
     Q_OBJECT
 
-public:
+  public:
     explicit WaylandCompositorManager(SettingsManager *settingsManager, QObject *parent = nullptr);
-    
-    Q_INVOKABLE WaylandCompositor* createCompositor(QQuickWindow *window);
 
-private:
+    Q_INVOKABLE WaylandCompositor *createCompositor(QQuickWindow *window);
+
+  private:
     SettingsManager *m_settingsManager;
 #ifdef HAVE_WAYLAND
     WaylandCompositor *m_compositor = nullptr;
@@ -29,4 +28,3 @@ private:
 };
 
 #endif // WAYLANDCOMPOSITORMANAGER_H
-

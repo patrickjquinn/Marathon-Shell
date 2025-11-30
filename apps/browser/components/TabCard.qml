@@ -9,28 +9,28 @@ MCard {
     height: Constants.cardHeight
     elevation: isCurrentTab ? 2 : 1
     interactive: true
-    
-    signal tabClicked()
-    signal closeRequested()
-    
+
+    signal tabClicked
+    signal closeRequested
+
     property var tabData: null
     property bool isCurrentTab: false
-    
+
     border.color: isCurrentTab ? MColors.accentBright : MColors.border
-    
+
     onClicked: {
-        tabCard.tabClicked()
+        tabCard.tabClicked();
     }
-    
+
     Column {
         anchors.fill: parent
         anchors.margins: MSpacing.md
         spacing: MSpacing.sm
-        
+
         Item {
             width: parent.width
             height: Constants.touchTargetSmall
-            
+
             Icon {
                 id: globeIcon
                 anchors.left: parent.left
@@ -39,7 +39,7 @@ MCard {
                 size: Constants.iconSizeSmall
                 color: isCurrentTab ? MColors.accentBright : MColors.textSecondary
             }
-            
+
             Column {
                 anchors.left: globeIcon.right
                 anchors.leftMargin: MSpacing.sm
@@ -47,7 +47,7 @@ MCard {
                 anchors.rightMargin: MSpacing.sm
                 anchors.top: parent.top
                 spacing: 2
-                
+
                 Text {
                     width: parent.width
                     text: tabData ? (tabData.title || "New Tab") : "New Tab"
@@ -57,7 +57,7 @@ MCard {
                     color: isCurrentTab ? MColors.text : MColors.textSecondary
                     elide: Text.ElideRight
                 }
-                
+
                 Text {
                     width: parent.width
                     text: tabData ? (tabData.url || "about:blank") : "about:blank"
@@ -67,19 +67,19 @@ MCard {
                     elide: Text.ElideMiddle
                 }
             }
-            
+
             MIconButton {
                 id: closeButton
                 anchors.right: parent.right
                 anchors.top: parent.top
                 iconName: "x"
-                
-                    onClicked: {
-                        tabCard.closeRequested()
+
+                onClicked: {
+                    tabCard.closeRequested();
                 }
             }
         }
-        
+
         Rectangle {
             width: parent.width
             height: parent.height - Constants.touchTargetSmall - MSpacing.sm
@@ -88,7 +88,7 @@ MCard {
             border.width: Constants.borderWidthThin
             border.color: MColors.border
             clip: true
-            
+
             Text {
                 anchors.centerIn: parent
                 text: tabData ? (tabData.title || tabData.url || "Loading...") : "Loading..."
@@ -99,4 +99,3 @@ MCard {
         }
     }
 }
-

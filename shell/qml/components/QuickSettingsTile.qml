@@ -5,27 +5,24 @@ import MarathonUI.Theme
 
 Item {
     id: tile
-    
+
     property var toggleData: ({})
     property real tileWidth: 160
     property bool isAvailable: toggleData.available !== undefined ? toggleData.available : true
-    
+
     // Determine if this is a toggleable tile (has on/off state) vs a link tile
-    readonly property bool isToggleable: toggleData.id !== "settings" && 
-                                          toggleData.id !== "lock" && 
-                                          toggleData.id !== "power" &&  // Power is an action menu
-                                          toggleData.id !== "monitor" &&
-                                          toggleData.id !== "alarm" &&  // Alarm is a link to Clock app
-                                          toggleData.id !== "screenshot"  // Screenshot is an action
-    
-    signal tapped()
-    signal longPressed()
-    
+    readonly property bool isToggleable: toggleData.id !== "settings" && toggleData.id !== "lock" && toggleData.id !== "power" &&  // Power is an action menu
+    toggleData.id !== "monitor" && toggleData.id !== "alarm" &&  // Alarm is a link to Clock app
+    toggleData.id !== "screenshot"  // Screenshot is an action
+
+    signal tapped
+    signal longPressed
+
     width: tileWidth
     height: Constants.hubHeaderHeight
-    
+
     property bool isPressed: false
-    
+
     // TOGGLEABLE TILE: Split design - ALWAYS visible (structure consistent across states)
     Rectangle {
         id: toggleableTile
@@ -34,20 +31,20 @@ Item {
         color: "transparent"
         scale: isPressed ? 0.98 : 1.0
         opacity: isAvailable ? 1.0 : 0.5
-        
+
         Behavior on scale {
             enabled: Constants.enableAnimations
-            SpringAnimation { 
+            SpringAnimation {
                 spring: MMotion.springMedium
                 damping: MMotion.dampingMedium
                 epsilon: MMotion.epsilon
             }
         }
-        
+
         Row {
             anchors.fill: parent
             spacing: 0
-            
+
             // LEFT: Square icon box - ALWAYS VISIBLE
             Rectangle {
                 id: iconBox
@@ -57,32 +54,36 @@ Item {
                 // OFF state: elevated surface. ON state: bright teal
                 color: toggleData.active ? MColors.accentBright : MColors.bb10Elevated
                 antialiasing: Constants.enableAntialiasing
-                
+
                 Behavior on color {
-                    ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    ColorAnimation {
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
                 }
-                
+
                 Icon {
                     // For toggleable items with -off variants, show the -off icon when inactive
                     name: {
-                        var iconName = toggleData.icon || "grid"
+                        var iconName = toggleData.icon || "grid";
                         if (!toggleData.active && (toggleData.id === "vibration" || toggleData.id === "wifi" || toggleData.id === "bluetooth")) {
-                            iconName = iconName + "-off"
+                            iconName = iconName + "-off";
                         }
-                        return iconName
+                        return iconName;
                     }
                     // OFF: standard text color. ON: dark (readable on teal). Unavailable: dim
-                    color: !isAvailable ? MColors.textSecondary : 
-                           (toggleData.active ? MColors.background : MColors.text)
+                    color: !isAvailable ? MColors.textSecondary : (toggleData.active ? MColors.background : MColors.text)
                     size: Constants.iconSizeMedium
                     anchors.centerIn: parent
-                    
+
                     Behavior on color {
-                        ColorAnimation { duration: 200 }
+                        ColorAnimation {
+                            duration: 200
+                        }
                     }
                 }
             }
-            
+
             // RIGHT: Label box - ALWAYS VISIBLE
             Rectangle {
                 width: parent.width - Constants.hubHeaderHeight
@@ -94,11 +95,14 @@ Item {
                 // OFF: subtle border. ON: teal border for cohesion
                 border.color: toggleData.active ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
-                
+
                 Behavior on border.color {
-                    ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                    ColorAnimation {
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
                 }
-                
+
                 // Inner border for depth
                 Rectangle {
                     anchors.fill: parent
@@ -109,17 +113,17 @@ Item {
                     border.color: MColors.borderSubtle
                     antialiasing: Constants.enableAntialiasing
                 }
-                
+
                 Item {
                     anchors.fill: parent
                     anchors.margins: MSpacing.md
                     anchors.leftMargin: MSpacing.md
-                    
+
                     Column {
                         width: parent.width
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: MSpacing.xs
-                        
+
                         MLabel {
                             text: toggleData.label || ""
                             variant: "body"
@@ -127,7 +131,7 @@ Item {
                             elide: Text.ElideRight
                             width: parent.width
                         }
-                        
+
                         MLabel {
                             visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
                             text: toggleData.subtitle || ""
@@ -139,7 +143,7 @@ Item {
                         }
                     }
                 }
-                
+
                 // Teal bar active indicator (bottom of label box) - ONLY when ON
                 Rectangle {
                     anchors.bottom: parent.bottom
@@ -152,27 +156,32 @@ Item {
                     visible: toggleData.active
                     antialiasing: Constants.enableAntialiasing
                     opacity: toggleData.active ? 1.0 : 0.0
-                    
+
                     Behavior on opacity {
-                        NumberAnimation { duration: 200 }
+                        NumberAnimation {
+                            duration: 200
+                        }
                     }
                 }
             }
         }
-        
+
         // Press overlay
         Rectangle {
             anchors.fill: parent
             color: toggleData.active ? MColors.background : MColors.accentBright
             opacity: isPressed ? 0.1 : 0
             radius: Constants.borderRadiusSharp
-            
+
             Behavior on opacity {
-                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutCubic
+                }
             }
         }
     }
-    
+
     // ACTION/LINK TILE: Solid card design (Settings, Lock, Monitor, Alarm)
     Rectangle {
         id: linkTile
@@ -186,16 +195,16 @@ Item {
         antialiasing: Constants.enableAntialiasing
         scale: isPressed ? 0.98 : 1.0
         opacity: isAvailable ? 1.0 : 0.5
-        
+
         Behavior on scale {
             enabled: Constants.enableAnimations
-            SpringAnimation { 
+            SpringAnimation {
                 spring: MMotion.springMedium
                 damping: MMotion.dampingMedium
                 epsilon: MMotion.epsilon
             }
         }
-        
+
         // Inner border for depth
         Rectangle {
             anchors.fill: parent
@@ -206,16 +215,16 @@ Item {
             border.color: MColors.borderSubtle
             antialiasing: Constants.enableAntialiasing
         }
-        
+
         Item {
             anchors.fill: parent
             anchors.margins: MSpacing.md
-            
+
             Row {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width
                 spacing: MSpacing.md
-                
+
                 // Icon container - slightly different sizing for action tiles
                 Rectangle {
                     width: Constants.iconSizeMedium + MSpacing.md
@@ -223,7 +232,7 @@ Item {
                     radius: Constants.borderRadiusSharp
                     color: MColors.bb10Elevated
                     antialiasing: Constants.enableAntialiasing
-                    
+
                     Icon {
                         name: toggleData.icon || "grid"
                         color: isAvailable ? MColors.text : MColors.textSecondary
@@ -231,12 +240,12 @@ Item {
                         anchors.centerIn: parent
                     }
                 }
-                
+
                 Column {
                     spacing: MSpacing.xs
                     width: parent.width - (Constants.iconSizeMedium + MSpacing.md * 2)
                     anchors.verticalCenter: parent.verticalCenter
-                    
+
                     MLabel {
                         text: toggleData.label || ""
                         variant: "body"
@@ -244,7 +253,7 @@ Item {
                         elide: Text.ElideRight
                         width: parent.width
                     }
-                    
+
                     MLabel {
                         visible: toggleData.subtitle !== undefined && toggleData.subtitle !== ""
                         text: toggleData.subtitle || ""
@@ -257,51 +266,54 @@ Item {
                 }
             }
         }
-        
+
         // Press overlay
         Rectangle {
             anchors.fill: parent
             color: MColors.text
             opacity: isPressed ? 0.08 : 0
             radius: Constants.borderRadiusSharp
-            
+
             Behavior on opacity {
-                NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+                NumberAnimation {
+                    duration: 150
+                    easing.type: Easing.OutCubic
+                }
             }
         }
     }
-    
+
     MouseArea {
         id: toggleMouseArea
         anchors.fill: parent
         enabled: isAvailable
-        
-        onPressed: function(mouse) {
-            isPressed = true
-            HapticService.light()
+
+        onPressed: function (mouse) {
+            isPressed = true;
+            HapticService.light();
         }
-        
+
         onReleased: {
-            isPressed = false
+            isPressed = false;
         }
-        
+
         onCanceled: {
-            isPressed = false
+            isPressed = false;
         }
-        
+
         onClicked: {
             if (!isAvailable) {
-                Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + toggleData.id)
-                return
+                Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + toggleData.id);
+                return;
             }
-            tile.tapped()
+            tile.tapped();
         }
-        
+
         onPressAndHold: {
-            if (!isAvailable) return
-            HapticService.medium()
-            tile.longPressed()
+            if (!isAvailable)
+                return;
+            HapticService.medium();
+            tile.longPressed();
         }
     }
 }
-

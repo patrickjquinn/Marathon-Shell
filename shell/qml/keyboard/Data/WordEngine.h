@@ -25,81 +25,78 @@ class WordEngineWorker;
  * Thread-safe wrapper around Hunspell for the Marathon keyboard.
  * Predictions run on a background thread to avoid blocking the UI.
  */
-class WordEngine : public QObject
-{
+class WordEngine : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged)
 
-public:
+  public:
     explicit WordEngine(QObject *parent = nullptr);
     ~WordEngine() override;
 
     // Properties
-    bool enabled() const;
-    void setEnabled(bool on);
+    bool    enabled() const;
+    void    setEnabled(bool on);
     QString language() const;
-    void setLanguage(const QString &lang);
+    void    setLanguage(const QString &lang);
 
     // Synchronous spell-checking (fast enough for UI thread)
     Q_INVOKABLE bool hasWord(const QString &word);
     Q_INVOKABLE bool spell(const QString &word);
-    
+
     // Asynchronous prediction (runs on worker thread)
     Q_INVOKABLE void requestPredictions(const QString &prefix, int maxResults = 3);
-    
+
     // User dictionary management
     Q_INVOKABLE void learnWord(const QString &word);
     Q_INVOKABLE void ignoreWord(const QString &word);
 
-signals:
+  signals:
     void enabledChanged();
     void languageChanged();
     void predictionsReady(QString prefix, QStringList predictions);
     void errorOccurred(QString message);
 
-private:
+  private:
     class Private;
-    Private *d;
-    
-    QThread *m_workerThread;
+    Private          *d;
+
+    QThread          *m_workerThread;
     WordEngineWorker *m_worker;
-    
-    static QString dictionaryPath();
-    void initializeWorker();
+
+    static QString    dictionaryPath();
+    void              initializeWorker();
 };
 
 /**
  * @brief Background worker for async predictions
  */
-class WordEngineWorker : public QObject
-{
+class WordEngineWorker : public QObject {
     Q_OBJECT
 
-public:
+  public:
     explicit WordEngineWorker(QObject *parent = nullptr);
     ~WordEngineWorker() override;
 
-public slots:
+  public slots:
     void setLanguage(const QString &language);
     void computePredictions(const QString &prefix, int maxResults);
     void addWord(const QString &word);
 
-signals:
+  signals:
     void predictionsReady(QString prefix, QStringList predictions);
     void errorOccurred(QString message);
 
-private:
+  private:
     Hunspell *m_hunspell;
-    QString m_encoding;  // Dictionary encoding (usually "UTF-8")
-    QString m_userDictionaryPath;
-    QString m_language;
-    QMutex m_mutex;
+    QString   m_encoding; // Dictionary encoding (usually "UTF-8")
+    QString   m_userDictionaryPath;
+    QString   m_language;
+    QMutex    m_mutex;
 
-    bool loadDictionary(const QString &language);
-    void loadUserDictionary();
-    QString findDictionaryPath(const QString &language);
+    bool      loadDictionary(const QString &language);
+    void      loadUserDictionary();
+    QString   findDictionaryPath(const QString &language);
 };
 
 #endif // MARATHON_WORDENGINE_H
-

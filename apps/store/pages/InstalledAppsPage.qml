@@ -10,7 +10,7 @@ Rectangle {
     id: page
     anchors.fill: parent
     color: MColors.background
-    
+
     MLabel {
         anchors.centerIn: parent
         text: "Installed Apps"

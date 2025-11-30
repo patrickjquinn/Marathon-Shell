@@ -16,32 +16,30 @@
  */
 class CrashHandler : public QObject {
     Q_OBJECT
-    
-public:
-    static CrashHandler* instance();
-    
+
+  public:
+    static CrashHandler *instance();
+
     // Install crash handlers
     void install();
-    
+
     // Set callback for crash notifications
-    void setCrashCallback(std::function<void(const QString&)> callback);
-    
+    void setCrashCallback(std::function<void(const QString &)> callback);
+
     // Check if we're currently in a crash handler
     static bool isInCrashHandler();
-    
-signals:
+
+  signals:
     void crashDetected(const QString &signal, const QString &message);
-    
-private:
+
+  private:
     explicit CrashHandler(QObject *parent = nullptr);
     ~CrashHandler() override;
-    
-    static void signalHandler(int signum);
-    static void setupSignalHandlers();
-    
-    std::function<void(const QString&)> m_crashCallback;
-    static CrashHandler* s_instance;
-    static bool s_inCrashHandler;
+
+    static void                          signalHandler(int signum);
+    static void                          setupSignalHandlers();
+
+    std::function<void(const QString &)> m_crashCallback;
+    static CrashHandler                 *s_instance;
+    static bool                          s_inCrashHandler;
 };
-
-

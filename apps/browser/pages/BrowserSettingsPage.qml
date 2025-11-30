@@ -7,27 +7,27 @@ import MarathonUI.Containers
 Rectangle {
     id: settingsPage
     color: MColors.background
-    
-    signal clearHistoryRequested()
-    signal clearCookiesRequested()
-    
+
+    signal clearHistoryRequested
+    signal clearCookiesRequested
+
     property bool isPrivateMode: false
     property string searchEngine: "Google"
     property string searchEngineUrl: "https://www.google.com/search?q="
     property string homepage: "https://www.google.com"
-    
+
     StackView {
         id: settingsStack
         anchors.fill: parent
         initialItem: mainSettingsComponent
-        
+
         Component {
             id: mainSettingsComponent
-            
+
             ListView {
                 clip: true
                 spacing: 0
-                
+
                 model: [
                     {
                         type: "toggle",
@@ -61,7 +61,7 @@ Rectangle {
                         iconName: "home"
                     }
                 ]
-                
+
                 delegate: MSettingsListItem {
                     title: modelData.title
                     subtitle: modelData.subtitle
@@ -69,59 +69,58 @@ Rectangle {
                     showChevron: modelData.type === "chevron"
                     showToggle: modelData.type === "toggle"
                     toggleValue: modelData.type === "toggle" ? modelData.value : false
-                    
+
                     onSettingClicked: {
-                        Logger.info("BrowserSettings", "Clicked: " + modelData.title)
-                        
+                        Logger.info("BrowserSettings", "Clicked: " + modelData.title);
+
                         if (modelData.title === "Clear History") {
-                            settingsPage.clearHistoryRequested()
+                            settingsPage.clearHistoryRequested();
                         } else if (modelData.title === "Clear Cookies") {
-                            settingsPage.clearCookiesRequested()
+                            settingsPage.clearCookiesRequested();
                         } else if (modelData.title === "Search Engine") {
-                            settingsStack.push(searchEngineComponent)
+                            settingsStack.push(searchEngineComponent);
                         } else if (modelData.title === "Homepage") {
-                            settingsStack.push(homepageComponent)
+                            settingsStack.push(homepageComponent);
                         }
                     }
-                    
-                    onToggleChanged: (value) => {
+
+                    onToggleChanged: value => {
                         if (modelData.title === "Private Browsing") {
-                            settingsPage.isPrivateMode = value
-                            Logger.info("BrowserSettings", "Private mode: " + value)
+                            settingsPage.isPrivateMode = value;
+                            Logger.info("BrowserSettings", "Private mode: " + value);
                         }
                     }
                 }
             }
         }
-        
+
         Component {
             id: searchEngineComponent
-            
+
             SearchEnginePage {
                 currentSearchEngine: settingsPage.searchEngine
                 onSearchEngineSelected: (name, url) => {
-                    settingsPage.searchEngine = name
-                    settingsPage.searchEngineUrl = url
-                    Logger.info("BrowserSettings", "Search engine changed to: " + name)
-                    settingsStack.pop()
+                    settingsPage.searchEngine = name;
+                    settingsPage.searchEngineUrl = url;
+                    Logger.info("BrowserSettings", "Search engine changed to: " + name);
+                    settingsStack.pop();
                 }
                 onBackRequested: settingsStack.pop()
             }
         }
-        
+
         Component {
             id: homepageComponent
-            
+
             HomepagePage {
                 currentHomepage: settingsPage.homepage
-                onHomepageChanged: (url) => {
-                    settingsPage.homepage = url
-                    Logger.info("BrowserSettings", "Homepage changed to: " + url)
-                    settingsStack.pop()
+                onHomepageChanged: url => {
+                    settingsPage.homepage = url;
+                    Logger.info("BrowserSettings", "Homepage changed to: " + url);
+                    settingsStack.pop();
                 }
                 onBackRequested: settingsStack.pop()
             }
         }
     }
 }
-

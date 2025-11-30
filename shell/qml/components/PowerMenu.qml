@@ -12,42 +12,42 @@ Item {
     anchors.fill: parent
     visible: false
     z: Constants.zIndexModal + 100
-    
-    signal sleepRequested()
-    signal rebootRequested()
-    signal shutdownRequested()
-    signal canceled()
-    
+
+    signal sleepRequested
+    signal rebootRequested
+    signal shutdownRequested
+    signal canceled
+
     property bool showing: false
-    
+
     function show() {
-        showing = true
-        visible = true
-        HapticService.medium()
-        fadeIn.start()
+        showing = true;
+        visible = true;
+        HapticService.medium();
+        fadeIn.start();
     }
-    
+
     function hide() {
-        showing = false
-        fadeOut.start()
+        showing = false;
+        fadeOut.start();
     }
-    
+
     // Dark backdrop
     Rectangle {
         id: backdrop
         anchors.fill: parent
         color: "#000000"
         opacity: 0
-        
+
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                root.canceled()
-                root.hide()
+                root.canceled();
+                root.hide();
             }
         }
     }
-    
+
     // Power menu dialog
     Rectangle {
         id: dialog
@@ -55,13 +55,13 @@ Item {
         width: Math.min(parent.width * 0.85, Math.round(360 * Constants.scaleFactor))
         height: contentColumn.height + MSpacing.xxl * 2
         radius: MRadius.lg
-        color: Qt.rgba(15/255, 15/255, 15/255, 0.98)
+        color: Qt.rgba(15 / 255, 15 / 255, 15 / 255, 0.98)
         border.width: Math.max(1, Math.round(Constants.scaleFactor))
         border.color: MColors.border
         layer.enabled: true
         opacity: 0
         scale: 0.9
-        
+
         // Inner glow
         Rectangle {
             anchors.fill: parent
@@ -69,21 +69,21 @@ Item {
             radius: parent.radius - Math.max(1, Math.round(Constants.scaleFactor))
             color: "transparent"
             border.width: Math.max(1, Math.round(Constants.scaleFactor))
-            border.color: Qt.rgba(255/255, 255/255, 255/255, 0.05)
+            border.color: Qt.rgba(255 / 255, 255 / 255, 255 / 255, 0.05)
         }
-        
+
         // Prevent click propagation
         MouseArea {
             anchors.fill: parent
             onClicked: {}
         }
-        
+
         Column {
             id: contentColumn
             anchors.centerIn: parent
             width: parent.width - MSpacing.xxl * 2
             spacing: MSpacing.lg
-            
+
             // Title
             Text {
                 text: "Power Options"
@@ -94,14 +94,14 @@ Item {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
             }
-            
+
             // 2x2 Grid of power tiles
             Grid {
                 width: parent.width
                 columns: 2
                 rowSpacing: MSpacing.md
                 columnSpacing: MSpacing.md
-                
+
                 // Sleep Tile
                 Rectangle {
                     id: sleepTile
@@ -111,20 +111,22 @@ Item {
                     color: sleepMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
                     border.width: Math.max(1, Math.round(Constants.scaleFactor))
                     border.color: MColors.border
-                    
+
                     scale: sleepMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
-                        SpringAnimation { 
+                        SpringAnimation {
                             spring: MMotion.springMedium
                             damping: MMotion.dampingMedium
                             epsilon: MMotion.epsilon
                         }
                     }
-                    
+
                     Behavior on color {
-                        ColorAnimation { duration: MMotion.xs }
+                        ColorAnimation {
+                            duration: MMotion.xs
+                        }
                     }
-                    
+
                     // Inner border
                     Rectangle {
                         anchors.fill: parent
@@ -134,18 +136,18 @@ Item {
                         border.width: 1
                         border.color: MColors.borderSubtle
                     }
-                    
+
                     Column {
                         anchors.centerIn: parent
                         spacing: MSpacing.sm
-                        
+
                         Icon {
                             name: "moon"
                             size: Math.round(32 * Constants.scaleFactor)
                             color: MColors.textPrimary
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
-                        
+
                         Text {
                             text: "Sleep"
                             font.pixelSize: MTypography.sizeBody
@@ -155,18 +157,18 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
-                    
+
                     MouseArea {
                         id: sleepMouseArea
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.medium()
-                            root.sleepRequested()
-                            root.hide()
+                            HapticService.medium();
+                            root.sleepRequested();
+                            root.hide();
                         }
                     }
                 }
-                
+
                 // Reboot Tile
                 Rectangle {
                     id: rebootTile
@@ -176,20 +178,22 @@ Item {
                     color: rebootMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
                     border.width: Math.max(1, Math.round(Constants.scaleFactor))
                     border.color: MColors.border
-                    
+
                     scale: rebootMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
-                        SpringAnimation { 
+                        SpringAnimation {
                             spring: MMotion.springMedium
                             damping: MMotion.dampingMedium
                             epsilon: MMotion.epsilon
                         }
                     }
-                    
+
                     Behavior on color {
-                        ColorAnimation { duration: MMotion.xs }
+                        ColorAnimation {
+                            duration: MMotion.xs
+                        }
                     }
-                    
+
                     // Inner border
                     Rectangle {
                         anchors.fill: parent
@@ -199,18 +203,18 @@ Item {
                         border.width: 1
                         border.color: MColors.borderSubtle
                     }
-                    
+
                     Column {
                         anchors.centerIn: parent
                         spacing: MSpacing.sm
-                        
+
                         Icon {
                             name: "rotate-ccw"
                             size: Math.round(32 * Constants.scaleFactor)
                             color: MColors.textPrimary
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
-                        
+
                         Text {
                             text: "Reboot"
                             font.pixelSize: MTypography.sizeBody
@@ -220,43 +224,52 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
-                    
+
                     MouseArea {
                         id: rebootMouseArea
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.medium()
-                            root.rebootRequested()
-                            root.hide()
+                            HapticService.medium();
+                            root.rebootRequested();
+                            root.hide();
                         }
                     }
                 }
-                
+
                 // Power Off Tile (primary/teal)
                 Rectangle {
                     id: powerOffTile
                     width: (parent.width - MSpacing.md) / 2
                     height: Math.round(90 * Constants.scaleFactor)
                     radius: MRadius.md
-                    
+
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: powerOffMouseArea.pressed ? MColors.marathonTealDark : MColors.marathonTealBright }
-                        GradientStop { position: 0.5; color: MColors.marathonTeal }
-                        GradientStop { position: 1.0; color: MColors.marathonTealDark }
+                        GradientStop {
+                            position: 0.0
+                            color: powerOffMouseArea.pressed ? MColors.marathonTealDark : MColors.marathonTealBright
+                        }
+                        GradientStop {
+                            position: 0.5
+                            color: MColors.marathonTeal
+                        }
+                        GradientStop {
+                            position: 1.0
+                            color: MColors.marathonTealDark
+                        }
                     }
-                    
+
                     border.width: 0
-                    
+
                     scale: powerOffMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
-                        SpringAnimation { 
+                        SpringAnimation {
                             spring: MMotion.springMedium
                             damping: MMotion.dampingMedium
                             epsilon: MMotion.epsilon
                         }
                     }
-                    
+
                     // Outer glow
                     Rectangle {
                         visible: true
@@ -266,21 +279,21 @@ Item {
                         radius: parent.radius + Math.round(3 * Constants.scaleFactor)
                         color: "transparent"
                         border.width: Math.round(3 * Constants.scaleFactor)
-                        border.color: Qt.rgba(0, 191/255, 165/255, 0.3)
+                        border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3)
                         z: -1
                     }
-                    
+
                     Column {
                         anchors.centerIn: parent
                         spacing: MSpacing.sm
-                        
+
                         Icon {
                             name: "power"
                             size: Math.round(32 * Constants.scaleFactor)
                             color: "#000000"
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
-                        
+
                         Text {
                             text: "Power Off"
                             font.pixelSize: MTypography.sizeBody
@@ -290,18 +303,18 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
-                    
+
                     MouseArea {
                         id: powerOffMouseArea
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.medium()
-                            root.shutdownRequested()
-                            root.hide()
+                            HapticService.medium();
+                            root.shutdownRequested();
+                            root.hide();
                         }
                     }
                 }
-                
+
                 // Cancel Tile
                 Rectangle {
                     id: cancelTile
@@ -311,31 +324,33 @@ Item {
                     color: "transparent"
                     border.width: Math.max(1, Math.round(Constants.scaleFactor))
                     border.color: cancelMouseArea.pressed ? MColors.borderGlass : MColors.border
-                    
+
                     scale: cancelMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
-                        SpringAnimation { 
+                        SpringAnimation {
                             spring: MMotion.springMedium
                             damping: MMotion.dampingMedium
                             epsilon: MMotion.epsilon
                         }
                     }
-                    
+
                     Behavior on border.color {
-                        ColorAnimation { duration: MMotion.xs }
+                        ColorAnimation {
+                            duration: MMotion.xs
+                        }
                     }
-                    
+
                     Column {
                         anchors.centerIn: parent
                         spacing: MSpacing.sm
-                        
+
                         Icon {
                             name: "x"
                             size: Math.round(32 * Constants.scaleFactor)
                             color: MColors.textSecondary
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
-                        
+
                         Text {
                             text: "Cancel"
                             font.pixelSize: MTypography.sizeBody
@@ -345,21 +360,21 @@ Item {
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
-                    
+
                     MouseArea {
                         id: cancelMouseArea
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.light()
-                            root.canceled()
-                            root.hide()
+                            HapticService.light();
+                            root.canceled();
+                            root.hide();
                         }
                     }
                 }
             }
         }
     }
-    
+
     // Fade in animation
     ParallelAnimation {
         id: fadeIn
@@ -386,7 +401,7 @@ Item {
             easing.overshoot: 1.2
         }
     }
-    
+
     // Fade out animation
     SequentialAnimation {
         id: fadeOut

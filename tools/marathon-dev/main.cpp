@@ -34,32 +34,32 @@ int packageCommand(const QStringList &args) {
         printError("Usage: marathon-dev package <app-directory> [output-file]");
         return 1;
     }
-    
+
     QString appDir = args.at(2);
     QString outputFile;
-    
+
     if (args.size() >= 4) {
         outputFile = args.at(3);
     } else {
         // Generate output filename from app directory
         QFileInfo dirInfo(appDir);
-        QString appDirName = dirInfo.fileName();
-        outputFile = appDirName + ".marathon";
+        QString   appDirName = dirInfo.fileName();
+        outputFile           = appDirName + ".marathon";
     }
-    
+
     printInfo("Packaging app from: " + appDir);
     printInfo("Output file: " + outputFile);
-    
+
     MarathonAppPackager packager;
-    
+
     if (packager.createPackage(appDir, outputFile)) {
         printSuccess("Package created successfully: " + outputFile);
-        
+
         // Show package info
         QFileInfo packageInfo(outputFile);
-        qint64 sizeKB = packageInfo.size() / 1024;
+        qint64    sizeKB = packageInfo.size() / 1024;
         printInfo(QString("Package size: %1 KB").arg(sizeKB));
-        
+
         return 0;
     } else {
         printError("Failed to create package: " + packager.lastError());
@@ -72,29 +72,29 @@ int signCommand(const QStringList &args) {
         printError("Usage: marathon-dev sign <app-directory> [key-id]");
         return 1;
     }
-    
+
     QString appDir = args.at(2);
     QString keyId;
-    
+
     if (args.size() >= 4) {
         keyId = args.at(3);
     }
-    
-    QString manifestPath = appDir + "/manifest.json";
+
+    QString manifestPath  = appDir + "/manifest.json";
     QString signaturePath = appDir + "/SIGNATURE.txt";
-    
+
     if (!QFile::exists(manifestPath)) {
         printError("manifest.json not found in: " + appDir);
         return 1;
     }
-    
+
     printInfo("Signing manifest: " + manifestPath);
     if (!keyId.isEmpty()) {
         printInfo("Using GPG key: " + keyId);
     }
-    
+
     MarathonAppVerifier verifier;
-    
+
     if (verifier.signManifest(manifestPath, signaturePath, keyId)) {
         printSuccess("Manifest signed successfully");
         printInfo("Signature saved to: " + signaturePath);
@@ -111,15 +111,15 @@ int validateCommand(const QStringList &args) {
         printError("Usage: marathon-dev validate <app-directory|package-file>");
         return 1;
     }
-    
-    QString path = args.at(2);
+
+    QString   path = args.at(2);
     QFileInfo pathInfo(path);
-    
+
     printInfo("Validating: " + path);
-    
-    MarathonAppVerifier verifier;
+
+    MarathonAppVerifier                     verifier;
     MarathonAppVerifier::VerificationResult result;
-    
+
     if (pathInfo.isDir()) {
         // Validate directory
         result = verifier.verifyDirectory(path);
@@ -132,30 +132,26 @@ int validateCommand(const QStringList &args) {
         printError("Unknown file type. Expected directory or .marathon package");
         return 1;
     }
-    
+
     switch (result) {
         case MarathonAppVerifier::Valid:
             printSuccess("Validation passed");
             printInfo("App is ready for installation");
             return 0;
-            
+
         case MarathonAppVerifier::SignatureFileMissing:
             printError("SIGNATURE.txt not found");
             printInfo("Sign the app using: marathon-dev sign " + path);
             return 1;
-            
+
         case MarathonAppVerifier::InvalidSignature:
             printError("Invalid GPG signature");
             printInfo(verifier.lastError());
             return 1;
-            
-        case MarathonAppVerifier::ManifestMissing:
-            printError("manifest.json not found");
-            return 1;
-            
-        default:
-            printError("Verification failed: " + verifier.lastError());
-            return 1;
+
+        case MarathonAppVerifier::ManifestMissing: printError("manifest.json not found"); return 1;
+
+        default: printError("Verification failed: " + verifier.lastError()); return 1;
     }
 }
 
@@ -164,19 +160,19 @@ int installCommand(const QStringList &args) {
         printError("Usage: marathon-dev install <package-file|app-directory>");
         return 1;
     }
-    
-    QString path = args.at(2);
+
+    QString   path = args.at(2);
     QFileInfo pathInfo(path);
-    
+
     printInfo("Installing: " + path);
-    
+
     // Create installer components
-    MarathonAppRegistry registry;
-    MarathonAppScanner scanner(&registry);
+    MarathonAppRegistry  registry;
+    MarathonAppScanner   scanner(&registry);
     MarathonAppInstaller installer(&registry, &scanner);
-    
-    bool success = false;
-    
+
+    bool                 success = false;
+
     if (pathInfo.isDir()) {
         // Install from directory
         success = installer.installFromDirectory(path);
@@ -187,7 +183,7 @@ int installCommand(const QStringList &args) {
         printError("Unknown file type. Expected directory or .marathon package");
         return 1;
     }
-    
+
     if (success) {
         printSuccess("App installed successfully");
         printInfo("Install location: " + installer.getInstallDirectory());
@@ -203,46 +199,46 @@ int initCommand(const QStringList &args) {
         printError("Usage: marathon-dev init <app-name>");
         return 1;
     }
-    
+
     QString appName = args.at(2);
-    QString appId = appName.toLower().replace(" ", "-");
-    
+    QString appId   = appName.toLower().replace(" ", "-");
+
     // Create app directory
     QDir dir;
     if (!dir.mkdir(appId)) {
         printError("Failed to create directory: " + appId);
         return 1;
     }
-    
+
     // Create subdirectories
     dir.cd(appId);
     dir.mkdir("pages");
     dir.mkdir("components");
     dir.mkdir("assets");
-    
+
     // Create manifest.json
     QJsonObject manifest;
-    manifest["id"] = appId;
-    manifest["name"] = appName;
-    manifest["version"] = "1.0.0";
-    manifest["entryPoint"] = appId.replace("-", "") + "App.qml";
-    manifest["icon"] = "assets/icon.svg";
-    manifest["author"] = "Your Name";
-    manifest["permissions"] = QJsonArray();
+    manifest["id"]              = appId;
+    manifest["name"]            = appName;
+    manifest["version"]         = "1.0.0";
+    manifest["entryPoint"]      = appId.replace("-", "") + "App.qml";
+    manifest["icon"]            = "assets/icon.svg";
+    manifest["author"]          = "Your Name";
+    manifest["permissions"]     = QJsonArray();
     manifest["minShellVersion"] = "1.0.0";
-    manifest["protected"] = false;
-    
+    manifest["protected"]       = false;
+
     QFile manifestFile(appId + "/manifest.json");
     if (manifestFile.open(QIODevice::WriteOnly)) {
         manifestFile.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
         manifestFile.close();
     }
-    
+
     // Create main QML file
     QString appFileName = appId.replace("-", "");
-    appFileName[0] = appFileName[0].toUpper();
+    appFileName[0]      = appFileName[0].toUpper();
     appFileName += "App.qml";
-    
+
     QString qmlTemplate = QString(R"(import QtQuick
 import QtQuick.Controls
 import MarathonUI.Core
@@ -280,35 +276,36 @@ MApplicationWindow {
         }
     }
 }
-)").arg(appName);
-    
+)")
+                              .arg(appName);
+
     QFile qmlFile(appId + "/" + appId.replace("-", "") + "App.qml");
     if (qmlFile.open(QIODevice::WriteOnly)) {
         qmlFile.write(qmlTemplate.toUtf8());
         qmlFile.close();
     }
-    
+
     // Create qmldir
     QString qmldirContent = QString("module %1\n").arg(appId);
-    QFile qmldirFile(appId + "/qmldir");
+    QFile   qmldirFile(appId + "/qmldir");
     if (qmldirFile.open(QIODevice::WriteOnly)) {
         qmldirFile.write(qmldirContent.toUtf8());
         qmldirFile.close();
     }
-    
+
     // Create placeholder icon
     QString iconSVG = R"(<?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
     <rect width="512" height="512" fill="#4CAF50" rx="100"/>
     <text x="256" y="320" font-family="Arial" font-size="200" fill="white" text-anchor="middle">A</text>
 </svg>)";
-    
-    QFile iconFile(appId + "/assets/icon.svg");
+
+    QFile   iconFile(appId + "/assets/icon.svg");
     if (iconFile.open(QIODevice::WriteOnly)) {
         iconFile.write(iconSVG.toUtf8());
         iconFile.close();
     }
-    
+
     printSuccess("App created: " + appId);
     printInfo("Next steps:");
     printInfo("  1. cd " + appId);
@@ -316,7 +313,7 @@ MApplicationWindow {
     printInfo("  3. Implement your app in " + appId.replace("-", "") + "App.qml");
     printInfo("  4. Test with: marathon-dev validate .");
     printInfo("  5. Package with: marathon-dev package .");
-    
+
     return 0;
 }
 
@@ -340,21 +337,20 @@ void printHelp() {
     out << Qt::endl;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-dev");
     QCoreApplication::setApplicationVersion("1.0.0");
-    
+
     QStringList args = app.arguments();
-    
+
     if (args.size() < 2) {
         printHelp();
         return 0;
     }
-    
+
     QString command = args.at(1);
-    
+
     if (command == "init") {
         return initCommand(args);
     } else if (command == "package") {
@@ -374,4 +370,3 @@ int main(int argc, char *argv[])
         return 1;
     }
 }
-

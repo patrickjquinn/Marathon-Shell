@@ -27,23 +27,31 @@ class DictionaryLoader;
  * - Caching frequently used data
  * - Using lock-free data structures where possible
  */
-class MarathonKeyboardIME : public QObject
-{
+class MarathonKeyboardIME : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString currentWord READ currentWord NOTIFY currentWordChanged)
     Q_PROPERTY(QStringList predictions READ predictions NOTIFY predictionsChanged)
-    Q_PROPERTY(bool autoCorrectEnabled READ autoCorrectEnabled WRITE setAutoCorrectEnabled NOTIFY autoCorrectEnabledChanged)
+    Q_PROPERTY(bool autoCorrectEnabled READ autoCorrectEnabled WRITE setAutoCorrectEnabled NOTIFY
+                   autoCorrectEnabledChanged)
     Q_PROPERTY(int averageLatency READ averageLatency NOTIFY averageLatencyChanged)
 
-public:
+  public:
     explicit MarathonKeyboardIME(QObject *parent = nullptr);
     ~MarathonKeyboardIME();
 
     // Property getters
-    QString currentWord() const { return m_currentWord; }
-    QStringList predictions() const { return m_predictions; }
-    bool autoCorrectEnabled() const { return m_autoCorrectEnabled; }
-    int averageLatency() const { return m_averageLatency; }
+    QString currentWord() const {
+        return m_currentWord;
+    }
+    QStringList predictions() const {
+        return m_predictions;
+    }
+    bool autoCorrectEnabled() const {
+        return m_autoCorrectEnabled;
+    }
+    int averageLatency() const {
+        return m_averageLatency;
+    }
 
     // Property setters
     void setAutoCorrectEnabled(bool enabled);
@@ -58,7 +66,7 @@ public:
      * - Triggers async prediction update
      * - Returns in < 1ms
      */
-    Q_INVOKABLE bool processKeyPress(const QString& character);
+    Q_INVOKABLE bool processKeyPress(const QString &character);
 
     /**
      * @brief Process backspace with word tracking
@@ -79,20 +87,20 @@ public:
      * @brief Replace current word with prediction
      * @param word The predicted word to use
      */
-    Q_INVOKABLE void acceptPrediction(const QString& word);
+    Q_INVOKABLE void acceptPrediction(const QString &word);
 
     /**
      * @brief Get alternate characters for long-press
      * @param character The base character
      * @return List of alternate characters
      */
-    Q_INVOKABLE QStringList getAlternates(const QString& character) const;
+    Q_INVOKABLE QStringList getAlternates(const QString &character) const;
 
     /**
      * @brief Learn a new word or increase frequency
      * @param word The word to learn
      */
-    Q_INVOKABLE void learnWord(const QString& word);
+    Q_INVOKABLE void learnWord(const QString &word);
 
     /**
      * @brief Clear current word state
@@ -104,7 +112,7 @@ public:
      */
     Q_INVOKABLE QVariantMap getPerformanceMetrics() const;
 
-signals:
+  signals:
     void currentWordChanged();
     void predictionsChanged();
     void autoCorrectEnabledChanged();
@@ -117,7 +125,7 @@ signals:
      * This is emitted AFTER visual feedback is shown,
      * ensuring perceived zero latency
      */
-    void commitText(const QString& text);
+    void commitText(const QString &text);
 
     /**
      * @brief Emitted when backspace should be applied
@@ -129,37 +137,37 @@ signals:
      * @param oldWord The word to replace
      * @param newWord The new word
      */
-    void replaceWord(const QString& oldWord, const QString& newWord);
+    void replaceWord(const QString &oldWord, const QString &newWord);
 
-private slots:
-    void onPredictionsReady(const QStringList& predictions);
+  private slots:
+    void onPredictionsReady(const QStringList &predictions);
 
-private:
-    void updatePredictionsAsync();
-    void updateLatencyMetrics(qint64 latencyMs);
-    QString applyAutoCorrect(const QString& word);
-    
+  private:
+    void    updatePredictionsAsync();
+    void    updateLatencyMetrics(qint64 latencyMs);
+    QString applyAutoCorrect(const QString &word);
+
     // Current state
-    QString m_currentWord;
+    QString     m_currentWord;
     QStringList m_predictions;
-    bool m_autoCorrectEnabled;
-    
+    bool        m_autoCorrectEnabled;
+
     // Performance tracking
-    int m_averageLatency;
+    int           m_averageLatency;
     QList<qint64> m_latencySamples;
     QElapsedTimer m_latencyTimer;
-    
+
     // Background processing
-    QThread* m_predictionThread;
-    PredictionEngine* m_predictionEngine;
-    DictionaryLoader* m_dictionaryLoader;
-    
+    QThread          *m_predictionThread;
+    PredictionEngine *m_predictionEngine;
+    DictionaryLoader *m_dictionaryLoader;
+
     // Thread safety
     mutable QMutex m_mutex;
-    
+
     // Caches for performance
     QHash<QString, QStringList> m_alternatesCache;
-    QHash<QString, QString> m_autoCorrectCache;
+    QHash<QString, QString>     m_autoCorrectCache;
 };
 
 /**
@@ -167,35 +175,38 @@ private:
  * 
  * Runs on separate thread to avoid blocking UI
  */
-class PredictionEngine : public QObject
-{
+class PredictionEngine : public QObject {
     Q_OBJECT
 
-public:
+  public:
     explicit PredictionEngine(QObject *parent = nullptr);
-    
-public slots:
-    void generatePredictions(const QString& prefix);
-    
-signals:
-    void predictionsReady(const QStringList& predictions);
 
-private:
+  public slots:
+    void generatePredictions(const QString &prefix);
+
+  signals:
+    void predictionsReady(const QStringList &predictions);
+
+  private:
     // Trie or similar fast structure for predictions
     struct TrieNode {
-        QChar character;
-        int frequency;
-        bool isWord;
-        QHash<QChar, TrieNode*> children;
-        
-        TrieNode() : frequency(0), isWord(false) {}
-        ~TrieNode() { qDeleteAll(children); }
+        QChar                    character;
+        int                      frequency;
+        bool                     isWord;
+        QHash<QChar, TrieNode *> children;
+
+        TrieNode()
+            : frequency(0)
+            , isWord(false) {}
+        ~TrieNode() {
+            qDeleteAll(children);
+        }
     };
-    
-    TrieNode* m_root;
-    
-    void buildTrie();
-    QStringList searchTrie(const QString& prefix, int maxResults = 3);
+
+    TrieNode   *m_root;
+
+    void        buildTrie();
+    QStringList searchTrie(const QString &prefix, int maxResults = 3);
 };
 
 /**
@@ -203,26 +214,24 @@ private:
  * 
  * Loads and indexes dictionary in background
  */
-class DictionaryLoader : public QObject
-{
+class DictionaryLoader : public QObject {
     Q_OBJECT
 
-public:
+  public:
     explicit DictionaryLoader(QObject *parent = nullptr);
-    
+
     Q_INVOKABLE void loadDictionary();
-    Q_INVOKABLE bool hasWord(const QString& word) const;
-    Q_INVOKABLE int getFrequency(const QString& word) const;
-    Q_INVOKABLE void updateFrequency(const QString& word, int delta = 1);
-    
-signals:
+    Q_INVOKABLE bool hasWord(const QString &word) const;
+    Q_INVOKABLE int  getFrequency(const QString &word) const;
+    Q_INVOKABLE void updateFrequency(const QString &word, int delta = 1);
+
+  signals:
     void dictionaryLoaded();
     void loadProgress(int percent);
 
-private:
+  private:
     QHash<QString, int> m_wordFrequencies;
-    mutable QMutex m_mutex;
+    mutable QMutex      m_mutex;
 };
 
 #endif // MARATHONKEYBOARDIME_H
-
