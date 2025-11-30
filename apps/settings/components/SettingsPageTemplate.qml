@@ -6,17 +6,17 @@ import MarathonUI.Core
 
 Page {
     id: pageTemplate
-    
+
     property string pageTitle: "Settings"
     property alias content: contentLoader.sourceComponent
     property bool showBackButton: true
-    
-    signal navigateBack()
-    
+
+    signal navigateBack
+
     background: Rectangle {
         color: MColors.background
     }
-    
+
     // Header with back button (BB10 style)
     Rectangle {
         id: header
@@ -27,13 +27,13 @@ Page {
         color: MColors.surface
         z: 10
         visible: showBackButton
-        
+
         Row {
             anchors.left: parent.left
             anchors.leftMargin: MSpacing.md
             anchors.verticalCenter: parent.verticalCenter
             spacing: MSpacing.md
-            
+
             Icon {
                 name: "chevron-down"
                 size: Constants.iconSizeMedium
@@ -41,7 +41,7 @@ Page {
                 anchors.verticalCenter: parent.verticalCenter
                 rotation: 90
             }
-            
+
             Text {
                 text: pageTemplate.pageTitle
                 color: MColors.textPrimary
@@ -51,25 +51,27 @@ Page {
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
-        
+
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                HapticService.light()
-                pageTemplate.navigateBack()
+                HapticService.light();
+                pageTemplate.navigateBack();
             }
-            
+
             // Press feedback
             Rectangle {
                 anchors.fill: parent
                 color: MColors.textPrimary
                 opacity: parent.pressed ? 0.1 : 0
                 Behavior on opacity {
-                    NumberAnimation { duration: 150 }
+                    NumberAnimation {
+                        duration: 150
+                    }
                 }
             }
         }
-        
+
         // Bottom border
         Rectangle {
             anchors.bottom: parent.bottom
@@ -79,7 +81,7 @@ Page {
             color: Qt.rgba(255, 255, 255, 0.08)
         }
     }
-    
+
     // Content area
     Loader {
         id: contentLoader
@@ -89,4 +91,3 @@ Page {
         anchors.bottom: parent.bottom
     }
 }
-

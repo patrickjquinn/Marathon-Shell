@@ -9,29 +9,29 @@ Rectangle {
     color: MColors.background
     z: 1000
     visible: false
-    
+
     property string callerNumber: ""
     property string callerName: "Unknown"
-    
+
     function show(number, name) {
-        callerNumber = number
-        callerName = name || "Unknown"
-        visible = true
+        callerNumber = number;
+        callerName = name || "Unknown";
+        visible = true;
     }
-    
+
     function hide() {
-        visible = false
+        visible = false;
     }
-    
+
     Column {
         anchors.centerIn: parent
         spacing: MSpacing.xl * 2
         width: parent.width * 0.8
-        
+
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: MSpacing.lg
-            
+
             Rectangle {
                 width: Constants.iconSizeXLarge * 3
                 height: Constants.iconSizeXLarge * 3
@@ -40,7 +40,7 @@ Rectangle {
                 border.width: Constants.borderWidthThick
                 border.color: MColors.accent
                 anchors.horizontalCenter: parent.horizontalCenter
-                
+
                 Text {
                     anchors.centerIn: parent
                     text: callerName.charAt(0).toUpperCase()
@@ -48,19 +48,29 @@ Rectangle {
                     font.weight: Font.Bold
                     color: MColors.accent
                 }
-                
+
                 SequentialAnimation on scale {
                     running: incomingCallScreen.visible
                     loops: Animation.Infinite
-                    NumberAnimation { from: 1.0; to: 1.1; duration: 800; easing.type: Easing.InOutQuad }
-                    NumberAnimation { from: 1.1; to: 1.0; duration: 800; easing.type: Easing.InOutQuad }
+                    NumberAnimation {
+                        from: 1.0
+                        to: 1.1
+                        duration: 800
+                        easing.type: Easing.InOutQuad
+                    }
+                    NumberAnimation {
+                        from: 1.1
+                        to: 1.0
+                        duration: 800
+                        easing.type: Easing.InOutQuad
+                    }
                 }
             }
-            
+
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: MSpacing.sm
-                
+
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: "Incoming Call"
@@ -68,7 +78,7 @@ Rectangle {
                     font.weight: Font.Medium
                     color: MColors.textSecondary
                 }
-                
+
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: callerName
@@ -76,7 +86,7 @@ Rectangle {
                     font.weight: Font.Bold
                     color: MColors.text
                 }
-                
+
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: callerNumber
@@ -85,11 +95,11 @@ Rectangle {
                 }
             }
         }
-        
+
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: MSpacing.xl * 2
-            
+
             Rectangle {
                 width: Constants.touchTargetLarge * 1.5
                 height: Constants.touchTargetLarge * 1.5
@@ -97,7 +107,7 @@ Rectangle {
                 color: "#E74C3C"
                 border.width: Constants.borderWidthThick
                 border.color: "#C0392B"
-                
+
                 Icon {
                     anchors.centerIn: parent
                     name: "phone"
@@ -105,18 +115,18 @@ Rectangle {
                     color: "white"
                     rotation: 135
                 }
-                
+
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
                         if (typeof TelephonyService !== 'undefined') {
-                            TelephonyService.hangup()
+                            TelephonyService.hangup();
                         }
-                        hide()
+                        hide();
                     }
                 }
             }
-            
+
             Rectangle {
                 width: Constants.touchTargetLarge * 1.5
                 height: Constants.touchTargetLarge * 1.5
@@ -124,25 +134,24 @@ Rectangle {
                 color: "#27AE60"
                 border.width: Constants.borderWidthThick
                 border.color: "#229954"
-                
+
                 Icon {
                     anchors.centerIn: parent
                     name: "phone"
                     size: Constants.iconSizeLarge
                     color: "white"
                 }
-                
+
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
                         if (typeof TelephonyService !== 'undefined') {
-                            TelephonyService.answer()
+                            TelephonyService.answer();
                         }
-                        hide()
+                        hide();
                     }
                 }
             }
         }
     }
 }
-

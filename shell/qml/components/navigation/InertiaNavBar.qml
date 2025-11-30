@@ -5,12 +5,12 @@ Rectangle {
     id: navBar
     height: Constants.navBarHeight
     color: "#000000"
-    
-    signal swipeLeft()
-    signal swipeRight()
-    signal swipeUp()
+
+    signal swipeLeft
+    signal swipeRight
+    signal swipeUp
     signal swipeUpRelease(real velocity)
-    
+
     property real dragStartX: 0
     property real dragStartY: 0
     property real dragCurrentX: 0
@@ -21,11 +21,11 @@ Rectangle {
     property real lastDragX: 0
     property real lastDragY: 0
     property bool isDragging: false
-    
+
     property int swipeThreshold: 50
     property real snapDuration: 300
     property real maxDragDistance: 150
-    
+
     Rectangle {
         id: indicator
         anchors.centerIn: parent
@@ -34,11 +34,11 @@ Rectangle {
         radius: Constants.borderRadiusSmall
         color: "#FFFFFF"
         opacity: 0.8
-        
+
         x: parent.width / 2 - width / 2 + (isDragging ? Math.max(-maxDragDistance, Math.min(maxDragDistance, dragCurrentX)) : 0)
         y: (isDragging && dragCurrentY < 0) ? Math.max(-60, dragCurrentY) : 0
         scale: isDragging ? 1.2 : 1.0
-        
+
         Behavior on x {
             enabled: !isDragging
             SpringAnimation {
@@ -47,7 +47,7 @@ Rectangle {
                 duration: snapDuration
             }
         }
-        
+
         Behavior on y {
             enabled: !isDragging
             SpringAnimation {
@@ -56,19 +56,21 @@ Rectangle {
                 duration: snapDuration
             }
         }
-        
+
         Behavior on scale {
             NumberAnimation {
                 duration: 150
                 easing.type: Easing.OutCubic
             }
         }
-        
+
         Behavior on opacity {
-            NumberAnimation { duration: 200 }
+            NumberAnimation {
+                duration: 200
+            }
         }
     }
-    
+
     Rectangle {
         id: dragHint
         anchors.centerIn: indicator
@@ -77,94 +79,96 @@ Rectangle {
         radius: height / 2
         color: "#006666"
         opacity: isDragging ? 0.2 : 0
-        
+
         Behavior on opacity {
-            NumberAnimation { duration: 150 }
+            NumberAnimation {
+                duration: 150
+            }
         }
     }
-    
+
     MouseArea {
         id: navMouseArea
         anchors.fill: parent
         anchors.topMargin: -60
-        
-        onPressed: (mouse) => {
-            dragStartX = mouse.x
-            dragStartY = mouse.y
-            lastDragX = mouse.x
-            lastDragY = mouse.y
-            dragCurrentX = 0
-            dragCurrentY = 0
-            dragVelocityX = 0
-            dragVelocityY = 0
-            lastDragTime = Date.now()
-            isDragging = true
-            console.log(" Nav drag started at:", mouse.x, mouse.y)
+
+        onPressed: mouse => {
+            dragStartX = mouse.x;
+            dragStartY = mouse.y;
+            lastDragX = mouse.x;
+            lastDragY = mouse.y;
+            dragCurrentX = 0;
+            dragCurrentY = 0;
+            dragVelocityX = 0;
+            dragVelocityY = 0;
+            lastDragTime = Date.now();
+            isDragging = true;
+            console.log(" Nav drag started at:", mouse.x, mouse.y);
         }
-        
-        onPositionChanged: (mouse) => {
-            if (!isDragging) return
-            
-            var now = Date.now()
-            var deltaTime = now - lastDragTime
-            
+
+        onPositionChanged: mouse => {
+            if (!isDragging)
+                return;
+            var now = Date.now();
+            var deltaTime = now - lastDragTime;
+
             if (deltaTime > 0) {
-                dragVelocityX = ((mouse.x - lastDragX) / deltaTime) * 1000
-                dragVelocityY = ((mouse.y - lastDragY) / deltaTime) * 1000
+                dragVelocityX = ((mouse.x - lastDragX) / deltaTime) * 1000;
+                dragVelocityY = ((mouse.y - lastDragY) / deltaTime) * 1000;
             }
-            
-            dragCurrentX = mouse.x - dragStartX
-            dragCurrentY = mouse.y - dragStartY
-            
-            lastDragX = mouse.x
-            lastDragY = mouse.y
-            lastDragTime = now
-            
-            console.log(" Dragging:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0))
+
+            dragCurrentX = mouse.x - dragStartX;
+            dragCurrentY = mouse.y - dragStartY;
+
+            lastDragX = mouse.x;
+            lastDragY = mouse.y;
+            lastDragTime = now;
+
+            console.log(" Dragging:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0));
         }
-        
-        onReleased: (mouse) => {
-            if (!isDragging) return
-            
-            console.log(" Released. Distance:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "Velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0))
-            
-            var absX = Math.abs(dragCurrentX)
-            var absY = Math.abs(dragCurrentY)
-            var absVelX = Math.abs(dragVelocityX)
-            var absVelY = Math.abs(dragVelocityY)
-            
+
+        onReleased: mouse => {
+            if (!isDragging)
+                return;
+            console.log(" Released. Distance:", dragCurrentX.toFixed(0), dragCurrentY.toFixed(0), "Velocity:", dragVelocityX.toFixed(0), dragVelocityY.toFixed(0));
+
+            var absX = Math.abs(dragCurrentX);
+            var absY = Math.abs(dragCurrentY);
+            var absVelX = Math.abs(dragVelocityX);
+            var absVelY = Math.abs(dragVelocityY);
+
             if (absY > absX) {
                 if (dragCurrentY < -swipeThreshold || dragVelocityY < -500) {
-                    console.log("⬆ SWIPE UP detected!")
-                    swipeUp()
-                    swipeUpRelease(Math.abs(dragVelocityY))
+                    console.log("⬆ SWIPE UP detected!");
+                    swipeUp();
+                    swipeUpRelease(Math.abs(dragVelocityY));
                 }
             } else {
                 if (dragCurrentX > swipeThreshold || dragVelocityX > 500) {
-                    console.log("➡ SWIPE RIGHT detected!")
-                    swipeRight()
+                    console.log("➡ SWIPE RIGHT detected!");
+                    swipeRight();
                 } else if (dragCurrentX < -swipeThreshold || dragVelocityX < -500) {
-                    console.log("⬅ SWIPE LEFT detected!")
-                    swipeLeft()
+                    console.log("⬅ SWIPE LEFT detected!");
+                    swipeLeft();
                 }
             }
-            
-            dragCurrentX = 0
-            dragCurrentY = 0
-            dragVelocityX = 0
-            dragVelocityY = 0
-            isDragging = false
+
+            dragCurrentX = 0;
+            dragCurrentY = 0;
+            dragVelocityX = 0;
+            dragVelocityY = 0;
+            isDragging = false;
         }
-        
+
         onCanceled: {
-            dragCurrentX = 0
-            dragCurrentY = 0
-            dragVelocityX = 0
-            dragVelocityY = 0
-            isDragging = false
+            dragCurrentX = 0;
+            dragCurrentY = 0;
+            dragVelocityX = 0;
+            dragVelocityY = 0;
+            isDragging = false;
         }
     }
-    
+
     Text {
         visible: isDragging && dragCurrentX > swipeThreshold
         text: "◀ Previous"
@@ -176,7 +180,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         opacity: Math.min(1.0, dragCurrentX / 100)
     }
-    
+
     Text {
         visible: isDragging && dragCurrentX < -swipeThreshold
         text: "Next ▶"
@@ -188,7 +192,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         opacity: Math.min(1.0, -dragCurrentX / 100)
     }
-    
+
     Text {
         visible: isDragging && dragCurrentY < -swipeThreshold
         text: "▲ Apps"
@@ -201,4 +205,3 @@ Rectangle {
         opacity: Math.min(1.0, -dragCurrentY / 80)
     }
 }
-

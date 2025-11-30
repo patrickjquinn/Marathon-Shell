@@ -17,26 +17,26 @@ Item {
     Connections {
         target: SensorManagerCpp
         function onProximityNearChanged() {
-            near = SensorManagerCpp.proximityNear
-            distance = near ? 0 : 100
+            near = SensorManagerCpp.proximityNear;
+            distance = near ? 0 : 100;
 
-            Logger.info("ProximitySensor", "NEAR = " + near)
+            Logger.info("ProximitySensor", "NEAR = " + near);
 
-            proximityChanged(near)
+            proximityChanged(near);
 
             if (autoScreenOff && typeof TelephonyManager !== "undefined" && TelephonyManager.hasActiveCall) {
                 if (near && DisplayManager.screenOn) {
-                    Logger.info("ProximitySensor", "Auto screen OFF (during call)")
-                    DisplayManager.turnScreenOff()
+                    Logger.info("ProximitySensor", "Auto screen OFF (during call)");
+                    DisplayManager.turnScreenOff();
                 } else if (!near && !DisplayManager.screenOn) {
-                    Logger.info("ProximitySensor", "Auto screen ON (away from face)")
-                    DisplayManager.turnScreenOn()
+                    Logger.info("ProximitySensor", "Auto screen ON (away from face)");
+                    DisplayManager.turnScreenOn();
                 }
             }
         }
     }
 
     Component.onCompleted: {
-        Logger.info("ProximitySensor", "Initialized (QtSensors)")
+        Logger.info("ProximitySensor", "Initialized (QtSensors)");
     }
 }

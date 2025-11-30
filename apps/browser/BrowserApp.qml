@@ -12,233 +12,233 @@ MApp {
     appId: "browser"
     appName: "Browser"
     appIcon: "assets/icon.svg"
-    
+
     property var tabs: []
     property int currentTabIndex: 0
     property int nextTabId: 1
     readonly property int maxTabs: 20
-    
+
     property var backConnection: null
     property var forwardConnection: null
-    
+
     property var bookmarks: []
     property var history: []
     property bool isPrivateMode: false
-    
+
     property real drawerProgress: 0
     property bool isDrawerOpen: false
     property bool isDragging: false
-    
+
     // Reference to drawer component (set after drawer is created)
     property var drawerRef: null
-    
+
     property var lastLoadedUrl: ""
     property int consecutiveLoadAttempts: 0
     property var lastLoadTime: 0
     readonly property int maxConsecutiveLoads: 3
     readonly property int loadCooldownMs: 2000
-    
+
     property var webView: null
     property bool updatingTabUrl: false
-    
+
     // Search Engine Settings
     property string searchEngineName: "DuckDuckGo"
     property string searchEngineUrl: "https://duckduckgo.com/?q="
     property string homepageUrl: "https://duckduckgo.com"
-    
+
     onAppLaunched: {
-        Logger.warn("Browser", " onAppLaunched")
+        Logger.warn("Browser", " onAppLaunched");
     }
-    
+
     onAppResumed: {
-        Logger.warn("Browser", "Browser app resumed")
+        Logger.warn("Browser", "Browser app resumed");
     }
-    
+
     Component.onCompleted: {
-        Logger.info("BrowserApp", "Initializing browser...")
-        loadSettings()
-        loadBookmarks()
-        loadHistory()
-        loadTabs()
-        
+        Logger.info("BrowserApp", "Initializing browser...");
+        loadSettings();
+        loadBookmarks();
+        loadHistory();
+        loadTabs();
+
         if (tabs.length === 0) {
-            Logger.info("BrowserApp", "No tabs found, creating default tab")
-            createNewTab()
+            Logger.info("BrowserApp", "No tabs found, creating default tab");
+            createNewTab();
         }
     }
-    
+
     function handleBack() {
         if (isDrawerOpen) {
-            closeDrawer()
-            return true
+            closeDrawer();
+            return true;
         }
-        
+
         if (webView && webView.canGoBack) {
-            webView.goBack()
-            return true
+            webView.goBack();
+            return true;
         }
-        
+
         // Default behavior (minimize)
-        minimizeRequested()
-        return true
+        minimizeRequested();
+        return true;
     }
 
     function loadBookmarks() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]")
+            var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]");
             try {
-                bookmarks = JSON.parse(savedBookmarks)
+                bookmarks = JSON.parse(savedBookmarks);
             } catch (e) {
-                Logger.error("BrowserApp", "Failed to load bookmarks: " + e)
-                bookmarks = []
+                Logger.error("BrowserApp", "Failed to load bookmarks: " + e);
+                bookmarks = [];
             }
         } else {
-            bookmarks = []
+            bookmarks = [];
         }
     }
-    
+
     function saveBookmarks() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var data = JSON.stringify(bookmarks)
-            SettingsManagerCpp.set("browser/bookmarks", data)
+            var data = JSON.stringify(bookmarks);
+            SettingsManagerCpp.set("browser/bookmarks", data);
         }
     }
-    
+
     function addBookmark(url, title) {
         for (var i = 0; i < bookmarks.length; i++) {
             if (bookmarks[i].url === url) {
-                Logger.info("BrowserApp", "Bookmark already exists")
-                return false
+                Logger.info("BrowserApp", "Bookmark already exists");
+                return false;
             }
         }
-        
+
         var bookmark = {
             url: url,
             title: title || url,
             timestamp: Date.now()
-        }
-        
-        var newBookmarks = bookmarks.slice()
-        newBookmarks.push(bookmark)
-        bookmarks = newBookmarks
-        bookmarksChanged()
-        saveBookmarks()
-        Logger.info("BrowserApp", "Added bookmark: " + title)
-        return true
+        };
+
+        var newBookmarks = bookmarks.slice();
+        newBookmarks.push(bookmark);
+        bookmarks = newBookmarks;
+        bookmarksChanged();
+        saveBookmarks();
+        Logger.info("BrowserApp", "Added bookmark: " + title);
+        return true;
     }
-    
+
     function removeBookmark(url) {
         for (var i = 0; i < bookmarks.length; i++) {
             if (bookmarks[i].url === url) {
-                var newBookmarks = bookmarks.slice()
-                newBookmarks.splice(i, 1)
-                bookmarks = newBookmarks
-                bookmarksChanged()
-                saveBookmarks()
-                return true
+                var newBookmarks = bookmarks.slice();
+                newBookmarks.splice(i, 1);
+                bookmarks = newBookmarks;
+                bookmarksChanged();
+                saveBookmarks();
+                return true;
             }
         }
-        return false
+        return false;
     }
-    
+
     function isBookmarked(url) {
         for (var i = 0; i < bookmarks.length; i++) {
             if (bookmarks[i].url === url) {
-                return true
+                return true;
             }
         }
-        return false
+        return false;
     }
-    
+
     function loadHistory() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedHistory = SettingsManagerCpp.get("browser/history", "[]")
+            var savedHistory = SettingsManagerCpp.get("browser/history", "[]");
             try {
-                history = JSON.parse(savedHistory)
+                history = JSON.parse(savedHistory);
             } catch (e) {
-                Logger.error("BrowserApp", "Failed to load history: " + e)
-                history = []
+                Logger.error("BrowserApp", "Failed to load history: " + e);
+                history = [];
             }
         } else {
-            history = []
+            history = [];
         }
     }
-    
+
     function saveHistory() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var data = JSON.stringify(history)
-            SettingsManagerCpp.set("browser/history", data)
+            var data = JSON.stringify(history);
+            SettingsManagerCpp.set("browser/history", data);
         }
     }
-    
+
     function addToHistory(url, title) {
-        if (isPrivateMode) return
-        
-        var now = Date.now()
-        var newHistory = history.slice()
-        
+        if (isPrivateMode)
+            return;
+        var now = Date.now();
+        var newHistory = history.slice();
+
         for (var i = 0; i < newHistory.length; i++) {
             if (newHistory[i].url === url) {
-                newHistory[i].timestamp = now
-                newHistory[i].visitCount = (newHistory[i].visitCount || 1) + 1
-                newHistory[i].title = title || newHistory[i].title
-                history = newHistory
-                historyChanged()
-                saveHistory()
-                return
+                newHistory[i].timestamp = now;
+                newHistory[i].visitCount = (newHistory[i].visitCount || 1) + 1;
+                newHistory[i].title = title || newHistory[i].title;
+                history = newHistory;
+                historyChanged();
+                saveHistory();
+                return;
             }
         }
-        
+
         var historyItem = {
             url: url,
             title: title || url,
             timestamp: now,
             visitCount: 1
-        }
-        
-        newHistory.unshift(historyItem)
-        
+        };
+
+        newHistory.unshift(historyItem);
+
         if (newHistory.length > 100) {
-            newHistory = newHistory.slice(0, 100)
+            newHistory = newHistory.slice(0, 100);
         }
-        
-        history = newHistory
-        historyChanged()
-        saveHistory()
+
+        history = newHistory;
+        historyChanged();
+        saveHistory();
     }
-    
+
     function clearHistory() {
-        history = []
-        historyChanged()
-        saveHistory()
-        Logger.info("BrowserApp", "History cleared")
+        history = [];
+        historyChanged();
+        saveHistory();
+        Logger.info("BrowserApp", "History cleared");
     }
-    
+
     function loadSettings() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo")
-            searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=")
-            homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com")
+            searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo");
+            searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=");
+            homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com");
         }
     }
 
     function saveSettings() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            SettingsManagerCpp.set("browser/searchEngine", searchEngineName)
-            SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl)
-            SettingsManagerCpp.set("browser/homepage", homepageUrl)
+            SettingsManagerCpp.set("browser/searchEngine", searchEngineName);
+            SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl);
+            SettingsManagerCpp.set("browser/homepage", homepageUrl);
         }
     }
 
     function loadTabs() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]")
-            var defaultUrl = homepageUrl
-            
+            var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
+            var defaultUrl = homepageUrl;
+
             try {
-                var loadedTabs = JSON.parse(savedTabs)
+                var loadedTabs = JSON.parse(savedTabs);
                 if (loadedTabs.length > 0) {
-                    var normalizedTabs = loadedTabs.map(function(tab) {
+                    var normalizedTabs = loadedTabs.map(function (tab) {
                         return {
                             id: tab.id,
                             url: (tab.url && tab.url !== "about:blank") ? tab.url : defaultUrl,
@@ -247,39 +247,39 @@ MApp {
                             canGoBack: false,
                             canGoForward: false,
                             loadProgress: 0
-                        }
-                    })
-                    tabs = normalizedTabs
-                    nextTabId = Math.max(...tabs.map(t => t.id)) + 1
+                        };
+                    });
+                    tabs = normalizedTabs;
+                    nextTabId = Math.max(...tabs.map(t => t.id)) + 1;
                 }
             } catch (e) {
-                Logger.error("BrowserApp", "Failed to load tabs: " + e)
+                Logger.error("BrowserApp", "Failed to load tabs: " + e);
             }
         }
     }
-    
+
     function saveTabs() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var tabsData = tabs.map(function(tab) {
+            var tabsData = tabs.map(function (tab) {
                 return {
                     id: tab.id,
                     url: tab.url,
                     title: tab.title
-                }
-            })
-            var data = JSON.stringify(tabsData)
-            SettingsManagerCpp.set("browser/tabs", data)
+                };
+            });
+            var data = JSON.stringify(tabsData);
+            SettingsManagerCpp.set("browser/tabs", data);
         }
     }
-    
+
     function createNewTab(url) {
         if (tabs.length >= maxTabs) {
-            Logger.warn("BrowserApp", "Maximum tabs (" + maxTabs + ") reached")
-            return -1
+            Logger.warn("BrowserApp", "Maximum tabs (" + maxTabs + ") reached");
+            return -1;
         }
-        
-        var defaultUrl = drawerRef && drawerRef.settingsPage ? drawerRef.settingsPage.homepage : "https://duckduckgo.com"
-        
+
+        var defaultUrl = drawerRef && drawerRef.settingsPage ? drawerRef.settingsPage.homepage : "https://duckduckgo.com";
+
         var newTab = {
             id: nextTabId++,
             url: url || defaultUrl,
@@ -288,215 +288,216 @@ MApp {
             canGoBack: false,
             canGoForward: false,
             loadProgress: 0
-        }
-        
-        var newTabs = tabs.slice()
-        newTabs.push(newTab)
-        tabs = newTabs
-        tabsChanged()
-        currentTabIndex = tabs.length - 1
-        saveTabs()
-        
-        Logger.info("BrowserApp", "Created new tab: " + newTab.id)
-        return newTab.id
+        };
+
+        var newTabs = tabs.slice();
+        newTabs.push(newTab);
+        tabs = newTabs;
+        tabsChanged();
+        currentTabIndex = tabs.length - 1;
+        saveTabs();
+
+        Logger.info("BrowserApp", "Created new tab: " + newTab.id);
+        return newTab.id;
     }
-    
+
     function closeTab(tabId) {
         for (var i = 0; i < tabs.length; i++) {
             if (tabs[i].id === tabId) {
-                var newTabs = tabs.slice()
-                newTabs.splice(i, 1)
-                tabs = newTabs
-                tabsChanged()
-                
+                var newTabs = tabs.slice();
+                newTabs.splice(i, 1);
+                tabs = newTabs;
+                tabsChanged();
+
                 if (tabs.length === 0) {
-                    createNewTab()
+                    createNewTab();
                 } else if (currentTabIndex >= tabs.length) {
-                    currentTabIndex = tabs.length - 1
+                    currentTabIndex = tabs.length - 1;
                 }
-                
-                saveTabs()
-                Logger.info("BrowserApp", "Closed tab: " + tabId)
-                return
+
+                saveTabs();
+                Logger.info("BrowserApp", "Closed tab: " + tabId);
+                return;
             }
         }
     }
-    
+
     function switchToTab(tabId) {
         for (var i = 0; i < tabs.length; i++) {
             if (tabs[i].id === tabId) {
-                currentTabIndex = i
-                Logger.info("BrowserApp", "Switched to tab: " + tabId)
-                return
+                currentTabIndex = i;
+                Logger.info("BrowserApp", "Switched to tab: " + tabId);
+                return;
             }
         }
     }
-    
+
     function getCurrentTab() {
         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-            return tabs[currentTabIndex]
+            return tabs[currentTabIndex];
         }
-        return null
+        return null;
     }
-    
+
     function findBestMatch(partialText) {
-        if (!partialText || partialText.length < 2) return ""
-        
-        partialText = partialText.toLowerCase()
-        
+        if (!partialText || partialText.length < 2)
+            return "";
+
+        partialText = partialText.toLowerCase();
+
         // Search Bookmarks first (higher priority)
         for (var i = 0; i < bookmarks.length; i++) {
-            var url = bookmarks[i].url.toLowerCase()
+            var url = bookmarks[i].url.toLowerCase();
             // Strip protocol for matching
-            var cleanUrl = url.replace("https://", "").replace("http://", "").replace("www.", "")
+            var cleanUrl = url.replace("https://", "").replace("http://", "").replace("www.", "");
             if (cleanUrl.startsWith(partialText)) {
-                return cleanUrl
+                return cleanUrl;
             }
         }
-        
+
         // Search History
         for (var j = 0; j < history.length; j++) {
-            var hUrl = history[j].url.toLowerCase()
-            var hCleanUrl = hUrl.replace("https://", "").replace("http://", "").replace("www.", "")
+            var hUrl = history[j].url.toLowerCase();
+            var hCleanUrl = hUrl.replace("https://", "").replace("http://", "").replace("www.", "");
             if (hCleanUrl.startsWith(partialText)) {
-                return hCleanUrl
+                return hCleanUrl;
             }
         }
-        
-        return ""
+
+        return "";
     }
 
     function navigateTo(url) {
-        Logger.warn("Browser", "navigateTo called with: " + url)
-        if (!url) return
+        Logger.warn("Browser", "navigateTo called with: " + url);
+        if (!url)
+            return;
 
         // Instant Feedback
-        var currentTab = getCurrentTab()
+        var currentTab = getCurrentTab();
         if (currentTab && currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-             var newTabs = tabs.slice()
-             newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                 isLoading: true,
-                 loadProgress: 10 // Immediate visual feedback
-             })
-             tabs = newTabs
-             tabsChanged() // Force update
+            var newTabs = tabs.slice();
+            newTabs[currentTabIndex] = Object.assign({}, currentTab, {
+                isLoading: true,
+                loadProgress: 10 // Immediate visual feedback
+            });
+            tabs = newTabs;
+            tabsChanged(); // Force update
         }
 
-        var lowerUrl = url.toLowerCase().trim()
-        if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:") ||
-            lowerUrl.startsWith("file:")) {
-            Logger.warn("BrowserApp", "Blocked dangerous URI scheme: " + lowerUrl.split(":")[0])
-            return
+        var lowerUrl = url.toLowerCase().trim();
+        if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:") || lowerUrl.startsWith("file:")) {
+            Logger.warn("BrowserApp", "Blocked dangerous URI scheme: " + lowerUrl.split(":")[0]);
+            return;
         }
 
         if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:")) {
             if (url.includes(".") && !url.includes(" ")) {
-                url = "https://" + url
+                url = "https://" + url;
             } else {
-                url = searchEngineUrl + encodeURIComponent(url)
+                url = searchEngineUrl + encodeURIComponent(url);
             }
         }
 
-        var currentTime = Date.now()
+        var currentTime = Date.now();
 
         if (url === lastLoadedUrl) {
-            consecutiveLoadAttempts++
+            consecutiveLoadAttempts++;
 
             if (consecutiveLoadAttempts >= maxConsecutiveLoads) {
                 if ((currentTime - lastLoadTime) < loadCooldownMs) {
-                    Logger.warn("BrowserApp", "THROTTLED: Too many requests to " + url + " (attempt " + consecutiveLoadAttempts + "). Blocking for " + loadCooldownMs + "ms.")
-                    return
+                    Logger.warn("BrowserApp", "THROTTLED: Too many requests to " + url + " (attempt " + consecutiveLoadAttempts + "). Blocking for " + loadCooldownMs + "ms.");
+                    return;
                 } else {
-                    Logger.info("BrowserApp", "Cooldown period elapsed, resetting throttle counter")
-                    consecutiveLoadAttempts = 0
+                    Logger.info("BrowserApp", "Cooldown period elapsed, resetting throttle counter");
+                    consecutiveLoadAttempts = 0;
                 }
             }
         } else {
-            consecutiveLoadAttempts = 1
+            consecutiveLoadAttempts = 1;
         }
 
-        lastLoadedUrl = url
-        lastLoadTime = currentTime
+        lastLoadedUrl = url;
+        lastLoadTime = currentTime;
 
         if (currentTab && currentTabIndex >= 0 && currentTabIndex < tabs.length) {
             if (webView) {
-                Logger.warn("Browser", "Unloading current page to free resources...")
-                webView.stop() // Stop any active loading immediately
-                webView.url = "about:blank"
-                
-                Logger.warn("Browser", "Setting webView.url to: " + url)
-                updatingTabUrl = true
-                
+                Logger.warn("Browser", "Unloading current page to free resources...");
+                webView.stop(); // Stop any active loading immediately
+                webView.url = "about:blank";
+
+                Logger.warn("Browser", "Setting webView.url to: " + url);
+                updatingTabUrl = true;
+
                 // Delay navigation to allow full cleanup and GC
-                pendingUrl = url
-                cleanupTimer.restart()
+                pendingUrl = url;
+                cleanupTimer.restart();
             } else {
-                Logger.warn("Browser", "ERROR: webView is null, cannot navigate")
+                Logger.warn("Browser", "ERROR: webView is null, cannot navigate");
             }
-            
+
             // Update URL in model (redundant but safe)
-            var finalTabs = tabs.slice()
+            var finalTabs = tabs.slice();
             finalTabs[currentTabIndex] = Object.assign({}, currentTab, {
                 url: url,
                 isLoading: true,
                 loadProgress: 10
-            })
-            tabs = finalTabs
-            tabsChanged()
+            });
+            tabs = finalTabs;
+            tabsChanged();
         }
     }
-    
+
     property string pendingUrl: ""
-    
+
     Timer {
         id: cleanupTimer
         interval: 300 // Increased to 300ms for better stability
         repeat: false
         onTriggered: {
             if (webView && pendingUrl) {
-                Logger.warn("Browser", "Executing delayed navigation to: " + pendingUrl)
-                gc() // Force Garbage Collection before new load
-                webView.url = pendingUrl
-                Qt.callLater(function() {
-                    updatingTabUrl = false
-                })
+                Logger.warn("Browser", "Executing delayed navigation to: " + pendingUrl);
+                gc(); // Force Garbage Collection before new load
+                webView.url = pendingUrl;
+                Qt.callLater(function () {
+                    updatingTabUrl = false;
+                });
             }
         }
     }
-    
+
     function openDrawer() {
-        isDrawerOpen = true
-        drawerProgress = 1.0
+        isDrawerOpen = true;
+        drawerProgress = 1.0;
     }
-    
+
     function closeDrawer() {
-        isDrawerOpen = false
-        drawerProgress = 0
+        isDrawerOpen = false;
+        drawerProgress = 0;
     }
-    
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+
         Column {
             anchors.fill: parent
             spacing: 0
-            
+
             Rectangle {
                 id: contentArea
                 width: parent.width
                 height: parent.height - urlBar.height
                 color: MColors.background
-                
+
                 WebEngineView {
                     id: webView
                     anchors.fill: parent
-                    
+
                     zoomFactor: 1.0
-                    
+
                     // Use default profile for stability
                     // profile.httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                    
+
                     settings.accelerated2dCanvasEnabled: false
                     settings.webGLEnabled: false
                     settings.pluginsEnabled: false
@@ -514,84 +515,92 @@ MApp {
                     settings.webRTCPublicInterfacesOnly: true
                     settings.dnsPrefetchEnabled: false
                     settings.showScrollBars: false
-                    
+
                     // Use NoCache for maximum stability (prevents OOM)
                     profile.httpCacheType: WebEngineProfile.NoCache
                     profile.persistentCookiesPolicy: WebEngineProfile.NoPersistentCookies
-                    
+
                     // Handle render process crashes gracefully
-                    onRenderProcessTerminated: function(terminationStatus, exitCode) {
-                        var status = ""
+                    onRenderProcessTerminated: function (terminationStatus, exitCode) {
+                        var status = "";
                         switch (terminationStatus) {
-                            case WebEngineView.NormalTerminationStatus: status = "Normal"; break;
-                            case WebEngineView.AbnormalTerminationStatus: status = "Abnormal"; break;
-                            case WebEngineView.CrashedTerminationStatus: status = "Crashed"; break;
-                            case WebEngineView.KilledTerminationStatus: status = "Killed"; break;
+                        case WebEngineView.NormalTerminationStatus:
+                            status = "Normal";
+                            break;
+                        case WebEngineView.AbnormalTerminationStatus:
+                            status = "Abnormal";
+                            break;
+                        case WebEngineView.CrashedTerminationStatus:
+                            status = "Crashed";
+                            break;
+                        case WebEngineView.KilledTerminationStatus:
+                            status = "Killed";
+                            break;
                         }
-                        Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")")
-                        
+                        Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")");
+
                         // Try to reload or show error
                         if (terminationStatus !== WebEngineView.NormalTerminationStatus) {
-                            Logger.warn("Browser", "Reloading due to crash...")
-                            Qt.callLater(function() {
-                                webView.reload()
-                            })
+                            Logger.warn("Browser", "Reloading due to crash...");
+                            Qt.callLater(function () {
+                                webView.reload();
+                            });
                         }
                     }
-                        
+
                     onUrlChanged: {
                         if (updatingTabUrl) {
-                            Logger.warn("Browser", "onUrlChanged BLOCKED by updatingTabUrl flag")
-                            return
+                            Logger.warn("Browser", "onUrlChanged BLOCKED by updatingTabUrl flag");
+                            return;
                         }
-                        
-                        Logger.warn("Browser", "onUrlChanged: " + url.toString())
-                        
+
+                        Logger.warn("Browser", "onUrlChanged: " + url.toString());
+
                         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex]
+                            var currentTab = tabs[currentTabIndex];
                             if (currentTab && currentTab.url !== url.toString()) {
-                                var newTabs = tabs.slice()
+                                var newTabs = tabs.slice();
                                 newTabs[currentTabIndex] = Object.assign({}, currentTab, {
                                     url: url.toString()
-                                })
-                                tabs = newTabs
+                                });
+                                tabs = newTabs;
                             }
                         }
                     }
-                    
+
                     onTitleChanged: {
                         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex]
+                            var currentTab = tabs[currentTabIndex];
                             if (currentTab && currentTab.title !== title) {
-                                var newTabs = tabs.slice()
+                                var newTabs = tabs.slice();
                                 newTabs[currentTabIndex] = Object.assign({}, currentTab, {
                                     title: title
-                                })
-                                tabs = newTabs
-                                
+                                });
+                                tabs = newTabs;
+
                                 if (!isPrivateMode) {
-                                    addToHistory(url.toString(), title)
+                                    addToHistory(url.toString(), title);
                                 }
                             }
                         }
                     }
-                    
-                    onLoadingChanged: function(loadRequest) {
+
+                    onLoadingChanged: function (loadRequest) {
                         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex]
-                            if (!currentTab) return
-                            
+                            var currentTab = tabs[currentTabIndex];
+                            if (!currentTab)
+                                return;
                             var updates = {
                                 isLoading: (loadRequest.status === WebEngineView.LoadStartedStatus)
-                            }
-                            
+                            };
+
                             if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
-                                updates.title = title
+                                updates.title = title;
                                 if (!isPrivateMode) {
-                                    addToHistory(url.toString(), title)
+                                    addToHistory(url.toString(), title);
                                 }
-                                consecutiveLoadAttempts = 0
-                                
+                                consecutiveLoadAttempts = 0;
+
                                 // Disabled JS injection for stability testing
                                 /*
                                 runJavaScript(`
@@ -611,90 +620,90 @@ MApp {
                                 `)
                                 */
                             }
-                            
+
                             if (loadRequest.status === WebEngineView.LoadFailedStatus) {
-                                Logger.error("Browser", "Load failed: " + loadRequest.errorString)
-                                
+                                Logger.error("Browser", "Load failed: " + loadRequest.errorString);
+
                                 if (url.toString() === lastLoadedUrl) {
-                                    consecutiveLoadAttempts++
+                                    consecutiveLoadAttempts++;
                                     if (consecutiveLoadAttempts >= maxConsecutiveLoads) {
-                                        Logger.warn("Browser", "STOPPING: Failed to load " + url.toString() + " " + consecutiveLoadAttempts + " times.")
-                                        updatingTabUrl = true
-                                        url = "about:blank"
-                                        updates.url = "about:blank"
-                                        updates.isLoading = false
-                                        Qt.callLater(function() {
-                                            updatingTabUrl = false
-                                        })
+                                        Logger.warn("Browser", "STOPPING: Failed to load " + url.toString() + " " + consecutiveLoadAttempts + " times.");
+                                        updatingTabUrl = true;
+                                        url = "about:blank";
+                                        updates.url = "about:blank";
+                                        updates.isLoading = false;
+                                        Qt.callLater(function () {
+                                            updatingTabUrl = false;
+                                        });
                                     }
                                 }
                             }
-                            
-                            var newTabs = tabs.slice()
-                            newTabs[currentTabIndex] = Object.assign({}, currentTab, updates)
-                            tabs = newTabs
+
+                            var newTabs = tabs.slice();
+                            newTabs[currentTabIndex] = Object.assign({}, currentTab, updates);
+                            tabs = newTabs;
                         }
                     }
-                    
+
                     onCanGoBackChanged: {
                         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex]
+                            var currentTab = tabs[currentTabIndex];
                             if (currentTab && currentTab.canGoBack !== canGoBack) {
-                                var newTabs = tabs.slice()
+                                var newTabs = tabs.slice();
                                 newTabs[currentTabIndex] = Object.assign({}, currentTab, {
                                     canGoBack: canGoBack
-                                })
-                                tabs = newTabs
+                                });
+                                tabs = newTabs;
                             }
                         }
                     }
-                    
+
                     onCanGoForwardChanged: {
                         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex]
+                            var currentTab = tabs[currentTabIndex];
                             if (currentTab && currentTab.canGoForward !== canGoForward) {
-                                var newTabs = tabs.slice()
+                                var newTabs = tabs.slice();
                                 newTabs[currentTabIndex] = Object.assign({}, currentTab, {
                                     canGoForward: canGoForward
-                                })
-                                tabs = newTabs
+                                });
+                                tabs = newTabs;
                             }
                         }
                     }
-                    
+
                     onLoadProgressChanged: {
                         if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex]
+                            var currentTab = tabs[currentTabIndex];
                             if (currentTab && currentTab.loadProgress !== loadProgress) {
-                                var newTabs = tabs.slice()
+                                var newTabs = tabs.slice();
                                 newTabs[currentTabIndex] = Object.assign({}, currentTab, {
                                     loadProgress: loadProgress
-                                })
-                                tabs = newTabs
+                                });
+                                tabs = newTabs;
                             }
                         }
                     }
-                    
+
                     Component.onCompleted: {
-                        browserApp.webView = this
-                        Logger.warn("Browser", "WebEngineView created and assigned")
-                        
-                        Qt.callLater(function() {
+                        browserApp.webView = this;
+                        Logger.warn("Browser", "WebEngineView created and assigned");
+
+                        Qt.callLater(function () {
                             if (tabs.length > 0 && currentTabIndex >= 0 && tabs[currentTabIndex].url) {
-                                Logger.warn("Browser", "Loading initial URL: " + tabs[currentTabIndex].url)
-                                url = tabs[currentTabIndex].url
+                                Logger.warn("Browser", "Loading initial URL: " + tabs[currentTabIndex].url);
+                                url = tabs[currentTabIndex].url;
                             }
-                        })
+                        });
                     }
                 }
-                
+
                 MouseArea {
                     anchors.fill: parent
                     anchors.rightMargin: Constants.gestureEdgeWidth
                     propagateComposedEvents: true
                     z: -100
                 }
-                
+
                 MouseArea {
                     id: rightEdgeGesture
                     anchors.right: parent.right
@@ -702,113 +711,116 @@ MApp {
                     anchors.bottom: parent.bottom
                     width: Constants.gestureEdgeWidth
                     z: 1000
-                    
+
                     property real startX: 0
                     property real currentX: 0
-                    
-                    onPressed: (mouse) => {
-                        startX = mouse.x + rightEdgeGesture.x
-                        currentX = startX
-                        isDragging = true
+
+                    onPressed: mouse => {
+                        startX = mouse.x + rightEdgeGesture.x;
+                        currentX = startX;
+                        isDragging = true;
                     }
-                    
-                    onPositionChanged: (mouse) => {
-                        currentX = mouse.x + rightEdgeGesture.x
-                        var deltaX = startX - currentX
-                        drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)))
+
+                    onPositionChanged: mouse => {
+                        currentX = mouse.x + rightEdgeGesture.x;
+                        var deltaX = startX - currentX;
+                        drawerProgress = Math.max(0, Math.min(1, deltaX / (contentArea.width * 0.85)));
                     }
-                    
+
                     onReleased: {
-                        isDragging = false
+                        isDragging = false;
                         if (drawerProgress > 0.3) {
-                            openDrawer()
+                            openDrawer();
                         } else {
-                            closeDrawer()
+                            closeDrawer();
                         }
                     }
                 }
             }
-            
+
             Rectangle {
                 id: urlBar
                 width: parent.width
                 height: Constants.touchTargetMedium + MSpacing.sm
                 color: isPrivateMode ? Qt.rgba(0.5, 0, 0.5, 0.3) : MColors.surface
-                
+
                 Rectangle {
                     anchors.top: parent.top
                     width: parent.width
                     height: Constants.borderWidthThin
                     color: MColors.border
                 }
-                
+
                 Rectangle {
                     id: loadingProgress
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
                     height: Constants.borderWidthThick
                     width: {
-                        if (browserApp.updatingTabUrl) return parent.width * 0.2 // Fake 20% progress during preparation
-                        
-                        var currentTab = getCurrentTab()
+                        if (browserApp.updatingTabUrl)
+                            return parent.width * 0.2; // Fake 20% progress during preparation
+
+                        var currentTab = getCurrentTab();
                         if (currentTab && currentTab.isLoading && currentTab.loadProgress) {
-                            return parent.width * (currentTab.loadProgress / 100)
+                            return parent.width * (currentTab.loadProgress / 100);
                         }
-                        return 0
+                        return 0;
                     }
                     color: MColors.accent
                     visible: {
-                        var currentTab = getCurrentTab()
-                        return (currentTab && currentTab.isLoading === true) || browserApp.updatingTabUrl
+                        var currentTab = getCurrentTab();
+                        return (currentTab && currentTab.isLoading === true) || browserApp.updatingTabUrl;
                     }
-                    
+
                     Behavior on width {
-                        NumberAnimation { duration: 100 }
+                        NumberAnimation {
+                            duration: 100
+                        }
                     }
                 }
-                
+
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: MSpacing.sm
                     anchors.rightMargin: MSpacing.sm
                     spacing: MSpacing.xs
-                    
+
                     // Back Button
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall
                         Layout.preferredHeight: Constants.touchTargetSmall
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
-                        
+
                         Icon {
                             anchors.centerIn: parent
                             name: "arrow-left"
                             size: Constants.iconSizeSmall
                             color: {
-                                var currentTab = getCurrentTab()
-                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textTertiary
+                                var currentTab = getCurrentTab();
+                                return (currentTab && currentTab.canGoBack) ? MColors.text : MColors.textTertiary;
                             }
                         }
-                        
+
                         MouseArea {
                             anchors.fill: parent
                             enabled: {
                                 if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                                    var tab = tabs[currentTabIndex]
-                                    return tab && tab.canGoBack === true
+                                    var tab = tabs[currentTabIndex];
+                                    return tab && tab.canGoBack === true;
                                 }
-                                return false
+                                return false;
                             }
                             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: {
-                                HapticService.light()
+                                HapticService.light();
                                 if (webView && webView.canGoBack) {
-                                    webView.goBack()
+                                    webView.goBack();
                                 }
                             }
                         }
                     }
-                    
+
                     // Forward Button
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall
@@ -816,29 +828,29 @@ MApp {
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
                         visible: {
-                            var currentTab = getCurrentTab()
-                            return currentTab && currentTab.canGoForward
+                            var currentTab = getCurrentTab();
+                            return currentTab && currentTab.canGoForward;
                         }
-                        
+
                         Icon {
                             anchors.centerIn: parent
                             name: "arrow-right"
                             size: Constants.iconSizeSmall
                             color: MColors.text
                         }
-                        
+
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                HapticService.light()
+                                HapticService.light();
                                 if (webView && webView.canGoForward) {
-                                    webView.goForward()
+                                    webView.goForward();
                                 }
                             }
                         }
                     }
-                    
+
                     // Address Bar
                     Rectangle {
                         Layout.fillWidth: true
@@ -849,7 +861,7 @@ MApp {
                         border.width: Constants.borderWidthThin
                         border.color: urlInput.activeFocus ? MColors.accent : MColors.border
                         clip: true
-                        
+
                         TextInput {
                             id: urlInput
                             anchors.left: parent.left
@@ -868,69 +880,69 @@ MApp {
                             clip: true
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
                             text: {
-                                var currentTab = getCurrentTab()
-                                return currentTab ? currentTab.url : ""
+                                var currentTab = getCurrentTab();
+                                return currentTab ? currentTab.url : "";
                             }
-                            
+
                             Connections {
                                 target: browserApp
                                 function onAppLaunched() {
-                                    Qt.callLater(function() {
-                                        urlInput.focus = true
-                                        urlInput.selectAll()
-                                    })
+                                    Qt.callLater(function () {
+                                        urlInput.focus = true;
+                                        urlInput.selectAll();
+                                    });
                                 }
                                 function onAppResumed() {
-                                    Qt.callLater(function() {
-                                        urlInput.focus = true
-                                        urlInput.selectAll()
-                                    })
+                                    Qt.callLater(function () {
+                                        urlInput.focus = true;
+                                        urlInput.selectAll();
+                                    });
                                 }
                                 // Fix: Restore binding when tabs change (navigation)
                                 function onTabsChanged() {
                                     if (!urlInput.activeFocus) {
-                                        var currentTab = getCurrentTab()
+                                        var currentTab = getCurrentTab();
                                         if (currentTab && currentTab.url !== urlInput.text) {
-                                            urlInput.text = currentTab.url
+                                            urlInput.text = currentTab.url;
                                         }
                                     }
                                 }
                                 function onCurrentTabIndexChanged() {
-                                    var currentTab = getCurrentTab()
+                                    var currentTab = getCurrentTab();
                                     if (currentTab) {
-                                        urlInput.text = currentTab.url
+                                        urlInput.text = currentTab.url;
                                     }
                                 }
                             }
-                            
+
                             onActiveFocusChanged: {
                                 if (activeFocus) {
-                                    selectAll()
+                                    selectAll();
                                 }
                             }
-                            
-                            onTextEdited: {
-                            // Inline Autocomplete
-                            if (text.length >= 2) {
-                                var match = findBestMatch(text)
-                                if (match && match.length > text.length) {
-                                    var currentPos = cursorPosition
-                                    var typedText = text
-                                    
-                                    // Append the rest of the match
-                                    text = match
-                                    
-                                    // Select the suggested part so typing replaces it
-                                    select(currentPos, text.length)
-                                }
-                            }
-                        }
 
-                        onAccepted: {
-                            focus = false
-                            navigateTo(text)
-                        }
-                            
+                            onTextEdited: {
+                                // Inline Autocomplete
+                                if (text.length >= 2) {
+                                    var match = findBestMatch(text);
+                                    if (match && match.length > text.length) {
+                                        var currentPos = cursorPosition;
+                                        var typedText = text;
+
+                                        // Append the rest of the match
+                                        text = match;
+
+                                        // Select the suggested part so typing replaces it
+                                        select(currentPos, text.length);
+                                    }
+                                }
+                            }
+
+                            onAccepted: {
+                                focus = false;
+                                navigateTo(text);
+                            }
+
                             Text {
                                 anchors.fill: parent
                                 verticalAlignment: Text.AlignVCenter
@@ -941,7 +953,7 @@ MApp {
                                 font.family: MTypography.fontFamily
                             }
                         }
-                        
+
                         // Actions inside Address Bar
                         Row {
                             id: actionRow
@@ -950,21 +962,21 @@ MApp {
                             anchors.bottom: parent.bottom
                             anchors.rightMargin: MSpacing.xs
                             spacing: 0
-                            
+
                             // Clear Button
                             Rectangle {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
                                 color: "transparent"
                                 visible: urlInput.text && urlInput.text.length > 0 && urlInput.activeFocus
-                                
+
                                 Rectangle {
                                     anchors.centerIn: parent
                                     width: Constants.touchTargetSmall * 0.6
                                     height: Constants.touchTargetSmall * 0.6
                                     radius: width / 2
                                     color: clearMouseArea.pressed ? Qt.rgba(0.5, 0.5, 0.5, 0.3) : Qt.rgba(0.5, 0.5, 0.5, 0.15)
-                                    
+
                                     Icon {
                                         anchors.centerIn: parent
                                         name: "x"
@@ -972,79 +984,79 @@ MApp {
                                         color: MColors.textSecondary
                                     }
                                 }
-                                
+
                                 MouseArea {
                                     id: clearMouseArea
                                     anchors.fill: parent
                                     onClicked: {
-                                        HapticService.light()
-                                        urlInput.text = ""
-                                        urlInput.focus = true
+                                        HapticService.light();
+                                        urlInput.text = "";
+                                        urlInput.focus = true;
                                     }
                                 }
                             }
-                            
+
                             // Star Button
                             Rectangle {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
                                 color: "transparent"
                                 visible: !urlInput.activeFocus
-                                
+
                                 Icon {
                                     anchors.centerIn: parent
                                     name: "star"
                                     size: Constants.iconSizeSmall * 0.8
                                     color: {
-                                        var currentTab = getCurrentTab()
-                                        return (currentTab && isBookmarked(currentTab.url)) ? MColors.accent : MColors.textSecondary
+                                        var currentTab = getCurrentTab();
+                                        return (currentTab && isBookmarked(currentTab.url)) ? MColors.accent : MColors.textSecondary;
                                     }
                                 }
-                                
+
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        HapticService.light()
-                                        var currentTab = getCurrentTab()
+                                        HapticService.light();
+                                        var currentTab = getCurrentTab();
                                         if (currentTab) {
                                             if (isBookmarked(currentTab.url)) {
-                                                removeBookmark(currentTab.url)
+                                                removeBookmark(currentTab.url);
                                             } else {
-                                                addBookmark(currentTab.url, currentTab.title)
+                                                addBookmark(currentTab.url, currentTab.title);
                                             }
                                         }
                                     }
                                 }
                             }
-                            
+
                             // Refresh/Stop Button
                             Rectangle {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
                                 color: "transparent"
-                                
+
                                 Icon {
                                     anchors.centerIn: parent
                                     name: {
-                                        var currentTab = getCurrentTab()
-                                        return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "x" : "refresh-cw"
+                                        var currentTab = getCurrentTab();
+                                        return ((currentTab && currentTab.isLoading) || browserApp.updatingTabUrl) ? "x" : "refresh-cw";
                                     }
                                     size: Constants.iconSizeSmall * 0.8
                                     color: MColors.text
                                 }
-                                
+
                                 MouseArea {
                                     anchors.fill: parent
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
-                                        HapticService.light()
+                                        HapticService.light();
                                         if (webView) {
-                                            var currentTab = getCurrentTab()
+                                            var currentTab = getCurrentTab();
                                             if (currentTab && currentTab.isLoading) {
-                                                webView.stop()
+                                                webView.stop();
                                             } else {
-                                                webView.reload()
+                                                webView.reload();
                                             }
                                         }
                                     }
@@ -1052,26 +1064,26 @@ MApp {
                             }
                         }
                     }
-                    
+
                     // Tabs Button
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall * 1.6
                         Layout.preferredHeight: Constants.touchTargetSmall
                         Layout.alignment: Qt.AlignVCenter
                         color: "transparent"
-                        
+
                         Row {
                             anchors.centerIn: parent
                             anchors.horizontalCenterOffset: -MSpacing.xs
                             spacing: 3
-                            
+
                             Icon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 name: "grid"
                                 size: Constants.iconSizeSmall
                                 color: MColors.text
                             }
-                            
+
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: "(" + tabs.length + ")"
@@ -1081,40 +1093,39 @@ MApp {
                                 visible: tabs.length > 0
                             }
                         }
-                        
+
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                HapticService.light()
+                                HapticService.light();
                                 if (isDrawerOpen) {
-                                    closeDrawer()
+                                    closeDrawer();
                                 } else {
-                                    openDrawer()
+                                    openDrawer();
                                 }
                             }
                         }
                     }
-                    
                 }
             }
         }
-        
+
         Rectangle {
             anchors.fill: parent
             color: "#000000"
             opacity: drawerProgress * 0.6
             visible: drawerProgress > 0
-            
+
             MouseArea {
                 anchors.fill: parent
                 enabled: drawerProgress > 0
                 onClicked: {
-                    closeDrawer()
+                    closeDrawer();
                 }
             }
         }
-        
+
         Item {
             id: drawerContainer
             width: parent.width * 0.85
@@ -1122,7 +1133,7 @@ MApp {
             x: parent.width - (width * drawerProgress)
             visible: drawerProgress > 0 || isDragging
             clip: true
-            
+
             Behavior on x {
                 enabled: !isDragging
                 NumberAnimation {
@@ -1130,178 +1141,192 @@ MApp {
                     easing.type: Easing.OutCubic
                 }
             }
-            
+
             BrowserDrawer {
                 id: drawer
                 anchors.fill: parent
-                
+
                 Component.onCompleted: {
                     // Store reference for safe access from other components
-                    browserApp.drawerRef = drawer
-                    
+                    browserApp.drawerRef = drawer;
+
                     if (drawer.tabsPage) {
-                        drawer.tabsPage.tabs = Qt.binding(function() { return browserApp.tabs })
-                        drawer.tabsPage.currentTabId = Qt.binding(function() {
-                            var currentTab = browserApp.getCurrentTab()
-                            return currentTab ? currentTab.id : -1
-                        })
+                        drawer.tabsPage.tabs = Qt.binding(function () {
+                            return browserApp.tabs;
+                        });
+                        drawer.tabsPage.currentTabId = Qt.binding(function () {
+                            var currentTab = browserApp.getCurrentTab();
+                            return currentTab ? currentTab.id : -1;
+                        });
                     }
-                    
+
                     if (drawer.bookmarksPage) {
-                        drawer.bookmarksPage.bookmarks = Qt.binding(function() { return browserApp.bookmarks })
+                        drawer.bookmarksPage.bookmarks = Qt.binding(function () {
+                            return browserApp.bookmarks;
+                        });
                     }
-                    
+
                     if (drawer.historyPage) {
-                        drawer.historyPage.history = Qt.binding(function() { return browserApp.history })
+                        drawer.historyPage.history = Qt.binding(function () {
+                            return browserApp.history;
+                        });
                     }
-                    
+
                     if (drawer.settingsPage) {
                         // Bind settings page to app properties
-                        drawer.settingsPage.searchEngine = Qt.binding(function() { return browserApp.searchEngineName })
-                        drawer.settingsPage.searchEngineUrl = Qt.binding(function() { return browserApp.searchEngineUrl })
-                        drawer.settingsPage.homepage = Qt.binding(function() { return browserApp.homepageUrl })
-                        drawer.settingsPage.isPrivateMode = Qt.binding(function() { return browserApp.isPrivateMode })
-                        
-                        drawer.settingsPage.isPrivateModeChanged.connect(function() {
-                            browserApp.isPrivateMode = drawer.settingsPage.isPrivateMode
-                        })
-                        
-                        drawer.settingsPage.searchEngineChanged.connect(function() {
+                        drawer.settingsPage.searchEngine = Qt.binding(function () {
+                            return browserApp.searchEngineName;
+                        });
+                        drawer.settingsPage.searchEngineUrl = Qt.binding(function () {
+                            return browserApp.searchEngineUrl;
+                        });
+                        drawer.settingsPage.homepage = Qt.binding(function () {
+                            return browserApp.homepageUrl;
+                        });
+                        drawer.settingsPage.isPrivateMode = Qt.binding(function () {
+                            return browserApp.isPrivateMode;
+                        });
+
+                        drawer.settingsPage.isPrivateModeChanged.connect(function () {
+                            browserApp.isPrivateMode = drawer.settingsPage.isPrivateMode;
+                        });
+
+                        drawer.settingsPage.searchEngineChanged.connect(function () {
                             // Only update if changed from UI
                             if (browserApp.searchEngineName !== drawer.settingsPage.searchEngine) {
-                                browserApp.searchEngineName = drawer.settingsPage.searchEngine
-                                saveSettings()
+                                browserApp.searchEngineName = drawer.settingsPage.searchEngine;
+                                saveSettings();
                             }
-                        })
-                        
-                        drawer.settingsPage.searchEngineUrlChanged.connect(function() {
+                        });
+
+                        drawer.settingsPage.searchEngineUrlChanged.connect(function () {
                             if (browserApp.searchEngineUrl !== drawer.settingsPage.searchEngineUrl) {
-                                browserApp.searchEngineUrl = drawer.settingsPage.searchEngineUrl
-                                saveSettings()
+                                browserApp.searchEngineUrl = drawer.settingsPage.searchEngineUrl;
+                                saveSettings();
                             }
-                        })
-                        
-                        drawer.settingsPage.homepageChanged.connect(function() {
+                        });
+
+                        drawer.settingsPage.homepageChanged.connect(function () {
                             if (browserApp.homepageUrl !== drawer.settingsPage.homepage) {
-                                browserApp.homepageUrl = drawer.settingsPage.homepage
-                                saveSettings()
+                                browserApp.homepageUrl = drawer.settingsPage.homepage;
+                                saveSettings();
                             }
-                        })
+                        });
                     }
                 }
-                
+
                 onClosed: {
-                    closeDrawer()
+                    closeDrawer();
                 }
-                
-                onTabSelected: (tabId) => {
-                    switchToTab(tabId)
-                    closeDrawer()
+
+                onTabSelected: tabId => {
+                    switchToTab(tabId);
+                    closeDrawer();
                 }
-                
+
                 onNewTabRequested: {
-                    var tabId = createNewTab()
+                    var tabId = createNewTab();
                     if (tabId >= 0) {
-                        closeDrawer()
+                        closeDrawer();
                     }
                 }
-                
-                onBookmarkSelected: (url) => {
-                    navigateTo(url)
+
+                onBookmarkSelected: url => {
+                    navigateTo(url);
                 }
-                
-                onHistorySelected: (url) => {
-                    navigateTo(url)
+
+                onHistorySelected: url => {
+                    navigateTo(url);
                 }
-                
+
                 Connections {
                     target: drawer.tabsPage
                     function onCloseTab(tabId) {
-                        browserApp.closeTab(tabId)
+                        browserApp.closeTab(tabId);
                     }
                 }
-                
+
                 Connections {
                     target: drawer.bookmarksPage
                     function onDeleteBookmark(url) {
-                        browserApp.removeBookmark(url)
+                        browserApp.removeBookmark(url);
                     }
                 }
-                
+
                 Connections {
                     target: drawer.historyPage
                     function onClearHistory() {
-                        browserApp.clearHistory()
+                        browserApp.clearHistory();
                     }
                 }
-                
+
                 Connections {
                     target: drawer.settingsPage
                     function onClearHistoryRequested() {
                         if (!browserApp.isPrivateMode) {
-                            browserApp.clearHistory()
+                            browserApp.clearHistory();
                         }
                     }
-                    
+
                     function onClearCookiesRequested() {
                         if (webView && webView.profile) {
-                            webView.profile.clearAllVisitedLinks()
-                            Logger.info("BrowserApp", "Cleared cookies and site data")
+                            webView.profile.clearAllVisitedLinks();
+                            Logger.info("BrowserApp", "Cleared cookies and site data");
                         }
                     }
                 }
             }
         }
     }
-    
+
     Connections {
         target: NavigationRouter
         function onDeepLinkRequested(appId, route, params) {
             if (appId === "browser") {
-                Logger.info("BrowserApp", "Deep link requested with params: " + JSON.stringify(params))
-                
+                Logger.info("BrowserApp", "Deep link requested with params: " + JSON.stringify(params));
+
                 // Handle URL parameter
                 if (params && params.url) {
-                    Logger.info("BrowserApp", "Opening URL from deep link: " + params.url)
-                    navigateTo(params.url)
+                    Logger.info("BrowserApp", "Opening URL from deep link: " + params.url);
+                    navigateTo(params.url);
                 }
             }
         }
     }
-    
+
     onAppPaused: {
-        saveTabs()
-        saveBookmarks()
-        saveHistory()
+        saveTabs();
+        saveBookmarks();
+        saveHistory();
     }
-    
+
     onAppClosed: {
         if (webView) {
-            webView.stop()
-            webView.url = "about:blank"
-            webView = null
+            webView.stop();
+            webView.url = "about:blank";
+            webView = null;
         }
-        
-        saveTabs()
-        saveBookmarks()
-        saveHistory()
+
+        saveTabs();
+        saveBookmarks();
+        saveHistory();
     }
-    
+
     Component.onDestruction: {
         if (backConnection) {
-            browserApp.backPressed.disconnect(backConnection)
-            backConnection = null
+            browserApp.backPressed.disconnect(backConnection);
+            backConnection = null;
         }
-        
+
         if (forwardConnection) {
-            browserApp.forwardPressed.disconnect(forwardConnection)
-            forwardConnection = null
+            browserApp.forwardPressed.disconnect(forwardConnection);
+            forwardConnection = null;
         }
-        
+
         if (webView) {
-            webView.stop()
-            webView.url = "about:blank"
-            webView = null
+            webView.stop();
+            webView.url = "about:blank";
+            webView = null;
         }
     }
 }

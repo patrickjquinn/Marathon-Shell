@@ -7,34 +7,34 @@ Item {
     id: hudContainer
     anchors.fill: parent
     z: 2900
-    
+
     property string hudType: "volume"
     property real hudValue: 0
     property bool hudVisible: false
-    
+
     function showVolume(value) {
-        hudType = "volume"
-        hudValue = value
-        show()
+        hudType = "volume";
+        hudValue = value;
+        show();
     }
-    
+
     function showBrightness(value) {
-        hudType = "brightness"
-        hudValue = value
-        show()
+        hudType = "brightness";
+        hudValue = value;
+        show();
     }
-    
+
     function show() {
-        hudVisible = true
-        hud.opacity = 1
-        autoHideTimer.restart()
+        hudVisible = true;
+        hud.opacity = 1;
+        autoHideTimer.restart();
     }
-    
+
     function hide() {
-        hudVisible = false
-        fadeOut.start()
+        hudVisible = false;
+        fadeOut.start();
     }
-    
+
     Rectangle {
         id: hud
         anchors.centerIn: parent
@@ -47,15 +47,15 @@ Item {
         antialiasing: Constants.enableAntialiasing
         opacity: 0
         visible: hudVisible
-        
+
         Behavior on opacity {
             enabled: Constants.enableAnimations
-            NumberAnimation { 
+            NumberAnimation {
                 duration: Constants.animationNormal
                 easing.type: Easing.OutCubic
             }
         }
-        
+
         Rectangle {
             anchors.fill: parent
             anchors.margins: Constants.borderWidthThin
@@ -64,23 +64,23 @@ Item {
             border.width: 1
             border.color: Qt.rgba(1, 1, 1, 0.05)
         }
-        
+
         Column {
             anchors.centerIn: parent
             spacing: Constants.spacingLarge
             width: parent.width - 40
-            
+
             Icon {
                 name: hudType === "volume" ? "volume-2" : "sun"
                 size: Constants.iconSizeXLarge
                 color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
             }
-            
+
             Column {
                 width: parent.width
                 spacing: Constants.spacingSmall
-                
+
                 Rectangle {
                     width: parent.width
                     height: 8
@@ -88,13 +88,13 @@ Item {
                     color: Qt.rgba(1, 1, 1, 0.1)
                     border.width: 1
                     border.color: Qt.rgba(1, 1, 1, 0.05)
-                    
+
                     Rectangle {
                         width: parent.width * hudValue
                         height: parent.height
                         radius: parent.radius
-                        color: Qt.rgba(20/255, 184/255, 166/255, 0.9)
-                        
+                        color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.9)
+
                         Behavior on width {
                             NumberAnimation {
                                 duration: 150
@@ -103,7 +103,7 @@ Item {
                         }
                     }
                 }
-                
+
                 Text {
                     text: Math.round(hudValue * 100) + "%"
                     color: MColors.textPrimary
@@ -115,13 +115,13 @@ Item {
             }
         }
     }
-    
+
     Timer {
         id: autoHideTimer
         interval: 2000
         onTriggered: hide()
     }
-    
+
     NumberAnimation {
         id: fadeOut
         target: hud
@@ -131,4 +131,3 @@ Item {
         easing.type: Easing.InCubic
     }
 }
-

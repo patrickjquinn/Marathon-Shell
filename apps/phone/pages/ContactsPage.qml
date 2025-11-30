@@ -5,7 +5,7 @@ import MarathonUI.Core
 
 Rectangle {
     color: MColors.background
-    
+
     ListView {
         id: contactsList
         anchors.fill: parent
@@ -14,15 +14,15 @@ Rectangle {
         anchors.bottomMargin: MSpacing.md
         spacing: MSpacing.sm
         clip: true
-        
+
         // Header spacer for top padding
         header: Item {
             width: parent.width
             height: MSpacing.lg
         }
-        
+
         model: phoneApp.contacts
-        
+
         delegate: Rectangle {
             width: contactsList.width
             height: Constants.touchTargetLarge
@@ -31,12 +31,12 @@ Rectangle {
             border.width: Constants.borderWidthThin
             border.color: MColors.border
             antialiasing: Constants.enableAntialiasing
-            
+
             Row {
                 anchors.fill: parent
                 anchors.margins: MSpacing.md
                 spacing: MSpacing.md
-                
+
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     width: Constants.iconSizeLarge
@@ -46,7 +46,7 @@ Rectangle {
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
                     antialiasing: Constants.enableAntialiasing
-                    
+
                     Text {
                         anchors.centerIn: parent
                         text: modelData.name.charAt(0).toUpperCase()
@@ -55,22 +55,22 @@ Rectangle {
                         color: MColors.accent
                     }
                 }
-                
+
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - parent.spacing * 3 - Constants.iconSizeLarge - Constants.iconSizeMedium
                     spacing: MSpacing.xs
-                    
+
                     Row {
                         spacing: MSpacing.sm
-                        
+
                         Text {
                             text: modelData.name
                             font.pixelSize: MTypography.sizeBody
                             font.weight: Font.DemiBold
                             color: MColors.text
                         }
-                        
+
                         Icon {
                             anchors.verticalCenter: parent.verticalCenter
                             name: "star"
@@ -79,14 +79,14 @@ Rectangle {
                             visible: modelData.favorite
                         }
                     }
-                    
+
                     Text {
                         text: modelData.phone
                         font.pixelSize: MTypography.sizeSmall
                         color: MColors.textSecondary
                     }
                 }
-                
+
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
                     name: "phone"
@@ -94,21 +94,21 @@ Rectangle {
                     color: MColors.accent
                 }
             }
-            
+
             MouseArea {
                 anchors.fill: parent
                 onPressed: {
-                    parent.color = MColors.elevated
-                    HapticService.light()
+                    parent.color = MColors.elevated;
+                    HapticService.light();
                 }
                 onReleased: {
-                    parent.color = MColors.surface
+                    parent.color = MColors.surface;
                 }
                 onCanceled: {
-                    parent.color = MColors.surface
+                    parent.color = MColors.surface;
                 }
                 onClicked: {
-                    console.log("Call contact:", modelData.name, modelData.phone)
+                    console.log("Call contact:", modelData.name, modelData.phone);
                 }
             }
         }

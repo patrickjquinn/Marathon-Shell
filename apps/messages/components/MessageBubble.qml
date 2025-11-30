@@ -6,16 +6,16 @@ import MarathonUI.Containers
 
 Item {
     id: root
-    
+
     property var message
     property bool isOutgoing: message?.isOutgoing || false
     property bool showTimestamp: true
     property bool isFirstInGroup: false
     property bool isLastInGroup: false
-    
+
     width: parent.width
     height: bubbleContainer.height + MSpacing.xs
-    
+
     Column {
         id: bubbleContainer
         anchors.left: isOutgoing ? undefined : parent.left
@@ -23,7 +23,7 @@ Item {
         anchors.leftMargin: MSpacing.md
         anchors.rightMargin: MSpacing.md
         spacing: MSpacing.xs
-        
+
         Rectangle {
             id: bubble
             width: Math.min(bubbleText.contentWidth + MSpacing.md * 2, root.width * 0.75)
@@ -32,8 +32,7 @@ Item {
             color: isOutgoing ? MColors.marathonTeal : MColors.elevated
             border.width: isOutgoing ? 0 : 1
             border.color: MColors.border
-            
-            
+
             MLabel {
                 id: bubbleText
                 anchors.fill: parent
@@ -44,7 +43,7 @@ Item {
                 color: isOutgoing ? MColors.textPrimary : MColors.textPrimary
                 wrapMode: Text.Wrap
             }
-            
+
             Row {
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
@@ -52,7 +51,7 @@ Item {
                 anchors.bottomMargin: MSpacing.xs
                 spacing: MSpacing.xs
                 visible: isOutgoing
-                
+
                 Icon {
                     name: getStatusIcon()
                     size: 12
@@ -61,7 +60,7 @@ Item {
                 }
             }
         }
-        
+
         MLabel {
             id: timestampLabel
             visible: showTimestamp
@@ -72,20 +71,24 @@ Item {
             anchors.right: isOutgoing ? parent.right : undefined
         }
     }
-    
+
     function formatMessageTime(timestamp) {
-        if (!timestamp) return ""
-        var date = new Date(timestamp)
-        return date.toLocaleTimeString(Qt.locale(), "h:mm AP")
+        if (!timestamp)
+            return "";
+        var date = new Date(timestamp);
+        return date.toLocaleTimeString(Qt.locale(), "h:mm AP");
     }
-    
+
     function getStatusIcon() {
-        if (!message) return "check"
-        
-        if (message.isFailed) return "x"
-        if (message.isRead) return "check-check"
-        if (message.isDelivered) return "check-check"
-        return "check"
+        if (!message)
+            return "check";
+
+        if (message.isFailed)
+            return "x";
+        if (message.isRead)
+            return "check-check";
+        if (message.isDelivered)
+            return "check-check";
+        return "check";
     }
 }
-

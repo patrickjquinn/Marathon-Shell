@@ -5,39 +5,39 @@ import MarathonUI.Effects
 
 SwipeView {
     id: root
-    
+
     // Custom properties
     property bool hapticEnabled: true
     property bool bounceEnabled: true
     property real bounceIntensity: 0.1
-    
+
     // Signals
     signal pageChanged(int index)
-    signal swipeStarted()
-    signal swipeFinished()
-    
+    signal swipeStarted
+    signal swipeFinished
+
     clip: true
-    
+
     // Spring physics for page transitions
     interactive: true
-    
+
     // Haptic feedback on page change
     onCurrentIndexChanged: {
         if (hapticEnabled && MHaptics.enabled) {
-            MHaptics.light()
+            MHaptics.light();
         }
-        pageChanged(currentIndex)
+        pageChanged(currentIndex);
     }
-    
+
     // Track swipe state
     onMovingChanged: {
         if (moving) {
-            swipeStarted()
+            swipeStarted();
         } else {
-            swipeFinished()
+            swipeFinished();
         }
     }
-    
+
     // Custom page transition with spring physics
     Behavior on contentItem.x {
         enabled: !moving
@@ -47,12 +47,11 @@ SwipeView {
             epsilon: MMotion.epsilon
         }
     }
-    
+
     // Rubber-band overscroll effect
     onContentItemChanged: {
         if (contentItem && bounceEnabled) {
-            contentItem.boundsBehavior = Flickable.DragAndOvershootBounds
+            contentItem.boundsBehavior = Flickable.DragAndOvershootBounds;
         }
     }
 }
-

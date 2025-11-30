@@ -3,14 +3,14 @@ import MarathonUI.Theme
 
 Item {
     id: root
-    
+
     property point origin: Qt.point(width / 2, height / 2)
     property bool active: false
     property color rippleColor: MColors.ripple
-    
+
     anchors.fill: parent
     clip: true
-    
+
     Rectangle {
         id: rippleCircle
         width: 0
@@ -20,7 +20,7 @@ Item {
         y: root.origin.y - height / 2
         color: root.rippleColor
         opacity: 0
-        
+
         states: State {
             name: "active"
             when: root.active
@@ -31,20 +31,20 @@ Item {
                 opacity: 0
             }
         }
-        
+
         transitions: Transition {
             from: ""
             to: "active"
             SequentialAnimation {
                 ParallelAnimation {
-                    NumberAnimation { 
+                    NumberAnimation {
                         target: rippleCircle
-                        properties: "width,height" 
+                        properties: "width,height"
                         from: 0
                         duration: MMotion.rippleDuration
                         easing.bezierCurve: MMotion.easingDecelerateCurve
                     }
-                    NumberAnimation { 
+                    NumberAnimation {
                         target: rippleCircle
                         property: "opacity"
                         from: MMotion.rippleOpacity
@@ -53,22 +53,21 @@ Item {
                         easing.type: Easing.Linear
                     }
                 }
-                ScriptAction { 
+                ScriptAction {
                     script: {
-                        root.active = false
-                        rippleCircle.width = 0
-                        rippleCircle.height = 0
+                        root.active = false;
+                        rippleCircle.width = 0;
+                        rippleCircle.height = 0;
                     }
                 }
             }
         }
     }
-    
+
     function trigger(point) {
         if (point) {
-            origin = point
+            origin = point;
         }
-        active = true
+        active = true;
     }
 }
-

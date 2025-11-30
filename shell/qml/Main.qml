@@ -10,10 +10,9 @@ Window {
     visible: true
     title: "Marathon OS - Bandit"
     color: "#000000"
-    
+
     MarathonShell {
         anchors.fill: parent
         focus: true
     }
 }
-

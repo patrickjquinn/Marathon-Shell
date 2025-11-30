@@ -5,7 +5,7 @@ import MarathonUI.Effects
 
 Rectangle {
     id: root
-    
+
     property string title: ""
     property string subtitle: ""
     property alias leading: leadingContent.data
@@ -13,33 +13,38 @@ Rectangle {
     property bool clickable: false
     property bool showDivider: true
     property int animationIndex: 0
-    
-    signal clicked()
-    
+
+    signal clicked
+
     width: parent ? parent.width : 400
     height: 56
     color: mouseArea.pressed ? MColors.highlightSubtle : "transparent"
     clip: true
-    
+
     Accessible.role: clickable ? Accessible.Button : Accessible.ListItem
     Accessible.name: title
     Accessible.description: subtitle
-    Accessible.onPressAction: if (clickable) clicked()
-    
-    Keys.onReturnPressed: if (clickable) clicked()
-    Keys.onSpacePressed: if (clickable) clicked()
-    
+    Accessible.onPressAction: if (clickable)
+        clicked()
+
+    Keys.onReturnPressed: if (clickable)
+        clicked()
+    Keys.onSpacePressed: if (clickable)
+        clicked()
+
     Behavior on color {
-        ColorAnimation { duration: MMotion.sm }
+        ColorAnimation {
+            duration: MMotion.sm
+        }
     }
-    
+
     Row {
         anchors.fill: parent
         anchors.leftMargin: MSpacing.md
         anchors.rightMargin: MSpacing.md
         spacing: MSpacing.md
         clip: true
-        
+
         Item {
             id: leadingContent
             anchors.verticalCenter: parent.verticalCenter
@@ -47,13 +52,13 @@ Rectangle {
             height: childrenRect.height
             clip: true
         }
-        
+
         Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - leadingContent.width - trailingContent.width - (parent.spacing * 2) - parent.anchors.leftMargin - parent.anchors.rightMargin
             spacing: 2
             clip: true
-            
+
             Text {
                 text: root.title
                 color: MColors.textPrimary
@@ -63,7 +68,7 @@ Rectangle {
                 width: parent.width
                 elide: Text.ElideRight
             }
-            
+
             Text {
                 text: root.subtitle
                 color: MColors.textSecondary
@@ -75,7 +80,7 @@ Rectangle {
                 elide: Text.ElideRight
             }
         }
-        
+
         Item {
             id: trailingContent
             anchors.verticalCenter: parent.verticalCenter
@@ -84,7 +89,7 @@ Rectangle {
             clip: true
         }
     }
-    
+
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -94,18 +99,17 @@ Rectangle {
         color: MColors.borderSubtle
         visible: root.showDivider
     }
-    
+
     MouseArea {
         id: mouseArea
         anchors.fill: parent
         enabled: root.clickable
         cursorShape: root.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
         hoverEnabled: root.clickable
-        
+
         onClicked: {
-            root.clicked()
-            MHaptics.lightImpact()
+            root.clicked();
+            MHaptics.lightImpact();
         }
     }
 }
-

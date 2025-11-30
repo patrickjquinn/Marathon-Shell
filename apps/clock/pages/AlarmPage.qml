@@ -6,15 +6,15 @@ import "../components"
 
 Item {
     id: alarmPage
-    
+
     Column {
         anchors.fill: parent
         spacing: 0
-        
+
         Item {
             width: parent.width
             height: parent.height
-            
+
             ListView {
                 id: alarmsList
                 anchors.fill: parent
@@ -22,7 +22,7 @@ Item {
                 clip: true
                 model: clockApp.alarms
                 spacing: 0
-                
+
                 delegate: AlarmItem {
                     width: alarmsList.width
                     alarmId: modelData.id
@@ -30,44 +30,46 @@ Item {
                     alarmMinute: modelData.time ? _getMinute(modelData.time) : (modelData.minute || 0)
                     alarmLabel: modelData.label
                     alarmEnabled: modelData.enabled
-                    
+
                     onClicked: {
-                        alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel)
+                        alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel);
                     }
-                    
+
                     onToggled: {
-                        clockApp.toggleAlarm(alarmId)
+                        clockApp.toggleAlarm(alarmId);
                     }
-                    
+
                     onDeleted: {
-                        clockApp.deleteAlarm(alarmId)
+                        clockApp.deleteAlarm(alarmId);
                     }
-                    
+
                     function _getHour(timeStr) {
-                        if (!timeStr) return 0
-                        var parts = timeStr.split(":")
-                        return parseInt(parts[0])
+                        if (!timeStr)
+                            return 0;
+                        var parts = timeStr.split(":");
+                        return parseInt(parts[0]);
                     }
-                    
+
                     function _getMinute(timeStr) {
-                        if (!timeStr) return 0
-                        var parts = timeStr.split(":")
-                        return parseInt(parts[1])
+                        if (!timeStr)
+                            return 0;
+                        var parts = timeStr.split(":");
+                        return parseInt(parts[1]);
                     }
                 }
-                
+
                 Rectangle {
                     anchors.centerIn: parent
                     width: Math.min(parent.width * 0.8, Constants.screenWidth * 0.6)
                     height: emptyColumn.height
                     color: "transparent"
                     visible: alarmsList.count === 0
-                    
+
                     Column {
                         id: emptyColumn
                         anchors.centerIn: parent
                         spacing: MSpacing.lg
-                        
+
                         ClockIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
                             name: "clock"
@@ -75,7 +77,7 @@ Item {
                             color: MColors.textSecondary
                             opacity: 0.5
                         }
-                        
+
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: "No alarms set"
@@ -83,7 +85,7 @@ Item {
                             font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Medium
                         }
-                        
+
                         Text {
                             width: parent.width
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -98,7 +100,7 @@ Item {
             }
         }
     }
-    
+
     MIconButton {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -108,18 +110,17 @@ Item {
         variant: "primary"
         shape: "circular"
         onClicked: {
-            alarmEditorDialog.open()
+            alarmEditorDialog.open();
         }
     }
-    
+
     AlarmEditorDialog {
         id: alarmEditorDialog
-        onAlarmCreated: function(hour, minute) {
-            clockApp.createAlarm(hour, minute, "Alarm", true)
+        onAlarmCreated: function (hour, minute) {
+            clockApp.createAlarm(hour, minute, "Alarm", true);
         }
-        onAlarmUpdated: function(alarmId, hour, minute) {
-            clockApp.updateAlarm(alarmId, hour, minute, "Alarm", true, [])
+        onAlarmUpdated: function (alarmId, hour, minute) {
+            clockApp.updateAlarm(alarmId, hour, minute, "Alarm", true, []);
         }
     }
 }
-

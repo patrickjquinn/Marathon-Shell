@@ -7,26 +7,26 @@ import MarathonUI.Controls
 
 Rectangle {
     id: root
-    
+
     property alias text: messageInput.text
     property alias placeholderText: messageInput.placeholderText
     property int maxLength: 160
     property bool showCharCount: text.length > maxLength * 0.8
-    
+
     signal sendMessage(string text)
-    signal attachPressed()
-    
+    signal attachPressed
+
     width: parent.width
     height: Math.max(64, contentColumn.height + MSpacing.md * 2)
     color: MColors.surface
-    
+
     Rectangle {
         anchors.top: parent.top
         width: parent.width
         height: 1
         color: MColors.border
     }
-    
+
     Column {
         id: contentColumn
         anchors.left: parent.left
@@ -34,11 +34,11 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         anchors.margins: MSpacing.md
         spacing: MSpacing.xs
-        
+
         Row {
             width: parent.width
             spacing: MSpacing.sm
-            
+
             MIconButton {
                 id: attachButton
                 anchors.verticalCenter: parent.verticalCenter
@@ -46,28 +46,28 @@ Rectangle {
                 iconSize: 20
                 variant: "ghost"
                 onClicked: {
-                    HapticService.light()
-                    root.attachPressed()
+                    HapticService.light();
+                    root.attachPressed();
                 }
             }
-            
+
             MTextInput {
                 id: messageInput
                 width: parent.width - attachButton.width - sendButton.width - parent.spacing * 2
                 anchors.verticalCenter: parent.verticalCenter
                 placeholderText: "Type a message..."
-                
+
                 Keys.onReturnPressed: {
                     if (event.modifiers & Qt.ShiftModifier) {
-                        event.accepted = false
+                        event.accepted = false;
                     } else if (text.trim().length > 0) {
-                        event.accepted = true
-                        root.sendMessage(text)
-                        text = ""
+                        event.accepted = true;
+                        root.sendMessage(text);
+                        text = "";
                     }
                 }
             }
-            
+
             MIconButton {
                 id: sendButton
                 anchors.verticalCenter: parent.verticalCenter
@@ -77,14 +77,14 @@ Rectangle {
                 enabled: messageInput.text.trim().length > 0
                 onClicked: {
                     if (messageInput.text.trim().length > 0) {
-                        HapticService.medium()
-                        root.sendMessage(messageInput.text)
-                        messageInput.text = ""
+                        HapticService.medium();
+                        root.sendMessage(messageInput.text);
+                        messageInput.text = "";
                     }
                 }
             }
         }
-        
+
         MLabel {
             visible: showCharCount
             text: messageInput.text.length + " / " + maxLength
@@ -93,12 +93,11 @@ Rectangle {
             anchors.right: parent.right
         }
     }
-    
+
     Behavior on height {
-        NumberAnimation { 
+        NumberAnimation {
             duration: MMotion.fast
             easing.bezierCurve: MMotion.easingStandardCurve
         }
     }
 }
-

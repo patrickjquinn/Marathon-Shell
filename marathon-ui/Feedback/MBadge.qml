@@ -3,28 +3,28 @@ import MarathonUI.Theme
 
 Rectangle {
     id: root
-    
+
     property string text: ""
     property color badgeColor: MColors.error
     property int count: 0
-    
+
     implicitWidth: Math.max(MSpacing.lg, contentText.width + MSpacing.sm * 2)
     implicitHeight: MSpacing.lg
-    
+
     radius: height / 2
     color: badgeColor
     visible: count > 0 || text !== ""
-    
+
     scale: visible ? 1.0 : 0.8
-    
+
     Behavior on scale {
-        SpringAnimation { 
+        SpringAnimation {
             spring: MMotion.springLight
             damping: MMotion.dampingLight
             epsilon: MMotion.epsilon
         }
     }
-    
+
     Text {
         id: contentText
         anchors.centerIn: parent
@@ -35,4 +35,3 @@ Rectangle {
         font.family: MTypography.fontFamily
     }
 }
-

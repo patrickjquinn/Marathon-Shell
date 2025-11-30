@@ -6,7 +6,7 @@ import MarathonUI.Effects
 
 Item {
     id: root
-    
+
     property string label: ""
     property variant options: []
     property int selectedIndex: -1
@@ -17,55 +17,56 @@ Item {
     property bool expanded: false
     property int maxVisibleItems: 6
     property bool allowCustomValue: true
-    
+
     signal selectionChanged(variant value, int index)
     signal textChanged(string text)
-    
+
     implicitWidth: parent ? parent.width : 240
     implicitHeight: MSpacing.touchTargetMin
-    
+
     Accessible.role: Accessible.ComboBox
     Accessible.name: label !== "" ? label : placeholder
     Accessible.description: selectedText
     Accessible.editable: true
-    
+
     focus: true
-    
+
     function collapse() {
-        expanded = false
+        expanded = false;
     }
-    
+
     function expand() {
         if (!disabled) {
-            expanded = true
+            expanded = true;
         }
     }
-    
+
     function selectByIndex(index) {
         if (index >= 0 && index < filteredOptions.length) {
-            var option = filteredOptions[index]
-            selectedIndex = index
-            selectedValue = typeof option === "object" ? option.value : option
-            selectedText = typeof option === "object" ? option.text : option
-            textInput.text = selectedText
-            selectionChanged(selectedValue, index)
-            collapse()
-            MHaptics.selectionChanged()
+            var option = filteredOptions[index];
+            selectedIndex = index;
+            selectedValue = typeof option === "object" ? option.value : option;
+            selectedText = typeof option === "object" ? option.text : option;
+            textInput.text = selectedText;
+            selectionChanged(selectedValue, index);
+            collapse();
+            MHaptics.selectionChanged();
         }
     }
-    
+
     property var filteredOptions: {
-        if (textInput.text === "") return options
-        return options.filter(function(option) {
-            var text = typeof option === "object" ? option.text : option
-            return text.toLowerCase().includes(textInput.text.toLowerCase())
-        })
+        if (textInput.text === "")
+            return options;
+        return options.filter(function (option) {
+            var text = typeof option === "object" ? option.text : option;
+            return text.toLowerCase().includes(textInput.text.toLowerCase());
+        });
     }
-    
+
     Column {
         anchors.fill: parent
         spacing: MSpacing.xs
-        
+
         Text {
             text: root.label
             color: MColors.textSecondary
@@ -74,7 +75,7 @@ Item {
             font.weight: MTypography.weightMedium
             visible: root.label !== ""
         }
-        
+
         Rectangle {
             id: inputContainer
             width: parent.width
@@ -83,17 +84,19 @@ Item {
             color: root.disabled ? MColors.bb10Surface : MColors.bb10Elevated
             border.width: 1
             border.color: textInput.activeFocus ? MColors.marathonTeal : MColors.borderGlass
-            
+
             Behavior on border.color {
-                ColorAnimation { duration: MMotion.sm }
+                ColorAnimation {
+                    duration: MMotion.sm
+                }
             }
-            
+
             Row {
                 anchors.fill: parent
                 anchors.leftMargin: MSpacing.md
                 anchors.rightMargin: MSpacing.md
                 spacing: MSpacing.sm
-                
+
                 TextInput {
                     id: textInput
                     anchors.verticalCenter: parent.verticalCenter
@@ -104,7 +107,7 @@ Item {
                     font.weight: MTypography.weightNormal
                     clip: true
                     enabled: !root.disabled
-                    
+
                     Text {
                         anchors.fill: parent
                         text: root.placeholder
@@ -112,30 +115,30 @@ Item {
                         font: textInput.font
                         visible: textInput.text === "" && !textInput.activeFocus
                     }
-                    
+
                     onTextChanged: {
-                        root.textChanged(text)
+                        root.textChanged(text);
                         if (text !== "") {
-                            root.expand()
+                            root.expand();
                         }
                     }
-                    
+
                     onActiveFocusChanged: {
                         if (activeFocus) {
-                            root.expand()
+                            root.expand();
                         }
                     }
-                    
+
                     Keys.onDownPressed: {
                         if (root.expanded && filteredOptions.length > 0) {
-                            listView.currentIndex = 0
-                            listView.forceActiveFocus()
+                            listView.currentIndex = 0;
+                            listView.forceActiveFocus();
                         }
                     }
-                    
+
                     Keys.onEscapePressed: root.collapse()
                 }
-                
+
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
@@ -143,15 +146,17 @@ Item {
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.expanded ? 180 : 0
-                    
+
                     Behavior on rotation {
-                        NumberAnimation { duration: MMotion.sm }
+                        NumberAnimation {
+                            duration: MMotion.sm
+                        }
                     }
                 }
             }
         }
     }
-    
+
     Rectangle {
         id: dropdownMenu
         visible: root.expanded && filteredOptions.length > 0
@@ -163,14 +168,16 @@ Item {
         border.width: 1
         border.color: MColors.borderGlass
         z: 1000
-        
+
         opacity: root.expanded ? 1 : 0
         scale: root.expanded ? 1 : 0.95
-        
+
         Behavior on opacity {
-            NumberAnimation { duration: MMotion.sm }
+            NumberAnimation {
+                duration: MMotion.sm
+            }
         }
-        
+
         Behavior on scale {
             SpringAnimation {
                 spring: MMotion.springMedium
@@ -178,7 +185,7 @@ Item {
                 epsilon: MMotion.epsilon
             }
         }
-        
+
         layer.enabled: true
         layer.effect: MultiEffect {
             shadowEnabled: true
@@ -188,7 +195,7 @@ Item {
             blurMax: 16
             paddingRect: Qt.rect(0, 0, 0, 20)
         }
-        
+
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
@@ -197,47 +204,51 @@ Item {
             border.width: 1
             border.color: MColors.highlightSubtle
         }
-        
+
         ListView {
             id: listView
             anchors.fill: parent
             anchors.margins: 2
             clip: true
             currentIndex: -1
-            
+
             model: root.filteredOptions
-            
+
             Keys.onUpPressed: {
                 if (currentIndex === 0) {
-                    textInput.forceActiveFocus()
+                    textInput.forceActiveFocus();
                 } else {
-                    decrementCurrentIndex()
+                    decrementCurrentIndex();
                 }
             }
-            
+
             Keys.onDownPressed: incrementCurrentIndex()
             Keys.onReturnPressed: root.selectByIndex(currentIndex)
             Keys.onEscapePressed: {
-                root.collapse()
-                textInput.forceActiveFocus()
+                root.collapse();
+                textInput.forceActiveFocus();
             }
-            
+
             delegate: Rectangle {
                 required property var modelData
                 required property int index
-                
+
                 width: listView.width
                 height: 44
                 color: {
-                    if (index === listView.currentIndex && listView.activeFocus) return MColors.marathonTealHoverGradient
-                    if (itemMouseArea.containsMouse) return MColors.highlightSubtle
-                    return "transparent"
+                    if (index === listView.currentIndex && listView.activeFocus)
+                        return MColors.marathonTealHoverGradient;
+                    if (itemMouseArea.containsMouse)
+                        return MColors.highlightSubtle;
+                    return "transparent";
                 }
-                
+
                 Behavior on color {
-                    ColorAnimation { duration: MMotion.xs }
+                    ColorAnimation {
+                        duration: MMotion.xs
+                    }
                 }
-                
+
                 Text {
                     anchors.left: parent.left
                     anchors.leftMargin: MSpacing.md
@@ -251,29 +262,28 @@ Item {
                     font.weight: MTypography.weightNormal
                     elide: Text.ElideRight
                 }
-                
+
                 MouseArea {
                     id: itemMouseArea
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    
+
                     onClicked: {
-                        root.selectByIndex(index)
-                        textInput.forceActiveFocus()
+                        root.selectByIndex(index);
+                        textInput.forceActiveFocus();
                     }
                 }
             }
         }
     }
-    
+
     MouseArea {
         anchors.fill: parent
         enabled: root.expanded
         z: 999
         propagateComposedEvents: false
-        
+
         onClicked: root.collapse()
     }
 }
-

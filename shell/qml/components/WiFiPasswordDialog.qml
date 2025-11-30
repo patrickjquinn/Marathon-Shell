@@ -7,7 +7,7 @@ import MarathonUI.Controls
 
 /**
  * Polished WiFi Password Dialog
- * 
+ *
  * Slide-up modal for entering WiFi passwords with:
  * - Auto-focus on input field
  * - Show/hide password toggle
@@ -31,40 +31,40 @@ Item {
     property string errorMessage: ""
 
     signal connectRequested(string ssid, string password)
-    signal cancelled()
+    signal cancelled
 
     // Show the dialog
     function show(ssid, strength, security, isSecured) {
-        networkSsid = ssid
-        signalStrength = strength
-        securityType = security || "WPA2"
-        secured = isSecured
-        isConnecting = false
-        errorMessage = ""
-        passwordInput.text = ""
-        passwordInput.forceActiveFocus()
-        wifiDialog.visible = true
-        showAnimation.start()
-        HapticService.light()
-        Logger.info("WiFiDialog", "Showing dialog for: " + ssid)
+        networkSsid = ssid;
+        signalStrength = strength;
+        securityType = security || "WPA2";
+        secured = isSecured;
+        isConnecting = false;
+        errorMessage = "";
+        passwordInput.text = "";
+        passwordInput.forceActiveFocus();
+        wifiDialog.visible = true;
+        showAnimation.start();
+        HapticService.light();
+        Logger.info("WiFiDialog", "Showing dialog for: " + ssid);
     }
 
     // Hide the dialog
     function hide() {
-        hideAnimation.start()
+        hideAnimation.start();
     }
 
     // Show error
     function showError(message) {
-        errorMessage = message
-        isConnecting = false
-        HapticService.medium()
+        errorMessage = message;
+        isConnecting = false;
+        HapticService.medium();
     }
 
     // Show connecting state
     function showConnecting() {
-        isConnecting = true
-        errorMessage = ""
+        isConnecting = true;
+        errorMessage = "";
     }
 
     // Background overlay
@@ -78,7 +78,7 @@ Item {
             anchors.fill: parent
             onClicked: {
                 if (!isConnecting) {
-                    wifiDialog.hide()
+                    wifiDialog.hide();
                 }
             }
         }
@@ -96,7 +96,10 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        transform: Translate { id: translateTransform; y: dialogCard.height }
+        transform: Translate {
+            id: translateTransform
+            y: dialogCard.height
+        }
 
         // Glass morphism effect
         layer.enabled: true
@@ -194,7 +197,9 @@ Item {
                 visible: secured
 
                 Behavior on border.color {
-                    ColorAnimation { duration: 150 }
+                    ColorAnimation {
+                        duration: 150
+                    }
                 }
 
                 Row {
@@ -233,7 +238,7 @@ Item {
 
                         Keys.onReturnPressed: {
                             if (passwordInput.text.length >= 8) {
-                                connectButton.clicked()
+                                connectButton.clicked();
                             }
                         }
                     }
@@ -258,8 +263,8 @@ Item {
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {
-                                showPasswordToggle.checked = !showPasswordToggle.checked
-                                HapticService.light()
+                                showPasswordToggle.checked = !showPasswordToggle.checked;
+                                HapticService.light();
                             }
                         }
                     }
@@ -356,10 +361,10 @@ Item {
                         anchors.fill: parent
                         enabled: !isConnecting
                         onClicked: {
-                            Logger.info("WiFiDialog", "Cancelled")
-                            HapticService.light()
-                            wifiDialog.cancelled()
-                            wifiDialog.hide()
+                            Logger.info("WiFiDialog", "Cancelled");
+                            HapticService.light();
+                            wifiDialog.cancelled();
+                            wifiDialog.hide();
                         }
                     }
                 }
@@ -373,7 +378,7 @@ Item {
                     color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.accent, 1.5) : MColors.accent
                     opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1.0
 
-                    signal clicked()
+                    signal clicked
 
                     Text {
                         text: "Connect"
@@ -388,10 +393,10 @@ Item {
                         anchors.fill: parent
                         enabled: !isConnecting && (!secured || passwordInput.text.length >= 8)
                         onClicked: {
-                            Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid)
-                            HapticService.medium()
-                            wifiDialog.showConnecting()
-                            wifiDialog.connectRequested(networkSsid, passwordInput.text)
+                            Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid);
+                            HapticService.medium();
+                            wifiDialog.showConnecting();
+                            wifiDialog.connectRequested(networkSsid, passwordInput.text);
                         }
                     }
                 }
@@ -458,10 +463,10 @@ Item {
 
         ScriptAction {
             script: {
-                wifiDialog.visible = false
-                passwordInput.text = ""
-                errorMessage = ""
-                isConnecting = false
+                wifiDialog.visible = false;
+                passwordInput.text = "";
+                errorMessage = "";
+                isConnecting = false;
             }
         }
     }
@@ -469,8 +474,7 @@ Item {
     // Handle back button/escape key
     Keys.onEscapePressed: {
         if (!isConnecting) {
-            wifiDialog.hide()
+            wifiDialog.hide();
         }
     }
 }
-

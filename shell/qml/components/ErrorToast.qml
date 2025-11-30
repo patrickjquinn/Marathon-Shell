@@ -5,7 +5,7 @@ import MarathonUI.Theme
 
 /**
  * ErrorToast - System-wide error notification
- * 
+ *
  * Shows temporary error messages with icons and dismiss action
  * Auto-dismisses after 5 seconds or user can swipe away
  */
@@ -14,44 +14,44 @@ Item {
     anchors.fill: parent
     visible: false
     z: 2500 // Above everything except keyboard
-    
+
     property string errorMessage: ""
     property string errorTitle: ""
     property string errorIcon: "alert-circle"
     property int displayDuration: 5000
-    
-    signal dismissed()
-    
+
+    signal dismissed
+
     // Show error with message
     function show(title, message, icon) {
-        errorTitle = title || "Error"
-        errorMessage = message
-        errorIcon = icon || "alert-circle"
-        visible = true
-        showAnimation.start()
-        dismissTimer.restart()
-        HapticService.medium()
-        Logger.warn("ErrorToast", title + ": " + message)
+        errorTitle = title || "Error";
+        errorMessage = message;
+        errorIcon = icon || "alert-circle";
+        visible = true;
+        showAnimation.start();
+        dismissTimer.restart();
+        HapticService.medium();
+        Logger.warn("ErrorToast", title + ": " + message);
     }
-    
+
     // Hide error
     function hide() {
-        hideAnimation.start()
+        hideAnimation.start();
     }
-    
+
     // Auto-dismiss timer
     Timer {
         id: dismissTimer
         interval: errorToast.displayDuration
         onTriggered: errorToast.hide()
     }
-    
+
     // Background overlay (tap to dismiss)
     MouseArea {
         anchors.fill: parent
         onClicked: errorToast.hide()
     }
-    
+
     // Error card
     Rectangle {
         id: errorCard
@@ -65,13 +65,13 @@ Item {
         border.width: Constants.borderWidthMedium
         border.color: MColors.error
         opacity: 0
-        
+
         // Glass morphism
         layer.enabled: true
         layer.effect: ShaderEffect {
             property real blur: 16
         }
-        
+
         // Swipe down to dismiss
         MouseArea {
             id: swipeArea
@@ -80,21 +80,21 @@ Item {
             drag.axis: Drag.YAxis
             drag.minimumY: -errorCard.height
             drag.maximumY: 100
-            
+
             onReleased: {
                 if (errorCard.y > 50) {
                     // Swiped down far enough - dismiss
-                    errorToast.hide()
+                    errorToast.hide();
                 } else {
                     // Snap back
-                    snapBackAnimation.start()
+                    snapBackAnimation.start();
                 }
             }
-            
+
             // Prevent click-through
             onClicked: mouse.accepted = true
         }
-        
+
         Column {
             id: errorContent
             anchors.left: parent.left
@@ -102,12 +102,12 @@ Item {
             anchors.top: parent.top
             anchors.margins: Constants.spacingMedium
             spacing: Constants.spacingSmall
-            
+
             // Header row
             Row {
                 width: parent.width
                 spacing: Constants.spacingMedium
-                
+
                 // Error icon
                 Rectangle {
                     width: Constants.touchTargetSmall
@@ -115,7 +115,7 @@ Item {
                     radius: Constants.borderRadiusSmall
                     color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.2)
                     anchors.verticalCenter: parent.verticalCenter
-                    
+
                     Icon {
                         name: errorToast.errorIcon
                         size: Constants.iconSizeMedium
@@ -123,13 +123,13 @@ Item {
                         anchors.centerIn: parent
                     }
                 }
-                
+
                 // Title and close
                 Column {
                     width: parent.width - Constants.touchTargetSmall - Constants.touchTargetMinimum - Constants.spacingMedium * 2
                     spacing: Constants.spacingXSmall
                     anchors.verticalCenter: parent.verticalCenter
-                    
+
                     Text {
                         text: errorToast.errorTitle
                         color: MColors.text
@@ -139,7 +139,7 @@ Item {
                         width: parent.width
                         elide: Text.ElideRight
                     }
-                    
+
                     Text {
                         text: "Tap to dismiss"
                         color: MColors.textTertiary
@@ -147,7 +147,7 @@ Item {
                         font.family: MTypography.fontFamily
                     }
                 }
-                
+
                 // Close button
                 Rectangle {
                     width: Constants.touchTargetMinimum
@@ -155,25 +155,25 @@ Item {
                     radius: Constants.borderRadiusSmall
                     color: closeMouseArea.pressed ? MColors.elevated : "transparent"
                     anchors.verticalCenter: parent.verticalCenter
-                    
+
                     Icon {
                         name: "x"
                         size: Constants.iconSizeSmall
                         color: MColors.textSecondary
                         anchors.centerIn: parent
                     }
-                    
+
                     MouseArea {
                         id: closeMouseArea
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.light()
-                            errorToast.hide()
+                            HapticService.light();
+                            errorToast.hide();
                         }
                     }
                 }
             }
-            
+
             // Error message
             Text {
                 text: errorToast.errorMessage
@@ -186,11 +186,11 @@ Item {
             }
         }
     }
-    
+
     // Show animation
     ParallelAnimation {
         id: showAnimation
-        
+
         NumberAnimation {
             target: errorCard
             property: "opacity"
@@ -199,7 +199,7 @@ Item {
             duration: 300
             easing.type: Easing.OutCubic
         }
-        
+
         NumberAnimation {
             target: errorCard
             property: "y"
@@ -209,11 +209,11 @@ Item {
             easing.type: Easing.OutCubic
         }
     }
-    
+
     // Hide animation
     SequentialAnimation {
         id: hideAnimation
-        
+
         ParallelAnimation {
             NumberAnimation {
                 target: errorCard
@@ -222,7 +222,7 @@ Item {
                 duration: 250
                 easing.type: Easing.InQuad
             }
-            
+
             NumberAnimation {
                 target: errorCard
                 property: "y"
@@ -231,15 +231,15 @@ Item {
                 easing.type: Easing.InCubic
             }
         }
-        
+
         ScriptAction {
             script: {
-                errorToast.visible = false
-                errorToast.dismissed()
+                errorToast.visible = false;
+                errorToast.dismissed();
             }
         }
     }
-    
+
     // Snap back animation (after partial swipe)
     NumberAnimation {
         id: snapBackAnimation
@@ -250,4 +250,3 @@ Item {
         easing.type: Easing.OutQuad
     }
 }
-

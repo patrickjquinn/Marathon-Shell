@@ -6,13 +6,13 @@ import MarathonOS.Shell
 // This file is only loaded when needed, avoiding QtWebEngine initialization on app launch
 WebEngineView {
     id: webView
-    
+
     property bool updatingTabUrl: false
-    
+
     zoomFactor: 1.0
-    
+
     profile.httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-    
+
     settings.accelerated2dCanvasEnabled: true
     settings.webGLEnabled: true
     settings.pluginsEnabled: true
@@ -30,4 +30,3 @@ WebEngineView {
     settings.dnsPrefetchEnabled: true
     settings.showScrollBars: false
 }
-
