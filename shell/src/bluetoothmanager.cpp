@@ -108,6 +108,10 @@ BluetoothManager::BluetoothManager(QObject *parent)
     // Register the complex type for DBus
     qRegisterMetaType<ManagedObjectMap>("ManagedObjectMap");
     qDBusRegisterMetaType<ManagedObjectMap>();
+    qRegisterMetaType<PropertyMap>("PropertyMap");
+    qDBusRegisterMetaType<PropertyMap>();
+    qRegisterMetaType<InterfaceMap>("InterfaceMap");
+    qDBusRegisterMetaType<InterfaceMap>();
     
     if (!m_bus.isConnected()) {
         qWarning() << "[BluetoothManager] Failed to connect to system bus";
