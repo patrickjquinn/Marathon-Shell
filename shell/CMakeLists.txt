@@ -377,6 +377,9 @@ if(HAVE_HUNSPELL)
     message(STATUS "Linking Hunspell to marathon-shell")
 endif()
 
+# Enable QML Debugging/Profiling
+target_compile_definitions(marathon-shell PRIVATE QT_QML_DEBUG)
+
 set_target_properties(marathon-shell PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE

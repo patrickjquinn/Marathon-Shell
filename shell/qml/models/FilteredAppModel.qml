@@ -20,18 +20,34 @@ Item {
     signal dataChanged
 
     Component.onCompleted: {
-        rebuildFilteredList();
+        requestRebuild();
         Logger.info("FilteredAppModel", "Initialized");
     }
 
-    // Watch for changes
+    // Debounce timer to prevent "thundering herd" updates
+    Timer {
+        id: debounceTimer
+        interval: 10
+        repeat: false
+        onTriggered: filteredModel.rebuildFilteredList()
+    }
+
+    // Request a rebuild (debounced)
+    function requestRebuild() {
+        if (debounceTimer.running) {
+            debounceTimer.restart();
+        } else {
+            debounceTimer.start();
+        }
+    }
+
     Connections {
         target: AppModel
         function onCountChanged() {
-            filteredModel.rebuildFilteredList();
+            filteredModel.requestRebuild();
         }
         function onDataChanged() {
-            filteredModel.rebuildFilteredList();
+            filteredModel.requestRebuild();
         }
     }
 
@@ -39,11 +55,11 @@ Item {
         target: SettingsManagerCpp
         function onHiddenAppsChanged() {
             filteredModel.hiddenApps = SettingsManagerCpp.hiddenApps;
-            filteredModel.rebuildFilteredList();
+            filteredModel.requestRebuild();
         }
         function onAppSortOrderChanged() {
             filteredModel.sortOrder = SettingsManagerCpp.appSortOrder;
-            filteredModel.rebuildFilteredList();
+            filteredModel.requestRebuild();
         }
     }
 

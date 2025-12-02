@@ -255,7 +255,9 @@ Rectangle {
                     startY = mouse.y;  // Update startY for continuous tracking
                 } else if (isAppOpen) {
                     var oldProgress = gestureProgress;
-                    gestureProgress = Math.min(1.0, diffY / 250);
+                    // Density-aware progress: 25% of screen height = 100% progress
+                    var progressThreshold = Constants.screenHeight * 0.25;
+                    gestureProgress = Math.min(1.0, diffY / progressThreshold);
                     if (oldProgress <= 0.15 && gestureProgress > 0.15) {
                         startPageTransition();
                     }
@@ -330,6 +332,7 @@ Rectangle {
                 velocityX = 0;
                 velocityY = 0;
                 isVerticalGesture = false;
+                isVerticalGesture = false;
                 currentX = 0;
                 currentY = 0;
                 gestureProgress = 0;
@@ -371,7 +374,10 @@ Rectangle {
                     Logger.info("NavBar", "  isAppOpen: " + isAppOpen);
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                     Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                    minimizeApp();
+                    // Pass negative velocityY (upward is negative in Qt coordinate system usually, but here diffY is positive up)
+                    // Wait, velocityY calculation: velocityY = (mouse.y - lastY) / dt * 1000;
+                    // If moving UP, mouse.y decreases, so velocityY is NEGATIVE.
+                    minimizeApp(velocityY);
                     gestureProgressResetTimer.start();
                 } else if (diffY > shortSwipeThreshold) {
                     // Short swipe up - Go home
