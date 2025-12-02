@@ -64,14 +64,16 @@ sudo dnf install cmake ninja-build gcc-c++ \
     qt6-qtlocation-devel \
     qt6-qtpositioning-devel \
     qt6-qtsensors-devel \
+    qt6-qtwebengine-devel \
     pam-devel \
     hunspell-devel \
-    hunspell-en-US
+    hunspell-en-US \
+    pulseaudio-libs-devel
 ```
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt install cmake ninja-build g++ \
+sudo apt install cmake ninja-build g++ pkg-config \
     qt6-base-dev \
     qt6-declarative-dev \
     qt6-wayland-dev \
@@ -86,7 +88,10 @@ sudo apt install cmake ninja-build g++ \
     qt6-svg-plugins \
     qt6-location-dev \
     qt6-positioning-dev \
-    qt6-base-private-dev
+    qt6-base-private-dev \
+    qt6-webengine-dev \
+    qml-module-qtwebengine \
+    libpulse-dev
 ```
 
 ### Runtime Requirements
@@ -95,6 +100,7 @@ sudo apt install cmake ninja-build g++ \
 - Wayland display server support
 - D-Bus session bus
 - Linux kernel 5.10 or later
+- **Real-Time Kernel (PREEMPT_RT)**: Recommended for optimal performance and touch response. The shell will warn if running on a standard kernel.
 
 ### Optional Dependencies
 
@@ -202,11 +208,6 @@ sudo cmake --install build-apps
 - Full Wayland compositor support
 - Native app embedding functional
 - All system services available
-
-**macOS (Development Only):**
-- Shell runs without Wayland compositor
-- UI development and testing only
-- Native app embedding not available
 
 ## Running
 

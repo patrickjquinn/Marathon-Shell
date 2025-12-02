@@ -70,7 +70,7 @@ endif()
 find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Core
     Gui
-    GuiPrivate
+    # GuiPrivate
     Widgets
     Qml
     Quick

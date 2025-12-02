@@ -321,12 +321,44 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
-include_directories(${PULSEAUDIO_INCLUDE_DIRS})
+target_include_directories(marathon-shell PRIVATE
+    ${PULSEAUDIO_INCLUDE_DIRS}
+)
+
+find_package(Qt6 REQUIRED COMPONENTS Gui)
+
+# Check for GuiPrivate or manually add headers
+if(TARGET Qt6::GuiPrivate)
+    target_link_libraries(marathon-shell PRIVATE Qt6::GuiPrivate)
+else()
+    message(STATUS "Qt6::GuiPrivate target not found. Attempting to locate private headers manually.")
+    # Try to find the private headers manually
+    # We know it's at /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui/qpa/qplatformscreen.h
+    # So we need /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
+    
+    # Get Qt version from Core
+    if(TARGET Qt6::Core)
+        get_target_property(QT_CORE_VERSION Qt6::Core VERSION)
+    endif()
+    
+    find_path(QT_GUI_PRIVATE_INCLUDE_DIR qpa/qplatformscreen.h
+        HINTS 
+        /usr/include/${CMAKE_LIBRARY_ARCHITECTURE}/qt6/QtGui/${QT_CORE_VERSION}/QtGui
+        /usr/include/qt6/QtGui/${QT_CORE_VERSION}/QtGui
+        /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
+    )
+    
+    if(QT_GUI_PRIVATE_INCLUDE_DIR)
+        target_include_directories(marathon-shell PRIVATE ${QT_GUI_PRIVATE_INCLUDE_DIR})
+        message(STATUS "Found Qt6 Gui Private headers: ${QT_GUI_PRIVATE_INCLUDE_DIR}")
+    else()
+        message(WARNING "Qt6 Gui Private headers not found! Build may fail.")
+    endif()
+endif()
 
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::GuiPrivate
     Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
@@ -373,6 +405,9 @@ if(HAVE_HUNSPELL)
     target_compile_definitions(marathon-shell PRIVATE HAVE_HUNSPELL)
     message(STATUS "Linking Hunspell to marathon-shell")
 endif()
+
+# Enable QML Debugging/Profiling
+target_compile_definitions(marathon-shell PRIVATE QT_QML_DEBUG)
 
 set_target_properties(marathon-shell PROPERTIES
     MACOSX_BUNDLE TRUE

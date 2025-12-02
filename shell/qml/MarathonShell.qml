@@ -31,6 +31,8 @@ Item {
         source: "qrc:/fonts/Slate-Bold.ttf"
     }
 
+
+
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
 
@@ -204,6 +206,11 @@ Item {
         },
         State {
             name: "home"
+            StateChangeScript {
+                script: {
+                    shell.forceActiveFocus()
+                }
+            }
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
@@ -572,8 +579,8 @@ Item {
             }
         }
 
-        onMinimizeApp: {
-            Logger.info("Shell", "NavBar minimize gesture detected");
+        onMinimizeApp: velocity => {
+            Logger.info("Shell", "NavBar minimize gesture detected (velocity: " + velocity + ")");
 
             // Use AppLifecycleManager for proper snapshot capture and task management
             if (typeof AppLifecycleManager !== 'undefined') {
@@ -581,7 +588,11 @@ Item {
             }
 
             shell.isTransitioningToActiveFrames = true;
-            snapIntoGridAnimation.start();
+            
+            // Pass velocity to animation (ensure it's negative for upward movement)
+            // If velocity is 0 or positive (unlikely for swipe up), use a default
+            var initialVelocity = velocity < 0 ? velocity : -1000;
+            snapIntoGridAnimation.startWithVelocity(initialVelocity);
         }
     }
 
@@ -653,8 +664,9 @@ Item {
         property real currentGestureScale: 1.0 - (navBar.gestureProgress * 0.35)
         property real currentGestureOpacity: 1.0 - (navBar.gestureProgress * 0.3)
 
-        scale: shell.isTransitioningToActiveFrames ? finalScale : (navBar.gestureProgress > 0 ? currentGestureScale : 1.0)
-        opacity: shell.isTransitioningToActiveFrames ? 0.0 : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1.0)
+        // Use direct binding when NOT transitioning, otherwise controlled by animation
+        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1.0)
+        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1.0)
 
         property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
 
@@ -715,18 +727,8 @@ Item {
             }
         }
 
-        Behavior on opacity {
-            enabled: shell.isTransitioningToActiveFrames
-            NumberAnimation {
-                duration: 200
-                easing.type: Easing.OutQuad
-            }
-        }
-
-        Behavior on scale {
-            enabled: false
-        }
-
+        // Removed Behaviors to allow manual animation control
+        
         Behavior on anchors.margins {
             NumberAnimation {
                 duration: 200
@@ -902,29 +904,56 @@ Item {
         }
     }
 
-    SequentialAnimation {
+    ParallelAnimation {
         id: snapIntoGridAnimation
-
-        PauseAnimation {
-            duration: 100
+        
+        property real velocity: -1000
+        
+        function startWithVelocity(v) {
+            velocity = v;
+            // Calculate duration based on velocity (faster swipe = faster animation)
+            // Base duration 300ms, reduced by velocity factor
+            var velocityFactor = Math.min(2.0, Math.abs(v) / 1000.0);
+            var duration = Math.max(150, 350 - (velocityFactor * 100));
+            
+            scaleAnim.duration = duration;
+            opacityAnim.duration = duration;
+            
+            start();
         }
 
-        ScriptAction {
-            script: {
-                // Minimize the app window
-                if (UIStore.settingsOpen) {
-                    UIStore.minimizeSettings();
-                } else if (UIStore.appWindowOpen) {
-                    UIStore.minimizeApp();
-                }
+        NumberAnimation {
+            id: scaleAnim
+            target: appWindowContainer
+            property: "scale"
+            to: appWindowContainer.finalScale
+            duration: 300
+            easing.type: Easing.OutCubic
+        }
+        
+        NumberAnimation {
+            id: opacityAnim
+            target: appWindowContainer
+            property: "opacity"
+            to: 0.0
+            duration: 300
+            easing.type: Easing.OutCubic
+        }
 
-                // Navigate to task switcher
-                if (typeof Router !== 'undefined') {
-                    Router.goToFrames();
-                }
-
-                shell.isTransitioningToActiveFrames = false;
+        onFinished: {
+            // Minimize the app window
+            if (UIStore.settingsOpen) {
+                UIStore.minimizeSettings();
+            } else if (UIStore.appWindowOpen) {
+                UIStore.minimizeApp();
             }
+
+            // Navigate to task switcher
+            if (typeof Router !== 'undefined') {
+                Router.goToFrames();
+            }
+
+            shell.isTransitioningToActiveFrames = false;
         }
     }
 
@@ -1827,5 +1856,62 @@ Item {
     function showPowerMenu() {
         Logger.info("Shell", "Showing power menu from quick settings");
         powerMenu.show();
+    }
+    // Global Mouse Trap for "Blind" Trackpad Scrolling
+    // Since there is no visible cursor, we capture all mouse movement and
+    // route it to the currently focused scrollable item.
+    MouseArea {
+        anchors.fill: parent
+        z: 99999 // Topmost
+        hoverEnabled: true
+        acceptedButtons: Qt.AllButtons // Capture everything to be safe
+        propagateComposedEvents: true // Let clicks pass through if needed
+        
+        property real lastY: 0
+        
+        onEntered: {
+            lastY = mouseY
+            Logger.info("Input", "Global Trap: Mouse entered at " + mouseY);
+        }
+
+        onPositionChanged: (mouse) => {
+            var delta = mouse.y - lastY
+            lastY = mouse.y
+            
+            if (Math.abs(delta) > 0) {
+                // Find focused item
+                var focusedItem = Window.activeFocusItem
+                
+                // Check if it (or its parent) is scrollable
+                // We traverse up a few levels to find the MScrollView
+                var scrollTarget = null
+                var candidate = focusedItem
+                
+                // Search up the tree (max 5 levels)
+                for (var i = 0; i < 5; i++) {
+                    if (candidate && candidate.isScrollable) {
+                        scrollTarget = candidate
+                        break
+                    }
+                    if (candidate && candidate.parent) {
+                        candidate = candidate.parent
+                    } else {
+                        break
+                    }
+                }
+                
+                if (scrollTarget) {
+                    scrollTarget.scrollBy(-delta)
+                } else {
+                    // Debug: Log if no scroll target found
+                    // Logger.debug("Input", "Global Trap: No scroll target found for focus: " + focusedItem);
+                }
+            }
+        }
+        
+        onPressed: (mouse) => {
+             Logger.info("Input", "Global Trap: Pressed at " + mouse.x + "," + mouse.y);
+             mouse.accepted = false; // Let it pass through to clicks
+        }
     }
 }

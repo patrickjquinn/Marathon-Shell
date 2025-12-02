@@ -1,0 +1,1 @@
+savedcmd_/home/pi/Developer/Marathon-Shell/shell/drivers/battery/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/pi/Developer/Marathon-Shell/shell/drivers/battery/Module.symvers -n -T /home/pi/Developer/Marathon-Shell/shell/drivers/battery/modules.order -i Module.symvers -e 

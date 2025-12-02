@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Marathon Shell Session Wrapper
+# Sets up the environment for running Marathon Shell as a Wayland compositor
+
+# Set Qt platform to eglfs (native KMS/DRM) or xcb (nested on X11)
+# eglfs is preferred for a standalone compositor session
+export QT_QPA_PLATFORM="eglfs;xcb"
+
+# Set XDG session type
+export XDG_SESSION_TYPE=wayland
+
+# Set XDG current desktop
+export XDG_CURRENT_DESKTOP=Marathon
+
+# Force Firefox/Mozilla to use Wayland
+export MOZ_ENABLE_WAYLAND=1
+
+# Ensure Qt uses the correct QPA theme
+# export QT_QPA_PLATFORMTHEME=gtk3
+
+# Add custom QML import path
+export QML2_IMPORT_PATH=/usr/local/lib/qt6/qml:$QML2_IMPORT_PATH
+echo "QML2_IMPORT_PATH: $QML2_IMPORT_PATH" >&2
+
+# Log input devices to verify udev rules
+echo "=== Input Devices ===" >&2
+libinput list-devices 2>&1 | grep -E "Device:|Scroll methods:|Scroll button:" >&2
+echo "=====================" >&2
+
+# Launch the shell with logging
+# We use exec to replace the shell process with the marathon-shell process
+exec /usr/local/bin/marathon-shell "$@" > /home/pi/marathon-session.log 2>&1

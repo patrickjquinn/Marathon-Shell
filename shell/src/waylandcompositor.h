@@ -6,7 +6,9 @@
 #include <QWaylandSurface>
 #include <QWaylandQuickSurface>
 #include <QWaylandXdgShell>
+#include <QWaylandXdgShell>
 #include <QWaylandXdgSurface>
+#include <QWaylandXdgPopup>
 #include <QWaylandWlShell>
 #include <QWaylandQuickOutput>
 #include <QWaylandClient>
@@ -43,6 +45,7 @@ class WaylandCompositor : public QWaylandCompositor {
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);
     void handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *xdgSurface);
+    void handleXdgPopupCreated(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface);
     void handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlShellSurface);
     void handleSurfaceDestroyed();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);

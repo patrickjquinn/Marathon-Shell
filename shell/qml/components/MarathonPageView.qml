@@ -13,6 +13,40 @@ Item {
     property int internalAppGridPage: 0  // Track the internal page within app grid
     property var compositor: null  // Wayland compositor reference for native apps
 
+    property bool initialPageSet: false
+
+    // Timer to force index after model updates settle
+    Timer {
+        id: forceIndexTimer
+        interval: 100  // Give ListView time to process model change
+        repeat: false
+        onTriggered: {
+            Logger.info("PageView", "Forcing view to App Grid (Index 2)");
+            pageView.currentIndex = 2;
+            pageView.positionViewAtIndex(2, ListView.Center);
+        }
+    }
+
+    // Shared model for all grid pages
+    FilteredAppModel {
+        id: sharedAppModel
+        onCountChanged: {
+            if (!pageViewContainer.initialPageSet && count > 0) {
+                // Force to App Grid (index 2) when data first loads
+                Logger.info("PageView", "Model loaded with " + count + " apps. Scheduling index force.");
+                forceIndexTimer.restart();
+                pageViewContainer.initialPageSet = true;
+            }
+        }
+        Component.onCompleted: {
+            if (count > 0 && !pageViewContainer.initialPageSet) {
+                Logger.info("PageView", "Model already loaded. Scheduling index force.");
+                forceIndexTimer.restart();
+                pageViewContainer.initialPageSet = true;
+            }
+        }
+    }
+
     signal hubVisible(bool visible)
     signal framesVisible(bool visible)
     signal appLaunched(var app)
@@ -54,15 +88,16 @@ Item {
         snapMode: ListView.SnapOneItem
         highlightRangeMode: ListView.StrictlyEnforceRange
         interactive: true
+        pressDelay: 100  // Delay press to allow flick detection (fixes sticky icons)
 
         // PHYSICS TUNING for smooth, snappy flick (EASIER swiping)
-        flickDeceleration: 20000  // Faster deceleration = easier to trigger page change
+        flickDeceleration: 5000  // Lower deceleration = smoother coasting
         maximumFlickVelocity: 10000  // Higher velocity = more responsive to lighter flicks
         flickableDirection: Flickable.HorizontalFlick
 
         currentIndex: 2
         boundsBehavior: Flickable.StopAtBounds
-        highlightMoveDuration: 0  // Instant transitions - no animation delay
+        highlightMoveDuration: 250  // Smooth programmatic transitions
         preferredHighlightBegin: 0
         preferredHighlightEnd: width
         cacheBuffer: width * 3
@@ -74,16 +109,11 @@ Item {
 
         property int currentPage: currentIndex - 2
         property bool isGestureActive: false
-        property int pageCount: Math.ceil(AppModel.count / 16)
+        property int pageCount: Math.ceil(sharedAppModel.count / 16)
 
-        model: AppModel.count > 0 ? 2 + pageCount : 4
+        model: sharedAppModel.count > 0 ? 2 + pageCount : 4
 
-        Connections {
-            target: AppModel
-            function onCountChanged() {
-                pageView.pageCount = Math.ceil(AppModel.count / 16);
-            }
-        }
+        // Connections no longer needed as binding handles updates
 
         delegate: Loader {
             width: pageView.width
@@ -98,6 +128,20 @@ Item {
             }
 
             property int pageNumber: index - 2
+
+            Binding {
+                target: item
+                property: "pageIndex"
+                value: pageNumber
+                when: index >= 2 // Only for app grid pages
+            }
+
+            ListView.onReused: {
+                if (item && typeof item.searchPullProgress !== 'undefined') {
+                    item.searchPullProgress = 0.0;
+                    item.searchGestureActive = false;
+                }
+            }
         }
 
         Component {
@@ -114,15 +158,8 @@ Item {
             id: framesComponent
 
             MarathonTaskSwitcher {
-                opacity: (pageView.currentIndex === 1) && !pageView.isGestureActive ? 1.0 : 0.0
+                opacity: 1.0
                 compositor: pageViewContainer.compositor  // Pass compositor reference
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 200
-                        easing.type: Easing.OutQuad
-                    }
-                }
 
                 // Expose search progress from task switcher
                 onSearchPullProgressChanged: {
@@ -139,6 +176,9 @@ Item {
             id: appGridComponent
 
             MarathonAppGrid {
+                // Pass shared model
+                appModel: sharedAppModel
+                
                 columns: 4
                 rows: 4
 
@@ -150,13 +190,8 @@ Item {
                     Logger.info("PageView", "App launched: " + app.name);
                     pageViewContainer.appLaunched(app);
                 }
-
-                // Propagate internal page changes up to the parent
-                onCurrentPageChanged: {
-                    // Track the internal app grid page
-                    pageViewContainer.internalAppGridPage = currentPage;
-                    Logger.debug("PageView", "App grid internal page changed to: " + currentPage);
-                }
+                
+                // No need to propagate internal page changes as PageView handles it
             }
         }
 
@@ -170,6 +205,9 @@ Item {
             // Reset search pull progress when navigating away from app grid pages
             if (currentIndex < 2) {
                 pageViewContainer.searchPullProgress = 0.0;
+            } else {
+                // Update internal page for app grid (index 2+)
+                pageViewContainer.internalAppGridPage = currentIndex - 2;
             }
         }
     }

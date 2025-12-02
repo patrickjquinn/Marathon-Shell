@@ -243,6 +243,7 @@ Item {
                 text: SystemStatusStore.timeString
                 color: MColors.text
                 font.pixelSize: Constants.fontSizeGigantic
+                // font.family: MTypography.fontFamily  <-- REMOVED to match Task Switcher
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
                 renderType: Text.NativeRendering

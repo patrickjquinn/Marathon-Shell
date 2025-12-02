@@ -8,7 +8,9 @@
 #include <QDir>
 #include <QTextStream>
 #include <QWaylandXdgToplevel>
+#include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
+#include <QWaylandXdgPopup>
 #include <QtMath>
 #include <QQuickItem>
 
@@ -30,6 +32,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
 
     connect(m_xdgShell, &QWaylandXdgShell::toplevelCreated, this,
             &WaylandCompositor::handleXdgToplevelCreated);
+    connect(m_xdgShell, &QWaylandXdgShell::popupCreated, this,
+            &WaylandCompositor::handleXdgPopupCreated);
 
     connect(m_wlShell, &QWaylandWlShell::wlShellSurfaceCreated, this,
             &WaylandCompositor::handleWlShellSurfaceCreated);
@@ -451,6 +455,26 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                     emit surfacesChanged();
                 }
             });
+    }
+}
+
+void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface) {
+    qDebug() << "[WaylandCompositor] XDG Popup created";
+    
+    QWaylandSurface *surface = xdgSurface->surface();
+    if (surface) {
+        QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
+        QWaylandSurface *parentSurface = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
+        
+        qDebug() << "[WaylandCompositor] Popup parent:" << parentSurface;
+        
+        // Store popup data
+        surface->setProperty("isPopup", true);
+        surface->setProperty("xdgPopup", QVariant::fromValue(popup));
+        surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
+        
+        // We don't add popups to m_surfaces list usually, as they are managed by the client/parent
+        // But we might need to track them to prevent cleanup issues
     }
 }
 

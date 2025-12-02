@@ -41,6 +41,7 @@ makedepends="
 	cmake
 	samurai
 	qt6-qtbase-dev
+	qt6-qtbase-private-dev
 	qt6-qtdeclarative-dev
 	qt6-qtwayland-dev
 	qt6-qtwebengine-dev
@@ -57,6 +58,7 @@ makedepends="
 	git
 	linux-pam-dev
 	hunspell-dev
+	pulseaudio-dev
 	"
 install=""
 subpackages="$pkgname-doc"
