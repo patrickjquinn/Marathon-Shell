@@ -1,0 +1,1 @@
+savedcmd_/home/pi/Developer/Marathon-Shell/shell/drivers/battery/hackberrypi-max17048.mod := printf '%s\n'   hackberrypi-max17048.o | awk '!x[$$0]++ { print("/home/pi/Developer/Marathon-Shell/shell/drivers/battery/"$$0) }' > /home/pi/Developer/Marathon-Shell/shell/drivers/battery/hackberrypi-max17048.mod

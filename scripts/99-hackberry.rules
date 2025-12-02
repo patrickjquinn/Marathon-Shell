@@ -1,0 +1,3 @@
+# ZitaoTech HackBerryPi Q20 Trackpad Configuration
+# Force as Touchpad to enable Edge Scrolling
+ACTION=="add|change", KERNEL=="event*", ATTRS{idVendor}=="4041", ATTRS{idProduct}=="0001", ENV{ID_INPUT_MOUSE}="0", ENV{ID_INPUT_TOUCHPAD}="1", ENV{LIBINPUT_SCROLL_METHOD}="edge"

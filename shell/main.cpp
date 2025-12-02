@@ -636,6 +636,11 @@ int main(int argc, char *argv[]) {
     engine.addImportPath(systemMarathonUIPath);
     qDebug() << "[QML Import] System-wide Qt modules:" << systemMarathonUIPath;
 
+    // Priority 2b: Local System-wide installation (common on some distros/manual installs)
+    QString localSystemMarathonUIPath = "/usr/local/lib/qt6/qml";
+    engine.addImportPath(localSystemMarathonUIPath);
+    qDebug() << "[QML Import] Local System-wide Qt modules:" << localSystemMarathonUIPath;
+
     // Priority 3: Build directory (for development without install)
     // When running from build dir, MarathonUI modules are in build/MarathonUI/
     // QCoreApplication::applicationDirPath() = <project>/build/shell
@@ -648,9 +653,10 @@ int main(int argc, char *argv[]) {
     // Verify MarathonUI.Theme is loadable (most critical dependency)
     QDir themeCheck1(userMarathonUIPath + "/MarathonUI/Theme");
     QDir themeCheck2(systemMarathonUIPath + "/MarathonUI/Theme");
+    QDir themeCheck2b(localSystemMarathonUIPath + "/MarathonUI/Theme");
     QDir themeCheck3(buildMarathonUIPath + "/MarathonUI/Theme");
 
-    bool marathonUIFound = themeCheck1.exists() || themeCheck2.exists() || themeCheck3.exists();
+    bool marathonUIFound = themeCheck1.exists() || themeCheck2.exists() || themeCheck2b.exists() || themeCheck3.exists();
 
     if (!marathonUIFound) {
         qCritical() << "";
@@ -675,7 +681,9 @@ int main(int argc, char *argv[]) {
                     << (themeCheck1.exists() ? " [FOUND]" : " [NOT FOUND]");
         qCritical() << "  2." << themeCheck2.absolutePath()
                     << (themeCheck2.exists() ? " [FOUND]" : " [NOT FOUND]");
-        qCritical() << "  3." << themeCheck3.absolutePath()
+        qCritical() << "  3." << themeCheck2b.absolutePath()
+                    << (themeCheck2b.exists() ? " [FOUND]" : " [NOT FOUND]");
+        qCritical() << "  4." << themeCheck3.absolutePath()
                     << (themeCheck3.exists() ? " [FOUND]" : " [NOT FOUND]");
         qCritical() << "";
         qCritical() << "========================================================================";
