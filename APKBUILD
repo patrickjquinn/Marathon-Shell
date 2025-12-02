@@ -41,6 +41,7 @@ makedepends="
 	cmake
 	samurai
 	qt6-qtbase-dev
+	qt6-qtbase-private-dev
 	qt6-qtdeclarative-dev
 	qt6-qtwayland-dev
 	qt6-qtwebengine-dev
