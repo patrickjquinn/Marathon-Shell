@@ -128,6 +128,20 @@ Item {
             }
 
             property int pageNumber: index - 2
+
+            Binding {
+                target: item
+                property: "pageIndex"
+                value: pageNumber
+                when: index >= 2 // Only for app grid pages
+            }
+
+            ListView.onReused: {
+                if (item && typeof item.searchPullProgress !== 'undefined') {
+                    item.searchPullProgress = 0.0;
+                    item.searchGestureActive = false;
+                }
+            }
         }
 
         Component {
@@ -162,9 +176,8 @@ Item {
             id: appGridComponent
 
             MarathonAppGrid {
-                // Pass shared model and page index
+                // Pass shared model
                 appModel: sharedAppModel
-                pageIndex: index - 2
                 
                 columns: 4
                 rows: 4
@@ -192,6 +205,9 @@ Item {
             // Reset search pull progress when navigating away from app grid pages
             if (currentIndex < 2) {
                 pageViewContainer.searchPullProgress = 0.0;
+            } else {
+                // Update internal page for app grid (index 2+)
+                pageViewContainer.internalAppGridPage = currentIndex - 2;
             }
         }
     }

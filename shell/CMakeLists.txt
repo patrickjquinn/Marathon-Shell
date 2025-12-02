@@ -321,15 +321,15 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
-target_include_directories(marathon-shell PRIVATE
     ${PULSEAUDIO_INCLUDE_DIRS}
-    /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
 )
+
+find_package(Qt6 REQUIRED COMPONENTS GuiPrivate)
 
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
-    # Qt6::GuiPrivate
+    Qt6::GuiPrivate
     Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
