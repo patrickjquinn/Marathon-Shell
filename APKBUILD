@@ -57,6 +57,7 @@ makedepends="
 	git
 	linux-pam-dev
 	hunspell-dev
+	pulseaudio-dev
 	"
 install=""
 subpackages="$pkgname-doc"
