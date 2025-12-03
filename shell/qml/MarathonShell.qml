@@ -31,8 +31,6 @@ Item {
         source: "qrc:/fonts/Slate-Bold.ttf"
     }
 
-
-
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
 
@@ -129,12 +127,14 @@ Item {
 
     // Handle window resize (for desktop/tablet) - debounced to prevent layout thrashing
     onWidthChanged: {
-        if (Constants.screenWidth > 0) {  // Only after initialization
+        if (Constants.screenWidth > 0) {
+            // Only after initialization
             resizeDebounceTimer.restart();
         }
     }
     onHeightChanged: {
-        if (Constants.screenHeight > 0) {  // Only after initialization
+        if (Constants.screenHeight > 0) {
+            // Only after initialization
             resizeDebounceTimer.restart();
         }
     }
@@ -208,7 +208,7 @@ Item {
             name: "home"
             StateChangeScript {
                 script: {
-                    shell.forceActiveFocus()
+                    shell.forceActiveFocus();
                 }
             }
             PropertyChanges {
@@ -588,7 +588,7 @@ Item {
             }
 
             shell.isTransitioningToActiveFrames = true;
-            
+
             // Pass velocity to animation (ensure it's negative for upward movement)
             // If velocity is 0 or positive (unlikely for swipe up), use a default
             var initialVelocity = velocity < 0 ? velocity : -1000;
@@ -728,7 +728,7 @@ Item {
         }
 
         // Removed Behaviors to allow manual animation control
-        
+
         Behavior on anchors.margins {
             NumberAnimation {
                 duration: 200
@@ -906,19 +906,19 @@ Item {
 
     ParallelAnimation {
         id: snapIntoGridAnimation
-        
+
         property real velocity: -1000
-        
+
         function startWithVelocity(v) {
             velocity = v;
             // Calculate duration based on velocity (faster swipe = faster animation)
             // Base duration 300ms, reduced by velocity factor
             var velocityFactor = Math.min(2.0, Math.abs(v) / 1000.0);
             var duration = Math.max(150, 350 - (velocityFactor * 100));
-            
+
             scaleAnim.duration = duration;
             opacityAnim.duration = duration;
-            
+
             start();
         }
 
@@ -930,7 +930,7 @@ Item {
             duration: 300
             easing.type: Easing.OutCubic
         }
-        
+
         NumberAnimation {
             id: opacityAnim
             target: appWindowContainer
@@ -1866,52 +1866,52 @@ Item {
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons // Capture everything to be safe
         propagateComposedEvents: true // Let clicks pass through if needed
-        
+
         property real lastY: 0
-        
+
         onEntered: {
-            lastY = mouseY
+            lastY = mouseY;
             Logger.info("Input", "Global Trap: Mouse entered at " + mouseY);
         }
 
-        onPositionChanged: (mouse) => {
-            var delta = mouse.y - lastY
-            lastY = mouse.y
-            
+        onPositionChanged: mouse => {
+            var delta = mouse.y - lastY;
+            lastY = mouse.y;
+
             if (Math.abs(delta) > 0) {
                 // Find focused item
-                var focusedItem = Window.activeFocusItem
-                
+                var focusedItem = Window.activeFocusItem;
+
                 // Check if it (or its parent) is scrollable
                 // We traverse up a few levels to find the MScrollView
-                var scrollTarget = null
-                var candidate = focusedItem
-                
+                var scrollTarget = null;
+                var candidate = focusedItem;
+
                 // Search up the tree (max 5 levels)
                 for (var i = 0; i < 5; i++) {
                     if (candidate && candidate.isScrollable) {
-                        scrollTarget = candidate
-                        break
+                        scrollTarget = candidate;
+                        break;
                     }
                     if (candidate && candidate.parent) {
-                        candidate = candidate.parent
+                        candidate = candidate.parent;
                     } else {
-                        break
+                        break;
                     }
                 }
-                
+
                 if (scrollTarget) {
-                    scrollTarget.scrollBy(-delta)
-                } else {
-                    // Debug: Log if no scroll target found
-                    // Logger.debug("Input", "Global Trap: No scroll target found for focus: " + focusedItem);
-                }
+                    scrollTarget.scrollBy(-delta);
+                } else
+                // Debug: Log if no scroll target found
+                // Logger.debug("Input", "Global Trap: No scroll target found for focus: " + focusedItem);
+                {}
             }
         }
-        
-        onPressed: (mouse) => {
-             Logger.info("Input", "Global Trap: Pressed at " + mouse.x + "," + mouse.y);
-             mouse.accepted = false; // Let it pass through to clicks
+
+        onPressed: mouse => {
+            Logger.info("Input", "Global Trap: Pressed at " + mouse.x + "," + mouse.y);
+            mouse.accepted = false; // Let it pass through to clicks
         }
     }
 }
