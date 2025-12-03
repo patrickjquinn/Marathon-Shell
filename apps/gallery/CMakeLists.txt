@@ -29,3 +29,5 @@ else()
     )
 endif()
 
+
+# Updated QML files glob

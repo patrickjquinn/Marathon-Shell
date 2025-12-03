@@ -13,7 +13,7 @@ MApp {
     appName: "Browser"
     appIcon: "assets/icon.svg"
 
-    property var tabs: []
+    property alias tabs: tabsModel
     property int currentTabIndex: 0
     property int nextTabId: 1
     readonly property int maxTabs: 20
@@ -23,6 +23,11 @@ MApp {
 
     property var bookmarks: []
     property var history: []
+
+    ListModel {
+        id: tabsModel
+    }
+
     property bool isPrivateMode: false
 
     property real drawerProgress: 0
@@ -46,6 +51,26 @@ MApp {
     property string searchEngineUrl: "https://duckduckgo.com/?q="
     property string homepageUrl: "https://duckduckgo.com"
 
+    onCurrentTabIndexChanged: {
+        Qt.callLater(updateCurrentWebView);
+    }
+
+    function updateCurrentWebView() {
+        // webViewStack is defined later, but we can access it by id if it's in scope
+        // However, accessing children of StackLayout/Repeater dynamically can be tricky.
+        // The Repeater creates items. StackLayout manages them.
+        // webViewStack.children[i] corresponds to the item created by Repeater.
+        
+        if (typeof webViewStack !== "undefined" && webViewStack.children.length > currentTabIndex && currentTabIndex >= 0) {
+             // The children of StackLayout include the Repeater (which is not a visual item in the layout sense usually, but here it creates children)
+             // Actually, Repeater inside StackLayout adds its delegates as children of StackLayout.
+             // So webViewStack.children[currentTabIndex] should be the WebEngineView.
+             webView = webViewStack.children[currentTabIndex];
+        } else {
+             webView = null;
+        }
+    }
+
     onAppLaunched: {
         Logger.warn("Browser", " onAppLaunched");
     }
@@ -61,10 +86,13 @@ MApp {
         loadHistory();
         loadTabs();
 
-        if (tabs.length === 0) {
+        if (tabs.count === 0) {
             Logger.info("BrowserApp", "No tabs found, creating default tab");
             createNewTab();
         }
+        
+        // Defer to ensure children are created
+        Qt.callLater(updateCurrentWebView);
     }
 
     function handleBack() {
@@ -233,56 +261,61 @@ MApp {
     function loadTabs() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
             var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
-            var defaultUrl = homepageUrl;
-
-            try {
-                var loadedTabs = JSON.parse(savedTabs);
-                if (loadedTabs.length > 0) {
-                    var normalizedTabs = loadedTabs.map(function (tab) {
-                        return {
-                            id: tab.id,
-                            url: (tab.url && tab.url !== "about:blank") ? tab.url : defaultUrl,
-                            title: tab.title || "New Tab",
-                            isLoading: false,
-                            canGoBack: false,
-                            canGoForward: false,
-                            loadProgress: 0
-                        };
-                    });
-                    tabs = normalizedTabs;
-                    nextTabId = Math.max(...tabs.map(t => t.id)) + 1;
+            if (savedTabs) {
+                try {
+                    var parsedTabs = JSON.parse(savedTabs);
+                    tabs.clear();
+                    if (Array.isArray(parsedTabs)) {
+                        var maxId = 0;
+                        for (var i = 0; i < parsedTabs.length; i++) {
+                            var tab = parsedTabs[i];
+                            // Ensure all required properties are present
+                            tabs.append({
+                                tabId: tab.id,
+                                url: (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
+                                title: tab.title || "New Tab",
+                                isLoading: false,
+                                canGoBack: false,
+                                canGoForward: false,
+                                loadProgress: 0
+                            });
+                            if (tab.id > maxId) {
+                                maxId = tab.id;
+                            }
+                        }
+                        nextTabId = maxId + 1;
+                    }
+                } catch (e) {
+                    Logger.error("BrowserApp", "Failed to load tabs: " + e);
                 }
-            } catch (e) {
-                Logger.error("BrowserApp", "Failed to load tabs: " + e);
             }
         }
     }
 
     function saveTabs() {
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var tabsData = tabs.map(function (tab) {
-                return {
-                    id: tab.id,
+            var tabsArray = [];
+            for (var i = 0; i < tabs.count; i++) {
+                var tab = tabs.get(i);
+                tabsArray.push({
+                    id: tab.tabId,
                     url: tab.url,
                     title: tab.title
-                };
-            });
-            var data = JSON.stringify(tabsData);
-            SettingsManagerCpp.set("browser/tabs", data);
+                });
+            }
+            SettingsManagerCpp.set("browser/tabs", JSON.stringify(tabsArray));
         }
     }
 
     function createNewTab(url) {
-        if (tabs.length >= maxTabs) {
+        if (tabs.count >= maxTabs) {
             Logger.warn("BrowserApp", "Maximum tabs (" + maxTabs + ") reached");
             return -1;
         }
 
-        var defaultUrl = drawerRef && drawerRef.settingsPage ? drawerRef.settingsPage.homepage : "https://duckduckgo.com";
-
         var newTab = {
-            id: nextTabId++,
-            url: url || defaultUrl,
+            tabId: nextTabId++,
+            url: url || homepageUrl,
             title: "New Tab",
             isLoading: false,
             canGoBack: false,
@@ -290,31 +323,57 @@ MApp {
             loadProgress: 0
         };
 
-        var newTabs = tabs.slice();
-        newTabs.push(newTab);
-        tabs = newTabs;
-        tabsChanged();
-        currentTabIndex = tabs.length - 1;
+        tabs.append(newTab);
         saveTabs();
 
-        Logger.info("BrowserApp", "Created new tab: " + newTab.id);
-        return newTab.id;
+        Logger.info("BrowserApp", "Created new tab: " + newTab.tabId);
+        switchToTab(newTab.tabId);
+        return newTab.tabId;
     }
 
     function closeTab(tabId) {
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].id === tabId) {
-                var newTabs = tabs.slice();
-                newTabs.splice(i, 1);
-                tabs = newTabs;
-                tabsChanged();
-
-                if (tabs.length === 0) {
-                    createNewTab();
-                } else if (currentTabIndex >= tabs.length) {
-                    currentTabIndex = tabs.length - 1;
+        for (var i = 0; i < tabs.count; i++) {
+            if (tabs.get(i).tabId === tabId) {
+                var wasCurrent = (i === currentTabIndex);
+                
+                // Safely stop the WebEngineView before removal to prevent crashes
+                if (typeof webViewStack !== "undefined" && webViewStack.children.length > i) {
+                    var viewToRemove = webViewStack.children[i];
+                    if (viewToRemove) {
+                        try {
+                            viewToRemove.stop();
+                            viewToRemove.url = "about:blank";
+                        } catch (e) {
+                            Logger.warn("BrowserApp", "Error stopping view: " + e);
+                        }
+                    }
                 }
 
+                // If closing the current tab, clear the webView reference first to avoid crashes
+                if (wasCurrent) {
+                    webView = null;
+                }
+
+                tabs.remove(i);
+
+                if (tabs.count === 0) {
+                    createNewTab();
+                } else {
+                    // Adjust index if we closed a tab before the current one
+                    if (i < currentTabIndex) {
+                        currentTabIndex--;
+                    }
+                    // Clamp index
+                    if (currentTabIndex >= tabs.count) {
+                        currentTabIndex = tabs.count - 1;
+                    }
+                    
+                    // Force update of webView if we closed the current tab
+                    if (wasCurrent) {
+                        Qt.callLater(updateCurrentWebView);
+                    }
+                }
+                
                 saveTabs();
                 Logger.info("BrowserApp", "Closed tab: " + tabId);
                 return;
@@ -322,9 +381,16 @@ MApp {
         }
     }
 
+
+
+    function closeAllTabs() {
+        tabs.clear();
+        createNewTab();
+    }
+
     function switchToTab(tabId) {
-        for (var i = 0; i < tabs.length; i++) {
-            if (tabs[i].id === tabId) {
+        for (var i = 0; i < tabs.count; i++) {
+            if (tabs.get(i).tabId === tabId) {
                 currentTabIndex = i;
                 Logger.info("BrowserApp", "Switched to tab: " + tabId);
                 return;
@@ -333,8 +399,8 @@ MApp {
     }
 
     function getCurrentTab() {
-        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-            return tabs[currentTabIndex];
+        if (currentTabIndex >= 0 && currentTabIndex < tabs.count) {
+            return tabs.get(currentTabIndex);
         }
         return null;
     }
@@ -372,79 +438,26 @@ MApp {
         if (!url)
             return;
 
-        // Instant Feedback
-        var currentTab = getCurrentTab();
-        if (currentTab && currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-            var newTabs = tabs.slice();
-            newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                isLoading: true,
-                loadProgress: 10 // Immediate visual feedback
-            });
-            tabs = newTabs;
-            tabsChanged(); // Force update
-        }
-
         var lowerUrl = url.toLowerCase().trim();
         if (lowerUrl.startsWith("javascript:") || lowerUrl.startsWith("data:") || lowerUrl.startsWith("file:")) {
             Logger.warn("BrowserApp", "Blocked dangerous URI scheme: " + lowerUrl.split(":")[0]);
             return;
         }
 
+        var finalUrl = url;
         if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:")) {
             if (url.includes(".") && !url.includes(" ")) {
-                url = "https://" + url;
+                finalUrl = "https://" + url;
             } else {
-                url = searchEngineUrl + encodeURIComponent(url);
+                finalUrl = searchEngineUrl + encodeURIComponent(url);
             }
         }
 
-        var currentTime = Date.now();
-
-        if (url === lastLoadedUrl) {
-            consecutiveLoadAttempts++;
-
-            if (consecutiveLoadAttempts >= maxConsecutiveLoads) {
-                if ((currentTime - lastLoadTime) < loadCooldownMs) {
-                    Logger.warn("BrowserApp", "THROTTLED: Too many requests to " + url + " (attempt " + consecutiveLoadAttempts + "). Blocking for " + loadCooldownMs + "ms.");
-                    return;
-                } else {
-                    Logger.info("BrowserApp", "Cooldown period elapsed, resetting throttle counter");
-                    consecutiveLoadAttempts = 0;
-                }
-            }
-        } else {
-            consecutiveLoadAttempts = 1;
-        }
-
-        lastLoadedUrl = url;
-        lastLoadTime = currentTime;
-
-        if (currentTab && currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-            if (webView) {
-                Logger.warn("Browser", "Unloading current page to free resources...");
-                webView.stop(); // Stop any active loading immediately
-                webView.url = "about:blank";
-
-                Logger.warn("Browser", "Setting webView.url to: " + url);
-                updatingTabUrl = true;
-
-                // Delay navigation to allow full cleanup and GC
-                pendingUrl = url;
-                cleanupTimer.restart();
-            } else {
-                Logger.warn("Browser", "ERROR: webView is null, cannot navigate");
-            }
-
-            // Update URL in model (redundant but safe)
-            var finalTabs = tabs.slice();
-            finalTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                url: url,
-                isLoading: true,
-                loadProgress: 10
-            });
-            tabs = finalTabs;
-            tabsChanged();
-        }
+        updatingTabUrl = true;
+        tabs.setProperty(currentTabIndex, "url", finalUrl);
+        tabs.setProperty(currentTabIndex, "isLoading", true);
+        tabs.setProperty(currentTabIndex, "loadProgress", 10);
+        updatingTabUrl = false;
     }
 
     property string pendingUrl: ""
@@ -489,219 +502,143 @@ MApp {
                 height: parent.height - urlBar.height
                 color: MColors.background
 
-                WebEngineView {
-                    id: webView
+                StackLayout {
+                    id: webViewStack
                     anchors.fill: parent
+                    currentIndex: currentTabIndex
 
-                    zoomFactor: 1.0
+                    Repeater {
+                        model: tabs
 
-                    // Use default profile for stability
-                    // profile.httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                        WebEngineView {
+                            id: webView
 
-                    settings.accelerated2dCanvasEnabled: false
-                    settings.webGLEnabled: false
-                    settings.pluginsEnabled: false
-                    settings.fullScreenSupportEnabled: true
-                    settings.allowRunningInsecureContent: false
-                    settings.javascriptEnabled: true
-                    settings.javascriptCanOpenWindows: false
-                    settings.javascriptCanAccessClipboard: false
-                    settings.localStorageEnabled: !isPrivateMode
-                    settings.localContentCanAccessRemoteUrls: false
-                    settings.spatialNavigationEnabled: false
-                    settings.touchIconsEnabled: false
-                    settings.focusOnNavigationEnabled: true
-                    settings.playbackRequiresUserGesture: true
-                    settings.webRTCPublicInterfacesOnly: true
-                    settings.dnsPrefetchEnabled: false
-                    settings.showScrollBars: false
+                            // Bind URL to model using model.url
+                            url: model.url
 
-                    // Use NoCache for maximum stability (prevents OOM)
-                    profile.httpCacheType: WebEngineProfile.NoCache
-                    profile.persistentCookiesPolicy: WebEngineProfile.NoPersistentCookies
+                            zoomFactor: 1.0
 
-                    // Handle render process crashes gracefully
-                    onRenderProcessTerminated: function (terminationStatus, exitCode) {
-                        var status = "";
-                        switch (terminationStatus) {
-                        case WebEngineView.NormalTerminationStatus:
-                            status = "Normal";
-                            break;
-                        case WebEngineView.AbnormalTerminationStatus:
-                            status = "Abnormal";
-                            break;
-                        case WebEngineView.CrashedTerminationStatus:
-                            status = "Crashed";
-                            break;
-                        case WebEngineView.KilledTerminationStatus:
-                            status = "Killed";
-                            break;
-                        }
-                        Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")");
+                            // Use default profile for stability
+                            // profile.httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
-                        // Try to reload or show error
-                        if (terminationStatus !== WebEngineView.NormalTerminationStatus) {
-                            Logger.warn("Browser", "Reloading due to crash...");
-                            Qt.callLater(function () {
-                                webView.reload();
-                            });
-                        }
-                    }
+                            settings.accelerated2dCanvasEnabled: false
+                            settings.webGLEnabled: false
+                            settings.pluginsEnabled: false
+                            settings.fullScreenSupportEnabled: true
+                            settings.allowRunningInsecureContent: false
+                            settings.javascriptEnabled: true
+                            settings.javascriptCanOpenWindows: false
+                            settings.javascriptCanAccessClipboard: false
+                            settings.localStorageEnabled: !isPrivateMode
+                            settings.localContentCanAccessRemoteUrls: false
+                            settings.spatialNavigationEnabled: false
+                            settings.touchIconsEnabled: false
+                            settings.focusOnNavigationEnabled: true
+                            settings.playbackRequiresUserGesture: true
+                            settings.webRTCPublicInterfacesOnly: true
+                            settings.dnsPrefetchEnabled: false
+                            settings.showScrollBars: false
 
-                    onUrlChanged: {
-                        if (updatingTabUrl) {
-                            Logger.warn("Browser", "onUrlChanged BLOCKED by updatingTabUrl flag");
-                            return;
-                        }
+                            // Use NoCache for maximum stability (prevents OOM)
+                            profile.httpCacheType: WebEngineProfile.NoCache
+                            profile.persistentCookiesPolicy: WebEngineProfile.NoPersistentCookies
 
-                        Logger.warn("Browser", "onUrlChanged: " + url.toString());
+                            // Handle render process crashes gracefully
+                            onRenderProcessTerminated: function (terminationStatus, exitCode) {
+                                var status = "";
+                                switch (terminationStatus) {
+                                case WebEngineView.NormalTerminationStatus:
+                                    status = "Normal";
+                                    break;
+                                case WebEngineView.AbnormalTerminationStatus:
+                                    status = "Abnormal";
+                                    break;
+                                case WebEngineView.CrashedTerminationStatus:
+                                    status = "Crashed";
+                                    break;
+                                case WebEngineView.KilledTerminationStatus:
+                                    status = "Killed";
+                                    break;
+                                }
+                                Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")");
 
-                        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex];
-                            if (currentTab && currentTab.url !== url.toString()) {
-                                var newTabs = tabs.slice();
-                                newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                                    url: url.toString()
-                                });
-                                tabs = newTabs;
-                            }
-                        }
-                    }
-
-                    onTitleChanged: {
-                        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex];
-                            if (currentTab && currentTab.title !== title) {
-                                var newTabs = tabs.slice();
-                                newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                                    title: title
-                                });
-                                tabs = newTabs;
-
-                                if (!isPrivateMode) {
-                                    addToHistory(url.toString(), title);
+                                // Try to reload or show error
+                                if (terminationStatus !== WebEngineView.NormalTerminationStatus) {
+                                    Logger.warn("Browser", "Reloading due to crash...");
+                                    Qt.callLater(function () {
+                                        webView.reload();
+                                    });
                                 }
                             }
-                        }
-                    }
 
-                    onLoadingChanged: function (loadRequest) {
-                        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex];
-                            if (!currentTab)
-                                return;
-                            var updates = {
-                                isLoading: (loadRequest.status === WebEngineView.LoadStartedStatus)
-                            };
+                            onUrlChanged: {
+                                if (updatingTabUrl)
+                                    return;
 
-                            if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
-                                updates.title = title;
-                                if (!isPrivateMode) {
-                                    addToHistory(url.toString(), title);
-                                }
-                                consecutiveLoadAttempts = 0;
-
-                                // Disabled JS injection for stability testing
-                                /*
-                                runJavaScript(`
-                                    (function() {
-                                        var meta = document.querySelector('meta[name="viewport"]');
-                                        if (!meta) {
-                                            meta = document.createElement('meta');
-                                            meta.name = 'viewport';
-                                            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
-                                            document.getElementsByTagName('head')[0].appendChild(meta);
-                                        }
-                                        document.body.style.maxWidth = '100vw';
-                                        document.body.style.overflowX = 'hidden';
-                                        document.documentElement.style.maxWidth = '100vw';
-                                        document.documentElement.style.overflowX = 'hidden';
-                                    })();
-                                `)
-                                */
-                            }
-
-                            if (loadRequest.status === WebEngineView.LoadFailedStatus) {
-                                Logger.error("Browser", "Load failed: " + loadRequest.errorString);
-
-                                if (url.toString() === lastLoadedUrl) {
-                                    consecutiveLoadAttempts++;
-                                    if (consecutiveLoadAttempts >= maxConsecutiveLoads) {
-                                        Logger.warn("Browser", "STOPPING: Failed to load " + url.toString() + " " + consecutiveLoadAttempts + " times.");
-                                        updatingTabUrl = true;
-                                        url = "about:blank";
-                                        updates.url = "about:blank";
-                                        updates.isLoading = false;
-                                        Qt.callLater(function () {
-                                            updatingTabUrl = false;
-                                        });
+                                // Update model when URL changes (navigation)
+                                if (index >= 0 && index < tabs.count) {
+                                    if (tabs.get(index).url !== url.toString()) {
+                                        tabs.setProperty(index, "url", url.toString());
                                     }
                                 }
                             }
 
-                            var newTabs = tabs.slice();
-                            newTabs[currentTabIndex] = Object.assign({}, currentTab, updates);
-                            tabs = newTabs;
-                        }
-                    }
+                            onTitleChanged: {
+                                if (index >= 0 && index < tabs.count) {
+                                    if (tabs.get(index).title !== title) {
+                                        tabs.setProperty(index, "title", title);
 
-                    onCanGoBackChanged: {
-                        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex];
-                            if (currentTab && currentTab.canGoBack !== canGoBack) {
-                                var newTabs = tabs.slice();
-                                newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                                    canGoBack: canGoBack
-                                });
-                                tabs = newTabs;
+                                        if (!isPrivateMode) {
+                                            addToHistory(url.toString(), title);
+                                        }
+                                    }
+                                }
+                            }
+
+                            onLoadingChanged: function (loadRequest) {
+                                if (index >= 0 && index < tabs.count) {
+                                    var isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
+                                    tabs.setProperty(index, "isLoading", isLoading);
+
+                                    if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
+                                        tabs.setProperty(index, "title", title);
+                                        if (!isPrivateMode) {
+                                            addToHistory(url.toString(), title);
+                                        }
+                                        consecutiveLoadAttempts = 0;
+                                    }
+
+                                    if (loadRequest.status === WebEngineView.LoadFailedStatus)
+                                    // Handle failure
+                                    {}
+                                }
+                            }
+
+                            onCanGoBackChanged: {
+                                if (index >= 0 && index < tabs.count) {
+                                    if (tabs.get(index).canGoBack !== canGoBack) {
+                                        tabs.setProperty(index, "canGoBack", canGoBack);
+                                    }
+                                }
+                            }
+
+                            onCanGoForwardChanged: {
+                                if (index >= 0 && index < tabs.count) {
+                                    if (tabs.get(index).canGoForward !== canGoForward) {
+                                        tabs.setProperty(index, "canGoForward", canGoForward);
+                                    }
+                                }
+                            }
+
+                            onLoadProgressChanged: {
+                                if (index >= 0 && index < tabs.count) {
+                                    if (tabs.get(index).loadProgress !== loadProgress) {
+                                        tabs.setProperty(index, "loadProgress", loadProgress);
+                                    }
+                                }
                             }
                         }
                     }
-
-                    onCanGoForwardChanged: {
-                        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex];
-                            if (currentTab && currentTab.canGoForward !== canGoForward) {
-                                var newTabs = tabs.slice();
-                                newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                                    canGoForward: canGoForward
-                                });
-                                tabs = newTabs;
-                            }
-                        }
-                    }
-
-                    onLoadProgressChanged: {
-                        if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                            var currentTab = tabs[currentTabIndex];
-                            if (currentTab && currentTab.loadProgress !== loadProgress) {
-                                var newTabs = tabs.slice();
-                                newTabs[currentTabIndex] = Object.assign({}, currentTab, {
-                                    loadProgress: loadProgress
-                                });
-                                tabs = newTabs;
-                            }
-                        }
-                    }
-
-                    Component.onCompleted: {
-                        browserApp.webView = this;
-                        Logger.warn("Browser", "WebEngineView created and assigned");
-
-                        Qt.callLater(function () {
-                            if (tabs.length > 0 && currentTabIndex >= 0 && tabs[currentTabIndex].url) {
-                                Logger.warn("Browser", "Loading initial URL: " + tabs[currentTabIndex].url);
-                                url = tabs[currentTabIndex].url;
-                            }
-                        });
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.rightMargin: Constants.gestureEdgeWidth
-                    propagateComposedEvents: true
-                    z: -100
                 }
 
                 MouseArea {
@@ -805,8 +742,8 @@ MApp {
                         MouseArea {
                             anchors.fill: parent
                             enabled: {
-                                if (currentTabIndex >= 0 && currentTabIndex < tabs.length) {
-                                    var tab = tabs[currentTabIndex];
+                                if (currentTabIndex >= 0 && currentTabIndex < tabs.count) {
+                                    var tab = tabs.get(currentTabIndex);
                                     return tab && tab.canGoBack === true;
                                 }
                                 return false;
@@ -1086,11 +1023,11 @@ MApp {
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "(" + tabs.length + ")"
+                                text: "(" + tabs.count + ")"
                                 font.pixelSize: MTypography.sizeSmall * 0.85
                                 font.weight: Font.Normal
                                 color: MColors.textTertiary
-                                visible: tabs.length > 0
+                                visible: tabs.count > 0
                             }
                         }
 
@@ -1156,7 +1093,7 @@ MApp {
                         });
                         drawer.tabsPage.currentTabId = Qt.binding(function () {
                             var currentTab = browserApp.getCurrentTab();
-                            return currentTab ? currentTab.id : -1;
+                            return currentTab ? currentTab.tabId : -1;
                         });
                     }
 

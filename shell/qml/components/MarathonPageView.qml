@@ -178,7 +178,7 @@ Item {
             MarathonAppGrid {
                 // Pass shared model
                 appModel: sharedAppModel
-                
+
                 columns: 4
                 rows: 4
 
@@ -190,7 +190,7 @@ Item {
                     Logger.info("PageView", "App launched: " + app.name);
                     pageViewContainer.appLaunched(app);
                 }
-                
+
                 // No need to propagate internal page changes as PageView handles it
             }
         }
@@ -212,7 +212,7 @@ Item {
         }
     }
 
-    Component.onCompleted: {
-        // Don't force focus - let Shell manage keyboard input
-    }
+    Component.onCompleted:
+    // Don't force focus - let Shell manage keyboard input
+    {}
 }

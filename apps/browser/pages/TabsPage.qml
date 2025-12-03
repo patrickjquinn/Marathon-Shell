@@ -13,7 +13,7 @@ Rectangle {
     signal newTabRequested
     signal closeTab(int tabId)
 
-    property var tabs: []
+    property var tabs: null // ListModel
     property int currentTabId: -1
 
     Column {
@@ -39,17 +39,17 @@ Rectangle {
                     TabCard {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: parent.width - MSpacing.lg * 2
-                        tabData: modelData
-                        isCurrentTab: modelData.id === tabsPage.currentTabId
+                        tabData: model
+                        isCurrentTab: model.tabId === tabsPage.currentTabId
 
                         onTabClicked: {
                             HapticService.light();
-                            tabsPage.tabSelected(modelData.id);
+                            tabsPage.tabSelected(model.tabId);
                         }
 
                         onCloseRequested: {
                             HapticService.light();
-                            tabsPage.closeTab(modelData.id);
+                            tabsPage.closeTab(model.tabId);
                         }
                     }
                 }
@@ -63,7 +63,7 @@ Rectangle {
             }
 
             MEmptyState {
-                visible: tabsPage.tabs.length === 0
+                visible: tabsPage.tabs ? tabsPage.tabs.count === 0 : true
                 anchors.centerIn: parent
                 title: "No open tabs"
                 message: "Tap the button below to create a new tab"
@@ -74,7 +74,7 @@ Rectangle {
             width: parent.width
             height: Constants.touchTargetSmall + MSpacing.md
             color: MColors.surface
-            opacity: tabsPage.tabs.length >= 20 ? 0.5 : 1.0
+            opacity: (tabsPage.tabs && tabsPage.tabs.count >= 20) ? 0.5 : 1.0
 
             Rectangle {
                 anchors.top: parent.top
@@ -85,10 +85,10 @@ Rectangle {
 
             MButton {
                 anchors.centerIn: parent
-                text: tabsPage.tabs.length >= 20 ? "Tab Limit Reached" : "New Tab"
+                text: (tabsPage.tabs && tabsPage.tabs.count >= 20) ? "Tab Limit Reached" : "New Tab"
                 iconName: "plus"
                 variant: "primary"
-                disabled: tabsPage.tabs.length >= 20
+                disabled: tabsPage.tabs && tabsPage.tabs.count >= 20
 
                 onClicked: {
                     tabsPage.newTabRequested();

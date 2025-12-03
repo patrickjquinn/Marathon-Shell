@@ -8,7 +8,7 @@ MCard {
     id: tabCard
     height: Constants.cardHeight
     elevation: isCurrentTab ? 2 : 1
-    interactive: true
+    interactive: false // Disable built-in MouseArea to allow custom z-ordering
 
     signal tabClicked
     signal closeRequested
@@ -22,9 +22,19 @@ MCard {
         tabCard.tabClicked();
     }
 
+    // Manual MouseArea for tab clicking, placed behind content but filling card
+    MouseArea {
+        anchors.fill: parent
+        z: 0 // Bottom layer
+        onClicked: {
+            tabCard.tabClicked();
+        }
+    }
+
     Column {
         anchors.fill: parent
         anchors.margins: MSpacing.md
+        anchors.rightMargin: MSpacing.md + Constants.touchTargetSmall // Make room for close button
         spacing: MSpacing.sm
 
         Item {
@@ -43,8 +53,7 @@ MCard {
             Column {
                 anchors.left: globeIcon.right
                 anchors.leftMargin: MSpacing.sm
-                anchors.right: closeButton.left
-                anchors.rightMargin: MSpacing.sm
+                anchors.right: parent.right
                 anchors.top: parent.top
                 spacing: 2
 
@@ -67,17 +76,6 @@ MCard {
                     elide: Text.ElideMiddle
                 }
             }
-
-            MIconButton {
-                id: closeButton
-                anchors.right: parent.right
-                anchors.top: parent.top
-                iconName: "x"
-
-                onClicked: {
-                    tabCard.closeRequested();
-                }
-            }
         }
 
         Rectangle {
@@ -95,6 +93,43 @@ MCard {
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary
+            }
+        }
+    }
+
+    Item {
+        id: closeButtonContainer
+        anchors.right: parent.right
+        anchors.top: parent.top
+        width: Constants.touchTargetSmall
+        height: Constants.touchTargetSmall
+        z: 1000 // High z-index to sit above card content
+
+        MIconButton {
+            anchors.centerIn: parent
+            iconName: "x"
+            // Disable internal mouse handling to prevent conflicts, we handle it manually
+            enabled: false 
+            opacity: closeMouseArea.pressed ? 0.7 : 1.0 // Visual feedback
+            // color property removed as it caused a crash
+        }
+
+        MouseArea {
+            id: closeMouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+            preventStealing: true
+            propagateComposedEvents: false
+
+            // Explicitly accept all events to prevent propagation to MCard
+            onPressed: (mouse) => { mouse.accepted = true; }
+            onReleased: (mouse) => { mouse.accepted = true; }
+            onDoubleClicked: (mouse) => { mouse.accepted = true; }
+            onPressAndHold: (mouse) => { mouse.accepted = true; }
+
+            onClicked: (mouse) => {
+                mouse.accepted = true;
+                tabCard.closeRequested();
             }
         }
     }

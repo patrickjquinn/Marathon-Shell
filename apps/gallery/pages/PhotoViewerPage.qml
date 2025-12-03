@@ -1,6 +1,9 @@
 import QtQuick
+import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Theme
+import MarathonUI.Containers
 
 Rectangle {
     id: photoViewer
@@ -54,28 +57,30 @@ Rectangle {
         height: Constants.actionBarHeight
         color: "#80000000"
 
-        Row {
+        RowLayout {
             anchors.fill: parent
             anchors.margins: MSpacing.md
             spacing: MSpacing.md
 
             MIconButton {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
                 iconName: "x"
-                iconSize: Constants.touchTargetMedium
+                iconSize: Constants.iconSizeLarge
+                iconColor: "#FFFFFF" // White icon on dark background
                 onClicked: {
                     photoViewer.hide();
                 }
             }
 
             Item {
-                width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
+                Layout.fillWidth: true
             }
 
             MIconButton {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
                 iconName: "trash"
-                iconSize: Constants.touchTargetMedium
+                iconSize: Constants.iconSizeLarge
+                iconColor: "#FF4444" // Red delete icon
                 onClicked: {
                     if (photo && typeof MediaLibraryManager !== 'undefined') {
                         MediaLibraryManager.deletePhoto(photo.id);
