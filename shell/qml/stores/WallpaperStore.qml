@@ -44,6 +44,11 @@ QtObject {
             name: "Gradient 7",
             path: "qrc:/wallpapers/wallpaper7.jpg",
             isDark: true
+        },
+        {
+            name: "Gradient 8",
+            path: "qrc:/wallpapers/wallpaper8.jpg",
+            isDark: true
         }
     ]
 

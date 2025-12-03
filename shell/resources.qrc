@@ -22,6 +22,7 @@
         <file alias="wallpaper5.jpg">resources/wallpapers/wallpaper5.jpg</file>
         <file alias="wallpaper6.jpg">resources/wallpapers/wallpaper6.jpg</file>
         <file alias="wallpaper7.jpg">resources/wallpapers/wallpaper7.jpg</file>
+        <file alias="wallpaper8.jpg">resources/wallpapers/wallpaper8.jpg</file>
     </qresource>
     <qresource prefix="/images/icons/lucide">
         <file alias="wifi.svg">resources/images/icons/lucide/wifi.svg</file>
@@ -150,7 +151,7 @@
         <file alias="star-off.svg">resources/images/icons/lucide/star-off.svg</file>
         <file alias="send.svg">resources/images/icons/lucide/send.svg</file>
         <file alias="message-circle.svg">resources/images/icons/lucide/message-circle.svg</file>
-        <file alias="cable.svg">resources/images/icons/lucide/cable.svg</file>
+
         <file alias="keyboard.svg">resources/images/icons/lucide/keyboard.svg</file>
         <file alias="keyboard-off.svg">resources/images/icons/lucide/keyboard-off.svg</file>
         <file alias="fingerprint.svg">resources/images/icons/lucide/fingerprint.svg</file>
