@@ -36,26 +36,25 @@ def validate_qmldir(qmldir_path):
             
         # Component definition: Type Version File
         # Example: TerminalSession 1.0 TerminalSession.qml
-        if len(parts) >= 3:
-            # Check if file exists
-            filename = parts[-1]
-            file_path = os.path.join(base_dir, filename)
-            if not os.path.exists(file_path):
-                errors.append(f"Line {i+1}: File not found: {filename}")
-            
-            # Check version format (basic check)
-            version = parts[1]
-            if not version[0].isdigit():
-                 errors.append(f"Line {i+1}: Invalid version format: {version}")
-        else:
-             # If it's not a keyword and not a 3-part definition, it might be invalid
-             # But singleton definitions are: singleton Type Version File
-             if parts[0] == "singleton" and len(parts) >= 4:
+        # Singleton definition: singleton Type Version File
+        if parts[0] == "singleton":
+             if len(parts) >= 4:
                  filename = parts[-1]
                  file_path = os.path.join(base_dir, filename)
                  if not os.path.exists(file_path):
                     errors.append(f"Line {i+1}: File not found: {filename}")
+                 
+                 # Check version
+                 version = parts[2]
+                 if not version[0].isdigit():
+                     errors.append(f"Line {i+1}: Invalid version format: {version}")
              else:
+                 errors.append(f"Line {i+1}: Invalid singleton definition")
+             continue
+
+        # Component definition: Type Version File
+        # Example: TerminalSession 1.0 TerminalSession.qml
+        if len(parts) >= 3:
                  # Suspicious line
                  # Check if it looks like QML code (e.g. "import QtQuick")
                  if "{" in line or "}" in line or ";" in line:

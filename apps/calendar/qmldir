@@ -1,4 +1,6 @@
 module MarathonOS.Shell.Apps.Calendar
 
 CalendarApp 1.0 CalendarApp.qml
+singleton CalendarStorage 1.0 stores/CalendarStorage.qml
+EventListItem 1.0 components/EventListItem.qml
 

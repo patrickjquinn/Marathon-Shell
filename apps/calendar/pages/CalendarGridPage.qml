@@ -188,26 +188,37 @@ Rectangle {
                                     verticalAlignment: Text.AlignVCenter
                                     leftPadding: 2
                                 }
-                            }
-                        }
-
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: parent.parent.dayEvents.length > 3 ? "+" + (parent.parent.dayEvents.length - 3) : ""
-                            font.pixelSize: MTypography.sizeXSmall
-                            color: MColors.textSecondary
-                            visible: parent.parent.dayEvents.length > 3
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            if (parent.isCurrentMonth) {
-                                Logger.info("Calendar", "Clicked date: " + parent.dayNumber);
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    // Open event detail
+                                    calendarApp.openEventDetail(parent.parent.parent.dayEvents[index]);
+                                }
                             }
                         }
                     }
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: parent.parent.dayEvents.length > 3 ? "+" + (parent.parent.dayEvents.length - 3) : ""
+                        font.pixelSize: MTypography.sizeXSmall
+                        color: MColors.textSecondary
+                        visible: parent.parent.dayEvents.length > 3
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        if (parent.isCurrentMonth) {
+                            // Switch to list view with selected date
+                            var date = new Date(currentYear, currentMonth, parent.dayNumber);
+                            calendarApp.selectedDate = date;
+                            calendarApp.currentView = 1;
+                            Logger.info("Calendar", "Clicked date: " + parent.dayNumber);
+                        }
+                    }
+                }
                 }
             }
         }
