@@ -15,6 +15,7 @@ singleton Router 1.0 core/Router.qml
 
 # Singletons from services
 singleton AlarmManager 1.0 services/AlarmManager.qml
+singleton CalendarManager 1.0 services/CalendarManager.qml
 singleton AmbientLightSensor 1.0 services/AmbientLightSensor.qml
 singleton AppLifecycleManager 1.0 services/AppLifecycleManager.qml
 singleton AppLaunchService 1.0 services/AppLaunchService.qml

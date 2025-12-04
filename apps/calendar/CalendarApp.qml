@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -13,151 +14,168 @@ MApp {
     appName: "Calendar"
     appIcon: "assets/icon.svg"
 
-    property var events: []
-    property int nextEventId: 1
     property date currentDate: new Date()
+    property var selectedDate: null
     property int currentView: 0
 
     Component.onCompleted: {
-        loadEvents();
-    }
-
-    function loadEvents() {
-        var savedEvents = SettingsManagerCpp.get("calendar/events", "[]");
-        try {
-            events = JSON.parse(savedEvents);
-            if (events.length > 0) {
-                nextEventId = Math.max(...events.map(e => e.id)) + 1;
-            }
-        } catch (e) {
-            Logger.error("CalendarApp", "Failed to load events: " + e);
-            events = [];
-        }
-    }
-
-    function saveEvents() {
-        var data = JSON.stringify(events);
-        SettingsManagerCpp.set("calendar/events", data);
+        CalendarStorage.init();
     }
 
     function createEvent(title, date, time, allDay, recurring) {
         var event = {
-            id: nextEventId++,
             title: title || "Untitled Event",
             date: date,
             time: time || "12:00",
             allDay: allDay || false,
-            recurring: recurring || "none",
-            timestamp: Date.now()
+            recurring: recurring || "none"
         };
-        events.push(event);
-        eventsChanged();
-        saveEvents();
+        CalendarStorage.addEvent(event);
         return event;
     }
 
     function getEventsForDate(date) {
-        var dateStr = Qt.formatDate(date, "yyyy-MM-dd");
-        var result = [];
-
-        for (var i = 0; i < events.length; i++) {
-            var event = events[i];
-
-            if (event.date === dateStr) {
-                result.push(event);
-            } else if (event.recurring !== "none") {
-                var eventDate = new Date(event.date);
-                var checkDate = new Date(date);
-
-                if (event.recurring === "daily" && checkDate >= eventDate) {
-                    result.push(event);
-                } else if (event.recurring === "weekly" && checkDate >= eventDate) {
-                    var daysDiff = Math.floor((checkDate - eventDate) / (1000 * 60 * 60 * 24));
-                    if (daysDiff % 7 === 0) {
-                        result.push(event);
-                    }
-                } else if (event.recurring === "monthly" && checkDate >= eventDate) {
-                    if (checkDate.getDate() === eventDate.getDate()) {
-                        result.push(event);
-                    }
-                }
-            }
-        }
-
-        return result;
+        return CalendarStorage.getEventsForDate(date);
     }
 
     function deleteEvent(id) {
-        for (var i = 0; i < events.length; i++) {
-            if (events[i].id === id) {
-                events.splice(i, 1);
-                eventsChanged();
-                saveEvents();
-                return true;
-            }
-        }
-        return false;
+        return CalendarStorage.deleteEvent(id);
     }
 
-    content: Rectangle {
+    property Item navStack: null
+
+    navigationDepth: navStack ? navStack.depth : 0
+    onBackPressed: {
+        if (navStack && navStack.depth > 1) {
+            navStack.pop();
+        } else if (calendarApp.selectedDate !== null) {
+            // If filtering by date, clear filter
+            calendarApp.selectedDate = null;
+        } else if (calendarApp.currentView === 1) {
+            // If in list view (without filter), go back to month view
+            calendarApp.currentView = 0;
+        } else {
+            // Let the shell handle closing the app if at root
+            navigationDepth = 0;
+        }
+    }
+
+    content: StackView {
+        id: stackView
         anchors.fill: parent
-        color: MColors.background
 
-        Column {
-            anchors.fill: parent
-            spacing: 0
+        Component.onCompleted: calendarApp.navStack = stackView
 
-            property int currentView: 0
+        initialItem: Rectangle {
+            color: MColors.background
 
-            StackLayout {
-                width: parent.width
-                height: parent.height - tabBar.height
-                currentIndex: parent.currentView
+            Column {
+                anchors.fill: parent
+                spacing: 0
 
-                CalendarGridPage {
-                    id: gridPage
+                StackLayout {
+                    width: parent.width
+                    height: parent.height - tabBar.height
+                    currentIndex: calendarApp.currentView
+
+                    CalendarGridPage {
+                        id: gridPage
+                    }
+
+                    EventListPage {
+                        id: listPage
+                    }
                 }
 
-                EventListPage {
-                    id: listPage
+                MTabBar {
+                    id: tabBar
+                    width: parent.width
+                    activeTab: calendarApp.currentView
+
+                    tabs: [
+                        {
+                            label: "Month",
+                            icon: "calendar"
+                        },
+                        {
+                            label: "List",
+                            icon: "list"
+                        }
+                    ]
+
+                    onTabSelected: index => {
+                        HapticService.light();
+                        calendarApp.currentView = index;
+                    }
                 }
             }
 
-            MTabBar {
-                id: tabBar
-                width: parent.width
-                activeTab: parent.currentView
-
-                tabs: [
-                    {
-                        label: "Month",
-                        icon: "calendar"
-                    },
-                    {
-                        label: "List",
-                        icon: "list"
-                    }
-                ]
-
-                onTabSelected: index => {
-                    HapticService.light();
-                    tabBar.parent.currentView = index;
+            MIconButton {
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.margins: MSpacing.lg
+                iconName: "plus"
+                iconSize: 28
+                variant: "primary"
+                shape: "circular"
+                onClicked: {
+                    stackView.push("pages/EventCreationPage.qml", {
+                        "onSave": event => {
+                            calendarApp.createEvent(event.title, event.date, event.time, event.allDay, event.recurring);
+                        }
+                    });
                 }
             }
         }
 
-        MIconButton {
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.margins: MSpacing.lg
-            iconName: "plus"
-            iconSize: 28
-            variant: "primary"
-            shape: "circular"
-            onClicked: {
-                var now = new Date();
-                calendarApp.createEvent("New Event", Qt.formatDate(now, "yyyy-MM-dd"), Qt.formatTime(now, "HH:mm"), false, "none");
+        // Transitions
+        pushEnter: Transition {
+            PropertyAnimation {
+                property: "x"
+                from: stackView.width
+                to: 0
+                duration: MMotion.md
+                easing.type: Easing.OutCubic
             }
+        }
+        pushExit: Transition {
+            PropertyAnimation {
+                property: "x"
+                from: 0
+                to: -stackView.width * 0.3
+                duration: MMotion.md
+                easing.type: Easing.OutCubic
+            }
+        }
+        popEnter: Transition {
+            PropertyAnimation {
+                property: "x"
+                from: -stackView.width * 0.3
+                to: 0
+                duration: MMotion.md
+                easing.type: Easing.OutCubic
+            }
+        }
+        popExit: Transition {
+            PropertyAnimation {
+                property: "x"
+                from: 0
+                to: stackView.width
+                duration: MMotion.md
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
+
+    // Helper to open detail page
+    function openEventDetail(event) {
+        if (navStack) {
+            navStack.push("pages/EventDetailPage.qml", {
+                "event": event,
+                "onDelete": eventId => {
+                    calendarApp.deleteEvent(eventId);
+                }
+            });
         }
     }
 }

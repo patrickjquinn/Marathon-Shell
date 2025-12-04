@@ -3,11 +3,16 @@ import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
+import MarathonUI.Core
+import "../components"
+import "../stores"
 
 Page {
     background: Rectangle {
         color: MColors.background
     }
+
+    property int updateTrigger: 0
 
     MScrollView {
         id: scrollView
@@ -32,22 +37,52 @@ Page {
             }
 
             MSection {
-                title: "Upcoming Events"
-                subtitle: calendarApp.events.length === 0 ? "No events scheduled. Tap + to create one." : calendarApp.events.length + " event" + (calendarApp.events.length === 1 ? "" : "s")
+                title: calendarApp.selectedDate ? Qt.formatDate(calendarApp.selectedDate, "MMMM d, yyyy") : "Upcoming Events"
+                subtitle: {
+                    var count = eventListRepeater.count;
+                    if (count === 0)
+                        return "No events scheduled.";
+                    return count + " event" + (count === 1 ? "" : "s");
+                }
                 width: parent.width - 48
 
-                Repeater {
-                    model: calendarApp.events
+                // Clear selection button
+                MButton {
+                    visible: calendarApp.selectedDate !== null
+                    text: "Show All Events"
+                    variant: "secondary"
+                    width: parent.width
+                    onClicked: calendarApp.selectedDate = null
+                }
 
-                    MSettingsListItem {
+                Repeater {
+                    id: eventListRepeater
+                    model: {
+                        // Dependency on dataChanged signal
+                        var _ = updateTrigger;
+
+                        if (calendarApp.selectedDate) {
+                            return CalendarStorage.getEventsForDate(calendarApp.selectedDate);
+                        }
+                        return CalendarStorage.events;
+                    }
+
+                    EventListItem {
                         title: modelData.title
-                        subtitle: modelData.allDay ? Qt.formatDate(new Date(modelData.date), "MMMM d, yyyy") : Qt.formatDate(new Date(modelData.date), "MMM d") + " at " + modelData.time
-                        iconName: "calendar"
-                        showChevron: true
-                        onSettingClicked: {
-                            console.log("View event:", modelData.title);
+                        time: modelData.time
+                        date: modelData.date
+                        allDay: modelData.allDay
+                        onClicked: {
+                            calendarApp.openEventDetail(modelData);
                         }
                     }
+                }
+            }
+
+            Connections {
+                target: CalendarStorage
+                function onDataChanged() {
+                    updateTrigger++;
                 }
             }
 

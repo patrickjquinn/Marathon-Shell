@@ -188,6 +188,13 @@ Rectangle {
                                     verticalAlignment: Text.AlignVCenter
                                     leftPadding: 2
                                 }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        // Open event detail
+                                        calendarApp.openEventDetail(parent.parent.parent.dayEvents[index]);
+                                    }
+                                }
                             }
                         }
 
@@ -204,6 +211,10 @@ Rectangle {
                         anchors.fill: parent
                         onClicked: {
                             if (parent.isCurrentMonth) {
+                                // Switch to list view with selected date
+                                var date = new Date(currentYear, currentMonth, parent.dayNumber);
+                                calendarApp.selectedDate = date;
+                                calendarApp.currentView = 1;
                                 Logger.info("Calendar", "Clicked date: " + parent.dayNumber);
                             }
                         }

@@ -210,6 +210,7 @@ set(QML_FILES
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
     qml/services/AlarmManager.qml
+    qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
     qml/services/FlashlightManager.qml
@@ -265,6 +266,7 @@ set(SINGLETON_FILES
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
     qml/services/AlarmManager.qml
+    qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
     qml/services/FlashlightManager.qml
