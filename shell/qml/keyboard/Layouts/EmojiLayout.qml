@@ -187,9 +187,9 @@ Item {
 
                     // When focused, ensure we are in search mode
                     onActiveFocusChanged: {
-                        if (activeFocus && layout.searchText === "") {
-                            // Just focused
-                        }
+                        if (activeFocus && layout.searchText === "")
+                        // Just focused
+                        {}
                     }
 
                     Text {
@@ -253,9 +253,9 @@ Item {
 
                         // If in search mode, maybe clear search?
                         // iOS keeps search open. We'll keep it open.
-                        if (layout.searchText.length > 0) {
-                            // Optional: Add to recents logic here if we had access to it
-                        }
+                        if (layout.searchText.length > 0)
+                        // Optional: Add to recents logic here if we had access to it
+                        {}
                     }
                 }
             }

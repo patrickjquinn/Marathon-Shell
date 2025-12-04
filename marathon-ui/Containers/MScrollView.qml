@@ -12,16 +12,16 @@ Flickable {
     flickDeceleration: 5000
     maximumFlickVelocity: 2500
     boundsBehavior: Flickable.DragAndOvershootBounds
-    
+
     // API for Global Input Handler
     readonly property bool isScrollable: true
     function scrollBy(pixels) {
-        flick(0, pixels * 5) // Multiply for better feel
+        flick(0, pixels * 5); // Multiply for better feel
     }
-    
+
     // Enable mouse wheel scrolling
     WheelHandler {
-        onWheel: (event) => {
+        onWheel: event => {
             root.flick(0, -event.angleDelta.y * 5);
         }
     }
@@ -30,7 +30,7 @@ Flickable {
     focus: true
     Keys.onUpPressed: root.flick(0, 500)
     Keys.onDownPressed: root.flick(0, -500)
-    Keys.onPressed: (event) => {
+    Keys.onPressed: event => {
         if (event.key === Qt.Key_PageUp) {
             root.flick(0, 2000);
             event.accepted = true;
@@ -62,16 +62,17 @@ Flickable {
         property real lastY: 0
 
         onEntered: {
-            lastY = mouseY
-            vbar.active = true // Show scrollbar when entering edge
+            lastY = mouseY;
+            vbar.active = true; // Show scrollbar when entering edge
         }
 
         onPositionChanged: {
-            var delta = mouseY - lastY
-            if (Math.abs(delta) > 2) { // Threshold to prevent jitter
+            var delta = mouseY - lastY;
+            if (Math.abs(delta) > 2) {
+                // Threshold to prevent jitter
                 // Multiply delta for faster scrolling
-                root.flick(0, -delta * 100)
-                lastY = mouseY
+                root.flick(0, -delta * 100);
+                lastY = mouseY;
             }
         }
     }

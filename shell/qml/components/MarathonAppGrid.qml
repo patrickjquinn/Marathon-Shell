@@ -13,22 +13,23 @@ Item {
     // Properties passed from parent (MarathonPageView)
     property var appModel: null
     property int pageIndex: 0
-    
+
     // Grid configuration
     property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6))
     property int rows: Constants.screenWidth < 700 ? 5 : 4
     property int itemsPerPage: columns * rows
-    
+
     // Search gesture properties
     property real searchPullProgress: 0.0
     property bool searchGestureActive: false
 
     // Calculate start index for this page
     readonly property int startIndex: pageIndex * itemsPerPage
-    
+
     // Calculate how many items to show on this page
     readonly property int pageItemCount: {
-        if (!appModel) return 0;
+        if (!appModel)
+            return 0;
         var remaining = appModel.count - startIndex;
         return Math.max(0, Math.min(remaining, itemsPerPage));
     }
@@ -98,18 +99,27 @@ Item {
 
                         Behavior on xScale {
                             enabled: Constants.enableAnimations
-                            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                            NumberAnimation {
+                                duration: 120
+                                easing.type: Easing.OutCubic
+                            }
                         }
                         Behavior on yScale {
                             enabled: Constants.enableAnimations
-                            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                            NumberAnimation {
+                                duration: 120
+                                easing.type: Easing.OutCubic
+                            }
                         }
                     },
                     Translate {
                         y: iconMouseArea.pressed ? -2 : 0
                         Behavior on y {
                             enabled: Constants.enableAnimations
-                            NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+                            NumberAnimation {
+                                duration: 120
+                                easing.type: Easing.OutCubic
+                            }
                         }
                     }
                 ]
@@ -133,7 +143,11 @@ Item {
                             opacity: iconMouseArea.pressed ? 0.2 : 0.0
                             visible: iconMouseArea.pressed
                             z: 0
-                            Behavior on opacity { NumberAnimation { duration: 100 } }
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: 100
+                                }
+                            }
                         }
 
                         // Shadow
@@ -180,13 +194,15 @@ Item {
                             border.width: 2
                             border.color: MColors.background
                             visible: {
-                                if (!appData || !SettingsManagerCpp.showNotificationBadges) return false;
+                                if (!appData || !SettingsManagerCpp.showNotificationBadges)
+                                    return false;
                                 return NotificationService.getNotificationCountForApp(appData.id) > 0;
                             }
 
                             Text {
                                 text: {
-                                    if (!appData) return "";
+                                    if (!appData)
+                                        return "";
                                     var count = NotificationService.getNotificationCountForApp(appData.id);
                                     return count > 9 ? "9+" : count.toString();
                                 }

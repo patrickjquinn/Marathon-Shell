@@ -40,8 +40,6 @@ MApp {
             anchors.fill: parent
             spacing: 0
 
-
-
             StackLayout {
                 width: parent.width
                 height: parent.height - tabBar.height
@@ -135,7 +133,7 @@ MApp {
 
                     initialItem: ScrollView {
                         contentWidth: width
-                        
+
                         Column {
                             width: parent.width
                             padding: MSpacing.md
