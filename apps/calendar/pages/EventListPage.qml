@@ -40,7 +40,8 @@ Page {
                 title: calendarApp.selectedDate ? Qt.formatDate(calendarApp.selectedDate, "MMMM d, yyyy") : "Upcoming Events"
                 subtitle: {
                     var count = eventListRepeater.count;
-                    if (count === 0) return "No events scheduled.";
+                    if (count === 0)
+                        return "No events scheduled.";
                     return count + " event" + (count === 1 ? "" : "s");
                 }
                 width: parent.width - 48
@@ -58,8 +59,8 @@ Page {
                     id: eventListRepeater
                     model: {
                         // Dependency on dataChanged signal
-                        var _ = updateTrigger; 
-                        
+                        var _ = updateTrigger;
+
                         if (calendarApp.selectedDate) {
                             return CalendarStorage.getEventsForDate(calendarApp.selectedDate);
                         }
@@ -84,8 +85,6 @@ Page {
                     updateTrigger++;
                 }
             }
-
-
 
             Item {
                 height: 80

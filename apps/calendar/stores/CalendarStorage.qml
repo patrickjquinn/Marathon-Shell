@@ -133,22 +133,22 @@ QtObject {
     property Connections calendarConnection: Connections {
         target: typeof CalendarManager !== 'undefined' ? CalendarManager : null
         enabled: typeof CalendarManager !== 'undefined'
-        
+
         function onEventsLoaded() {
             root.events = CalendarManager.events;
             root.dataChanged();
         }
-        
+
         function onEventCreated(event) {
             root.events = CalendarManager.events;
             root.dataChanged();
         }
-        
+
         function onEventUpdated(event) {
             root.events = CalendarManager.events;
             root.dataChanged();
         }
-        
+
         function onEventDeleted(eventId) {
             root.events = CalendarManager.events;
             root.dataChanged();

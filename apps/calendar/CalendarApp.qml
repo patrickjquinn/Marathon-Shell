@@ -56,14 +56,14 @@ MApp {
             calendarApp.currentView = 0;
         } else {
             // Let the shell handle closing the app if at root
-            navigationDepth = 0; 
+            navigationDepth = 0;
         }
     }
 
     content: StackView {
         id: stackView
         anchors.fill: parent
-        
+
         Component.onCompleted: calendarApp.navStack = stackView
 
         initialItem: Rectangle {
