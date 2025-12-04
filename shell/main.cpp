@@ -656,7 +656,8 @@ int main(int argc, char *argv[]) {
     QDir themeCheck2b(localSystemMarathonUIPath + "/MarathonUI/Theme");
     QDir themeCheck3(buildMarathonUIPath + "/MarathonUI/Theme");
 
-    bool marathonUIFound = themeCheck1.exists() || themeCheck2.exists() || themeCheck2b.exists() || themeCheck3.exists();
+    bool marathonUIFound = themeCheck1.exists() || themeCheck2.exists() || themeCheck2b.exists() ||
+        themeCheck3.exists();
 
     if (!marathonUIFound) {
         qCritical() << "";

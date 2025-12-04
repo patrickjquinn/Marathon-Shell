@@ -60,14 +60,14 @@ MApp {
         // However, accessing children of StackLayout/Repeater dynamically can be tricky.
         // The Repeater creates items. StackLayout manages them.
         // webViewStack.children[i] corresponds to the item created by Repeater.
-        
+
         if (typeof webViewStack !== "undefined" && webViewStack.children.length > currentTabIndex && currentTabIndex >= 0) {
-             // The children of StackLayout include the Repeater (which is not a visual item in the layout sense usually, but here it creates children)
-             // Actually, Repeater inside StackLayout adds its delegates as children of StackLayout.
-             // So webViewStack.children[currentTabIndex] should be the WebEngineView.
-             webView = webViewStack.children[currentTabIndex];
+            // The children of StackLayout include the Repeater (which is not a visual item in the layout sense usually, but here it creates children)
+            // Actually, Repeater inside StackLayout adds its delegates as children of StackLayout.
+            // So webViewStack.children[currentTabIndex] should be the WebEngineView.
+            webView = webViewStack.children[currentTabIndex];
         } else {
-             webView = null;
+            webView = null;
         }
     }
 
@@ -90,7 +90,7 @@ MApp {
             Logger.info("BrowserApp", "No tabs found, creating default tab");
             createNewTab();
         }
-        
+
         // Defer to ensure children are created
         Qt.callLater(updateCurrentWebView);
     }
@@ -335,7 +335,7 @@ MApp {
         for (var i = 0; i < tabs.count; i++) {
             if (tabs.get(i).tabId === tabId) {
                 var wasCurrent = (i === currentTabIndex);
-                
+
                 // Safely stop the WebEngineView before removal to prevent crashes
                 if (typeof webViewStack !== "undefined" && webViewStack.children.length > i) {
                     var viewToRemove = webViewStack.children[i];
@@ -367,21 +367,19 @@ MApp {
                     if (currentTabIndex >= tabs.count) {
                         currentTabIndex = tabs.count - 1;
                     }
-                    
+
                     // Force update of webView if we closed the current tab
                     if (wasCurrent) {
                         Qt.callLater(updateCurrentWebView);
                     }
                 }
-                
+
                 saveTabs();
                 Logger.info("BrowserApp", "Closed tab: " + tabId);
                 return;
             }
         }
     }
-
-
 
     function closeAllTabs() {
         tabs.clear();

@@ -109,7 +109,7 @@ MCard {
             anchors.centerIn: parent
             iconName: "x"
             // Disable internal mouse handling to prevent conflicts, we handle it manually
-            enabled: false 
+            enabled: false
             opacity: closeMouseArea.pressed ? 0.7 : 1.0 // Visual feedback
             // color property removed as it caused a crash
         }
@@ -122,12 +122,20 @@ MCard {
             propagateComposedEvents: false
 
             // Explicitly accept all events to prevent propagation to MCard
-            onPressed: (mouse) => { mouse.accepted = true; }
-            onReleased: (mouse) => { mouse.accepted = true; }
-            onDoubleClicked: (mouse) => { mouse.accepted = true; }
-            onPressAndHold: (mouse) => { mouse.accepted = true; }
+            onPressed: mouse => {
+                mouse.accepted = true;
+            }
+            onReleased: mouse => {
+                mouse.accepted = true;
+            }
+            onDoubleClicked: mouse => {
+                mouse.accepted = true;
+            }
+            onPressAndHold: mouse => {
+                mouse.accepted = true;
+            }
 
-            onClicked: (mouse) => {
+            onClicked: mouse => {
                 mouse.accepted = true;
                 tabCard.closeRequested();
             }

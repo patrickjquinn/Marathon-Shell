@@ -458,21 +458,22 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     }
 }
 
-void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup *popup, QWaylandXdgSurface *xdgSurface) {
+void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
+                                              QWaylandXdgSurface *xdgSurface) {
     qDebug() << "[WaylandCompositor] XDG Popup created";
-    
+
     QWaylandSurface *surface = xdgSurface->surface();
     if (surface) {
         QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
         QWaylandSurface *parentSurface = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
-        
+
         qDebug() << "[WaylandCompositor] Popup parent:" << parentSurface;
-        
+
         // Store popup data
         surface->setProperty("isPopup", true);
         surface->setProperty("xdgPopup", QVariant::fromValue(popup));
         surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
-        
+
         // We don't add popups to m_surfaces list usually, as they are managed by the client/parent
         // But we might need to track them to prevent cleanup issues
     }

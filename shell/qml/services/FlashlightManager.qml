@@ -103,7 +103,8 @@ Item {
 
             // In production, we'd actually check if the file exists
             // For now, we'll assume the first common path works
-            if (i === 0) {  // Simulate finding torch LED
+            if (i === 0) {
+                // Simulate finding torch LED
                 ledPath = testPath;
                 available = true;
                 availableLeds.push(testPath);

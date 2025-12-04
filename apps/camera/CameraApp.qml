@@ -669,9 +669,9 @@ MApp {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Off" // Placeholder
                         variant: "secondary"
-                        onClicked: {
-                            // TODO: Implement grid
-                        }
+                        onClicked:
+                        // TODO: Implement grid
+                        {}
                     }
                 }
 
