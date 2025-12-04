@@ -12,7 +12,8 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v6
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Install formatting tools
         run: |
@@ -23,10 +24,22 @@ jobs:
         continue-on-error: true
         run: |
           echo "=== Running clang-format ==="
-          clang-format -i $(git ls-files '*.cpp' '*.h')
+          # Find C++ files excluding third-party and build directories
+          find . -type f \( -name "*.cpp" -o -name "*.h" \) -not -path "./third-party/*" -not -path "./build*" -not -path "./.git/*" | xargs clang-format -i
 
           echo "=== Running qmlformat ==="
-          /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml')
+          # Find QML files excluding third-party and build directories
+          # Try to find qmlformat, fallback to common paths
+          if command -v qmlformat &> /dev/null; then
+              QMLF="qmlformat"
+          elif [ -f "/usr/lib/qt6/bin/qmlformat" ]; then
+              QMLF="/usr/lib/qt6/bin/qmlformat"
+          else
+              echo "qmlformat not found!"
+              exit 1
+          fi
+          
+          find . -type f -name "*.qml" -not -path "./third-party/*" -not -path "./build*" -not -path "./.git/*" | xargs $QMLF -i
 
           if [[ -n $(git status --porcelain) ]]; then
             echo "needs_formatting=true" >> $GITHUB_ENV
