@@ -741,7 +741,7 @@ Item {
                                             height: (Constants.screenHeight / Constants.screenWidth) * width
                                             visible: model.type === "native"
                                             active: haveWayland && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
-                                            source: haveWayland ? "qrc:/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
+                                            source: haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
 
                                             property var surfaceObj: typeof model.waylandSurface !== 'undefined' ? model.waylandSurface : null
 
