@@ -377,14 +377,14 @@ QtObject {
 
     function _populateTestNotifications() {
         sendNotification("messages", "John Doe", "Hey, are you free tonight?", {
-            icon: "qrc:/images/messages.svg",
+            icon: "message-square",
             category: "message",
             priority: "high",
             actions: ["reply", "dismiss"]
         });
 
         sendNotification("email", "Work Email", "Meeting moved to 3pm", {
-            icon: "qrc:/images/calendar.svg",
+            icon: "calendar",
             category: "email",
             priority: "normal"
         });

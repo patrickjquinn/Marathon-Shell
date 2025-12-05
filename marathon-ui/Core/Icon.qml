@@ -2,26 +2,30 @@ import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
 
-Image {
+import "LucideGlyphs.js" as Lucide
+
+Text {
     id: root
     property string name: ""
-    property color color: MColors.textPrimary
     property int size: 24
 
-    width: size
-    height: size
-    source: name ? "qrc:/images/icons/lucide/" + name + ".svg" : ""
-    sourceSize: Qt.size(size, size)
-    fillMode: Image.PreserveAspectFit
-    smooth: true
-    asynchronous: true
-    cache: true
-
-    // Tint the SVG to the specified color
-    layer.enabled: true
-    layer.effect: MultiEffect {
-        brightness: 1.0
-        colorization: 1.0
-        colorizationColor: root.color
+    FontLoader {
+        id: lucideFont
+        source: "qrc:/fonts/lucide.ttf"
     }
+
+    // Map icon name to glyph character
+    text: Lucide.Glyphs[name] || ""
+
+    font.family: lucideFont.name
+    font.pixelSize: size
+
+    // Default color (can be overridden)
+    color: MColors.textPrimary
+
+    horizontalAlignment: Text.AlignHCenter
+    verticalAlignment: Text.AlignVCenter
+
+    // Performance optimization: Text is much lighter than Image+Shader
+    // No layer.enabled needed for coloring!
 }

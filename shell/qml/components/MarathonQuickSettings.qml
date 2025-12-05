@@ -101,41 +101,17 @@ Rectangle {
         },
         {
             id: "cellular",
-            icon: "signal",
+            icon: "signal-high",
             label: "Mobile network",
             active: SystemControlStore.isCellularOn,
             available: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable),
             subtitle: cellularSubtitle,
             trigger: updateTrigger
         },
-        {
-            id: "notifications",
-            icon: "bell",
-            label: "Notifications",
-            active: SystemControlStore.isDndMode,
-            available: true,
-            subtitle: SystemControlStore.isDndMode ? "Silent" : "Normal",
-            trigger: updateTrigger
-        },
-        {
-            id: "autobrightness",
-            icon: "sun-moon",
-            label: "Auto-brightness",
-            active: SystemControlStore.isAutoBrightnessOn,
-            available: (typeof DisplayManagerCpp !== 'undefined' && DisplayManagerCpp.available),
-            trigger: updateTrigger
-        },
-        {
-            id: "location",
-            icon: "map-pin",
-            label: "Location",
-            active: SystemControlStore.isLocationOn,
-            available: (typeof LocationManager !== 'undefined' && LocationManager.available),
-            trigger: updateTrigger
-        },
+        // ...
         {
             id: "hotspot",
-            icon: "wifi-tethering",
+            icon: "router",
             label: "Hotspot",
             active: SystemControlStore.isHotspotOn,
             available: (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp.hotspotSupported),
@@ -143,7 +119,7 @@ Rectangle {
         },
         {
             id: "vibration",
-            icon: "vibrate",
+            icon: "smartphone",
             label: "Vibration",
             active: SystemControlStore.isVibrationOn,
             available: (typeof HapticManager !== 'undefined' && HapticManager.available),
@@ -534,7 +510,7 @@ Rectangle {
                 var app = {
                     id: "settings",
                     name: "Settings",
-                    icon: "qrc:/images/settings.svg",
+                    icon: "settings",
                     type: "marathon"
                 };
                 launchApp(app);

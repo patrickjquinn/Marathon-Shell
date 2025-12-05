@@ -2,6 +2,7 @@ import QtQuick
 import MarathonOS.Shell
 import "."
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Item {
     id: bottomBar
@@ -78,7 +79,7 @@ Item {
                     var app = {
                         id: "phone",
                         name: "Phone",
-                        icon: "qrc:/images/phone.svg"
+                        icon: "phone"
                     };
                     appLaunched(app);
                 } else {
@@ -120,25 +121,12 @@ Item {
                 }
             }
 
-            Image {
-                source: bottomBar.currentPage === -2 ? "qrc:/images/icons/lucide/inbox-black.svg" : "qrc:/images/icons/lucide/inbox.svg"
-                width: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
-                height: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
-                fillMode: Image.PreserveAspectFit
+            Icon {
+                name: "inbox"
+                size: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
-                smooth: true
-                antialiasing: true
-
-                Behavior on width {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
-                Behavior on height {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
+                color: bottomBar.currentPage === -2 ? "black" : "white"
+                visible: true
             }
 
             MouseArea {
@@ -171,25 +159,11 @@ Item {
                 }
             }
 
-            Image {
-                source: bottomBar.currentPage === -1 ? "qrc:/images/icons/lucide/grid-black.svg" : "qrc:/images/icons/lucide/grid.svg"
-                width: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
-                height: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
-                fillMode: Image.PreserveAspectFit
+            Icon {
+                name: "layers" // Task Switcher usually represented by layers
+                size: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
-                smooth: true
-                antialiasing: true
-
-                Behavior on width {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
-                Behavior on height {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
+                color: bottomBar.currentPage === -1 ? "black" : "white"
             }
 
             MouseArea {

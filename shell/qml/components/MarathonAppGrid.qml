@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Item {
     id: appGrid
@@ -151,33 +152,22 @@ Item {
                         }
 
                         // Shadow
-                        Image {
+                        MAppIcon {
                             anchors.centerIn: parent
-                            anchors.verticalCenterOffset: 4
+                            anchors.verticalCenterOffset: 2
                             source: appData ? appData.icon : ""
-                            width: parent.width
-                            height: parent.height
-                            fillMode: Image.PreserveAspectFit
-                            smooth: false
-                            asynchronous: true
-                            cache: true
-                            sourceSize: Qt.size(width, height)
-                            opacity: 0.4
+                            size: parent.width
+                            opacity: 0.3
+                            color: "black" // Shadow color for font icons
                             z: 1
                         }
 
                         // Icon
-                        Image {
+                        MAppIcon {
                             id: appIcon
-                            anchors.centerIn: parent
                             source: appData ? appData.icon : ""
-                            width: parent.width
-                            height: parent.height
-                            fillMode: Image.PreserveAspectFit
-                            smooth: true
-                            asynchronous: true
-                            cache: true
-                            sourceSize: Qt.size(width, height)
+                            size: parent.width
+                            anchors.centerIn: parent
                             z: 2
                         }
 
@@ -222,6 +212,10 @@ Item {
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         font.weight: Font.DemiBold
+
+                        // Text Shadow
+                        style: Text.Outline
+                        styleColor: Qt.rgba(0, 0, 0, 0.6)
                     }
                 }
 

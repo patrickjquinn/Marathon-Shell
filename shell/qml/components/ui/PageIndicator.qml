@@ -20,12 +20,11 @@ Row {
         radius: Constants.borderRadiusSmall
         color: currentPage === -2 ? "#FFFFFF" : "#666666"
 
-        Image {
-            source: "qrc:/images/icons/lucide/bell.svg"
-            width: Constants.iconSizeSmall
-            height: Constants.iconSizeSmall
-            fillMode: Image.PreserveAspectFit
+        Icon {
+            name: "bell"
+            size: Constants.iconSizeSmall
             anchors.centerIn: parent
+            color: "white"
         }
 
         MouseArea {
@@ -41,12 +40,11 @@ Row {
         radius: Constants.borderRadiusSmall
         color: currentPage === -1 ? "#FFFFFF" : "#666666"
 
-        Image {
-            source: "qrc:/images/icons/lucide/grid.svg"
-            width: Constants.iconSizeSmall
-            height: Constants.iconSizeSmall
-            fillMode: Image.PreserveAspectFit
+        Icon {
+            name: "layout-grid"
+            size: Constants.iconSizeSmall
             anchors.centerIn: parent
+            color: "black"
         }
 
         MouseArea {

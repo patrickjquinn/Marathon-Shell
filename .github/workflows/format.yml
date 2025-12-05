@@ -12,7 +12,6 @@ jobs:
       pull-requests: write
 
     steps:
-    steps:
       - uses: actions/checkout@v4
 
       - name: Install formatting tools
@@ -21,6 +20,7 @@ jobs:
           sudo apt-get install -y qt6-declarative-dev-tools clang-format
 
       - name: Run formatters
+        id: format
         continue-on-error: true
         run: |
           echo "=== Running clang-format ==="
@@ -42,13 +42,13 @@ jobs:
           find . -type f -name "*.qml" -not -path "./third-party/*" -not -path "./build*" -not -path "./.git/*" | xargs $QMLF -i
 
           if [[ -n $(git status --porcelain) ]]; then
-            echo "needs_formatting=true" >> $GITHUB_ENV
+            echo "needs_formatting=true" >> $GITHUB_OUTPUT
           else
-            echo "needs_formatting=false" >> $GITHUB_ENV
+            echo "needs_formatting=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Post comment on PR if needed
-        if: ${{ github.event_name == 'pull_request' && env.needs_formatting == 'true' }}
+        if: github.event_name == 'pull_request' && steps.format.outputs.needs_formatting == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           message: |
@@ -62,7 +62,7 @@ jobs:
             Commit the updated files and push again.
 
       - name: Fail job
-        if: ${{ env.needs_formatting == 'true' }}
+        if: steps.format.outputs.needs_formatting == 'true'
         run: |
           echo "Formatting required. Failing."
           exit 1

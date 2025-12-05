@@ -9,25 +9,25 @@ QtObject {
         {
             id: "phone",
             name: "Phone",
-            icon: "qrc:/images/phone.svg",
+            icon: "phone",
             type: "marathon"
         },
         {
             id: "messages",
             name: "Messages",
-            icon: "qrc:/images/messages.svg",
+            icon: "message-square",
             type: "marathon"
         },
         {
             id: "camera",
             name: "Camera",
-            icon: "qrc:/images/camera.svg",
+            icon: "camera",
             type: "marathon"
         },
         {
             id: "gallery",
             name: "Gallery",
-            icon: "qrc:/images/gallery.svg",
+            icon: "image",
             type: "marathon"
         },
         {

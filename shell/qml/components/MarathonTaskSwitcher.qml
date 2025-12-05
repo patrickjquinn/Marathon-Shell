@@ -1,7 +1,7 @@
 import QtQuick
 import MarathonOS.Shell
-import "."
 import MarathonUI.Theme
+import MarathonUI.Core
 
 Item {
     id: taskSwitcher
@@ -688,7 +688,8 @@ Item {
                                             width: parent.width
                                             height: (Constants.screenHeight / Constants.screenWidth) * width
                                             sourceItem: previewContainer.liveApp
-                                            live: true
+                                            // OPTIMIZATION: Disable live updates while scrolling to ensure 60fps
+                                            live: previewContainer.liveApp !== null && !taskGrid.moving && !taskGrid.dragging
                                             recursive: true
                                             visible: previewContainer.liveApp !== null
                                             hideSource: false
@@ -710,7 +711,8 @@ Item {
                                             Timer {
                                                 interval: 100  // 10 FPS (was 50ms/20fps) - per Marathon OS spec section 5.2
                                                 repeat: true
-                                                running: liveSnapshot.visible && !taskGrid.moving && !taskGrid.dragging
+                                                // Only run timer if live is actually enabled (double check)
+                                                running: liveSnapshot.live && liveSnapshot.visible
                                                 onTriggered: liveSnapshot.scheduleUpdate()
                                             }
 
@@ -763,15 +765,10 @@ Item {
                                                 anchors.centerIn: parent
                                                 spacing: Constants.spacingMedium
 
-                                                Image {
-                                                    width: Math.round(80 * Constants.scaleFactor)
-                                                    height: Math.round(80 * Constants.scaleFactor)
-                                                    source: model.icon || "qrc:/images/icons/lucide/grid.svg"
-                                                    sourceSize.width: Math.round(80 * Constants.scaleFactor)
-                                                    sourceSize.height: 80
+                                                MAppIcon {
+                                                    size: Math.round(80 * Constants.scaleFactor)
+                                                    source: model.icon || "layout-grid"
                                                     anchors.horizontalCenter: parent.horizontalCenter
-                                                    smooth: true
-                                                    fillMode: Image.PreserveAspectFit
                                                 }
 
                                                 Text {
@@ -805,15 +802,10 @@ Item {
                                                 anchors.centerIn: parent
                                                 spacing: Constants.spacingMedium
 
-                                                Image {
-                                                    width: Math.round(80 * Constants.scaleFactor)
-                                                    height: Math.round(80 * Constants.scaleFactor)
-                                                    source: model.icon || "qrc:/images/icons/lucide/grid.svg"
-                                                    sourceSize.width: Math.round(80 * Constants.scaleFactor)
-                                                    sourceSize.height: 80
+                                                MAppIcon {
+                                                    size: Math.round(80 * Constants.scaleFactor)
+                                                    source: model.icon || "layout-grid"
                                                     anchors.horizontalCenter: parent.horizontalCenter
-                                                    smooth: true
-                                                    fillMode: Image.PreserveAspectFit
                                                 }
 
                                                 Text {

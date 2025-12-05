@@ -54,13 +54,12 @@ Rectangle {
         anchors.centerIn: parent
         spacing: Constants.spacingSmall
 
-        Image {
-            visible: iconName !== ""
-            source: iconName !== "" ? "qrc:/images/icons/lucide/" + iconName + ".svg" : ""
-            width: iconSize
-            height: iconSize
-            fillMode: Image.PreserveAspectFit
+        Icon {
+            name: iconName
+            size: 24
             anchors.verticalCenter: parent.verticalCenter
+            color: "white" // Or bind to a property
+            visible: iconName !== ""
         }
 
         Text {

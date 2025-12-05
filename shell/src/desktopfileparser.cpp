@@ -146,7 +146,7 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
 
 QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     if (iconName.isEmpty()) {
-        return "qrc:/images/icons/lucide/grid.svg";
+        return "grid";
     }
 
     // If it's already an absolute path, use it
@@ -154,7 +154,7 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         if (QFile::exists(iconName)) {
             return "file://" + iconName;
         }
-        return "qrc:/images/icons/lucide/grid.svg";
+        return "grid";
     }
 
     // If it already has an extension, check if it exists
@@ -193,7 +193,7 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     }
 
     qDebug() << "[DesktopFileParser] Icon not found:" << iconName << ", using fallback";
-    return "qrc:/images/icons/lucide/grid.svg";
+    return "layout-grid";
 }
 
 QString DesktopFileParser::cleanExecLine(const QString &exec) {
