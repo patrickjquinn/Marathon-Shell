@@ -12,6 +12,15 @@
 
 Marathon Shell is a Wayland compositor and mobile-oriented application shell for Linux, designed for touch-first interaction. The shell provides gesture-based navigation, application management, and system service integration, with support for both QML-based Marathon apps and native Linux desktop applications.
 
+## Gallery
+
+| | |
+|:---:|:---:|
+| <img src="screenshots/screen0.png" width="400" alt="Home Screen"> | <img src="screenshots/screen1.png" width="400" alt="App Grid"> |
+| <img src="screenshots/screen2.png" width="400" alt="Task Switcher"> | <img src="screenshots/screen3.png" width="400" alt="Notification Hub"> |
+| <img src="screenshots/screen4.png" width="400" alt="Quick Settings"> | <img src="screenshots/screen5.png" width="400" alt="Lock Screen"> |
+| <img src="screenshots/screen6.png" width="400" alt="Browser"> | |
+
 ## Architecture
 
 Marathon Shell consists of four main components:
