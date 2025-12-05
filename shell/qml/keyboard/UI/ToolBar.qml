@@ -52,18 +52,12 @@ Item {
         }
 
         contentItem: Item {
-            Image {
+            Icon {
                 anchors.centerIn: parent
-                source: "qrc:/images/icons/lucide/" + parent.parent.iconName + ".svg"
-                width: Math.round(20 * Constants.scaleFactor)
-                height: width
-                sourceSize.width: width
-                sourceSize.height: height
+                name: parent.parent.iconName
+                size: Math.round(20 * Constants.scaleFactor)
+                color: "white"
                 opacity: 0.9
-
-                // Tint the icon white using a simple shader effect if ColorOverlay isn't available
-                // Or simpler: use layer.effect with a ColorOverlay if we can import it.
-                // But since we don't know if GraphicalEffects is linked, let's try a simpler approach:
                 // Use QtQuick.Controls.IconLabel or similar?
                 // Actually, let's just use a ShaderEffect to colorize it white.
 

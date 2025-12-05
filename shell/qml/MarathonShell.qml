@@ -31,6 +31,12 @@ Item {
         source: "qrc:/fonts/Slate-Bold.ttf"
     }
 
+    // Lucide Icon Font
+    FontLoader {
+        id: lucideFont
+        source: "qrc:/fonts/lucide.ttf"
+    }
+
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
 

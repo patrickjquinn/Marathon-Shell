@@ -16,7 +16,7 @@ MApp {
 
     appId: nativeAppId
     appName: nativeTitle || "Native App"
-    appIcon: nativeAppIcon || "qrc:/images/icons/lucide/grid.svg"
+    appIcon: nativeAppIcon || "layout-grid"
 
     onBackPressed: {
         return false;
@@ -94,13 +94,10 @@ MApp {
                 spacing: MSpacing.xl
 
                 // Show the actual app icon if available, otherwise fallback to generic icon
-                Image {
+                MAppIcon {
                     width: 128
                     height: 128
-                    source: nativeAppWindow.nativeAppIcon || "qrc:/images/icons/lucide/grid.svg"
-                    sourceSize.width: 128
-                    sourceSize.height: 128
-                    fillMode: Image.PreserveAspectFit
+                    source: nativeAppWindow.nativeAppIcon || "grid"
                     anchors.horizontalCenter: parent.horizontalCenter
                     smooth: true
                     visible: nativeAppWindow.nativeAppIcon !== ""

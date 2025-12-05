@@ -341,7 +341,19 @@ QtObject {
         }
 
         if (appRegistry[appId]) {
-            appRegistry[appId].close();
+            var app = appRegistry[appId];
+
+            // Check if this is a native app with a surface that needs closing
+            if (app.surfaceId !== undefined && app.surfaceId > 0) {
+                Logger.info("AppLifecycle", "Detected native app detected with surfaceId: " + app.surfaceId);
+                if (typeof AppLaunchService !== 'undefined') {
+                    AppLaunchService.closeNativeApp(app.surfaceId);
+                } else {
+                    Logger.warn("AppLifecycle", "AppLaunchService not available to close native app");
+                }
+            }
+
+            app.close();
         }
 
         if (foregroundApp && foregroundApp.appId === appId) {

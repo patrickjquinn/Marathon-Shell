@@ -66,13 +66,13 @@ Item {
                     // For toggleable items with -off variants, show the -off icon when inactive
                     name: {
                         var iconName = toggleData.icon || "grid";
-                        if (!toggleData.active && (toggleData.id === "vibration" || toggleData.id === "wifi" || toggleData.id === "bluetooth")) {
+                        if (!toggleData.active && (toggleData.id === "wifi" || toggleData.id === "bluetooth")) {
                             iconName = iconName + "-off";
                         }
                         return iconName;
                     }
-                    // OFF: standard text color. ON: dark (readable on teal). Unavailable: dim
-                    color: !isAvailable ? MColors.textSecondary : (toggleData.active ? MColors.background : MColors.text)
+                    // OFF: standard text color. ON: dark (readable on teal). Unavailable: dim via opacity
+                    color: toggleData.active ? MColors.background : MColors.text
                     size: Constants.iconSizeMedium
                     anchors.centerIn: parent
 

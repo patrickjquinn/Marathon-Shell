@@ -15,6 +15,8 @@ set(CORE_QML_FILES
     MResponsive.qml
     MGrid.qml
     MContainer.qml
+    LucideGlyphs.js
+    MAppIcon.qml
 )
 
 # Mark singleton

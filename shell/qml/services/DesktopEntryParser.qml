@@ -111,7 +111,7 @@ QtObject {
 
     function resolveIconPath(iconName) {
         if (!iconName)
-            return "qrc:/images/icons/lucide/grid.svg";
+            return "grid";
 
         if (iconName.startsWith('/')) {
             return "file://" + iconName;
@@ -131,7 +131,7 @@ QtObject {
             }
         }
 
-        return "qrc:/images/icons/lucide/grid.svg";
+        return "layout-grid";
     }
 
     function cleanExecLine(exec) {

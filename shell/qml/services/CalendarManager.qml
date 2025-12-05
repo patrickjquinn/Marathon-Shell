@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import MarathonOS.Shell
+import QtQuick.LocalStorage 2.0
 
 Item {
     id: calendarManager
@@ -20,53 +21,91 @@ Item {
     // Track triggered events to avoid duplicate notifications
     property var triggeredEvents: []
 
+    property var db: null
+
+    function initDatabase() {
+        db = LocalStorage.openDatabaseSync("CalendarDB", "1.0", "Calendar Events", 100000);
+        db.transaction(function (tx) {
+            tx.executeSql(`CREATE TABLE IF NOT EXISTS events(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                date TEXT,
+                time TEXT,
+                allDay INTEGER,
+                recurring TEXT,
+                description TEXT
+            )`);
+        });
+    }
+
     function init() {
+        initDatabase();
         _loadEvents();
         _scheduleNextCheck();
     }
 
     function createEvent(event) {
-        // Ensure ID
-        if (!event.id) {
-            event.id = nextEventId++;
+        var resId = -1;
+        db.transaction(function (tx) {
+            var rs = tx.executeSql(`INSERT INTO events (title, date, time, allDay, recurring, description) VALUES (?, ?, ?, ?, ?, ?)`, [event.title, event.date, event.time, event.allDay ? 1 : 0, event.recurring || "none", event.description || ""]);
+            resId = rs.insertId;
+        });
+
+        if (resId !== -1) {
+            event.id = resId;
+            // Add to local model for immediate feedback
+            events.push(event);
+            Logger.info("CalendarManager", "Event created: " + event.title + " (ID: " + resId + ")");
+            eventCreated(event);
+            return event;
         }
-
-        // Ensure other fields
-        event.timestamp = Date.now();
-
-        events.push(event);
-        _saveEvents();
-
-        Logger.info("CalendarManager", "Event created: " + event.title + " on " + event.date);
-        eventCreated(event);
-
-        return event;
+        return null;
     }
 
     function updateEvent(event) {
-        for (var i = 0; i < events.length; i++) {
-            if (events[i].id === event.id) {
-                events[i] = event;
-                _saveEvents();
-
-                Logger.info("CalendarManager", "Event updated: " + event.title);
-                eventUpdated(event);
-                return true;
+        var success = false;
+        db.transaction(function (tx) {
+            var rs = tx.executeSql(`UPDATE events SET title=?, date=?, time=?, allDay=?, recurring=?, description=? WHERE id=?`, [event.title, event.date, event.time, event.allDay ? 1 : 0, event.recurring || "none", event.description || "", event.id]);
+            if (rs.rowsAffected > 0) {
+                success = true;
             }
+        });
+
+        if (success) {
+            // Update local model
+            for (var i = 0; i < events.length; i++) {
+                if (events[i].id === event.id) {
+                    events[i] = event;
+                    break;
+                }
+            }
+            Logger.info("CalendarManager", "Event updated: " + event.title);
+            eventUpdated(event);
+            return true;
         }
         return false;
     }
 
     function deleteEvent(id) {
-        for (var i = 0; i < events.length; i++) {
-            if (events[i].id === id) {
-                events.splice(i, 1);
-                _saveEvents();
-
-                Logger.info("CalendarManager", "Event deleted: " + id);
-                eventDeleted(id);
-                return true;
+        var success = false;
+        db.transaction(function (tx) {
+            var rs = tx.executeSql(`DELETE FROM events WHERE id=?`, [id]);
+            if (rs.rowsAffected > 0) {
+                success = true;
             }
+        });
+
+        if (success) {
+            // Update local model
+            for (var i = 0; i < events.length; i++) {
+                if (events[i].id === id) {
+                    events.splice(i, 1);
+                    break;
+                }
+            }
+            Logger.info("CalendarManager", "Event deleted: " + id);
+            eventDeleted(id);
+            return true;
         }
         return false;
     }
@@ -101,26 +140,50 @@ Item {
         return result;
     }
 
-    function _loadEvents() {
-        var savedEvents = SettingsManagerCpp.get("calendar/events", "[]");
-        try {
-            events = JSON.parse(savedEvents);
-            if (events.length > 0) {
-                // Ensure IDs are numbers
-                events.forEach(e => e.id = Number(e.id));
-                nextEventId = Math.max(...events.map(e => e.id)) + 1;
+    WorkerScript {
+        id: calendarWorker
+        source: "CalendarWorker.js"
+        onMessage: function (message) {
+            if (message.action === 'eventsParsed') {
+                calendarManager.events = message.events;
+                Logger.info("CalendarManager", "Loaded " + calendarManager.events.length + " events from DB");
+                eventsLoaded();
+            } else if (message.action === 'error') {
+                Logger.error("CalendarManager", "Worker failed: " + message.error);
+                calendarManager.events = [];
             }
-            Logger.info("CalendarManager", "Loaded " + events.length + " events");
-            eventsLoaded();
-        } catch (e) {
-            Logger.error("CalendarManager", "Failed to load events: " + e);
-            events = [];
         }
     }
 
+    function _loadEvents() {
+        var rawEvents = [];
+        db.transaction(function (tx) {
+            var rs = tx.executeSql(`SELECT * FROM events`);
+            for (var i = 0; i < rs.rows.length; i++) {
+                var row = rs.rows.item(i);
+                // Convert SQLite types to JS types where needed
+                rawEvents.push({
+                    id: row.id,
+                    title: row.title,
+                    date: row.date,
+                    time: row.time,
+                    allDay: row.allDay === 1,
+                    recurring: row.recurring,
+                    description: row.description
+                });
+            }
+        });
+
+        // Send to worker for any heavy processing (sorting, expansion)
+        // Even if we don't need parsing, the worker can handle sorting/filtering
+        calendarWorker.sendMessage({
+            'action': 'processEvents',
+            'events': rawEvents
+        });
+    }
+
     function _saveEvents() {
-        var data = JSON.stringify(events);
-        SettingsManagerCpp.set("calendar/events", data);
+    // No-op: SQLite saves immediately
     }
 
     function _checkReminders() {

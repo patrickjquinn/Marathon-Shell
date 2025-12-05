@@ -36,15 +36,10 @@ Rectangle {
             anchors.centerIn: parent
             spacing: 24
 
-            Image {
-                width: Math.round(128 * Constants.scaleFactor)
-                height: Math.round(128 * Constants.scaleFactor)
-                source: appWindow.appIcon || "qrc:/images/icons/lucide/grid.svg"
-                sourceSize.width: Math.round(128 * Constants.scaleFactor)
-                sourceSize.height: Math.round(128 * Constants.scaleFactor)
-                fillMode: Image.PreserveAspectFit
+            MAppIcon {
+                size: Math.round(128 * Constants.scaleFactor)
+                source: appWindow.appIcon || "layout-grid"
                 anchors.horizontalCenter: parent.horizontalCenter
-                smooth: true
             }
 
             Text {
@@ -397,7 +392,7 @@ Rectangle {
     Loader {
         id: appContentLoader
         anchors.fill: parent
-        asynchronous: false  // Changed to synchronous to reduce app launch latency
+        asynchronous: true  // OPTIMIZATION: Re-enabled async loading to prevent UI freeze
         visible: status === Loader.Ready && item !== null
         opacity: status === Loader.Ready ? 1.0 : 0.0
 
@@ -411,9 +406,24 @@ Rectangle {
         onStatusChanged: {
             if (status === Loader.Error) {
                 Logger.error("AppWindow", "Failed to load app content for: " + appId);
+                appWindow.hasError = true;
+                appWindow.loadError = "Failed to load app content";
+                appWindow.isLoadingComponent = false;
             } else if (status === Loader.Ready) {
                 Logger.info("AppWindow", "App content loaded successfully for: " + appId);
+                // Delay hiding splash slightly to ensure smooth transition
+                splashHideTimer.start();
+            } else if (status === Loader.Loading) {
+                appWindow.isLoadingComponent = true;
             }
+        }
+    }
+
+    Timer {
+        id: splashHideTimer
+        interval: 100
+        onTriggered: {
+            appWindow.isLoadingComponent = false;
         }
     }
 

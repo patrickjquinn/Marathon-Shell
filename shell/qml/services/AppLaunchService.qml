@@ -128,6 +128,16 @@ QtObject {
         }
     }
 
+    function closeNativeApp(surfaceId) {
+        if (!root.compositor) {
+            Logger.error("AppLaunchService", "Cannot close native app - compositor not available");
+            return;
+        }
+
+        Logger.info("AppLaunchService", "Closing native app with surfaceId: " + surfaceId);
+        root.compositor.closeWindow(surfaceId);
+    }
+
     function launchMarathonApp(app, compositorRef, appWindowRef) {
         // Check if app is already running
         if (typeof AppLifecycleManager !== 'undefined' && AppLifecycleManager.isAppRunning(app.id)) {
