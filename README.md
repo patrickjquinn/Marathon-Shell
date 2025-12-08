@@ -133,17 +133,9 @@ sudo apt install cmake ninja-build g++ pkg-config \
 Clone the repository with submodules:
 
 ```bash
-git clone --recursive https://github.com/patrickjquinn/Marathon-Shell.git
+git clone https://github.com/patrickjquinn/Marathon-Shell.git
 cd Marathon-Shell
 ```
-
-If you cloned without `--recursive`, initialize submodules:
-
-```bash
-git submodule update --init --recursive
-```
-
-The project uses [AsyncFuture](https://github.com/vpicaver/asyncfuture) as a git submodule for Promise-like async programming with QFuture.
 
 ### Build All Components (Recommended)
 
@@ -399,8 +391,6 @@ Marathon-Shell/
 │   └── ...                    # Other bundled apps
 ├── tools/                      # Developer tools
 │   └── marathon-dev/          # CLI for app development
-├── third-party/                # External dependencies
-│   └── asyncfuture/           # Promise-like QFuture API (submodule)
 # NOTE: LunaSVG is auto-fetched via CMake FetchContent for SVG rendering
 ├── scripts/                    # Build and utility scripts
 ├── docs/                       # Documentation
