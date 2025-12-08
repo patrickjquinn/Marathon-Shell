@@ -122,10 +122,6 @@ else()
     endif()
 endif()
 
-# Add asyncfuture library
-add_subdirectory(third-party/asyncfuture)
-message(STATUS "AsyncFuture library added for promise-based async operations")
-
 # Marathon Core library (shared app management logic)
 add_subdirectory(marathon-core)
 message(STATUS "Marathon Core library added for app management")

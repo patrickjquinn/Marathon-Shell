@@ -9,7 +9,6 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QtConcurrent/QtConcurrent>
-#include <asyncfuture.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <sys/types.h>

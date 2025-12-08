@@ -109,7 +109,6 @@ endif()
 set(QML_FILES
     qml/Main.qml
     qml/MarathonShell.qml
-    qml/utils/Async.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonNavBar.qml
@@ -238,7 +237,6 @@ set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/Router.qml
-    qml/utils/Async.qml
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
@@ -371,7 +369,6 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Network
     Qt6::Sensors
     MarathonCore
-    asyncfuture
     marathon-ui-theme
     marathon-ui-containers
     marathon-ui-core
