@@ -1,0 +1,11 @@
+{
+    "device": "/dev/dri/card0",
+    "hwcursor": false,
+    "separateScreens": false,
+    "outputs": [
+        {
+            "name": "DPI-1",
+            "mode": "preferred"
+        }
+    ]
+}

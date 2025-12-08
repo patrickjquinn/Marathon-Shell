@@ -22,26 +22,40 @@ PortalManager::PortalManager(QObject *parent)
 PortalManager::~PortalManager() {}
 
 void PortalManager::checkPortals() {
-    // Use QDBusMessage directly to avoid introspection warnings (e.g. invalid property names in PowerProfileMonitor)
+    // Use async calls to prevent blocking startup (50s hang)
     QDBusMessage message = QDBusMessage::createMethodCall(PORTAL_SERVICE, PORTAL_PATH,
                                                           "org.freedesktop.DBus.Properties", "Get");
     message << PORTAL_ACCESS_INTERFACE << "version";
 
-    QDBusReply<QVariant> reply = QDBusConnection::sessionBus().call(message);
+    // Async call for Access interface
+    QDBusPendingCall         call    = QDBusConnection::sessionBus().asyncCall(message);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
 
-    if (reply.isValid()) {
-        qInfo() << "[PortalManager] XDG Desktop Portal detected (version" << reply.value().toUInt()
-                << ")";
-        m_portalsAvailable = true;
-    } else {
-        // Try checking another interface if Access isn't available
-        QDBusMessage camMessage = QDBusMessage::createMethodCall(
-            PORTAL_SERVICE, PORTAL_PATH, "org.freedesktop.DBus.Properties", "Get");
-        camMessage << PORTAL_CAMERA_INTERFACE << "version";
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        QDBusPendingReply<QVariant> reply = *w;
+        if (reply.isValid()) {
+            qInfo() << "[PortalManager] XDG Desktop Portal detected (version"
+                    << reply.value().toUInt() << ")";
+            m_portalsAvailable = true;
+        } else {
+            // Fallback: Check Camera interface
+            checkCameraPortal();
+        }
+        w->deleteLater();
+    });
+}
 
-        QDBusReply<QVariant> camReply = QDBusConnection::sessionBus().call(camMessage);
+void PortalManager::checkCameraPortal() {
+    QDBusMessage camMessage = QDBusMessage::createMethodCall(
+        PORTAL_SERVICE, PORTAL_PATH, "org.freedesktop.DBus.Properties", "Get");
+    camMessage << PORTAL_CAMERA_INTERFACE << "version";
 
-        if (camReply.isValid()) {
+    QDBusPendingCall         call    = QDBusConnection::sessionBus().asyncCall(camMessage);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        QDBusPendingReply<QVariant> reply = *w;
+        if (reply.isValid()) {
             qInfo() << "[PortalManager] XDG Desktop Portal detected (Camera available)";
             m_portalsAvailable = true;
         } else {
@@ -49,7 +63,8 @@ void PortalManager::checkPortals() {
                 << "[PortalManager] XDG Desktop Portal service found but interfaces not responding";
             m_portalsAvailable = false;
         }
-    }
+        w->deleteLater();
+    });
 }
 
 bool PortalManager::isPortalAvailable(const QString &portalName) {

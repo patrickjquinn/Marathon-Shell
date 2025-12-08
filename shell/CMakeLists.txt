@@ -97,6 +97,7 @@ set(SOURCES
 list(APPEND SOURCES
     src/waylandcompositormanager.h
     src/waylandcompositormanager.cpp
+    # TouchEmulator removed - Q20 has native scroll mode via CapsLock
 )
 
 if(TARGET Qt6::WaylandCompositor)

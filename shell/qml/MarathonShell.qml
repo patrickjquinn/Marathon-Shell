@@ -9,6 +9,79 @@ Item {
     id: shell
     focus: true  // Enable keyboard input
 
+    // Handle physical keys from Q20 hardware
+    Keys.onReleased: event => {
+        if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
+            // BACK -> Same as onSwipeBack (lines 492-509)
+            Logger.info("Shell", "Physical BACK key pressed");
+            if (typeof AppLifecycleManager !== 'undefined') {
+                var handled = AppLifecycleManager.handleSystemBack();
+                if (!handled) {
+                    Logger.info("Shell", "App didn't handle back, closing");
+                    if (UIStore.appWindowOpen) {
+                        UIStore.closeApp();
+                    }
+                }
+            } else {
+                Logger.info("Shell", "AppLifecycleManager unavailable, closing directly");
+                if (UIStore.appWindowOpen) {
+                    UIStore.closeApp();
+                }
+            }
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Menu || event.key === Qt.Key_HomePage || event.key === Qt.Key_Super_L) {
+            // BLACKBERRY KEY -> Same as onLongSwipeUp (lines 527-579)
+            Logger.info("Shell", "Physical MENU/BB key pressed - longSwipeUp");
+
+            // Dismiss keyboard if visible
+            if (virtualKeyboard.active) {
+                Logger.info("Shell", "Dismissing keyboard with BB key");
+                HapticService.light();
+                virtualKeyboard.active = false;
+                event.accepted = true;
+                return;
+            }
+
+            // If app is open, minimize to task switcher
+            if (UIStore.appWindowOpen) {
+                Logger.info("Shell", "APP WINDOW OPEN - Minimizing to task switcher (BB key)");
+
+                // Use AppLifecycleManager to create task and minimize properly
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    Logger.info("Shell", "Calling AppLifecycleManager.minimizeForegroundApp()");
+                    AppLifecycleManager.minimizeForegroundApp();
+                }
+
+                // Detach app instance to background container so it stays alive for preview
+                var appInstance = appWindow.detachCurrentApp();
+                if (appInstance) {
+                    Logger.info("Shell", "Detached app instance to background container");
+                    appInstance.parent = backgroundAppsContainer;
+                    appInstance.visible = true;
+                }
+
+                appWindow.hide();
+                UIStore.minimizeApp();
+            }
+
+            // Navigate to task switcher (Active Frames)
+            pageView.currentIndex = 1;
+            Router.goToFrames();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_VolumeUp) {
+            // Reset volume up state
+            volumeUpPressed = false;
+            event.accepted = true;
+        } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            powerButtonPressed = false;
+            if (powerButtonTimer.running) {
+                PowerBatteryHandler.handlePowerButtonPress();
+                powerButtonTimer.stop();
+            }
+            event.accepted = true;
+        }
+    }
+
     // Slate Font Family - bundled font resources
     FontLoader {
         id: slateLight
@@ -1739,24 +1812,6 @@ Item {
 
     // NOTE: Compositor signal connections are made manually in Component.onCompleted
     // because the compositor property is null when this file is first loaded
-
-    Keys.onReleased: event => {
-        // Reset volume up state
-        if (event.key === Qt.Key_VolumeUp) {
-            volumeUpPressed = false;
-            event.accepted = true;
-        }
-
-        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
-            powerButtonPressed = false;
-
-            if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress();
-                powerButtonTimer.stop();
-            }
-            event.accepted = true;
-        }
-    }
 
     PowerMenu {
         id: powerMenu
