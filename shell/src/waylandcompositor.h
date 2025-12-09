@@ -6,9 +6,6 @@
 #include <QWaylandSurface>
 #include <QWaylandQuickSurface>
 #include <QWaylandXdgShell>
-#include <QWaylandXdgShell>
-#include <QWaylandXdgSurface>
-#include <QWaylandXdgPopup>
 #include <QWaylandWlShell>
 #include <QWaylandQuickOutput>
 #include <QWaylandClient>
@@ -23,24 +20,35 @@ class SettingsManager;
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
+    Q_PROPERTY(QWaylandQuickOutput *output READ output CONSTANT)
 
   public:
     explicit WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager);
     ~WaylandCompositor() override;
 
     QQmlListProperty<QObject> surfaces();
-    Q_INVOKABLE void          launchApp(const QString &command);
-    Q_INVOKABLE void          closeWindow(int surfaceId);
-    Q_INVOKABLE QObject      *getSurfaceById(int surfaceId);
-    Q_INVOKABLE void          setCompositorActive(bool active);
-    Q_INVOKABLE void          setOutputOrientation(const QString &orientation);
+    QWaylandQuickOutput      *output() const {
+        return m_output;
+    }
+    Q_INVOKABLE void     launchApp(const QString &command);
+    Q_INVOKABLE void     closeWindow(int surfaceId);
+    Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
+    Q_INVOKABLE void     setCompositorActive(bool active);
+    Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
 
   signals:
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     void surfaceDestroyed(QWaylandSurface *surface, int surfaceId);
+    void popupCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface,
+                      QWaylandSurface *parentSurface);
     void appLaunched(const QString &command, int pid);
     void appClosed(int pid);
+    void systemBackTriggered();
+    void systemHomeTriggered();
+
+  protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
   private slots:
     void handleSurfaceCreated(QWaylandSurface *surface);

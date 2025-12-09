@@ -35,6 +35,11 @@ MApp {
             // Access the xdgSurface that was set from QML (not C++ property)
             shellSurface: nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.xdgSurface : null
 
+            // CRITICAL: Bind output to compositor's output
+            // Qt's XdgToplevelIntegration gets output from view()->output()
+            // If not set, it returns nullptr and crashes when calling availableGeometry()
+            output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
+
             // Ensure proper rendering
             touchEventsEnabled: true
 

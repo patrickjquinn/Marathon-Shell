@@ -48,7 +48,7 @@
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
-// TouchEmulator removed - Q20 keyboard has native scroll mode via CapsLock
+#include "src/cursormanager.h"
 
 #include "src/mpris2controller.h"
 #include "src/rotationmanager.h"
@@ -385,6 +385,11 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
     engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+
+    // Cursor auto-hide manager for EGLFS
+    CursorManager *cursorManager = new CursorManager(&app);
+    engine.rootContext()->setContextProperty("CursorManager", cursorManager);
+
     qCritical() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
 
     // Wire AudioManager to PowerManager for audio playback wakelocks

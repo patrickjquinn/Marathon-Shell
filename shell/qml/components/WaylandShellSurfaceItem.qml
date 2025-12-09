@@ -11,6 +11,11 @@ ShellSurfaceItem {
     shellSurface: surfaceObj && surfaceObj.xdgSurface ? surfaceObj.xdgSurface : null
     touchEventsEnabled: true
 
+    // CRITICAL: Bind output to compositor's output
+    // Qt's XdgToplevelIntegration gets output from view()->output()
+    // If not set, it returns nullptr and crashes when calling availableGeometry()
+    output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
+
     // CRITICAL: Debounced size update to prevent resize spam during animations
     // Apps rescale when they receive size changes, causing fuzzy/squished rendering
     function scheduleSizeUpdate() {

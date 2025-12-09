@@ -10,69 +10,21 @@ Item {
     focus: true  // Enable keyboard input
 
     // Handle physical keys from Q20 hardware
+    // Captured keycodes: Back = KEY_ESC (Qt.Key_Escape), BB = KEY_LEFTMETA (Qt.Key_Super_L)
+    // NOTE: EGLFS may filter Super_L as "system key" - using Meta modifier check as fallback
+
     Keys.onReleased: event => {
-        if (event.key === Qt.Key_Back || event.key === Qt.Key_Escape) {
-            // BACK -> Same as onSwipeBack (lines 492-509)
-            Logger.info("Shell", "Physical BACK key pressed");
-            if (typeof AppLifecycleManager !== 'undefined') {
-                var handled = AppLifecycleManager.handleSystemBack();
-                if (!handled) {
-                    Logger.info("Shell", "App didn't handle back, closing");
-                    if (UIStore.appWindowOpen) {
-                        UIStore.closeApp();
-                    }
-                }
-            } else {
-                Logger.info("Shell", "AppLifecycleManager unavailable, closing directly");
-                if (UIStore.appWindowOpen) {
-                    UIStore.closeApp();
-                }
-            }
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Menu || event.key === Qt.Key_HomePage || event.key === Qt.Key_Super_L) {
-            // BLACKBERRY KEY -> Same as onLongSwipeUp (lines 527-579)
-            Logger.info("Shell", "Physical MENU/BB key pressed - longSwipeUp");
+        // Volume logic and others remain here
+        // ESC and Meta are handled via C++ Signals (handleBackKey/handleHomeKey)
+        // to prevent focus-stealing issues and double-actions.
 
-            // Dismiss keyboard if visible
-            if (virtualKeyboard.active) {
-                Logger.info("Shell", "Dismissing keyboard with BB key");
-                HapticService.light();
-                virtualKeyboard.active = false;
-                event.accepted = true;
-                return;
-            }
-
-            // If app is open, minimize to task switcher
-            if (UIStore.appWindowOpen) {
-                Logger.info("Shell", "APP WINDOW OPEN - Minimizing to task switcher (BB key)");
-
-                // Use AppLifecycleManager to create task and minimize properly
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    Logger.info("Shell", "Calling AppLifecycleManager.minimizeForegroundApp()");
-                    AppLifecycleManager.minimizeForegroundApp();
-                }
-
-                // Detach app instance to background container so it stays alive for preview
-                var appInstance = appWindow.detachCurrentApp();
-                if (appInstance) {
-                    Logger.info("Shell", "Detached app instance to background container");
-                    appInstance.parent = backgroundAppsContainer;
-                    appInstance.visible = true;
-                }
-
-                appWindow.hide();
-                UIStore.minimizeApp();
-            }
-
-            // Navigate to task switcher (Active Frames)
-            pageView.currentIndex = 1;
-            Router.goToFrames();
-            event.accepted = true;
-        } else if (event.key === Qt.Key_VolumeUp) {
-            // Reset volume up state
+        // Volume keys
+        if (event.key === Qt.Key_VolumeUp) {
             volumeUpPressed = false;
             event.accepted = true;
-        } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+        } else
+        // Power key
+        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             powerButtonPressed = false;
             if (powerButtonTimer.running) {
                 PowerBatteryHandler.handlePowerButtonPress();
@@ -110,8 +62,120 @@ Item {
         source: "qrc:/fonts/lucide.ttf"
     }
 
+    // ===== AUTO-HIDE CURSOR =====
+    // Uses C++ CursorManager with QGuiApplication::setOverrideCursor
+    // QML MouseArea cursorShape doesn't work reliably with EGLFS
+
+    // Global mouse area to track ALL mouse movement for cursor visibility
+    // Must be ON TOP but NOT steal keyboard focus
+    MouseArea {
+        id: cursorTracker
+        anchors.fill: parent
+        z: 10000  // ON TOP of everything to receive mouse events first
+        acceptedButtons: Qt.NoButton  // Don't consume any clicks
+        hoverEnabled: true
+        enabled: true
+        // CRITICAL: Don't take focus from the shell - keys need to go to shell
+        focus: false
+
+        onPositionChanged: mouse => {
+            // Notify C++ CursorManager of mouse activity
+            if (typeof CursorManager !== 'undefined') {
+                CursorManager.onMouseActivity();
+            }
+            mouse.accepted = false;  // Allow event to propagate to items below
+        }
+
+        onPressed: mouse => {
+            mouse.accepted = false;
+        }
+        onReleased: mouse => {
+            mouse.accepted = false;
+        }
+        onClicked: mouse => {
+            mouse.accepted = false;
+        }
+    }
+
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
+
+    // Input Handling Functions (Triggered by C++ Signals)
+    function handleBackKey() {
+        // Priority 1: Close Shell Overlays
+        var overlayClosed = false;
+        if (showPinScreen) {
+            showPinScreen = false;
+            lockScreen.swipeProgress = 0;
+            pinScreen.reset();
+            overlayClosed = true;
+        } else if (UIStore.searchOpen) {
+            UIStore.closeSearch();
+            overlayClosed = true;
+        } else if (UIStore.shareSheetOpen) {
+            UIStore.closeShareSheet();
+            overlayClosed = true;
+        } else if (UIStore.clipboardManagerOpen) {
+            UIStore.closeClipboardManager();
+            overlayClosed = true;
+        } else if (peekFlow.peekProgress > 0) {
+            peekFlow.closePeek();
+            overlayClosed = true;
+        } else if (UIStore.quickSettingsOpen) {
+            UIStore.closeQuickSettings();
+            overlayClosed = true;
+        } else if (messagingHub.showVertical) {
+            messagingHub.showVertical = false;
+            overlayClosed = true;
+        }
+
+        if (overlayClosed) {
+            Logger.info("Shell", "Back Key closed overlay");
+            return;
+        }
+
+        // Priority 2: App Back or Close (System Back)
+        Logger.info("Shell", "Back Key Triggered - Calling handleSystemBack");
+
+        if (typeof AppLifecycleManager !== 'undefined') {
+            var handled = AppLifecycleManager.handleSystemBack();
+            if (!handled) {
+                Logger.info("Shell", "Back not handled by app, closing");
+                if (UIStore.appWindowOpen) {
+                    UIStore.closeApp();
+                }
+            }
+        } else if (UIStore.appWindowOpen) {
+            UIStore.closeApp();
+        }
+    }
+
+    function handleHomeKey() {
+        // Dismiss keyboard if visible
+        if (virtualKeyboard.active) {
+            HapticService.light();
+            virtualKeyboard.active = false;
+            return;
+        }
+
+        // If app is open, minimize to task switcher
+        if (UIStore.appWindowOpen) {
+            if (typeof AppLifecycleManager !== 'undefined') {
+                AppLifecycleManager.minimizeForegroundApp();
+            }
+            var appInstance = appWindow.detachCurrentApp();
+            if (appInstance) {
+                appInstance.parent = backgroundAppsContainer;
+                appInstance.visible = true;
+            }
+            appWindow.hide();
+            UIStore.minimizeApp();
+        }
+
+        // Navigate to task switcher (Active Frames)
+        pageView.currentIndex = 1;
+        Router.goToFrames();
+    }
 
     // State management moved to stores
     property bool showPinScreen: false
@@ -163,6 +227,9 @@ Item {
     }
 
     Component.onCompleted: {
+        // Ensure shell has keyboard focus for Q20 hardware keys
+        shell.forceActiveFocus();
+
         compositor = shellInitialization.initialize(shell, Window.window);
 
         // Initialize global services
@@ -200,6 +267,18 @@ Item {
 
             compositor.appClosed.connect(shell, function (pid) {
                 compositorConnections.handleAppClosed(pid);
+            });
+
+            // Connect Global Input Signals (from C++ Event Filter)
+            compositor.systemBackTriggered.connect(handleBackKey);
+            compositor.systemHomeTriggered.connect(handleHomeKey);
+
+            // Connect popup signal for dialogs (keyring, password prompts, etc.)
+            compositor.popupCreated.connect(shell, function (surface, surfaceId, xdgSurface, parentSurface) {
+                console.warn("========== POPUP RECEIVED IN QML ==========");
+                console.warn("  surfaceId:", surfaceId);
+                console.warn("  parentSurface:", parentSurface);
+                compositorConnections.handlePopupCreated(surface, surfaceId, xdgSurface, parentSurface);
             });
         }
     }
@@ -1740,26 +1819,9 @@ Item {
                 powerButtonTimer.start();
             }
             event.accepted = true;
-        } else if (event.key === Qt.Key_Escape) {
-            Logger.debug("Shell", "Escape key pressed");
-            if (showPinScreen) {
-                showPinScreen = false;
-                lockScreen.swipeProgress = 0;
-                pinScreen.reset();
-            } else if (UIStore.searchOpen) {
-                UIStore.closeSearch();
-            } else if (UIStore.shareSheetOpen) {
-                UIStore.closeShareSheet();
-            } else if (UIStore.clipboardManagerOpen) {
-                UIStore.closeClipboardManager();
-            } else if (peekFlow.peekProgress > 0) {
-                peekFlow.closePeek();
-            } else if (UIStore.quickSettingsOpen) {
-                UIStore.closeQuickSettings();
-            } else if (messagingHub.showVertical) {
-                messagingHub.showVertical = false;
-            }
-        } else if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
+        } else
+        // ESC and Meta consumption removed here - handled by C++ filter
+        if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+Space pressed - Opening Universal Search");
             UIStore.toggleSearch();
             HapticService.light();

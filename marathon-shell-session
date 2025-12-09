@@ -20,9 +20,11 @@ export QT_QPA_PLATFORM=eglfs
 export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
 # Use EGLFS KMS backend with logind integration for proper VT/DRM handover
 export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
-# CRITICAL: Use KMS config file to force software cursor (fixes "Failed to move cursor" errors)
+# KMS config: card1 (DPI-1), software cursor, per Qt 6 EGLFS docs
 export QT_QPA_EGLFS_KMS_CONFIG=/usr/local/share/marathon/eglfs.json
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+# Hide cursor on startup (EGLFS specific) - will be managed by CursorManager if needed
+# cursor logic handled by CursorManager
 # Unset style to allow theme control (matching run.sh)
 export QT_QUICK_CONTROLS_STYLE=""
 export QT_MEDIA_BACKEND=gstreamer
