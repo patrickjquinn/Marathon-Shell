@@ -13,6 +13,7 @@
 #include <QWaylandXdgPopup>
 #include <QtMath>
 #include <QQuickItem>
+#include <QKeyEvent>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -587,9 +588,8 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
     // Get parent surface info for logging
     QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
     QWaylandSurface    *parentSurface    = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
-    int parentSurfaceId = parentSurface ? parentSurface->property("surfaceId").toInt() : -1;
-
-    qDebug() << "[WaylandCompositor] Popup created:" << surfaceId << "parent:" << parentSurfaceId;
+    qDebug() << "[WaylandCompositor] Popup created:" << surfaceId
+             << "parent:" << (parentSurface ? parentSurface->property("surfaceId").toInt() : -1);
 
     // Store popup data
     surface->setProperty("isPopup", true);
@@ -917,6 +917,19 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
 
     m_output->setTransform(transform);
     calculateAndSetPhysicalSize();
+}
+
+void WaylandCompositor::injectKey(int key, int modifiers, bool pressed) {
+    if (!defaultSeat()) {
+        qWarning() << "[WaylandCompositor] No default seat found for key injection";
+        return;
+    }
+
+    QEvent::Type type = pressed ? QEvent::KeyPress : QEvent::KeyRelease;
+    QKeyEvent    event(type, key, static_cast<Qt::KeyboardModifiers>(modifiers));
+    defaultSeat()->sendFullKeyEvent(&event);
+    qInfo() << "[WaylandCompositor] Injected Key:" << key << "Modifiers:" << modifiers
+            << "Pressed:" << pressed;
 }
 
 bool WaylandCompositor::checkIdleInhibitors() {

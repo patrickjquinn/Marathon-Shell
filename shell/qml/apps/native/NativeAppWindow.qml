@@ -17,6 +17,11 @@ MApp {
     // When minimized, signal to shell surface item to lock its buffer
     // This retains the last rendered frame during minimize for smooth task switcher preview
     property bool isMinimized: false
+    property bool isNative: true
+
+    // Signal to request closing the app window (e.g. when native app exits)
+    // skipNative: true if the native surface is already destroyed (client closed)
+    signal requestClose(bool skipNative)
 
     appId: nativeAppId
     appName: nativeTitle || "Native App"
@@ -24,10 +29,6 @@ MApp {
     onBackPressed: {
         return false;
     }
-
-    // Signal to request closing the app window (e.g. when native app exits)
-    // skipNative: true if the native surface is already destroyed (client closed)
-    signal requestClose(bool skipNative)
 
     content: Rectangle {
         id: contentContainer

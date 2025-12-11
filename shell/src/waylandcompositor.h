@@ -41,6 +41,7 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
     Q_INVOKABLE void     setCompositorActive(bool active);
     Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
+    Q_INVOKABLE void     injectKey(int key, int modifiers, bool pressed);
     Q_INVOKABLE bool     checkIdleInhibitors();
     bool                 hasIdleInhibitingSurface() const {
         return m_hasIdleInhibitor;

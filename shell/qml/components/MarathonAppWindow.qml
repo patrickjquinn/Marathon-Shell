@@ -22,6 +22,42 @@ Rectangle {
     property var activeDialogs: []
     // Track whether we're actually closing (vs just hiding for minimize)
     property bool isClosing: false
+    // Component for creating floating dialog overlays (file pickers, etc.)
+    // These are xdg_toplevel windows that should float above the main app
+    property Component dialogOverlayComponent
+
+    dialogOverlayComponent: Component {
+        WaylandShellSurfaceItem {
+            id: dialogItem
+
+            property var dialogSurface: null
+            property int dialogSurfaceId: -1
+
+            // Fill the app window for maximized dialogs (mobile UX)
+            anchors.fill: parent
+            z: 1000
+            // Bind to the dialog surface
+            surfaceObj: dialogSurface
+            surfaceId: dialogSurfaceId
+            shellSurface: dialogSurface ? dialogSurface.xdgSurface : null
+            // Dialogs should be visible immediately
+            hasSentInitialSize: true
+            autoResize: true
+            Component.onCompleted: {
+                Logger.info("DialogOverlay", "Created dialog overlay for surfaceId: " + dialogSurfaceId);
+            }
+
+            // Destroy when the surface is destroyed
+            Connections {
+                function onSurfaceDestroyed() {
+                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
+                    dialogItem.destroy();
+                }
+
+                target: dialogSurface
+            }
+        }
+    }
 
     signal closed
     signal minimized
@@ -41,14 +77,12 @@ Rectangle {
                     appContentLoader.sourceComponent = undefined;
                     appContentLoader.sourceComponent = appInstanceContainer;
                     appWindow.isLoadingComponent = false;
-
                     // Connect close request signal
-                    if (nativeInstance.requestClose) {
+                    if (nativeInstance.requestClose)
                         nativeInstance.requestClose.connect(function (skipNative) {
                             Logger.info("AppWindow", "Native app requested close: " + id + " skipNative=" + skipNative);
                             appWindow.closeApp(skipNative);
                         });
-                    }
 
                     // CRITICAL: Register native app with lifecycle manager so it can be minimized/restored
                     if (typeof AppLifecycleManager !== 'undefined') {
@@ -153,11 +187,18 @@ Rectangle {
                 Logger.info("AppWindow", "Reusing existing native app instance: " + id);
                 existingNativeInstance.visible = true;
                 appWindow.pendingAppInstance = existingNativeInstance;
-                // FORCE reload by clearing first
-                // Suppress splash for this reload as we are just updating the surface
-                suppressSplash = true;
-                appContentLoader.sourceComponent = undefined;
-                appContentLoader.sourceComponent = appInstanceContainer;
+                existingNativeInstance.visible = true;
+                appWindow.pendingAppInstance = existingNativeInstance;
+                // OPTIMIZATON: If loader is already ready, simply adopt the instance
+                // to avoid destroying/recreating the container (prevents blank flash)
+                if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
+                    appContentLoader.item.adoptPendingApp();
+                } else {
+                    // Force reload if loader is not ready or empty
+                    suppressSplash = true;
+                    appContentLoader.sourceComponent = undefined;
+                    appContentLoader.sourceComponent = appInstanceContainer;
+                }
             } else {
                 // Create new native app instance using dynamic loading
                 console.log("[NATIVE APP] Creating new instance:", id);
@@ -189,9 +230,16 @@ Rectangle {
 
                     existingInstance.visible = true;
                     appWindow.pendingAppInstance = existingInstance;
-                    // FORCE reload by clearing first
-                    appContentLoader.sourceComponent = undefined;
-                    appContentLoader.sourceComponent = appInstanceContainer;
+                    existingInstance.visible = true;
+                    appWindow.pendingAppInstance = existingInstance;
+                    // OPTIMIZATON: If loader is already ready, simply adopt the instance
+                    if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
+                        appContentLoader.item.adoptPendingApp();
+                    } else {
+                        // Force reload
+                        appContentLoader.sourceComponent = undefined;
+                        appContentLoader.sourceComponent = appInstanceContainer;
+                    }
                 } else {
                     // Load external Marathon app asynchronously
                     Logger.info("AppWindow", "Loading external app from: " + appInfo.absolutePath);
@@ -256,9 +304,8 @@ Rectangle {
         // Ensure lifecycle manager knows the app is fully closed (removes task)
         // skipNativeClose: true if closed by "X" button native (surface already gone)
         // skipNativeClose: false if closed by shell UI (task switcher/gesture)
-        if (typeof AppLifecycleManager !== 'undefined') {
+        if (typeof AppLifecycleManager !== 'undefined')
             AppLifecycleManager.closeApp(appId, skipNativeClose === true);
-        }
 
         // CRITICAL: Cleanup any active dialog overlays (file pickers, etc.)
         // If we don't do this, they remain attached to the surface which causes
@@ -266,13 +313,11 @@ Rectangle {
         if (activeDialogs.length > 0) {
             Logger.info("AppWindow", "Cleaning up " + activeDialogs.length + " dialog overlays");
             for (var i = 0; i < activeDialogs.length; i++) {
-                if (activeDialogs[i]) {
+                if (activeDialogs[i])
                     activeDialogs[i].destroy();
-                }
             }
             activeDialogs = [];
         }
-
         appContentLoader.source = "";
         isClosing = true;
         slideOut.start();
@@ -291,7 +336,6 @@ Rectangle {
         appWindow.appName = name;
         appWindow.appIcon = icon;
         appWindow.appType = type;
-
         // CRITICAL: Update UIStore so shell knows an app is open
         // Without this, subsequent minimize gestures won't run the minimize flow
         if (typeof UIStore !== 'undefined') {
@@ -300,7 +344,6 @@ Rectangle {
             UIStore.currentAppName = name;
             UIStore.currentAppIcon = icon;
         }
-
         // Load the container component if needed
         if (!appContentLoader.item) {
             appWindow.pendingAppInstance = instance;
@@ -330,7 +373,6 @@ Rectangle {
             event.accepted = true;
         }
     }
-
     // Loading splash (shown while component is loading)
     Rectangle {
         id: loadingSplash
@@ -472,17 +514,18 @@ Rectangle {
         id: appInstanceContainer
 
         Item {
+            id: containerRoot
+
             property var appInstance: null
             property var minimizeConnection: null
             property var closedConnection: null
 
-            anchors.fill: parent
-            Component.onCompleted: {
+            function adoptPendingApp() {
                 if (appWindow.pendingAppInstance) {
                     appInstance = appWindow.pendingAppInstance;
                     appWindow.pendingAppInstance = null;
-                    appInstance.parent = this;
-                    appInstance.anchors.fill = this;
+                    appInstance.parent = containerRoot;
+                    appInstance.anchors.fill = containerRoot;
                     // Capture values to avoid accessing potentially destroyed appWindow later
                     var capturedAppName = appWindow.appName;
                     var capturedAppId = appWindow.appId;
@@ -490,7 +533,7 @@ Rectangle {
                     // Connect to app registration signals
                     // NOTE: Explicitly specify 'appInstanceContainer' as receiver to avoid "Could not find receiver" warnings
                     if (appInstance.requestRegister)
-                        appInstance.requestRegister.connect(appInstanceContainer, function (appId, appInst) {
+                        appInstance.requestRegister.connect(containerRoot, function (appId, appInst) {
                             console.log("AppWindow: App requested registration:", appId);
                             if (typeof AppLifecycleManager !== 'undefined')
                                 AppLifecycleManager.registerApp(appId, appInst);
@@ -499,21 +542,21 @@ Rectangle {
                         });
 
                     if (appInstance.requestUnregister)
-                        appInstance.requestUnregister.connect(appInstanceContainer, function (appId) {
+                        appInstance.requestUnregister.connect(containerRoot, function (appId) {
                             console.log("AppWindow: App requested unregistration:", appId);
                             if (typeof AppLifecycleManager !== 'undefined')
                                 AppLifecycleManager.unregisterApp(appId);
                         });
 
                     if (appInstance.minimizeRequested)
-                        minimizeConnection = appInstance.minimizeRequested.connect(appInstanceContainer, function () {
+                        minimizeConnection = appInstance.minimizeRequested.connect(containerRoot, function () {
                             Logger.info("AppWindow", "MApp minimize requested: " + capturedAppName);
                             if (capturedWindow)
                                 capturedWindow.minimized();
                         });
 
                     if (appInstance.closed)
-                        closedConnection = appInstance.closed.connect(appInstanceContainer, function () {
+                        closedConnection = appInstance.closed.connect(containerRoot, function () {
                             Logger.info("AppWindow", "MApp closed: " + capturedAppName);
                             if (capturedWindow)
                                 capturedWindow.hide();
@@ -521,6 +564,11 @@ Rectangle {
 
                     Logger.info("AppWindow", "MApp instance connected: " + capturedAppId);
                 }
+            }
+
+            anchors.fill: parent
+            Component.onCompleted: {
+                adoptPendingApp();
             }
             Component.onDestruction: {
                 if (appInstance) {
@@ -615,41 +663,5 @@ Rectangle {
 
         target: MarathonAppLoader
         enabled: MarathonAppLoader !== null
-    }
-
-    // Component for creating floating dialog overlays (file pickers, etc.)
-    // These are xdg_toplevel windows that should float above the main app
-    property Component dialogOverlayComponent: Component {
-        WaylandShellSurfaceItem {
-            id: dialogItem
-            property var dialogSurface: null
-            property int dialogSurfaceId: -1
-
-            // Fill the app window for maximized dialogs (mobile UX)
-            anchors.fill: parent
-            z: 1000
-
-            // Bind to the dialog surface
-            surfaceObj: dialogSurface
-            surfaceId: dialogSurfaceId
-            shellSurface: dialogSurface ? dialogSurface.xdgSurface : null
-
-            // Dialogs should be visible immediately
-            hasSentInitialSize: true
-            autoResize: true
-
-            Component.onCompleted: {
-                Logger.info("DialogOverlay", "Created dialog overlay for surfaceId: " + dialogSurfaceId);
-            }
-
-            // Destroy when the surface is destroyed
-            Connections {
-                target: dialogSurface
-                function onSurfaceDestroyed() {
-                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
-                    dialogItem.destroy();
-                }
-            }
-        }
     }
 }

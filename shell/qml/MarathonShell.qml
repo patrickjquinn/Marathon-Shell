@@ -775,6 +775,8 @@ Item {
             Router.goToAppPage(0);
         }
         onLongSwipeUp: {
+            // Fast velocity for throw effect
+
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
             // Dismiss keyboard if visible, otherwise task switcher
             if (virtualKeyboard.active) {
@@ -787,6 +789,9 @@ Item {
                 "target": "activeFrames"
             });
             if (UIStore.appWindowOpen) {
+                // AppLifecycleManager.minimizeForegroundApp() called above handles the logic/state
+                // Detach happens in snapIntoGridAnimation.onFinished to keep app visible during scale
+
                 Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
@@ -798,26 +803,16 @@ Item {
                 } else {
                     Logger.error("NavBar", "   AppLifecycleManager is undefined!");
                 }
-                // CRITICAL: Detach app instance to background container so it stays alive for preview
-                var appInstance = appWindow.detachCurrentApp();
-                if (appInstance) {
-                    Logger.info("NavBar", "   Detached app instance to background container");
-                    appInstance.parent = backgroundAppsContainer;
-                    appInstance.visible = true;
-                }
-                Logger.info("NavBar", "   Hiding appWindow");
-                appWindow.hide();
-                Logger.info("NavBar", "   Calling UIStore.minimizeApp()");
-                UIStore.minimizeApp();
+                // Trigger smooth animation instead of abrupt hide
+                Logger.info("NavBar", "   Triggering snapIntoGridAnimation for smooth transition");
+                shell.isTransitioningToActiveFrames = true;
+                // Start animation - it will handle minimizing UIStore and navigating to frames on finish
+                snapIntoGridAnimation.startWithVelocity(-1500);
             } else {
                 Logger.info("NavBar", "📍 No app open - just navigating to task switcher");
-                Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
-                Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
+                pageView.currentIndex = 1;
+                Router.goToFrames();
             }
-            Logger.info("NavBar", "   Setting pageView.currentIndex = 1");
-            pageView.currentIndex = 1;
-            Logger.info("NavBar", "   Calling Router.goToFrames()");
-            Router.goToFrames();
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP COMPLETE ━━━━━━━");
         }
         onStartPageTransition: {
@@ -1189,19 +1184,27 @@ Item {
             var duration = Math.max(150, 350 - (velocityFactor * 100));
             scaleAnim.duration = duration;
             opacityAnim.duration = duration;
+            // CRITICAL: Navigate to frames IMMEDIATELY so the background is ready
+            // and the app "shrinks" onto the task switcher grid
+            if (typeof Router !== 'undefined')
+                Router.goToFrames();
+
             start();
         }
 
         onFinished: {
-            // Minimize the app window
+            // Detach app instance explicitly after animation completes so it's captured correctly
+            // and moves to background for preview generation
+            var appInstance = appWindow.detachCurrentApp();
+            if (appInstance) {
+                appInstance.parent = backgroundAppsContainer;
+                appInstance.visible = true;
+            }
+            // Minimize the app window LOGICALLY only after visual animation is done
             if (UIStore.settingsOpen)
                 UIStore.minimizeSettings();
             else if (UIStore.appWindowOpen)
                 UIStore.minimizeApp();
-            // Navigate to task switcher
-            if (typeof Router !== 'undefined')
-                Router.goToFrames();
-
             shell.isTransitioningToActiveFrames = false;
         }
 
@@ -1220,7 +1223,7 @@ Item {
 
             target: appWindowContainer
             property: "opacity"
-            to: 0
+            to: 1 // Keep fully opaque so it "becomes" the card
             duration: 300
             easing.type: Easing.OutCubic
         }
@@ -1817,18 +1820,19 @@ Item {
     // When native apps (Firefox, Chromium, GTK) request text input via zwp_text_input protocol,
     // the compositor emits this signal and we show/hide the virtual keyboard accordingly
     Connections {
-        target: typeof compositor !== 'undefined' ? compositor : null
-        enabled: typeof compositor !== 'undefined'
+        // Note: We don't auto-hide when show=false to match Qt.inputMethod behavior
+        // This prevents keyboard flickering between input fields
+
         function onNativeTextInputPanelRequested(show) {
             if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
                 Logger.info("Shell", "Native app text input panel requested: " + show);
-                if (show && !virtualKeyboard.active) {
+                if (show && !virtualKeyboard.active)
                     virtualKeyboard.active = true;
-                }
-                // Note: We don't auto-hide when show=false to match Qt.inputMethod behavior
-                // This prevents keyboard flickering between input fields
             }
         }
+
+        target: typeof compositor !== 'undefined' ? compositor : null
+        enabled: typeof compositor !== 'undefined'
     }
 
     // Auto-dismiss keyboard when clicking above it (user request)

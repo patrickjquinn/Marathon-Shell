@@ -231,6 +231,19 @@ QtObject {
         Logger.info("AppLifecycle", "Routing back gesture to: " + appId);
         Logger.info("AppLifecycle", "App registered: " + (appRegistry[appId] !== undefined));
         if (appRegistry[appId]) {
+            // Native App Handling: Inject "Alt + Left" for Back
+            var app = appRegistry[appId];
+            if (app.isNative) {
+                Logger.info("AppLifecycle", "Native app back gesture - Injecting Escape");
+                if (typeof AppLaunchService !== 'undefined' && AppLaunchService.compositor) {
+                    // Qt.Key_Escape
+                    AppLaunchService.compositor.injectKey(Qt.Key_Escape, 0, true);
+                    AppLaunchService.compositor.injectKey(Qt.Key_Escape, 0, false);
+                    return true;
+                } else {
+                    Logger.warn("AppLifecycle", "Cannot inject key: AppLaunchService.compositor missing");
+                }
+            }
             Logger.info("AppLifecycle", "Calling app.handleBack()");
             var handled = appRegistry[appId].handleBack();
             Logger.info("AppLifecycle", "Back handled by app: " + handled);
@@ -246,6 +259,17 @@ QtObject {
 
         var appId = foregroundApp.appId;
         if (appRegistry[appId]) {
+            // Native App Handling: Inject "Alt + Right" for Forward
+            var app = appRegistry[appId];
+            if (app.isNative) {
+                Logger.info("AppLifecycle", "Native app forward gesture - Injecting Alt+Right");
+                if (typeof AppLaunchService !== 'undefined' && AppLaunchService.compositor) {
+                    // Qt.Key_Right = 0x01000014, Qt.AltModifier = 0x08000000
+                    AppLaunchService.compositor.injectKey(Qt.Key_Right, Qt.AltModifier, true);
+                    AppLaunchService.compositor.injectKey(Qt.Key_Right, Qt.AltModifier, false);
+                    return true;
+                }
+            }
             var handled = appRegistry[appId].handleForward();
             return handled;
         }
@@ -316,14 +340,12 @@ QtObject {
             // Check if this is a native app with a surface that needs closing
             if (app.surfaceId !== undefined && app.surfaceId > 0) {
                 Logger.info("AppLifecycle", "Native app detected with surfaceId: " + app.surfaceId);
-
-                if (skipNativeClose) {
+                if (skipNativeClose)
                     Logger.info("AppLifecycle", "Skipping native close request (already closed by client/surface destroyed)");
-                } else if (typeof AppLaunchService !== 'undefined') {
+                else if (typeof AppLaunchService !== 'undefined')
                     AppLaunchService.closeNativeApp(app.surfaceId);
-                } else {
+                else
                     Logger.warn("AppLifecycle", "AppLaunchService not available to close native app");
-                }
             }
             app.close();
         }

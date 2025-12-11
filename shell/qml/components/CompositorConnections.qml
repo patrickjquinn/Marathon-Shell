@@ -28,11 +28,9 @@ QtObject {
     function handleSurfaceCreated(surface, surfaceId, xdgSurface) {
         // Reduced verbosity logging
         Logger.info("CompositorConnections", "Surface created: " + surfaceId + (root.pendingNativeApp ? " (Pending App: " + root.pendingNativeApp.name + ")" : ""));
-
         // Get app info from xdgSurface if available
         var appId = xdgSurface && xdgSurface.toplevel ? xdgSurface.toplevel.appId : "";
         var title = xdgSurface && xdgSurface.toplevel ? xdgSurface.toplevel.title : "";
-
         // Set properties on the surface for later use
         surface.xdgSurface = xdgSurface;
         if (xdgSurface && xdgSurface.toplevel)

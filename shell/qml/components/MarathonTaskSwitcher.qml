@@ -223,7 +223,6 @@ Item {
             width: GridView.view.cellWidth
             height: GridView.view.cellHeight
             Component.onCompleted: {
-                console.log("[TaskSwitcher] Delegate created for:", model.appId, "type:", model.type);
                 Logger.info("TaskSwitcher", "Delegate created for: " + model.appId + " type: " + model.type);
             }
 
@@ -314,6 +313,7 @@ Item {
                     // - Horizontal: deltaX > deltaY * 1.5 (horizontal dominates)
                     // - Vertical: deltaY > deltaX * 1.5 (vertical dominates)
                     // - Ambiguous: Will be treated as tap if released quickly
+                    // Native apps need foreground tracking too
 
                     id: cardDragArea
 
@@ -406,8 +406,6 @@ Item {
                         }
                     }
                     onReleased: function (mouse) {
-                        // Native apps need foreground tracking too
-
                         Logger.info("TaskSwitcher", "⬆ RELEASED card: " + model.appId + " (time: " + (Date.now() - startTime) + "ms, " + "dragging: " + isDragging + ", " + "vertical: " + isVerticalGesture + ", " + "horizontal: " + isHorizontalGesture + ")");
                         // If close button was clicked, ignore
                         if (closeButtonClicked) {
@@ -687,6 +685,7 @@ Item {
                                             source: haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                             onItemChanged: {
                                                 if (item && surfaceObj) {
+                                                    item.anchors.fill = parent; // Ensure it fills the loader
                                                     item.autoResize = false; // CRITICAL: Set this BEFORE surfaceObj to prevent resize
                                                     item.surfaceObj = surfaceObj;
                                                 }
