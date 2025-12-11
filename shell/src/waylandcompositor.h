@@ -8,6 +8,7 @@
 #include <QWaylandXdgShell>
 #include <QWaylandWlShell>
 #include <QWaylandQuickOutput>
+#include <QWaylandViewporter>
 #include <QWaylandClient>
 #include <QWaylandSeat>
 #include <QQuickWindow>
@@ -65,6 +66,7 @@ class WaylandCompositor : public QWaylandCompositor {
 
     QWaylandXdgShell               *m_xdgShell;
     QWaylandWlShell                *m_wlShell;
+    QWaylandViewporter             *m_viewporter;
     QWaylandQuickOutput            *m_output;
     QQuickWindow                   *m_window;
     SettingsManager                *m_settingsManager;

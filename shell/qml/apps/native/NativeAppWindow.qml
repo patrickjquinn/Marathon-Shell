@@ -1,9 +1,10 @@
-import QtQuick
-import QtWayland.Compositor
+import "../../components" as ShellComponents
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
+import QtWayland.Compositor
 
 MApp {
     id: nativeAppWindow
@@ -17,95 +18,70 @@ MApp {
     appId: nativeAppId
     appName: nativeTitle || "Native App"
     appIcon: nativeAppIcon || "layout-grid"
-
     onBackPressed: {
         return false;
     }
 
     content: Rectangle {
+        id: contentContainer
+
         anchors.fill: parent
         color: MColors.background
 
-        ShellSurfaceItem {
+        // CRITICAL: Use our custom WaylandShellSurfaceItem with autoResize control
+        ShellComponents.WaylandShellSurfaceItem {
             id: surfaceItem
+
             anchors.fill: parent
-
-            property bool hasConfigured: false
-
-            // Access the xdgSurface that was set from QML (not C++ property)
-            shellSurface: nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.xdgSurface : null
-
-            // CRITICAL: Bind output to compositor's output
-            // Qt's XdgToplevelIntegration gets output from view()->output()
-            // If not set, it returns nullptr and crashes when calling availableGeometry()
-            output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
-
-            // Ensure proper rendering
-            touchEventsEnabled: true
-
-            // CRITICAL: Wait for surface to have content before configuring
-            // Sending configure too early causes incorrect initial scaling
-            Connections {
-                target: nativeAppWindow.waylandSurface
-                enabled: nativeAppWindow.waylandSurface !== null
-
-                function onHasContentChanged() {
-                    if (nativeAppWindow.waylandSurface.hasContent && !surfaceItem.hasConfigured) {
-                        surfaceItem.hasConfigured = true;
-                        var toplevel = nativeAppWindow.waylandSurface.toplevel;
-                        if (toplevel && surfaceItem.width > 0 && surfaceItem.height > 0) {
-                            toplevel.sendMaximized(Qt.size(surfaceItem.width, surfaceItem.height));
-                        }
-                    }
-                }
-            }
-
-            onWidthChanged: {
-                // Only reconfigure if we've already sent initial configure
-                if (hasConfigured && width > 0 && height > 0 && shellSurface) {
-                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null;
-                    if (toplevel) {
-                        toplevel.sendMaximized(Qt.size(width, height));
-                    }
-                }
-            }
-
-            onHeightChanged: {
-                // Only reconfigure if we've already sent initial configure
-                if (hasConfigured && width > 0 && height > 0 && shellSurface) {
-                    var toplevel = nativeAppWindow.waylandSurface ? nativeAppWindow.waylandSurface.toplevel : null;
-                    if (toplevel) {
-                        toplevel.sendMaximized(Qt.size(width, height));
-                    }
-                }
-            }
-
+            // NativeAppWindow SHOULD send size updates (it's the main window, not a thumbnail)
+            autoResize: true
+            // Pass the surface object so our custom component can access toplevel
+            surfaceObj: nativeAppWindow.waylandSurface
             onSurfaceDestroyed: {
-                // NOTE: Task cleanup is now handled automatically in MarathonShell.qml via surfaceDestroyed signal
-                // This handler just closes the window
                 nativeAppWindow.close();
+            }
+            Component.onCompleted: {
+                Logger.info("NativeAppWindow", "ShellSurfaceItem created for: " + nativeAppWindow.nativeAppId);
+                Logger.info("NativeAppWindow", "  Container size: " + contentContainer.width + "x" + contentContainer.height);
+                Logger.info("NativeAppWindow", "  Item size: " + width + "x" + height);
             }
         }
 
         // Splash screen - shown while app is launching
         Rectangle {
             id: splashScreen
+
             anchors.fill: parent
             color: MColors.background
             visible: surfaceItem.shellSurface === null
+            z: 10
 
             Column {
                 anchors.centerIn: parent
                 spacing: MSpacing.xl
 
-                // Show the actual app icon if available, otherwise fallback to generic icon
-                MAppIcon {
+                // High-quality app icon with proper scaling
+                Image {
+                    id: splashIcon
+
                     width: 128
                     height: 128
-                    source: nativeAppWindow.nativeAppIcon || "grid"
+                    source: nativeAppWindow.nativeAppIcon && nativeAppWindow.nativeAppIcon !== "" ? nativeAppWindow.nativeAppIcon : ""
                     anchors.horizontalCenter: parent.horizontalCenter
                     smooth: true
-                    visible: nativeAppWindow.nativeAppIcon !== ""
+                    mipmap: true
+                    sourceSize.width: 256 // Request high-res and downscale for crispness
+                    sourceSize.height: 256
+                    fillMode: Image.PreserveAspectFit
+                    asynchronous: true
+                    cache: true
+                    visible: source !== ""
+                    onStatusChanged: {
+                        if (status === Image.Ready)
+                            Logger.debug("NativeAppWindow", "Splash icon loaded: " + source + " intrinsic size: " + implicitWidth + "x" + implicitHeight);
+                        else if (status === Image.Error)
+                            Logger.warn("NativeAppWindow", "Failed to load splash icon: " + source);
+                    }
                 }
 
                 Icon {
@@ -113,7 +89,7 @@ MApp {
                     size: 128
                     color: MColors.textTertiary
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: nativeAppWindow.nativeAppIcon === ""
+                    visible: splashIcon.source === "" || splashIcon.status === Image.Error
                 }
 
                 Text {

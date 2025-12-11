@@ -159,6 +159,29 @@ void TaskModel::updateTaskSurface(const QString &appId, QObject *surface) {
     }
 }
 
+void TaskModel::updateTaskNativeInfo(const QString &appId, int surfaceId, QObject *surface) {
+    Task *task = m_appIndex.value(appId, nullptr);
+    if (!task) {
+        qDebug() << "[TaskModel] Cannot update native info: Task not found for app:" << appId;
+        return;
+    }
+
+    // Update all native app properties
+    task->setAppType("native");
+    task->setSurfaceId(surfaceId);
+    task->setWaylandSurface(surface);
+
+    // Notify model that relevant data changed
+    int index = m_tasks.indexOf(task);
+    if (index >= 0) {
+        QModelIndex modelIndex = createIndex(index, 0);
+        emit dataChanged(modelIndex, modelIndex, {AppTypeRole, SurfaceIdRole, WaylandSurfaceRole});
+        qInfo() << "[TaskModel] Updated native info for:" << appId
+                << "type: native, surfaceId:" << surfaceId
+                << "surface:" << (surface ? "present" : "NULL");
+    }
+}
+
 void TaskModel::clear() {
     if (m_tasks.isEmpty())
         return;

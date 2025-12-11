@@ -157,7 +157,8 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         return "grid";
     }
 
-    // If it already has an extension, check if it exists
+    // If it already has an extension, check if it exists (relative to what? usually implies absolute if extension present)
+    // But some themes might specify "firefox.png" without path. We should still search.
     if (iconName.endsWith(".svg") || iconName.endsWith(".png") || iconName.endsWith(".xpm") ||
         iconName.endsWith(".jpg")) {
         if (QFile::exists(iconName)) {
@@ -165,26 +166,48 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         }
     }
 
-    // Search common icon paths
-    QStringList searchPaths = {"/usr/share/pixmaps/",
-                               "/usr/share/icons/hicolor/scalable/apps/",
-                               "/usr/share/icons/hicolor/48x48/apps/",
-                               "/usr/share/icons/hicolor/64x64/apps/",
-                               "/usr/share/icons/hicolor/128x128/apps/",
-                               "/usr/share/icons/hicolor/256x256/apps/",
-                               "~/.local/share/icons/hicolor/scalable/apps/",
-                               "~/.local/share/icons/hicolor/48x48/apps/"};
+    // SEARCH PRIORITY: Scalable SVG (best quality) -> High Resolution PNG -> Low Resolution
+    // We search standard paths AND Flatpak/Snap paths
+    QStringList searchPaths = {
+        // 1. SCALABLE FIRST (SVGs render perfectly at any size)
+        QDir::homePath() + "/.local/share/icons/hicolor/scalable/apps/",
+        "/usr/share/icons/hicolor/scalable/apps/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/scalable/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/scalable/apps/",
 
-    QStringList extensions = {".svg", ".png", ".xpm", ""};
+        // 2. High-res pixel icons (512x512 and 256x256)
+        QDir::homePath() + "/.local/share/icons/hicolor/512x512/apps/",
+        "/usr/share/icons/hicolor/512x512/apps/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/512x512/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/512x512/apps/",
+
+        QDir::homePath() + "/.local/share/icons/hicolor/256x256/apps/",
+        "/usr/share/icons/hicolor/256x256/apps/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/256x256/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/256x256/apps/",
+
+        // 3. Medium-res (128x128)
+        QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/",
+        "/usr/share/icons/hicolor/128x128/apps/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/128x128/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/128x128/apps/",
+
+        // 4. Snap exports
+        "/var/lib/snapd/desktop/icons/",
+
+        // 5. Mid-range fallbacks (64x64)
+        "/usr/share/icons/hicolor/64x64/apps/",
+        QDir::homePath() + "/.local/share/icons/hicolor/64x64/apps/",
+
+        // 6. Low-res fallbacks (Last resort - 48x48 and pixmaps)
+        "/usr/share/icons/hicolor/48x48/apps/", "/usr/share/icons/hicolor/32x32/apps/",
+        "/usr/share/pixmaps/"};
+
+    QStringList extensions = {".svg", ".png", ".xpm", ".jpg", ""};
 
     for (const QString &basePath : searchPaths) {
-        QString expandedPath = basePath;
-        if (expandedPath.startsWith('~')) {
-            expandedPath.replace(0, 1, QDir::homePath());
-        }
-
         for (const QString &ext : extensions) {
-            QString fullPath = expandedPath + iconName + ext;
+            QString fullPath = basePath + iconName + ext;
             if (QFile::exists(fullPath)) {
                 qDebug() << "[DesktopFileParser] Found icon:" << fullPath;
                 return "file://" + fullPath;

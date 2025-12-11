@@ -46,6 +46,11 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     m_xdgShell = new QWaylandXdgShell(this);
     m_wlShell  = new QWaylandWlShell(this);
 
+    // CRITICAL: Enable wp_viewporter protocol for Firefox/GTK fractional scaling
+    // Firefox uses this to set destination size for surface buffers.
+    // Without this, Firefox renders at wrong size despite correct configure events.
+    m_viewporter = new QWaylandViewporter(this);
+
     connect(this, &QWaylandCompositor::surfaceCreated, this,
             &WaylandCompositor::handleSurfaceCreated);
 
@@ -65,7 +70,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     // XdgToplevelIntegration internally looks for defaultOutput() - must be set!
     setDefaultOutput(m_output);
 
-    // CRITICAL: Force Wayland output scale factor to 1 for sharp rendering
+    // Set Wayland output scale factor to 1
+    // NOTE: Phosh uses scale=2 for HiDPI phones, but that requires physical HiDPI display.
+    // With scale=1 + 96 DPI physical size, apps should render at 1:1 pixels.
+    // Firefox may still apply internal scaling if it detects fractional-scale or DPI mismatch.
     m_output->setScaleFactor(1);
 
     // CRITICAL: Set availableGeometry for XdgToplevelIntegration
@@ -234,6 +242,15 @@ void WaylandCompositor::launchApp(const QString &command) {
     env.insert("QT_QUICK_CONTROLS_STYLE", "Mobile"); // Qt Quick Controls mobile style
     env.insert("GTK_CSD", "1");                      // Force client-side decorations for GTK apps
     env.insert("GTK_USE_PORTAL", "0"); // Disable portals (can cause issues in nested compositors)
+
+    // CRITICAL: Force 1:1 scaling to prevent double-scaling artifacts
+    // We handle DPI via physical size reporting; apps should render at 1x scale
+    // but use the physical DPI for text sizing.
+    env.insert("GDK_SCALE", "1");
+    env.insert("GDK_DPI_SCALE", "1");
+    env.insert("QT_SCALE_FACTOR", "1");
+    env.insert("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+    env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1"); // No client-side decorations for Qt
 
     process->setProcessEnvironment(env);
 
@@ -411,8 +428,10 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     qWarning() << "[WaylandCompositor] handleXdgToplevelCreated called";
     qWarning() << "[WaylandCompositor]   toplevel:" << toplevel;
     qWarning() << "[WaylandCompositor]   xdgSurface:" << xdgSurface;
-    if (toplevel) qWarning() << "[WaylandCompositor]   appId:" << toplevel->appId();
-    if (toplevel) qWarning() << "[WaylandCompositor]   title:" << toplevel->title();
+    if (toplevel)
+        qWarning() << "[WaylandCompositor]   appId:" << toplevel->appId();
+    if (toplevel)
+        qWarning() << "[WaylandCompositor]   title:" << toplevel->title();
 
     // CRITICAL: Null check before ANY operations to prevent crashes from malformed surfaces
     if (!toplevel || !xdgSurface) {
@@ -673,7 +692,7 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     // ====================================================================================
 
     // Constants
-    const qreal TARGET_MOBILE_DPI = 200.0; // Typical modern phone: 200-300 PPI
+    const qreal TARGET_MOBILE_DPI = 200.0; // Target DPI for mobile form factor
     const qreal MM_PER_INCH       = 25.4;
 
     // Get current state
