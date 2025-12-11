@@ -30,10 +30,10 @@ QtObject {
                     app = appObj;
                     Logger.info("AppLaunchService", "Found app in AppModel: " + app.name);
                 } else {
+                    // Not needed for bringing to foreground
+
                     // Fallback: Check if it's a running task (e.g. launched externally)
                     if (typeof TaskModel !== 'undefined') {
-                        // Not needed for bringing to foreground
-
                         var task = TaskModel.getTaskByAppId(appId);
                         if (task) {
                             Logger.info("AppLaunchService", "Found running task for: " + appId);

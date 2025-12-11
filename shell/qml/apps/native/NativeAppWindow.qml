@@ -14,6 +14,9 @@ MApp {
     property string nativeTitle: ""
     property string nativeAppIcon: ""
     property int surfaceId: -1
+    // When minimized, signal to shell surface item to lock its buffer
+    // This retains the last rendered frame during minimize for smooth task switcher preview
+    property bool isMinimized: false
 
     appId: nativeAppId
     appName: nativeTitle || "Native App"
@@ -37,8 +40,14 @@ MApp {
             autoResize: true
             // Pass the surface object so our custom component can access toplevel
             surfaceObj: nativeAppWindow.waylandSurface
+            // Pass isMinimized to lock buffer during minimize (prevents VK_ERROR_SURFACE_LOST)
+            isMinimized: nativeAppWindow.isMinimized
             onSurfaceDestroyed: {
-                nativeAppWindow.close();
+                // Only close if not minimized - when minimized, we expect surface destruction
+                if (!nativeAppWindow.isMinimized)
+                    nativeAppWindow.close();
+                else
+                    Logger.info("NativeAppWindow", "Surface destroyed while minimized - buffer locked, keeping app alive");
             }
             Component.onCompleted: {
                 Logger.info("NativeAppWindow", "ShellSurfaceItem created for: " + nativeAppWindow.nativeAppId);

@@ -9,6 +9,8 @@ QtObject {
     //   b) An app launched externally (e.g., from terminal)
     //   c) The main window arrived after pendingNativeApp was cleared (timing race)
     // Only look up by real appId
+    // Update the appWindow to handle this secondary surface
+    // For now, just show it - the NativeAppWindow should handle multiple surfaces
 
     id: root
 
@@ -23,9 +25,6 @@ QtObject {
     }
 
     function handleSurfaceCreated(surface, surfaceId, xdgSurface) {
-        // Update the appWindow to handle this secondary surface
-        // For now, just show it - the NativeAppWindow should handle multiple surfaces
-
         console.warn("========== SURFACE CREATED ==========");
         console.warn("  surfaceId: " + surfaceId);
         console.warn("  surface: " + (surface ? "EXISTS" : "NULL"));

@@ -406,6 +406,8 @@ Item {
                         }
                     }
                     onReleased: function (mouse) {
+                        // Native apps need foreground tracking too
+
                         Logger.info("TaskSwitcher", "⬆ RELEASED card: " + model.appId + " (time: " + (Date.now() - startTime) + "ms, " + "dragging: " + isDragging + ", " + "vertical: " + isVerticalGesture + ", " + "horizontal: " + isHorizontalGesture + ")");
                         // If close button was clicked, ignore
                         if (closeButtonClicked) {
@@ -460,8 +462,6 @@ Item {
                                 preventStealing = false;
                             }
                         } else if (!isDragging && !isVerticalGesture && !isHorizontalGesture && totalTime < 250) {
-                            // Native apps need foreground tracking too
-
                             // TAP DETECTED - Quick press/release with minimal movement
                             Logger.info("TaskSwitcher", " TAP DETECTED - Opening task: " + model.appId);
                             var appId = model.appId;

@@ -233,6 +233,10 @@ Rectangle {
     // This is used when restoring an app whose surface was destroyed during minimize
     function reattachInstance(instance, id, name, icon, type) {
         Logger.info("AppWindow", "Re-attaching detached instance: " + id);
+        // CRITICAL: Reset isMinimized FIRST to unlock the buffer and allow new frames
+        if (instance.isMinimized !== undefined)
+            instance.isMinimized = false;
+
         // Set app window properties
         appWindow.appId = id;
         appWindow.appName = name;

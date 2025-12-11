@@ -104,6 +104,12 @@ Item {
 
             var appInstance = appWindow.detachCurrentApp();
             if (appInstance) {
+                // CRITICAL: Set isMinimized BEFORE moving to background
+                // This locks the buffer to retain the last frame for task switcher preview
+                // and prevents VK_ERROR_SURFACE_LOST errors when apps destroy their surface
+                if (appInstance.isMinimized !== undefined)
+                    appInstance.isMinimized = true;
+
                 appInstance.parent = backgroundAppsContainer;
                 appInstance.visible = true;
             }

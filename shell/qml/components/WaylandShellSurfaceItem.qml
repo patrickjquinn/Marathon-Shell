@@ -21,6 +21,10 @@ ShellSurfaceItem {
     property bool sizeUpdateScheduled: false
     property bool hasSentInitialSize: false
     property bool autoResize: true
+    // CRITICAL: When isMinimized is true, lock the buffer to retain the last frame
+    // This prevents Vulkan surface lost errors when apps like Chromium destroy their surface during minimize
+    // The buffer stays visible for task switcher preview even after surface destruction
+    property bool isMinimized: false
 
     // CRITICAL: Debounced size update to prevent resize spam during animations
     // Apps rescale when they receive size changes, causing fuzzy/squished rendering
@@ -74,6 +78,9 @@ ShellSurfaceItem {
         toplevel.sendMaximized(newSize);
     }
 
+    // bufferLocked is inherited from WaylandQuickItem (parent of ShellSurfaceItem)
+    // When true, the compositor retains the buffer instead of releasing it to the client
+    bufferLocked: isMinimized
     shellSurface: surfaceObj && surfaceObj.xdgSurface ? surfaceObj.xdgSurface : null
     touchEventsEnabled: true
     // CRITICAL: Bind output to compositor's output
