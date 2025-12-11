@@ -301,7 +301,7 @@ QtObject {
     /**
      * Close an app
      */
-    function closeApp(appId) {
+    function closeApp(appId, skipNativeClose) {
         Logger.info("AppLifecycle", "Closing app: " + appId);
         // Remove from TaskModel
         if (typeof TaskModel !== 'undefined') {
@@ -315,11 +315,15 @@ QtObject {
             var app = appRegistry[appId];
             // Check if this is a native app with a surface that needs closing
             if (app.surfaceId !== undefined && app.surfaceId > 0) {
-                Logger.info("AppLifecycle", "Detected native app detected with surfaceId: " + app.surfaceId);
-                if (typeof AppLaunchService !== 'undefined')
+                Logger.info("AppLifecycle", "Native app detected with surfaceId: " + app.surfaceId);
+
+                if (skipNativeClose) {
+                    Logger.info("AppLifecycle", "Skipping native close request (already closed by client/surface destroyed)");
+                } else if (typeof AppLaunchService !== 'undefined') {
                     AppLaunchService.closeNativeApp(app.surfaceId);
-                else
+                } else {
                     Logger.warn("AppLifecycle", "AppLaunchService not available to close native app");
+                }
             }
             app.close();
         }

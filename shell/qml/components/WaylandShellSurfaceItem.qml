@@ -1,5 +1,6 @@
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 import QtQuick
 import QtWayland.Compositor
 
@@ -17,6 +18,7 @@ ShellSurfaceItem {
     // ShellSurfaceItem created for native app
 
     property var surfaceObj: null
+    property int surfaceId: -1
     property size lastSentSize: Qt.size(0, 0)
     property bool sizeUpdateScheduled: false
     property bool hasSentInitialSize: false
@@ -25,6 +27,15 @@ ShellSurfaceItem {
     // This prevents Vulkan surface lost errors when apps like Chromium destroy their surface during minimize
     // The buffer stays visible for task switcher preview even after surface destruction
     property bool isMinimized: false
+
+    // CRITICAL: Let Qt's ShellSurfaceItem automatically create popup items
+    // This handles positioning, sizing, and rendering of xdg_popups without manual intervention
+    autoCreatePopupItems: true
+
+    // CRITICAL: Hide the surface until we've sent the initial size configuration
+    // This prevents apps like Chromium from rendering at the wrong size on first launch
+    // The splash screen remains visible until the app receives its proper dimensions
+    opacity: hasSentInitialSize ? 1 : 0
 
     // CRITICAL: Debounced size update to prevent resize spam during animations
     // Apps rescale when they receive size changes, causing fuzzy/squished rendering
@@ -93,17 +104,41 @@ ShellSurfaceItem {
                 scheduleSizeUpdate();
         }
     }
-    Component.onCompleted: {}
     onWidthChanged: {
         if (autoResize)
             scheduleSizeUpdate();
     }
+
     onHeightChanged: {
         if (autoResize)
             scheduleSizeUpdate();
     }
+
     onSurfaceDestroyed: {
         Logger.info("WaylandShellSurfaceItem", "Surface destroyed");
+    }
+
+    // CRITICAL: surfaceId may be set via binding AFTER Component.onCompleted
+    // so we also register on property change
+    onSurfaceIdChanged: {
+        if (surfaceId !== -1) {
+            Logger.info("WaylandShellSurfaceItem", "Registering surface: " + surfaceId);
+            SurfaceRegistry.registerSurface(surfaceId, this);
+        }
+    }
+
+    Component.onCompleted: {
+        // Initial registration if surfaceId is already set
+        if (surfaceId !== -1) {
+            Logger.info("WaylandShellSurfaceItem", "Registering surface on init: " + surfaceId);
+            SurfaceRegistry.registerSurface(surfaceId, this);
+        }
+    }
+
+    Component.onDestruction: {
+        if (surfaceId !== -1) {
+            SurfaceRegistry.unregisterSurface(surfaceId);
+        }
     }
 
     Item {

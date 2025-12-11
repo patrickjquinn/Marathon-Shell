@@ -1,4 +1,5 @@
 import MarathonOS.Shell
+import MarathonUI.Core
 import QtQuick
 
 QtObject {
@@ -114,13 +115,13 @@ QtObject {
     }
 
     function handleSurfaceDestroyed(surface, surfaceId) {
-        // Close the visible window if it's the destroyed surface
-        if (typeof UIStore !== 'undefined' && root.appWindow) {
-            if (UIStore.appWindowOpen && root.appWindow.appType === "native" && root.appWindow.surfaceId === surfaceId) {
-                UIStore.closeApp();
-                root.appWindow.hide();
-            }
-        }
+        // CRITICAL: Do NOT call UIStore.closeApp() here!
+        // Apps like Chromium destroy their surface during swipe-to-task-switcher,
+        // showing restore dialogs, or other transitions - but the process is still running.
+        // Only handleAppClosed() should close the app when the process actually terminates.
+        // Calling closeApp() here causes a timing bug where appWindowOpen becomes false
+        // before the gesture handler runs, breaking the minimize flow.
+        Logger.info("CompositorConnections", "Surface destroyed for surfaceId: " + surfaceId + " (NOT closing app - process may still be running)");
     }
 
     function handleAppClosed(pid) {
@@ -131,31 +132,10 @@ QtObject {
         Logger.info("CompositorConnections", "Native app process started: " + command + " (PID: " + pid + ")");
     }
 
-    function handlePopupCreated(surface, surfaceId, xdgSurface, parentSurface) {
-        console.warn("[CompositorConnections] Popup created, surfaceId: " + surfaceId);
-        // Set properties on the surface for ShellSurfaceItem
-        surface.xdgSurface = xdgSurface;
-        // Find which app this popup belongs to (by matching parent surface)
-        var parentSurfaceId = parentSurface ? parentSurface.surfaceId : -1;
-        console.warn("[CompositorConnections]   parentSurfaceId: " + parentSurfaceId);
-        // For popups, we show them using the current app window
-        // The popup should overlay on top of the parent native app
-        if (root.appWindow && root.appWindow.appType === "native") {
-            console.warn("[CompositorConnections] Showing popup in appWindow");
-            // Get info from parent task if available
-            var appId = root.appWindow.appId;
-            var appName = "Popup";
-            var appIcon = root.appWindow.appIcon || "application";
-            // Show the popup as a secondary surface in the app window
-            root.appWindow.show(appId, appName, appIcon, "native", surface, surfaceId);
-        } else {
-            console.warn("[CompositorConnections] No active native app window, showing popup as standalone");
-            // If no app window is open, create a task for the popup
-            if (typeof TaskModel !== 'undefined')
-                TaskModel.launchTask("popup-" + surfaceId, "Dialog", "dialog-info", "native", surfaceId, surface);
-
-            if (root.appWindow)
-                root.appWindow.show("popup-" + surfaceId, "Dialog", "dialog-info", "native", surface, surfaceId);
-        }
+    // NOTE: Popup handling is now automatic via ShellSurfaceItem.autoCreatePopupItems: true
+    // No manual popup creation needed - Qt handles positioning, sizing, and rendering
+    function handlePopupCreated(surface, surfaceId, xdgSurface, parentSurfaceId) {
+        // Just log for debugging - Qt's autoCreatePopupItems handles the actual popup
+        Logger.info("CompositorConnections", "Popup created (auto-handled): surfaceId=" + surfaceId + " parentId=" + parentSurfaceId);
     }
 }

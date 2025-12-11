@@ -18,6 +18,10 @@ Rectangle {
     property string loadError: ""
     property bool hasError: false
     property bool suppressSplash: false
+    // Track active dialog overlays to ensure cleanup
+    property var activeDialogs: []
+    // Track whether we're actually closing (vs just hiding for minimize)
+    property bool isClosing: false
 
     signal closed
     signal minimized
@@ -37,6 +41,15 @@ Rectangle {
                     appContentLoader.sourceComponent = undefined;
                     appContentLoader.sourceComponent = appInstanceContainer;
                     appWindow.isLoadingComponent = false;
+
+                    // Connect close request signal
+                    if (nativeInstance.requestClose) {
+                        nativeInstance.requestClose.connect(function (skipNative) {
+                            Logger.info("AppWindow", "Native app requested close: " + id + " skipNative=" + skipNative);
+                            appWindow.closeApp(skipNative);
+                        });
+                    }
+
                     // CRITICAL: Register native app with lifecycle manager so it can be minimized/restored
                     if (typeof AppLifecycleManager !== 'undefined') {
                         Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
@@ -69,12 +82,19 @@ Rectangle {
         // CRITICAL: Only use fast path if the appInstance is actually present and visible
         // After minimize, appInstance is detached/null so we must fall through to reload
         if (appWindow.appId === id && type === "native" && appContentLoader.item && appContentLoader.status === Loader.Ready && appContentLoader.item.appInstance && appContentLoader.item.appInstance.visible) {
-            // CRITICAL: If we already have a REAL surface, and this is a DIFFERENT surface,
-            // it is likely a secondary window (dialog, popup, etc.) trying to hijack the main window.
-            // In this shell design, we do not want to replace the main window.
-            // BUT: If waylandSurface is null, this is the FIRST surface arriving - we should accept it!
+            // Handle secondary surfaces (file dialogs, etc.) - don't ignore them!
+            // File dialogs in GTK are xdg_toplevels, not popups, so autoCreatePopupItems won't handle them
             if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface && surface !== null) {
-                Logger.info("AppWindow", "Ignoring secondary surface (dialog?) for active app: " + id);
+                Logger.info("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " - creating overlay");
+                // Create a floating dialog overlay for the secondary surface
+                var dialog = dialogOverlayComponent.createObject(appWindow, {
+                    "dialogSurface": surface,
+                    "dialogSurfaceId": sid
+                });
+                if (dialog) {
+                    activeDialogs.push(dialog);
+                    Logger.info("AppWindow", "Dialog overlay created for surfaceId: " + sid);
+                }
                 return;
             }
             Logger.info("AppWindow", "Seamlessly updating surface for active app: " + id);
@@ -225,7 +245,36 @@ Rectangle {
     }
 
     function hide() {
+        // Just hide the window (for minimize) - don't emit closed()
         appContentLoader.source = "";
+        isClosing = false;
+        slideOut.start();
+    }
+
+    // Call this when actually closing the app (user explicitly closes, not minimize)
+    function closeApp(skipNativeClose) {
+        // Ensure lifecycle manager knows the app is fully closed (removes task)
+        // skipNativeClose: true if closed by "X" button native (surface already gone)
+        // skipNativeClose: false if closed by shell UI (task switcher/gesture)
+        if (typeof AppLifecycleManager !== 'undefined') {
+            AppLifecycleManager.closeApp(appId, skipNativeClose === true);
+        }
+
+        // CRITICAL: Cleanup any active dialog overlays (file pickers, etc.)
+        // If we don't do this, they remain attached to the surface which causes
+        // a crash when the client destroys the surface after we request close.
+        if (activeDialogs.length > 0) {
+            Logger.info("AppWindow", "Cleaning up " + activeDialogs.length + " dialog overlays");
+            for (var i = 0; i < activeDialogs.length; i++) {
+                if (activeDialogs[i]) {
+                    activeDialogs[i].destroy();
+                }
+            }
+            activeDialogs = [];
+        }
+
+        appContentLoader.source = "";
+        isClosing = true;
         slideOut.start();
     }
 
@@ -242,6 +291,16 @@ Rectangle {
         appWindow.appName = name;
         appWindow.appIcon = icon;
         appWindow.appType = type;
+
+        // CRITICAL: Update UIStore so shell knows an app is open
+        // Without this, subsequent minimize gestures won't run the minimize flow
+        if (typeof UIStore !== 'undefined') {
+            UIStore.appWindowOpen = true;
+            UIStore.currentAppId = id;
+            UIStore.currentAppName = name;
+            UIStore.currentAppIcon = icon;
+        }
+
         // Load the container component if needed
         if (!appContentLoader.item) {
             appWindow.pendingAppInstance = instance;
@@ -401,7 +460,11 @@ Rectangle {
         easing.type: Easing.InCubic
         onFinished: {
             appWindow.visible = false;
-            closed();
+            // Only emit closed() if we're actually closing, not just hiding for minimize
+            if (appWindow.isClosing) {
+                appWindow.isClosing = false;
+                closed();
+            }
         }
     }
 
@@ -552,5 +615,41 @@ Rectangle {
 
         target: MarathonAppLoader
         enabled: MarathonAppLoader !== null
+    }
+
+    // Component for creating floating dialog overlays (file pickers, etc.)
+    // These are xdg_toplevel windows that should float above the main app
+    property Component dialogOverlayComponent: Component {
+        WaylandShellSurfaceItem {
+            id: dialogItem
+            property var dialogSurface: null
+            property int dialogSurfaceId: -1
+
+            // Fill the app window for maximized dialogs (mobile UX)
+            anchors.fill: parent
+            z: 1000
+
+            // Bind to the dialog surface
+            surfaceObj: dialogSurface
+            surfaceId: dialogSurfaceId
+            shellSurface: dialogSurface ? dialogSurface.xdgSurface : null
+
+            // Dialogs should be visible immediately
+            hasSentInitialSize: true
+            autoResize: true
+
+            Component.onCompleted: {
+                Logger.info("DialogOverlay", "Created dialog overlay for surfaceId: " + dialogSurfaceId);
+            }
+
+            // Destroy when the surface is destroyed
+            Connections {
+                target: dialogSurface
+                function onSurfaceDestroyed() {
+                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
+                    dialogItem.destroy();
+                }
+            }
+        }
     }
 }

@@ -24,7 +24,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     , m_window(window)
     , m_settingsManager(settingsManager)
     , m_nextSurfaceId(1)
-    , m_output(nullptr) {
+    , m_output(nullptr)
+    , m_hasIdleInhibitor(false) {
 
     // CRITICAL: Set compositor properties BEFORE create()
     // Per Qt docs, these must be set before the compositor is initialized
@@ -50,6 +51,32 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     // Firefox uses this to set destination size for surface buffers.
     // Without this, Firefox renders at wrong size despite correct configure events.
     m_viewporter = new QWaylandViewporter(this);
+
+    // CRITICAL: Enable zwp_text_input_manager_v2 for native app virtual keyboard support
+    // Native Wayland apps (Firefox, Chromium, GTK) use this protocol to communicate
+    // with the compositor about text input focus and request on-screen keyboard.
+    m_textInputManager = new QWaylandTextInputManager(this);
+
+    // CRITICAL: Enable zwp_idle_inhibit_manager_v1 for video playback
+    // Video apps (VLC, MPV, Firefox video) use this to prevent screen blanking
+    // during playback. The surface's inhibitsIdle property is set automatically.
+    m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
+
+    // Connect seat keyboard focus changes to emit text input panel signal
+    // When a native app surface gains keyboard focus, we may need to show the keyboard
+    connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
+            [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
+                Q_UNUSED(oldFocus);
+                // When a native app surface has keyboard focus, emit signal
+                // The QML side decides whether to show the keyboard based on Platform.hasHardwareKeyboard
+                if (newFocus) {
+                    qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
+                             << newFocus;
+                    // Native apps will explicitly request text input via the text input protocol
+                    // For now, just log the focus change. Full text input integration requires
+                    // monitoring zwp_text_input events which Qt handles internally.
+                }
+            });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
             &WaylandCompositor::handleSurfaceCreated);
@@ -243,13 +270,19 @@ void WaylandCompositor::launchApp(const QString &command) {
     env.insert("GTK_CSD", "1");                      // Force client-side decorations for GTK apps
     env.insert("GTK_USE_PORTAL", "0"); // Disable portals (can cause issues in nested compositors)
 
-    // CRITICAL: Force 1:1 scaling to prevent double-scaling artifacts
-    // We handle DPI via physical size reporting; apps should render at 1x scale
-    // but use the physical DPI for text sizing.
-    env.insert("GDK_SCALE", "1");
-    env.insert("GDK_DPI_SCALE", "1");
-    env.insert("QT_SCALE_FACTOR", "1");
-    env.insert("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+    // Use Marathon's user-configurable scale factor for native apps
+    // This is the same value used in QML (Constants.userScaleFactor) that users can set in Settings
+    // For HiDPI displays, this should be > 1.0 (e.g., 1.5 or 2.0) to prevent blurry rendering
+    QString scaleStr = QString::number(m_settingsManager->userScaleFactor(), 'f', 2);
+
+    // GDK/GTK scaling
+    env.insert("GDK_SCALE", scaleStr);
+    env.insert("GDK_DPI_SCALE", "1"); // Keep DPI scaling at 1, we use integer scaling via GDK_SCALE
+
+    // Qt scaling
+    env.insert("QT_SCALE_FACTOR", scaleStr);
+    env.insert("QT_AUTO_SCREEN_SCALE_FACTOR",
+               "0"); // Disable auto-detection, we provide explicit scale
     env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1"); // No client-side decorations for Qt
 
     process->setProcessEnvironment(env);
@@ -529,7 +562,9 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
 
 void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
                                               QWaylandXdgSurface *xdgSurface) {
-    // Null check before operations
+    // Qt's ShellSurfaceItem.autoCreatePopupItems handles most popup management
+    // We just track the surface and emit a signal for debugging/logging
+
     if (!popup || !xdgSurface) {
         qWarning() << "[WaylandCompositor] XDG popup creation with null objects - ignoring";
         return;
@@ -541,11 +576,7 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
         return;
     }
 
-    // Get parent surface info
-    QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
-    QWaylandSurface    *parentSurface    = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
-
-    // Assign surfaceId to popup (may already have one from handleSurfaceCreated)
+    // Assign surfaceId if not already assigned
     int surfaceId = surface->property("surfaceId").toInt();
     if (surfaceId == 0) {
         surfaceId               = m_nextSurfaceId++;
@@ -553,25 +584,25 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
         surface->setProperty("surfaceId", surfaceId);
     }
 
-    qWarning() << "[WaylandCompositor] ========== POPUP CREATED ==========";
-    qWarning() << "[WaylandCompositor]   surfaceId:" << surfaceId;
-    qWarning() << "[WaylandCompositor]   parentSurface:" << parentSurface;
-    qWarning() << "[WaylandCompositor]   popup geometry:" << popup->configuredGeometry();
+    // Get parent surface info for logging
+    QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
+    QWaylandSurface    *parentSurface    = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
+    int parentSurfaceId = parentSurface ? parentSurface->property("surfaceId").toInt() : -1;
+
+    qDebug() << "[WaylandCompositor] Popup created:" << surfaceId << "parent:" << parentSurfaceId;
 
     // Store popup data
     surface->setProperty("isPopup", true);
     surface->setProperty("xdgPopup", QVariant::fromValue(popup));
     surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
 
-    // Add to surfaces list so QML can track it
+    // Track in surfaces list
     m_surfaces.append(surface);
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
     emit surfacesChanged();
 
-    // CRITICAL: Emit signal so QML can display the popup
-    emit popupCreated(surface, surfaceId, xdgSurface, parentSurface);
-
-    qWarning() << "[WaylandCompositor] ========== popupCreated EMITTED ==========";
+    // Emit for QML (logging/debugging purposes)
+    emit popupCreated(surface, surfaceId, xdgSurface, parentSurfaceId);
 }
 
 void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlShellSurface) {
@@ -720,7 +751,9 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     m_output->setPhysicalSize(physicalSize);
 
     // Calculate resulting DPI for logging
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) - used in logging below
     qreal actualDPI = (windowSize.width() / physicalWidthMM) * MM_PER_INCH;
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) - used in logging below
     qreal diagonalInches =
         qSqrt(qPow(physicalWidthMM / MM_PER_INCH, 2) + qPow(physicalHeightMM / MM_PER_INCH, 2));
 
@@ -887,6 +920,29 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
 
     m_output->setTransform(transform);
     calculateAndSetPhysicalSize();
+}
+
+bool WaylandCompositor::checkIdleInhibitors() {
+    // Scan all surfaces to check if any inhibit idle behavior
+    // This is used by the lock screen timer to prevent blanking during video playback
+    bool hasInhibitor = false;
+
+    for (auto it = m_surfaceMap.constBegin(); it != m_surfaceMap.constEnd(); ++it) {
+        QWaylandSurface *surface = it.value();
+        if (surface && surface->inhibitsIdle()) {
+            qDebug() << "[WaylandCompositor] Surface" << it.key() << "inhibits idle";
+            hasInhibitor = true;
+            break;
+        }
+    }
+
+    if (hasInhibitor != m_hasIdleInhibitor) {
+        m_hasIdleInhibitor = hasInhibitor;
+        emit hasIdleInhibitingSurfaceChanged();
+        qDebug() << "[WaylandCompositor] Idle inhibitor state changed:" << hasInhibitor;
+    }
+
+    return hasInhibitor;
 }
 
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {

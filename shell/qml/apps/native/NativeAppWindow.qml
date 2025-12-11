@@ -25,6 +25,10 @@ MApp {
         return false;
     }
 
+    // Signal to request closing the app window (e.g. when native app exits)
+    // skipNative: true if the native surface is already destroyed (client closed)
+    signal requestClose(bool skipNative)
+
     content: Rectangle {
         id: contentContainer
 
@@ -40,14 +44,25 @@ MApp {
             autoResize: true
             // Pass the surface object so our custom component can access toplevel
             surfaceObj: nativeAppWindow.waylandSurface
+            // CRITICAL: Pass surfaceId so this item registers with SurfaceRegistry for popup parenting
+            surfaceId: nativeAppWindow.surfaceId
             // Pass isMinimized to lock buffer during minimize (prevents VK_ERROR_SURFACE_LOST)
             isMinimized: nativeAppWindow.isMinimized
             onSurfaceDestroyed: {
-                // Only close if not minimized - when minimized, we expect surface destruction
-                if (!nativeAppWindow.isMinimized)
-                    nativeAppWindow.close();
-                else
-                    Logger.info("NativeAppWindow", "Surface destroyed while minimized - buffer locked, keeping app alive");
+                // Determine if this is a user-initiated close vs. a minimize transition
+                // If the app is already minimized (user swiped to task switcher), keep it alive
+                // If the app is NOT minimized, the native app itself is closing (user clicked X button)
+                if (nativeAppWindow.isMinimized) {
+                    Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
+                } else {
+                    Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
+                    // The native app was closed by the user from within the app UI
+                    // Emit requestClose to properly clean up the app window
+                    // The native app was closed by the user from within the app UI
+                    // Emit requestClose to properly clean up the app window
+                    // skipNative=true because the surface is ALREADY destroyed!
+                    nativeAppWindow.requestClose(true);
+                }
             }
             Component.onCompleted: {
                 Logger.info("NativeAppWindow", "ShellSurfaceItem created for: " + nativeAppWindow.nativeAppId);

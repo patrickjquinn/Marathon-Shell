@@ -31,6 +31,13 @@ Item {
         running: lockScreen.visible && DisplayManager.screenOn
         repeat: false
         onTriggered: {
+            // Check if any surface inhibits idle (e.g., video playback)
+            // The compositor checks all native wayland surfaces for inhibitsIdle
+            if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
+                Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
+                idleTimer.restart();  // Keep checking
+                return;
+            }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
             DisplayManager.turnScreenOff();
         }

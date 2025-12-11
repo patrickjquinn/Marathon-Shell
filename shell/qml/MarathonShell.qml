@@ -1820,6 +1820,24 @@ Item {
         target: Qt.inputMethod
     }
 
+    // Native Wayland app text input integration
+    // When native apps (Firefox, Chromium, GTK) request text input via zwp_text_input protocol,
+    // the compositor emits this signal and we show/hide the virtual keyboard accordingly
+    Connections {
+        target: typeof compositor !== 'undefined' ? compositor : null
+        enabled: typeof compositor !== 'undefined'
+        function onNativeTextInputPanelRequested(show) {
+            if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
+                Logger.info("Shell", "Native app text input panel requested: " + show);
+                if (show && !virtualKeyboard.active) {
+                    virtualKeyboard.active = true;
+                }
+                // Note: We don't auto-hide when show=false to match Qt.inputMethod behavior
+                // This prevents keyboard flickering between input fields
+            }
+        }
+    }
+
     // Auto-dismiss keyboard when clicking above it (user request)
     MouseArea {
         id: keyboardDismissArea
