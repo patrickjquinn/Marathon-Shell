@@ -26,18 +26,13 @@ QtObject {
     }
 
     function handleSurfaceCreated(surface, surfaceId, xdgSurface) {
-        console.warn("========== SURFACE CREATED ==========");
-        console.warn("  surfaceId: " + surfaceId);
-        console.warn("  surface: " + (surface ? "EXISTS" : "NULL"));
-        console.warn("  xdgSurface: " + (xdgSurface ? "EXISTS" : "NULL"));
-        console.warn("  pendingNativeApp: " + (root.pendingNativeApp ? root.pendingNativeApp.name : "NULL"));
+        // Reduced verbosity logging
+        Logger.info("CompositorConnections", "Surface created: " + surfaceId + (root.pendingNativeApp ? " (Pending App: " + root.pendingNativeApp.name + ")" : ""));
+
         // Get app info from xdgSurface if available
         var appId = xdgSurface && xdgSurface.toplevel ? xdgSurface.toplevel.appId : "";
         var title = xdgSurface && xdgSurface.toplevel ? xdgSurface.toplevel.title : "";
-        console.warn("  appId: '" + appId + "'");
-        console.warn("  title: '" + title + "'");
-        console.warn("  TaskModel defined: " + (typeof TaskModel !== 'undefined'));
-        console.warn("  appWindow: " + (root.appWindow ? "EXISTS" : "NULL"));
+
         // Set properties on the surface for later use
         surface.xdgSurface = xdgSurface;
         if (xdgSurface && xdgSurface.toplevel)
@@ -130,12 +125,5 @@ QtObject {
 
     function handleAppLaunched(command, pid) {
         Logger.info("CompositorConnections", "Native app process started: " + command + " (PID: " + pid + ")");
-    }
-
-    // NOTE: Popup handling is now automatic via ShellSurfaceItem.autoCreatePopupItems: true
-    // No manual popup creation needed - Qt handles positioning, sizing, and rendering
-    function handlePopupCreated(surface, surfaceId, xdgSurface, parentSurfaceId) {
-        // Just log for debugging - Qt's autoCreatePopupItems handles the actual popup
-        Logger.info("CompositorConnections", "Popup created (auto-handled): surfaceId=" + surfaceId + " parentId=" + parentSurfaceId);
     }
 }

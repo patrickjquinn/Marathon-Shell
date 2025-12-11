@@ -177,13 +177,6 @@ Item {
             // Connect Global Input Signals (from C++ Event Filter)
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
-            // Connect popup signal for dialogs (keyring, password prompts, etc.)
-            compositor.popupCreated.connect(shell, function (surface, surfaceId, xdgSurface, parentSurface) {
-                console.warn("========== POPUP RECEIVED IN QML ==========");
-                console.warn("  surfaceId:", surfaceId);
-                console.warn("  parentSurface:", parentSurface);
-                compositorConnections.handlePopupCreated(surface, surfaceId, xdgSurface, parentSurface);
-            });
         }
     }
     // Handle window resize (for desktop/tablet) - debounced to prevent layout thrashing

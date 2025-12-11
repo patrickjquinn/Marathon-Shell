@@ -50,8 +50,6 @@ class WaylandCompositor : public QWaylandCompositor {
     void surfacesChanged();
     void surfaceCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface);
     void surfaceDestroyed(QWaylandSurface *surface, int surfaceId);
-    void popupCreated(QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface,
-                      int parentSurfaceId);
     void appLaunched(const QString &command, int pid);
     void appClosed(int pid);
     void systemBackTriggered();

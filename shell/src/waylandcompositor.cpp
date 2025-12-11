@@ -600,9 +600,6 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
     m_surfaces.append(surface);
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
     emit surfacesChanged();
-
-    // Emit for QML (logging/debugging purposes)
-    emit popupCreated(surface, surfaceId, xdgSurface, parentSurfaceId);
 }
 
 void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlShellSurface) {
