@@ -173,10 +173,25 @@ Item {
         // This is critical for page switching when task switcher is full
         property bool allowHorizontalPassthrough: true
 
-        // Snap to page helper function
-        function snapToPage() {
-            var page = Math.round(contentY / height);
-            var targetY = page * height;
+        // Velocity-aware snap to page helper function
+        function snapToPage(velocity) {
+            // Flick up = previous page
+            // Flick down = next page
+            // Slow movement = snap to nearest
+
+            var currentPage = contentY / height;
+            var targetPage;
+            // Fast flick in a direction = commit to that direction
+            if (velocity < -500)
+                targetPage = Math.floor(currentPage);
+            else if (velocity > 500)
+                targetPage = Math.ceil(currentPage);
+            else
+                targetPage = Math.round(currentPage);
+            // Clamp to valid range
+            var maxPage = Math.ceil(count / 4) - 1;
+            targetPage = Math.max(0, Math.min(maxPage, targetPage));
+            var targetY = targetPage * height;
             snapAnimation.to = targetY;
             snapAnimation.start();
         }
@@ -197,15 +212,18 @@ Item {
         interactive: TaskModel.taskCount > 4 // Only scrollable if more than 1 page
         // Pagination settings - snap to full pages (2 rows = 4 apps)
         snapMode: GridView.NoSnap
-        // Disable automatic snap, use custom
         preferredHighlightBegin: 0
         preferredHighlightEnd: height
-        // Smooth scrolling with strong snap effect
-        flickDeceleration: 8000
-        maximumFlickVelocity: 3000
-        // Custom page snapping
-        onMovementEnded: snapToPage()
-        onFlickEnded: snapToPage()
+        boundsBehavior: Flickable.StopAtBounds
+        // Smoother paging with less aggressive deceleration
+        flickDeceleration: 3000
+        maximumFlickVelocity: 4000
+        // Velocity-aware page snapping
+        onFlickEnded: snapToPage(verticalVelocity)
+        onMovementEnded: {
+            if (!flicking)
+                snapToPage(0);
+        }
         model: TaskModel
         cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
@@ -215,8 +233,8 @@ Item {
 
             target: taskGrid
             property: "contentY"
-            duration: 200
-            easing.type: Easing.OutCubic
+            duration: 250
+            easing.type: Easing.OutQuad // Less bouncy, snappier feel
         }
 
         delegate: Item {
@@ -236,7 +254,7 @@ Item {
                 color: MColors.glassTitlebar
                 radius: Constants.borderRadiusSharp
                 border.width: Constants.borderWidthThin
-                border.color: cardDragArea.pressed ? MColors.marathonTealBright : MColors.borderSubtle
+                border.color: (previewTapArea.pressed || handleDragArea.pressed) ? MColors.marathonTealBright : MColors.borderSubtle
                 antialiasing: Constants.enableAntialiasing
                 scale: closing ? 0.7 : 1
                 opacity: closing ? 0 : 1
@@ -244,10 +262,14 @@ Item {
                     Scale {
                         origin.x: width / 2
                         origin.y: height / 2
-                        xScale: cardDragArea.pressed ? 0.98 : 1
-                        yScale: cardDragArea.pressed ? 0.98 : 1
+                        // During drag: keep at 1.0 to avoid visual bounce from press effect toggling
+                        xScale: handleDragArea.isVerticalGesture ? 1 : ((previewTapArea.pressed || handleDragArea.pressed) ? 0.98 : 1)
+                        yScale: handleDragArea.isVerticalGesture ? 1 : ((previewTapArea.pressed || handleDragArea.pressed) ? 0.98 : 1)
 
                         Behavior on xScale {
+                            // Disable during drag to prevent jitter
+                            enabled: !handleDragArea.isVerticalGesture
+
                             NumberAnimation {
                                 duration: 150
                                 easing.type: Easing.OutCubic
@@ -255,6 +277,9 @@ Item {
                         }
 
                         Behavior on yScale {
+                            // Disable during drag to prevent jitter
+                            enabled: !handleDragArea.isVerticalGesture
+
                             NumberAnimation {
                                 duration: 150
                                 easing.type: Easing.OutCubic
@@ -262,10 +287,13 @@ Item {
                         }
                     },
                     Translate {
-                        y: cardDragArea.isDragging ? cardDragArea.dragDistance : (cardDragArea.closeButtonClicked ? 0 : (cardDragArea.pressed ? -2 : 0))
+                        // ONLY handles drag distance - no press effect here (Scale already handles it)
+                        // This eliminates the discontinuity when switching from pressed to dragging
+                        y: handleDragArea.dragDistance
 
                         Behavior on y {
-                            enabled: !cardDragArea.isDragging
+                            // Disable animation during drag to follow finger precisely
+                            enabled: !handleDragArea.isVerticalGesture && !handleDragArea.isDragging && !handleDragArea.pressed
 
                             NumberAnimation {
                                 duration: 150
@@ -307,57 +335,27 @@ Item {
                     }
                 }
 
-                // FULL CARD MouseArea for dragging (covers preview AND banner)
+                // PREVIEW TAP AREA - Handles tap-to-open, passes all drag gestures to parent
+                // This solves the gesture conflict problem by NOT handling any drag/swipe gestures
                 MouseArea {
-                    // Determine gesture type:
-                    // - Horizontal: deltaX > deltaY * 1.5 (horizontal dominates)
-                    // - Vertical: deltaY > deltaX * 1.5 (vertical dominates)
-                    // - Ambiguous: Will be treated as tap if released quickly
-                    // Native apps need foreground tracking too
-
-                    id: cardDragArea
+                    id: previewTapArea
 
                     property real startX: 0
                     property real startY: 0
                     property real startTime: 0
-                    property real lastY: 0
-                    property real lastTime: 0
-                    property real dragDistance: 0
-                    property bool isDragging: false
-                    property real velocity: 0
-                    property bool closeButtonClicked: false
-                    property bool isVerticalGesture: false
-                    property bool isHorizontalGesture: false
-                    property bool gestureDecided: false
+                    property bool wasDragging: false
 
+                    // Cover the preview area only (not the banner)
                     anchors.fill: parent
-                    z: 50 // Below close button (z: 1000) but above content
-                    preventStealing: false // Allow gesture direction detection
+                    anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
+                    z: 50
+                    preventStealing: false // CRITICAL: Allow parent GridView to steal gestures
                     onPressed: function (mouse) {
-                        Logger.info("TaskSwitcher", "⬇ PRESSED card: " + model.appId + " at (" + mouse.x + ", " + mouse.y + ")");
-                        // Check if click is on close button - let it handle
-                        var buttonPos = closeButtonArea.mapToItem(cardDragArea, 0, 0);
-                        var isOnButton = mouse.x >= buttonPos.x && mouse.x <= buttonPos.x + closeButtonArea.width && mouse.y >= buttonPos.y && mouse.y <= buttonPos.y + closeButtonArea.height;
-                        if (isOnButton) {
-                            Logger.debug("TaskSwitcher", "Click on close button detected, passing through");
-                            closeButtonClicked = true;
-                            mouse.accepted = false; // Let close button handle
-                            return;
-                        }
                         startX = mouse.x;
                         startY = mouse.y;
                         startTime = Date.now();
-                        lastY = mouse.y;
-                        lastTime = startTime;
-                        dragDistance = 0;
-                        isDragging = false;
-                        velocity = 0;
-                        closeButtonClicked = false;
-                        isVerticalGesture = false;
-                        isHorizontalGesture = false;
-                        gestureDecided = false;
-                        preventStealing = false; // Reset to allow parent to steal if needed
-                        mouse.accepted = true; // Initially accept
+                        wasDragging = false;
+                        mouse.accepted = true;
                     }
                     onPositionChanged: function (mouse) {
                         if (!pressed)
@@ -365,145 +363,40 @@ Item {
 
                         var deltaX = Math.abs(mouse.x - startX);
                         var deltaY = Math.abs(mouse.y - startY);
-                        var deltaYSigned = mouse.y - startY;
-                        // CRITICAL: Early gesture detection (after just 8px movement)
-                        if (!gestureDecided && (deltaX > 8 || deltaY > 8)) {
-                            gestureDecided = true;
-                            if (deltaX > deltaY * 1.5) {
-                                // HORIZONTAL gesture - pass to parent for page switching
-                                isHorizontalGesture = true;
-                                isVerticalGesture = false;
-                                preventStealing = false;
-                                mouse.accepted = false; // Pass to parent immediately
-                                Logger.info("TaskSwitcher", "🔄 Horizontal swipe detected - passing to parent for page navigation");
-                                return;
-                            } else if (deltaY > deltaX * 1.5) {
-                                // VERTICAL gesture - handle for card dismissal
-                                isVerticalGesture = true;
-                                isHorizontalGesture = false;
-                                preventStealing = true; // Prevent parent from stealing
-                                Logger.info("TaskSwitcher", "↕ Vertical swipe detected - handling for card dismissal");
-                            } else {
-                                // Ambiguous - don't claim yet, treat as potential tap
-                                Logger.debug("TaskSwitcher", "❓ Ambiguous gesture - will treat as tap if quick");
-                            }
-                        }
-                        // Only track vertical movement if it's a vertical gesture
-                        if (isVerticalGesture) {
-                            var now = Date.now();
-                            var deltaTime = now - lastTime;
-                            var dy = mouse.y - lastY;
-                            // Calculate instantaneous velocity
-                            if (deltaTime > 0)
-                                velocity = dy / deltaTime;
-
-                            dragDistance = deltaYSigned;
-                            lastY = mouse.y;
-                            lastTime = now;
-                            // Start dragging after 10px movement
-                            if (Math.abs(dragDistance) > 10)
-                                isDragging = true;
+                        // If user moves more than 8px, it's a drag - let parent handle it
+                        if (deltaX > 8 || deltaY > 8) {
+                            wasDragging = true;
+                            mouse.accepted = false; // Release to parent
                         }
                     }
                     onReleased: function (mouse) {
-                        Logger.info("TaskSwitcher", "⬆ RELEASED card: " + model.appId + " (time: " + (Date.now() - startTime) + "ms, " + "dragging: " + isDragging + ", " + "vertical: " + isVerticalGesture + ", " + "horizontal: " + isHorizontalGesture + ")");
-                        // If close button was clicked, ignore
-                        if (closeButtonClicked) {
-                            Logger.debug("TaskSwitcher", "Close button clicked, ignoring");
-                            closeButtonClicked = false;
-                            return;
-                        }
-                        // If it was a horizontal gesture, we already passed it to parent
-                        if (isHorizontalGesture) {
-                            Logger.debug("TaskSwitcher", "Horizontal gesture handled by parent");
-                            // Reset state
-                            isDragging = false;
-                            gestureDecided = false;
-                            dragDistance = 0;
-                            isHorizontalGesture = false;
-                            isVerticalGesture = false;
-                            preventStealing = false;
-                            return;
-                        }
                         var totalTime = Date.now() - startTime;
-                        Logger.info("TaskSwitcher", "Gesture analysis: totalTime=" + totalTime + "ms, isDragging=" + isDragging + ", gestureDecided=" + gestureDecided);
-                        // VERTICAL DRAG: Check for flick/drag up to close
-                        if (isVerticalGesture && isDragging) {
-                            // Use instantaneous velocity (more responsive to flicks)
-                            // Flick up: velocity < -0.5 px/ms (more lenient)
-                            // OR drag up > 50px (reduced from 80px)
-                            var isFlickUp = velocity < -0.5;
-                            var isDragUp = dragDistance < -50;
-                            if (isFlickUp || isDragUp) {
-                                Logger.info("TaskSwitcher", " Closing card: " + model.appId + " (velocity: " + velocity.toFixed(2) + "px/ms, distance: " + dragDistance.toFixed(0) + "px)");
-                                var appIdToClose = model.appId;
-                                // Reset transform immediately to avoid ghost spacing
-                                dragDistance = 0;
-                                isDragging = false;
-                                velocity = 0;
-                                isVerticalGesture = false;
-                                gestureDecided = false;
-                                preventStealing = false;
-                                // Close the app - AppLifecycleManager will handle both the app instance AND removing from TaskModel
-                                if (typeof AppLifecycleManager !== 'undefined')
-                                    AppLifecycleManager.closeApp(appIdToClose);
-
-                                mouse.accepted = true;
-                            } else {
-                                // Vertical drag but didn't reach threshold - just reset
-                                Logger.debug("TaskSwitcher", "Vertical drag didn't reach threshold, resetting");
-                                dragDistance = 0;
-                                isDragging = false;
-                                velocity = 0;
-                                isVerticalGesture = false;
-                                gestureDecided = false;
-                                preventStealing = false;
-                            }
-                        } else if (!isDragging && !isVerticalGesture && !isHorizontalGesture && totalTime < 250) {
-                            // TAP DETECTED - Quick press/release with minimal movement
-                            Logger.info("TaskSwitcher", " TAP DETECTED - Opening task: " + model.appId);
+                        var deltaX = Math.abs(mouse.x - startX);
+                        var deltaY = Math.abs(mouse.y - startY);
+                        // TAP: Quick press with minimal movement
+                        if (!wasDragging && totalTime < 300 && deltaX < 15 && deltaY < 15) {
+                            Logger.info("TaskSwitcher", "👆 TAP on preview - Opening: " + model.appId);
                             var appId = model.appId;
                             var appTitle = model.title;
                             var appIcon = model.icon;
                             var appType = model.type;
-                            // Reset state immediately
-                            dragDistance = 0;
-                            isDragging = false;
-                            velocity = 0;
-                            isVerticalGesture = false;
-                            isHorizontalGesture = false;
-                            gestureDecided = false;
-                            preventStealing = false;
-                            // Defer restoration to avoid blocking UI
                             Qt.callLater(function () {
                                 Logger.info("TaskSwitcher", "📱 Restoring app: " + appId + " (type: " + appType + ")");
-                                // For Marathon apps, restore through lifecycle manager
-                                // For native apps, AppLifecycleManager handles foreground state
                                 if (typeof AppLifecycleManager !== 'undefined') {
                                     if (appType !== "native")
                                         AppLifecycleManager.restoreApp(appId);
                                     else
                                         AppLifecycleManager.bringToForeground(appId);
                                 }
-                                // Then update UI state (this triggers the restoration in MarathonShell.qml)
-                                Logger.info("TaskSwitcher", "📢 Calling UIStore.restoreApp(" + appId + ")");
                                 UIStore.restoreApp(appId, appTitle, appIcon);
-                                Logger.info("TaskSwitcher", "🚪 Closing task switcher");
                                 closed();
                             });
                             mouse.accepted = true;
                         } else {
-                            // Some other gesture or long press - reset
-                            Logger.debug("TaskSwitcher", "Unhandled gesture, resetting (time: " + totalTime + "ms)");
-                            dragDistance = 0;
-                            isDragging = false;
-                            velocity = 0;
-                            isVerticalGesture = false;
-                            isHorizontalGesture = false;
-                            gestureDecided = false;
-                            preventStealing = false;
+                            // Was a drag or long press - let parent handle
                             mouse.accepted = false;
                         }
+                        wasDragging = false;
                     }
                 }
 
@@ -671,24 +564,37 @@ Item {
                                         Loader {
                                             id: nativeSurfaceLoader
 
-                                            property var surfaceObj: typeof model.waylandSurface !== 'undefined' ? model.waylandSurface : null
-
                                             anchors.top: parent.top
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             width: parent.width
                                             height: (Constants.screenHeight / Constants.screenWidth) * width
                                             visible: model.type === "native"
                                             // CRITICAL: Only load when TaskSwitcher is VISIBLE
-                                            // When app is in foreground, NativeAppWindow's ShellSurfaceItem renders the surface.
-                                            // If both are active, they fight over the same surface causing display issues (Firefox 2/3 width bug).
                                             active: taskSwitcher.visible && haveWayland && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
                                             source: haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                             onItemChanged: {
-                                                if (item && surfaceObj) {
-                                                    item.anchors.fill = parent; // Ensure it fills the loader
-                                                    item.autoResize = false; // CRITICAL: Set this BEFORE surfaceObj to prevent resize
-                                                    item.surfaceObj = surfaceObj;
+                                                // surfaceObj is handled by Binding above
+
+                                                if (item) {
+                                                    // CRITICAL FIX: Anchor to the LOADER (item.parent), not "parent" (Loader's parent)
+                                                    // "parent" in this scope refers to the Loader's parent (the Rectangle)
+                                                    // creating a "grandchild anchors to grandparent" error.
+                                                    item.anchors.fill = nativeSurfaceLoader;
+                                                    item.autoResize = false;
+                                                    // CRITICAL FIX: Since autoResize is false, sendSizeToApp() never runs,
+                                                    // so hasSentInitialSize stays false, and opacity stays 0 (invisible).
+                                                    // We must manually set it to true so the preview is visible!
+                                                    item.hasSentInitialSize = true;
                                                 }
+                                            }
+
+                                            // CRITICAL FIX: Use Binding to keep surface synced
+                                            // This works for both initial load AND updates (reopens)
+                                            Binding {
+                                                target: nativeSurfaceLoader.item
+                                                property: "surfaceObj"
+                                                value: model.waylandSurface
+                                                when: nativeSurfaceLoader.item !== null
                                             }
                                         }
 
@@ -771,13 +677,147 @@ Item {
                         }
                     }
 
+                    // BANNER/HANDLE AREA - Handles tap-to-open AND swipe-up-to-dismiss
                     Rectangle {
+                        id: bannerRect
+
                         anchors.bottom: parent.bottom
                         anchors.left: parent.left
                         anchors.right: parent.right
                         height: Math.round(50 * Constants.scaleFactor)
                         color: MColors.surface
                         radius: 0
+
+                        // Handle MouseArea for swipe-to-dismiss
+                        MouseArea {
+                            id: handleDragArea
+
+                            property real startX: 0
+                            property real startY: 0
+                            property real startTime: 0
+                            property real lastY: 0
+                            property real lastTime: 0
+                            property real dragDistance: 0
+                            property bool isDragging: false
+                            property real velocity: 0
+                            property bool isVerticalGesture: false
+                            property bool gestureDecided: false
+
+                            anchors.fill: parent
+                            z: 100 // Above banner content but below close button
+                            preventStealing: false
+                            onPressed: function (mouse) {
+                                // Check if click is on close button area
+                                var buttonPos = closeButtonArea.mapToItem(handleDragArea, 0, 0);
+                                if (mouse.x >= buttonPos.x && mouse.x <= buttonPos.x + closeButtonArea.width && mouse.y >= buttonPos.y && mouse.y <= buttonPos.y + closeButtonArea.height) {
+                                    mouse.accepted = false; // Let close button handle
+                                    return;
+                                }
+                                startX = mouse.x;
+                                startY = mouse.y;
+                                startTime = Date.now();
+                                lastY = mouse.y;
+                                lastTime = startTime;
+                                dragDistance = 0;
+                                isDragging = false;
+                                velocity = 0;
+                                isVerticalGesture = false;
+                                gestureDecided = false;
+                                preventStealing = false;
+                                mouse.accepted = true;
+                            }
+                            onPositionChanged: function (mouse) {
+                                if (!pressed)
+                                    return;
+
+                                var deltaX = Math.abs(mouse.x - startX);
+                                var deltaY = Math.abs(mouse.y - startY);
+                                var deltaYSigned = mouse.y - startY;
+                                // Decide gesture after 8px movement
+                                if (!gestureDecided && (deltaX > 8 || deltaY > 8)) {
+                                    gestureDecided = true;
+                                    if (deltaX > deltaY * 1.5) {
+                                        // HORIZONTAL - pass to parent for page navigation
+                                        preventStealing = false;
+                                        mouse.accepted = false;
+                                        Logger.info("TaskSwitcher", "🔄 Handle: Horizontal swipe → page nav");
+                                        return;
+                                    } else if (deltaY > deltaX * 1.5 && deltaYSigned < 0) {
+                                        // VERTICAL UP - swipe to dismiss
+                                        isVerticalGesture = true;
+                                        preventStealing = true;
+                                        Logger.info("TaskSwitcher", "↑ Handle: Vertical swipe UP → dismiss");
+                                    } else {
+                                        // Not a clear upward swipe, let it go
+                                        mouse.accepted = false;
+                                    }
+                                }
+                                if (isVerticalGesture) {
+                                    var now = Date.now();
+                                    var deltaTime = now - lastTime;
+                                    var dy = mouse.y - lastY;
+                                    if (deltaTime > 0)
+                                        velocity = dy / deltaTime;
+
+                                    dragDistance = deltaYSigned;
+                                    lastY = mouse.y;
+                                    lastTime = now;
+                                    if (Math.abs(dragDistance) > 10)
+                                        isDragging = true;
+                                }
+                            }
+                            onReleased: function (mouse) {
+                                var totalTime = Date.now() - startTime;
+                                var deltaX = Math.abs(mouse.x - startX);
+                                var deltaY = Math.abs(mouse.y - startY);
+                                // SWIPE UP TO CLOSE
+                                if (isVerticalGesture && isDragging) {
+                                    var isFlickUp = velocity < -0.5;
+                                    var isDragUp = dragDistance < -40;
+                                    if (isFlickUp || isDragUp) {
+                                        Logger.info("TaskSwitcher", "⬆ Handle: Closing " + model.appId);
+                                        if (typeof AppLifecycleManager !== 'undefined')
+                                            AppLifecycleManager.closeApp(model.appId);
+
+                                        // Reset
+                                        dragDistance = 0;
+                                        isDragging = false;
+                                        velocity = 0;
+                                        isVerticalGesture = false;
+                                        gestureDecided = false;
+                                        mouse.accepted = true;
+                                        return;
+                                    }
+                                }
+                                // TAP TO OPEN
+                                if (!isDragging && !isVerticalGesture && totalTime < 300 && deltaX < 15 && deltaY < 15) {
+                                    Logger.info("TaskSwitcher", "👆 TAP on handle - Opening: " + model.appId);
+                                    var appId = model.appId;
+                                    var appTitle = model.title;
+                                    var appIcon = model.icon;
+                                    var appType = model.type;
+                                    Qt.callLater(function () {
+                                        if (typeof AppLifecycleManager !== 'undefined') {
+                                            if (appType !== "native")
+                                                AppLifecycleManager.restoreApp(appId);
+                                            else
+                                                AppLifecycleManager.bringToForeground(appId);
+                                        }
+                                        UIStore.restoreApp(appId, appTitle, appIcon);
+                                        closed();
+                                    });
+                                    mouse.accepted = true;
+                                    return;
+                                }
+                                // Reset state
+                                dragDistance = 0;
+                                isDragging = false;
+                                velocity = 0;
+                                isVerticalGesture = false;
+                                gestureDecided = false;
+                                preventStealing = false;
+                            }
+                        }
 
                         Row {
                             anchors.fill: parent
@@ -832,8 +872,8 @@ Item {
                                     id: closeButtonRect
 
                                     anchors.centerIn: parent
-                                    width: Math.round(28 * Constants.scaleFactor)
-                                    height: Math.round(28 * Constants.scaleFactor)
+                                    width: Math.round(32 * Constants.scaleFactor)
+                                    height: Math.round(32 * Constants.scaleFactor)
                                     radius: MRadius.sm
                                     color: MColors.surface
 
@@ -849,21 +889,13 @@ Item {
                                         id: closeButtonArea
 
                                         anchors.fill: parent
-                                        anchors.margins: -8
+                                        anchors.margins: -12 // Creates 56×56 touch target
                                         z: 1000
                                         preventStealing: true
-                                        onPressed: mouse => {
-                                            cardDragArea.closeButtonClicked = true;
-                                            mouse.accepted = true; // Block card drag area
-                                        }
-                                        onReleased: mouse => {
-                                            mouse.accepted = true; // Consume release
-                                        }
                                         onClicked: mouse => {
                                             Logger.info("TaskSwitcher", "Closing task via button: " + model.appId);
-                                            mouse.accepted = true; // Consume click
+                                            mouse.accepted = true;
                                             closeAnimation.start();
-                                            cardDragArea.closeButtonClicked = false;
                                         }
                                     }
                                 }

@@ -95,8 +95,16 @@ QtObject {
             // AppModel often returns 48x48 paths which look bad on splash screens
             var appIcon = appId || (appInfo ? appInfo.icon : "application-x-executable");
             if (typeof TaskModel !== 'undefined') {
-                TaskModel.launchTask(effectiveAppId, appName, appIcon, "native", surfaceId, surface);
-                Logger.info("CompositorConnections", "Created task for external app: " + appName + " icon: " + appIcon);
+                // CRITICAL FIX: Check if task already exists (e.g., app was closed and reopened)
+                // If it does, update the surface info instead of trying to create new task
+                var existingTask = TaskModel.getTaskByAppId(effectiveAppId);
+                if (existingTask) {
+                    TaskModel.updateTaskNativeInfo(effectiveAppId, surfaceId, surface);
+                    Logger.info("CompositorConnections", "Updated existing task with new surface for: " + appName);
+                } else {
+                    TaskModel.launchTask(effectiveAppId, appName, appIcon, "native", surfaceId, surface);
+                    Logger.info("CompositorConnections", "Created task for external app: " + appName + " icon: " + appIcon);
+                }
             }
             // Show the app window
             if (root.appWindow)
