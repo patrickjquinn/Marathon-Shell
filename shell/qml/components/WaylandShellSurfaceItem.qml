@@ -87,6 +87,12 @@ ShellSurfaceItem {
         // Reference: https://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-xdg-shell
         // Reference: Phosh/phoc compositor source (wlroots-based mobile compositor)
         toplevel.sendMaximized(newSize);
+        
+        // AUTO-ACTIVATE: Activate window when ready (removes "grey" state)
+        // This ensures the app looks active/focused immediately on launch
+        if (AppLaunchService.compositor) {
+            AppLaunchService.compositor.activateSurface(surfaceId);
+        }
     }
 
     // bufferLocked is inherited from WaylandQuickItem (parent of ShellSurfaceItem)

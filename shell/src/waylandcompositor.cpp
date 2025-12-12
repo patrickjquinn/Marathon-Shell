@@ -65,19 +65,19 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
 
     // Connect seat keyboard focus changes to emit text input panel signal
     // When a native app surface gains keyboard focus, we may need to show the keyboard
-    connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
-            [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
-                Q_UNUSED(oldFocus);
-                // When a native app surface has keyboard focus, emit signal
-                // The QML side decides whether to show the keyboard based on Platform.hasHardwareKeyboard
-                if (newFocus) {
-                    qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
-                             << newFocus;
-                    // Native apps will explicitly request text input via the text input protocol
-                    // For now, just log the focus change. Full text input integration requires
-                    // monitoring zwp_text_input events which Qt handles internally.
-                }
-            });
+    connect(
+        defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
+        [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
+            Q_UNUSED(oldFocus);
+            // When a native app surface has keyboard focus, emit signal
+            // The QML side decides whether to show the keyboard based on Platform.hasHardwareKeyboard
+            if (newFocus) {
+                qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:" << newFocus;
+                // Native apps will explicitly request text input via the text input protocol
+                // For now, just log the focus change. Full text input integration requires
+                // monitoring zwp_text_input events which Qt handles internally.
+            }
+        });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
             &WaylandCompositor::handleSurfaceCreated);
@@ -454,7 +454,17 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
     m_surfaces.append(surface);
     emit surfacesChanged();
-    // DON'T emit surfaceCreated yet - wait for XDG toplevel to be created first
+    emit surfaceCreated(surface, surfaceId, nullptr); // Emit for raw surface
+}
+
+void WaylandCompositor::activateSurface(int surfaceId) {
+    QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
+    if (surface && defaultSeat()) {
+        defaultSeat()->setKeyboardFocus(surface);
+        qDebug() << "[WaylandCompositor] Activated surface (set keyboard focus):" << surfaceId;
+    } else {
+        qWarning() << "[WaylandCompositor] Failed to activate surface:" << surfaceId;
+    }
 }
 
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
