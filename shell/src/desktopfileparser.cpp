@@ -172,22 +172,15 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     QStringList searchPaths = {
         // 1. SCALABLE FIRST (SVGs render perfectly at any size) - all XDG contexts
         QDir::homePath() + "/.local/share/icons/hicolor/scalable/apps/",
-        "/usr/share/icons/hicolor/scalable/apps/",
-        "/usr/share/icons/hicolor/scalable/devices/",
+        "/usr/share/icons/hicolor/scalable/apps/", "/usr/share/icons/hicolor/scalable/devices/",
         "/usr/share/icons/hicolor/scalable/places/",
-        "/usr/share/icons/hicolor/scalable/categories/",
-        "/usr/share/icons/PiXtrix/scalable/apps/",
+        "/usr/share/icons/hicolor/scalable/categories/", "/usr/share/icons/PiXtrix/scalable/apps/",
         "/usr/share/icons/PiXtrix/scalable/categories/",
-        "/usr/share/icons/PiXtrix/scalable/devices/",
-        "/usr/share/icons/PiXtrix/scalable/places/",
-        "/usr/share/icons/Adwaita/scalable/apps/",
-        "/usr/share/icons/Adwaita/scalable/categories/",
-        "/usr/share/icons/Adwaita/scalable/devices/",
-        "/usr/share/icons/Adwaita/scalable/places/",
-        "/usr/share/icons/gnome/scalable/apps/",
-        "/usr/share/icons/gnome/scalable/categories/",
-        "/usr/share/icons/gnome/scalable/devices/",
-        "/usr/share/icons/gnome/scalable/places/",
+        "/usr/share/icons/PiXtrix/scalable/devices/", "/usr/share/icons/PiXtrix/scalable/places/",
+        "/usr/share/icons/Adwaita/scalable/apps/", "/usr/share/icons/Adwaita/scalable/categories/",
+        "/usr/share/icons/Adwaita/scalable/devices/", "/usr/share/icons/Adwaita/scalable/places/",
+        "/usr/share/icons/gnome/scalable/apps/", "/usr/share/icons/gnome/scalable/categories/",
+        "/usr/share/icons/gnome/scalable/devices/", "/usr/share/icons/gnome/scalable/places/",
         QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/scalable/apps/",
         "/var/lib/flatpak/exports/share/icons/hicolor/scalable/apps/",
 
@@ -204,25 +197,18 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
 
         // 3. Medium-res (128x128) - including devices/places
         QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/",
-        "/usr/share/icons/hicolor/128x128/apps/",
-        "/usr/share/icons/hicolor/128x128/devices/",
+        "/usr/share/icons/hicolor/128x128/apps/", "/usr/share/icons/hicolor/128x128/devices/",
         "/usr/share/icons/hicolor/128x128/places/",
         QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/128x128/apps/",
         "/var/lib/flatpak/exports/share/icons/hicolor/128x128/apps/",
 
         // 4. PiXtrix theme - all sizes and contexts (Raspberry Pi OS default theme)
-        "/usr/share/icons/PiXtrix/96x96/apps/",
-        "/usr/share/icons/PiXtrix/96x96/categories/",
-        "/usr/share/icons/PiXtrix/96x96/devices/",
-        "/usr/share/icons/PiXtrix/96x96/places/",
-        "/usr/share/icons/PiXtrix/64x64/apps/",
-        "/usr/share/icons/PiXtrix/64x64/categories/",
-        "/usr/share/icons/PiXtrix/64x64/devices/",
-        "/usr/share/icons/PiXtrix/64x64/places/",
-        "/usr/share/icons/PiXtrix/48x48/apps/",
-        "/usr/share/icons/PiXtrix/48x48/categories/",
-        "/usr/share/icons/PiXtrix/48x48/devices/",
-        "/usr/share/icons/PiXtrix/48x48/places/",
+        "/usr/share/icons/PiXtrix/96x96/apps/", "/usr/share/icons/PiXtrix/96x96/categories/",
+        "/usr/share/icons/PiXtrix/96x96/devices/", "/usr/share/icons/PiXtrix/96x96/places/",
+        "/usr/share/icons/PiXtrix/64x64/apps/", "/usr/share/icons/PiXtrix/64x64/categories/",
+        "/usr/share/icons/PiXtrix/64x64/devices/", "/usr/share/icons/PiXtrix/64x64/places/",
+        "/usr/share/icons/PiXtrix/48x48/apps/", "/usr/share/icons/PiXtrix/48x48/categories/",
+        "/usr/share/icons/PiXtrix/48x48/devices/", "/usr/share/icons/PiXtrix/48x48/places/",
 
         // 5. AdwaitaLegacy (contains many standard icons)
         "/usr/share/icons/AdwaitaLegacy/48x48/legacy/",
@@ -239,18 +225,14 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         "/var/lib/snapd/desktop/icons/",
 
         // 7. Mid-range fallbacks (64x64)
-        "/usr/share/icons/hicolor/64x64/apps/",
-        "/usr/share/icons/hicolor/64x64/devices/",
+        "/usr/share/icons/hicolor/64x64/apps/", "/usr/share/icons/hicolor/64x64/devices/",
         "/usr/share/icons/hicolor/64x64/places/",
         QDir::homePath() + "/.local/share/icons/hicolor/64x64/apps/",
 
         // 8. Low-res fallbacks (Last resort - 48x48, 32x32 and pixmaps)
-        "/usr/share/icons/hicolor/48x48/apps/",
-        "/usr/share/icons/hicolor/48x48/devices/",
-        "/usr/share/icons/hicolor/48x48/places/",
-        "/usr/share/icons/hicolor/32x32/apps/",
-        "/usr/share/icons/hicolor/32x32/devices/",
-        "/usr/share/icons/hicolor/32x32/places/",
+        "/usr/share/icons/hicolor/48x48/apps/", "/usr/share/icons/hicolor/48x48/devices/",
+        "/usr/share/icons/hicolor/48x48/places/", "/usr/share/icons/hicolor/32x32/apps/",
+        "/usr/share/icons/hicolor/32x32/devices/", "/usr/share/icons/hicolor/32x32/places/",
         "/usr/share/pixmaps/"};
 
     QStringList extensions = {".svg", ".png", ".xpm", ".jpg", ""};

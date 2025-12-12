@@ -78,11 +78,17 @@ Rectangle {
                     appContentLoader.sourceComponent = appInstanceContainer;
                     appWindow.isLoadingComponent = false;
                     // Connect close request signal
-                    if (nativeInstance.requestClose)
+                    if (nativeInstance.requestClose) {
+                        // CRITICAL: Capture `id` in closure scope - do NOT use appWindow.appId
+                        // because appWindow.appId may have changed to a different app!
+                        var capturedId = id;
                         nativeInstance.requestClose.connect(function (skipNative) {
-                            Logger.info("AppWindow", "Native app requested close: " + id + " skipNative=" + skipNative);
-                            appWindow.closeApp(skipNative);
+                            Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
+                            // Pass the captured ID directly to lifecycle manager
+                            if (typeof AppLifecycleManager !== 'undefined')
+                                AppLifecycleManager.closeApp(capturedId, skipNative === true);
                         });
+                    }
 
                     // CRITICAL: Register native app with lifecycle manager so it can be minimized/restored
                     if (typeof AppLifecycleManager !== 'undefined') {
