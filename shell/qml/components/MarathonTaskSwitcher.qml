@@ -167,6 +167,10 @@ Item {
     }
 
     GridView {
+        // Flick up = previous page
+        // Flick down = next page
+        // Slow movement = snap to nearest
+
         id: taskGrid
 
         // Allow horizontal gestures to pass through to parent PageView
@@ -175,10 +179,6 @@ Item {
 
         // Velocity-aware snap to page helper function
         function snapToPage(velocity) {
-            // Flick up = previous page
-            // Flick down = next page
-            // Slow movement = snap to nearest
-
             var currentPage = contentY / height;
             var targetPage;
             // Fast flick in a direction = commit to that direction
@@ -562,6 +562,8 @@ Item {
 
                                         // Native app surface rendering - conditionally load Wayland component on Linux
                                         Loader {
+                                            // surfaceObj is handled by Binding above
+
                                             id: nativeSurfaceLoader
 
                                             anchors.top: parent.top
@@ -573,8 +575,6 @@ Item {
                                             active: taskSwitcher.visible && haveWayland && typeof model.waylandSurface !== 'undefined' && model.waylandSurface !== null
                                             source: haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                             onItemChanged: {
-                                                // surfaceObj is handled by Binding above
-
                                                 if (item) {
                                                     // CRITICAL FIX: Anchor to the LOADER (item.parent), not "parent" (Loader's parent)
                                                     // "parent" in this scope refers to the Loader's parent (the Rectangle)
