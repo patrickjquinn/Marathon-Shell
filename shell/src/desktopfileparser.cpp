@@ -157,7 +157,8 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         return "grid";
     }
 
-    // If it already has an extension, check if it exists
+    // If it already has an extension, check if it exists (relative to what? usually implies absolute if extension present)
+    // But some themes might specify "firefox.png" without path. We should still search.
     if (iconName.endsWith(".svg") || iconName.endsWith(".png") || iconName.endsWith(".xpm") ||
         iconName.endsWith(".jpg")) {
         if (QFile::exists(iconName)) {
@@ -165,26 +166,80 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         }
     }
 
-    // Search common icon paths
-    QStringList searchPaths = {"/usr/share/pixmaps/",
-                               "/usr/share/icons/hicolor/scalable/apps/",
-                               "/usr/share/icons/hicolor/48x48/apps/",
-                               "/usr/share/icons/hicolor/64x64/apps/",
-                               "/usr/share/icons/hicolor/128x128/apps/",
-                               "/usr/share/icons/hicolor/256x256/apps/",
-                               "~/.local/share/icons/hicolor/scalable/apps/",
-                               "~/.local/share/icons/hicolor/48x48/apps/"};
+    // SEARCH PRIORITY: Scalable SVG (best quality) -> High Resolution PNG -> Low Resolution
+    // We search standard paths AND Flatpak/Snap paths
+    // NOTE: Icons can be in various XDG contexts: apps, categories, devices, places, etc.
+    QStringList searchPaths = {
+        // 1. SCALABLE FIRST (SVGs render perfectly at any size) - all XDG contexts
+        QDir::homePath() + "/.local/share/icons/hicolor/scalable/apps/",
+        "/usr/share/icons/hicolor/scalable/apps/", "/usr/share/icons/hicolor/scalable/devices/",
+        "/usr/share/icons/hicolor/scalable/places/",
+        "/usr/share/icons/hicolor/scalable/categories/", "/usr/share/icons/PiXtrix/scalable/apps/",
+        "/usr/share/icons/PiXtrix/scalable/categories/",
+        "/usr/share/icons/PiXtrix/scalable/devices/", "/usr/share/icons/PiXtrix/scalable/places/",
+        "/usr/share/icons/Adwaita/scalable/apps/", "/usr/share/icons/Adwaita/scalable/categories/",
+        "/usr/share/icons/Adwaita/scalable/devices/", "/usr/share/icons/Adwaita/scalable/places/",
+        "/usr/share/icons/gnome/scalable/apps/", "/usr/share/icons/gnome/scalable/categories/",
+        "/usr/share/icons/gnome/scalable/devices/", "/usr/share/icons/gnome/scalable/places/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/scalable/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/scalable/apps/",
 
-    QStringList extensions = {".svg", ".png", ".xpm", ""};
+        // 2. High-res pixel icons (512x512 and 256x256)
+        QDir::homePath() + "/.local/share/icons/hicolor/512x512/apps/",
+        "/usr/share/icons/hicolor/512x512/apps/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/512x512/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/512x512/apps/",
+
+        QDir::homePath() + "/.local/share/icons/hicolor/256x256/apps/",
+        "/usr/share/icons/hicolor/256x256/apps/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/256x256/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/256x256/apps/",
+
+        // 3. Medium-res (128x128) - including devices/places
+        QDir::homePath() + "/.local/share/icons/hicolor/128x128/apps/",
+        "/usr/share/icons/hicolor/128x128/apps/", "/usr/share/icons/hicolor/128x128/devices/",
+        "/usr/share/icons/hicolor/128x128/places/",
+        QDir::homePath() + "/.local/share/flatpak/exports/share/icons/hicolor/128x128/apps/",
+        "/var/lib/flatpak/exports/share/icons/hicolor/128x128/apps/",
+
+        // 4. PiXtrix theme - all sizes and contexts (Raspberry Pi OS default theme)
+        "/usr/share/icons/PiXtrix/96x96/apps/", "/usr/share/icons/PiXtrix/96x96/categories/",
+        "/usr/share/icons/PiXtrix/96x96/devices/", "/usr/share/icons/PiXtrix/96x96/places/",
+        "/usr/share/icons/PiXtrix/64x64/apps/", "/usr/share/icons/PiXtrix/64x64/categories/",
+        "/usr/share/icons/PiXtrix/64x64/devices/", "/usr/share/icons/PiXtrix/64x64/places/",
+        "/usr/share/icons/PiXtrix/48x48/apps/", "/usr/share/icons/PiXtrix/48x48/categories/",
+        "/usr/share/icons/PiXtrix/48x48/devices/", "/usr/share/icons/PiXtrix/48x48/places/",
+
+        // 5. AdwaitaLegacy (contains many standard icons)
+        "/usr/share/icons/AdwaitaLegacy/48x48/legacy/",
+        "/usr/share/icons/AdwaitaLegacy/48x48/devices/",
+        "/usr/share/icons/AdwaitaLegacy/48x48/places/",
+        "/usr/share/icons/AdwaitaLegacy/32x32/legacy/",
+        "/usr/share/icons/AdwaitaLegacy/32x32/devices/",
+        "/usr/share/icons/AdwaitaLegacy/32x32/places/",
+        "/usr/share/icons/AdwaitaLegacy/24x24/legacy/",
+        "/usr/share/icons/AdwaitaLegacy/24x24/devices/",
+        "/usr/share/icons/AdwaitaLegacy/24x24/places/",
+
+        // 6. Snap exports
+        "/var/lib/snapd/desktop/icons/",
+
+        // 7. Mid-range fallbacks (64x64)
+        "/usr/share/icons/hicolor/64x64/apps/", "/usr/share/icons/hicolor/64x64/devices/",
+        "/usr/share/icons/hicolor/64x64/places/",
+        QDir::homePath() + "/.local/share/icons/hicolor/64x64/apps/",
+
+        // 8. Low-res fallbacks (Last resort - 48x48, 32x32 and pixmaps)
+        "/usr/share/icons/hicolor/48x48/apps/", "/usr/share/icons/hicolor/48x48/devices/",
+        "/usr/share/icons/hicolor/48x48/places/", "/usr/share/icons/hicolor/32x32/apps/",
+        "/usr/share/icons/hicolor/32x32/devices/", "/usr/share/icons/hicolor/32x32/places/",
+        "/usr/share/pixmaps/"};
+
+    QStringList extensions = {".svg", ".png", ".xpm", ".jpg", ""};
 
     for (const QString &basePath : searchPaths) {
-        QString expandedPath = basePath;
-        if (expandedPath.startsWith('~')) {
-            expandedPath.replace(0, 1, QDir::homePath());
-        }
-
         for (const QString &ext : extensions) {
-            QString fullPath = expandedPath + iconName + ext;
+            QString fullPath = basePath + iconName + ext;
             if (QFile::exists(fullPath)) {
                 qDebug() << "[DesktopFileParser] Found icon:" << fullPath;
                 return "file://" + fullPath;

@@ -11,6 +11,7 @@
 #include <QLoggingCategory>
 #include <QInputDevice>
 #include <QDBusMetaType>
+#include <QElapsedTimer>
 #include "src/locationmanager.h"
 
 #ifdef Q_OS_LINUX
@@ -47,6 +48,7 @@
 #include "src/marathoninputmethodengine.h"
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
+#include "src/cursormanager.h"
 
 #include "src/mpris2controller.h"
 #include "src/rotationmanager.h"
@@ -139,6 +141,10 @@ int main(int argc, char *argv[]) {
     // Enable software rendering for better compatibility in VMs or low-end hardware
     // qputenv("QMLSCENE_DEVICE", "software");  // Commented out - let Qt choose best renderer
 
+    QElapsedTimer timer;
+    timer.start();
+    qCritical() << "[Profiler] Startup begins...";
+
     // Check debug mode FIRST before setting any logging rules
     QString debugEnv     = qgetenv("MARATHON_DEBUG");
     bool    debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
@@ -198,7 +204,15 @@ int main(int argc, char *argv[]) {
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
+    // CRITICAL: Enable Touch Synthesis for Mouse Events (Trackball Support)
+    // This allows "Click and Drag" with the trackball to act like a touch swipe/scroll
+    QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
+    QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
+
     QApplication app(argc, argv);
+
+    // NOTE: Q20 trackball has native scroll mode via CapsLock key (firmware)
+    // No custom emulation needed - scroll wheel events sent automatically
 
     // ============================================================================
     // CRITICAL: Install Crash Protection (MITIGATION ONLY - NOT A FIX!)
@@ -252,6 +266,7 @@ int main(int argc, char *argv[]) {
         delete logFile;
         logFile = nullptr;
     }
+    qCritical() << "[Profiler] Logging initialized:" << timer.elapsed() << "ms";
 
     QQuickStyle::setStyle("Basic");
 
@@ -296,6 +311,7 @@ int main(int argc, char *argv[]) {
     WaylandCompositorManager *compositorManager =
         new WaylandCompositorManager(settingsManager, &app);
     engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
+    qCritical() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
 
     // Set debug mode context property
     engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
@@ -321,6 +337,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("MarathonAppScanner", appScanner);
     engine.rootContext()->setContextProperty("MarathonAppLoader", appLoader);
     engine.rootContext()->setContextProperty("MarathonAppInstaller", appInstaller);
+    qCritical() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
 
     // Register Marathon Input Method Engine
     MarathonInputMethodEngine *inputMethodEngine = new MarathonInputMethodEngine(&app);
@@ -368,6 +385,12 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("HapticManager", hapticManager);
     engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
     engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+
+    // Cursor auto-hide manager for EGLFS
+    CursorManager *cursorManager = new CursorManager(&app);
+    engine.rootContext()->setContextProperty("CursorManager", cursorManager);
+
+    qCritical() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
 
     // Wire AudioManager to PowerManager for audio playback wakelocks
     QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,
@@ -468,6 +491,7 @@ int main(int argc, char *argv[]) {
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
+    qCritical() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
 
     // Register Permission Manager
     MarathonPermissionManager *permissionManager = new MarathonPermissionManager(&app);
@@ -606,6 +630,7 @@ int main(int argc, char *argv[]) {
 
     // Sort all apps alphabetically after loading both native and Marathon apps
     appModel->sortAppsByName();
+    qCritical() << "[Profiler] Apps loaded and sorted:" << timer.elapsed() << "ms";
 
     // Add QML import paths for modules
     engine.addImportPath("qrc:/");

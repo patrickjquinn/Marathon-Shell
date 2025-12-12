@@ -1,104 +1,156 @@
+import "./components" as Comp
+import MarathonOS.Shell
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Window
-import MarathonOS.Shell
-import "./components" as Comp
-import MarathonUI.Theme
 
 // qmllint disable missing-property unqualified import
 Item {
+    // Handle physical keys from Q20 hardware
+    // Captured keycodes: Back = KEY_ESC (Qt.Key_Escape), BB = KEY_LEFTMETA (Qt.Key_Super_L)
+    // NOTE: EGLFS may filter Super_L as "system key" - using Meta modifier check as fallback
+    // Volume logic and others remain here
+    // ESC and Meta are handled via C++ Signals (handleBackKey/handleHomeKey)
+    // to prevent focus-stealing issues and double-actions.
+    // ===== AUTO-HIDE CURSOR =====
+    // Uses C++ CursorManager with QGuiApplication::setOverrideCursor
+    // QML MouseArea cursorShape doesn't work reliably with EGLFS
+    // Settings app now loaded dynamically like other Marathon apps
+    // Keyboard visibility managed by: 1) Auto-show on input focus (no hardware KB), 2) Manual nav bar toggle
+    // NOTE: Compositor signal connections are made manually in Component.onCompleted
+    // because the compositor property is null when this file is first loaded
+    // Power key
+    // ESC and Meta consumption removed here - handled by C++ filter
+    // Only after initialization
+    // Only after initialization
+
     id: shell
-    focus: true  // Enable keyboard input
-
-    // Slate Font Family - bundled font resources
-    FontLoader {
-        id: slateLight
-        source: "qrc:/fonts/Slate-Light.ttf"
-    }
-    FontLoader {
-        id: slateBook
-        source: "qrc:/fonts/Slate-Book.ttf"
-    }
-    FontLoader {
-        id: slateRegular
-        source: "qrc:/fonts/Slate-Regular.ttf"
-    }
-    FontLoader {
-        id: slateMedium
-        source: "qrc:/fonts/Slate-Medium.ttf"
-    }
-    FontLoader {
-        id: slateBold
-        source: "qrc:/fonts/Slate-Bold.ttf"
-    }
-
-    // Lucide Icon Font
-    FontLoader {
-        id: lucideFont
-        source: "qrc:/fonts/lucide.ttf"
-    }
 
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
-
     // State management moved to stores
     property bool showPinScreen: false
     property bool isTransitioningToActiveFrames: false
     property int currentPage: 0
     property int totalPages: 1
-
     // Pending notification action after unlock
     property var pendingNotification: null
-
     // Dynamic Quick Settings sizing (threshold from config)
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.quickSettingsDismissThreshold
+    // Pending app launch after unlock
+    property var pendingLaunch: null
+    // Track volume up state for screenshot combo
+    property bool volumeUpPressed: false
+    property bool powerButtonPressed: false
 
-    // Debounce timer for window resize events (prevent layout thrashing)
-    Timer {
-        id: resizeDebounceTimer
-        interval: 100
-        onTriggered: {
-            Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4);
+    // Input Handling Functions (Triggered by C++ Signals)
+    function handleBackKey() {
+        // Priority 1: Close Shell Overlays
+        var overlayClosed = false;
+        if (showPinScreen) {
+            showPinScreen = false;
+            lockScreen.swipeProgress = 0;
+            pinScreen.reset();
+            overlayClosed = true;
+        } else if (UIStore.searchOpen) {
+            UIStore.closeSearch();
+            overlayClosed = true;
+        } else if (UIStore.shareSheetOpen) {
+            UIStore.closeShareSheet();
+            overlayClosed = true;
+        } else if (UIStore.clipboardManagerOpen) {
+            UIStore.closeClipboardManager();
+            overlayClosed = true;
+        } else if (peekFlow.peekProgress > 0) {
+            peekFlow.closePeek();
+            overlayClosed = true;
+        } else if (UIStore.quickSettingsOpen) {
+            UIStore.closeQuickSettings();
+            overlayClosed = true;
+        } else if (messagingHub.showVertical) {
+            messagingHub.showVertical = false;
+            overlayClosed = true;
+        }
+        if (overlayClosed) {
+            Logger.info("Shell", "Back Key closed overlay");
+            return;
+        }
+        // Priority 2: App Back or Close (System Back)
+        Logger.info("Shell", "Back Key Triggered - Calling handleSystemBack");
+        if (typeof AppLifecycleManager !== 'undefined') {
+            var handled = AppLifecycleManager.handleSystemBack();
+            if (!handled) {
+                Logger.info("Shell", "Back not handled by app, closing");
+                if (UIStore.appWindowOpen)
+                    UIStore.closeApp();
+            }
+        } else if (UIStore.appWindowOpen) {
+            UIStore.closeApp();
         }
     }
 
-    // Handle deep link requests from NavigationRouter
-    Connections {
-        target: NavigationRouter
-
-        function onDeepLinkRequested(appId, route, params) {
-            DeepLinkHandler.appWindow = appWindow;
-            DeepLinkHandler.handleDeepLink(appId, route, params);
+    function handleHomeKey() {
+        // Dismiss keyboard if visible
+        if (virtualKeyboard.active) {
+            HapticService.light();
+            virtualKeyboard.active = false;
+            return;
         }
+        // If app is open, minimize to task switcher
+        if (UIStore.appWindowOpen) {
+            if (typeof AppLifecycleManager !== 'undefined')
+                AppLifecycleManager.minimizeForegroundApp();
+
+            var appInstance = appWindow.detachCurrentApp();
+            if (appInstance) {
+                // CRITICAL: Set isMinimized BEFORE moving to background
+                // This locks the buffer to retain the last frame for task switcher preview
+                // and prevents VK_ERROR_SURFACE_LOST errors when apps destroy their surface
+                if (appInstance.isMinimized !== undefined)
+                    appInstance.isMinimized = true;
+
+                appInstance.parent = backgroundAppsContainer;
+                appInstance.visible = true;
+            }
+            appWindow.hide();
+            UIStore.minimizeApp();
+        }
+        // Navigate to task switcher (Active Frames)
+        pageView.currentIndex = 1;
+        Router.goToFrames();
     }
 
-    // Handle notification clicks (deep linking)
-    Connections {
-        target: NotificationService
-
-        function onNotificationClicked(id) {
-            NotificationHandler.handleNotificationClick(id);
-        }
-
-        function onNotificationActionTriggered(id, action) {
-            NotificationHandler.handleNotificationAction(id, action);
-        }
+    // Public function to show power menu (used by Quick Settings)
+    function showPowerMenu() {
+        Logger.info("Shell", "Showing power menu from quick settings");
+        powerMenu.show();
     }
 
-    Comp.ShellInitialization {
-        id: shellInitialization
+    focus: true // Enable keyboard input
+    Keys.onReleased: event => {
+        // Volume keys
+        if (event.key === Qt.Key_VolumeUp) {
+            volumeUpPressed = false;
+            event.accepted = true;
+        } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            powerButtonPressed = false;
+            if (powerButtonTimer.running) {
+                PowerBatteryHandler.handlePowerButtonPress();
+                powerButtonTimer.stop();
+            }
+            event.accepted = true;
+        }
     }
-
     Component.onCompleted: {
+        // Ensure shell has keyboard focus for Q20 hardware keys
+        shell.forceActiveFocus();
         compositor = shellInitialization.initialize(shell, Window.window);
-
         // Initialize global services
         AppLaunchService.compositor = compositor;
         AppLaunchService.appWindow = appWindow;
-
         // Initialize ScreenshotService with shell window reference
         ScreenshotService.shellWindow = shell;
-
         // CRITICAL: Connect compositor signals AFTER compositor is created
         // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
@@ -106,172 +158,270 @@ Item {
                 compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp);
                 compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface);
             });
-
             compositor.surfaceDestroyed.connect(shell, function (surface, surfaceId) {
-                // CRITICAL: Remove task from TaskModel when surface is destroyed
-                // This handles both process termination AND surface unmapping (when app closes internally)
-                if (typeof TaskModel !== 'undefined') {
-                    var task = TaskModel.getTaskBySurfaceId(surfaceId);
-                    if (task) {
-                        TaskModel.closeTask(task.id);
-                    }
-                }
-
-                // Also notify CompositorConnections for window cleanup
+                // NOTE: We do NOT remove tasks on surface destruction.
+                // Apps like Chromium unmap/destroy their surface when minimized but the process is still running.
+                // Tasks should only be removed when:
+                // 1. The process actually terminates (handled by appClosed signal)
+                // 2. User explicitly closes from task switcher (handled by task switcher close button)
+                console.log("[Shell] surfaceDestroyed for surfaceId: " + surfaceId + " (task NOT removed - process may still be running)");
+                // Still notify CompositorConnections for window cleanup
                 compositorConnections.handleSurfaceDestroyed(surface, surfaceId);
             });
-
             compositor.appLaunched.connect(shell, function (command, pid) {
                 compositorConnections.handleAppLaunched(command, pid);
             });
-
             compositor.appClosed.connect(shell, function (pid) {
                 compositorConnections.handleAppClosed(pid);
             });
+            // Connect Global Input Signals (from C++ Event Filter)
+            compositor.systemBackTriggered.connect(handleBackKey);
+            compositor.systemHomeTriggered.connect(handleHomeKey);
         }
     }
-
     // Handle window resize (for desktop/tablet) - debounced to prevent layout thrashing
     onWidthChanged: {
-        if (Constants.screenWidth > 0) {
-            // Only after initialization
+        if (Constants.screenWidth > 0)
             resizeDebounceTimer.restart();
-        }
     }
     onHeightChanged: {
-        if (Constants.screenHeight > 0) {
-            // Only after initialization
+        if (Constants.screenHeight > 0)
             resizeDebounceTimer.restart();
-        }
     }
-
     // State-based navigation using centralized stores
     // Don't show lock screen until OOBE is complete
     // Use showLockScreen (not isLocked) to determine if lock screen should be visible
     // This allows lock screen to show with unlocked icon during grace period
     state: SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home"
+    Keys.onPressed: event => {
+        // Volume Up button
+        if (event.key === Qt.Key_VolumeUp) {
+            volumeUpPressed = true;
+            // Check for Power + Volume Up combo (screenshot)
+            if (powerButtonPressed) {
+                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
+                screenshotFlash.trigger();
+                ScreenshotService.captureScreen(shell);
+                event.accepted = true;
+                return;
+            }
+            SystemControlStore.setVolume(SystemControlStore.volume + 10);
+            systemHUD.showVolume(AudioManagerCpp.volume);
+            event.accepted = true;
+            return;
+        }
+        // Volume Down button
+        if (event.key === Qt.Key_VolumeDown) {
+            SystemControlStore.setVolume(SystemControlStore.volume - 10);
+            systemHUD.showVolume(AudioManagerCpp.volume);
+            event.accepted = true;
+            return;
+        }
+        // Power button - start timer for long press
+        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
+            powerButtonPressed = true;
+            // Check for Power + Volume Up combo (screenshot)
+            if (volumeUpPressed) {
+                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
+                screenshotFlash.trigger();
+                ScreenshotService.captureScreen(shell);
+                event.accepted = true;
+                return;
+            }
+            if (!powerButtonTimer.running)
+                powerButtonTimer.start();
 
+            event.accepted = true;
+        } else if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
+            Logger.debug("Shell", "Cmd+Space pressed - Opening Universal Search");
+            UIStore.toggleSearch();
+            HapticService.light();
+            event.accepted = true;
+        } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
+            Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard");
+            virtualKeyboard.active = !virtualKeyboard.active;
+            HapticService.light();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Menu) {
+            Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard");
+            virtualKeyboard.active = !virtualKeyboard.active;
+            HapticService.light();
+            event.accepted = true;
+        } else if (event.key === Qt.Key_Print || event.key === Qt.Key_SysReq) {
+            // Print Screen key (standard on Linux/Windows)
+            Logger.debug("Shell", "Print Screen pressed - Taking Screenshot");
+            screenshotFlash.trigger();
+            ScreenshotService.captureScreen(shell);
+            HapticService.medium();
+            event.accepted = true;
+        } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
+            // Ctrl+Shift+3 (Cmd+Shift+3 on macOS) - macOS-style shortcut
+            Logger.debug("Shell", "Ctrl+Shift+3 pressed - Taking Screenshot");
+            screenshotFlash.trigger();
+            ScreenshotService.captureScreen(shell);
+            HapticService.medium();
+            event.accepted = true;
+        } else if ((event.key === Qt.Key_V) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
+            Logger.debug("Shell", "Cmd+Shift+V pressed - Opening Clipboard Manager");
+            UIStore.openClipboardManager();
+            HapticService.light();
+            event.accepted = true;
+        } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
+            // Alphanumeric keys trigger search with that character
+            if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
+                Logger.info("Shell", "Global search triggered with: '" + event.text + "'");
+                UIStore.openSearch();
+                Qt.callLater(function () {
+                    universalSearch.appendToSearch(event.text);
+                });
+                event.accepted = true;
+            }
+        }
+    }
     states: [
         State {
             name: "locked"
+
             PropertyChanges {
                 lockScreen.visible: true
                 lockScreen.enabled: true
-                lockScreen.expandedCategory: ""  // Close expanded notifications
+                lockScreen.expandedCategory: "" // Close expanded notifications
             }
+
             StateChangeScript {
                 script: {
                     // Reset swipe progress when entering locked state
-                    lockScreen.swipeProgress = 0.0;
+                    lockScreen.swipeProgress = 0;
                 }
             }
             // PIN screen HIDDEN behind lock screen until swipe triggers pinEntry state
+
             PropertyChanges {
                 pinScreen.visible: false
                 pinScreen.enabled: false
-                pinScreen.opacity: 0.0
+                pinScreen.opacity: 0
             }
             // NEVER show mainContent when session invalid (security!)
+
             // Only fade in when session IS valid
             PropertyChanges {
                 mainContent.visible: SessionStore.checkSession()
                 mainContent.enabled: false
-                mainContent.opacity: SessionStore.checkSession() ? Math.pow(lockScreen.swipeProgress, 0.7) : 0.0
+                mainContent.opacity: SessionStore.checkSession() ? Math.pow(lockScreen.swipeProgress, 0.7) : 0
             }
+
             PropertyChanges {
                 appWindow.visible: false
             }
+
             PropertyChanges {
                 navBar.visible: false
             }
         },
         State {
             name: "pinEntry"
+
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
             }
+
             PropertyChanges {
                 pinScreen.visible: true
                 pinScreen.enabled: true
-                pinScreen.opacity: 1.0
+                pinScreen.opacity: 1
             }
             // HIDE mainContent completely during PIN entry (security!)
+
             PropertyChanges {
                 mainContent.visible: false
                 mainContent.enabled: false
-                mainContent.opacity: 0.0
+                mainContent.opacity: 0
             }
+
             PropertyChanges {
                 appWindow.visible: false
             }
+
             PropertyChanges {
-                navBar.visible: true  // Show nav bar for keyboard access
-                navBar.pinScreenMode: true  // Hide pill and search, keep keyboard button
+                navBar.visible: true // Show nav bar for keyboard access
+                navBar.pinScreenMode: true // Hide pill and search, keep keyboard button
             }
         },
         State {
             name: "home"
+
             StateChangeScript {
                 script: {
                     shell.forceActiveFocus();
                 }
             }
+
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
             }
+
             PropertyChanges {
                 pinScreen.visible: false
                 pinScreen.enabled: false
-                pinScreen.opacity: 0.0
+                pinScreen.opacity: 0
             }
+
             PropertyChanges {
                 mainContent.visible: true
                 mainContent.enabled: true
-                mainContent.opacity: 1.0
+                mainContent.opacity: 1
             }
+
             PropertyChanges {
                 appWindow.visible: false
             }
+
             PropertyChanges {
                 navBar.visible: true
-                navBar.pinScreenMode: false  // Normal mode with pill and search
+                navBar.pinScreenMode: false // Normal mode with pill and search
             }
         },
         State {
             name: "app"
+
             PropertyChanges {
                 lockScreen.visible: false
                 lockScreen.enabled: false
             }
+
             PropertyChanges {
                 pinScreen.visible: false
                 pinScreen.enabled: false
             }
+
             PropertyChanges {
                 mainContent.visible: false
                 mainContent.enabled: false
             }
+
             PropertyChanges {
                 appWindow.visible: true
             }
+
             PropertyChanges {
                 statusBar.visible: true
                 statusBar.z: Constants.zIndexStatusBarApp
             }
+
             PropertyChanges {
                 navBar.visible: true
                 navBar.z: Constants.zIndexNavBarApp
-                navBar.pinScreenMode: false  // Normal mode with pill and search
+                navBar.pinScreenMode: false // Normal mode with pill and search
             }
         }
     ]
-
     transitions: [
         Transition {
             from: "locked"
             to: "home"
+
             // No animation needed - swipe gesture already animated swipeProgress to 1.0
             PropertyAction {
                 target: lockScreen
@@ -282,31 +432,36 @@ Item {
         Transition {
             from: "locked"
             to: "pinEntry"
+
             ParallelAnimation {
                 NumberAnimation {
                     target: lockScreen
                     property: "swipeProgress"
-                    to: 1.0
+                    to: 1
                     duration: 200
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     target: pinScreen
                     property: "opacity"
-                    to: 1.0
+                    to: 1
                     duration: 200
                     easing.type: Easing.InCubic
                 }
+
                 PropertyAction {
                     target: lockScreen
                     property: "visible"
                     value: false
                 }
+
                 PropertyAction {
                     target: lockScreen
                     property: "enabled"
                     value: false
                 }
+
                 PropertyAction {
                     target: pinScreen
                     property: "enabled"
@@ -317,6 +472,7 @@ Item {
         Transition {
             from: "pinEntry"
             to: "home"
+
             SequentialAnimation {
                 NumberAnimation {
                     target: pinScreen
@@ -325,6 +481,7 @@ Item {
                     duration: Constants.animationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 PropertyAction {
                     target: pinScreen
                     property: "visible"
@@ -333,6 +490,111 @@ Item {
             }
         }
     ]
+
+    // Slate Font Family - bundled font resources
+    FontLoader {
+        id: slateLight
+
+        source: "qrc:/fonts/Slate-Light.ttf"
+    }
+
+    FontLoader {
+        id: slateBook
+
+        source: "qrc:/fonts/Slate-Book.ttf"
+    }
+
+    FontLoader {
+        id: slateRegular
+
+        source: "qrc:/fonts/Slate-Regular.ttf"
+    }
+
+    FontLoader {
+        id: slateMedium
+
+        source: "qrc:/fonts/Slate-Medium.ttf"
+    }
+
+    FontLoader {
+        id: slateBold
+
+        source: "qrc:/fonts/Slate-Bold.ttf"
+    }
+
+    // Lucide Icon Font
+    FontLoader {
+        id: lucideFont
+
+        source: "qrc:/fonts/lucide.ttf"
+    }
+
+    // Global mouse area to track ALL mouse movement for cursor visibility
+    // Must be ON TOP but NOT steal keyboard focus
+    MouseArea {
+        id: cursorTracker
+
+        anchors.fill: parent
+        z: 10000 // ON TOP of everything to receive mouse events first
+        acceptedButtons: Qt.NoButton // Don't consume any clicks
+        hoverEnabled: true
+        enabled: true
+        // CRITICAL: Don't take focus from the shell - keys need to go to shell
+        focus: false
+        onPositionChanged: mouse => {
+            // Notify C++ CursorManager of mouse activity
+            if (typeof CursorManager !== 'undefined')
+                CursorManager.onMouseActivity();
+
+            mouse.accepted = false; // Allow event to propagate to items below
+        }
+        onPressed: mouse => {
+            mouse.accepted = false;
+        }
+        onReleased: mouse => {
+            mouse.accepted = false;
+        }
+        onClicked: mouse => {
+            mouse.accepted = false;
+        }
+    }
+
+    // Debounce timer for window resize events (prevent layout thrashing)
+    Timer {
+        id: resizeDebounceTimer
+
+        interval: 100
+        onTriggered: {
+            Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4);
+        }
+    }
+
+    // Handle deep link requests from NavigationRouter
+    Connections {
+        function onDeepLinkRequested(appId, route, params) {
+            DeepLinkHandler.appWindow = appWindow;
+            DeepLinkHandler.handleDeepLink(appId, route, params);
+        }
+
+        target: NavigationRouter
+    }
+
+    // Handle notification clicks (deep linking)
+    Connections {
+        function onNotificationClicked(id) {
+            NotificationHandler.handleNotificationClick(id);
+        }
+
+        function onNotificationActionTriggered(id, action) {
+            NotificationHandler.handleNotificationAction(id, action);
+        }
+
+        target: NotificationService
+    }
+
+    Comp.ShellInitialization {
+        id: shellInitialization
+    }
 
     Image {
         anchors.fill: parent
@@ -344,6 +606,7 @@ Item {
     // Main home screen content - controlled by State system
     Column {
         id: mainContent
+
         anchors.fill: parent
         z: Constants.zIndexMainContent
 
@@ -360,11 +623,11 @@ Item {
 
             MarathonPageView {
                 id: pageView
+
                 anchors.fill: parent
                 z: Constants.zIndexMainContent + 10
                 isGestureActive: navBar.isAppOpen && shell.isTransitioningToActiveFrames
-                compositor: shell.compositor  // Pass compositor for native app management
-
+                compositor: shell.compositor // Pass compositor for native app management
                 onCurrentPageChanged: {
                     Logger.nav("page" + shell.currentPage, "page" + currentPage, "navigation");
                     // If we're on an app grid page (currentPage >= 0), use the internal page
@@ -376,7 +639,6 @@ Item {
                         shell.currentPage = currentPage;
                     }
                 }
-
                 onInternalAppGridPageChanged: {
                     // Update shell's current page when internal app grid page changes
                     if (pageView.currentPage >= 0) {
@@ -384,11 +646,9 @@ Item {
                         Logger.debug("Shell", "Internal app grid page changed to: " + pageView.internalAppGridPage);
                     }
                 }
-
                 onAppLaunched: app => {
                     AppLaunchService.launchApp(app, compositor, appWindow);
                 }
-
                 Component.onCompleted: {
                     shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16));
                 }
@@ -396,6 +656,7 @@ Item {
 
             Item {
                 id: bottomSection
+
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
@@ -404,6 +665,7 @@ Item {
 
                 MarathonMessagingHub {
                     id: messagingHub
+
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: bottomBar.top
@@ -411,17 +673,16 @@ Item {
 
                 MarathonBottomBar {
                     id: bottomBar
+
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
-
                     onAppLaunched: app => {
                         AppLaunchService.launchApp(app, compositor, appWindow);
                     }
-
                     onPageNavigationRequested: page => {
                         Logger.info("BottomBar", "Navigation requested to page: " + page);
                         pageView.navigateToPage(page);
@@ -438,6 +699,7 @@ Item {
 
     MarathonStatusBar {
         id: statusBar
+
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -446,68 +708,58 @@ Item {
 
     MarathonNavBar {
         id: navBar
+
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom  // ALWAYS at bottom
+        anchors.bottom: parent.bottom // ALWAYS at bottom
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
         searchActive: UIStore.searchOpen
-
         onToggleKeyboard: {
             Logger.info("Shell", "Keyboard button clicked, current: " + virtualKeyboard.active);
             virtualKeyboard.active = !virtualKeyboard.active;
             Logger.info("Shell", "Keyboard toggled to: " + virtualKeyboard.active);
         }
-
         onToggleSearch: {
             Logger.info("Shell", "Search button clicked from nav bar");
             UIStore.toggleSearch();
             HapticService.light();
         }
-
         onSwipeLeft: {
             if (pageView.currentIndex < pageView.count - 1) {
                 pageView.incrementCurrentIndex();
                 Router.navigateLeft();
             }
         }
-
         onSwipeRight: {
             // Check if app can handle forward navigation first
             if (UIStore.appWindowOpen && typeof AppLifecycleManager !== 'undefined') {
                 var handled = AppLifecycleManager.handleSystemForward();
-                if (handled) {
+                if (handled)
                     return;
-                }
             }
-
             // Otherwise, navigate pages
             if (pageView.currentIndex > 0) {
                 pageView.decrementCurrentIndex();
                 Router.navigateRight();
             }
         }
-
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected");
-
             if (typeof AppLifecycleManager !== 'undefined') {
                 var handled = AppLifecycleManager.handleSystemBack();
                 if (!handled) {
                     Logger.info("NavBar", "App didn't handle back, closing");
-                    if (UIStore.appWindowOpen) {
+                    if (UIStore.appWindowOpen)
                         UIStore.closeApp();
-                    }
                 }
             } else {
                 Logger.info("NavBar", "AppLifecycleManager unavailable, closing directly");
-                if (UIStore.appWindowOpen) {
+                if (UIStore.appWindowOpen)
                     UIStore.closeApp();
-                }
             }
         }
-
         onShortSwipeUp: {
             // Dismiss keyboard if visible, otherwise go home
             if (virtualKeyboard.active) {
@@ -516,17 +768,16 @@ Item {
                 virtualKeyboard.active = false;
                 return;
             }
-
             Logger.gesture("NavBar", "shortSwipeUp", {
-                target: "home"
+                "target": "home"
             });
             pageView.currentIndex = 2;
             Router.goToAppPage(0);
         }
-
         onLongSwipeUp: {
-            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
+            // Fast velocity for throw effect
 
+            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
             // Dismiss keyboard if visible, otherwise task switcher
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
@@ -534,16 +785,16 @@ Item {
                 virtualKeyboard.active = false;
                 return;
             }
-
             Logger.gesture("NavBar", "longSwipeUp", {
-                target: "activeFrames"
+                "target": "activeFrames"
             });
-
             if (UIStore.appWindowOpen) {
+                // AppLifecycleManager.minimizeForegroundApp() called above handles the logic/state
+                // Detach happens in snapIntoGridAnimation.onFinished to keep app visible during scale
+
                 Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-
                 // Use AppLifecycleManager to create task and minimize properly
                 if (typeof AppLifecycleManager !== 'undefined') {
                     Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()");
@@ -552,49 +803,31 @@ Item {
                 } else {
                     Logger.error("NavBar", "   AppLifecycleManager is undefined!");
                 }
-
-                // CRITICAL: Detach app instance to background container so it stays alive for preview
-                var appInstance = appWindow.detachCurrentApp();
-                if (appInstance) {
-                    Logger.info("NavBar", "   Detached app instance to background container");
-                    appInstance.parent = backgroundAppsContainer;
-                    appInstance.visible = true;
-                }
-
-                Logger.info("NavBar", "   Hiding appWindow");
-                appWindow.hide();
-                Logger.info("NavBar", "   Calling UIStore.minimizeApp()");
-                UIStore.minimizeApp();
+                // Trigger smooth animation instead of abrupt hide
+                Logger.info("NavBar", "   Triggering snapIntoGridAnimation for smooth transition");
+                shell.isTransitioningToActiveFrames = true;
+                // Start animation - it will handle minimizing UIStore and navigating to frames on finish
+                snapIntoGridAnimation.startWithVelocity(-1500);
             } else {
                 Logger.info("NavBar", "📍 No app open - just navigating to task switcher");
-                Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
-                Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
+                pageView.currentIndex = 1;
+                Router.goToFrames();
             }
-
-            Logger.info("NavBar", "   Setting pageView.currentIndex = 1");
-            pageView.currentIndex = 1;
-            Logger.info("NavBar", "   Calling Router.goToFrames()");
-            Router.goToFrames();
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP COMPLETE ━━━━━━━");
         }
-
         onStartPageTransition: {
             if ((UIStore.appWindowOpen || UIStore.settingsOpen) && pageView.currentIndex !== 1) {
                 pageView.currentIndex = 1;
                 Router.goToFrames();
             }
         }
-
         onMinimizeApp: velocity => {
             Logger.info("Shell", "NavBar minimize gesture detected (velocity: " + velocity + ")");
-
             // Use AppLifecycleManager for proper snapshot capture and task management
-            if (typeof AppLifecycleManager !== 'undefined') {
+            if (typeof AppLifecycleManager !== 'undefined')
                 AppLifecycleManager.minimizeForegroundApp();
-            }
 
             shell.isTransitioningToActiveFrames = true;
-
             // Pass velocity to animation (ensure it's negative for upward movement)
             // If velocity is 0 or positive (unlikely for swipe up), use a default
             var initialVelocity = velocity < 0 ? velocity : -1000;
@@ -605,10 +838,10 @@ Item {
     // Peek & Flow
     MarathonPeek {
         id: peekFlow
+
         anchors.fill: parent
         visible: !SessionStore.isLocked
         z: Constants.zIndexPeek
-
         onNotificationTapped: notification => {
             Logger.info("Shell", "Notification tapped from peek: " + notification.title);
             notificationToast.showToast(notification);
@@ -619,22 +852,21 @@ Item {
     // Narrow width to not block back button or other left-side content
     MouseArea {
         id: peekGestureCapture
+
+        property real startX: 0
+        property real lastX: 0
+
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: Constants.spacingSmall
         z: Constants.zIndexPeekGesture
         visible: !SessionStore.isLocked && !peekFlow.isFullyOpen
-
-        property real startX: 0
-        property real lastX: 0
-
         onPressed: mouse => {
             startX = mouse.x;
             lastX = mouse.x;
             peekFlow.startPeekGesture(mouse.x);
         }
-
         onPositionChanged: mouse => {
             if (pressed) {
                 var absoluteX = peekGestureCapture.x + mouse.x;
@@ -643,7 +875,6 @@ Item {
                 lastX = absoluteX;
             }
         }
-
         onReleased: {
             peekFlow.endPeekGesture();
         }
@@ -652,39 +883,43 @@ Item {
     // Background container for minimized apps (keeps them alive for previews)
     Item {
         id: backgroundAppsContainer
+
         anchors.fill: parent
         visible: true // Must be visible for ShaderEffectSource
-        opacity: 0.0  // But fully transparent to user
-        z: -1         // And behind everything
+        opacity: 0 // But fully transparent to user
+        z: -1 // And behind everything
     }
 
     // App Window
     Item {
+        // Removed Behaviors to allow manual animation control
+
         id: appWindowContainer
+
+        property real finalScale: 0.65
+        property real currentGestureScale: 1 - (navBar.gestureProgress * 0.35)
+        property real currentGestureOpacity: 1 - (navBar.gestureProgress * 0.3)
+        property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
+
         anchors.fill: parent
         anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
-
-        property real finalScale: 0.65
-        property real currentGestureScale: 1.0 - (navBar.gestureProgress * 0.35)
-        property real currentGestureOpacity: 1.0 - (navBar.gestureProgress * 0.3)
-
         // Use direct binding when NOT transitioning, otherwise controlled by animation
-        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1.0)
-        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1.0)
-
-        property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
+        scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)
+        opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1)
 
         // Watch for app switching (when restoring from task switcher)
         Connections {
-            target: UIStore
-            enabled: UIStore !== null
-
             function onCurrentAppIdChanged() {
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
+                    // CRITICAL: If AppLaunchService is handling this launch, let IT call show() with the correct type.
+                    // Otherwise we race and might call show() with default "marathon" type (double launch).
+                    if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
+                        Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
+                        return;
+                    }
                     Logger.info("Shell", "🔄 App ID changed, showing: " + UIStore.currentAppId);
-
                     // Check TaskModel for app type - if native, get surface
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
                     if (task && task.appType === "native") {
@@ -697,10 +932,20 @@ Item {
                                 return;
                             } else {
                                 Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
+                                // Surface was destroyed (e.g., Chromium with dialog) - look for detached instance
+                                // in backgroundAppsContainer and re-attach it
+                                for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
+                                    var child = backgroundAppsContainer.children[i];
+                                    if (child.appId === UIStore.currentAppId) {
+                                        Logger.info("Shell", "Found detached native app instance in background, re-attaching: " + UIStore.currentAppId);
+                                        appWindow.reattachInstance(child, UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native");
+                                        return;
+                                    }
+                                }
+                                Logger.warn("Shell", "No detached instance found in backgroundAppsContainer for: " + UIStore.currentAppId);
                             }
                         }
                     }
-
                     // Default: Marathon app or native app fallback
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon");
                 }
@@ -709,8 +954,12 @@ Item {
             function onAppWindowOpenChanged() {
                 // Also trigger when appWindowOpen becomes true (covers case where appId hasn't changed)
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
+                    // CRITICAL: If AppLaunchService is handling this launch, let IT call show() with the correct type.
+                    if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
+                        Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
+                        return;
+                    }
                     Logger.info("Shell", "App window opened, showing: " + UIStore.currentAppId);
-
                     // Check TaskModel for app type - if native, get surface
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
                     if (task && task.appType === "native") {
@@ -723,27 +972,31 @@ Item {
                                 return;
                             } else {
                                 Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
+                                // Surface was destroyed - look for detached instance
+                                for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
+                                    var child = backgroundAppsContainer.children[i];
+                                    if (child.appId === UIStore.currentAppId) {
+                                        Logger.info("Shell", "Found detached native app instance in background, re-attaching: " + UIStore.currentAppId);
+                                        appWindow.reattachInstance(child, UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native");
+                                        return;
+                                    }
+                                }
+                                Logger.warn("Shell", "No detached instance found in backgroundAppsContainer for: " + UIStore.currentAppId);
                             }
                         }
                     }
-
                     // Default: Marathon app or native app fallback
                     appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon");
                 }
             }
-        }
 
-        // Removed Behaviors to allow manual animation control
-
-        Behavior on anchors.margins {
-            NumberAnimation {
-                duration: 200
-                easing.type: Easing.OutCubic
-            }
+            target: UIStore
+            enabled: UIStore !== null
         }
 
         Rectangle {
             id: cardBorder
+
             anchors.fill: parent
             color: "transparent"
             radius: Constants.borderRadiusSmall
@@ -751,13 +1004,6 @@ Item {
             border.color: Qt.rgba(255, 255, 255, 0.12)
             layer.enabled: appWindowContainer.showCardFrame
             clip: true
-
-            Behavior on border.width {
-                NumberAnimation {
-                    duration: 200
-                    easing.type: Easing.OutCubic
-                }
-            }
 
             Rectangle {
                 anchors.fill: parent
@@ -777,10 +1023,11 @@ Item {
 
             Rectangle {
                 id: appCardBackground
+
                 anchors.fill: parent
                 color: MColors.background
                 radius: parent.radius
-                opacity: appWindowContainer.showCardFrame ? 1.0 : 0.0
+                opacity: appWindowContainer.showCardFrame ? 1 : 0
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -792,33 +1039,40 @@ Item {
 
             MarathonAppWindow {
                 id: appWindow
+
                 anchors.fill: parent
                 anchors.topMargin: Constants.safeAreaTop
                 anchors.bottomMargin: Constants.safeAreaBottom + virtualKeyboard.height
                 visible: true
-
                 onMinimized: {
                     Logger.info("AppWindow", "Minimized: " + appWindow.appName);
                     UIStore.minimizeApp();
                     pageView.currentIndex = 1;
                     Router.goToFrames();
                 }
-
                 onClosed: {
                     Logger.info("AppWindow", "Closed: " + appWindow.appName);
                     UIStore.closeApp();
+                }
+            }
+
+            Behavior on border.width {
+                NumberAnimation {
+                    duration: 200
+                    easing.type: Easing.OutCubic
                 }
             }
         }
 
         Rectangle {
             id: appCardFrameOverlay
+
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
             height: Constants.touchTargetSmall
             color: MColors.surface
-            opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1.0 / Math.max(0.1, appWindowContainer.opacity)) : 0.0
+            opacity: (navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames) ? (1 / Math.max(0.1, appWindowContainer.opacity)) : 0
             visible: opacity > 0
             z: 100
 
@@ -827,13 +1081,6 @@ Item {
                 height: Math.round(6 * Constants.scaleFactor)
                 color: parent.color
                 anchors.top: parent.top
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 200
-                    easing.type: Easing.OutCubic
-                }
             }
 
             Row {
@@ -907,6 +1154,20 @@ Item {
                     }
                 }
             }
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 200
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        Behavior on anchors.margins {
+            NumberAnimation {
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
         }
     }
 
@@ -919,17 +1180,37 @@ Item {
             velocity = v;
             // Calculate duration based on velocity (faster swipe = faster animation)
             // Base duration 300ms, reduced by velocity factor
-            var velocityFactor = Math.min(2.0, Math.abs(v) / 1000.0);
+            var velocityFactor = Math.min(2, Math.abs(v) / 1000);
             var duration = Math.max(150, 350 - (velocityFactor * 100));
-
             scaleAnim.duration = duration;
             opacityAnim.duration = duration;
+            // CRITICAL: Navigate to frames IMMEDIATELY so the background is ready
+            // and the app "shrinks" onto the task switcher grid
+            if (typeof Router !== 'undefined')
+                Router.goToFrames();
 
             start();
         }
 
+        onFinished: {
+            // Detach app instance explicitly after animation completes so it's captured correctly
+            // and moves to background for preview generation
+            var appInstance = appWindow.detachCurrentApp();
+            if (appInstance) {
+                appInstance.parent = backgroundAppsContainer;
+                appInstance.visible = true;
+            }
+            // Minimize the app window LOGICALLY only after visual animation is done
+            if (UIStore.settingsOpen)
+                UIStore.minimizeSettings();
+            else if (UIStore.appWindowOpen)
+                UIStore.minimizeApp();
+            shell.isTransitioningToActiveFrames = false;
+        }
+
         NumberAnimation {
             id: scaleAnim
+
             target: appWindowContainer
             property: "scale"
             to: appWindowContainer.finalScale
@@ -939,70 +1220,46 @@ Item {
 
         NumberAnimation {
             id: opacityAnim
+
             target: appWindowContainer
             property: "opacity"
-            to: 0.0
+            to: 1 // Keep fully opaque so it "becomes" the card
             duration: 300
             easing.type: Easing.OutCubic
         }
-
-        onFinished: {
-            // Minimize the app window
-            if (UIStore.settingsOpen) {
-                UIStore.minimizeSettings();
-            } else if (UIStore.appWindowOpen) {
-                UIStore.minimizeApp();
-            }
-
-            // Navigate to task switcher
-            if (typeof Router !== 'undefined') {
-                Router.goToFrames();
-            }
-
-            shell.isTransitioningToActiveFrames = false;
-        }
     }
-
-    // Settings app now loaded dynamically like other Marathon apps
 
     // Quick Settings
     MarathonQuickSettings {
         id: quickSettings
+
         anchors.left: parent.left
         anchors.right: parent.right
-        y: Constants.statusBarHeight  // Start below status bar
-        height: UIStore.quickSettingsHeight  // Directly bind to drag height
+        y: Constants.statusBarHeight // Start below status bar
+        height: UIStore.quickSettingsHeight // Directly bind to drag height
         visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
+        onClosed: {
+            UIStore.closeQuickSettings();
+        }
+        onLaunchApp: app => {
+            AppLaunchService.launchApp(app, compositor, appWindow);
+        }
 
         Behavior on height {
-            enabled: !UIStore.quickSettingsDragging  // Disable animation during drag
+            enabled: !UIStore.quickSettingsDragging // Disable animation during drag
+
             NumberAnimation {
                 duration: Constants.animationSlow
                 easing.type: Easing.OutCubic
             }
-        }
-
-        onClosed: {
-            UIStore.closeQuickSettings();
-        }
-
-        onLaunchApp: app => {
-            AppLaunchService.launchApp(app, compositor, appWindow);
         }
     }
 
     // Status Bar Drag Area
     MouseArea {
         id: statusBarDragArea
-        anchors.top: parent.top
-        anchors.left: parent.left
-        width: parent.width
-        height: Constants.statusBarHeight
-        z: UIStore.settingsOpen || UIStore.appWindowOpen ? Constants.zIndexStatusBarApp + 1 : Constants.zIndexStatusBarDrag
-        enabled: !SessionStore.isLocked
-        preventStealing: false
 
         property real startY: 0
         property bool isDraggingDown: false
@@ -1010,6 +1267,13 @@ Item {
         property real lastTime: 0
         property real velocityY: 0
 
+        anchors.top: parent.top
+        anchors.left: parent.left
+        width: parent.width
+        height: Constants.statusBarHeight
+        z: UIStore.settingsOpen || UIStore.appWindowOpen ? Constants.zIndexStatusBarApp + 1 : Constants.zIndexStatusBarDrag
+        enabled: !SessionStore.isLocked
+        preventStealing: false
         onPressed: mouse => {
             if (UIStore.quickSettingsHeight > 0) {
                 mouse.accepted = false;
@@ -1021,48 +1285,39 @@ Item {
             velocityY = 0;
             isDraggingDown = false;
         }
-
         onPositionChanged: mouse => {
             var dragDistance = mouse.y - startY;
-
             // Calculate velocity
             var now = Date.now();
             var dt = now - lastTime;
-            if (dt > 0) {
+            if (dt > 0)
                 velocityY = (mouse.y - lastY) / dt * 1000;
-            }
+
             lastY = mouse.y;
             lastTime = now;
-
             if (dragDistance > 5 && !isDraggingDown) {
                 isDraggingDown = true;
                 UIStore.quickSettingsDragging = true;
                 Logger.gesture("StatusBar", "dragStart", {
-                    y: startY
+                    "y": startY
                 });
             }
-
-            if (isDraggingDown) {
+            if (isDraggingDown)
                 UIStore.quickSettingsHeight = Math.min(shell.maxQuickSettingsHeight, dragDistance);
-            }
         }
-
         onReleased: mouse => {
             if (isDraggingDown) {
                 UIStore.quickSettingsDragging = false;
-
                 // Check for fling gesture (velocity > 500 px/s)
                 var isFlingDown = velocityY > 500;
-
-                if (isFlingDown || UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
+                if (isFlingDown || UIStore.quickSettingsHeight > shell.quickSettingsThreshold)
                     UIStore.openQuickSettings();
-                } else {
+                else
                     UIStore.closeQuickSettings();
-                }
                 Logger.gesture("StatusBar", "dragEnd", {
-                    height: UIStore.quickSettingsHeight,
-                    velocity: velocityY,
-                    fling: isFlingDown
+                    "height": UIStore.quickSettingsHeight,
+                    "velocity": velocityY,
+                    "fling": isFlingDown
                 });
             }
             startY = 0;
@@ -1070,7 +1325,6 @@ Item {
             velocityY = 0;
             isDraggingDown = false;
         }
-
         onCanceled: {
             Logger.debug("StatusBar", "Touch canceled");
             startY = 0;
@@ -1083,16 +1337,70 @@ Item {
     // Quick Settings Overlay (dimmed background behind the shade)
     MouseArea {
         id: quickSettingsOverlay
-        anchors.fill: parent
-        anchors.topMargin: Constants.statusBarHeight + UIStore.quickSettingsHeight
-        z: Constants.zIndexQuickSettingsOverlay
-        enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
-        visible: enabled
 
         property real startY: 0
         property real lastY: 0
         property real lastTime: 0
         property real velocityY: 0
+
+        anchors.fill: parent
+        anchors.topMargin: Constants.statusBarHeight + UIStore.quickSettingsHeight
+        z: Constants.zIndexQuickSettingsOverlay
+        enabled: UIStore.quickSettingsHeight > 0 && !SessionStore.isLocked
+        visible: enabled
+        onPressed: mouse => {
+            startY = mouse.y;
+            lastY = mouse.y;
+            lastTime = Date.now();
+            velocityY = 0;
+            UIStore.quickSettingsDragging = true;
+            Logger.gesture("QuickSettings", "overlayDragStart", {
+                "y": startY
+            });
+        }
+        onPositionChanged: mouse => {
+            var dragDistance = mouse.y - startY;
+            var newHeight = UIStore.quickSettingsHeight + dragDistance;
+            UIStore.quickSettingsHeight = Math.max(0, Math.min(shell.maxQuickSettingsHeight, newHeight));
+            // Calculate velocity
+            var now = Date.now();
+            var dt = now - lastTime;
+            if (dt > 0)
+                velocityY = (mouse.y - lastY) / dt * 1000;
+
+            lastY = mouse.y;
+            lastTime = now;
+            startY = mouse.y;
+        }
+        onReleased: mouse => {
+            UIStore.quickSettingsDragging = false;
+            // Check for fling up gesture (velocity < -500 px/s = upward)
+            var isFlingUp = velocityY < -500;
+            if (isFlingUp || UIStore.quickSettingsHeight < shell.quickSettingsThreshold)
+                UIStore.closeQuickSettings();
+            else
+                UIStore.openQuickSettings();
+            startY = 0;
+            lastY = 0;
+            velocityY = 0;
+            Logger.gesture("QuickSettings", "overlayDragEnd", {
+                "height": UIStore.quickSettingsHeight,
+                "velocity": velocityY,
+                "fling": isFlingUp
+            });
+        }
+        onCanceled: {
+            // Handle drag cancellation (e.g. touch/mouse leaves area)
+            UIStore.quickSettingsDragging = false;
+            if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold)
+                UIStore.openQuickSettings();
+            else
+                UIStore.closeQuickSettings();
+            startY = 0;
+            Logger.gesture("QuickSettings", "overlayDragCanceled", {
+                "height": UIStore.quickSettingsHeight
+            });
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -1105,86 +1413,19 @@ Item {
                 }
             }
         }
-
-        onPressed: mouse => {
-            startY = mouse.y;
-            lastY = mouse.y;
-            lastTime = Date.now();
-            velocityY = 0;
-            UIStore.quickSettingsDragging = true;
-            Logger.gesture("QuickSettings", "overlayDragStart", {
-                y: startY
-            });
-        }
-
-        onPositionChanged: mouse => {
-            var dragDistance = mouse.y - startY;
-            var newHeight = UIStore.quickSettingsHeight + dragDistance;
-            UIStore.quickSettingsHeight = Math.max(0, Math.min(shell.maxQuickSettingsHeight, newHeight));
-
-            // Calculate velocity
-            var now = Date.now();
-            var dt = now - lastTime;
-            if (dt > 0) {
-                velocityY = (mouse.y - lastY) / dt * 1000;
-            }
-            lastY = mouse.y;
-            lastTime = now;
-
-            startY = mouse.y;
-        }
-
-        onReleased: mouse => {
-            UIStore.quickSettingsDragging = false;
-
-            // Check for fling up gesture (velocity < -500 px/s = upward)
-            var isFlingUp = velocityY < -500;
-
-            if (isFlingUp || UIStore.quickSettingsHeight < shell.quickSettingsThreshold) {
-                UIStore.closeQuickSettings();
-            } else {
-                UIStore.openQuickSettings();
-            }
-            startY = 0;
-            lastY = 0;
-            velocityY = 0;
-            Logger.gesture("QuickSettings", "overlayDragEnd", {
-                height: UIStore.quickSettingsHeight,
-                velocity: velocityY,
-                fling: isFlingUp
-            });
-        }
-
-        onCanceled: {
-            // Handle drag cancellation (e.g. touch/mouse leaves area)
-            UIStore.quickSettingsDragging = false;
-            if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold) {
-                UIStore.openQuickSettings();
-            } else {
-                UIStore.closeQuickSettings();
-            }
-            startY = 0;
-            Logger.gesture("QuickSettings", "overlayDragCanceled", {
-                height: UIStore.quickSettingsHeight
-            });
-        }
     }
-
-    // Pending app launch after unlock
-    property var pendingLaunch: null
 
     // Lock Screen
     MarathonLockScreen {
         id: lockScreen
+
         anchors.fill: parent
         z: Constants.zIndexLockScreen
-
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
                 // Session valid - just unlock, swipe animation already complete
                 Logger.state("Shell", "locked", "unlocked");
                 SessionStore.unlock();
-
                 // Handle pending launch if any
                 if (pendingLaunch) {
                     Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName);
@@ -1198,24 +1439,20 @@ Item {
                 pinScreen.show();
             }
         }
-
         onNotificationTapped: function (notifId, appId, title) {
             Logger.info("Shell", "Lock screen notification tapped: " + title + " (id: " + notifId + ", app: " + appId + ")");
-
             if (SessionStore.checkSession()) {
                 // Session valid - unlock and deep link immediately
                 Logger.info("Shell", "Session valid, unlocking and navigating to notification");
                 SessionStore.unlock();
-
                 // Dismiss notification (clears from Marathon, NotificationModel, and DBus)
                 NotificationService.dismissNotification(notifId);
-                if (appId) {
+                if (appId)
                     NavigationRouter.navigateToDeepLink(appId, "", {
                         "notificationId": notifId,
                         "action": "view",
                         "from": "lockscreen"
                     });
-                }
             } else {
                 // Need authentication - store pending action and show PIN
                 Logger.info("Shell", "Session expired, requesting PIN");
@@ -1228,10 +1465,8 @@ Item {
                 pinScreen.show();
             }
         }
-
         onCameraLaunched: {
             Logger.info("LockScreen", "Camera quick action tapped");
-
             if (SessionStore.checkSession()) {
                 // Session is valid, just unlock and launch
                 SessionStore.unlock();
@@ -1240,18 +1475,16 @@ Item {
                 // Need PIN - enforce security!
                 Logger.info("LockScreen", "Session locked - requesting PIN for Camera");
                 pendingLaunch = {
-                    appId: "camera",
-                    appName: "Camera"
+                    "appId": "camera",
+                    "appName": "Camera"
                 };
                 showPinScreen = true;
                 pinScreen.show();
             }
             HapticService.medium();
         }
-
         onPhoneLaunched: {
             Logger.info("LockScreen", "Phone quick action tapped");
-
             if (SessionStore.checkSession()) {
                 // Session is valid, just unlock and launch
                 SessionStore.unlock();
@@ -1260,8 +1493,8 @@ Item {
                 // Need PIN - enforce security!
                 Logger.info("LockScreen", "Session locked - requesting PIN for Phone");
                 pendingLaunch = {
-                    appId: "phone",
-                    appName: "Phone"
+                    "appId": "phone",
+                    "appName": "Phone"
                 };
                 showPinScreen = true;
                 pinScreen.show();
@@ -1273,49 +1506,44 @@ Item {
     // PIN Entry Screen
     MarathonPinScreen {
         id: pinScreen
+
         anchors.fill: parent
         z: Constants.zIndexPinScreen
-
         onPinCorrect: {
             Logger.state("Shell", "pinEntry", "unlocked");
             showPinScreen = false;
             pinScreen.reset();
-            SessionStore.unlock();  // This triggers state change to "home"
-
+            SessionStore.unlock(); // This triggers state change to "home"
             // Handle pending launch if any
             if (pendingLaunch) {
                 Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName);
                 UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "");
                 pendingLaunch = null;
             }
-
             // Handle pending notification action
             if (pendingNotification) {
                 Logger.info("Shell", "Executing pending notification action: " + pendingNotification.title);
                 NotificationService.dismissNotification(pendingNotification.id);
-                if (pendingNotification.appId) {
+                if (pendingNotification.appId)
                     NavigationRouter.navigateToDeepLink(pendingNotification.appId, "", {
                         "notificationId": pendingNotification.id,
                         "action": "view",
                         "from": "lockscreen"
                     });
-                }
-                pendingNotification = null;  // Clear pending action
+
+                pendingNotification = null; // Clear pending action
             }
         }
-
         onCancelled: {
             Logger.info("PinScreen", "Cancelled by user");
             showPinScreen = false;
             lockScreen.swipeProgress = 0;
             pinScreen.reset();
-
             // Clear pending launch
             if (pendingLaunch) {
                 Logger.info("Shell", "Clearing pending launch");
                 pendingLaunch = null;
             }
-
             // Clear pending notification action
             if (pendingNotification) {
                 Logger.info("Shell", "Clearing pending notification action");
@@ -1328,10 +1556,11 @@ Item {
         id: notificationToast
 
         Connections {
-            target: NotificationService
             function onNotificationReceived(notification) {
                 notificationToast.showToast(notification);
             }
+
+            target: NotificationService
         }
     }
 
@@ -1340,26 +1569,27 @@ Item {
 
         property bool initialized: false
 
-        Connections {
-            target: SystemControlStore
-            function onVolumeChanged() {
-                if (systemHUD.initialized) {
-                    systemHUD.showVolume(SystemControlStore.volume / 100.0);
-                }
-            }
-            function onBrightnessChanged() {
-                if (systemHUD.initialized) {
-                    systemHUD.showBrightness(SystemControlStore.brightness / 100.0);
-                }
-            }
-        }
-
         Component.onCompleted: {
             initTimer.start();
         }
 
+        Connections {
+            function onVolumeChanged() {
+                if (systemHUD.initialized)
+                    systemHUD.showVolume(SystemControlStore.volume / 100);
+            }
+
+            function onBrightnessChanged() {
+                if (systemHUD.initialized)
+                    systemHUD.showBrightness(SystemControlStore.brightness / 100);
+            }
+
+            target: SystemControlStore
+        }
+
         Timer {
             id: initTimer
+
             interval: 500
             onTriggered: {
                 systemHUD.initialized = true;
@@ -1371,43 +1601,43 @@ Item {
         id: confirmDialog
 
         Connections {
-            target: UIStore
             function onShowConfirmDialog(title, message, onConfirm) {
                 confirmDialog.show(title, message, onConfirm);
             }
+
+            target: UIStore
         }
     }
 
     MarathonSearch {
+        // Execute deep link navigation
+        // Execute setting navigation
+
         id: universalSearch
+
         anchors.fill: parent
         z: Constants.zIndexSearch
         active: UIStore.searchOpen
-        pullProgress: pageView.searchPullProgress  // Bind to app grid's pull gesture
-
+        pullProgress: pageView.searchPullProgress // Bind to app grid's pull gesture
         onClosed: {
             UIStore.closeSearch();
             shell.forceActiveFocus();
         }
-
         onResultSelected: result => {
             // Handle different result types
             if (result.type === "app") {
                 // Transform search result to app object format
                 var app = {
-                    id: result.data.id,
-                    name: result.data.name,
-                    icon: result.data.icon,
-                    type: result.data.type || "marathon"
+                    "id": result.data.id,
+                    "name": result.data.name,
+                    "icon": result.data.icon,
+                    "type": result.data.type || "marathon"
                 };
                 AppLaunchService.launchApp(app, compositor, appWindow);
-            } else if (result.type === "deeplink") {
-                // Execute deep link navigation
+            } else if (result.type === "deeplink")
                 UnifiedSearchService.executeSearchResult(result);
-            } else if (result.type === "setting") {
-                // Execute setting navigation
+            else if (result.type === "setting")
                 UnifiedSearchService.executeSearchResult(result);
-            }
             UIStore.closeSearch();
         }
     }
@@ -1418,7 +1648,7 @@ Item {
 
     // Wire screenshot service to preview
     Connections {
-        target: ScreenshotService
+        // TODO: Show error toast
 
         function onScreenshotCaptured(filePath, thumbnailPath) {
             Logger.info("Shell", "Screenshot captured: " + filePath);
@@ -1428,8 +1658,9 @@ Item {
 
         function onScreenshotFailed(error) {
             Logger.error("Shell", "Screenshot failed: " + error);
-        // TODO: Show error toast
         }
+
+        target: ScreenshotService
     }
 
     ShareSheet {
@@ -1456,34 +1687,31 @@ Item {
     // Permission dialog for app permission requests
     Comp.PermissionDialog {
         id: permissionDialog
+
         anchors.centerIn: parent
         z: Constants.zIndexModalOverlay + 50
     }
 
     // Wire network manager to connection toast
     Connections {
-        target: NetworkManager
-
         function onWifiConnectedChanged() {
-            if (NetworkManager.wifiConnected) {
+            if (NetworkManager.wifiConnected)
                 connectionToast.show("Connected to Wi-Fi", "wifi");
-            } else if (NetworkManager.wifiEnabled && !NetworkManager.wifiConnected) {
+            else if (NetworkManager.wifiEnabled && !NetworkManager.wifiConnected)
                 connectionToast.show("Wi-Fi disconnected", "wifi-off");
-            }
         }
 
         function onEthernetConnectedChanged() {
-            if (NetworkManager.ethernetConnected) {
+            if (NetworkManager.ethernetConnected)
                 connectionToast.show("Connected to Ethernet", "plug-zap");
-            } else if (!NetworkManager.ethernetConnected && !NetworkManager.wifiConnected) {
+            else if (!NetworkManager.ethernetConnected && !NetworkManager.wifiConnected)
                 connectionToast.show("No network connection", "wifi-off");
-            }
         }
+
+        target: NetworkManager
     }
 
     Connections {
-        target: typeof PowerManager !== 'undefined' ? PowerManager : null
-
         function onBatteryLevelChanged() {
             PowerBatteryHandler.errorToast = errorToast;
             PowerBatteryHandler.shutdownCallback = function () {
@@ -1494,36 +1722,35 @@ Item {
             };
             PowerBatteryHandler.handleBatteryLevelChanged();
         }
+
+        target: typeof PowerManager !== 'undefined' ? PowerManager : null
     }
 
     Timer {
         id: criticalBatteryShutdownTimer
+
         interval: 10000
         repeat: false
         onTriggered: {
             Logger.critical("Battery", "Emergency shutdown due to critical battery");
-            if (typeof PowerManager !== 'undefined' && PowerManager) {
+            if (typeof PowerManager !== 'undefined' && PowerManager)
                 PowerManager.shutdown();
-            }
         }
     }
 
     Timer {
         id: bluetoothReconnectTimer
+
         interval: 5000
         repeat: false
         onTriggered: {
             if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
                 Logger.info("Shell", "Attempting Bluetooth auto-reconnect...");
-
                 var pairedDevices = BluetoothManagerCpp.pairedDevices;
-
                 if (pairedDevices && pairedDevices.length > 0) {
                     Logger.info("Shell", "Found " + pairedDevices.length + " paired devices, attempting reconnect");
-
                     for (var i = 0; i < pairedDevices.length; i++) {
                         var device = pairedDevices[i];
-
                         if (!device.connected) {
                             Logger.info("Shell", "Reconnecting to: " + device.name + " (" + device.address + ")");
                             BluetoothManagerCpp.connectDevice(device.address);
@@ -1545,6 +1772,7 @@ Item {
     // Out-of-Box Experience (OOBE) - First-run setup
     MarathonOOBE {
         id: oobeWizard
+
         onSetupComplete: {
             Logger.info("Shell", "OOBE setup completed");
         }
@@ -1552,17 +1780,18 @@ Item {
 
     // Wire alarm manager to overlay
     Connections {
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
-
         function onAlarmTriggered(alarm) {
             Logger.info("Shell", "Alarm triggered: " + alarm.title);
             alarmOverlay.show(alarm);
             HapticService.heavy();
         }
+
+        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
     }
 
     VirtualKeyboard {
         id: virtualKeyboard
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -1570,8 +1799,6 @@ Item {
 
     // Auto-show keyboard when text input is focused (if no hardware keyboard)
     Connections {
-        target: Qt.inputMethod
-
         function onVisibleChanged() {
             // Only auto-show if no hardware keyboard is detected
             if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
@@ -1585,151 +1812,55 @@ Item {
                 }
             }
         }
+
+        target: Qt.inputMethod
+    }
+
+    // Native Wayland app text input integration
+    // When native apps (Firefox, Chromium, GTK) request text input via zwp_text_input protocol,
+    // the compositor emits this signal and we show/hide the virtual keyboard accordingly
+    Connections {
+        // Note: We don't auto-hide when show=false to match Qt.inputMethod behavior
+        // This prevents keyboard flickering between input fields
+
+        function onNativeTextInputPanelRequested(show) {
+            if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
+                Logger.info("Shell", "Native app text input panel requested: " + show);
+                if (show && !virtualKeyboard.active)
+                    virtualKeyboard.active = true;
+            }
+        }
+
+        target: typeof compositor !== 'undefined' ? compositor : null
+        enabled: typeof compositor !== 'undefined'
     }
 
     // Auto-dismiss keyboard when clicking above it (user request)
     MouseArea {
         id: keyboardDismissArea
+
         anchors.fill: parent
         anchors.bottomMargin: virtualKeyboard.height
         z: Constants.zIndexKeyboard - 1
         visible: virtualKeyboard.active
         enabled: virtualKeyboard.active
-
         onClicked: {
             Logger.info("Shell", "Click outside keyboard - auto-dismissing");
             HapticService.light();
             virtualKeyboard.active = false;
         }
-
         // Don't propagate to items below
         propagateComposedEvents: false
     }
 
-    // Keyboard visibility managed by: 1) Auto-show on input focus (no hardware KB), 2) Manual nav bar toggle
-
     // Power button press timer for long-press detection
     Timer {
         id: powerButtonTimer
-        interval: 800  // 800ms for long press
+
+        interval: 800 // 800ms for long press
         onTriggered: {
             Logger.info("Shell", "Power button LONG PRESS detected - showing power menu");
             powerMenu.show();
-        }
-    }
-
-    // Track volume up state for screenshot combo
-    property bool volumeUpPressed: false
-    property bool powerButtonPressed: false
-
-    Keys.onPressed: event => {
-        // Volume Up button
-        if (event.key === Qt.Key_VolumeUp) {
-            volumeUpPressed = true;
-
-            // Check for Power + Volume Up combo (screenshot)
-            if (powerButtonPressed) {
-                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
-                screenshotFlash.trigger();
-                ScreenshotService.captureScreen(shell);
-                event.accepted = true;
-                return;
-            }
-
-            SystemControlStore.setVolume(SystemControlStore.volume + 10);
-            systemHUD.showVolume(AudioManagerCpp.volume);
-            event.accepted = true;
-            return;
-        }
-
-        // Volume Down button
-        if (event.key === Qt.Key_VolumeDown) {
-            SystemControlStore.setVolume(SystemControlStore.volume - 10);
-            systemHUD.showVolume(AudioManagerCpp.volume);
-            event.accepted = true;
-            return;
-        }
-
-        // Power button - start timer for long press
-        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
-            powerButtonPressed = true;
-
-            // Check for Power + Volume Up combo (screenshot)
-            if (volumeUpPressed) {
-                Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
-                screenshotFlash.trigger();
-                ScreenshotService.captureScreen(shell);
-                event.accepted = true;
-                return;
-            }
-
-            if (!powerButtonTimer.running) {
-                powerButtonTimer.start();
-            }
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Escape) {
-            Logger.debug("Shell", "Escape key pressed");
-            if (showPinScreen) {
-                showPinScreen = false;
-                lockScreen.swipeProgress = 0;
-                pinScreen.reset();
-            } else if (UIStore.searchOpen) {
-                UIStore.closeSearch();
-            } else if (UIStore.shareSheetOpen) {
-                UIStore.closeShareSheet();
-            } else if (UIStore.clipboardManagerOpen) {
-                UIStore.closeClipboardManager();
-            } else if (peekFlow.peekProgress > 0) {
-                peekFlow.closePeek();
-            } else if (UIStore.quickSettingsOpen) {
-                UIStore.closeQuickSettings();
-            } else if (messagingHub.showVertical) {
-                messagingHub.showVertical = false;
-            }
-        } else if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
-            Logger.debug("Shell", "Cmd+Space pressed - Opening Universal Search");
-            UIStore.toggleSearch();
-            HapticService.light();
-            event.accepted = true;
-        } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
-            Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard");
-            virtualKeyboard.active = !virtualKeyboard.active;
-            HapticService.light();
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Menu) {
-            Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard");
-            virtualKeyboard.active = !virtualKeyboard.active;
-            HapticService.light();
-            event.accepted = true;
-        } else if (event.key === Qt.Key_Print || event.key === Qt.Key_SysReq) {
-            // Print Screen key (standard on Linux/Windows)
-            Logger.debug("Shell", "Print Screen pressed - Taking Screenshot");
-            screenshotFlash.trigger();
-            ScreenshotService.captureScreen(shell);
-            HapticService.medium();
-            event.accepted = true;
-        } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
-            // Ctrl+Shift+3 (Cmd+Shift+3 on macOS) - macOS-style shortcut
-            Logger.debug("Shell", "Ctrl+Shift+3 pressed - Taking Screenshot");
-            screenshotFlash.trigger();
-            ScreenshotService.captureScreen(shell);
-            HapticService.medium();
-            event.accepted = true;
-        } else if ((event.key === Qt.Key_V) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
-            Logger.debug("Shell", "Cmd+Shift+V pressed - Opening Clipboard Manager");
-            UIStore.openClipboardManager();
-            HapticService.light();
-            event.accepted = true;
-        } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
-            // Alphanumeric keys trigger search with that character
-            if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
-                Logger.info("Shell", "Global search triggered with: '" + event.text + "'");
-                UIStore.openSearch();
-                Qt.callLater(function () {
-                    universalSearch.appendToSearch(event.text);
-                });
-                event.accepted = true;
-            }
         }
     }
 
@@ -1737,41 +1868,18 @@ Item {
         id: compositorConnections
     }
 
-    // NOTE: Compositor signal connections are made manually in Component.onCompleted
-    // because the compositor property is null when this file is first loaded
-
-    Keys.onReleased: event => {
-        // Reset volume up state
-        if (event.key === Qt.Key_VolumeUp) {
-            volumeUpPressed = false;
-            event.accepted = true;
-        }
-
-        if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
-            powerButtonPressed = false;
-
-            if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress();
-                powerButtonTimer.stop();
-            }
-            event.accepted = true;
-        }
-    }
-
     PowerMenu {
         id: powerMenu
 
         onSleepRequested: {
             Logger.info("Shell", "Sleep requested from power menu");
-            SessionStore.lock();  // Lock first
-            PowerManager.sleep();  // Then sleep
+            SessionStore.lock(); // Lock first
+            PowerManager.sleep(); // Then sleep
         }
-
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");
             PowerManager.restart();
         }
-
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu");
             PowerManager.shutdown();
@@ -1781,14 +1889,15 @@ Item {
     // Screenshot flash overlay
     Rectangle {
         id: screenshotFlash
-        anchors.fill: parent
-        color: "white"
-        opacity: 0
-        z: Constants.zIndexModalOverlay + 200  // Above everything
 
         function trigger() {
             flashAnimation.restart();
         }
+
+        anchors.fill: parent
+        color: "white"
+        opacity: 0
+        z: Constants.zIndexModalOverlay + 200 // Above everything
 
         SequentialAnimation {
             id: flashAnimation
@@ -1815,6 +1924,7 @@ Item {
 
     Loader {
         id: incomingCallOverlayLoader
+
         anchors.fill: parent
         z: Constants.zIndexModalOverlay + 100
         active: false
@@ -1822,19 +1932,19 @@ Item {
     }
 
     Connections {
-        target: incomingCallOverlayLoader.item
-        enabled: incomingCallOverlayLoader.item !== null
         function onAnswered() {
             TelephonyIntegration.callWasAnswered = true;
         }
+
         function onDeclined() {
             TelephonyIntegration.callWasAnswered = false;
         }
+
+        target: incomingCallOverlayLoader.item
+        enabled: incomingCallOverlayLoader.item !== null
     }
 
     Connections {
-        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
-
         function onIncomingCall(number) {
             incomingCallOverlayLoader.active = true;
             TelephonyIntegration.incomingCallOverlay = incomingCallOverlayLoader.item;
@@ -1848,73 +1958,62 @@ Item {
                 incomingCallOverlayLoader.active = false;
             }
         }
+
+        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
     }
 
     Connections {
-        target: typeof SMSService !== 'undefined' ? SMSService : null
-
         function onMessageReceived(sender, text, timestamp) {
             TelephonyIntegration.handleMessageReceived(sender, text, timestamp);
         }
+
+        target: typeof SMSService !== 'undefined' ? SMSService : null
     }
 
-    // Public function to show power menu (used by Quick Settings)
-    function showPowerMenu() {
-        Logger.info("Shell", "Showing power menu from quick settings");
-        powerMenu.show();
-    }
     // Global Mouse Trap for "Blind" Trackpad Scrolling
     // Since there is no visible cursor, we capture all mouse movement and
     // route it to the currently focused scrollable item.
     MouseArea {
+        // Debug: Log if no scroll target found
+        // Logger.debug("Input", "Global Trap: No scroll target found for focus: " + focusedItem);
+
+        property real lastY: 0
+
         anchors.fill: parent
         z: 99999 // Topmost
         hoverEnabled: true
         acceptedButtons: Qt.AllButtons // Capture everything to be safe
         propagateComposedEvents: true // Let clicks pass through if needed
-
-        property real lastY: 0
-
         onEntered: {
             lastY = mouseY;
             Logger.info("Input", "Global Trap: Mouse entered at " + mouseY);
         }
-
         onPositionChanged: mouse => {
             var delta = mouse.y - lastY;
             lastY = mouse.y;
-
             if (Math.abs(delta) > 0) {
                 // Find focused item
                 var focusedItem = Window.activeFocusItem;
-
                 // Check if it (or its parent) is scrollable
                 // We traverse up a few levels to find the MScrollView
                 var scrollTarget = null;
                 var candidate = focusedItem;
-
                 // Search up the tree (max 5 levels)
                 for (var i = 0; i < 5; i++) {
                     if (candidate && candidate.isScrollable) {
                         scrollTarget = candidate;
                         break;
                     }
-                    if (candidate && candidate.parent) {
+                    if (candidate && candidate.parent)
                         candidate = candidate.parent;
-                    } else {
+                    else
                         break;
-                    }
                 }
-
                 if (scrollTarget) {
                     scrollTarget.scrollBy(-delta);
-                } else
-                // Debug: Log if no scroll target found
-                // Logger.debug("Input", "Global Trap: No scroll target found for focus: " + focusedItem);
-                {}
+                } else {}
             }
         }
-
         onPressed: mouse => {
             Logger.info("Input", "Global Trap: Pressed at " + mouse.x + "," + mouse.y);
             mouse.accepted = false; // Let it pass through to clicks

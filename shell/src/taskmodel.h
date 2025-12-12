@@ -14,8 +14,8 @@ class Task : public QObject {
     Q_PROPERTY(QString appId READ appId CONSTANT)
     Q_PROPERTY(QString title READ title CONSTANT)
     Q_PROPERTY(QString icon READ icon CONSTANT)
-    Q_PROPERTY(QString appType READ appType CONSTANT)
-    Q_PROPERTY(int surfaceId READ surfaceId CONSTANT)
+    Q_PROPERTY(QString appType READ appType NOTIFY appTypeChanged)
+    Q_PROPERTY(int surfaceId READ surfaceId NOTIFY surfaceIdChanged)
     Q_PROPERTY(QObject *waylandSurface READ waylandSurface NOTIFY waylandSurfaceChanged)
     Q_PROPERTY(qint64 timestamp READ timestamp CONSTANT)
     Q_PROPERTY(QImage snapshot READ snapshot NOTIFY snapshotChanged)
@@ -74,9 +74,25 @@ class Task : public QObject {
         }
     }
 
+    void setSurfaceId(int id) {
+        if (m_surfaceId != id) {
+            m_surfaceId = id;
+            emit surfaceIdChanged();
+        }
+    }
+
+    void setAppType(const QString &type) {
+        if (m_appType != type) {
+            m_appType = type;
+            emit appTypeChanged();
+        }
+    }
+
   signals:
     void snapshotChanged();
     void waylandSurfaceChanged();
+    void surfaceIdChanged();
+    void appTypeChanged();
 
   private:
     QString           m_id;
@@ -127,6 +143,7 @@ class TaskModel : public QAbstractListModel {
     Q_INVOKABLE Task *getTaskBySurfaceId(int surfaceId);
     Q_INVOKABLE void  updateTaskSnapshot(const QString &appId, const QImage &snapshot);
     Q_INVOKABLE void  updateTaskSurface(const QString &appId, QObject *surface);
+    Q_INVOKABLE void  updateTaskNativeInfo(const QString &appId, int surfaceId, QObject *surface);
     Q_INVOKABLE void  clear();
 
   signals:

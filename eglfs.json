@@ -1,0 +1,10 @@
+{
+    "hwcursor": false,
+    "pbuffers": true,
+    "outputs": [
+        {
+            "name": "DPI-1",
+            "mode": "preferred"
+        }
+    ]
+}

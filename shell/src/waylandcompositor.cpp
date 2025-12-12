@@ -13,6 +13,7 @@
 #include <QWaylandXdgPopup>
 #include <QtMath>
 #include <QQuickItem>
+#include <QKeyEvent>
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -23,9 +24,60 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     : QWaylandCompositor()
     , m_window(window)
     , m_settingsManager(settingsManager)
-    , m_nextSurfaceId(1) {
+    , m_nextSurfaceId(1)
+    , m_output(nullptr)
+    , m_hasIdleInhibitor(false) {
+
+    // CRITICAL: Set compositor properties BEFORE create()
+    // Per Qt docs, these must be set before the compositor is initialized
+    setSocketName("marathon-wayland-0");
+
+    // CRITICAL: Explicitly enable SHM Support for GTK Apps
+    // This forces QWaylandCompositor to create the wl_shm global
+    QList<QWaylandCompositor::ShmFormat> shmFormats;
+    shmFormats << QWaylandCompositor::ShmFormat_ARGB8888;
+    shmFormats << QWaylandCompositor::ShmFormat_XRGB8888;
+    setAdditionalShmFormats(shmFormats);
+
+    // CRITICAL: Call create() BEFORE constructing QWaylandOutput
+    // Per Qt documentation: "The create() function must be called on the
+    // compositor before constructing a QWaylandOutput for it."
+    create();
+
+    // Shell extensions - can be created after create()
     m_xdgShell = new QWaylandXdgShell(this);
     m_wlShell  = new QWaylandWlShell(this);
+
+    // CRITICAL: Enable wp_viewporter protocol for Firefox/GTK fractional scaling
+    // Firefox uses this to set destination size for surface buffers.
+    // Without this, Firefox renders at wrong size despite correct configure events.
+    m_viewporter = new QWaylandViewporter(this);
+
+    // CRITICAL: Enable zwp_text_input_manager_v2 for native app virtual keyboard support
+    // Native Wayland apps (Firefox, Chromium, GTK) use this protocol to communicate
+    // with the compositor about text input focus and request on-screen keyboard.
+    m_textInputManager = new QWaylandTextInputManager(this);
+
+    // CRITICAL: Enable zwp_idle_inhibit_manager_v1 for video playback
+    // Video apps (VLC, MPV, Firefox video) use this to prevent screen blanking
+    // during playback. The surface's inhibitsIdle property is set automatically.
+    m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
+
+    // Connect seat keyboard focus changes to emit text input panel signal
+    // When a native app surface gains keyboard focus, we may need to show the keyboard
+    connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
+            [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
+                Q_UNUSED(oldFocus);
+                // When a native app surface has keyboard focus, emit signal
+                // The QML side decides whether to show the keyboard based on Platform.hasHardwareKeyboard
+                if (newFocus) {
+                    qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
+                             << newFocus;
+                    // Native apps will explicitly request text input via the text input protocol
+                    // For now, just log the focus change. Full text input integration requires
+                    // monitoring zwp_text_input events which Qt handles internally.
+                }
+            });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
             &WaylandCompositor::handleSurfaceCreated);
@@ -38,29 +90,25 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     connect(m_wlShell, &QWaylandWlShell::wlShellSurfaceCreated, this,
             &WaylandCompositor::handleWlShellSurfaceCreated);
 
+    // NOW create output AFTER compositor is initialized
     m_output = new QWaylandQuickOutput(this, window);
     m_output->setSizeFollowsWindow(true);
 
-    // CRITICAL: Force Wayland output scale factor to 1 for sharp rendering
-    //
-    // Even though we disabled Qt's HiDPI scaling in main.cpp, the host display may still have
-    // devicePixelRatio=2. By explicitly setting scaleFactor=1, we tell Wayland clients to render
-    // at 1:1 pixel ratio (540x1140) instead of being influenced by the host's HiDPI settings.
-    //
-    // This ensures sharp, non-blurry rendering of embedded native apps.
+    // CRITICAL: Explicitly set as default output
+    // XdgToplevelIntegration internally looks for defaultOutput() - must be set!
+    setDefaultOutput(m_output);
+
+    // Set Wayland output scale factor to 1
+    // NOTE: Phosh uses scale=2 for HiDPI phones, but that requires physical HiDPI display.
+    // With scale=1 + 96 DPI physical size, apps should render at 1:1 pixels.
+    // Firefox may still apply internal scaling if it detects fractional-scale or DPI mismatch.
     m_output->setScaleFactor(1);
 
+    // CRITICAL: Set availableGeometry for XdgToplevelIntegration
+    m_output->setAvailableGeometry(QRect(QPoint(0, 0), window->size()));
+
     // CRITICAL: Set physical size for mobile DPI detection
-    // This tells GTK, Qt, and other toolkits that this is a mobile device
     calculateAndSetPhysicalSize();
-
-    setSocketName("marathon-wayland-0");
-
-    create();
-
-    // Note: Keyboard focus is managed automatically by QWaylandCompositor in Qt6
-    // The defaultInputDevice() API was removed in newer Qt6 versions
-    // Keyboard focus handling is now done internally by the compositor
 
     qDebug() << "[WaylandCompositor] Initialized on socket:" << socketName()
              << "- output:" << window->size() << "(scale=" << m_output->scaleFactor() << ")";
@@ -74,6 +122,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     // React to user scale factor changes
     connect(m_settingsManager, &SettingsManager::userScaleFactorChanged, this,
             &WaylandCompositor::calculateAndSetPhysicalSize);
+
+    // CRITICAL FIX: Install Event Filter to intercept global keys BEFORE they reach Wayland clients
+    // This solves the "Double Action" bug where clients handle Press (Back) and Shell handles Release (Close)
+    m_window->installEventFilter(this);
 }
 
 WaylandCompositor::~WaylandCompositor() {
@@ -203,9 +255,12 @@ void WaylandCompositor::launchApp(const QString &command) {
     env.insert("WAYLAND_DISPLAY", socketName());
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
+    env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", "wayland-egl"); // Prefer EGL for Qt apps
     env.insert("GDK_BACKEND", "wayland");
     env.insert("CLUTTER_BACKEND", "wayland");
     env.insert("SDL_VIDEODRIVER", "wayland");
+    env.insert("MOZ_ENABLE_WAYLAND", "1"); // Force Firefox/Mozilla to use Wayland
+    env.insert("EGL_PLATFORM", "wayland"); // Force EGL to use Wayland platform
 
     // Mobile form factor environment variables
     // These tell GTK4/libadwaita and Qt apps to use mobile/adaptive layouts
@@ -215,6 +270,21 @@ void WaylandCompositor::launchApp(const QString &command) {
     env.insert("QT_QUICK_CONTROLS_STYLE", "Mobile"); // Qt Quick Controls mobile style
     env.insert("GTK_CSD", "1");                      // Force client-side decorations for GTK apps
     env.insert("GTK_USE_PORTAL", "0"); // Disable portals (can cause issues in nested compositors)
+
+    // Use Marathon's user-configurable scale factor for native apps
+    // This is the same value used in QML (Constants.userScaleFactor) that users can set in Settings
+    // For HiDPI displays, this should be > 1.0 (e.g., 1.5 or 2.0) to prevent blurry rendering
+    QString scaleStr = QString::number(m_settingsManager->userScaleFactor(), 'f', 2);
+
+    // GDK/GTK scaling
+    env.insert("GDK_SCALE", scaleStr);
+    env.insert("GDK_DPI_SCALE", "1"); // Keep DPI scaling at 1, we use integer scaling via GDK_SCALE
+
+    // Qt scaling
+    env.insert("QT_SCALE_FACTOR", scaleStr);
+    env.insert("QT_AUTO_SCREEN_SCALE_FACTOR",
+               "0"); // Disable auto-detection, we provide explicit scale
+    env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1"); // No client-side decorations for Qt
 
     process->setProcessEnvironment(env);
 
@@ -362,7 +432,9 @@ QObject *WaylandCompositor::getSurfaceById(int surfaceId) {
 }
 
 void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
-    qDebug() << "[WaylandCompositor] Surface created:" << surface;
+    qWarning() << "[WaylandCompositor] ========== RAW SURFACE CREATED ==========";
+    qWarning() << "[WaylandCompositor]   Surface:" << surface;
+    qWarning() << "[WaylandCompositor]   Client:" << surface->client();
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
@@ -385,98 +457,159 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     // DON'T emit surfaceCreated yet - wait for XDG toplevel to be created first
 }
 
+void WaylandCompositor::activateSurface(int surfaceId) {
+    QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
+    if (surface && defaultSeat()) {
+        defaultSeat()->setKeyboardFocus(surface);
+        qDebug() << "[WaylandCompositor] Activated surface (set keyboard focus):" << surfaceId;
+    } else {
+        qWarning() << "[WaylandCompositor] Failed to activate surface:" << surfaceId;
+    }
+}
+
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                                                  QWaylandXdgSurface  *xdgSurface) {
+    qWarning() << "[WaylandCompositor] handleXdgToplevelCreated called";
+    qWarning() << "[WaylandCompositor]   toplevel:" << toplevel;
+    qWarning() << "[WaylandCompositor]   xdgSurface:" << xdgSurface;
+    if (toplevel)
+        qWarning() << "[WaylandCompositor]   appId:" << toplevel->appId();
+    if (toplevel)
+        qWarning() << "[WaylandCompositor]   title:" << toplevel->title();
+
+    // CRITICAL: Null check before ANY operations to prevent crashes from malformed surfaces
+    if (!toplevel || !xdgSurface) {
+        qWarning()
+            << "[WaylandCompositor] XDG toplevel creation with null toplevel/xdgSurface - ignoring";
+        return;
+    }
+
+    if (!m_output) {
+        qWarning() << "[WaylandCompositor] No output available for XDG toplevel - ignoring surface";
+        return;
+    }
+
     qDebug() << "[WaylandCompositor] XDG Toplevel created for surface";
 
     QWaylandSurface *surface = xdgSurface->surface();
-    if (surface) {
-        // Store BOTH the xdgSurface (for ShellSurfaceItem) and toplevel (for configuration)
-        surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
-        surface->setProperty("xdgToplevel", QVariant::fromValue(toplevel));
-        surface->setProperty("title", toplevel->title());
-        surface->setProperty("appId", toplevel->appId());
+    if (!surface || !surface->client()) {
+        qWarning()
+            << "[WaylandCompositor] XDG surface has no valid Wayland surface or client - ignoring";
+        return;
+    }
 
-        int surfaceId = surface->property("surfaceId").toInt();
-        // CRITICAL: Store xdgSurface for graceful close via sendClose()
-        m_xdgSurfaceMap[surfaceId] = xdgSurface;
+    // Store BOTH the xdgSurface (for ShellSurfaceItem) and toplevel (for configuration)
+    surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
+    surface->setProperty("xdgToplevel", QVariant::fromValue(toplevel));
+    surface->setProperty("title", toplevel->title());
+    surface->setProperty("appId", toplevel->appId());
 
-        // NOW emit surfaceCreated with surfaceId, xdgSurface AND toplevel
-        emit surfaceCreated(surface, surfaceId, xdgSurface);
+    int surfaceId = surface->property("surfaceId").toInt();
+    // CRITICAL: Store xdgSurface for graceful close via sendClose()
+    m_xdgSurfaceMap[surfaceId] = xdgSurface;
 
-        // Connect signals with QPointer for safe access to toplevel and surface
-        QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
-        QPointer<QWaylandSurface>     safeSurface(surface);
+    // DEBUG: Log before emitting to verify signal is fired
+    qWarning() << "[WaylandCompositor] ========== EMITTING surfaceCreated ==========";
+    qWarning() << "[WaylandCompositor]   surfaceId:" << surfaceId;
+    qWarning() << "[WaylandCompositor]   appId:" << toplevel->appId();
+    qWarning() << "[WaylandCompositor]   title:" << toplevel->title();
 
-        connect(toplevel, &QWaylandXdgToplevel::titleChanged, this,
-                [this, safeToplevel, safeSurface]() {
-                    if (safeToplevel && safeSurface) {
-                        safeSurface->setProperty("title", safeToplevel->title());
-                    }
-                });
+    // NOW emit surfaceCreated with surfaceId, xdgSurface AND toplevel
+    emit surfaceCreated(surface, surfaceId, xdgSurface);
 
-        connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this,
-                [this, safeToplevel, safeSurface]() {
-                    if (safeToplevel && safeSurface) {
-                        safeSurface->setProperty("appId", safeToplevel->appId());
-                    }
-                });
+    qWarning() << "[WaylandCompositor] ========== surfaceCreated EMITTED ==========";
 
-        // CRITICAL: Monitor hasContent changes to detect when app hides its window
-        // Many GNOME/GTK apps don't terminate when you click their internal X button
-        // They just unmap the surface and keep running in the background
-        connect(
-            surface, &QWaylandSurface::hasContentChanged, this, [this, safeSurface, surfaceId]() {
-                if (safeSurface && !safeSurface->hasContent()) {
-                    qInfo() << "[WaylandCompositor] Surface lost content (window hidden/unmapped) "
-                               "- surfaceId:"
-                            << surfaceId;
-                    qInfo() << "[WaylandCompositor] Treating as app close and destroying surface";
+    // Connect signals with QPointer for safe access to toplevel and surface
+    QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
+    QPointer<QWaylandSurface>     safeSurface(surface);
 
-                    // CRITICAL: Emit surfaceDestroyed signal BEFORE cleaning up internal state
-                    // so QML handlers can still access the surface if needed
-                    qInfo() << "[WaylandCompositor] Emitting surfaceDestroyed signal for surfaceId:"
-                            << surfaceId;
-                    emit surfaceDestroyed(safeSurface.data(), surfaceId);
-                    qInfo() << "[WaylandCompositor] surfaceDestroyed signal emitted";
-
-                    // Clean up our internal state
-                    if (m_surfaceIdToPid.contains(surfaceId)) {
-                        qint64 pid = m_surfaceIdToPid[surfaceId];
-                        m_pidToSurfaceId.remove(pid);
-                        m_surfaceIdToPid.remove(surfaceId);
-                        qDebug() << "[WaylandCompositor] Cleaned up PID mapping for" << pid;
-                    }
-
-                    m_surfaceMap.remove(surfaceId);
-                    m_xdgSurfaceMap.remove(surfaceId);
-                    m_surfaces.removeAll(safeSurface);
-
-                    emit surfacesChanged();
+    connect(toplevel, &QWaylandXdgToplevel::titleChanged, this,
+            [this, safeToplevel, safeSurface]() {
+                if (safeToplevel && safeSurface) {
+                    safeSurface->setProperty("title", safeToplevel->title());
                 }
             });
-    }
+
+    connect(toplevel, &QWaylandXdgToplevel::appIdChanged, this,
+            [this, safeToplevel, safeSurface]() {
+                if (safeToplevel && safeSurface) {
+                    safeSurface->setProperty("appId", safeToplevel->appId());
+                }
+            });
+
+    // CRITICAL: Monitor hasContent changes to detect when app hides its window
+    // Many GNOME/GTK apps don't terminate when you click their internal X button
+    // They just unmap the surface and keep running in the background
+    connect(surface, &QWaylandSurface::hasContentChanged, this, [this, safeSurface, surfaceId]() {
+        if (safeSurface && !safeSurface->hasContent()) {
+            qInfo() << "[WaylandCompositor] Surface lost content (window hidden/unmapped) "
+                       "- surfaceId:"
+                    << surfaceId;
+            qInfo() << "[WaylandCompositor] Treating as app close and destroying surface";
+
+            // CRITICAL: Emit surfaceDestroyed signal BEFORE cleaning up internal state
+            // so QML handlers can still access the surface if needed
+            qInfo() << "[WaylandCompositor] Emitting surfaceDestroyed signal for surfaceId:"
+                    << surfaceId;
+            emit surfaceDestroyed(safeSurface.data(), surfaceId);
+            qInfo() << "[WaylandCompositor] surfaceDestroyed signal emitted";
+
+            // Clean up our internal state
+            if (m_surfaceIdToPid.contains(surfaceId)) {
+                qint64 pid = m_surfaceIdToPid[surfaceId];
+                m_pidToSurfaceId.remove(pid);
+                m_surfaceIdToPid.remove(surfaceId);
+                qDebug() << "[WaylandCompositor] Cleaned up PID mapping for" << pid;
+            }
+
+            m_surfaceMap.remove(surfaceId);
+            m_xdgSurfaceMap.remove(surfaceId);
+            m_surfaces.removeAll(safeSurface);
+
+            emit surfacesChanged();
+        }
+    });
 }
 
 void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
                                               QWaylandXdgSurface *xdgSurface) {
-    qDebug() << "[WaylandCompositor] XDG Popup created";
+    // Qt's ShellSurfaceItem.autoCreatePopupItems handles most popup management
+    // We just track the surface and emit a signal for debugging/logging
+
+    if (!popup || !xdgSurface) {
+        qWarning() << "[WaylandCompositor] XDG popup creation with null objects - ignoring";
+        return;
+    }
 
     QWaylandSurface *surface = xdgSurface->surface();
-    if (surface) {
-        QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
-        QWaylandSurface *parentSurface = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
-
-        qDebug() << "[WaylandCompositor] Popup parent:" << parentSurface;
-
-        // Store popup data
-        surface->setProperty("isPopup", true);
-        surface->setProperty("xdgPopup", QVariant::fromValue(popup));
-        surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
-
-        // We don't add popups to m_surfaces list usually, as they are managed by the client/parent
-        // But we might need to track them to prevent cleanup issues
+    if (!surface) {
+        qWarning() << "[WaylandCompositor] XDG popup has no surface - ignoring";
+        return;
     }
+
+    // Assign surfaceId if not already assigned
+    int surfaceId = surface->property("surfaceId").toInt();
+    if (surfaceId == 0) {
+        surfaceId               = m_nextSurfaceId++;
+        m_surfaceMap[surfaceId] = surface;
+        surface->setProperty("surfaceId", surfaceId);
+    }
+
+    // Get parent surface info for logging
+    QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
+    QWaylandSurface    *parentSurface    = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
+    qDebug() << "[WaylandCompositor] Popup created:" << surfaceId
+             << "parent:" << (parentSurface ? parentSurface->property("surfaceId").toInt() : -1);
+
+    // Store popup data
+    surface->setProperty("isPopup", true);
+    surface->setProperty("xdgPopup", QVariant::fromValue(popup));
+    surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
+
+    // Track in surfaces list
+    m_surfaces.append(surface);
+    m_xdgSurfaceMap[surfaceId] = xdgSurface;
+    emit surfacesChanged();
 }
 
 void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlShellSurface) {
@@ -484,7 +617,7 @@ void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlSh
 
     QWaylandSurface *surface = wlShellSurface->surface();
     if (surface) {
-        int surfaceId = surface->property("surfaceId").toInt();
+        Q_UNUSED(surface->property("surfaceId").toInt());
         surface->setProperty("wlShellSurface", QVariant::fromValue(wlShellSurface));
         surface->setProperty("title", wlShellSurface->title());
 
@@ -597,7 +730,7 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     // ====================================================================================
 
     // Constants
-    const qreal TARGET_MOBILE_DPI = 200.0; // Typical modern phone: 200-300 PPI
+    const qreal TARGET_MOBILE_DPI = 200.0; // Target DPI for mobile form factor
     const qreal MM_PER_INCH       = 25.4;
 
     // Get current state
@@ -625,7 +758,9 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     m_output->setPhysicalSize(physicalSize);
 
     // Calculate resulting DPI for logging
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) - used in logging below
     qreal actualDPI = (windowSize.width() / physicalWidthMM) * MM_PER_INCH;
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) - used in logging below
     qreal diagonalInches =
         qSqrt(qPow(physicalWidthMM / MM_PER_INCH, 2) + qPow(physicalHeightMM / MM_PER_INCH, 2));
 
@@ -790,6 +925,74 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
         qWarning() << "[WaylandCompositor] No content item to rotate";
     }
 
-    m_output->setTransform(transform); // doesnt actually rotate, notifies clients of rotation???
+    m_output->setTransform(transform);
     calculateAndSetPhysicalSize();
+}
+
+void WaylandCompositor::injectKey(int key, int modifiers, bool pressed) {
+    if (!defaultSeat()) {
+        qWarning() << "[WaylandCompositor] No default seat found for key injection";
+        return;
+    }
+
+    QEvent::Type type = pressed ? QEvent::KeyPress : QEvent::KeyRelease;
+    QKeyEvent    event(type, key, static_cast<Qt::KeyboardModifiers>(modifiers));
+    defaultSeat()->sendFullKeyEvent(&event);
+    qInfo() << "[WaylandCompositor] Injected Key:" << key << "Modifiers:" << modifiers
+            << "Pressed:" << pressed;
+}
+
+bool WaylandCompositor::checkIdleInhibitors() {
+    // Scan all surfaces to check if any inhibit idle behavior
+    // This is used by the lock screen timer to prevent blanking during video playback
+    bool hasInhibitor = false;
+
+    for (auto it = m_surfaceMap.constBegin(); it != m_surfaceMap.constEnd(); ++it) {
+        QWaylandSurface *surface = it.value();
+        if (surface && surface->inhibitsIdle()) {
+            qDebug() << "[WaylandCompositor] Surface" << it.key() << "inhibits idle";
+            hasInhibitor = true;
+            break;
+        }
+    }
+
+    if (hasInhibitor != m_hasIdleInhibitor) {
+        m_hasIdleInhibitor = hasInhibitor;
+        emit hasIdleInhibitingSurfaceChanged();
+        qDebug() << "[WaylandCompositor] Idle inhibitor state changed:" << hasInhibitor;
+    }
+
+    return hasInhibitor;
+}
+
+bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
+    if (watched == m_window &&
+        (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+        int        key      = keyEvent->key();
+
+        // Trap Back (ESC) and Home (Super_L/Meta)
+        // We intercept these globally to ensure consistent behavior across all apps (Native & Marathon)
+        if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
+
+            // On Press: Simply consume to prevent Client from receiving it (avoids internal navigation)
+            if (event->type() == QEvent::KeyPress) {
+                return true;
+            }
+
+            // On Release: Trigger Shell Logic via signals
+            if (event->type() == QEvent::KeyRelease) {
+                // Determine which signal to emit
+                if (key == Qt::Key_Escape) {
+                    emit systemBackTriggered();
+                } else {
+                    emit systemHomeTriggered();
+                }
+                return true; // Consume release too
+            }
+        }
+    }
+
+    // Pass everything else through
+    return QObject::eventFilter(watched, event);
 }

@@ -97,6 +97,8 @@ set(SOURCES
 list(APPEND SOURCES
     src/waylandcompositormanager.h
     src/waylandcompositormanager.cpp
+    src/cursormanager.h
+    src/cursormanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -181,6 +183,7 @@ set(QML_FILES
     qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
+    qml/core/SurfaceRegistry.qml
     qml/core/Router.qml
     qml/models/FilteredAppModel.qml
     qml/services/Platform.qml
@@ -237,6 +240,7 @@ set(SINGLETON_FILES
     qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
+    qml/core/SurfaceRegistry.qml
     qml/core/Router.qml
     qml/utils/Async.qml
     qml/services/Platform.qml
