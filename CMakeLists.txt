@@ -70,7 +70,6 @@ endif()
 find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Core
     Gui
-    GuiPrivate
     Widgets
     Qml
     Quick
@@ -83,6 +82,17 @@ find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Positioning
     Sensors
 )
+
+# GuiPrivate is optional - Debian packages Qt6 differently than Arch/Fedora
+# On Debian, the private headers are in qt6-base-private-dev but no separate cmake config
+find_package(Qt6 6.4 COMPONENTS GuiPrivate QUIET)
+if(TARGET Qt6::GuiPrivate)
+    message(STATUS "Qt6::GuiPrivate found - enabling private API features")
+    set(HAVE_GUI_PRIVATE TRUE)
+else()
+    message(STATUS "Qt6::GuiPrivate not found - private API features disabled (Debian-based system?)")
+    set(HAVE_GUI_PRIVATE FALSE)
+endif()
 
 # Try to find Qt6WebEngineQuick
 find_package(Qt6 6.4 COMPONENTS WebEngineQuick)
