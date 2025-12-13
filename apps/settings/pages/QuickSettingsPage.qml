@@ -1,10 +1,10 @@
 import QtQuick
+import MarathonApp.Settings
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import "../components"
 
 SettingsPageTemplate {
     id: quickSettingsPage

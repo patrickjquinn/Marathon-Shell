@@ -181,9 +181,7 @@ Rectangle {
                                 var capturedId = id;
                                 nativeInstance.requestClose.connect(function (skipNative) {
                                     Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
-                                    // Pass the captured ID directly to lifecycle manager
-                                    if (typeof AppLifecycleManager !== 'undefined')
-                                        AppLifecycleManager.closeApp(capturedId, skipNative === true);
+                                    appWindow.closeApp(skipNative === true);
                                 });
                             }
 
@@ -321,6 +319,7 @@ Rectangle {
             }
             activeDialogs = [];
         }
+        UIStore.closeApp();
         appContentLoader.source = "";
         isClosing = true;
         slideOut.start();

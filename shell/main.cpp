@@ -46,7 +46,6 @@
 #include "src/musiclibrarymanager.h"
 #include "src/waylandcompositormanager.h"
 #include "src/marathoninputmethodengine.h"
-#include "src/storagemanager.h"
 #include "src/rtscheduler.h"
 #include "src/cursormanager.h"
 #include "src/lunasvgimageprovider.h"
@@ -59,14 +58,8 @@
 #include "src/securitymanager.h"
 #include "src/platformcpp.h"
 #include "qml/keyboard/Data/WordEngine.h"
-#include "src/dbus/marathonapplicationservice.h"
-#include "src/dbus/marathonsystemservice.h"
-#include "src/dbus/marathonnotificationservice.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
-#include "src/dbus/marathonstorageservice.h"
-#include "src/dbus/marathonsettingsservice.h"
-#include "src/dbus/marathonpermissionportal.h"
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
@@ -371,7 +364,6 @@ int main(int argc, char *argv[]) {
     AudioManagerCpp   *audioManager    = new AudioManagerCpp(&app);
     ModemManagerCpp   *modemManager    = new ModemManagerCpp(&app);
     SensorManagerCpp  *sensorManager   = new SensorManagerCpp(&app);
-    StorageManager    *storageManager  = new StorageManager(&app);
     BluetoothManager  *bluetoothManager      = new BluetoothManager(&app);
     LocationManager   *locationManager       = new LocationManager(&app);
     HapticManager     *hapticManager         = new HapticManager(&app);
@@ -384,7 +376,6 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
     engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
     engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
-    engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     engine.rootContext()->setContextProperty("RotationManager", rotationManager);
     engine.rootContext()->setContextProperty("LocationManager", locationManager);
@@ -451,27 +442,6 @@ int main(int argc, char *argv[]) {
         // Load existing notifications from database into model
         notificationModel->loadFromDatabase(notifDb);
 
-        // Register ApplicationService
-        MarathonApplicationService *appService =
-            new MarathonApplicationService(appRegistry, appLoader, taskModel, &app);
-        if (appService->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ ApplicationService registered";
-        }
-
-        // Register SystemService
-        MarathonSystemService *systemService = new MarathonSystemService(
-            powerManager, networkManager, displayManager, audioManager, &app);
-        if (systemService->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ SystemService registered";
-        }
-
-        // Register NotificationService
-        MarathonNotificationService *notifService =
-            new MarathonNotificationService(notifDb, notificationModel, &app);
-        if (notifService->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ NotificationService registered";
-        }
-
         // Register freedesktop.org Notifications (standard interface for 3rd-party apps)
         FreedesktopNotifications *freedesktopNotif =
             new FreedesktopNotifications(notifDb, notificationModel, powerManager, &app);
@@ -482,19 +452,6 @@ int main(int argc, char *argv[]) {
         // Expose to QML for inline-reply functionality
         engine.rootContext()->setContextProperty("FreedesktopNotifications", freedesktopNotif);
 
-        // Register StorageService
-        MarathonStorageService *storageService = new MarathonStorageService(storageManager, &app);
-        if (storageService->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ StorageService registered";
-        }
-
-        // Register SettingsService
-        MarathonSettingsService *settingsService =
-            new MarathonSettingsService(settingsManager, &app);
-        if (settingsService->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ SettingsService registered";
-        }
-
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
     qCritical() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
@@ -503,15 +460,6 @@ int main(int argc, char *argv[]) {
     MarathonPermissionManager *permissionManager = new MarathonPermissionManager(&app);
     engine.rootContext()->setContextProperty("PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
-
-    // Register Permission Portal (D-Bus)
-    if (bus.isConnected()) {
-        MarathonPermissionPortal *permissionPortal =
-            new MarathonPermissionPortal(permissionManager, &app);
-        if (permissionPortal->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ PermissionPortal registered";
-        }
-    }
 
     // Register App Store Service
     MarathonAppStoreService *appStoreService = new MarathonAppStoreService(appInstaller, &app);

@@ -18,13 +18,11 @@ class MarathonAppLoader : public QObject {
     bool processIsolationEnabled() const {
         return m_processIsolationEnabled;
     }
-    void                 setProcessIsolationEnabled(bool enabled);
+    void             setProcessIsolationEnabled(bool enabled);
 
-    Q_INVOKABLE QObject *loadApp(const QString &appId);
-    Q_INVOKABLE void     loadAppAsync(const QString &appId); // New async method
-    Q_INVOKABLE void     unloadApp(const QString &appId);
-    Q_INVOKABLE bool     isAppLoaded(const QString &appId) const;
-    Q_INVOKABLE void     preloadApp(const QString &appId);
+    Q_INVOKABLE void loadAppAsync(const QString &appId); // New async method
+    Q_INVOKABLE void unloadApp(const QString &appId);
+    Q_INVOKABLE bool isAppLoaded(const QString &appId) const;
 
   signals:
     void appLoaded(const QString &appId);

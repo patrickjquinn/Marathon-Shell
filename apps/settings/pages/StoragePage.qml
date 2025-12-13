@@ -1,12 +1,16 @@
 import QtQuick
+import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Containers
-import "../components"
 
 SettingsPageTemplate {
     id: storagePage
     pageTitle: "Storage"
+
+    StorageInfo {
+        id: storageInfo
+    }
 
     property string pageName: "storage"
 
@@ -39,7 +43,7 @@ SettingsPageTemplate {
                         spacing: MSpacing.sm
 
                         Text {
-                            text: StorageManager.usedSpaceString + " used of " + StorageManager.totalSpaceString
+                            text: storageInfo.usedSpaceString + " used of " + storageInfo.totalSpaceString
                             color: MColors.textPrimary
                             font.pixelSize: MTypography.sizeLarge
                             font.weight: Font.Bold
@@ -55,13 +59,13 @@ SettingsPageTemplate {
                             anchors.horizontalCenter: parent.horizontalCenter
 
                             Rectangle {
-                                width: parent.width * StorageManager.usedPercentage
+                                width: parent.width * storageInfo.usedPercentage
                                 height: parent.height
                                 radius: parent.radius
                                 color: {
-                                    if (StorageManager.usedPercentage > 0.9)
+                                    if (storageInfo.usedPercentage > 0.9)
                                         return Qt.rgba(255, 59, 48, 0.8);      // Red when >90%
-                                    if (StorageManager.usedPercentage > 0.75)
+                                    if (storageInfo.usedPercentage > 0.75)
                                         return Qt.rgba(255, 149, 0, 0.8);    // Orange when >75%
                                     return Qt.rgba(20, 184, 166, 0.8);  // Teal when <75%
                                 }
@@ -77,17 +81,17 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Used"
-                    value: StorageManager.usedSpaceString
+                    value: storageInfo.usedSpaceString
                 }
 
                 MSettingsListItem {
                     title: "Available"
-                    value: StorageManager.availableSpaceString
+                    value: storageInfo.availableSpaceString
                 }
 
                 MSettingsListItem {
                     title: "Total Capacity"
-                    value: StorageManager.totalSpaceString
+                    value: storageInfo.totalSpaceString
                 }
             }
 

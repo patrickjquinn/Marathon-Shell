@@ -64,16 +64,11 @@ install=""
 subpackages="$pkgname-doc"
 source="
 	$pkgname-$pkgver.tar.gz
-	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
 	"
 builddir="$srcdir/$pkgname-$pkgver"
 
 prepare() {
 	default_prepare
-	
-	# Extract asyncfuture submodule
-	mkdir -p "$builddir/third-party/asyncfuture"
-	cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
 }
 
 build() {

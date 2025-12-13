@@ -2,6 +2,10 @@ set(APP_NAME terminal)
 
 set(QML_FILES
     TerminalApp.qml
+    components/TerminalSession.qml
+    components/TerminalTab.qml
+    components/TerminalTabButton.qml
+    components/VirtualKeyRow.qml
 )
 
 set(SOURCES
@@ -20,8 +24,3 @@ add_marathon_app(${APP_NAME}
     QML_FILES ${QML_FILES}
     SOURCES ${SOURCES}
 )
-
-# TerminalEngine only needs Qt6::Core (for QProcess) - no additional dependencies!
-
-install(DIRECTORY components DESTINATION "${MARATHON_APPS_DIR}/terminal")
-

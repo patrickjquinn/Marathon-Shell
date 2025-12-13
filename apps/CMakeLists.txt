@@ -128,13 +128,6 @@ function(add_marathon_app APP_NAME)
             RUNTIME DESTINATION "${INSTALL_DIR}"
         )
         
-        # Install QML app files to app root (from source directory)
-        foreach(QML_FILE ${ARG_QML_FILES})
-            install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/${QML_FILE}"
-                DESTINATION "${INSTALL_DIR}"
-            )
-        endforeach()
-        
         # Install QML module files and plugin wrapper from module output directory
         install(DIRECTORY "${MODULE_OUTPUT_DIR}/"
             DESTINATION "${INSTALL_DIR}/${MODULE_PATH}"

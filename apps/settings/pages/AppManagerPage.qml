@@ -1,9 +1,9 @@
 import QtQuick
+import MarathonApp.Settings
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
-import "../components"
 
 SettingsPageTemplate {
     id: appManagerPage
