@@ -76,6 +76,7 @@ class AppModel : public QAbstractListModel {
     Q_INVOKABLE App    *getAppAtIndex(int index);
     Q_INVOKABLE void    addApp(const QString &id, const QString &name, const QString &icon,
                                const QString &type, const QString &exec = QString());
+    Q_INVOKABLE void    addApps(const QVariantList &apps);
     Q_INVOKABLE void    removeApp(const QString &appId);
     Q_INVOKABLE void    clear();
     Q_INVOKABLE QString getAppName(const QString &appId);

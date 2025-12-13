@@ -87,6 +87,48 @@ void AppModel::addApp(const QString &id, const QString &name, const QString &ico
     qDebug() << "[AppModel] Added app:" << name << "(" << type << ")";
 }
 
+void AppModel::addApps(const QVariantList &apps) {
+    if (apps.isEmpty())
+        return;
+
+    QVector<App *> newApps;
+    newApps.reserve(apps.size());
+
+    for (const QVariant &v : apps) {
+        const QVariantMap appMap = v.toMap();
+        const QString     id     = appMap.value("id").toString();
+        const QString     name   = appMap.value("name").toString();
+        const QString     icon   = appMap.value("icon").toString();
+        const QString     type   = appMap.value("type").toString();
+        const QString     exec   = appMap.value("exec").toString();
+
+        if (id.isEmpty() || name.isEmpty() || icon.isEmpty())
+            continue;
+        if (type != "native" && type != "marathon" && type != "system")
+            continue;
+        if (m_appIndex.contains(id))
+            continue;
+
+        newApps.append(new App(id, name, icon, type, exec, this));
+    }
+
+    if (newApps.isEmpty())
+        return;
+
+    const int start = m_apps.count();
+    const int end   = start + newApps.count() - 1;
+
+    beginInsertRows(QModelIndex(), start, end);
+    for (App *app : newApps) {
+        m_apps.append(app);
+        m_appIndex[app->id()] = app;
+    }
+    endInsertRows();
+
+    emit countChanged();
+    qDebug() << "[AppModel] Added" << newApps.count() << "apps (batched)";
+}
+
 void AppModel::removeApp(const QString &appId) {
     App *app = m_appIndex.value(appId, nullptr);
     if (!app) {

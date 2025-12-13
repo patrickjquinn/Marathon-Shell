@@ -56,9 +56,25 @@ void MPRIS2Controller::setupDBusMonitoring() {
     // Monitor D-Bus for new media players appearing/disappearing
     QDBusConnection::sessionBus().connect("org.freedesktop.DBus", "/org/freedesktop/DBus",
                                           "org.freedesktop.DBus", "NameOwnerChanged", this,
-                                          SLOT(onDBusServiceRegistered(QString)));
+                                          SLOT(onNameOwnerChanged(QString, QString, QString)));
 
     qDebug() << "[MPRIS2Controller] D-Bus monitoring enabled";
+}
+
+void MPRIS2Controller::onNameOwnerChanged(const QString &name, const QString &oldOwner,
+                                          const QString &newOwner) {
+    Q_UNUSED(oldOwner);
+
+    // NameOwnerChanged is the canonical way to detect MPRIS players coming/going on the bus.
+    if (!name.startsWith("org.mpris.MediaPlayer2."))
+        return;
+
+    if (newOwner.isEmpty()) {
+        qDebug() << "[MPRIS2Controller] Media player removed:" << name;
+    } else {
+        qDebug() << "[MPRIS2Controller] New media player detected:" << name;
+    }
+    scanForPlayers();
 }
 
 void MPRIS2Controller::scanForPlayers() {
@@ -142,17 +158,26 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
                                  QDBusConnection::sessionBus());
     if (rootInterface.isValid()) {
         m_desktopEntry = rootInterface.property("DesktopEntry").toString();
-        qInfo() << "[MPRIS2Controller] App ID (DesktopEntry):" << m_desktopEntry;
     } else {
-        m_desktopEntry = name.toLower(); // Fallback to bus name suffix
+        m_desktopEntry.clear();
     }
+
+    // DesktopEntry is optional in the MPRIS2 spec and is often empty for some players.
+    // Ensure we always have a usable, non-empty identifier for launching / lookup.
+    if (m_desktopEntry.isEmpty()) {
+        // Prefer bus-name suffix (lowercased) without instance IDs.
+        m_desktopEntry = name.toLower();
+    }
+
+    qInfo() << "[MPRIS2Controller] App ID (DesktopEntry):" << m_desktopEntry;
 
     qInfo() << "[MPRIS2Controller] ✓ Connected to" << m_playerName;
 
-    // Connect to property changes
-    QDBusConnection::sessionBus().connect(busName, "/org/mpris/MediaPlayer2",
-                                          "org.freedesktop.DBus.Properties", "PropertiesChanged",
-                                          this, SLOT(updatePlaybackStatus()));
+    // Connect to property changes (PlaybackStatus/Metadata/Capabilities/etc)
+    // NOTE: PropertiesChanged has args; wiring it to a no-arg slot silently breaks updates.
+    QDBusConnection::sessionBus().connect(
+        busName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "PropertiesChanged",
+        this, SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
 
     // Initial state fetch
     updatePlaybackStatus();
@@ -173,6 +198,14 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
 
 void MPRIS2Controller::disconnectFromPlayer() {
     if (m_playerInterface) {
+        // Disconnect PropertiesChanged handler for the active player
+        if (!m_currentBusName.isEmpty()) {
+            QDBusConnection::sessionBus().disconnect(
+                m_currentBusName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties",
+                "PropertiesChanged", this,
+                SLOT(onPropertiesChanged(QString, QVariantMap, QStringList)));
+        }
+
         m_positionTimer->stop();
         delete m_playerInterface;
         m_playerInterface = nullptr;
@@ -189,14 +222,57 @@ void MPRIS2Controller::disconnectFromPlayer() {
     }
 }
 
+void MPRIS2Controller::onPropertiesChanged(const QString     &interfaceName,
+                                           const QVariantMap &changedProperties,
+                                           const QStringList &invalidatedProperties) {
+    Q_UNUSED(invalidatedProperties);
+
+    // We only care about the Player interface properties for UI state.
+    if (interfaceName != "org.mpris.MediaPlayer2.Player")
+        return;
+
+    // Prefer directly consuming the signal payload (fast + avoids flaky remote property reads).
+    if (changedProperties.contains("PlaybackStatus")) {
+        const QString status = changedProperties.value("PlaybackStatus").toString();
+        if (!status.isEmpty() && status != m_playbackStatus) {
+            m_playbackStatus = status;
+            emit playbackStatusChanged();
+            qDebug() << "[MPRIS2Controller] Playback status:" << status;
+        }
+    }
+
+    // Capabilities sometimes arrive in the same PropertiesChanged.
+    if (changedProperties.contains("CanPlay") || changedProperties.contains("CanPause") ||
+        changedProperties.contains("CanGoNext") || changedProperties.contains("CanGoPrevious") ||
+        changedProperties.contains("CanSeek")) {
+        updateCapabilities();
+    }
+
+    if (changedProperties.contains("Metadata")) {
+        updateMetadata();
+    }
+}
+
 void MPRIS2Controller::updatePlaybackStatus() {
     if (!m_playerInterface)
         return;
 
-    QVariant statusVar = m_playerInterface->property("PlaybackStatus");
-    QString  status    = statusVar.toString();
+    // Use explicit DBus call to Properties.Get (more reliable than QDBusInterface::property()
+    // for some players / Qt versions).
+    QDBusMessage call = QDBusMessage::createMethodCall(m_currentBusName, "/org/mpris/MediaPlayer2",
+                                                       "org.freedesktop.DBus.Properties", "Get");
+    call << "org.mpris.MediaPlayer2.Player" << "PlaybackStatus";
 
-    if (status != m_playbackStatus) {
+    QDBusReply<QDBusVariant> reply = QDBusConnection::sessionBus().call(call);
+    QString                  status;
+    if (reply.isValid()) {
+        status = reply.value().variant().toString();
+    } else {
+        // Fallback to the property getter
+        status = m_playerInterface->property("PlaybackStatus").toString();
+    }
+
+    if (!status.isEmpty() && status != m_playbackStatus) {
         m_playbackStatus = status;
         emit playbackStatusChanged();
         qDebug() << "[MPRIS2Controller] Playback status:" << status;
@@ -286,15 +362,20 @@ void MPRIS2Controller::updatePosition() {
         return;
     }
 
-    // Query position from player
-    QDBusReply<qint64> reply = m_playerInterface->call("Position");
+    // Position is a *property* (int64, microseconds) on org.mpris.MediaPlayer2.Player.
+    // Query via org.freedesktop.DBus.Properties.Get for correctness/reliability.
+    QDBusMessage call = QDBusMessage::createMethodCall(m_currentBusName, "/org/mpris/MediaPlayer2",
+                                                       "org.freedesktop.DBus.Properties", "Get");
+    call << "org.mpris.MediaPlayer2.Player" << "Position";
 
-    if (reply.isValid()) {
-        qint64 pos = reply.value();
-        if (pos != m_position) {
-            m_position = pos;
-            emit positionChanged();
-        }
+    QDBusReply<QDBusVariant> reply = QDBusConnection::sessionBus().call(call);
+    if (!reply.isValid())
+        return;
+
+    const qint64 pos = reply.value().variant().toLongLong();
+    if (pos != m_position) {
+        m_position = pos;
+        emit positionChanged();
     }
 }
 
@@ -380,7 +461,8 @@ void MPRIS2Controller::playPause() {
 
     qDebug() << "[MPRIS2Controller] Calling PlayPause()";
     m_playerInterface->asyncCall("PlayPause");
-    updatePlaybackStatus();
+    // Some players update PlaybackStatus asynchronously; refresh shortly after issuing the command.
+    QTimer::singleShot(150, this, &MPRIS2Controller::updatePlaybackStatus);
 }
 
 void MPRIS2Controller::stop() {

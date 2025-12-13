@@ -12,6 +12,13 @@
 #include <QInputDevice>
 #include <QDBusMetaType>
 #include <QElapsedTimer>
+#include <QTimer>
+#include <QMutex>
+#include <QMutexLocker>
+#ifdef HAVE_QT_CONCURRENT
+#include <QFutureWatcher>
+#include <QtConcurrent>
+#endif
 #include "src/locationmanager.h"
 
 #ifdef Q_OS_LINUX
@@ -73,14 +80,17 @@
 #endif
 
 // Custom message handler for logging Qt messages
-static QFile *logFile = nullptr;
-static void   marathonMessageHandler(QtMsgType type, const QMessageLogContext &context,
-                                     const QString &msg) {
-    // Only suppress truly harmless warnings (not in debug mode)
-    QString debugEnv  = qgetenv("MARATHON_DEBUG");
-    bool    debugMode = (debugEnv == "1" || debugEnv.toLower() == "true");
+static QFile       *logFile   = nullptr;
+static QTextStream *logStream = nullptr;
+static QMutex       logMutex;
+static bool         g_debugEnabled = false;
+static void         marathonMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                                           const QString &msg) {
+    // Qt can call this concurrently from multiple threads (GUI/render/DBus/etc).
+    QMutexLocker locker(&logMutex);
 
-    if (!debugMode && type == QtWarningMsg) {
+    // Only suppress truly harmless warnings (not in debug mode)
+    if (!g_debugEnabled && type == QtWarningMsg) {
         // In non-debug mode, suppress known benign warnings
         if ((msg.contains("Could not connect") &&
              (msg.contains("NetworkManager") || msg.contains("UPower"))) ||
@@ -106,18 +116,28 @@ static void   marathonMessageHandler(QtMsgType type, const QMessageLogContext &c
     }
 
     // Write to file
-    if (logFile && logFile->isOpen()) {
-        QTextStream stream(logFile);
-        stream << logMessage << "\n";
-        stream.flush();
+    if (logStream && logFile && logFile->isOpen()) {
+        (*logStream) << logMessage << "\n";
+        // Flushing every line is expensive on low-end storage.
+        // Flush only when debugging or for warnings and above.
+        if (g_debugEnabled || type >= QtWarningMsg) {
+            logStream->flush();
+        }
     }
 
-    // ALWAYS output to stderr for terminal visibility
-    fprintf(stderr, "%s\n", qPrintable(logMessage));
+    // Avoid spamming stderr in production; keep warnings+.
+    if (g_debugEnabled || type >= QtWarningMsg) {
+        fprintf(stderr, "%s\n", qPrintable(logMessage));
+    }
 
     // For fatal errors, close log file before abort
     if (type == QtFatalMsg) {
         if (logFile) {
+            if (logStream) {
+                logStream->flush();
+                delete logStream;
+                logStream = nullptr;
+            }
             logFile->close();
             delete logFile;
             logFile = nullptr;
@@ -135,44 +155,54 @@ int main(int argc, char *argv[]) {
     // Enable software rendering for better compatibility in VMs or low-end hardware
     // qputenv("QMLSCENE_DEVICE", "software");  // Commented out - let Qt choose best renderer
 
-    QElapsedTimer timer;
-    timer.start();
-    qCritical() << "[Profiler] Startup begins...";
-
     // Check debug mode FIRST before setting any logging rules
     QString debugEnv     = qgetenv("MARATHON_DEBUG");
     bool    debugEnabled = (debugEnv == "1" || debugEnv.toLower() == "true");
+    g_debugEnabled       = debugEnabled;
+
+    QElapsedTimer timer;
+    timer.start();
+    if (debugEnabled) {
+        qDebug() << "[Profiler] Startup begins...";
+    }
 
     // Configure Qt logging based on debug mode
+    const QString profileEnv  = qgetenv("MARATHON_PROFILE");
+    const bool    profileMode = (profileEnv == "1" || profileEnv.toLower() == "true");
     if (debugEnabled) {
         // Debug mode: enable OUR logs but suppress Qt internal spam
-        QLoggingCategory::setFilterRules(
+        QString rules =
             // Enable all our C++ service logs by default
-            "*.debug=true\n" // Enable debug for our code
-            "*.info=true\n"
-            "*.warning=true\n"
-            "*.error=true\n"
+            QStringLiteral("*.debug=true\n") // Enable debug for our code
+            + QStringLiteral("*.info=true\n") + QStringLiteral("*.warning=true\n") +
+            QStringLiteral("*.error=true\n")
             // AGGRESSIVE: Suppress ALL Qt internal debug spam
-            "qt.*.debug=false\n"
-            "qt.*.info=false\n"
-            "qt.*.warning=true\n" // Keep Qt warnings/errors
+            + QStringLiteral("qt.*.debug=false\n") + QStringLiteral("qt.*.info=false\n") +
+            QStringLiteral("qt.*.warning=true\n") // Keep Qt warnings/errors
             // CRITICAL: Enable console.log() from QML (uses QtDebugMsg)
-            "qml.debug=true\n"     // Enable QML console.log()
-            "js.debug=true\n"      // Enable JS console.log()
-            "default.debug=true\n" // Enable default category debug
-            "default.info=true\n"
-            "default.warning=true\n");
+            + QStringLiteral("qml.debug=true\n")     // Enable QML console.log()
+            + QStringLiteral("js.debug=true\n")      // Enable JS console.log()
+            + QStringLiteral("default.debug=true\n") // Enable default category debug
+            + QStringLiteral("default.info=true\n") + QStringLiteral("default.warning=true\n");
+
+        // Profiling mode: allow scenegraph timing categories (used by some Qt tools/env vars).
+        if (profileMode) {
+            rules += QStringLiteral("qt.scenegraph.time.*=true\n");
+            rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
+        }
+        QLoggingCategory::setFilterRules(rules);
     } else {
         // Production mode: filter out noisy categories
-        QLoggingCategory::setFilterRules("*.debug=false\n"
-                                         "*.info=false\n"
-                                         "*.warning=true\n"
-                                         "*.error=true\n"
-                                         "qt.qpa.*=false\n"
-                                         "qt.pointer.*=false\n"
-                                         "qt.quick.*=false\n"
-                                         "qt.scenegraph.*=false\n"
-                                         "marathon.*.info=true\n");
+        QString rules = QStringLiteral("*.debug=false\n") + QStringLiteral("*.info=false\n") +
+            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n") +
+            QStringLiteral("qt.qpa.*=false\n") + QStringLiteral("qt.pointer.*=false\n") +
+            QStringLiteral("qt.quick.*=false\n") + QStringLiteral("qt.scenegraph.*=false\n") +
+            QStringLiteral("marathon.*.info=true\n");
+        if (profileMode) {
+            rules += QStringLiteral("qt.scenegraph.time.*=true\n");
+            rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
+        }
+        QLoggingCategory::setFilterRules(rules);
     }
 
     QApplication::setApplicationName("Marathon Shell");
@@ -252,6 +282,7 @@ int main(int argc, char *argv[]) {
 
     logFile = new QFile(logPath + "/crash.log");
     if (logFile->open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        logStream = new QTextStream(logFile);
         qInstallMessageHandler(marathonMessageHandler);
         qInfo() << "Marathon Shell starting...";
         qInfo() << "Log file:" << logFile->fileName();
@@ -260,7 +291,9 @@ int main(int argc, char *argv[]) {
         delete logFile;
         logFile = nullptr;
     }
-    qCritical() << "[Profiler] Logging initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled) {
+        qDebug() << "[Profiler] Logging initialized:" << timer.elapsed() << "ms";
+    }
 
     QQuickStyle::setStyle("Basic");
 
@@ -310,7 +343,9 @@ int main(int argc, char *argv[]) {
     WaylandCompositorManager *compositorManager =
         new WaylandCompositorManager(settingsManager, &app);
     engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
-    qCritical() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled) {
+        qDebug() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
+    }
 
     // Set debug mode context property
     engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
@@ -336,7 +371,9 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("MarathonAppScanner", appScanner);
     engine.rootContext()->setContextProperty("MarathonAppLoader", appLoader);
     engine.rootContext()->setContextProperty("MarathonAppInstaller", appInstaller);
-    qCritical() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled) {
+        qDebug() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
+    }
 
     // Register Marathon Input Method Engine
     MarathonInputMethodEngine *inputMethodEngine = new MarathonInputMethodEngine(&app);
@@ -387,7 +424,9 @@ int main(int argc, char *argv[]) {
     CursorManager *cursorManager = new CursorManager(&app);
     engine.rootContext()->setContextProperty("CursorManager", cursorManager);
 
-    qCritical() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled) {
+        qDebug() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
+    }
 
     // Wire AudioManager to PowerManager for audio playback wakelocks
     QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,
@@ -454,7 +493,9 @@ int main(int argc, char *argv[]) {
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
-    qCritical() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled) {
+        qDebug() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
+    }
 
     // Register Permission Manager
     MarathonPermissionManager *permissionManager = new MarathonPermissionManager(&app);
@@ -550,41 +591,9 @@ int main(int argc, char *argv[]) {
     // Note: org.marathon.NotificationService is handled by MarathonNotificationService (line 361)
     // Legacy NotificationService removed to avoid DBus path conflict
 
-    // Note: Marathon apps are auto-initialized in AppModel constructor
-
-    // Scan for native apps and add to AppModel
-    QStringList searchPaths = {
-        "/usr/share/applications", "/usr/local/share/applications",
-        QDir::homePath() + "/.local/share/applications",
-        "/var/lib/flatpak/exports/share/applications",                        // System Flatpak apps
-        QDir::homePath() + "/.local/share/flatpak/exports/share/applications" // User Flatpak apps
-    };
-    qDebug() << "[Marathon] Scanning for native apps in:" << searchPaths;
-
-    // Use the mobile-friendly filter setting
-    bool filterMobile = settingsManager->filterMobileFriendlyApps();
-    qDebug() << "[Marathon] Filter mobile-friendly apps:" << filterMobile;
-
-    QVariantList nativeApps = desktopFileParser->scanApplications(searchPaths, filterMobile);
-    qDebug() << "[Marathon] Found" << nativeApps.count() << "native apps";
-    for (const QVariant &appVariant : nativeApps) {
-        QVariantMap app = appVariant.toMap();
-        appModel->addApp(app["id"].toString(), app["name"].toString(), app["icon"].toString(),
-                         app["type"].toString(), app["exec"].toString());
-        qDebug() << "[Marathon] Added app:" << app["name"].toString() << "(" << app["id"].toString()
-                 << ") exec:" << app["exec"].toString();
-    }
-
-    // Scan for Marathon apps
-    qDebug() << "Scanning for Marathon apps...";
-    appScanner->scanApplications();
-
-    // Load apps from registry into AppModel
+    // Note: Marathon apps are auto-initialized in AppModel constructor.
+    // Load any already-registered Marathon apps immediately (fast).
     appModel->loadFromRegistry(appRegistry);
-
-    // Sort all apps alphabetically after loading both native and Marathon apps
-    appModel->sortAppsByName();
-    qCritical() << "[Profiler] Apps loaded and sorted:" << timer.elapsed() << "ms";
 
     // Add QML import paths for modules
     engine.addImportPath("qrc:/");
@@ -712,6 +721,50 @@ int main(int argc, char *argv[]) {
         qCritical() << "No root QML objects";
         return -1;
     }
+
+    // Defer expensive scans until the UI is up and the event loop is running.
+    QTimer::singleShot(0, &app, [&app, settingsManager, appModel, appRegistry, appScanner]() {
+        // 1) Scan for native apps (.desktop). This can be slow on low-end storage.
+        const QStringList searchPaths = {
+            "/usr/share/applications", "/usr/local/share/applications",
+            QDir::homePath() + "/.local/share/applications",
+            "/var/lib/flatpak/exports/share/applications", // System Flatpak apps
+            QDir::homePath() +
+                "/.local/share/flatpak/exports/share/applications" // User Flatpak apps
+        };
+
+        const bool filterMobile = settingsManager->filterMobileFriendlyApps();
+
+#ifdef HAVE_QT_CONCURRENT
+        auto *watcher = new QFutureWatcher<QVariantList>(&app);
+        QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, &app,
+                         [watcher, appModel]() {
+                             const QVariantList nativeApps = watcher->result();
+                             appModel->addApps(nativeApps);
+                             watcher->deleteLater();
+                         });
+
+        QFuture<QVariantList> future = QtConcurrent::run([searchPaths, filterMobile]() {
+            DesktopFileParser parser;
+            return parser.scanApplications(searchPaths, filterMobile);
+        });
+        watcher->setFuture(future);
+#else
+        DesktopFileParser parser;
+        const QVariantList nativeApps = parser.scanApplications(searchPaths, filterMobile);
+        appModel->addApps(nativeApps);
+#endif
+
+        // 2) Scan for Marathon apps (already supports async internally).
+        QObject::connect(appScanner, &MarathonAppScanner::scanComplete, &app,
+                         [appModel, appRegistry](int) { appModel->loadFromRegistry(appRegistry); });
+
+#ifdef HAVE_QT_CONCURRENT
+        appScanner->scanApplicationsAsync();
+#else
+        appScanner->scanApplications();
+#endif
+    });
 
     qDebug() << "Marathon OS Shell started";
     return app.exec();
