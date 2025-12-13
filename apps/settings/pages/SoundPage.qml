@@ -1,10 +1,10 @@
 import QtQuick
+import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Theme
-import "../components"
 
 SettingsPageTemplate {
     id: soundPage

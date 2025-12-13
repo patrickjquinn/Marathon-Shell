@@ -1,9 +1,9 @@
 import QtQuick
+import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
-import "../components"
 
 SettingsPageTemplate {
     id: wallpaperPage

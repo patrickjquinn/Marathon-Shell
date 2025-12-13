@@ -3,7 +3,6 @@ import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Containers
-import "../components"
 
 SettingsPageTemplate {
     id: storagePage
