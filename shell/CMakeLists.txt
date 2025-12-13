@@ -121,6 +121,8 @@ set(QML_FILES
     qml/components/MarathonMessagingHub.qml
     qml/components/MarathonQuickSettings.qml
     qml/components/MarathonTaskSwitcher.qml
+    qml/components/TaskCard.qml
+    qml/components/TaskPageIndicator.qml
     qml/components/MarathonPeek.qml
     qml/components/MarathonHub.qml
     qml/components/MarathonPinScreen.qml

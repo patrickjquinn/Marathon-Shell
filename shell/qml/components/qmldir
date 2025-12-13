@@ -35,6 +35,8 @@ ScreenshotPreview 1.0 ScreenshotPreview.qml
 ShareSheet 1.0 ShareSheet.qml
 ShellInitialization 1.0 ShellInitialization.qml
 SystemHUD 1.0 SystemHUD.qml
+TaskCard 1.0 TaskCard.qml
+TaskPageIndicator 1.0 TaskPageIndicator.qml
 VirtualKeyboard 1.0 VirtualKeyboard.qml
 WaylandShellSurfaceItem 1.0 WaylandShellSurfaceItem.qml
 WiFiPasswordDialog 1.0 WiFiPasswordDialog.qml
