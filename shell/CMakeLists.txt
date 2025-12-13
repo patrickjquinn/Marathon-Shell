@@ -2,6 +2,8 @@ set(SOURCES
     main.cpp
     src/desktopfileparser.h
     src/desktopfileparser.cpp
+    src/lunasvgimageprovider.h
+    src/lunasvgimageprovider.cpp
     src/appmodel.h
     src/appmodel.cpp
     src/taskmodel.h
@@ -384,6 +386,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
     ${PAM_LIBRARY}
+    lunasvg
 )
 
 # Link additional conditional dependencies

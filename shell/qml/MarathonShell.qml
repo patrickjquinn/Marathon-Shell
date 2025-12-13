@@ -1,6 +1,7 @@
 import "./components" as Comp
 import MarathonOS.Shell
 import MarathonUI.Theme
+import MarathonUI.Core
 import QtQuick
 import QtQuick.Window
 
@@ -1089,15 +1090,10 @@ Item {
                 anchors.rightMargin: Constants.spacingSmall
                 spacing: Constants.spacingSmall
 
-                Image {
+                MAppIcon {
                     anchors.verticalCenter: parent.verticalCenter
                     source: appWindow.appIcon
-                    width: Constants.iconSizeMedium
-                    height: Constants.iconSizeMedium
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    cache: true
-                    smooth: true
+                    size: Constants.iconSizeMedium
                 }
 
                 Column {

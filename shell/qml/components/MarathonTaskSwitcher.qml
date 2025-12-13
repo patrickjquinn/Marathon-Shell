@@ -825,16 +825,10 @@ Item {
                             anchors.rightMargin: Constants.spacingSmall
                             spacing: Constants.spacingSmall
 
-                            Image {
+                            MAppIcon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 source: model.icon
-                                width: Constants.iconSizeMedium
-                                height: Constants.iconSizeMedium
-                                fillMode: Image.PreserveAspectFit
-                                asynchronous: true
-                                cache: true
-                                smooth: true
-                                sourceSize: Qt.size(32, 32)
+                                size: Constants.iconSizeMedium
                             }
 
                             Column {

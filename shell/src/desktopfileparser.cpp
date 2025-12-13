@@ -152,7 +152,7 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     // If it's already an absolute path, use it
     if (iconName.startsWith('/')) {
         if (QFile::exists(iconName)) {
-            return "file://" + iconName;
+            return iconName;
         }
         return "grid";
     }
@@ -162,7 +162,7 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     if (iconName.endsWith(".svg") || iconName.endsWith(".png") || iconName.endsWith(".xpm") ||
         iconName.endsWith(".jpg")) {
         if (QFile::exists(iconName)) {
-            return "file://" + iconName;
+            return iconName;
         }
     }
 
@@ -235,14 +235,18 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
         "/usr/share/icons/hicolor/32x32/devices/", "/usr/share/icons/hicolor/32x32/places/",
         "/usr/share/pixmaps/"};
 
-    QStringList extensions = {".svg", ".png", ".xpm", ".jpg", ""};
+    // Prefer PNG over SVG - some SVGs with mask patterns render with black backgrounds
+    // in Qt's SVG rasterizer due to implicit black fills in mask definitions
+    QStringList extensions = {".png", ".svg", ".xpm", ".jpg", ""};
 
     for (const QString &basePath : searchPaths) {
         for (const QString &ext : extensions) {
             QString fullPath = basePath + iconName + ext;
             if (QFile::exists(fullPath)) {
                 qDebug() << "[DesktopFileParser] Found icon:" << fullPath;
-                return "file://" + fullPath;
+                // Return raw path - QML Image handles absolute paths directly
+                // Using file:// prefix can interfere with Qt's SVG format detection
+                return fullPath;
             }
         }
     }

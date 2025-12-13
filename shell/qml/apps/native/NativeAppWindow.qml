@@ -86,27 +86,13 @@ MApp {
                 spacing: MSpacing.xl
 
                 // High-quality app icon with proper scaling
-                Image {
+                MAppIcon {
                     id: splashIcon
 
-                    width: 128
-                    height: 128
+                    size: 128
                     source: nativeAppWindow.nativeAppIcon && nativeAppWindow.nativeAppIcon !== "" ? nativeAppWindow.nativeAppIcon : ""
                     anchors.horizontalCenter: parent.horizontalCenter
-                    smooth: true
-                    mipmap: true
-                    sourceSize.width: 256 // Request high-res and downscale for crispness
-                    sourceSize.height: 256
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    cache: true
                     visible: source !== ""
-                    onStatusChanged: {
-                        if (status === Image.Ready)
-                            Logger.debug("NativeAppWindow", "Splash icon loaded: " + source + " intrinsic size: " + implicitWidth + "x" + implicitHeight);
-                        else if (status === Image.Error)
-                            Logger.warn("NativeAppWindow", "Failed to load splash icon: " + source);
-                    }
                 }
 
                 Icon {

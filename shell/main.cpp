@@ -49,6 +49,7 @@
 #include "src/storagemanager.h"
 #include "src/rtscheduler.h"
 #include "src/cursormanager.h"
+#include "src/lunasvgimageprovider.h"
 
 #include "src/mpris2controller.h"
 #include "src/rotationmanager.h"
@@ -295,6 +296,11 @@ int main(int argc, char *argv[]) {
 #endif
 
     QQmlApplicationEngine engine;
+
+    // Register LunaSVG image provider for proper SVG rendering
+    // Qt's SVG module doesn't support clipPath, which breaks GNOME icons
+    engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
+    qInfo() << "[MarathonShell] ✓ LunaSVG image provider registered";
 
     // Initialize MPRIS2 Controller (media player control)
     MPRIS2Controller *mpris2Controller = new MPRIS2Controller(&app);
