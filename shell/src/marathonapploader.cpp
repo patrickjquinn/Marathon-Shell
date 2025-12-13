@@ -114,16 +114,6 @@ void MarathonAppLoader::loadAppAsync(const QString &appId) {
     m_engine->addImportPath("qrc:/");
     m_engine->addImportPath(":/");
 
-    // Build entry point path
-    QString entryPointPath = appPath + "/" + appInfo->entryPoint;
-
-    // Check if file exists
-    if (!QFileInfo::exists(entryPointPath)) {
-        qWarning() << "[MarathonAppLoader] Entry point file not found:" << entryPointPath;
-        emit loadError(appId, "Entry point file not found: " + entryPointPath);
-        return;
-    }
-
     // Check if component is already cached and ready
     QQmlComponent *component = m_components.value(appId, nullptr);
 
@@ -155,10 +145,28 @@ void MarathonAppLoader::loadAppAsync(const QString &appId) {
 
     // Create new component
     qDebug() << "[MarathonAppLoader] Creating new component for:" << appId;
-    emit appLoadProgress(appId, 10); // Starting load
+    emit    appLoadProgress(appId, 10); // Starting load
 
-    QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
-    component    = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
+    QString entryPointPath = appPath + "/" + appInfo->entryPoint;
+
+    if (QFileInfo::exists(entryPointPath)) {
+        QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
+        component    = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
+
+        qDebug() << "[MarathonAppLoader] Loading file entry point:" << fileUrl;
+    } else {
+        // fallback for QML module
+        const QString moduleUri =
+            QStringLiteral("MarathonApp.%1").arg(appId.left(1).toUpper() + appId.mid(1));
+
+        const QString componentName = QFileInfo(appInfo->entryPoint).baseName();
+
+        qDebug() << "[MarathonAppLoader] Loading module entry point:" << moduleUri << componentName;
+
+        component = new QQmlComponent(m_engine, moduleUri, componentName,
+                                      QQmlComponent::Asynchronous, this);
+    }
+
     m_components.insert(appId, component);
 
     emit appLoadProgress(appId, 30); // Component created
