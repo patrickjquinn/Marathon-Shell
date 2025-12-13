@@ -31,8 +31,6 @@ set(SOURCES
     src/settingsmanager.h
     src/settingsmanager.cpp
     src/platformcpp.h
-    src/storagemanager.h
-    src/storagemanager.cpp
     src/bluetoothmanager.h
     src/bluetoothmanager.cpp
     src/bluetoothagent.h
@@ -43,8 +41,6 @@ set(SOURCES
     src/marathonapploader.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
-    src/storagemanager.h
-    src/storagemanager.cpp
     src/rtscheduler.h
     src/rtscheduler.cpp
     src/dbus/freedesktopnotifications.h

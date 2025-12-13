@@ -46,7 +46,6 @@
 #include "src/musiclibrarymanager.h"
 #include "src/waylandcompositormanager.h"
 #include "src/marathoninputmethodengine.h"
-#include "src/storagemanager.h"
 #include "src/rtscheduler.h"
 #include "src/cursormanager.h"
 #include "src/lunasvgimageprovider.h"
@@ -365,7 +364,6 @@ int main(int argc, char *argv[]) {
     AudioManagerCpp   *audioManager    = new AudioManagerCpp(&app);
     ModemManagerCpp   *modemManager    = new ModemManagerCpp(&app);
     SensorManagerCpp  *sensorManager   = new SensorManagerCpp(&app);
-    StorageManager    *storageManager  = new StorageManager(&app);
     BluetoothManager  *bluetoothManager      = new BluetoothManager(&app);
     LocationManager   *locationManager       = new LocationManager(&app);
     HapticManager     *hapticManager         = new HapticManager(&app);
@@ -378,7 +376,6 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
     engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
     engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
-    engine.rootContext()->setContextProperty("StorageManager", storageManager);
     engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
     engine.rootContext()->setContextProperty("RotationManager", rotationManager);
     engine.rootContext()->setContextProperty("LocationManager", locationManager);
