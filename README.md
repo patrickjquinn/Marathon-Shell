@@ -401,6 +401,7 @@ Marathon-Shell/
 │   └── marathon-dev/          # CLI for app development
 ├── third-party/                # External dependencies
 │   └── asyncfuture/           # Promise-like QFuture API (submodule)
+# NOTE: LunaSVG is auto-fetched via CMake FetchContent for SVG rendering
 ├── scripts/                    # Build and utility scripts
 ├── docs/                       # Documentation
 ├── systemd/                    # Service files
