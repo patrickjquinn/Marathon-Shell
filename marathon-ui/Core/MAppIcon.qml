@@ -15,10 +15,35 @@ Item {
     // Logic to determine if source is an image path or an icon name
     readonly property bool isImage: source.indexOf("/") >= 0 || source.indexOf("file:") >= 0 || source.indexOf("qrc:") >= 0
 
+    // Check if this is an SVG file that should use LunaSVG
+    readonly property bool isSvg: source.endsWith(".svg")
+
+    // Get the actual image source - use lunasvg:// scheme for SVG files
+    readonly property string imageSource: {
+        if (!isImage)
+            return "";
+
+        // For SVG files, use LunaSVG image provider for proper clipPath support
+        if (isSvg) {
+            // Strip file:// prefix if present, as the provider expects absolute paths
+            var svgPath = source.replace("file://", "");
+            return "image://lunasvg" + svgPath;
+        }
+
+        // For non-SVG files (PNG, etc.), ensure we have proper file:// prefix
+        // for absolute filesystem paths, otherwise Qt interprets them relative to qrc
+        if (source.startsWith("/") && !source.startsWith("file://")) {
+            return "file://" + source;
+        }
+
+        return source;
+    }
+
     // 1. Image Handler (for native apps / external paths)
     Image {
+        id: imageItem
         anchors.fill: parent
-        source: root.isImage ? root.source : ""
+        source: root.imageSource
         visible: root.isImage
         sourceSize: Qt.size(root.size, root.size)
         fillMode: Image.PreserveAspectFit

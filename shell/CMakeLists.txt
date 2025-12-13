@@ -2,6 +2,8 @@ set(SOURCES
     main.cpp
     src/desktopfileparser.h
     src/desktopfileparser.cpp
+    src/lunasvgimageprovider.h
+    src/lunasvgimageprovider.cpp
     src/appmodel.h
     src/appmodel.cpp
     src/taskmodel.h
@@ -119,6 +121,8 @@ set(QML_FILES
     qml/components/MarathonMessagingHub.qml
     qml/components/MarathonQuickSettings.qml
     qml/components/MarathonTaskSwitcher.qml
+    qml/components/TaskCard.qml
+    qml/components/TaskPageIndicator.qml
     qml/components/MarathonPeek.qml
     qml/components/MarathonHub.qml
     qml/components/MarathonPinScreen.qml
@@ -384,6 +388,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
     ${PAM_LIBRARY}
+    lunasvg
 )
 
 # Link additional conditional dependencies

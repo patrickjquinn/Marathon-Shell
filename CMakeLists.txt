@@ -49,6 +49,17 @@ set(CMAKE_AUTOUIC ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# LunaSVG - Lightweight SVG rendering library with full clipPath support
+# Qt's SVG module doesn't support clipPath, which breaks GNOME icon rendering
+include(FetchContent)
+FetchContent_Declare(
+    lunasvg
+    GIT_REPOSITORY https://github.com/sammycage/lunasvg.git
+    GIT_TAG v3.2.0
+)
+FetchContent_MakeAvailable(lunasvg)
+message(STATUS "LunaSVG fetched for proper SVG icon rendering")
+
 # Qt6 detection - support both Homebrew (macOS) and system installations (Linux)
 if(APPLE)
     # Try environment variable first, then Homebrew default

@@ -1,5 +1,6 @@
 import "./components" as Comp
 import MarathonOS.Shell
+import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Window
@@ -707,6 +708,10 @@ Item {
     }
 
     MarathonNavBar {
+        // Fast velocity for throw effect
+        // AppLifecycleManager.minimizeForegroundApp() called above handles the logic/state
+        // Detach happens in snapIntoGridAnimation.onFinished to keep app visible during scale
+
         id: navBar
 
         anchors.left: parent.left
@@ -775,8 +780,6 @@ Item {
             Router.goToAppPage(0);
         }
         onLongSwipeUp: {
-            // Fast velocity for throw effect
-
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
             // Dismiss keyboard if visible, otherwise task switcher
             if (virtualKeyboard.active) {
@@ -789,9 +792,6 @@ Item {
                 "target": "activeFrames"
             });
             if (UIStore.appWindowOpen) {
-                // AppLifecycleManager.minimizeForegroundApp() called above handles the logic/state
-                // Detach happens in snapIntoGridAnimation.onFinished to keep app visible during scale
-
                 Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
@@ -1089,15 +1089,10 @@ Item {
                 anchors.rightMargin: Constants.spacingSmall
                 spacing: Constants.spacingSmall
 
-                Image {
+                MAppIcon {
                     anchors.verticalCenter: parent.verticalCenter
                     source: appWindow.appIcon
-                    width: Constants.iconSizeMedium
-                    height: Constants.iconSizeMedium
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    cache: true
-                    smooth: true
+                    size: Constants.iconSizeMedium
                 }
 
                 Column {
@@ -1968,55 +1963,5 @@ Item {
         }
 
         target: typeof SMSService !== 'undefined' ? SMSService : null
-    }
-
-    // Global Mouse Trap for "Blind" Trackpad Scrolling
-    // Since there is no visible cursor, we capture all mouse movement and
-    // route it to the currently focused scrollable item.
-    MouseArea {
-        // Debug: Log if no scroll target found
-        // Logger.debug("Input", "Global Trap: No scroll target found for focus: " + focusedItem);
-
-        property real lastY: 0
-
-        anchors.fill: parent
-        z: 99999 // Topmost
-        hoverEnabled: true
-        acceptedButtons: Qt.AllButtons // Capture everything to be safe
-        propagateComposedEvents: true // Let clicks pass through if needed
-        onEntered: {
-            lastY = mouseY;
-            Logger.info("Input", "Global Trap: Mouse entered at " + mouseY);
-        }
-        onPositionChanged: mouse => {
-            var delta = mouse.y - lastY;
-            lastY = mouse.y;
-            if (Math.abs(delta) > 0) {
-                // Find focused item
-                var focusedItem = Window.activeFocusItem;
-                // Check if it (or its parent) is scrollable
-                // We traverse up a few levels to find the MScrollView
-                var scrollTarget = null;
-                var candidate = focusedItem;
-                // Search up the tree (max 5 levels)
-                for (var i = 0; i < 5; i++) {
-                    if (candidate && candidate.isScrollable) {
-                        scrollTarget = candidate;
-                        break;
-                    }
-                    if (candidate && candidate.parent)
-                        candidate = candidate.parent;
-                    else
-                        break;
-                }
-                if (scrollTarget) {
-                    scrollTarget.scrollBy(-delta);
-                } else {}
-            }
-        }
-        onPressed: mouse => {
-            Logger.info("Input", "Global Trap: Pressed at " + mouse.x + "," + mouse.y);
-            mouse.accepted = false; // Let it pass through to clicks
-        }
     }
 }
