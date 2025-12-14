@@ -3,7 +3,6 @@ set(APP_NAME terminal)
 set(QML_FILES
     TerminalApp.qml
     components/TerminalSession.qml
-    components/TerminalTab.qml
     components/TerminalTabButton.qml
     components/VirtualKeyRow.qml
 )
