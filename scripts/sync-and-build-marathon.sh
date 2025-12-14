@@ -2,7 +2,7 @@
 # Marathon OS - Sync Latest Marathon Shell from GitHub and Build
 # Pulls latest Marathon Shell code and rebuilds images
 
-set -euo pipefail
+set -e
 
 DEVICE="${1:-oneplus-enchilada}"
 # Marathon Shell source repo (kept in sync with packages/marathon-shell/APKBUILD)
@@ -16,8 +16,6 @@ MARATHON_IMAGE_DIR="$(dirname "$SCRIPT_DIR")"
 # Use a dedicated build directory for the source code to avoid touching user's dev workspace
 MARATHON_SHELL_DIR="$MARATHON_IMAGE_DIR/build/marathon-shell-source"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BOOT_SIZE="unknown"
-ROOT_SIZE="unknown"
 
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║     MARATHON OS - SYNC & BUILD FROM LATEST GITHUB CODE      ║"
@@ -26,19 +24,6 @@ echo ""
 echo "Device: $DEVICE"
 echo "Timestamp: $TIMESTAMP"
 echo ""
-
-# Preflight: pmbootstrap must be installed and initialized
-if ! command -v pmbootstrap >/dev/null 2>&1; then
-    echo "❌ pmbootstrap not found in PATH."
-    echo "   Install pmbootstrap first, then run: pmbootstrap init"
-    exit 1
-fi
-if ! pmbootstrap config aports >/dev/null 2>&1; then
-    echo "❌ pmbootstrap is not initialized yet."
-    echo "   Run: pmbootstrap init"
-    echo "   Select: edge, $DEVICE, systemd, none"
-    exit 1
-fi
 
 # Keep sudo alive for long builds (pmbootstrap uses sudo frequently).
 # This avoids failing mid-build when the sudo timestamp expires.
@@ -311,4 +296,3 @@ echo "   fastboot reboot"
 echo ""
 echo "🎉 Ready to flash!"
 echo ""
-
