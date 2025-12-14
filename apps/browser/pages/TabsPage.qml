@@ -1,9 +1,9 @@
 import QtQuick
+import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Containers
-import "../components"
 
 Rectangle {
     id: tabsPage

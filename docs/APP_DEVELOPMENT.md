@@ -113,7 +113,6 @@ set(SOURCES
 )
 
 add_marathon_app(${APP_NAME}
-    HAS_CPP
     URI "MarathonApp.MyApp"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
@@ -398,8 +397,7 @@ If you have an existing QML-only app:
 2. Run `./scripts/build-apps.sh`
 3. Test app still works
 4. Add C++ sources if needed
-5. Update CMakeLists.txt with `HAS_CPP`
-6. Rebuild and test
+5. Rebuild and test
 
 No code changes required - the build system handles both!
 

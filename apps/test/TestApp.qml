@@ -5,7 +5,6 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Navigation
-import "pages"
 
 MApp {
     id: testApp

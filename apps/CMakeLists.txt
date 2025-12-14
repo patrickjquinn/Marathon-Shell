@@ -53,12 +53,11 @@ endif()
 
 # Function to create a Marathon app module
 function(add_marathon_app APP_NAME)
-    set(options HAS_CPP)
+    set(options "")
     set(oneValueArgs URI VERSION)
     set(multiValueArgs QML_FILES SOURCES RESOURCES)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     
-    # Set defaults
     if(NOT ARG_URI)
         set(ARG_URI "MarathonApp.${APP_NAME}")
     endif()
@@ -70,153 +69,82 @@ function(add_marathon_app APP_NAME)
     set(APP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
     set(INSTALL_DIR "${MARATHON_APPS_DIR}/${APP_NAME}")
     
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
     
-    # Create QML module
-    if(ARG_HAS_CPP)
-        # App with C++ plugin
-        qt6_add_library(${APP_NAME}-plugin SHARED ${ARG_SOURCES})
+    string(REPLACE "." "/" MODULE_PATH "${ARG_URI}")
+    set(MODULE_OUTPUT_DIR "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/${MODULE_PATH}")
+    
+    set(RELATIVE_QML_FILES "")
+    foreach(QML_FILE ${ARG_QML_FILES})
+        get_filename_component(ABS_FILE "${QML_FILE}" ABSOLUTE)
+        file(RELATIVE_PATH REL_FILE "${CMAKE_CURRENT_SOURCE_DIR}" "${ABS_FILE}")
+        list(APPEND RELATIVE_QML_FILES "${REL_FILE}")
+    endforeach()
+    
+    if(ARG_SOURCES) # HAS_CPP equiv 
+        qt6_add_library(${APP_NAME} SHARED ${ARG_SOURCES})
         
-        # Add source directory and subdirectories to include paths so headers can be found
-        target_include_directories(${APP_NAME}-plugin PRIVATE
+        target_include_directories(${APP_NAME} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/src
         )
-        
-        # Set RPATH so plugin can find the base library
-        # Use $ORIGIN on Linux, @loader_path on macOS
-        if(APPLE)
-            set(RPATH_VALUE "@loader_path")
-        else()
-            set(RPATH_VALUE "$ORIGIN")
-        endif()
-        set_target_properties(${APP_NAME}-plugin PROPERTIES
-            INSTALL_RPATH "${RPATH_VALUE}"
-            BUILD_WITH_INSTALL_RPATH FALSE
-            SKIP_BUILD_RPATH FALSE
-        )
-        
-        target_link_libraries(${APP_NAME}-plugin PRIVATE
-            Qt6::Core
-            Qt6::Qml
-            Qt6::Quick
-        )
-        
-        # Set Qt policy for resource prefix
-        qt_policy(SET QTP0001 NEW)
-        
-        # Create proper output directory matching module URI
-        string(REPLACE "." "/" MODULE_PATH "${ARG_URI}")
-        set(MODULE_OUTPUT_DIR "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/${MODULE_PATH}")
-        
-        qt6_add_qml_module(${APP_NAME}-plugin
-            URI ${ARG_URI}
-            VERSION ${ARG_VERSION}
-            QML_FILES ${ARG_QML_FILES}
-            RESOURCES ${ARG_RESOURCES}
-            OUTPUT_DIRECTORY "${MODULE_OUTPUT_DIR}"
-            NO_PLUGIN_OPTIONAL
-        )
-        
-        # Add qmllint validation target for apps with C++ plugins
-        if(QMLLINT_AVAILABLE)
-            add_qmllint_target(${APP_NAME}-plugin ${ARG_QML_FILES})
-        endif()
-        
-        # Install base plugin library (the actual compiled code)
-        install(TARGETS ${APP_NAME}-plugin
-            LIBRARY DESTINATION "${INSTALL_DIR}"
-            RUNTIME DESTINATION "${INSTALL_DIR}"
-        )
-        
-        # Install QML module files and plugin wrapper from module output directory
-        install(DIRECTORY "${MODULE_OUTPUT_DIR}/"
-            DESTINATION "${INSTALL_DIR}/${MODULE_PATH}"
-            FILES_MATCHING 
-            PATTERN "qmldir"
-            PATTERN "*.dylib"
-            PATTERN "*.so"
-            PATTERN "*.dll"
-            PATTERN "*.qmltypes"
-        )
-        
-        # Fix rpath in the plugin wrapper on macOS
-        # Plugin is in Terminal/ subdirectory but needs to find base lib in parent
-        if(APPLE)
-            install(CODE "
-                execute_process(
-                    COMMAND install_name_tool 
-                        -delete_rpath \"${CMAKE_BINARY_DIR}/terminal\"
-                        -add_rpath \"@loader_path/..\"
-                        \"${INSTALL_DIR}/${MODULE_PATH}/lib${APP_NAME}-pluginplugin.dylib\"
-                    ERROR_QUIET
-                )
-            ")
-        endif()
     else()
-        # Pure QML app - USE qt6_add_qml_module for AOT compilation
-        # Per Qt docs: "This will happen automatically if you use the CMake QML Module API"
-        
-        # Set QTP0001 policy for proper resource paths
-        if(COMMAND qt_policy)
-            qt_policy(SET QTP0001 NEW)
-        endif()
-        
-        # Convert absolute paths to relative (required by Qt resource system)
-        set(RELATIVE_QML_FILES "")
-        foreach(QML_FILE ${ARG_QML_FILES})
-            get_filename_component(ABS_FILE "${QML_FILE}" ABSOLUTE)
-            file(RELATIVE_PATH REL_FILE "${CMAKE_CURRENT_SOURCE_DIR}" "${ABS_FILE}")
-            list(APPEND RELATIVE_QML_FILES "${REL_FILE}")
-        endforeach()
-        
-        # Create a target for the QML module (enables AOT compilation)
-        qt6_add_qml_module(${APP_NAME}-qml
-            URI ${ARG_URI}
-            VERSION ${ARG_VERSION}
-            QML_FILES ${RELATIVE_QML_FILES}
-            RESOURCES ${ARG_RESOURCES}
-            NO_PLUGIN  # Pure QML, no C++ plugin
-            NO_GENERATE_PLUGIN_SOURCE  # Don't generate unnecessary plugin code
-            OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/apps/${APP_NAME}"
-        )
-        
-        # Add qmllint validation
-        if(QMLLINT_AVAILABLE)
-            add_qmllint_target(${APP_NAME}-qml ${ARG_QML_FILES})
-        endif()
-        
-        # Install compiled QML files (.qmlc) alongside source
-        # Qt will prefer .qmlc when loading from filesystem
-        install(DIRECTORY "${APP_DIR}/"
-            DESTINATION "${INSTALL_DIR}"
-            FILES_MATCHING 
-            PATTERN "*.qml"
-            PATTERN "*.json"
-            PATTERN "qmldir"
-            PATTERN "*.svg"
-            PATTERN "*.png"
-            PATTERN "*.jpg"
-        )
-        
-        # Install the generated qmlcache directory if it exists
-        # This contains the .qmlc compiled files
-        if(EXISTS "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/.rcc/qmlcache")
-            install(DIRECTORY "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/.rcc/qmlcache/"
-                DESTINATION "${INSTALL_DIR}/.qmlcache"
-                FILES_MATCHING 
-                PATTERN "*.qmlc"
-                PATTERN "*.jsc"
+        qt6_add_library(${APP_NAME} SHARED)
+    endif()
+
+    target_link_libraries(${APP_NAME} PRIVATE
+        Qt6::Core
+        Qt6::Qml
+        Qt6::Quick
+    )
+    
+    if(APPLE)
+        set(RPATH_VALUE "@loader_path")
+    else()
+        set(RPATH_VALUE "$ORIGIN")
+    endif()
+    set_target_properties(${APP_NAME} PROPERTIES
+        INSTALL_RPATH "${RPATH_VALUE}"
+        BUILD_WITH_INSTALL_RPATH FALSE
+        SKIP_BUILD_RPATH FALSE
+    )
+
+    qt6_add_qml_module(${APP_NAME}
+        URI ${ARG_URI}
+        VERSION ${ARG_VERSION}
+        QML_FILES ${RELATIVE_QML_FILES}
+        RESOURCES ${ARG_RESOURCES}
+        OUTPUT_DIRECTORY "${MODULE_OUTPUT_DIR}"
+        NO_PLUGIN_OPTIONAL
+    )
+
+    if(APPLE)
+        install(CODE "
+            execute_process(
+                COMMAND install_name_tool 
+                    -delete_rpath \"${CMAKE_BINARY_DIR}/${APP_NAME}\"
+                    -add_rpath \"@loader_path/..\"
+                    \"${INSTALL_DIR}/${MODULE_PATH}/lib${APP_NAME}plugin.dylib\"
+                ERROR_QUIET
             )
-        endif()
+        ")
     endif()
     
-    # Always install manifest and assets
+    install(DIRECTORY "${MODULE_OUTPUT_DIR}/"
+        DESTINATION "${INSTALL_DIR}/${MODULE_PATH}"
+        FILES_MATCHING 
+        PATTERN "qmldir"
+        PATTERN "*.so"
+        PATTERN "*.dylib"
+    )
+    
+    if(QMLLINT_AVAILABLE)
+        add_qmllint_target(${APP_NAME} ${ARG_QML_FILES})
+    endif()
+    
     if(EXISTS "${APP_DIR}/manifest.json")
         install(FILES "${APP_DIR}/manifest.json" DESTINATION "${INSTALL_DIR}")
-    endif()
-    
-    if(EXISTS "${APP_DIR}/qmldir")
-        install(FILES "${APP_DIR}/qmldir" DESTINATION "${INSTALL_DIR}")
     endif()
     
     if(EXISTS "${APP_DIR}/assets")
@@ -246,4 +174,3 @@ message(STATUS "Marathon Apps Build Configuration")
 message(STATUS "Installation directory: ${MARATHON_APPS_DIR}")
 message(STATUS "WebEngine available: ${HAVE_WEBENGINE}")
 message(STATUS "==========================================")
-

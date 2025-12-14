@@ -12,19 +12,9 @@ set(SOURCES
     # Future: src/contactsmanager.cpp
 )
 
-if(SOURCES)
-    add_marathon_app(${APP_NAME}
-        HAS_CPP
-        URI "MarathonApp.Phone"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-        SOURCES ${SOURCES}
-    )
-else()
-    add_marathon_app(${APP_NAME}
-        URI "MarathonApp.Phone"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-    )
-endif()
-
+add_marathon_app(${APP_NAME}
+    URI "MarathonApp.Phone"
+    VERSION "1.0"
+    QML_FILES ${QML_FILES}
+    SOURCES ${SOURCES}
+)

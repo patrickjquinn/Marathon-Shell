@@ -1,5 +1,7 @@
 import QtQuick
+import MarathonApp.Messages
 import QtQuick.Controls
+import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -8,7 +10,6 @@ import MarathonUI.Controls
 import MarathonUI.Feedback
 import MarathonUI.Modals
 import MarathonUI.Navigation
-import "../components"
 
 Page {
     id: conversationsPage

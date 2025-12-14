@@ -1,5 +1,7 @@
 import QtQuick
+import MarathonApp.Gallery
 import QtQuick.Controls
+import MarathonApp.Gallery
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers

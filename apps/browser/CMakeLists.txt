@@ -13,25 +13,15 @@ set(SOURCES
     # Future: src/bookmarkmanager.cpp
 )
 
-if(SOURCES)
-    add_marathon_app(${APP_NAME}
-        HAS_CPP
-        URI "MarathonApp.Browser"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-        SOURCES ${SOURCES}
-    )
-    
-    # Link WebEngine if available
-    if(HAVE_WEBENGINE)
-        target_link_libraries(${APP_NAME}-plugin PRIVATE Qt6::WebEngineQuick)
-        target_compile_definitions(${APP_NAME}-plugin PRIVATE HAVE_WEBENGINE)
-    endif()
-else()
-    add_marathon_app(${APP_NAME}
-        URI "MarathonApp.Browser"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-    )
-endif()
+add_marathon_app(${APP_NAME}
+    URI "MarathonApp.Browser"
+    VERSION "1.0"
+    QML_FILES ${QML_FILES}
+    SOURCES ${SOURCES}
+)
 
+# Link WebEngine if available
+if(HAVE_WEBENGINE)
+    target_link_libraries(${APP_NAME} PRIVATE Qt6::WebEngineQuick)
+    target_compile_definitions(${APP_NAME} PRIVATE HAVE_WEBENGINE)
+endif()

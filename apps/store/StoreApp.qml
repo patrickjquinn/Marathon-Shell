@@ -4,8 +4,6 @@ import MarathonUI.Core
 import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonOS.Shell
-import "./pages"
-import "./components"
 
 MApp {
     id: root

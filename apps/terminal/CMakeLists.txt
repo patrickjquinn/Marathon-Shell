@@ -1,10 +1,8 @@
 set(APP_NAME terminal)
 
-set(QML_FILES
-    TerminalApp.qml
-    components/TerminalSession.qml
-    components/TerminalTabButton.qml
-    components/VirtualKeyRow.qml
+
+file(GLOB_RECURSE QML_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
 )
 
 set(SOURCES
@@ -17,7 +15,6 @@ set(SOURCES
 )
 
 add_marathon_app(${APP_NAME}
-    HAS_CPP
     URI "MarathonApp.Terminal"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
