@@ -5,7 +5,6 @@ import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonApp.Terminal
 
 Item {
     id: root
@@ -25,6 +24,16 @@ Item {
 
     function sendKey(key, text, modifiers) {
         terminalEngine.sendKey(key, text, modifiers);
+    }
+
+    function forceFocus() {
+        terminalRenderer.forceActiveFocus(Qt.ActiveWindowFocusReason);
+    }
+
+    Component.onCompleted: {
+        Qt.callLater(() => {
+            forceFocus();
+        });
     }
 
     TerminalEngine {
@@ -72,8 +81,6 @@ Item {
                 textColor: MColors.text
                 backgroundColor: "transparent"
                 selectionColor: Qt.rgba(MColors.accent.r, MColors.accent.g, MColors.accent.b, 0.4)
-
-                focus: true // Capture keyboard input
 
                 onCharSizeChanged: updateTerminalSize()
                 onWidthChanged: updateTerminalSize()
@@ -180,15 +187,6 @@ Item {
                     if (text.length > 0) {
                         terminalEngine.sendInput(text);
                         event.accepted = true;
-                    }
-                }
-
-                // Ensure focus is kept
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        terminalRenderer.forceActiveFocus();
-                        Qt.inputMethod.show(); // Show virtual keyboard on touch
                     }
                 }
             }

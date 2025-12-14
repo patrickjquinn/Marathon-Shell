@@ -16,6 +16,15 @@ MApp {
     property var tabs: []
     property int nextTabId: 1
 
+    onCurrentTabIndexChanged: {
+        Qt.callLater(() => {
+            var tab = tabs[currentTabIndex];
+            if (tab && tab.session && terminalApp.Window.window?.active) {
+                tab.session.forceFocus();
+            }
+        });
+    }
+
     function createNewTab() {
         var tabId = nextTabId++;
         var tab = {
