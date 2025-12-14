@@ -414,7 +414,7 @@ Rectangle {
 
             // Fallback icon when no file path is available or image failed to load
             Icon {
-                name: "grid"
+                name: "grid-3x3"
                 size: Math.round(128 * Constants.scaleFactor)
                 color: MColors.textTertiary
                 anchors.horizontalCenter: parent.horizontalCenter

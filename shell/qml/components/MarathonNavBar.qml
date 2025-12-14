@@ -398,6 +398,7 @@ Rectangle {
                         "isAppOpen": isAppOpen,
                         "diffX": diffX
                     });
+                    // When app is open, swipe right = forward gesture (Shell will try handleSystemForward()).
                     swipeRight();
                 }
                 currentX = 0;
