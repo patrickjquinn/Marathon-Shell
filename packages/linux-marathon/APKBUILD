@@ -4,6 +4,7 @@
 # This package can be built for different devices by setting _device
 # Example: _device=enchilada abuild -r
 _device="${device:-enchilada}"
+_flavor="postmarketos-qcom-sdm845"
 
 pkgname=linux-marathon
 pkgver=6.14_rc5
@@ -14,9 +15,11 @@ arch="aarch64"
 _carch="arm64"
 license="GPL-2.0-only"
 depends="initramfs-generator"
-provides="linux"
-replaces="linux-postmarketos-qcom-sdm845 postmarketos-qcom-sdm845"
-provider_priority=100
+# Provide/replace the stock kernel package used by device-oneplus-enchilada so
+# pmbootstrap doesn't install two kernels (mkinitfs only supports one).
+provides="linux linux-$_flavor"
+replaces="linux-$_flavor"
+provider_priority=200
 makedepends="
 	bash
 	bison
@@ -32,7 +35,7 @@ options="!strip !check !tracedeps
 	pmb:cross-native"
 _tag="sdm845-6.14-rc5-r2"
 source="
-	linux-sdm845-6.14-rc5-r2.tar.gz
+	linux-$_tag.tar.gz::https://gitlab.com/sdm845-mainline/linux/-/archive/$_tag/linux-$_tag.tar.gz
 	config-marathon-sdm845-preempt-rt.aarch64
 "
 builddir="$srcdir/linux-$_tag"
@@ -102,7 +105,7 @@ package() {
 	rm -f "$pkgdir"/lib/modules/*/build "$pkgdir"/lib/modules/*/source
 
 	install -D "$builddir"/include/config/kernel.release \
-		"$pkgdir"/usr/share/kernel/marathon/kernel.release
+		"$pkgdir"/usr/share/kernel/$_flavor/kernel.release
 }
 
 sha512sums="

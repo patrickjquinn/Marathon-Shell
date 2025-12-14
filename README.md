@@ -43,6 +43,9 @@ cd Marathon-Image
 pmbootstrap init
 # Select: edge, oneplus-enchilada, systemd, none
 
+# IMPORTANT: run the build script from an interactive terminal.
+# pmbootstrap uses sudo during the build; you'll be prompted once and then it will be cached.
+
 # Build and create images
 # Build and create images (default: oneplus-enchilada)
 ./scripts/sync-and-build-marathon.sh
@@ -57,8 +60,8 @@ pmbootstrap init
 
 ```bash
 # Boot device into fastboot mode (Power + Vol Down)
-fastboot flash boot out/enchilada/marathon-boot-LATEST.img
-fastboot flash userdata out/enchilada/marathon-rootfs-LATEST.img
+fastboot flash boot out/oneplus-enchilada/boot-MARATHON-LATEST.img
+fastboot flash userdata out/oneplus-enchilada/oneplus-enchilada-MARATHON-LATEST.img
 fastboot reboot
 ```
 

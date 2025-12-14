@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Marathon Shell Wayland Session Startup Script
 # Sets up environment and launches the shell
 
@@ -12,7 +12,12 @@ export MARATHON_PREFIX=/usr
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
 
 # Qt/QML environment
-export QT_QPA_PLATFORM=wayland
+# Marathon Shell is the compositor; do not force a Wayland client platform plugin.
+# EGLFS is the expected backend on phone-like devices.
+export QT_QPA_PLATFORM=eglfs
+export QT_MEDIA_BACKEND=gstreamer
+# WebEngine sandbox doesn't work in many embedded/chroot environments.
+export QT_WEBENGINE_DISABLE_SANDBOX=1
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export QT_QUICK_CONTROLS_STYLE=Basic
 export QML_IMPORT_PATH=/usr/lib/qml:$QML_IMPORT_PATH
@@ -23,8 +28,11 @@ export WAYLAND_DISPLAY=wayland-0
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
 
 # D-Bus session
+# Prefer dbus-run-session (provided by the normal dbus package on Alpine) to avoid dbus-launch (dbus-x11).
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax --exit-with-session)
+    if command -v dbus-run-session >/dev/null 2>&1; then
+        exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+    fi
 fi
 
 # Enable debug logging if requested

@@ -17,10 +17,13 @@ echo "═══ STEP 1: Updating checksums ═══"
 echo "Copying latest package definition to pmaports..."
 
 # Copy to pmaports (same logic as sync-and-build-marathon.sh)
-PMAPORTS_DIR="$HOME/.local/var/pmbootstrap/cache_git/pmaports"
-mkdir -p "$PMAPORTS_DIR/device/marathon/"
+PMAPORTS_DIR="$(pmbootstrap config aports)"
+
+# Keep checksums workflow as-is, but ensure the package exists in only one place.
+mkdir -p "$PMAPORTS_DIR/main"
 rm -rf "$PMAPORTS_DIR/device/marathon/marathon-shell"
-cp -r packages/marathon-shell "$PMAPORTS_DIR/device/marathon/"
+rm -rf "$PMAPORTS_DIR/main/marathon-shell"
+cp -r packages/marathon-shell "$PMAPORTS_DIR/main/"
 
 echo "This will ask for your sudo password..."
 echo ""
