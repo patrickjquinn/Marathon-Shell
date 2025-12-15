@@ -185,14 +185,12 @@ set(QML_FILES
     qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
     qml/services/WindowManager.qml
-    qml/services/DesktopFileParser.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
     qml/services/AppLifecycleManager.qml
-    qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
     qml/services/AppLaunchService.qml
     qml/services/DeepLinkHandler.qml
@@ -241,14 +239,12 @@ set(SINGLETON_FILES
     qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
     qml/services/WindowManager.qml
-    qml/services/DesktopFileParser.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
     qml/services/AppLifecycleManager.qml
-    qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
     qml/services/AppLaunchService.qml
     qml/services/DeepLinkHandler.qml
