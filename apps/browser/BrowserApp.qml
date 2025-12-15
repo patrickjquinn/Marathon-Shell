@@ -51,20 +51,29 @@ MApp {
     // Explicit profiles so we can do “real tabs” but still manage resources sanely.
     WebEngineProfile {
         id: normalProfile
-        storageName: "normal"
-        offTheRecord: false
-        httpCacheType: WebEngineProfile.DiskHttpCache
-        persistentCookiesPolicy: WebEngineProfile.AllowPersistentCookies
         httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+
+        // Qt 6.9: property initialization order during QML construction can momentarily leave
+        // storageName empty while disk-based options are applied, producing:
+        //   "Storage name is empty... Switching to disk-based behavior"
+        // Initialize in onCompleted to ensure storageName is set before disk-based behavior.
+        Component.onCompleted: {
+            storageName = "normal";
+            offTheRecord = false;
+            httpCacheType = WebEngineProfile.DiskHttpCache;
+            persistentCookiesPolicy = WebEngineProfile.AllowPersistentCookies;
+        }
     }
 
     WebEngineProfile {
         id: privateProfile
-        // Set offTheRecord early to avoid Qt switching warnings.
-        offTheRecord: true
-        httpCacheType: WebEngineProfile.MemoryHttpCache
-        persistentCookiesPolicy: WebEngineProfile.NoPersistentCookies
         httpUserAgent: normalProfile.httpUserAgent
+
+        Component.onCompleted: {
+            offTheRecord = true;
+            httpCacheType = WebEngineProfile.MemoryHttpCache;
+            persistentCookiesPolicy = WebEngineProfile.NoPersistentCookies;
+        }
     }
 
     property real drawerProgress: 0
