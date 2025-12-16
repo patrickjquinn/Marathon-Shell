@@ -573,8 +573,21 @@ Item {
     // Handle deep link requests from NavigationRouter
     Connections {
         function onDeepLinkRequested(appId, route, params) {
-            DeepLinkHandler.appWindow = appWindow;
-            DeepLinkHandler.handleDeepLink(appId, route, params);
+            // Inline deep-link handling to avoid an extra proxy service layer.
+            // NOTE: `NavigationRouter.navigateToDeepLink()` already calls `UIStore.openApp()` for us,
+            // but we also need to actually show the app window here.
+            var appInfo = typeof MarathonAppRegistry !== "undefined" ? MarathonAppRegistry.getApp(appId) : null;
+            if (appInfo && appInfo.id) {
+                // Ensure shell state is set to "app"
+                UIStore.openApp(appInfo.id, appInfo.name, appInfo.icon);
+                if (appWindow)
+                    appWindow.show(appInfo.id, appInfo.name, appInfo.icon, appInfo.type);
+
+                if (typeof AppLifecycleManager !== "undefined")
+                    AppLifecycleManager.bringToForeground(appInfo.id);
+            } else {
+                Logger.warn("Shell", "App not found for deep link: " + appId);
+            }
         }
 
         target: NavigationRouter

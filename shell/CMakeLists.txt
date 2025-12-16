@@ -174,7 +174,6 @@ set(QML_FILES
     qml/core/Router.qml
     qml/models/FilteredAppModel.qml
     qml/services/Platform.qml
-    qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
     qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
@@ -191,7 +190,6 @@ set(QML_FILES
     qml/services/AppLifecycleManager.qml
     qml/services/UnifiedSearchService.qml
     qml/services/AppLaunchService.qml
-    qml/services/DeepLinkHandler.qml
     qml/services/NotificationHandler.qml
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
@@ -225,7 +223,6 @@ set(SINGLETON_FILES
     qml/core/SurfaceRegistry.qml
     qml/core/Router.qml
     qml/services/Platform.qml
-    qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
     qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
@@ -242,7 +239,6 @@ set(SINGLETON_FILES
     qml/services/AppLifecycleManager.qml
     qml/services/UnifiedSearchService.qml
     qml/services/AppLaunchService.qml
-    qml/services/DeepLinkHandler.qml
     qml/services/NotificationHandler.qml
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml

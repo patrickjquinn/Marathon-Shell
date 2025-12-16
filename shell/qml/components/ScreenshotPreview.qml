@@ -88,13 +88,10 @@ Item {
             onClicked: {
                 Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath);
                 hide();
-                // Deep link to gallery app with the screenshot
-                if (typeof DeepLinkHandler !== 'undefined')
-                    DeepLinkHandler.handleDeepLink("gallery", "/image", {
-                        "path": filePath
-                    });
-                else
-                    Logger.warn("ScreenshotPreview", "DeepLinkHandler not available");
+                // Deep link to gallery app with the screenshot (shell handles showing the app window)
+                NavigationRouter.navigateToDeepLink("gallery", "/image", {
+                    "path": filePath
+                });
             }
             onPressed: mouse => {
                 startX = mouse.x;
