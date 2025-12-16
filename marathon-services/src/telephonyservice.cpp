@@ -464,5 +464,6 @@ QString TelephonyService::callStateFromModemManager(uint mmState) {
 QString TelephonyService::extractNumberFromPath(const QString &path) {
     // Extract number from call path if embedded
     // This is a fallback; normally we get it from properties
+    Q_UNUSED(path)
     return "Unknown";
 }

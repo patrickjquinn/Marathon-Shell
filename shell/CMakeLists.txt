@@ -57,18 +57,7 @@ set(SOURCES
     src/portalmanager.cpp
     src/marathonappstoreservice.h
     src/marathonappstoreservice.cpp
-    src/contactsmanager.h
-    src/contactsmanager.cpp
-    src/telephonyservice.h
-    src/telephonyservice.cpp
-    src/callhistorymanager.h
-    src/callhistorymanager.cpp
-    src/smsservice.h
-    src/smsservice.cpp
-    src/medialibrarymanager.h
-    src/medialibrarymanager.cpp
-    src/musiclibrarymanager.h
-    src/musiclibrarymanager.cpp
+    # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/mpris2controller.h
     src/mpris2controller.cpp
@@ -348,6 +337,7 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Network
     Qt6::Sensors
     MarathonCore
+    MarathonServices
     marathon-ui-theme
     marathon-ui-containers
     marathon-ui-core

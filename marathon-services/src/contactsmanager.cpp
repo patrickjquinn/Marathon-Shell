@@ -290,13 +290,109 @@ void ContactsManager::saveToVCard(const Contact &contact) {
 }
 
 void ContactsManager::importVCard(const QString &path) {
-    // TODO: Implement vCard import from external file
-    qDebug() << "[ContactsManager] Import vCard:" << path;
+    QFile file(path);
+    if (!file.exists()) {
+        qWarning() << "[ContactsManager] Import failed: file does not exist:" << path;
+        emit importComplete(0);
+        return;
+    }
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[ContactsManager] Import failed: cannot open:" << path;
+        emit importComplete(0);
+        return;
+    }
+
+    QTextStream   in(&file);
+    const QString content = in.readAll();
+    file.close();
+
+    // Very small parser: FN/TEL/EMAIL/ORG (vCard v3/v4)
+    QString                 name;
+    QString                 phone;
+    QString                 email;
+    QString                 organization;
+
+    QRegularExpressionMatch match;
+    match = QRegularExpression("FN:(.*?)\\r?\\n").match(content);
+    if (match.hasMatch()) {
+        name = match.captured(1).trimmed();
+    }
+
+    match = QRegularExpression("TEL[^:]*:(.*?)\\r?\\n").match(content);
+    if (match.hasMatch()) {
+        phone = match.captured(1).trimmed();
+    }
+
+    match = QRegularExpression("EMAIL[^:]*:(.*?)\\r?\\n").match(content);
+    if (match.hasMatch()) {
+        email = match.captured(1).trimmed();
+    }
+
+    match = QRegularExpression("ORG:(.*?)\\r?\\n").match(content);
+    if (match.hasMatch()) {
+        organization = match.captured(1).trimmed();
+    }
+
+    if (name.isEmpty()) {
+        qWarning() << "[ContactsManager] Import failed: no FN field found in vCard:" << path;
+        emit importComplete(0);
+        return;
+    }
+
+    // Use existing addContact flow (persists to our contacts dir)
+    addContact(name, phone, email);
+
+    if (!organization.isEmpty()) {
+        // Update last-added contact's organization field
+        const int   newId = m_nextId - 1;
+        QVariantMap update;
+        update["organization"] = organization;
+        updateContact(newId, update);
+    }
+
+    emit importComplete(1);
 }
 
 void ContactsManager::exportVCard(int contactId, const QString &path) {
-    // TODO: Implement vCard export to external file
-    qDebug() << "[ContactsManager] Export vCard for contact" << contactId << "to" << path;
+    QVariantMap contactMap = getContact(contactId);
+    if (contactMap.isEmpty()) {
+        qWarning() << "[ContactsManager] Export failed: contact not found:" << contactId;
+        emit exportComplete(false);
+        return;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+        qWarning() << "[ContactsManager] Export failed: cannot open:" << path;
+        emit exportComplete(false);
+        return;
+    }
+
+    QTextStream out(&file);
+    out << "BEGIN:VCARD\n";
+    out << "VERSION:3.0\n";
+    out << "FN:" << contactMap.value("name").toString() << "\n";
+
+    const QString phone = contactMap.value("phone").toString();
+    if (!phone.isEmpty()) {
+        out << "TEL;TYPE=CELL:" << phone << "\n";
+    }
+
+    const QString email = contactMap.value("email").toString();
+    if (!email.isEmpty()) {
+        out << "EMAIL;TYPE=INTERNET:" << email << "\n";
+    }
+
+    const QString org = contactMap.value("organization").toString();
+    if (!org.isEmpty()) {
+        out << "ORG:" << org << "\n";
+    }
+
+    out << "END:VCARD\n";
+    file.close();
+
+    emit exportComplete(true);
 }
 
 QString ContactsManager::sanitizeFileName(const QString &name) {

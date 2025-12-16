@@ -39,12 +39,12 @@
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
 #include "src/marathonappstoreservice.h"
-#include "src/contactsmanager.h"
-#include "src/telephonyservice.h"
-#include "src/callhistorymanager.h"
-#include "src/smsservice.h"
-#include "src/medialibrarymanager.h"
-#include "src/musiclibrarymanager.h"
+#include "contactsmanager.h"
+#include "telephonyservice.h"
+#include "callhistorymanager.h"
+#include "smsservice.h"
+#include "medialibrarymanager.h"
+#include "musiclibrarymanager.h"
 #include "src/waylandcompositormanager.h"
 #include "src/marathoninputmethodengine.h"
 #include "src/rtscheduler.h"
@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
     // Initialize MPRIS2 Controller (media player control)
-    auto *mpris2Controller = createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
+    createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
     qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
 
     // CRITICAL: Create SettingsManager BEFORE compositor manager
@@ -348,8 +348,7 @@ int main(int argc, char *argv[]) {
 
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
     // Pass SettingsManager for dynamic physical size calculation
-    auto *compositorManager = createObject<WaylandCompositorManager>(
-        ctx, "WaylandCompositorManager", settingsManager, &app);
+    createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", settingsManager, &app);
     qCritical() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
 
     // Set debug mode context property
@@ -363,26 +362,24 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Register DesktopFileParser as a singleton accessible from QML
-    auto *desktopFileParser = createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
+    createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
 
     // Register Marathon App System
     auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
     auto *appScanner =
         createObject<MarathonAppScanner>(ctx, "MarathonAppScanner", appRegistry, &app);
-    auto *appLoader =
-        createObject<MarathonAppLoader>(ctx, "MarathonAppLoader", appRegistry, &engine, &app);
+    createObject<MarathonAppLoader>(ctx, "MarathonAppLoader", appRegistry, &engine, &app);
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
                                                             appRegistry, appScanner, &app);
     qCritical() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
 
     // Register Marathon Input Method Engine
-    auto *inputMethodEngine =
-        createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
+    createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
 
     // Register C++ models
-    auto *appModel          = createObject<AppModel>(ctx, "AppModel", &app);
-    auto *taskModel         = createObject<TaskModel>(ctx, "TaskModel", &app);
+    auto *appModel = createObject<AppModel>(ctx, "AppModel", &app);
+    createObject<TaskModel>(ctx, "TaskModel", &app);
     auto *notificationModel = createObject<NotificationModel>(ctx, "NotificationModel", &app);
     //
     // Register NotificationModel enums so they're accessible in QML
@@ -390,21 +387,21 @@ int main(int argc, char *argv[]) {
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
     // Register C++ services (SettingsManager already created above for compositor)
-    auto *networkManager   = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
-    auto *powerManager     = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
-    auto *rotationManager  = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager   = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
-                                                             rotationManager, &app);
-    auto *audioManager     = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
-    auto *modemManager     = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
-    auto *sensorManager    = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
-    auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
-    auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
-    auto *hapticManager    = createObject<HapticManager>(ctx, "HapticManager", &app);
+    createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
+    auto *powerManager    = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
+    auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
+    auto *displayManager  = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
+                                                            rotationManager, &app);
+    auto *audioManager    = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
+    createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
+    createObject<LocationManager>(ctx, "LocationManager", &app);
+    createObject<HapticManager>(ctx, "HapticManager", &app);
     createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
-    auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
+    createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
 
     // Power policy/orchestration lives in C++ (Deepak: keep perf-sensitive system glue out of QML)
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
@@ -416,7 +413,7 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("DisplayPolicyControllerCpp", displayPolicyController);
 
     // Cursor auto-hide manager for EGLFS
-    auto *cursorManager = createObject<CursorManager>(ctx, "CursorManager", &app);
+    createObject<CursorManager>(ctx, "CursorManager", &app);
     qCritical() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
 
     // Wire AudioManager to PowerManager for audio playback wakelocks
@@ -435,7 +432,7 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] ✓ Audio playback wakelock integration enabled";
 
     // Platform utilities (hardware detection, etc.)
-    auto *platformCpp = createObject<PlatformCpp>(ctx, "PlatformCpp", &app);
+    createObject<PlatformCpp>(ctx, "PlatformCpp", &app);
     qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
 
     // Word Engine for spell-checking and predictions
@@ -483,13 +480,11 @@ int main(int argc, char *argv[]) {
     }
 
     // Register Permission Manager
-    auto *permissionManager =
-        createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
+    createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
     qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
 
     // Register App Store Service
-    auto *appStoreService =
-        createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
+    createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
     qInfo() << "[MarathonShell] ✓ App Store Service initialized";
 
     // Register Telephony & Messaging services
@@ -561,8 +556,8 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] ✓ Call history wired to telephony";
 
     // Register Media Library services
-    auto *mediaLibraryManager = createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
-    auto *musicLibraryManager = createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
+    createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
+    createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
 
     // Note: Marathon apps are auto-initialized in AppModel constructor.
     // Load any already-registered Marathon apps immediately (fast).
@@ -672,11 +667,15 @@ int main(int argc, char *argv[]) {
 
     // Debug: List input devices to diagnose touchscreen issues
     const auto devices = QInputDevice::devices();
+#if !defined(QT_NO_INFO_OUTPUT)
     qInfo() << "[MarathonShell] Detected Input Devices:";
     for (const QInputDevice *device : devices) {
         qInfo() << "  -" << device->name() << "Type:" << device->type()
                 << "ID:" << device->systemId() << "Seat:" << device->seatName();
     }
+#else
+    Q_UNUSED(devices)
+#endif
 
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreated, &app,
