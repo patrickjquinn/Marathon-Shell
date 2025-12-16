@@ -22,6 +22,8 @@ set(SOURCES
     src/powermanagercpp.cpp
     src/powerpolicycontroller.h
     src/powerpolicycontroller.cpp
+    src/displaypolicycontroller.h
+    src/displaypolicycontroller.cpp
     src/displaymanagercpp.h
     src/displaymanagercpp.cpp
     src/audiomanagercpp.h

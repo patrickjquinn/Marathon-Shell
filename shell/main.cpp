@@ -27,6 +27,7 @@
 #include "src/powermanagercpp.h"
 #include "src/powerpolicycontroller.h"
 #include "src/displaymanagercpp.h"
+#include "src/displaypolicycontroller.h"
 #include "src/audiomanagercpp.h"
 #include "src/modemmanagercpp.h"
 #include "src/sensormanagercpp.h"
@@ -402,6 +403,11 @@ int main(int argc, char *argv[]) {
     // Power policy/orchestration lives in C++ (Deepak: keep perf-sensitive system glue out of QML)
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
     ctx->setContextProperty("PowerPolicyControllerCpp", powerPolicyController);
+
+    // Display policy/orchestration lives in C++ (Deepak: keep system glue out of QML)
+    auto *displayPolicyController =
+        new DisplayPolicyController(displayManager, settingsManager, &app);
+    ctx->setContextProperty("DisplayPolicyControllerCpp", displayPolicyController);
 
     // Cursor auto-hide manager for EGLFS
     auto *cursorManager = createObject<CursorManager>(ctx, "CursorManager", &app);
