@@ -1,11 +1,12 @@
 import QtQuick
+import MarathonApp.Messages
 import QtQuick.Controls
+import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Navigation
-import "../components"
 
 Rectangle {
     id: chatPage

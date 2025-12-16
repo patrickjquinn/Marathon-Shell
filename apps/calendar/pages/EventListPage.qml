@@ -1,10 +1,10 @@
 import QtQuick
+import MarathonApp.Calendar
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonUI.Core
-import "../components"
 import "../stores"
 
 Page {

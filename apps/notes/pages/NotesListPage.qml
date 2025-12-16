@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonApp.Notes
 import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers

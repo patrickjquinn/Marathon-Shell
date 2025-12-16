@@ -30,14 +30,3 @@ install(TARGETS marathon-ui-effects
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}
 )
-
-install(DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Effects/
-    DESTINATION ${MARATHON_UI_DIR}/Effects
-    FILES_MATCHING
-    PATTERN "*.qml"
-    PATTERN "qmldir"
-    PATTERN "*.so"
-    PATTERN "*.dylib"
-    PATTERN "*.qmltypes"
-)
-

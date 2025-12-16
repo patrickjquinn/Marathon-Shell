@@ -1,10 +1,10 @@
 import QtQuick
+import MarathonApp.Browser
 import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Navigation
-import "../pages"
 
 Rectangle {
     id: drawer

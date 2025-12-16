@@ -185,14 +185,12 @@ set(QML_FILES
     qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
     qml/services/WindowManager.qml
-    qml/services/DesktopFileParser.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
     qml/services/AppLifecycleManager.qml
-    qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
     qml/services/AppLaunchService.qml
     qml/services/DeepLinkHandler.qml
@@ -241,14 +239,12 @@ set(SINGLETON_FILES
     qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
     qml/services/WindowManager.qml
-    qml/services/DesktopFileParser.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
     qml/services/AppLifecycleManager.qml
-    qml/services/DesktopEntryParser.qml
     qml/services/UnifiedSearchService.qml
     qml/services/AppLaunchService.qml
     qml/services/DeepLinkHandler.qml
@@ -278,7 +274,7 @@ include(${CMAKE_SOURCE_DIR}/cmake/QMLLint.cmake)
 
 # Set Qt QML policies for Qt 6.5+ compatibility
 # QTP0001: Use ':/qt/qml/' as the default resource prefix (required for proper QML module loading)
-# QTP0004: Require qmldir files for each directory containing QML files (improves module structure)
+# QTP0004: for each directory that contains .qml files, qmldir file is generated
 if(COMMAND qt_policy)
     qt_policy(SET QTP0001 NEW)
     qt_policy(SET QTP0004 NEW)
@@ -293,13 +289,6 @@ qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
-    RESOURCES
-        # resources.qrc  <-- REMOVED from here (handled by big_resources)
-        qml/keyboard/Core/qmldir
-        qml/keyboard/UI/qmldir
-        qml/keyboard/Layouts/qmldir
-        qml/keyboard/Input/qmldir
-        qml/keyboard/Data/qmldir
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 

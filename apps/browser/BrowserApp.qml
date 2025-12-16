@@ -5,7 +5,6 @@ import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonUI.Core
 import QtQuick.Layouts
-import "components"
 
 MApp {
     id: browserApp

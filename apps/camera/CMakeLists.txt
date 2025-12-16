@@ -15,5 +15,6 @@ add_marathon_app(${APP_NAME}
     URI "MarathonApp.Camera"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
+    SOURCES ${SOURCES}
 )
 

@@ -36,14 +36,3 @@ install(TARGETS marathon-ui-navigation
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}
 )
-
-install(DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Navigation/
-    DESTINATION ${MARATHON_UI_DIR}/Navigation
-    FILES_MATCHING
-    PATTERN "*.qml"
-    PATTERN "qmldir"
-    PATTERN "*.so"
-    PATTERN "*.dylib"
-    PATTERN "*.qmltypes"
-)
-
