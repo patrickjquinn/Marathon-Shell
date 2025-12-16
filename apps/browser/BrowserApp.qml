@@ -5,6 +5,7 @@ import MarathonUI.Containers
 import MarathonUI.Theme
 import MarathonUI.Core
 import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 
 MApp {
     id: browserApp
@@ -1462,13 +1463,13 @@ MApp {
             }
 
             layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: Qt.rgba(0, 0, 0, 0.6)
-                shadowVerticalOffset: 4
-                shadowBlur: 0.6
-                blurMax: 16
-                paddingRect: Qt.rect(0, 0, 0, 20)
+            // MultiEffect isn't available in all Qt builds; use a portable drop shadow.
+            layer.effect: DropShadow {
+                horizontalOffset: 0
+                verticalOffset: 4
+                radius: 16
+                samples: 33
+                color: Qt.rgba(0, 0, 0, 0.6)
             }
 
             Rectangle {
