@@ -134,7 +134,9 @@ QtObject {
     }
 
     function minimizeSettings() {
-        settingsOpen = false;
+        // Settings runs as a regular app window; minimizing it must clear the app window state
+        // (otherwise the detached AppWindow container can remain visible and cover ActiveFrames).
+        minimizeApp();
     }
 
     function closeAll() {
