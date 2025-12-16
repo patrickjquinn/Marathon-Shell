@@ -183,7 +183,6 @@ set(QML_FILES
     qml/services/LocationService.qml
     qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
-    qml/services/WindowManager.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
@@ -235,7 +234,6 @@ set(SINGLETON_FILES
     qml/services/LocationService.qml
     qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
-    qml/services/WindowManager.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
