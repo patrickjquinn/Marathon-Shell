@@ -145,27 +145,17 @@ void MarathonAppLoader::loadAppAsync(const QString &appId) {
 
     // Create new component
     qDebug() << "[MarathonAppLoader] Creating new component for:" << appId;
-    emit    appLoadProgress(appId, 10); // Starting load
+    emit          appLoadProgress(appId, 10); // Starting load
 
-    QString entryPointPath = appPath + "/" + appInfo->entryPoint;
+    const QString moduleUri =
+        QStringLiteral("MarathonApp.%1").arg(appId.left(1).toUpper() + appId.mid(1));
 
-    if (QFileInfo::exists(entryPointPath)) {
-        QUrl fileUrl = QUrl::fromLocalFile(entryPointPath);
-        component    = new QQmlComponent(m_engine, fileUrl, QQmlComponent::Asynchronous, this);
+    const QString componentName = QFileInfo(appInfo->entryPoint).baseName();
 
-        qDebug() << "[MarathonAppLoader] Loading file entry point:" << fileUrl;
-    } else {
-        // fallback for QML module
-        const QString moduleUri =
-            QStringLiteral("MarathonApp.%1").arg(appId.left(1).toUpper() + appId.mid(1));
+    qDebug() << "[MarathonAppLoader] Loading module entry point:" << moduleUri << componentName;
 
-        const QString componentName = QFileInfo(appInfo->entryPoint).baseName();
-
-        qDebug() << "[MarathonAppLoader] Loading module entry point:" << moduleUri << componentName;
-
-        component = new QQmlComponent(m_engine, moduleUri, componentName,
-                                      QQmlComponent::Asynchronous, this);
-    }
+    component =
+        new QQmlComponent(m_engine, moduleUri, componentName, QQmlComponent::Asynchronous, this);
 
     m_components.insert(appId, component);
 

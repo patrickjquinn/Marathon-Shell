@@ -1,7 +1,7 @@
 import QtQuick
+import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Theme
-import "../components"
 
 Item {
     id: clockPage

@@ -12,21 +12,11 @@ set(SOURCES
     # Future: src/metadatareader.cpp
 )
 
-if(SOURCES)
-    add_marathon_app(${APP_NAME}
-        HAS_CPP
-        URI "MarathonApp.Music"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-        SOURCES ${SOURCES}
-    )
-    
-    target_link_libraries(${APP_NAME}-plugin PRIVATE Qt6::Multimedia)
-else()
-    add_marathon_app(${APP_NAME}
-        URI "MarathonApp.Music"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-    )
-endif()
+add_marathon_app(${APP_NAME}
+    URI "MarathonApp.Music"
+    VERSION "1.0"
+    QML_FILES ${QML_FILES}
+    SOURCES ${SOURCES}
+)
 
+#target_link_libraries(${APP_NAME}-plugin PRIVATE Qt6::Multimedia)

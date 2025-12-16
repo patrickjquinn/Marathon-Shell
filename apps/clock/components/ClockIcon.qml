@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonApp.Clock
 
 Image {
     id: icon

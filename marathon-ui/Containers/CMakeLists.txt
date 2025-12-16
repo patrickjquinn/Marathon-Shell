@@ -54,14 +54,3 @@ install(TARGETS marathon-ui-containers
     LIBRARY DESTINATION ${MARATHON_UI_DIR}
     RUNTIME DESTINATION ${MARATHON_UI_DIR}
 )
-
-install(DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Containers/
-    DESTINATION ${MARATHON_UI_DIR}/Containers
-    FILES_MATCHING
-    PATTERN "*.qml"
-    PATTERN "qmldir"
-    PATTERN "*.so"
-    PATTERN "*.dylib"
-    PATTERN "*.qmltypes"
-)
-

@@ -12,14 +12,6 @@
 #include <QInputDevice>
 #include <QDBusMetaType>
 #include <QElapsedTimer>
-#include <QTimer>
-#include <QMutex>
-#include <QMutexLocker>
-#ifdef HAVE_QT_CONCURRENT
-#include <QFutureWatcher>
-#include <QtConcurrent>
-#endif
-#include "src/locationmanager.h"
 
 #ifdef Q_OS_LINUX
 #include <sched.h>
@@ -78,6 +70,15 @@
 #ifdef HAVE_WEBENGINE
 #include <QtWebEngineQuick/QtWebEngineQuick>
 #endif
+
+template <typename T, typename... Args>
+static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
+    static_assert(std::is_base_of_v<QObject, T>, "T must inherit QObject");
+
+    T *obj = new T(std::forward<Args>(args)...);
+    ctx->setContextProperty(qmlName, obj);
+    return obj;
+}
 
 // Custom message handler for logging Qt messages
 static QFile       *logFile   = nullptr;
@@ -328,105 +329,78 @@ int main(int argc, char *argv[]) {
     engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
     qInfo() << "[MarathonShell] ✓ LunaSVG image provider registered";
 
+    auto *ctx = engine.rootContext();
+
     // Initialize MPRIS2 Controller (media player control)
-    MPRIS2Controller *mpris2Controller = new MPRIS2Controller(&app);
-    engine.rootContext()->setContextProperty("MPRIS2Controller", mpris2Controller);
+    auto *mpris2Controller = createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
     qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
 
     // CRITICAL: Create SettingsManager BEFORE compositor manager
     // The compositor needs access to userScaleFactor for physical size calculation
-    SettingsManager *settingsManager = new SettingsManager(&app);
-    engine.rootContext()->setContextProperty("SettingsManagerCpp", settingsManager);
+    auto *settingsManager = createObject<SettingsManager>(ctx, "SettingsManagerCpp", &app);
 
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
     // Pass SettingsManager for dynamic physical size calculation
-    WaylandCompositorManager *compositorManager =
-        new WaylandCompositorManager(settingsManager, &app);
-    engine.rootContext()->setContextProperty("WaylandCompositorManager", compositorManager);
-    if (debugEnabled) {
-        qDebug() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
-    }
+    auto *compositorManager = createObject<WaylandCompositorManager>(
+        ctx, "WaylandCompositorManager", settingsManager, &app);
+    qCritical() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
 
     // Set debug mode context property
-    engine.rootContext()->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
+    ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
 
     // Expose Wayland availability to QML
 #ifdef HAVE_WAYLAND
-    engine.rootContext()->setContextProperty("HAVE_WAYLAND", true);
+    ctx->setContextProperty("HAVE_WAYLAND", true);
 #else
-    engine.rootContext()->setContextProperty("HAVE_WAYLAND", false);
+    ctx->setContextProperty("HAVE_WAYLAND", false);
 #endif
 
     // Register DesktopFileParser as a singleton accessible from QML
-    DesktopFileParser *desktopFileParser = new DesktopFileParser(&app);
-    engine.rootContext()->setContextProperty("DesktopFileParserCpp", desktopFileParser);
+    auto *desktopFileParser = createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
 
     // Register Marathon App System
-    MarathonAppRegistry  *appRegistry  = new MarathonAppRegistry(&app);
-    MarathonAppScanner   *appScanner   = new MarathonAppScanner(appRegistry, &app);
-    MarathonAppLoader    *appLoader    = new MarathonAppLoader(appRegistry, &engine, &app);
-    MarathonAppInstaller *appInstaller = new MarathonAppInstaller(appRegistry, appScanner, &app);
-
-    engine.rootContext()->setContextProperty("MarathonAppRegistry", appRegistry);
-    engine.rootContext()->setContextProperty("MarathonAppScanner", appScanner);
-    engine.rootContext()->setContextProperty("MarathonAppLoader", appLoader);
-    engine.rootContext()->setContextProperty("MarathonAppInstaller", appInstaller);
-    if (debugEnabled) {
-        qDebug() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
-    }
+    auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
+    auto *appScanner =
+        createObject<MarathonAppScanner>(ctx, "MarathonAppScanner", appRegistry, &app);
+    auto *appLoader =
+        createObject<MarathonAppLoader>(ctx, "MarathonAppLoader", appRegistry, &engine, &app);
+    auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
+                                                            appRegistry, appScanner, &app);
+    qCritical() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
 
     // Register Marathon Input Method Engine
-    MarathonInputMethodEngine *inputMethodEngine = new MarathonInputMethodEngine(&app);
-    engine.rootContext()->setContextProperty("InputMethodEngine", inputMethodEngine);
+    auto *inputMethodEngine =
+        createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
 
     // Register C++ models
-    AppModel          *appModel          = new AppModel(&app);
-    TaskModel         *taskModel         = new TaskModel(&app);
-    NotificationModel *notificationModel = new NotificationModel(&app);
-
+    auto *appModel          = createObject<AppModel>(ctx, "AppModel", &app);
+    auto *taskModel         = createObject<TaskModel>(ctx, "TaskModel", &app);
+    auto *notificationModel = createObject<NotificationModel>(ctx, "NotificationModel", &app);
+    //
     // Register NotificationModel enums so they're accessible in QML
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
-    engine.rootContext()->setContextProperty("AppModel", appModel);
-    engine.rootContext()->setContextProperty("TaskModel", taskModel);
-    engine.rootContext()->setContextProperty("NotificationModel", notificationModel);
-
     // Register C++ services (SettingsManager already created above for compositor)
-    NetworkManagerCpp *networkManager  = new NetworkManagerCpp(&app);
-    PowerManagerCpp   *powerManager    = new PowerManagerCpp(&app);
-    RotationManager   *rotationManager = new RotationManager(&app);
-    DisplayManagerCpp *displayManager  = new DisplayManagerCpp(powerManager, rotationManager, &app);
-    AudioManagerCpp   *audioManager    = new AudioManagerCpp(&app);
-    ModemManagerCpp   *modemManager    = new ModemManagerCpp(&app);
-    SensorManagerCpp  *sensorManager   = new SensorManagerCpp(&app);
-    BluetoothManager  *bluetoothManager      = new BluetoothManager(&app);
-    LocationManager   *locationManager       = new LocationManager(&app);
-    HapticManager     *hapticManager         = new HapticManager(&app);
-    AudioRoutingManager *audioRoutingManager = new AudioRoutingManager(&app);
-    SecurityManager     *securityManager     = new SecurityManager(&app);
-
-    engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
-    engine.rootContext()->setContextProperty("PowerManagerService", powerManager);
-    engine.rootContext()->setContextProperty("DisplayManagerCpp", displayManager);
-    engine.rootContext()->setContextProperty("AudioManagerCpp", audioManager);
-    engine.rootContext()->setContextProperty("ModemManagerCpp", modemManager);
-    engine.rootContext()->setContextProperty("SensorManagerCpp", sensorManager);
-    engine.rootContext()->setContextProperty("BluetoothManagerCpp", bluetoothManager);
-    engine.rootContext()->setContextProperty("RotationManager", rotationManager);
-    engine.rootContext()->setContextProperty("LocationManager", locationManager);
-    engine.rootContext()->setContextProperty("HapticManager", hapticManager);
-    engine.rootContext()->setContextProperty("AudioRoutingManagerCpp", audioRoutingManager);
-    engine.rootContext()->setContextProperty("SecurityManagerCpp", securityManager);
+    auto *networkManager   = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
+    auto *powerManager     = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
+    auto *rotationManager  = createObject<RotationManager>(ctx, "RotationManager", &app);
+    auto *displayManager   = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
+                                                             rotationManager, &app);
+    auto *audioManager     = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
+    auto *modemManager     = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *sensorManager    = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
+    auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
+    auto *hapticManager    = createObject<HapticManager>(ctx, "HapticManager", &app);
+    auto *audioRoutingManager =
+        createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
+    auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
 
     // Cursor auto-hide manager for EGLFS
-    CursorManager *cursorManager = new CursorManager(&app);
-    engine.rootContext()->setContextProperty("CursorManager", cursorManager);
-
-    if (debugEnabled) {
-        qDebug() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
-    }
+    auto *cursorManager = createObject<CursorManager>(ctx, "CursorManager", &app);
+    qCritical() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
 
     // Wire AudioManager to PowerManager for audio playback wakelocks
     QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,
@@ -444,20 +418,17 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] ✓ Audio playback wakelock integration enabled";
 
     // Platform utilities (hardware detection, etc.)
-    PlatformCpp *platformCpp = new PlatformCpp(&app);
-    engine.rootContext()->setContextProperty("PlatformCpp", platformCpp);
+    auto *platformCpp = createObject<PlatformCpp>(ctx, "PlatformCpp", &app);
     qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
 
     // Word Engine for spell-checking and predictions
-    WordEngine *wordEngine = new WordEngine(&app);
+    auto *wordEngine = createObject<WordEngine>(ctx, "WordEngine", &app);
     wordEngine->setLanguage("en_US");
     wordEngine->setEnabled(true);
-    engine.rootContext()->setContextProperty("WordEngine", wordEngine);
     qInfo() << "[MarathonShell] ✓ Word Engine initialized";
 
     // Register RT Scheduler for thread priority management
-    RTScheduler *rtScheduler = new RTScheduler(&app);
-    engine.rootContext()->setContextProperty("RTScheduler", rtScheduler);
+    auto *rtScheduler = createObject<RTScheduler>(ctx, "RTScheduler", &app);
     if (rtScheduler->isRealtimeKernel()) {
         qInfo() << "[MarathonShell] RT Scheduler initialized (PREEMPT_RT kernel detected)";
         qInfo() << "[MarathonShell]   Current policy:" << rtScheduler->getCurrentPolicy()
@@ -482,14 +453,11 @@ int main(int argc, char *argv[]) {
         notificationModel->loadFromDatabase(notifDb);
 
         // Register freedesktop.org Notifications (standard interface for 3rd-party apps)
-        FreedesktopNotifications *freedesktopNotif =
-            new FreedesktopNotifications(notifDb, notificationModel, powerManager, &app);
+        auto *freedesktopNotif = createObject<FreedesktopNotifications>(
+            ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
         if (freedesktopNotif->registerService()) {
             qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
         }
-
-        // Expose to QML for inline-reply functionality
-        engine.rootContext()->setContextProperty("FreedesktopNotifications", freedesktopNotif);
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }
@@ -498,29 +466,24 @@ int main(int argc, char *argv[]) {
     }
 
     // Register Permission Manager
-    MarathonPermissionManager *permissionManager = new MarathonPermissionManager(&app);
-    engine.rootContext()->setContextProperty("PermissionManager", permissionManager);
+    auto *permissionManager =
+        createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
     qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
 
     // Register App Store Service
-    MarathonAppStoreService *appStoreService = new MarathonAppStoreService(appInstaller, &app);
-    engine.rootContext()->setContextProperty("AppStoreService", appStoreService);
+    auto *appStoreService =
+        createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
     qInfo() << "[MarathonShell] ✓ App Store Service initialized";
 
     // Register Telephony & Messaging services
-    ContactsManager    *contactsManager    = new ContactsManager(&app);
-    TelephonyService   *telephonyService   = new TelephonyService(&app);
-    CallHistoryManager *callHistoryManager = new CallHistoryManager(&app);
-    SMSService         *smsService         = new SMSService(&app);
+    auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
+    auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
+    auto *callHistoryManager = createObject<CallHistoryManager>(ctx, "CallHistoryManager", &app);
+    auto *smsService         = createObject<SMSService>(ctx, "SMSService", &app);
 
     // Wire up contacts to call history for name resolution
     callHistoryManager->setContactsManager(contactsManager);
     smsService->setContactsManager(contactsManager);
-
-    engine.rootContext()->setContextProperty("ContactsManager", contactsManager);
-    engine.rootContext()->setContextProperty("TelephonyService", telephonyService);
-    engine.rootContext()->setContextProperty("CallHistoryManager", callHistoryManager);
-    engine.rootContext()->setContextProperty("SMSService", smsService);
 
     // Wire AudioRoutingManager to TelephonyService for call audio routing
     QObject::connect(telephonyService, &TelephonyService::callStateChanged, audioRoutingManager,
@@ -581,15 +544,8 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] ✓ Call history wired to telephony";
 
     // Register Media Library services
-    MediaLibraryManager *mediaLibraryManager = new MediaLibraryManager(&app);
-    MusicLibraryManager *musicLibraryManager = new MusicLibraryManager(&app);
-
-    engine.rootContext()->setContextProperty("MediaLibraryManager", mediaLibraryManager);
-    engine.rootContext()->setContextProperty("MusicLibraryManager", musicLibraryManager);
-
-    // Note: org.freedesktop.Notifications is handled by FreedesktopNotifications (line 367)
-    // Note: org.marathon.NotificationService is handled by MarathonNotificationService (line 361)
-    // Legacy NotificationService removed to avoid DBus path conflict
+    auto *mediaLibraryManager = createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
+    auto *musicLibraryManager = createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
 
     // Note: Marathon apps are auto-initialized in AppModel constructor.
     // Load any already-registered Marathon apps immediately (fast).

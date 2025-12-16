@@ -13,20 +13,10 @@ set(SOURCES
     # Future: src/timermanager.cpp
 )
 
-if(SOURCES)
-    add_marathon_app(${APP_NAME}
-        HAS_CPP
-        URI "MarathonApp.Clock"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-        SOURCES ${SOURCES}
-    )
-else()
-    # Pure QML for now
-    add_marathon_app(${APP_NAME}
-        URI "MarathonApp.Clock"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-    )
-endif()
-
+# Pure QML for now
+add_marathon_app(${APP_NAME}
+    URI "MarathonApp.Clock"
+    VERSION "1.0"
+    QML_FILES ${QML_FILES}
+    SOURCES ${SOURCES}
+)

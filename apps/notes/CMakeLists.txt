@@ -11,19 +11,9 @@ set(SOURCES
     # Future: src/notessync.cpp
 )
 
-if(SOURCES)
-    add_marathon_app(${APP_NAME}
-        HAS_CPP
-        URI "MarathonApp.Notes"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-        SOURCES ${SOURCES}
-    )
-else()
-    add_marathon_app(${APP_NAME}
-        URI "MarathonApp.Notes"
-        VERSION "1.0"
-        QML_FILES ${QML_FILES}
-    )
-endif()
-
+add_marathon_app(${APP_NAME}
+    URI "MarathonApp.Notes"
+    VERSION "1.0"
+    QML_FILES ${QML_FILES}
+    SOURCES ${SOURCES}
+)

@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Theme
 import MarathonUI.Core
