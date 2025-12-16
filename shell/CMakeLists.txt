@@ -78,10 +78,14 @@ set(SOURCES
     src/locationmanager.cpp
     src/hapticmanager.h
     src/hapticmanager.cpp
+    src/flashlightmanagercpp.h
+    src/flashlightmanagercpp.cpp
     src/audioroutingmanager.h
     src/audioroutingmanager.cpp
     src/securitymanager.h
     src/securitymanager.cpp
+    src/screenmetrics.h
+    src/screenmetrics.cpp
 )
 
 list(APPEND SOURCES

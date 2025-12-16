@@ -26,6 +26,8 @@ import QtQuick
  * }
  */
 QtObject {
+    // no-op
+
     id: hapticService
 
     /**
@@ -33,13 +35,22 @@ QtObject {
      * @type {bool}
      * @readonly
      */
-    readonly property bool isAvailable: Platform.isLinux || Platform.isAndroid
+    readonly property bool isAvailable: (typeof HapticManager !== "undefined" && HapticManager) ? HapticManager.available : false
     /**
      * @brief Whether haptic feedback is enabled (user preference)
      * @type {bool}
      * @default true
      */
-    property bool enabled: true
+    property bool enabled: (typeof HapticManager !== "undefined" && HapticManager) ? HapticManager.enabled : false
+    property Binding enabledBinding
+
+    enabledBinding: Binding {
+        target: typeof HapticManager !== "undefined" ? HapticManager : null
+        property: "enabled"
+        value: hapticService.enabled
+        when: typeof HapticManager !== "undefined" && HapticManager
+        restoreMode: Binding.RestoreBinding
+    }
 
     /**
      * @brief Provides light haptic feedback (10ms)
@@ -90,7 +101,8 @@ QtObject {
         if (!enabled || !isAvailable)
             return;
 
-        console.log("[HapticService] Vibration pattern:", durations);
+        if (typeof HapticManager !== "undefined" && HapticManager)
+            HapticManager.vibratePatternVariant(durations);
     }
 
     /**
@@ -102,13 +114,9 @@ QtObject {
         if (!enabled || !isAvailable)
             return;
 
-        console.log("[HapticService] Vibration pattern:", durations, "repeat:", repeat);
-        // For now, just do a single vibration
-        // In production, this would be wired to HapticManagerCpp
-        if (typeof HapticManagerCpp !== 'undefined')
-            HapticManagerCpp.vibratePattern(durations, repeat);
-        else
-            vibrate(durations[0] || 500);
+        // repeat is currently ignored; the backend supports a single finite pattern.
+        if (typeof HapticManager !== "undefined" && HapticManager)
+            HapticManager.vibratePatternVariant(durations);
     }
 
     /**
@@ -118,34 +126,17 @@ QtObject {
         if (!isAvailable)
             return;
 
-        console.log("[HapticService] Stopping vibration");
-        if (typeof HapticManagerCpp !== 'undefined')
-            HapticManagerCpp.stopVibration();
+        if (typeof HapticManager !== "undefined" && HapticManager)
+            HapticManager.cancelVibration();
     }
 
     function vibrate(duration) {
         if (!enabled || !isAvailable)
             return;
 
-        console.log("[HapticService] Vibrate:", duration + "ms");
-        if (typeof HapticManagerCpp !== 'undefined')
-            HapticManagerCpp.vibrate(duration);
-        else if (Platform.isLinux)
-            _vibrateLinux(duration);
-        else if (Platform.isAndroid)
-            _vibrateAndroid(duration);
+        if (typeof HapticManager !== "undefined" && HapticManager)
+            HapticManager.vibrate(duration);
     }
 
-    function _vibrateLinux(duration) {
-        console.log("[HapticService] Linux vibration via /sys/class/leds/vibrator/brightness");
-    }
-
-    function _vibrateAndroid(duration) {
-        console.log("[HapticService] Android vibration via Qt.Vibration");
-    }
-
-    Component.onCompleted: {
-        console.log("[HapticService] Initialized");
-        console.log("[HapticService] Haptics available:", isAvailable);
-    }
+    Component.onCompleted: {}
 }

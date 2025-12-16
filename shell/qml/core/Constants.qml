@@ -74,14 +74,13 @@ QtObject {
 
     id: constants
 
-    // Base screen dimensions (set by shell on startup via updateScreenSize)
-    property real screenWidth: 540
-    // OnePlus 6 50% scale (actual: 1080)
-    property real screenHeight: 1140
-    // OnePlus 6 50% scale (actual: 2280)
-    property real screenDiagonal: 1263.15
-    // Updated by updateScreenSize()
-    property real dpi: 120
+    // Screen dimensions (initialized from ScreenMetricsCpp; updated by updateScreenSize())
+    property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.width : 0
+    property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.height : 0
+    // Pixel diagonal (computed; updated automatically as screenWidth/screenHeight change)
+    readonly property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
+    // Physical DPI (fallback to baseDPI until updated)
+    property real dpi: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : baseDPI
     // Responsive scaling - scale everything based on ACTUAL DPI
     readonly property real baseDPI: 160
     property real userScaleFactor: 1 // Initialized from SettingsManagerCpp
@@ -94,7 +93,7 @@ QtObject {
     // Aspect ratio detection
     readonly property real tallScreenRatio: 1.2
     readonly property real squareScreenTolerance: 100
-    readonly property bool isTallScreen: screenHeight / screenWidth > tallScreenRatio
+    readonly property bool isTallScreen: (screenWidth > 0) ? (screenHeight / screenWidth > tallScreenRatio) : false
     readonly property bool isSquareScreen: Math.abs(screenWidth - screenHeight) < squareScreenTolerance
     readonly property int zIndexBackground: 0
     readonly property int zIndexMainContent: 90
@@ -220,7 +219,6 @@ QtObject {
     function updateScreenSize(width, height, deviceDpi) {
         screenWidth = width;
         screenHeight = height;
-        screenDiagonal = Math.sqrt(width * width + height * height);
         // Priority order: Reported > Fallback
         var dpiMin = 50;
         var dpiMax = 1000;

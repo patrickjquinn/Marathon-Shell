@@ -66,7 +66,8 @@ QtObject {
             if (root.compositor)
                 Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
 
-            root.compositor.setOutputOrientation(orientation);
+            if (root.compositor)
+                root.compositor.setOutputOrientation(orientation);
         });
     }
 }

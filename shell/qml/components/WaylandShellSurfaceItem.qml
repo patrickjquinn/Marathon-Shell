@@ -54,9 +54,13 @@ ShellSurfaceItem {
         // During initial layout, QML may report intermediate sizes (e.g., 234x430)
         // before the final full-screen size (e.g., 540x932). Firefox uses the first
         // configure event, so we must wait for the real size.
-        // Minimum reasonable mobile app width is ~320px (iPhone SE width)
-        if (width < 320) {
-            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: width " + width + " is below minimum (320px) - waiting for layout completion");
+        // Don't send size until we're close to the expected full-screen width.
+        // During initial layout, QML may report intermediate sizes which some clients (e.g. Firefox)
+        // treat as the "real" initial configure. Use Constants.screenWidth as the expected target.
+        var expectedWidth = (Constants && Constants.screenWidth > 0) ? Constants.screenWidth : width;
+        var minWidth = Math.max(1, expectedWidth * 0.6);
+        if (width < minWidth) {
+            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: width " + width + " is below minimum (" + Math.round(minWidth) + "px) - waiting for layout completion");
             return;
         }
         var toplevel = surfaceObj ? surfaceObj.toplevel : null;
@@ -72,7 +76,6 @@ ShellSurfaceItem {
             return;
         }
         lastSentSize = newSize;
-        hasSentInitialSize = true;
         hasSentInitialSize = true;
         Logger.info("WaylandShellSurfaceItem", "📱 Configuring app as MAXIMIZED: " + newSize.width + "x" + newSize.height);
         // Reference: https://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-xdg-shell

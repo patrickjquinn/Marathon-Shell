@@ -55,8 +55,10 @@
 #include "src/rotationmanager.h"
 #include "src/locationmanager.h"
 #include "src/hapticmanager.h"
+#include "src/flashlightmanagercpp.h"
 #include "src/audioroutingmanager.h"
 #include "src/securitymanager.h"
+#include "src/screenmetrics.h"
 #include "src/platformcpp.h"
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
@@ -333,6 +335,9 @@ int main(int argc, char *argv[]) {
 
     auto *ctx = engine.rootContext();
 
+    // Screen metrics (primary screen) for QML defaults — avoids hard-coded device sizes in QML.
+    createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
+
     // Initialize MPRIS2 Controller (media player control)
     auto *mpris2Controller = createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
     qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
@@ -396,6 +401,7 @@ int main(int argc, char *argv[]) {
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
     auto *hapticManager    = createObject<HapticManager>(ctx, "HapticManager", &app);
+    createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
     auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);

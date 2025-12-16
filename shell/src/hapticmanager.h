@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QVariantList>
 
 class HapticManager : public QObject {
     Q_OBJECT
@@ -23,6 +24,7 @@ class HapticManager : public QObject {
     Q_INVOKABLE void vibrate(int duration = 50);
     Q_INVOKABLE void vibratePattern(const QList<int> &pattern);
     Q_INVOKABLE void cancelVibration();
+    Q_INVOKABLE void vibratePatternVariant(const QVariantList &pattern);
 
   signals:
     void availableChanged();
