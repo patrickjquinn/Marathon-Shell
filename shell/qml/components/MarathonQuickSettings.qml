@@ -29,7 +29,7 @@ Rectangle {
     property string networkSubtitle: SystemStatusStore.ethernetConnected ? ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.ethernetConnectionName || "Wired") : "Wired") : (SystemStatusStore.wifiNetwork || "Not connected")
     property string networkIcon: SystemStatusStore.ethernetConnected ? "plug-zap" : "wifi" // Using "plug-zap" for ethernet (Lucide icon)
     property string networkLabel: SystemStatusStore.ethernetConnected ? "Ethernet" : "Wi-Fi"
-    property string cellularSubtitle: (typeof CellularManager !== 'undefined' ? CellularManager.operatorName : "") || "No service"
+    property string cellularSubtitle: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.operatorName : "") || "No service"
     property string batterySubtitle: "Battery " + SystemStatusStore.batteryLevel + "%"
     // Force model updates when key properties change
     property int updateTrigger: 0

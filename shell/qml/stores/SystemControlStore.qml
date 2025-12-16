@@ -20,8 +20,8 @@ QtObject {
     property bool isAirplaneModeOn: typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.airplaneModeEnabled : false
     property bool isRotationLocked: DisplayManager.rotationLocked
     property bool isFlashlightOn: typeof FlashlightManager !== 'undefined' ? FlashlightManager.enabled : false
-    property bool isCellularOn: typeof CellularManager !== 'undefined' ? CellularManager.modemEnabled : false
-    property bool isCellularDataOn: typeof CellularManager !== 'undefined' ? CellularManager.dataEnabled : false
+    property bool isCellularOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.modemEnabled : false
+    property bool isCellularDataOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
     property bool isDndMode: AudioManager.dndEnabled
     property bool isAlarmOn: typeof AlarmManager !== 'undefined' ? (AlarmManager.hasActiveAlarm || _hasEnabledAlarm()) : false
     property bool isAutoBrightnessOn: DisplayManagerCpp.autoBrightnessEnabled
@@ -84,16 +84,22 @@ QtObject {
     }
 
     function toggleCellular() {
-        if (typeof CellularManager !== 'undefined')
-            CellularManager.toggleModem();
-
+        if (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp) {
+            if (ModemManagerCpp.modemEnabled)
+                ModemManagerCpp.disable();
+            else
+                ModemManagerCpp.enable();
+        }
         Logger.info("SystemControl", "Cellular: " + isCellularOn);
     }
 
     function toggleCellularData() {
-        if (typeof CellularManager !== 'undefined')
-            CellularManager.toggleData();
-
+        if (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp) {
+            if (ModemManagerCpp.dataEnabled)
+                ModemManagerCpp.disableData();
+            else
+                ModemManagerCpp.enableData();
+        }
         Logger.info("SystemControl", "Cellular Data: " + isCellularDataOn);
     }
 

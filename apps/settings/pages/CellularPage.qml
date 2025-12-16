@@ -1,14 +1,15 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: cellularPage
-    pageTitle: "Mobile Network"
 
     property string pageName: "cellular"
+
+    pageTitle: "Mobile Network"
 
     content: Flickable {
         contentHeight: cellularContent.height + 40
@@ -16,6 +17,7 @@ SettingsPageTemplate {
 
         Column {
             id: cellularContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -25,21 +27,21 @@ SettingsPageTemplate {
             MSection {
                 title: "Status"
                 width: parent.width - 48
-                visible: typeof CellularManager !== 'undefined'
+                visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
 
                 MSettingsListItem {
                     title: "Operator"
-                    value: (typeof CellularManager !== 'undefined' && CellularManager.operatorName) || "No service"
+                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.operatorName) || "No service"
                 }
 
                 MSettingsListItem {
                     title: "Signal Strength"
-                    value: (typeof CellularManager !== 'undefined' ? CellularManager.modemSignalStrength + "%" : "N/A")
+                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? (ModemManagerCpp.signalStrength + "%") : "N/A")
                 }
 
                 MSettingsListItem {
                     title: "Network Type"
-                    value: (typeof CellularManager !== 'undefined' && CellularManager.networkType) || "Unknown"
+                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.networkType) || "Unknown"
                 }
             }
 
@@ -51,48 +53,56 @@ SettingsPageTemplate {
                     title: "Mobile Data"
                     subtitle: "Use cellular network for data"
                     showToggle: true
-                    toggleValue: typeof CellularManager !== 'undefined' ? CellularManager.dataEnabled : false
+                    toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
                     onToggleChanged: value => {
-                        if (typeof CellularManager !== 'undefined') {
-                            CellularManager.toggleData();
+                        if (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp) {
+                            if (ModemManagerCpp.dataEnabled)
+                                ModemManagerCpp.disableData();
+                            else
+                                ModemManagerCpp.enableData();
                         }
                     }
                 }
 
                 MSettingsListItem {
                     title: "Data Roaming"
-                    subtitle: (typeof CellularManager !== 'undefined' && CellularManager.roaming) ? "Currently roaming" : "Use data when traveling"
+                    subtitle: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.roaming) ? "Currently roaming" : "Use data when traveling"
                     showToggle: true
-                    toggleValue: typeof CellularManager !== 'undefined' ? CellularManager.roaming : false
-                    visible: typeof CellularManager !== 'undefined'
+                    // ModemManagerCpp exposes roaming state but doesn't currently provide a setter.
+                    // Keep as read-only indicator for now.
+                    toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.roaming : false
+                    enabled: false
+                    visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
                 }
             }
 
             MSection {
                 title: "SIM Card"
                 width: parent.width - 48
-                visible: typeof CellularManager !== 'undefined' && CellularManager.simPresent
+                visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.simPresent
 
                 MSettingsListItem {
                     title: "SIM Operator"
-                    value: (typeof CellularManager !== 'undefined' && CellularManager.simOperator) || "Unknown"
+                    // ModemManagerCpp doesn't currently expose a SIM operator string; fall back to network operator name.
+                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.operatorName) || "Unknown"
                 }
 
                 MSettingsListItem {
                     title: "Phone Number"
-                    value: (typeof CellularManager !== 'undefined' && CellularManager.phoneNumber) || "Not available"
+                    // Not exposed yet by ModemManagerCpp
+                    value: "Not available"
                 }
             }
 
             Text {
                 width: parent.width - 48
-                text: typeof CellularManager === 'undefined' ? "Mobile network features require Linux with ModemManager" : ""
+                text: (typeof ModemManagerCpp === "undefined" || !ModemManagerCpp || !ModemManagerCpp.available) ? "Mobile network features require Linux with ModemManager" : ""
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
-                visible: typeof CellularManager === 'undefined'
+                visible: typeof ModemManagerCpp === "undefined" || !ModemManagerCpp || !ModemManagerCpp.available
             }
 
             Item {
