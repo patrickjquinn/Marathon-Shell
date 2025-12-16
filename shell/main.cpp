@@ -25,6 +25,7 @@
 #include "src/notificationmodel.h"
 #include "src/networkmanagercpp.h"
 #include "src/powermanagercpp.h"
+#include "src/powerpolicycontroller.h"
 #include "src/displaymanagercpp.h"
 #include "src/audiomanagercpp.h"
 #include "src/modemmanagercpp.h"
@@ -397,6 +398,10 @@ int main(int argc, char *argv[]) {
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
     auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
+
+    // Power policy/orchestration lives in C++ (Deepak: keep perf-sensitive system glue out of QML)
+    auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
+    ctx->setContextProperty("PowerPolicyControllerCpp", powerPolicyController);
 
     // Cursor auto-hide manager for EGLFS
     auto *cursorManager = createObject<CursorManager>(ctx, "CursorManager", &app);

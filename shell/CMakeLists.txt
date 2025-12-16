@@ -20,6 +20,8 @@ set(SOURCES
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
     src/powermanagercpp.cpp
+    src/powerpolicycontroller.h
+    src/powerpolicycontroller.cpp
     src/displaymanagercpp.h
     src/displaymanagercpp.cpp
     src/audiomanagercpp.h

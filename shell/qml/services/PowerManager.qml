@@ -118,15 +118,14 @@ Item {
      * @type {bool}
      */
     property bool canRestart: true
-    property var activeWakelocks: []
-    property var scheduledWakes: []
     property bool systemAwake: !systemSuspended
     property bool screenOn: true
     property string wakeReason: ""
-    property int wakeLockCount: activeWakelocks.length
-    property bool hasActiveCalls: false
-    property bool hasActiveAlarm: false
-    readonly property bool canSleep: wakeLockCount === 0 && !hasActiveCalls && !hasActiveAlarm
+    // Wakelock + sleep policy moved to C++ (PowerPolicyControllerCpp)
+    readonly property int wakeLockCount: (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) ? PowerPolicyControllerCpp.wakeLockCount : 0
+    property bool hasActiveCalls: (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) ? PowerPolicyControllerCpp.hasActiveCalls : false
+    property bool hasActiveAlarm: (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) ? PowerPolicyControllerCpp.hasActiveAlarm : false
+    readonly property bool canSleep: (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) ? PowerPolicyControllerCpp.canSleep : (wakeLockCount === 0 && !hasActiveCalls && !hasActiveAlarm)
     readonly property bool systemSuspended: PowerManagerService ? PowerManagerService.systemSuspended : false
     readonly property bool wakelockSupported: PowerManagerService ? PowerManagerService.wakelockSupported : false
     readonly property bool rtcAlarmSupported: PowerManagerService ? PowerManagerService.rtcAlarmSupported : false
@@ -210,40 +209,16 @@ Item {
     }
 
     function acquireWakelock(name) {
-        if (typeof PowerManagerService !== 'undefined') {
-            var success = PowerManagerService.acquireWakelock(name);
-            if (success) {
-                var lock = {
-                    "id": name,
-                    "reason": name,
-                    "timestamp": Date.now()
-                };
-                activeWakelocks.push(lock);
-                activeWakelocksChanged();
-                Logger.info("PowerManager", "Acquired wakelock: " + name);
-                wakeLockAcquired(name, name);
-            }
-            return success;
-        }
+        if (typeof PowerManagerService !== 'undefined')
+            return PowerManagerService.acquireWakelock(name);
+
         return false;
     }
 
     function releaseWakelock(name) {
-        if (typeof PowerManagerService !== 'undefined') {
-            var success = PowerManagerService.releaseWakelock(name);
-            if (success) {
-                for (var i = 0; i < activeWakelocks.length; i++) {
-                    if (activeWakelocks[i].id === name) {
-                        activeWakelocks.splice(i, 1);
-                        activeWakelocksChanged();
-                        Logger.info("PowerManager", "Released wakelock: " + name);
-                        wakeLockReleased(name);
-                        break;
-                    }
-                }
-            }
-            return success;
-        }
+        if (typeof PowerManagerService !== 'undefined')
+            return PowerManagerService.releaseWakelock(name);
+
         return false;
     }
 
@@ -258,15 +233,12 @@ Item {
         Logger.info("PowerManager", "Waking system: " + reason);
         wakeReason = reason;
         systemAwake = true;
-        // Turn on screen if needed
-        if (!screenOn && DisplayManager) {
-            DisplayManager.turnScreenOn();
-            screenOn = true;
-        }
         systemWaking(reason);
-        // Auto-acquire temporary wake lock
-        var lockId = acquireWakelock(reason);
-        return lockId;
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            return PowerPolicyControllerCpp.wake(reason);
+
+        // Fallback: acquire temporary wakelock
+        return acquireWakelock(reason);
     }
 
     function sleep() {
@@ -277,12 +249,9 @@ Item {
         Logger.info("PowerManager", "Putting system to sleep");
         systemAwake = false;
         systemSleeping();
-        // Turn off screen first
-        if (DisplayManager) {
-            DisplayManager.turnScreenOff();
-            screenOn = false;
-        }
-        // Suspend via C++ backend
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            return PowerPolicyControllerCpp.sleep();
+
         suspend();
         return true;
     }
@@ -302,32 +271,20 @@ Item {
     }
 
     function scheduleWake(wakeTime, reason) {
-        var wakeId = Qt.md5(Date.now() + reason);
-        var wake = {
-            "id": wakeId,
-            "time": wakeTime,
-            "reason": reason,
-            "timestamp": Date.now()
-        };
-        scheduledWakes.push(wake);
-        scheduledWakesChanged();
-        var msUntil = wakeTime - new Date();
-        Logger.info("PowerManager", "Scheduled wake in " + Math.round(msUntil / 1000 / 60) + " minutes for: " + reason);
-        // Set RTC alarm
         var epochTime = Math.floor(wakeTime.getTime() / 1000);
+        Logger.info("PowerManager", "Scheduled wake (epoch=" + epochTime + ") for: " + reason);
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            return PowerPolicyControllerCpp.scheduleWakeEpoch(epochTime, reason);
+
+        // Fallback: directly set RTC alarm
         setRtcAlarm(epochTime);
-        return wakeId;
+        return Qt.md5(Date.now() + reason);
     }
 
     function cancelScheduledWake(wakeId) {
-        for (var i = 0; i < scheduledWakes.length; i++) {
-            if (scheduledWakes[i].id === wakeId) {
-                scheduledWakes.splice(i, 1);
-                scheduledWakesChanged();
-                Logger.info("PowerManager", "Cancelled scheduled wake: " + wakeId);
-                return true;
-            }
-        }
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            return PowerPolicyControllerCpp.cancelScheduledWake(wakeId);
+
         return false;
     }
 

@@ -31,6 +31,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_PROPERTY(bool systemSuspended READ isSystemSuspended NOTIFY systemSuspendedChanged)
     Q_PROPERTY(bool wakelockSupported READ wakelockSupported CONSTANT)
     Q_PROPERTY(bool rtcAlarmSupported READ rtcAlarmSupported CONSTANT)
+    Q_PROPERTY(QStringList activeWakelocks READ activeWakelocks NOTIFY activeWakelocksChanged)
+    Q_PROPERTY(int wakeLockCount READ wakeLockCount NOTIFY activeWakelocksChanged)
 
   public:
     enum PowerProfile {
@@ -80,6 +82,11 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
         return m_rtcAlarmSupported;
     }
 
+    QStringList activeWakelocks() const;
+    int         wakeLockCount() const {
+        return activeWakelocks().size();
+    }
+
     Q_INVOKABLE void suspend();
     Q_INVOKABLE void hibernate();
     Q_INVOKABLE void shutdown();
@@ -119,6 +126,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     prepareForSuspend(); // Emitted when system is about to suspend (from PrepareForSleep signal)
     void resumedFromSuspend();        // Emitted when system resumes from suspend
     void idleStateChanged(bool idle); // Emitted when idle state changes
+    void activeWakelocksChanged();
 
   private slots:
     void updateAggregateState();

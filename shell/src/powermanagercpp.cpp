@@ -8,6 +8,15 @@
 #include <QFile>
 #include <QProcess>
 
+QStringList PowerManagerCpp::activeWakelocks() const {
+    QStringList result;
+    for (auto it = m_activeWakelocks.constBegin(); it != m_activeWakelocks.constEnd(); ++it) {
+        if (it.value())
+            result.push_back(it.key());
+    }
+    return result;
+}
+
 PowerManagerCpp::PowerManagerCpp(QObject *parent)
     : QObject(parent)
     , m_upowerInterface(nullptr)
@@ -439,6 +448,7 @@ bool PowerManagerCpp::acquireWakelock(const QString &name) {
             m_activeWakelocks[name] = true;
             m_fallbackMode          = "wakelock";
             qInfo() << "[PowerManagerCpp] Acquired wakelock:" << name;
+            emit activeWakelocksChanged();
             return true;
         } else {
             qWarning() << "[PowerManagerCpp] Failed to acquire wakelock, falling back to inhibitor";
@@ -452,6 +462,7 @@ bool PowerManagerCpp::acquireWakelock(const QString &name) {
         if (success) {
             m_activeWakelocks[name] = true;
             qInfo() << "[PowerManagerCpp] Acquired inhibitor lock for:" << name;
+            emit activeWakelocksChanged();
             return true;
         }
     }
@@ -486,6 +497,7 @@ bool PowerManagerCpp::releaseWakelock(const QString &name) {
 
     if (success || m_fallbackMode == "inhibitor") {
         m_activeWakelocks[name] = false;
+        emit activeWakelocksChanged();
     }
 
     return success;
@@ -539,6 +551,7 @@ void PowerManagerCpp::cleanupWakelocks() {
             releaseWakelock(it.key());
         }
     }
+    emit activeWakelocksChanged();
 }
 
 bool PowerManagerCpp::writeToFile(const QString &path, const QString &content) {
