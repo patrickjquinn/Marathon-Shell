@@ -160,12 +160,12 @@ message(STATUS "==================")
 include(GNUInstallDirs)
 
 # Install session launcher script
-install(PROGRAMS marathon-shell-session
+install(PROGRAMS platforms/generic/marathon-shell-session
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 # Install Wayland session file
-install(FILES marathon.desktop
+install(FILES platforms/generic/marathon.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions
 )
 
@@ -197,9 +197,14 @@ install(FILES pam.d/marathon-shell
 )
 
 # Install greetd configuration example
-install(FILES marathon-shell.toml
+install(FILES platforms/generic/marathon-shell.toml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/greetd
     RENAME marathon-shell-example.toml
+)
+
+# Install EGLFS KMS config (used by marathon-shell-session when running under eglfs_kms)
+install(FILES platforms/generic/eglfs.json
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon
 )
 
 # Install documentation

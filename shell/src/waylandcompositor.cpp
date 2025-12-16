@@ -15,6 +15,18 @@
 #include <QQuickItem>
 #include <QKeyEvent>
 
+static bool envBool(const char *name, bool defaultValue) {
+    const QByteArray raw = qgetenv(name);
+    if (raw.isEmpty())
+        return defaultValue;
+    const QByteArray v = raw.trimmed().toLower();
+    if (v == "1" || v == "true" || v == "yes" || v == "on")
+        return true;
+    if (v == "0" || v == "false" || v == "no" || v == "off")
+        return false;
+    return defaultValue;
+}
+
 #ifdef Q_OS_LINUX
 #include <sched.h>
 #include <pthread.h>
@@ -46,7 +58,16 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
 
     // Shell extensions - can be created after create()
     m_xdgShell = new QWaylandXdgShell(this);
-    m_wlShell  = new QWaylandWlShell(this);
+    // wl_shell is legacy/deprecated; keep it OFF by default and allow opting in for compatibility.
+    const bool enableWlShell = envBool("MARATHON_WL_ENABLE_WL_SHELL", false);
+    if (enableWlShell) {
+        m_wlShell = new QWaylandWlShell(this);
+        connect(m_wlShell, &QWaylandWlShell::wlShellSurfaceCreated, this,
+                &WaylandCompositor::handleWlShellSurfaceCreated);
+        qInfo() << "[WaylandCompositor] wl_shell enabled (legacy compatibility)";
+    } else {
+        qInfo() << "[WaylandCompositor] wl_shell disabled (legacy protocol)";
+    }
 
     // CRITICAL: Enable wp_viewporter protocol for Firefox/GTK fractional scaling
     // Firefox uses this to set destination size for surface buffers.
@@ -86,9 +107,6 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
             &WaylandCompositor::handleXdgToplevelCreated);
     connect(m_xdgShell, &QWaylandXdgShell::popupCreated, this,
             &WaylandCompositor::handleXdgPopupCreated);
-
-    connect(m_wlShell, &QWaylandWlShell::wlShellSurfaceCreated, this,
-            &WaylandCompositor::handleWlShellSurfaceCreated);
 
     // NOW create output AFTER compositor is initialized
     m_output = new QWaylandQuickOutput(this, window);

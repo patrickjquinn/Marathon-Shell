@@ -75,14 +75,14 @@ class WaylandCompositor : public QWaylandCompositor {
     void                                 setCompositorRealtimePriority();
     void                                 calculateAndSetPhysicalSize();
 
-    QWaylandXdgShell                    *m_xdgShell;
-    QWaylandWlShell                     *m_wlShell;
-    QWaylandViewporter                  *m_viewporter;
-    QWaylandTextInputManager            *m_textInputManager;
-    QWaylandIdleInhibitManagerV1        *m_idleInhibitManager;
-    QWaylandQuickOutput                 *m_output;
-    QQuickWindow                        *m_window;
-    SettingsManager                     *m_settingsManager;
+    QWaylandXdgShell                    *m_xdgShell   = nullptr;
+    QWaylandWlShell                     *m_wlShell    = nullptr; // optional (legacy compatibility)
+    QWaylandViewporter                  *m_viewporter = nullptr;
+    QWaylandTextInputManager            *m_textInputManager   = nullptr;
+    QWaylandIdleInhibitManagerV1        *m_idleInhibitManager = nullptr;
+    QWaylandQuickOutput                 *m_output             = nullptr;
+    QQuickWindow                        *m_window             = nullptr;
+    SettingsManager                     *m_settingsManager    = nullptr;
 
     QList<QObject *>                     m_surfaces;
     QMap<int, QPointer<QWaylandSurface>> m_surfaceMap; // surfaceId -> surface

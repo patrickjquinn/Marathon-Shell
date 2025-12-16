@@ -1,6 +1,9 @@
 #!/bin/sh
 # Marathon Shell Wayland Session Startup Script
 # Sets up environment and launches the shell
+#
+# NOTE: This is the generic (embedded-first) session script. Per-device overrides
+# should live under platforms/<device>/config/.
 
 # Set session name
 export XDG_SESSION_TYPE=wayland
@@ -8,10 +11,12 @@ export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
 
 # Marathon-specific paths
-export MARATHON_PREFIX=/usr/local
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# Default prefix from install location (…/bin -> …)
+export MARATHON_PREFIX="${MARATHON_PREFIX:-$(dirname -- "$SCRIPT_DIR")}"
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
 # Ensure libs are found immediately
-export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="$MARATHON_PREFIX/lib:${LD_LIBRARY_PATH:-}"
 
 # Qt/QML environment - DO NOT set QT_QPA_PLATFORM for a Wayland compositor
 # The shell IS the compositor, not a client. Qt will auto-select the correct backend.
@@ -21,7 +26,7 @@ export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
 # Use EGLFS KMS backend with logind integration for proper VT/DRM handover
 export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
 # KMS config: card1 (DPI-1), software cursor, per Qt 6 EGLFS docs
-export QT_QPA_EGLFS_KMS_CONFIG=/usr/local/share/marathon/eglfs.json
+export QT_QPA_EGLFS_KMS_CONFIG="$MARATHON_PREFIX/share/marathon/eglfs.json"
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 # Hide cursor on startup (EGLFS specific) - will be managed by CursorManager if needed
 # cursor logic handled by CursorManager
@@ -102,4 +107,6 @@ if [ -w "$CAPSLOCK_LED" ]; then
 fi
 
 # Start the compositor
-exec /usr/local/bin/marathon-shell-bin "$@"
+exec "$MARATHON_PREFIX/bin/marathon-shell-bin" "$@"
+
+
