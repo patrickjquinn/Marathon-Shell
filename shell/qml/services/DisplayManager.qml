@@ -19,10 +19,6 @@ QtObject {
     property string orientation: "portrait"
     property bool rotationLocked: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.rotationLocked : false
     property var availableOrientations: ["portrait", "landscape", "portrait-inverted", "landscape-inverted"]
-    property int displayWidth: 720
-    property int displayHeight: 1280
-    property real displayDpi: 320
-    property real refreshRate: 60
     property Connections rotationConnections
 
     signal brightnessSet(real value)
