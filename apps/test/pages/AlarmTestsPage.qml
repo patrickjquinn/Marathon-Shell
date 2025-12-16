@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonApp.Test
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 Item {
     Flickable {
@@ -13,18 +13,21 @@ Item {
 
         Column {
             id: alarmColumn
+
             width: parent.width
             spacing: MSpacing.md
             padding: MSpacing.lg
 
             Row {
                 spacing: MSpacing.sm
+
                 Icon {
                     name: "clock"
                     size: 24
                     color: MColors.accent
                     anchors.verticalCenter: parent.verticalCenter
                 }
+
                 MLabel {
                     text: "Alarms & Timers"
                     variant: "headline"
@@ -59,17 +62,20 @@ Item {
                             onClicked: {
                                 HapticService.medium();
                                 var testAlarm = {
-                                    id: "test_" + Date.now(),
-                                    time: Qt.formatTime(new Date(), "HH:mm"),
-                                    enabled: true,
-                                    label: "Test Alarm",
-                                    repeat: [],
-                                    sound: "default",
-                                    vibrate: true,
-                                    snoozeEnabled: true,
-                                    snoozeDuration: 10
+                                    "id": "test_" + Date.now(),
+                                    "time": Qt.formatTime(new Date(), "HH:mm"),
+                                    "enabled": true,
+                                    "label": "Test Alarm",
+                                    "repeat": [],
+                                    "sound": "default",
+                                    "vibrate": true,
+                                    "snoozeEnabled": true,
+                                    "snoozeDuration": 10
                                 };
-                                AlarmManager.alarmTriggered(testAlarm);
+                                // Use AlarmManager's real trigger path (plays sound, wakes screen, emits alarmTriggered)
+                                if (typeof AlarmManager !== "undefined" && AlarmManager.triggerAlarmForTesting)
+                                    AlarmManager.triggerAlarmForTesting(testAlarm);
+
                                 Logger.info("TestApp", "Triggered test alarm");
                                 if (testApp) {
                                     testApp.passedTests++;

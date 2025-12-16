@@ -82,6 +82,11 @@ QtObject {
 
             if (typeof HapticService !== 'undefined')
                 HapticService.stopVibration();
+
+            // If the session is already unlocked (grace period), don't strand the user on the lock screen
+            // after dismissing the ringer UI.
+            if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+                SessionStore.unlock();
         }
         root.lastCallState = state;
     }

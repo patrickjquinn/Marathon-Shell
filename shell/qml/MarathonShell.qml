@@ -1797,7 +1797,7 @@ Item {
     // Wire alarm manager to overlay
     Connections {
         function onAlarmTriggered(alarm) {
-            Logger.info("Shell", "Alarm triggered: " + alarm.title);
+            Logger.info("Shell", "Alarm triggered: " + (alarm && alarm.label ? alarm.label : "(unknown)"));
             alarmOverlay.show(alarm);
             HapticService.heavy();
         }
@@ -1944,7 +1944,8 @@ Item {
         anchors.fill: parent
         z: Constants.zIndexModalOverlay + 100
         active: false
-        source: "qrc:/MarathonOS/Shell/qml/components/IncomingCallOverlay.qml"
+        // Use a relative URL so this works regardless of the Qt6 resource prefix (:/qt/qml vs :/).
+        source: Qt.resolvedUrl("components/IncomingCallOverlay.qml")
     }
 
     Connections {

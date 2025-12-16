@@ -57,6 +57,7 @@
 #include "src/hapticmanager.h"
 #include "src/flashlightmanagercpp.h"
 #include "src/audioroutingmanager.h"
+#include "src/audiopolicycontroller.h"
 #include "src/securitymanager.h"
 #include "src/screenmetrics.h"
 #include "src/platformcpp.h"
@@ -411,6 +412,13 @@ int main(int argc, char *argv[]) {
     auto *displayPolicyController =
         new DisplayPolicyController(displayManager, settingsManager, &app);
     ctx->setContextProperty("DisplayPolicyControllerCpp", displayPolicyController);
+
+    // Audio policy/orchestration lives in C++ (Deepak: keep system glue out of QML)
+    auto *hapticsObj =
+        qobject_cast<HapticManager *>(ctx->contextProperty("HapticManager").value<QObject *>());
+    auto *audioPolicyController =
+        new AudioPolicyController(audioManager, settingsManager, hapticsObj, &app);
+    ctx->setContextProperty("AudioPolicyControllerCpp", audioPolicyController);
 
     // Cursor auto-hide manager for EGLFS
     createObject<CursorManager>(ctx, "CursorManager", &app);

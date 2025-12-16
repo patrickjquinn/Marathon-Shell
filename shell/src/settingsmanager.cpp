@@ -23,6 +23,9 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_alarmVolume(0.9)
     , m_notificationVolume(0.7)
     , m_systemVolume(0.5)
+    , m_dndEnabled(false)
+    , m_vibrationEnabled(true)
+    , m_audioProfile("normal")
     , m_screenTimeout(120000) // 2 minutes default
     , m_autoBrightness(false)
     , m_statusBarClockPosition("center")
@@ -77,6 +80,9 @@ void SettingsManager::load() {
     m_alarmVolume        = m_settings.value("audio/alarmVolume", 0.9).toReal();
     m_notificationVolume = m_settings.value("audio/notificationVolume", 0.7).toReal();
     m_systemVolume       = m_settings.value("audio/systemVolume", 0.5).toReal();
+    m_dndEnabled         = m_settings.value("audio/dndEnabled", false).toBool();
+    m_vibrationEnabled   = m_settings.value("audio/vibrationEnabled", true).toBool();
+    m_audioProfile       = m_settings.value("audio/audioProfile", "normal").toString();
 
     // Display
     m_screenTimeout  = m_settings.value("display/screenTimeout", 120000).toInt();
@@ -161,6 +167,9 @@ void SettingsManager::save() {
     m_settings.setValue("audio/alarmVolume", m_alarmVolume);
     m_settings.setValue("audio/notificationVolume", m_notificationVolume);
     m_settings.setValue("audio/systemVolume", m_systemVolume);
+    m_settings.setValue("audio/dndEnabled", m_dndEnabled);
+    m_settings.setValue("audio/vibrationEnabled", m_vibrationEnabled);
+    m_settings.setValue("audio/audioProfile", m_audioProfile);
 
     // Display
     m_settings.setValue("display/screenTimeout", m_screenTimeout);
@@ -352,6 +361,33 @@ void SettingsManager::setSystemVolume(qreal volume) {
     save();
     emit systemVolumeChanged();
     qDebug() << "[SettingsManager] System volume changed to" << m_systemVolume;
+}
+
+void SettingsManager::setDndEnabled(bool enabled) {
+    if (m_dndEnabled == enabled)
+        return;
+    m_dndEnabled = enabled;
+    save();
+    emit dndEnabledChanged();
+    qDebug() << "[SettingsManager] DND enabled changed to" << m_dndEnabled;
+}
+
+void SettingsManager::setVibrationEnabled(bool enabled) {
+    if (m_vibrationEnabled == enabled)
+        return;
+    m_vibrationEnabled = enabled;
+    save();
+    emit vibrationEnabledChanged();
+    qDebug() << "[SettingsManager] Vibration enabled changed to" << m_vibrationEnabled;
+}
+
+void SettingsManager::setAudioProfile(const QString &profile) {
+    if (m_audioProfile == profile)
+        return;
+    m_audioProfile = profile;
+    save();
+    emit audioProfileChanged();
+    qDebug() << "[SettingsManager] Audio profile changed to" << m_audioProfile;
 }
 
 // Display setters

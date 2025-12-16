@@ -71,6 +71,8 @@ set(SOURCES
     src/flashlightmanagercpp.cpp
     src/audioroutingmanager.h
     src/audioroutingmanager.cpp
+    src/audiopolicycontroller.h
+    src/audiopolicycontroller.cpp
     src/securitymanager.h
     src/securitymanager.cpp
     src/screenmetrics.h

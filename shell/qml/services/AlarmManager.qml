@@ -16,6 +16,7 @@ Item {
     //   snoozeDuration: int (minutes)
     // }
     // Pattern
+    // Not scheduled for today
 
     id: alarmManager
 
@@ -30,6 +31,12 @@ Item {
     signal alarmCreated(var alarm)
     signal alarmUpdated(var alarm)
     signal alarmDeleted(string alarmId)
+
+    // Test/debug helper: allow triggering an alarm via the same codepath used by the scheduler.
+    // This keeps the "System Test Suite" app honest (sound, vibration, wake, UI).
+    function triggerAlarmForTesting(alarm) {
+        _triggerAlarm(alarm);
+    }
 
     function createAlarm(time, label, repeat, options) {
         var alarm = {
@@ -115,6 +122,19 @@ Item {
                 // Remove from active
                 activeAlarms.splice(i, 1);
                 activeAlarmsChanged();
+                // Stop alarm feedback if nothing else is ringing
+                if (activeAlarms.length === 0) {
+                    if (typeof AudioManager !== 'undefined')
+                        AudioManager.stopAlarmSound();
+
+                    if (typeof HapticService !== 'undefined')
+                        HapticService.stopVibration();
+
+                    // If the session is already unlocked (grace period), don't strand the user on the lock screen
+                    // after dismissing the alarm UI.
+                    if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+                        SessionStore.unlock();
+                }
                 // Schedule wake for snooze
                 _scheduleSnooze(alarm, snoozeDuration);
                 Logger.info("AlarmManager", "Alarm snoozed: " + alarmId + " for " + snoozeDuration + " minutes");
@@ -130,6 +150,19 @@ Item {
             if (activeAlarms[i].id === alarmId) {
                 activeAlarms.splice(i, 1);
                 activeAlarmsChanged();
+                // Stop alarm feedback if nothing else is ringing
+                if (activeAlarms.length === 0) {
+                    if (typeof AudioManager !== 'undefined')
+                        AudioManager.stopAlarmSound();
+
+                    if (typeof HapticService !== 'undefined')
+                        HapticService.stopVibration();
+
+                    // If the session is already unlocked (grace period), don't strand the user on the lock screen
+                    // after dismissing the alarm UI.
+                    if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+                        SessionStore.unlock();
+                }
                 Logger.info("AlarmManager", "Alarm dismissed: " + alarmId);
                 alarmDismissed(alarmId);
                 // Re-schedule if repeating
@@ -222,8 +255,6 @@ Item {
     }
 
     function _checkAlarms() {
-        // Not scheduled for today
-
         var now = new Date();
         var currentTime = Qt.formatTime(now, "HH:mm");
         for (var i = 0; i < alarms.length; i++) {

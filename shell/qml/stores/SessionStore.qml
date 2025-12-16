@@ -103,7 +103,12 @@ QtObject {
     function unlock() {
         console.log("[SessionStore] unlock() called - current isLocked:", isLocked);
         if (!isLocked) {
-            console.log("[SessionStore] Already unlocked, ignoring");
+            // Common case during grace-period: session is already unlocked but lock screen is showing
+            // (e.g. screen turned on, or user tapped a notification on the lock screen).
+            // In this case we still need to dismiss the lock screen.
+            console.log("[SessionStore] Already unlocked - dismissing lock screen");
+            showLockScreen = false;
+            isOnLockScreen = false;
             return;
         }
         console.log("[SessionStore] Unlocking session...");

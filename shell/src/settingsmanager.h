@@ -37,6 +37,11 @@ class SettingsManager : public QObject {
                    notificationVolumeChanged)
     Q_PROPERTY(
         qreal systemVolume READ systemVolume WRITE setSystemVolume NOTIFY systemVolumeChanged)
+    Q_PROPERTY(bool dndEnabled READ dndEnabled WRITE setDndEnabled NOTIFY dndEnabledChanged)
+    Q_PROPERTY(bool vibrationEnabled READ vibrationEnabled WRITE setVibrationEnabled NOTIFY
+                   vibrationEnabledChanged)
+    Q_PROPERTY(
+        QString audioProfile READ audioProfile WRITE setAudioProfile NOTIFY audioProfileChanged)
 
     // Display properties
     Q_PROPERTY(
@@ -146,6 +151,15 @@ class SettingsManager : public QObject {
     qreal systemVolume() const {
         return m_systemVolume;
     }
+    bool dndEnabled() const {
+        return m_dndEnabled;
+    }
+    bool vibrationEnabled() const {
+        return m_vibrationEnabled;
+    }
+    QString audioProfile() const {
+        return m_audioProfile;
+    }
 
     // Display getters
     int screenTimeout() const {
@@ -240,6 +254,9 @@ class SettingsManager : public QObject {
     void setAlarmVolume(qreal volume);
     void setNotificationVolume(qreal volume);
     void setSystemVolume(qreal volume);
+    void setDndEnabled(bool enabled);
+    void setVibrationEnabled(bool enabled);
+    void setAudioProfile(const QString &profile);
 
     // Display setters
     void setScreenTimeout(int ms);
@@ -308,6 +325,9 @@ class SettingsManager : public QObject {
     void alarmVolumeChanged();
     void notificationVolumeChanged();
     void systemVolumeChanged();
+    void dndEnabledChanged();
+    void vibrationEnabledChanged();
+    void audioProfileChanged();
 
     // Display signals
     void screenTimeoutChanged();
@@ -368,6 +388,9 @@ class SettingsManager : public QObject {
     qreal   m_alarmVolume;
     qreal   m_notificationVolume;
     qreal   m_systemVolume;
+    bool    m_dndEnabled;
+    bool    m_vibrationEnabled;
+    QString m_audioProfile;
 
     // Display members
     int     m_screenTimeout;
