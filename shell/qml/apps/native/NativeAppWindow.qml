@@ -96,7 +96,7 @@ MApp {
                 }
 
                 Icon {
-                    name: "grid"
+                    name: "grid-3x3"
                     size: 128
                     color: MColors.textTertiary
                     anchors.horizontalCenter: parent.horizontalCenter

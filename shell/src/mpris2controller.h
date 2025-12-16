@@ -131,6 +131,9 @@ class MPRIS2Controller : public QObject {
     void updateMetadata();
     void updatePosition();
     void updateCapabilities();
+    void onPropertiesChanged(const QString &interfaceName, const QVariantMap &changedProperties,
+                             const QStringList &invalidatedProperties);
+    void onNameOwnerChanged(const QString &name, const QString &oldOwner, const QString &newOwner);
     void onDBusServiceRegistered(const QString &serviceName);
     void onDBusServiceUnregistered(const QString &serviceName);
 

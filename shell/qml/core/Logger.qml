@@ -12,8 +12,9 @@ QtObject {
         ERROR = 3
     }
 
-    // Set to INFO level by default so we can see important logs
-    property int currentLevel: Logger.Level.INFO
+    // Default to WARN in production; allow full verbosity in debug.
+    // This keeps the core experience quiet + fast on low-end devices.
+    property int currentLevel: Constants.debugMode ? Logger.Level.DEBUG : Logger.Level.WARN
 
     function debug(component, message) {
         if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
@@ -22,7 +23,7 @@ QtObject {
     }
 
     function info(component, message) {
-        if (currentLevel <= Logger.Level.INFO) {
+        if (currentLevel <= Logger.Level.INFO && Constants.debugMode) {
             console.log("[INFO]", component + ":", message);
         }
     }
@@ -46,13 +47,13 @@ QtObject {
     }
 
     function state(component, from, to) {
-        if (currentLevel <= Logger.Level.INFO) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
             console.log("[STATE]", component + ":", from, "→", to);
         }
     }
 
     function nav(from, to, method) {
-        if (currentLevel <= Logger.Level.INFO) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
             console.log("[NAV]", from, "→", to, "(" + method + ")");
         }
     }

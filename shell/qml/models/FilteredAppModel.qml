@@ -27,7 +27,7 @@ Item {
     // Debounce timer to prevent "thundering herd" updates
     Timer {
         id: debounceTimer
-        interval: 10
+        interval: 50
         repeat: false
         onTriggered: filteredModel.rebuildFilteredList()
     }

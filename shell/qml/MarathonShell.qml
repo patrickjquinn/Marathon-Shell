@@ -732,6 +732,10 @@ Item {
             HapticService.light();
         }
         onSwipeLeft: {
+            // Never page-navigate while an app/settings is open.
+            if (UIStore.appWindowOpen || UIStore.settingsOpen)
+                return;
+
             if (pageView.currentIndex < pageView.count - 1) {
                 pageView.incrementCurrentIndex();
                 Router.navigateLeft();
@@ -744,6 +748,10 @@ Item {
                 if (handled)
                     return;
             }
+            // Never page-navigate while an app/settings is open.
+            if (UIStore.appWindowOpen || UIStore.settingsOpen)
+                return;
+
             // Otherwise, navigate pages
             if (pageView.currentIndex > 0) {
                 pageView.decrementCurrentIndex();

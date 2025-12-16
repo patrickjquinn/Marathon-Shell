@@ -61,7 +61,8 @@ Rectangle {
                     Logger.info("MediaPlayback", "Launching app: " + appId);
                     AppLaunchService.launchApp(appId);
                 } else {
-                    Logger.warn("MediaPlayback", "No desktop entry found for player");
+                    // DesktopEntry is optional in MPRIS; don't spam warnings if missing.
+                    Logger.debug("MediaPlayback", "No desktop entry found for player");
                 }
             }
         }
@@ -163,7 +164,9 @@ Rectangle {
                 buttonSize: Constants.touchTargetMinimum
                 iconName: mediaManager.isPlaying ? "pause" : "play"
                 variant: "primary"
-                enabled: mediaManager.hasMedia && MPRIS2Controller && (MPRIS2Controller.canPlay || MPRIS2Controller.canPause)
+                // Some players incorrectly report CanPlay/CanPause; PlayPause is still valid.
+                // Keep the control usable whenever we have an active player.
+                enabled: mediaManager.hasMedia && MPRIS2Controller
 
                 onClicked: {
                     if (MPRIS2Controller) {

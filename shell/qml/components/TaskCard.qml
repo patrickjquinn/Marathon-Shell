@@ -24,6 +24,8 @@ Item {
     property bool taskSwitcherVisible: true
     property bool gridMoving: false
     property bool gridDragging: false
+    // Prevent "tap to open" from firing when the user is actually hitting the close button.
+    property bool suppressTapOpen: false
 
     // Signals
     signal closed
@@ -76,8 +78,9 @@ Item {
             }
         }
 
-        // TAP AREA - CRITICAL: Don't accept events so GridView receives them for scrolling
-        // Use propagateComposedEvents to still track taps
+        // TAP AREA
+        // Accept the press so the parent horizontal PageView doesn't treat taps as page flicks.
+        // We still allow the GridView/Flickable to steal on real drags (preventStealing: false).
         MouseArea {
             id: previewTapArea
 
@@ -94,15 +97,15 @@ Item {
                 pressX = mouse.x;
                 pressY = mouse.y;
                 pressTime = Date.now();
-                // CRITICAL: Don't accept - let parent GridView receive for scrolling
-                mouse.accepted = false;
+                mouse.accepted = true;
             }
             onReleased: mouse => {
                 var deltaTime = Date.now() - pressTime;
                 var deltaX = Math.abs(mouse.x - pressX);
                 var deltaY = Math.abs(mouse.y - pressY);
                 // Only trigger tap if quick press without movement (not stolen by GridView)
-                if (deltaTime < 300 && deltaX < 15 && deltaY < 15) {
+                if (!taskCard.suppressTapOpen && deltaTime < 300 && deltaX < 15 && deltaY < 15) {
+                    mouse.accepted = true;
                     Logger.info("TaskCard", "TAP on preview - Opening: " + taskCard.appId);
                     var appId = taskCard.appId;
                     var appTitle = taskCard.title;
@@ -382,7 +385,9 @@ Item {
             color: MColors.surface
             radius: 0
 
-            // Handle tap area - CRITICAL: Don't accept events so GridView receives them
+            // Handle tap area
+            // NOTE: This MouseArea covers the whole banner, so it must NOT steal clicks on the
+            // close button. If it does, you get "maximize" (tap-to-open) instead of close.
             MouseArea {
                 id: handleTapArea
 
@@ -393,20 +398,29 @@ Item {
                 anchors.fill: parent
                 z: 50
                 preventStealing: false
-                propagateComposedEvents: true
+                // Don't receive composed events from the close button's MouseArea.
+                // Otherwise a close click also triggers this handler's tap-to-open logic.
+                propagateComposedEvents: false
                 onPressed: mouse => {
+                    // If the press is on the close button, don't accept it so closeButtonArea
+                    // receives the click.
+                    var p = closeButtonRect.mapToItem(handleTapArea, 0, 0);
+                    if (mouse.x >= p.x && mouse.x <= p.x + closeButtonRect.width && mouse.y >= p.y && mouse.y <= p.y + closeButtonRect.height) {
+                        mouse.accepted = false;
+                        return;
+                    }
                     pressX = mouse.x;
                     pressY = mouse.y;
                     pressTime = Date.now();
-                    // CRITICAL: Don't accept - let parent GridView receive for scrolling
-                    mouse.accepted = false;
+                    mouse.accepted = true;
                 }
                 onReleased: mouse => {
                     var deltaTime = Date.now() - pressTime;
                     var deltaX = Math.abs(mouse.x - pressX);
                     var deltaY = Math.abs(mouse.y - pressY);
                     // Only trigger tap if quick press without movement
-                    if (deltaTime < 300 && deltaX < 15 && deltaY < 15) {
+                    if (!taskCard.suppressTapOpen && deltaTime < 300 && deltaX < 15 && deltaY < 15) {
+                        mouse.accepted = true;
                         Logger.info("TaskCard", "TAP on handle - Opening: " + taskCard.appId);
                         var appId = taskCard.appId;
                         var appTitle = taskCard.title;
@@ -493,10 +507,23 @@ Item {
                             anchors.margins: -12
                             z: 1000
                             preventStealing: true
+                            onPressed: mouse => {
+                                // Ensure this interaction doesn't also open/restore the app.
+                                taskCard.suppressTapOpen = true;
+                                mouse.accepted = true;
+                            }
                             onClicked: mouse => {
                                 Logger.info("TaskCard", "Closing task via button: " + taskCard.appId);
                                 mouse.accepted = true;
                                 closeAnimation.start();
+                            }
+                            onReleased: mouse => {
+                                // Clear after the click sequence completes.
+                                taskCard.suppressTapOpen = false;
+                                mouse.accepted = true;
+                            }
+                            onCanceled: {
+                                taskCard.suppressTapOpen = false;
                             }
                         }
                     }

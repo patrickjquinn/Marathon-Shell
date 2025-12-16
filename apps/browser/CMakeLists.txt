@@ -2,16 +2,10 @@
 
 set(APP_NAME browser)
 
-file(GLOB_RECURSE QML_FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
-)
+file(GLOB_RECURSE QML_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.qml")
 
 # C++ sources for browser plugin (future)
-set(SOURCES
-    # Future: src/browserengine.cpp
-    # Future: src/downloadmanager.cpp
-    # Future: src/bookmarkmanager.cpp
-)
+set(SOURCES src/BrowserData.cpp src/BrowserData.h)
 
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Browser"

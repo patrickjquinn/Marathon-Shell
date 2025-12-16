@@ -12,13 +12,28 @@ MApp {
     appName: "Browser"
     appIcon: "assets/icon.svg"
 
+    // Tell the shell whether “system back/forward” should be routed into the web history.
+    // This is what AppLifecycleManager.handleSystemBack/Forward consults via MApp.handleBack/Forward.
+    canNavigateBack: {
+        var t = getCurrentTab();
+        return t ? (t.canGoBack === true) : false;
+    }
+    canNavigateForward: {
+        var t = getCurrentTab();
+        return t ? (t.canGoForward === true) : false;
+    }
+
     property alias tabs: tabsModel
     property int currentTabIndex: 0
     property int nextTabId: 1
-    readonly property int maxTabs: 20
-
-    property var backConnection: null
-    property var forwardConnection: null
+    readonly property int maxTabs: {
+        if (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) {
+            var v = parseInt(SettingsManagerCpp.get("browser/maxTabs", "12"));
+            if (!isNaN(v) && v > 0)
+                return v;
+        }
+        return 12;
+    }
 
     property var bookmarks: []
     property var history: []
@@ -28,6 +43,36 @@ MApp {
     }
 
     property bool isPrivateMode: false
+    property bool isAppActive: true
+    property var tabViewsById: ({}) // tabId(string) -> WebView
+
+    // Explicit profiles so we can do “real tabs” but still manage resources sanely.
+    WebEngineProfile {
+        id: normalProfile
+        httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+
+        // Qt 6.9: property initialization order during QML construction can momentarily leave
+        // storageName empty while disk-based options are applied, producing:
+        //   "Storage name is empty... Switching to disk-based behavior"
+        // Initialize in onCompleted to ensure storageName is set before disk-based behavior.
+        Component.onCompleted: {
+            storageName = "normal";
+            offTheRecord = false;
+            httpCacheType = WebEngineProfile.DiskHttpCache;
+            persistentCookiesPolicy = WebEngineProfile.AllowPersistentCookies;
+        }
+    }
+
+    WebEngineProfile {
+        id: privateProfile
+        httpUserAgent: normalProfile.httpUserAgent
+
+        Component.onCompleted: {
+            offTheRecord = true;
+            httpCacheType = WebEngineProfile.MemoryHttpCache;
+            persistentCookiesPolicy = WebEngineProfile.NoPersistentCookies;
+        }
+    }
 
     property real drawerProgress: 0
     property bool isDrawerOpen: false
@@ -36,14 +81,18 @@ MApp {
     // Reference to drawer component (set after drawer is created)
     property var drawerRef: null
 
-    property var lastLoadedUrl: ""
-    property int consecutiveLoadAttempts: 0
-    property var lastLoadTime: 0
-    readonly property int maxConsecutiveLoads: 3
-    readonly property int loadCooldownMs: 2000
-
     property var webView: null
     property bool updatingTabUrl: false
+    // content: Rectangle { ... } is its own component boundary in Qt6; keep refs for cross-scope access.
+    property var urlInputRef: null
+
+    // Address bar UX state
+    property bool isEditingAddress: false
+    property string addressEditText: ""
+
+    ListModel {
+        id: addressSuggestions
+    }
 
     // Search Engine Settings
     property string searchEngineName: "DuckDuckGo"
@@ -55,19 +104,56 @@ MApp {
     }
 
     function updateCurrentWebView() {
-        // webViewStack is defined later, but we can access it by id if it's in scope
-        // However, accessing children of StackLayout/Repeater dynamically can be tricky.
-        // The Repeater creates items. StackLayout manages them.
-        // webViewStack.children[i] corresponds to the item created by Repeater.
-
-        if (typeof webViewStack !== "undefined" && webViewStack.children.length > currentTabIndex && currentTabIndex >= 0) {
-            // The children of StackLayout include the Repeater (which is not a visual item in the layout sense usually, but here it creates children)
-            // Actually, Repeater inside StackLayout adds its delegates as children of StackLayout.
-            // So webViewStack.children[currentTabIndex] should be the WebEngineView.
-            webView = webViewStack.children[currentTabIndex];
-        } else {
-            webView = null;
+        var currentTab = getCurrentTab();
+        if (currentTab) {
+            var key = "" + currentTab.tabId;
+            var view = tabViewsById[key];
+            if (view) {
+                webView = view;
+                return;
+            }
         }
+        webView = null;
+    }
+
+    function currentWebView() {
+        if (webView)
+            return webView;
+        var currentTab = getCurrentTab();
+        if (!currentTab)
+            return null;
+        return tabViewsById["" + currentTab.tabId] || null;
+    }
+
+    function setPrivateMode(enabled) {
+        if (isPrivateMode === enabled)
+            return;
+
+        var wasPrivate = isPrivateMode;
+
+        // Preserve normal tabs on disk before entering private mode.
+        if (!wasPrivate && enabled) {
+            saveTabs();
+        }
+
+        closeDrawer();
+
+        // Keep “real tabs” behavior, but don’t mix profiles across a live session.
+        // Switching mode resets the in-memory tab set.
+        // Clear tabs BEFORE toggling isPrivateMode to avoid switching WebEngineProfile on live WebViews.
+        tabs.clear();
+        nextTabId = 1;
+        currentTabIndex = 0;
+
+        isPrivateMode = enabled;
+        if (enabled) {
+            createNewTab(homepageUrl);
+        } else {
+            loadTabs();
+            if (tabs.count === 0)
+                createNewTab(homepageUrl);
+        }
+        Qt.callLater(updateCurrentWebView);
     }
 
     onAppLaunched: {
@@ -76,6 +162,7 @@ MApp {
 
     onAppResumed: {
         Logger.warn("Browser", "Browser app resumed");
+        isAppActive = true;
     }
 
     Component.onCompleted: {
@@ -92,6 +179,10 @@ MApp {
 
         // Defer to ensure children are created
         Qt.callLater(updateCurrentWebView);
+        Qt.callLater(function () {
+            browserApp._syncAddressBarFromCurrentTab();
+            browserApp.focusAddressBar(true);
+        });
     }
 
     function handleBack() {
@@ -100,14 +191,29 @@ MApp {
             return true;
         }
 
-        if (webView && webView.canGoBack) {
-            webView.goBack();
+        var view = currentWebView();
+        if (view && view.canGoBack) {
+            view.goBack();
             return true;
         }
 
         // Default behavior (minimize)
         minimizeRequested();
         return true;
+    }
+
+    // Match Settings behavior: consume nav-bar swipe back/forward for in-app history
+    Connections {
+        target: browserApp
+        function onBackPressed() {
+            browserApp.handleBack();
+        }
+        function onForwardPressed() {
+            var view = browserApp.currentWebView();
+            if (view && view.canGoForward) {
+                view.goForward();
+            }
+        }
     }
 
     function loadBookmarks() {
@@ -276,7 +382,11 @@ MApp {
                                 isLoading: false,
                                 canGoBack: false,
                                 canGoForward: false,
-                                loadProgress: 0
+                                loadProgress: 0,
+                                isCrashed: false,
+                                isNewTab: false,
+                                crashCount: 0,
+                                lastCrashAt: 0
                             });
                             if (tab.id > maxId) {
                                 maxId = tab.id;
@@ -292,6 +402,8 @@ MApp {
     }
 
     function saveTabs() {
+        if (isPrivateMode)
+            return;
         if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
             var tabsArray = [];
             for (var i = 0; i < tabs.count; i++) {
@@ -319,14 +431,22 @@ MApp {
             isLoading: false,
             canGoBack: false,
             canGoForward: false,
-            loadProgress: 0
+            loadProgress: 0,
+            isCrashed: false,
+            isNewTab: true,
+            crashCount: 0,
+            lastCrashAt: 0
         };
 
         tabs.append(newTab);
-        saveTabs();
+        if (!isPrivateMode)
+            saveTabs();
 
         Logger.info("BrowserApp", "Created new tab: " + newTab.tabId);
         switchToTab(newTab.tabId);
+        Qt.callLater(function () {
+            browserApp.focusAddressBar(true);
+        });
         return newTab.tabId;
     }
 
@@ -336,15 +456,16 @@ MApp {
                 var wasCurrent = (i === currentTabIndex);
 
                 // Safely stop the WebEngineView before removal to prevent crashes
-                if (typeof webViewStack !== "undefined" && webViewStack.children.length > i) {
-                    var viewToRemove = webViewStack.children[i];
-                    if (viewToRemove) {
+                var viewToRemove = browserApp.tabViewsById["" + tabId];
+                if (viewToRemove) {
+                    try {
+                        // Encourage WebEngine to drop resources for this tab before we destroy the view.
                         try {
-                            viewToRemove.stop();
-                            viewToRemove.url = "about:blank";
-                        } catch (e) {
-                            Logger.warn("BrowserApp", "Error stopping view: " + e);
-                        }
+                            viewToRemove.lifecycleState = WebEngineView.LifecycleState.Discarded;
+                        } catch (e) {}
+                        viewToRemove.stop();
+                    } catch (e) {
+                        Logger.warn("BrowserApp", "Error stopping view: " + e);
                     }
                 }
 
@@ -373,7 +494,8 @@ MApp {
                     }
                 }
 
-                saveTabs();
+                if (!isPrivateMode)
+                    saveTabs();
                 Logger.info("BrowserApp", "Closed tab: " + tabId);
                 return;
             }
@@ -413,8 +535,9 @@ MApp {
             var url = bookmarks[i].url.toLowerCase();
             // Strip protocol for matching
             var cleanUrl = url.replace("https://", "").replace("http://", "").replace("www.", "");
-            if (cleanUrl.startsWith(partialText)) {
-                return cleanUrl;
+            var hostOnly = cleanUrl.split("/")[0];
+            if (hostOnly.startsWith(partialText)) {
+                return hostOnly;
             }
         }
 
@@ -422,16 +545,81 @@ MApp {
         for (var j = 0; j < history.length; j++) {
             var hUrl = history[j].url.toLowerCase();
             var hCleanUrl = hUrl.replace("https://", "").replace("http://", "").replace("www.", "");
-            if (hCleanUrl.startsWith(partialText)) {
-                return hCleanUrl;
+            var hHostOnly = hCleanUrl.split("/")[0];
+            if (hHostOnly.startsWith(partialText)) {
+                return hHostOnly;
             }
         }
 
         return "";
     }
 
+    function _clearAddressSuggestions() {
+        addressSuggestions.clear();
+    }
+
+    function _addSuggestion(kind, display, value) {
+        addressSuggestions.append({
+            kind: kind,
+            display: display,
+            value: value
+        });
+    }
+
+    function _rebuildAddressSuggestions(queryText) {
+        addressSuggestions.clear();
+
+        var q = (queryText || "").trim();
+        if (!q)
+            return;
+
+        var lower = q.toLowerCase();
+        var looksLikeUrl = (q.indexOf(".") !== -1 && q.indexOf(" ") === -1) || lower.startsWith("http://") || lower.startsWith("https://");
+
+        if (looksLikeUrl) {
+            var goUrl = q;
+            if (!(lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("about:"))) {
+                goUrl = "https://" + q;
+            }
+            _addSuggestion("go", "Go to " + goUrl, goUrl);
+        }
+
+        _addSuggestion("search", "Search " + searchEngineName + " for \"" + q + "\"", q);
+
+        // Simple ranked matches: bookmarks then history, host-prefix first.
+        var seen = ({});
+        function addUrlSuggestion(kind, url, title) {
+            if (!url)
+                return;
+            if (seen[url])
+                return;
+            seen[url] = true;
+            _addSuggestion(kind, title ? (title + " — " + url) : url, url);
+        }
+
+        for (var i = 0; i < bookmarks.length; i++) {
+            var bUrl = bookmarks[i].url || "";
+            var bTitle = bookmarks[i].title || "";
+            if (bUrl.toLowerCase().indexOf(lower) !== -1 || bTitle.toLowerCase().indexOf(lower) !== -1) {
+                addUrlSuggestion("bookmark", bUrl, bTitle);
+                if (addressSuggestions.count >= 8)
+                    return;
+            }
+        }
+
+        for (var j = 0; j < history.length; j++) {
+            var hUrl = history[j].url || "";
+            var hTitle = history[j].title || "";
+            if (hUrl.toLowerCase().indexOf(lower) !== -1 || hTitle.toLowerCase().indexOf(lower) !== -1) {
+                addUrlSuggestion("history", hUrl, hTitle);
+                if (addressSuggestions.count >= 8)
+                    return;
+            }
+        }
+    }
+
     function navigateTo(url) {
-        Logger.warn("Browser", "navigateTo called with: " + url);
+        Logger.debug("Browser", "navigateTo called with: " + url);
         if (!url)
             return;
 
@@ -450,29 +638,40 @@ MApp {
             }
         }
 
+        // Only allow http/https/about at the point of navigation.
+        var finalLower = finalUrl.toLowerCase();
+        if (!(finalLower.startsWith("http://") || finalLower.startsWith("https://") || finalLower.startsWith("about:"))) {
+            Logger.warn("BrowserApp", "Blocked unsupported URL: " + finalUrl);
+            return;
+        }
+
         updatingTabUrl = true;
         tabs.setProperty(currentTabIndex, "url", finalUrl);
         tabs.setProperty(currentTabIndex, "isLoading", true);
         tabs.setProperty(currentTabIndex, "loadProgress", 10);
+        tabs.setProperty(currentTabIndex, "isNewTab", false);
         updatingTabUrl = false;
     }
 
-    property string pendingUrl: ""
+    function _syncAddressBarFromCurrentTab() {
+        var u = browserApp.urlInputRef;
+        if (!u)
+            return;
+        if (u.activeFocus)
+            return;
+        var currentTab = getCurrentTab();
+        u.text = currentTab ? currentTab.url : "";
+    }
 
-    Timer {
-        id: cleanupTimer
-        interval: 300 // Increased to 300ms for better stability
-        repeat: false
-        onTriggered: {
-            if (webView && pendingUrl) {
-                Logger.warn("Browser", "Executing delayed navigation to: " + pendingUrl);
-                gc(); // Force Garbage Collection before new load
-                webView.url = pendingUrl;
-                Qt.callLater(function () {
-                    updatingTabUrl = false;
-                });
-            }
-        }
+    function focusAddressBar(selectAllText) {
+        var u = browserApp.urlInputRef;
+        if (!u)
+            return;
+        Qt.callLater(function () {
+            u.forceActiveFocus();
+            if (selectAllText)
+                u.selectAll();
+        });
     }
 
     function openDrawer() {
@@ -486,6 +685,7 @@ MApp {
     }
 
     content: Rectangle {
+        id: rootContent
         anchors.fill: parent
         color: MColors.background
 
@@ -505,132 +705,194 @@ MApp {
                     currentIndex: currentTabIndex
 
                     Repeater {
-                        model: tabs
+                        id: tabsRepeater
+                        model: browserApp.tabs
 
-                        WebEngineView {
-                            id: webView
+                        // Wrapper to avoid ListModel role name collisions with WebEngineView properties
+                        // (e.g. role 'url' vs WebEngineView.url).
+                        Item {
+                            id: tabDelegate
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
 
-                            // Bind URL to model using model.url
-                            url: model.url
+                            required property int index
+                            required property int tabId
+                            required property string url
+                            required property bool isCrashed
 
-                            zoomFactor: 1.0
+                            WebView {
+                                id: webView
+                                anchors.fill: parent
 
-                            // Use default profile for stability
-                            // profile.httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                                // Bind URL to model role
+                                url: tabDelegate.url
 
-                            settings.accelerated2dCanvasEnabled: false
-                            settings.webGLEnabled: false
-                            settings.pluginsEnabled: false
-                            settings.fullScreenSupportEnabled: true
-                            settings.allowRunningInsecureContent: false
-                            settings.javascriptEnabled: true
-                            settings.javascriptCanOpenWindows: false
-                            settings.javascriptCanAccessClipboard: false
-                            settings.localStorageEnabled: !isPrivateMode
-                            settings.localContentCanAccessRemoteUrls: false
-                            settings.spatialNavigationEnabled: false
-                            settings.touchIconsEnabled: false
-                            settings.focusOnNavigationEnabled: true
-                            settings.playbackRequiresUserGesture: true
-                            settings.webRTCPublicInterfacesOnly: true
-                            settings.dnsPrefetchEnabled: false
-                            settings.showScrollBars: false
+                                profile: isPrivateMode ? privateProfile : normalProfile
+                                // Only freeze *background* tabs. QtWebEngine refuses to freeze a visible page.
+                                // (We still render the current tab even when the drawer is open.)
+                                active: isAppActive && (tabDelegate.index === currentTabIndex)
+                                crashed: !!tabDelegate.isCrashed
 
-                            // Use NoCache for maximum stability (prevents OOM)
-                            profile.httpCacheType: WebEngineProfile.NoCache
-                            profile.persistentCookiesPolicy: WebEngineProfile.NoPersistentCookies
-
-                            // Handle render process crashes gracefully
-                            onRenderProcessTerminated: function (terminationStatus, exitCode) {
-                                var status = "";
-                                switch (terminationStatus) {
-                                case WebEngineView.NormalTerminationStatus:
-                                    status = "Normal";
-                                    break;
-                                case WebEngineView.AbnormalTerminationStatus:
-                                    status = "Abnormal";
-                                    break;
-                                case WebEngineView.CrashedTerminationStatus:
-                                    status = "Crashed";
-                                    break;
-                                case WebEngineView.KilledTerminationStatus:
-                                    status = "Killed";
-                                    break;
+                                Component.onCompleted: {
+                                    browserApp.tabViewsById["" + tabDelegate.tabId] = webView;
+                                    if (tabDelegate.index === browserApp.currentTabIndex)
+                                        browserApp.webView = webView;
                                 }
-                                Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")");
 
-                                // Try to reload or show error
-                                if (terminationStatus !== WebEngineView.NormalTerminationStatus) {
-                                    Logger.warn("Browser", "Reloading due to crash...");
-                                    Qt.callLater(function () {
-                                        webView.reload();
-                                    });
+                                Component.onDestruction: {
+                                    delete browserApp.tabViewsById["" + tabDelegate.tabId];
+                                    if (browserApp.webView === webView)
+                                        browserApp.webView = null;
                                 }
-                            }
 
-                            onUrlChanged: {
-                                if (updatingTabUrl)
-                                    return;
-
-                                // Update model when URL changes (navigation)
-                                if (index >= 0 && index < tabs.count) {
-                                    if (tabs.get(index).url !== url.toString()) {
-                                        tabs.setProperty(index, "url", url.toString());
-                                    }
-                                }
-                            }
-
-                            onTitleChanged: {
-                                if (index >= 0 && index < tabs.count) {
-                                    if (tabs.get(index).title !== title) {
-                                        tabs.setProperty(index, "title", title);
-
-                                        if (!isPrivateMode) {
-                                            addToHistory(url.toString(), title);
+                                onCrashedChanged: {
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        if (browserApp.tabs.get(tabDelegate.index).isCrashed !== crashed) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", crashed);
                                         }
                                     }
                                 }
-                            }
 
-                            onLoadingChanged: function (loadRequest) {
-                                if (index >= 0 && index < tabs.count) {
-                                    var isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
-                                    tabs.setProperty(index, "isLoading", isLoading);
+                                // Handle render process crashes gracefully
+                                onRenderProcessTerminated: function (terminationStatus, exitCode) {
+                                    var status = "";
+                                    switch (terminationStatus) {
+                                    case WebEngineView.NormalTerminationStatus:
+                                        status = "Normal";
+                                        break;
+                                    case WebEngineView.AbnormalTerminationStatus:
+                                        status = "Abnormal";
+                                        break;
+                                    case WebEngineView.CrashedTerminationStatus:
+                                        status = "Crashed";
+                                        break;
+                                    case WebEngineView.KilledTerminationStatus:
+                                        status = "Killed";
+                                        break;
+                                    }
+                                    Logger.error("Browser", "Render process terminated: " + status + " (Code: " + exitCode + ")");
 
-                                    if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
-                                        tabs.setProperty(index, "title", title);
-                                        if (!isPrivateMode) {
-                                            addToHistory(url.toString(), title);
+                                    if (terminationStatus !== WebEngineView.NormalTerminationStatus) {
+                                        if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "crashCount", (browserApp.tabs.get(tabDelegate.index).crashCount || 0) + 1);
+                                            browserApp.tabs.setProperty(tabDelegate.index, "lastCrashAt", Date.now());
+                                            browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", true);
                                         }
-                                        consecutiveLoadAttempts = 0;
-                                    }
-
-                                    if (loadRequest.status === WebEngineView.LoadFailedStatus)
-                                    // Handle failure
-                                    {}
-                                }
-                            }
-
-                            onCanGoBackChanged: {
-                                if (index >= 0 && index < tabs.count) {
-                                    if (tabs.get(index).canGoBack !== canGoBack) {
-                                        tabs.setProperty(index, "canGoBack", canGoBack);
+                                        crashed = true;
                                     }
                                 }
-                            }
 
-                            onCanGoForwardChanged: {
-                                if (index >= 0 && index < tabs.count) {
-                                    if (tabs.get(index).canGoForward !== canGoForward) {
-                                        tabs.setProperty(index, "canGoForward", canGoForward);
+                                onNewWindowRequested: request => {
+                                    if (!request)
+                                        return;
+
+                                    // Stability-first: treat new window as “open URL in new tab”.
+                                    // Avoid deferring request.openIn(...) across delegate lifetimes; it can destabilize tab close.
+                                    var reqUrl = request.requestedUrl ? request.requestedUrl.toString() : "";
+                                    if (reqUrl) {
+                                        // Create and switch to the new tab using requestedUrl.
+                                        createNewTab(reqUrl);
+                                    } else {
+                                        createNewTab("about:blank");
                                     }
                                 }
-                            }
 
-                            onLoadProgressChanged: {
-                                if (index >= 0 && index < tabs.count) {
-                                    if (tabs.get(index).loadProgress !== loadProgress) {
-                                        tabs.setProperty(index, "loadProgress", loadProgress);
+                                onNavigationRequested: request => {
+                                    if (!request)
+                                        return;
+                                    var u = request.url.toString();
+                                    var lu = u.toLowerCase();
+                                    if (!(lu.startsWith("http://") || lu.startsWith("https://") || lu.startsWith("about:"))) {
+                                        Logger.warn("BrowserApp", "Blocked navigation to unsupported scheme: " + u);
+                                        request.reject();
+                                        return;
+                                    }
+                                    request.accept();
+                                }
+
+                                onCertificateError: error => {
+                                    // Security-first default: do not allow TLS bypass without an explicit UI.
+                                    Logger.warn("BrowserApp", "TLS certificate error for " + error.url + " (" + error.type + "): " + error.description);
+                                    error.rejectCertificate();
+                                }
+
+                                onFeaturePermissionRequested: (securityOrigin, feature) => {
+                                    // Security-first default: deny. (We can add a prompt UI later.)
+                                    Logger.info("BrowserApp", "Feature permission requested (" + feature + ") for " + securityOrigin);
+                                    webView.grantFeaturePermission(securityOrigin, feature, false);
+                                }
+
+                                onFullScreenRequested: request => {
+                                    request.accept();
+                                }
+
+                                onUrlChanged: {
+                                    if (updatingTabUrl)
+                                        return;
+
+                                    // Update model when URL changes (navigation)
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        if (browserApp.tabs.get(tabDelegate.index).url !== url.toString()) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "url", url.toString());
+                                        }
+                                    }
+                                    if (tabDelegate.index === browserApp.currentTabIndex)
+                                        browserApp._syncAddressBarFromCurrentTab();
+                                }
+
+                                onTitleChanged: {
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        if (browserApp.tabs.get(tabDelegate.index).title !== title) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "title", title);
+
+                                            if (!isPrivateMode) {
+                                                addToHistory(url.toString(), title);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                onLoadingChanged: function (loadRequest) {
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        var isLoading = (loadRequest.status === WebEngineView.LoadStartedStatus);
+                                        browserApp.tabs.setProperty(tabDelegate.index, "isLoading", isLoading);
+
+                                        if (loadRequest.status === WebEngineView.LoadSucceededStatus) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "title", title);
+                                            if (!isPrivateMode) {
+                                                addToHistory(url.toString(), title);
+                                            }
+                                            if (browserApp.tabs.get(tabDelegate.index).isCrashed)
+                                                browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", false);
+                                        }
+
+                                        if (loadRequest.status === WebEngineView.LoadFailedStatus)
+                                        // Handle failure
+                                        {}
+                                    }
+                                }
+
+                                onCanGoBackChanged: {
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        if (browserApp.tabs.get(tabDelegate.index).canGoBack !== canGoBack) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "canGoBack", canGoBack);
+                                        }
+                                    }
+                                }
+
+                                onCanGoForwardChanged: {
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        if (browserApp.tabs.get(tabDelegate.index).canGoForward !== canGoForward) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "canGoForward", canGoForward);
+                                        }
+                                    }
+                                }
+
+                                onLoadProgressChanged: {
+                                    if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
+                                        if (browserApp.tabs.get(tabDelegate.index).loadProgress !== loadProgress) {
+                                            browserApp.tabs.setProperty(tabDelegate.index, "loadProgress", loadProgress);
+                                        }
                                     }
                                 }
                             }
@@ -748,8 +1010,9 @@ MApp {
                             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: {
                                 HapticService.light();
-                                if (webView && webView.canGoBack) {
-                                    webView.goBack();
+                                var view = browserApp.currentWebView();
+                                if (view && view.canGoBack) {
+                                    view.goBack();
                                 }
                             }
                         }
@@ -778,8 +1041,9 @@ MApp {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 HapticService.light();
-                                if (webView && webView.canGoForward) {
-                                    webView.goForward();
+                                var view = browserApp.currentWebView();
+                                if (view && view.canGoForward) {
+                                    view.goForward();
                                 }
                             }
                         }
@@ -813,10 +1077,13 @@ MApp {
                             selectionColor: MColors.accent
                             clip: true
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoAutoUppercase
-                            text: {
-                                var currentTab = getCurrentTab();
-                                return currentTab ? currentTab.url : "";
-                            }
+                            // Inline autocomplete state
+                            property bool inlineCompletionActive: false
+                            property string inlineTypedPrefix: ""
+                            property bool suppressAutocompleteOnce: false
+                            property bool lastEditWasDeletion: false
+                            property bool applyingAutocomplete: false
+                            property bool userTypedSinceFocus: false
 
                             Connections {
                                 target: browserApp
@@ -843,37 +1110,138 @@ MApp {
                                 }
                                 function onCurrentTabIndexChanged() {
                                     var currentTab = getCurrentTab();
-                                    if (currentTab) {
-                                        urlInput.text = currentTab.url;
+                                    if (!urlInput.activeFocus) {
+                                        urlInput.text = currentTab ? currentTab.url : "";
+                                    }
+                                    browserApp._syncAddressBarFromCurrentTab();
+                                    if (currentTab && currentTab.isNewTab) {
+                                        browserApp.focusAddressBar(true);
                                     }
                                 }
                             }
 
                             onActiveFocusChanged: {
                                 if (activeFocus) {
+                                    browserApp.isEditingAddress = true;
+                                    urlInput.userTypedSinceFocus = false;
+                                    var currentTab = getCurrentTab();
+                                    urlInput.text = currentTab ? currentTab.url : "";
                                     selectAll();
+                                    _clearAddressSuggestions();
+                                } else {
+                                    browserApp.isEditingAddress = false;
+                                    urlInput.inlineCompletionActive = false;
+                                    urlInput.inlineTypedPrefix = "";
+                                    urlInput.userTypedSinceFocus = false;
+                                    _clearAddressSuggestions();
+                                }
+                            }
+
+                            Component.onCompleted: {
+                                browserApp.urlInputRef = urlInput;
+                                browserApp._syncAddressBarFromCurrentTab();
+                            }
+
+                            Component.onDestruction: {
+                                if (browserApp.urlInputRef === urlInput)
+                                    browserApp.urlInputRef = null;
+                            }
+
+                            Keys.onPressed: event => {
+                                // Track deletion so we don’t re-autocomplete while backspacing.
+                                if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
+                                    urlInput.lastEditWasDeletion = true;
+
+                                    // If the suggested suffix is selected, backspace should remove *only* the suggestion.
+                                    if (urlInput.inlineCompletionActive && urlInput.text.startsWith(urlInput.inlineTypedPrefix)) {
+                                        var expectedStart = urlInput.inlineTypedPrefix.length;
+                                        if (selectionStart === expectedStart && selectionEnd === urlInput.text.length) {
+                                            event.accepted = true;
+                                            urlInput.suppressAutocompleteOnce = true;
+                                            urlInput.applyingAutocomplete = true;
+                                            urlInput.text = urlInput.inlineTypedPrefix;
+                                            urlInput.cursorPosition = urlInput.inlineTypedPrefix.length;
+                                            urlInput.deselect();
+                                            urlInput.inlineCompletionActive = false;
+                                            urlInput.applyingAutocomplete = false;
+                                            _rebuildAddressSuggestions(urlInput.text);
+                                            return;
+                                        }
+                                    }
+                                    return;
+                                }
+
+                                urlInput.lastEditWasDeletion = false;
+
+                                // Accept completion (Right/Tab) or cancel (Left/Escape)
+                                if (urlInput.inlineCompletionActive) {
+                                    if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
+                                        event.accepted = true;
+                                        urlInput.cursorPosition = urlInput.text.length;
+                                        urlInput.deselect();
+                                        urlInput.inlineCompletionActive = false;
+                                        urlInput.inlineTypedPrefix = "";
+                                        return;
+                                    }
+                                    if (event.key === Qt.Key_Left || event.key === Qt.Key_Escape) {
+                                        event.accepted = true;
+                                        urlInput.suppressAutocompleteOnce = true;
+                                        urlInput.applyingAutocomplete = true;
+                                        urlInput.text = urlInput.inlineTypedPrefix;
+                                        urlInput.cursorPosition = urlInput.inlineTypedPrefix.length;
+                                        urlInput.deselect();
+                                        urlInput.inlineCompletionActive = false;
+                                        urlInput.inlineTypedPrefix = "";
+                                        urlInput.applyingAutocomplete = false;
+                                        _rebuildAddressSuggestions(urlInput.text);
+                                        return;
+                                    }
                                 }
                             }
 
                             onTextEdited: {
-                                // Inline Autocomplete
-                                if (text.length >= 2) {
-                                    var match = findBestMatch(text);
-                                    if (match && match.length > text.length) {
-                                        var currentPos = cursorPosition;
-                                        var typedText = text;
+                                if (urlInput.applyingAutocomplete)
+                                    return;
 
-                                        // Append the rest of the match
-                                        text = match;
+                                urlInput.userTypedSinceFocus = true;
+                                _rebuildAddressSuggestions(text);
 
-                                        // Select the suggested part so typing replaces it
-                                        select(currentPos, text.length);
-                                    }
+                                if (urlInput.suppressAutocompleteOnce) {
+                                    urlInput.suppressAutocompleteOnce = false;
+                                    return;
+                                }
+
+                                // Inline completion rules (Chrome/Safari-like):
+                                // - only when inserting at end (caret at end, no selection)
+                                // - never while deleting
+                                // - never when empty/too short
+                                if (!activeFocus)
+                                    return;
+                                if (urlInput.lastEditWasDeletion)
+                                    return;
+                                if (cursorPosition !== text.length)
+                                    return;
+                                if (text.length < 2)
+                                    return;
+
+                                var match = findBestMatch(text);
+                                if (match && match.length > text.length) {
+                                    var currentPos = cursorPosition;
+                                    urlInput.inlineTypedPrefix = text;
+                                    urlInput.inlineCompletionActive = true;
+                                    urlInput.applyingAutocomplete = true;
+                                    urlInput.text = match;
+                                    urlInput.select(currentPos, urlInput.text.length);
+                                    urlInput.applyingAutocomplete = false;
                                 }
                             }
 
                             onAccepted: {
                                 focus = false;
+                                urlInput.inlineCompletionActive = false;
+                                urlInput.inlineTypedPrefix = "";
+                                urlInput.userTypedSinceFocus = false;
+                                _clearAddressSuggestions();
                                 navigateTo(text);
                             }
 
@@ -985,13 +1353,22 @@ MApp {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         HapticService.light();
-                                        if (webView) {
-                                            var currentTab = getCurrentTab();
-                                            if (currentTab && currentTab.isLoading) {
-                                                webView.stop();
-                                            } else {
-                                                webView.reload();
-                                            }
+                                        var view = browserApp.currentWebView();
+                                        if (!view) {
+                                            Logger.warn("BrowserApp", "Refresh clicked but currentWebView() is null (tabIndex=" + currentTabIndex + ", tabs=" + tabs.count + ")");
+                                            Qt.callLater(updateCurrentWebView);
+                                            return;
+                                        }
+
+                                        Logger.warn("BrowserApp", "Refresh clicked url=" + view.url + " loading=" + view.loading + " lifecycle=" + view.lifecycleState);
+
+                                        var currentTab = getCurrentTab();
+                                        if (currentTab && currentTab.isLoading) {
+                                            view.triggerWebAction(WebEngineView.Stop);
+                                        } else {
+                                            // “Hard reload” (bypass cache). Also call reload() as a fallback.
+                                            view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
+                                            view.reload();
                                         }
                                     }
                                 }
@@ -1013,7 +1390,7 @@ MApp {
 
                             Icon {
                                 anchors.verticalCenter: parent.verticalCenter
-                                name: "grid"
+                                name: "grid-3x3"
                                 size: Constants.iconSizeSmall
                                 color: MColors.text
                             }
@@ -1039,6 +1416,176 @@ MApp {
                                     openDrawer();
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Address suggestions overlay (anchored above the URL bar)
+        Rectangle {
+            id: addressSuggestionsPopup
+            parent: rootContent
+            z: 9000
+            visible: urlInput.activeFocus && urlInput.userTypedSinceFocus && addressSuggestions.count > 0 && !isDrawerOpen && drawerProgress === 0
+            color: MColors.bb10Elevated
+            border.width: 1
+            border.color: MColors.borderGlass
+            radius: MRadius.md
+            clip: true
+            opacity: 0.98
+
+            // urlBar is nested under Column (not a sibling), so anchors won't work.
+            // Position relative to the bottom of the app using urlBar.height.
+            x: 0
+            width: rootContent.width
+            anchors.bottom: rootContent.bottom
+            anchors.bottomMargin: urlBar.height
+
+            readonly property int rowHeight: Constants.touchTargetMedium
+            readonly property int maxHeight: Math.min((parent.height - urlBar.height) * 0.45, rowHeight * 8)
+            height: Math.min(maxHeight, rowHeight * addressSuggestions.count)
+
+            // Match MarathonUI dropdown feel: subtle pop + shadow
+            scale: visible ? 1.0 : 0.97
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: MMotion.sm
+                }
+            }
+            Behavior on scale {
+                SpringAnimation {
+                    spring: MMotion.springMedium
+                    damping: MMotion.dampingMedium
+                    epsilon: MMotion.epsilon
+                }
+            }
+
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: Qt.rgba(0, 0, 0, 0.6)
+                shadowVerticalOffset: 4
+                shadowBlur: 0.6
+                blurMax: 16
+                paddingRect: Qt.rect(0, 0, 0, 20)
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: parent.radius - 1
+                color: "transparent"
+                border.width: 1
+                border.color: MColors.highlightSubtle
+            }
+
+            ListView {
+                anchors.fill: parent
+                anchors.margins: 2
+                model: addressSuggestions
+                interactive: true
+                clip: true
+                boundsBehavior: Flickable.StopAtBounds
+
+                delegate: Rectangle {
+                    width: ListView.view.width
+                    height: addressSuggestionsPopup.rowHeight
+                    radius: MRadius.sm
+                    color: {
+                        if (suggestionMouseArea.pressed)
+                            return MColors.highlightMedium;
+                        if (suggestionMouseArea.containsMouse)
+                            return MColors.highlightSubtle;
+                        return "transparent";
+                    }
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: MMotion.xs
+                        }
+                    }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: MSpacing.md
+                        anchors.rightMargin: MSpacing.md
+                        spacing: MSpacing.sm
+
+                        Icon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            size: Constants.iconSizeSmall
+                            color: MColors.textSecondary
+                            name: {
+                                if (model.kind === "search")
+                                    return "search";
+                                if (model.kind === "bookmark")
+                                    return "star";
+                                if (model.kind === "history")
+                                    return "history";
+                                return "arrow-right"; // go/default
+                            }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - (Constants.iconSizeSmall + MSpacing.sm)
+                            spacing: 2
+
+                            readonly property var _parts: (model.display || "").split(" — ")
+                            readonly property string primaryText: _parts.length > 0 ? _parts[0] : (model.display || "")
+                            readonly property string secondaryText: _parts.length > 1 ? _parts.slice(1).join(" — ") : (model.kind === "search" ? "" : (model.value || ""))
+
+                            Text {
+                                width: parent.width
+                                text: parent.primaryText
+                                color: MColors.textPrimary
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: MTypography.weightDemiBold
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                width: parent.width
+                                visible: text.length > 0
+                                text: parent.secondaryText
+                                color: MColors.textSecondary
+                                font.pixelSize: MTypography.sizeSmall * 0.92
+                                elide: Text.ElideRight
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.08)
+                        visible: index < (addressSuggestions.count - 1)
+                    }
+
+                    MouseArea {
+                        id: suggestionMouseArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            HapticService.light();
+                            urlInput.suppressAutocompleteOnce = true;
+                            urlInput.inlineCompletionActive = false;
+                            urlInput.inlineTypedPrefix = "";
+
+                            // ListModel roles are directly available in the delegate: kind / value / display
+                            var selectedValue = value;
+                            var selectedKind = kind;
+
+                            urlInput.text = selectedValue;
+                            urlInput.cursorPosition = urlInput.text.length;
+                            urlInput.focus = false;
+                            urlInput.userTypedSinceFocus = false;
+                            _clearAddressSuggestions();
+
+                            navigateTo(selectedValue);
                         }
                     }
                 }
@@ -1122,7 +1669,7 @@ MApp {
                         });
 
                         drawer.settingsPage.isPrivateModeChanged.connect(function () {
-                            browserApp.isPrivateMode = drawer.settingsPage.isPrivateMode;
+                            browserApp.setPrivateMode(drawer.settingsPage.isPrivateMode);
                         });
 
                         drawer.settingsPage.searchEngineChanged.connect(function () {
@@ -1203,9 +1750,16 @@ MApp {
                     }
 
                     function onClearCookiesRequested() {
-                        if (webView && webView.profile) {
-                            webView.profile.clearAllVisitedLinks();
-                            Logger.info("BrowserApp", "Cleared cookies and site data");
+                        var view = browserApp.currentWebView();
+                        if (view && view.profile) {
+                            var ok = BrowserData.clearCookiesAndCache(view.profile);
+                            if (ok) {
+                                Logger.info("BrowserApp", "Cleared cookies and HTTP cache");
+                            } else {
+                                Logger.warn("BrowserApp", "Failed to clear cookies/cache (invalid profile object)");
+                            }
+                        } else {
+                            Logger.warn("BrowserApp", "No active web profile to clear");
                         }
                     }
                 }
@@ -1229,9 +1783,41 @@ MApp {
     }
 
     onAppPaused: {
+        isAppActive = false;
         saveTabs();
         saveBookmarks();
         saveHistory();
+    }
+
+    onAppMinimized: {
+        // Prevent OOM kills by discarding WebEngine renderers while backgrounded.
+        isAppActive = false;
+        try {
+            var keys = Object.keys(tabViewsById);
+            for (var i = 0; i < keys.length; i++) {
+                var v = tabViewsById[keys[i]];
+                if (v)
+                    v.forceDiscarded = true;
+            }
+        } catch (e) {
+            Logger.warn("BrowserApp", "Failed to discard tabs on minimize: " + e);
+        }
+        _clearAddressSuggestions();
+    }
+
+    onAppRestored: {
+        // Reactivate; active binding will unfreeze the current tab.
+        isAppActive = true;
+        try {
+            var keys = Object.keys(tabViewsById);
+            for (var i = 0; i < keys.length; i++) {
+                var v = tabViewsById[keys[i]];
+                if (v)
+                    v.forceDiscarded = false;
+            }
+        } catch (e) {
+            Logger.warn("BrowserApp", "Failed to restore tabs after minimize: " + e);
+        }
     }
 
     onAppClosed: {
@@ -1247,16 +1833,6 @@ MApp {
     }
 
     Component.onDestruction: {
-        if (backConnection) {
-            browserApp.backPressed.disconnect(backConnection);
-            backConnection = null;
-        }
-
-        if (forwardConnection) {
-            browserApp.forwardPressed.disconnect(forwardConnection);
-            forwardConnection = null;
-        }
-
         if (webView) {
             webView.stop();
             webView.url = "about:blank";
