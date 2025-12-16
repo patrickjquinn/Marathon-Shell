@@ -1698,20 +1698,20 @@ Item {
     // Wire network manager to connection toast
     Connections {
         function onWifiConnectedChanged() {
-            if (NetworkManager.wifiConnected)
+            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Connected to Wi-Fi", "wifi");
-            else if (NetworkManager.wifiEnabled && !NetworkManager.wifiConnected)
+            else if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled && !NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Wi-Fi disconnected", "wifi-off");
         }
 
         function onEthernetConnectedChanged() {
-            if (NetworkManager.ethernetConnected)
+            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.ethernetConnected)
                 connectionToast.show("Connected to Ethernet", "plug-zap");
-            else if (!NetworkManager.ethernetConnected && !NetworkManager.wifiConnected)
+            else if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && !NetworkManagerCpp.ethernetConnected && !NetworkManagerCpp.wifiConnected)
                 connectionToast.show("No network connection", "wifi-off");
         }
 
-        target: NetworkManager
+        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
     }
 
     Connections {

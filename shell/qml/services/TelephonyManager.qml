@@ -9,19 +9,17 @@ QtObject {
     property string simOperator: ""
     property string simStatus: "absent"
     property string phoneNumber: ""
-
     property bool inCall: false
     property bool callMuted: false
     property bool callOnSpeaker: false
     property string activeCallNumber: ""
     property int callDuration: 0
-
     property int missedCallCount: 0
     property int unreadSmsCount: 0
     property int voicemailCount: 0
-
     property var callHistory: []
     property var smsMessages: []
+    property Timer callDurationTimer
 
     signal incomingCall(string number, string contactName)
     signal callStarted(string number)
@@ -36,20 +34,17 @@ QtObject {
             console.warn("[TelephonyManager] Telephony not available");
             return false;
         }
-
         console.log("[TelephonyManager] Making call to:", number);
         inCall = true;
         activeCallNumber = number;
         callStarted(number);
         _platformMakeCall(number);
-
         callHistory.push({
-            number: number,
-            type: "outgoing",
-            timestamp: new Date().toISOString(),
-            duration: 0
+            "number": number,
+            "type": "outgoing",
+            "timestamp": new Date().toISOString(),
+            "duration": 0
         });
-
         return true;
     }
 
@@ -90,15 +85,13 @@ QtObject {
 
     function sendSms(number, message) {
         console.log("[TelephonyManager] Sending SMS to:", number);
-
         smsMessages.push({
-            number: number,
-            message: message,
-            type: "outgoing",
-            timestamp: new Date().toISOString(),
-            read: true
+            "number": number,
+            "message": message,
+            "type": "outgoing",
+            "timestamp": new Date().toISOString(),
+            "read": true
         });
-
         smsSent(number);
         _platformSendSms(number, message);
         return true;
@@ -115,9 +108,9 @@ QtObject {
 
     function deleteSms(index) {
         if (index >= 0 && index < smsMessages.length) {
-            if (!smsMessages[index].read) {
+            if (!smsMessages[index].read)
                 unreadSmsCount = Math.max(0, unreadSmsCount - 1);
-            }
+
             smsMessages.splice(index, 1);
         }
     }
@@ -133,47 +126,40 @@ QtObject {
     }
 
     function _platformMakeCall(number) {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] D-Bus call to ModemManager Voice interface");
-        } else {
+        else
             console.log("[TelephonyManager] Simulating call...");
-        }
     }
 
     function _platformAnswerCall() {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] D-Bus AcceptCall");
-        }
     }
 
     function _platformRejectCall() {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] D-Bus HangupCall");
-        }
     }
 
     function _platformEndCall() {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] D-Bus HangupCall");
-        }
     }
 
     function _platformMuteCall(mute) {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] Audio routing via PulseAudio");
-        }
     }
 
     function _platformSetSpeakerphone(enabled) {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] Audio routing to speaker");
-        }
     }
 
     function _platformSendSms(number, message) {
-        if (Platform.hasModemManager) {
+        if (Platform.hasModemManager)
             console.log("[TelephonyManager] D-Bus call to ModemManager Messaging interface");
-        }
     }
 
     function _simulateIncomingCall() {
@@ -185,27 +171,27 @@ QtObject {
     function _simulateIncomingSms() {
         console.log("[TelephonyManager] Simulating incoming SMS...");
         var message = {
-            number: "+1-555-0123",
-            message: "Hey, what's up?",
-            type: "incoming",
-            timestamp: new Date().toISOString(),
-            read: false
+            "number": "+1-555-0123",
+            "message": "Hey, what's up?",
+            "type": "incoming",
+            "timestamp": new Date().toISOString(),
+            "read": false
         };
         smsMessages.push(message);
         unreadSmsCount++;
         smsReceived(message.number, message.message);
     }
 
-    property Timer callDurationTimer: Timer {
-        interval: 1000
-        running: inCall
-        repeat: true
-        onTriggered: callDuration++
-    }
-
     Component.onCompleted: {
         console.log("[TelephonyManager] Initialized");
         console.log("[TelephonyManager] ModemManager available:", Platform.hasModemManager);
         console.log("[TelephonyManager] Telephony available:", telephonyAvailable);
+    }
+
+    callDurationTimer: Timer {
+        interval: 1000
+        running: inCall
+        repeat: true
+        onTriggered: callDuration++
     }
 }

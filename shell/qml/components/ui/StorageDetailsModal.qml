@@ -1,12 +1,13 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Modal {
     id: storageModal
+
     title: "Storage"
 
     Column {
@@ -62,34 +63,34 @@ Modal {
             Repeater {
                 model: [
                     {
-                        name: "Apps",
-                        size: "12.4 GB",
-                        color: "#3498db"
+                        "name": "Apps",
+                        "size": "12.4 GB",
+                        "color": "#3498db"
                     },
                     {
-                        name: "Photos",
-                        size: "18.7 GB",
-                        color: "#e74c3c"
+                        "name": "Photos",
+                        "size": "18.7 GB",
+                        "color": "#e74c3c"
                     },
                     {
-                        name: "Videos",
-                        size: "8.3 GB",
-                        color: "#9b59b6"
+                        "name": "Videos",
+                        "size": "8.3 GB",
+                        "color": "#9b59b6"
                     },
                     {
-                        name: "Music",
-                        size: "3.2 GB",
-                        color: "#f39c12"
+                        "name": "Music",
+                        "size": "3.2 GB",
+                        "color": "#f39c12"
                     },
                     {
-                        name: "Documents",
-                        size: "2.1 GB",
-                        color: "#2ecc71"
+                        "name": "Documents",
+                        "size": "2.1 GB",
+                        "color": "#2ecc71"
                     },
                     {
-                        name: "Other",
-                        size: "0.5 GB",
-                        color: "#95a5a6"
+                        "name": "Other",
+                        "size": "0.5 GB",
+                        "color": "#95a5a6"
                     }
                 ]
 

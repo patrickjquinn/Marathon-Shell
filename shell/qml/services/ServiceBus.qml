@@ -12,7 +12,6 @@ QtObject {
     signal telephonyManagerChanged
     signal locationServiceChanged
     signal bluetoothManagerChanged
-
     signal systemResumed
     signal systemSuspending
     signal systemShuttingDown

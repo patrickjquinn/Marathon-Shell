@@ -1,64 +1,55 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 QtObject {
+    // batteryLevel and isCharging are already bound directly (line 8-9)
+    // No need to update them here - direct bindings are more efficient
+    // notificationCount is already bound to NotificationService.unreadCount at line 38
+    // Switch to 1s updates after first tick
+
     id: systemStatus
 
     property int batteryLevel: PowerManager.batteryLevel
     property bool isCharging: PowerManager.isCharging
     property bool isPluggedIn: PowerManager.isPluggedIn
     property string chargingType: PowerManager.isCharging ? "usb" : "none"
-
-    property bool isWifiOn: NetworkManager.wifiEnabled
-    property int wifiStrength: NetworkManager.wifiSignalStrength
-    property string wifiNetwork: NetworkManager.wifiSsid
-    property bool wifiConnected: NetworkManager.wifiConnected
-    property bool ethernetConnected: NetworkManager.ethernetConnected
-
-    property bool isBluetoothOn: NetworkManager.bluetoothEnabled
-    property bool isBluetoothConnected: NetworkManager.bluetoothConnectedDevices > 0
-    property var bluetoothDevices: NetworkManager.pairedBluetoothDevices
-
-    property bool isAirplaneMode: NetworkManager.airplaneModeEnabled
+    property bool isWifiOn: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : true
+    property int wifiStrength: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiSignalStrength : 0
+    property string wifiNetwork: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiSsid : ""
+    property bool wifiConnected: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : false
+    property bool ethernetConnected: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.ethernetConnected : false
+    property bool isBluetoothOn: typeof BluetoothManagerCpp !== "undefined" && BluetoothManagerCpp ? BluetoothManagerCpp.enabled : false
+    property var bluetoothDevices: typeof BluetoothManagerCpp !== "undefined" && BluetoothManagerCpp ? BluetoothManagerCpp.pairedDevices : []
+    readonly property int bluetoothConnectedDevicesCount: {
+        var count = 0;
+        var list = bluetoothDevices || [];
+        for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].connected)
+                count++;
+        }
+        return count;
+    }
+    readonly property bool isBluetoothConnected: bluetoothConnectedDevicesCount > 0
+    property bool isAirplaneMode: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.airplaneModeEnabled : false
     property bool isDndMode: NotificationService.isDndEnabled
-
-    property int cellularStrength: NetworkManager.cellularSignalStrength
-    property string carrier: NetworkManager.cellularOperator
-    property string dataType: NetworkManager.cellularTechnology
-
+    property int cellularStrength: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.signalStrength : 0
+    property string carrier: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.operatorName : ""
+    property string dataType: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.networkType : ""
     property int cpuUsage: 23
     property int memoryUsage: 45
     property real storageUsed: 45.2
-    property real storageTotal: 128.0
-
+    property real storageTotal: 128
     property date currentTime: new Date()
-    property string timeString  // Updated by timer, initialized on first tick
-    property string dateString  // Updated by timer, initialized on first tick
-
+    property string timeString // Updated by timer, initialized on first tick
+    property string dateString // Updated by timer, initialized on first tick
     property var notifications: []
     property int notificationCount: NotificationService.unreadCount
-
-    property Timer updateTimer: Timer {
-        interval: 16  // 60fps for immediate first update
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            updateTime();
-            if (interval === 16) {
-                interval = 1000;  // Switch to 1s updates after first tick
-            }
-        }
-    }
-
+    property Timer updateTimer
     // Listen for time format changes using Connections (proper lifetime management)
-    property Connections timeFormatConnection: Connections {
-        target: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp : null
-        function onTimeFormatChanged() {
-            updateTime();
-        }
-    }
+    property Connections timeFormatConnection
+    property Connections powerManagerConnections
+    property Connections notificationServiceConnections
 
     function updateTime() {
         systemStatus.currentTime = new Date();
@@ -68,8 +59,8 @@ QtObject {
 
     function addNotification(title, message, app) {
         NotificationService.sendNotification(app, title, message, {
-            category: "message",
-            priority: "normal"
+            "category": "message",
+            "priority": "normal"
         });
     }
 
@@ -86,42 +77,48 @@ QtObject {
         memoryUsage = Math.floor(Math.random() * 20) + 35;
     }
 
-    property Connections powerManagerConnections: Connections {
+    Component.onCompleted: {
+        console.log("[SystemStatusStore] Initialized with real services");
+        notifications = NotificationService.notifications;
+    }
+
+    updateTimer: Timer {
+        interval: 16 // 60fps for immediate first update
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            updateTime();
+            if (interval === 16)
+                interval = 1000;
+        }
+    }
+
+    timeFormatConnection: Connections {
+        function onTimeFormatChanged() {
+            updateTime();
+        }
+
+        target: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp : null
+    }
+
+    powerManagerConnections: Connections {
         target: PowerManager
-        // batteryLevel and isCharging are already bound directly (line 8-9)
-        // No need to update them here - direct bindings are more efficient
     }
 
-    property Connections networkManagerConnections: Connections {
-        target: NetworkManager
-        function onWifiEnabledChanged() {
-            isWifiOn = NetworkManager.wifiEnabled;
-        }
-        function onWifiSsidChanged() {
-            wifiNetwork = NetworkManager.wifiSsid;
-        }
-        function onBluetoothEnabledChanged() {
-            isBluetoothOn = NetworkManager.bluetoothEnabled;
-        }
-    }
-
-    property Connections notificationServiceConnections: Connections {
-        target: NotificationService
+    notificationServiceConnections: Connections {
         function onNotificationReceived(notification) {
             notifications.push(notification);
             notifications = notifications;
-        // notificationCount is already bound to NotificationService.unreadCount at line 38
         }
+
         function onNotificationDismissed(id) {
             notifications = notifications.filter(function (n) {
                 return n.id !== id;
             });
             notificationCount = NotificationService.unreadCount;
         }
-    }
 
-    Component.onCompleted: {
-        console.log("[SystemStatusStore] Initialized with real services");
-        notifications = NotificationService.notifications;
+        target: NotificationService
     }
 }

@@ -1,6 +1,6 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 /**
  * @singleton
@@ -25,6 +25,30 @@ import MarathonOS.Shell
  * }
  */
 Item {
+    // ============================================================================
+    // Wakelock Management (merged from WakeManager)
+    // ============================================================================
+    // ============================================================================
+    // Wakelock Functions
+    // ============================================================================
+    // ============================================================================
+    // RTC Alarm Functions
+    // ============================================================================
+    // ============================================================================
+    // C++ Signal Connections
+    // ============================================================================
+    // ============================================================================
+    // Integration with other services
+    // ============================================================================
+    //*
+    //     * @brief Whether device is currently charging
+    //     * @type {bool}
+    //     * @readonly
+    //*
+    //     * @brief Whether device is currently charging
+    //     * @type {bool}
+    //     * @readonly
+
     id: powerManager
 
     /**
@@ -33,96 +57,67 @@ Item {
      * @readonly
      */
     property int batteryLevel: PowerManagerService ? PowerManagerService.batteryLevel : 75
-
-    /**
-     * @brief Whether device is currently charging
-     * @type {bool}
-     * @readonly
-     */
-    /**
-     * @brief Whether device is currently charging
-     * @type {bool}
-     * @readonly
-     */
     property bool isCharging: PowerManagerService ? PowerManagerService.isCharging : false
-
     /**
      * @brief Whether device is plugged into power source (charging or fully charged)
      * @type {bool}
      * @readonly
      */
     property bool isPluggedIn: PowerManagerService ? PowerManagerService.isPluggedIn : false
-
     /**
      * @brief Whether power saving mode is active
      * @type {bool}
      */
     property bool isPowerSaveMode: PowerManagerService ? PowerManagerService.isPowerSaveMode : false
-
     property string powerState: "normal"
-
     /**
      * @brief Estimated minutes until battery depleted (-1 if charging or unknown)
      * @type {int}
      * @readonly
      */
     property int estimatedBatteryTime: PowerManagerService ? PowerManagerService.estimatedBatteryTime : -1
-
     property string batteryHealth: "good"
-    property real batteryVoltage: 0.0
-    property real batteryTemperature: 0.0
-
+    property real batteryVoltage: 0
+    property real batteryTemperature: 0
     /**
      * @brief Whether battery is critically low (<= 5%)
      * @type {bool}
      * @readonly
      */
     readonly property bool isCritical: batteryLevel <= 5
-
     /**
      * @brief Whether battery is low (<= 20%)
      * @type {bool}
      * @readonly
      */
     readonly property bool isLow: batteryLevel <= 20
-
     /**
      * @brief Whether battery is full (>= 95% and charging)
      * @type {bool}
      * @readonly
      */
     readonly property bool isFull: batteryLevel >= 95 && isCharging
-
     /**
      * @brief Whether system can suspend to RAM
      * @type {bool}
      */
     property bool canSuspend: true
-
     /**
      * @brief Whether system can hibernate to disk
      * @type {bool}
      */
     property bool canHibernate: true
-
     property bool canHybridSleep: false
-
     /**
      * @brief Whether system can shutdown
      * @type {bool}
      */
     property bool canShutdown: true
-
     /**
      * @brief Whether system can restart
      * @type {bool}
      */
     property bool canRestart: true
-
-    // ============================================================================
-    // Wakelock Management (merged from WakeManager)
-    // ============================================================================
-
     property var activeWakelocks: []
     property var scheduledWakes: []
     property bool systemAwake: !systemSuspended
@@ -131,7 +126,6 @@ Item {
     property int wakeLockCount: activeWakelocks.length
     property bool hasActiveCalls: false
     property bool hasActiveAlarm: false
-
     readonly property bool canSleep: wakeLockCount === 0 && !hasActiveCalls && !hasActiveAlarm
     readonly property bool systemSuspended: PowerManagerService ? PowerManagerService.systemSuspended : false
     readonly property bool wakelockSupported: PowerManagerService ? PowerManagerService.wakelockSupported : false
@@ -141,7 +135,6 @@ Item {
     signal systemSleeping
     signal wakeLockAcquired(string lockId, string reason)
     signal wakeLockReleased(string lockId)
-
     /**
      * @brief Emitted when battery reaches critical level (5%)
      */
@@ -155,9 +148,8 @@ Item {
      */
     function suspend() {
         console.log("[PowerManager] Suspending system...");
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             PowerManagerService.suspend();
-        }
     }
 
     /**
@@ -168,9 +160,8 @@ Item {
      */
     function hibernate() {
         console.log("[PowerManager] Hibernating system...");
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             PowerManagerService.hibernate();
-        }
     }
 
     /**
@@ -180,9 +171,8 @@ Item {
      */
     function shutdown() {
         console.log("[PowerManager] Shutting down...");
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             PowerManagerService.shutdown();
-        }
     }
 
     /**
@@ -192,9 +182,8 @@ Item {
      */
     function restart() {
         console.log("[PowerManager] Restarting...");
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             PowerManagerService.restart();
-        }
     }
 
     /**
@@ -207,9 +196,8 @@ Item {
      */
     function setPowerSaveMode(enabled) {
         console.log("[PowerManager] Power save mode:", enabled);
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             PowerManagerService.setPowerSaveMode(enabled);
-        }
     }
 
     function togglePowerSaveMode() {
@@ -217,23 +205,18 @@ Item {
     }
 
     function refreshBatteryInfo() {
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             PowerManagerService.refreshBatteryInfo();
-        }
     }
-
-    // ============================================================================
-    // Wakelock Functions
-    // ============================================================================
 
     function acquireWakelock(name) {
         if (typeof PowerManagerService !== 'undefined') {
             var success = PowerManagerService.acquireWakelock(name);
             if (success) {
                 var lock = {
-                    id: name,
-                    reason: name,
-                    timestamp: Date.now()
+                    "id": name,
+                    "reason": name,
+                    "timestamp": Date.now()
                 };
                 activeWakelocks.push(lock);
                 activeWakelocksChanged();
@@ -265,9 +248,9 @@ Item {
     }
 
     function hasWakelock(name) {
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             return PowerManagerService.hasWakelock(name);
-        }
+
         return false;
     }
 
@@ -275,15 +258,12 @@ Item {
         Logger.info("PowerManager", "Waking system: " + reason);
         wakeReason = reason;
         systemAwake = true;
-
         // Turn on screen if needed
         if (!screenOn && DisplayManager) {
             DisplayManager.turnScreenOn();
             screenOn = true;
         }
-
         systemWaking(reason);
-
         // Auto-acquire temporary wake lock
         var lockId = acquireWakelock(reason);
         return lockId;
@@ -294,59 +274,48 @@ Item {
             Logger.warn("PowerManager", "Cannot sleep - wake locks active: " + wakeLockCount);
             return false;
         }
-
         Logger.info("PowerManager", "Putting system to sleep");
         systemAwake = false;
         systemSleeping();
-
         // Turn off screen first
         if (DisplayManager) {
             DisplayManager.turnScreenOff();
             screenOn = false;
         }
-
         // Suspend via C++ backend
         suspend();
         return true;
     }
 
-    // ============================================================================
-    // RTC Alarm Functions
-    // ============================================================================
-
     function setRtcAlarm(epochTime) {
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             return PowerManagerService.setRtcAlarm(epochTime);
-        }
+
         return false;
     }
 
     function clearRtcAlarm() {
-        if (typeof PowerManagerService !== 'undefined') {
+        if (typeof PowerManagerService !== 'undefined')
             return PowerManagerService.clearRtcAlarm();
-        }
+
         return false;
     }
 
     function scheduleWake(wakeTime, reason) {
         var wakeId = Qt.md5(Date.now() + reason);
         var wake = {
-            id: wakeId,
-            time: wakeTime,
-            reason: reason,
-            timestamp: Date.now()
+            "id": wakeId,
+            "time": wakeTime,
+            "reason": reason,
+            "timestamp": Date.now()
         };
-
         scheduledWakes.push(wake);
         scheduledWakesChanged();
-
         var msUntil = wakeTime - new Date();
         Logger.info("PowerManager", "Scheduled wake in " + Math.round(msUntil / 1000 / 60) + " minutes for: " + reason);
-
         // Set RTC alarm
         var epochTime = Math.floor(wakeTime.getTime() / 1000);
         setRtcAlarm(epochTime);
-
         return wakeId;
     }
 
@@ -362,13 +331,21 @@ Item {
         return false;
     }
 
-    // ============================================================================
-    // C++ Signal Connections
-    // ============================================================================
+    Component.onCompleted: {
+        console.log("[PowerManager] Initialized (merged with WakeManager)");
+        if (typeof PowerManagerService !== 'undefined') {
+            console.log("[PowerManager] C++ backend available");
+            console.log("[PowerManager] Wakelock support:", wakelockSupported);
+            console.log("[PowerManager] RTC alarm support:", rtcAlarmSupported);
+        } else {
+            console.log("[PowerManager] C++ backend not available, using mock data");
+        }
+        // Initial state
+        systemAwake = true;
+        screenOn = DisplayManager ? DisplayManager.screenOn : true;
+    }
 
     Connections {
-        target: typeof PowerManagerService !== 'undefined' ? PowerManagerService : null
-
         function onPrepareForSuspend() {
             Logger.info("PowerManager", "System preparing to suspend");
             systemSleeping();
@@ -379,15 +356,11 @@ Item {
             systemAwake = true;
             systemWaking("resume");
         }
+
+        target: typeof PowerManagerService !== 'undefined' ? PowerManagerService : null
     }
 
-    // ============================================================================
-    // Integration with other services
-    // ============================================================================
-
     Connections {
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
-
         function onAlarmTriggered(alarm) {
             hasActiveAlarm = true;
             wake("alarm");
@@ -396,20 +369,7 @@ Item {
         function onAlarmDismissed(alarmId) {
             hasActiveAlarm = false;
         }
-    }
 
-    Component.onCompleted: {
-        console.log("[PowerManager] Initialized (merged with WakeManager)");
-        if (typeof PowerManagerService !== 'undefined') {
-            console.log("[PowerManager] C++ backend available");
-            console.log("[PowerManager] Wakelock support:", wakelockSupported);
-            console.log("[PowerManager] RTC alarm support:", rtcAlarmSupported);
-        } else {
-            console.log("[PowerManager] C++ backend not available, using mock data");
-        }
-
-        // Initial state
-        systemAwake = true;
-        screenOn = DisplayManager ? DisplayManager.screenOn : true;
+        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
     }
 }

@@ -1,6 +1,6 @@
 pragma Singleton
-import QtQuick
 import MarathonUI.Core
+import QtQuick
 
 QtObject {
     id: surfaceRegistry

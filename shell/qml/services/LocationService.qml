@@ -7,16 +7,17 @@ QtObject {
     property bool locationEnabled: false
     property bool hasPermission: false
     property string accuracy: "high"
-
-    property real latitude: 0.0
-    property real longitude: 0.0
-    property real altitude: 0.0
-    property real accuracy_meters: 0.0
-    property real heading: 0.0
-    property real speed: 0.0
-
+    property real latitude: 0
+    property real longitude: 0
+    property real altitude: 0
+    property real accuracy_meters: 0
+    property real heading: 0
+    property real speed: 0
     property string lastUpdate: ""
     property bool isUpdating: false
+    // Listen for permission responses
+    property var _permissionConnections
+    property Timer locationUpdateTimer
 
     signal locationChanged(real lat, real lon, real accuracy)
     signal locationError(string error)
@@ -50,13 +51,11 @@ QtObject {
             console.warn("[LocationService] Location not enabled");
             return;
         }
-
         if (!hasPermission) {
             console.warn("[LocationService] No location permission");
             requestPermission();
             return;
         }
-
         console.log("[LocationService] Starting location updates...");
         isUpdating = true;
         locationUpdateTimer.start();
@@ -75,7 +74,6 @@ QtObject {
             console.warn("[LocationService] Invalid accuracy level:", accuracyLevel);
             return;
         }
-
         console.log("[LocationService] Setting accuracy:", accuracyLevel);
         accuracy = accuracyLevel;
         _platformSetAccuracy(accuracyLevel);
@@ -83,28 +81,26 @@ QtObject {
 
     function getCurrentPosition() {
         return {
-            latitude: latitude,
-            longitude: longitude,
-            altitude: altitude,
-            accuracy: accuracy_meters,
-            heading: heading,
-            speed: speed,
-            timestamp: lastUpdate
+            "latitude": latitude,
+            "longitude": longitude,
+            "altitude": altitude,
+            "accuracy": accuracy_meters,
+            "heading": heading,
+            "speed": speed,
+            "timestamp": lastUpdate
         };
     }
 
     function _platformEnableLocation() {
-        if (Platform.isLinux) {
+        if (Platform.isLinux)
             console.log("[LocationService] Enabling via GeoClue D-Bus");
-        } else if (Platform.isMacOS) {
+        else if (Platform.isMacOS)
             console.log("[LocationService] macOS CoreLocation");
-        }
     }
 
     function _platformDisableLocation() {
-        if (Platform.isLinux) {
+        if (Platform.isLinux)
             console.log("[LocationService] Disabling GeoClue");
-        }
     }
 
     function _platformRequestPermission() {
@@ -122,42 +118,14 @@ QtObject {
         }
     }
 
-    // Listen for permission responses
-    property var _permissionConnections: Connections {
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
-
-        function onPermissionGranted(appId, permission) {
-            if (appId === "shell" && permission === "location") {
-                console.log("[LocationService] Location permission granted");
-                hasPermission = true;
-                permissionChanged(true);
-                // Auto-start location updates if enabled
-                if (locationEnabled) {
-                    startUpdating();
-                }
-            }
-        }
-
-        function onPermissionDenied(appId, permission) {
-            if (appId === "shell" && permission === "location") {
-                console.log("[LocationService] Location permission denied");
-                hasPermission = false;
-                permissionChanged(false);
-                locationEnabled = false;
-            }
-        }
-    }
-
     function _platformStartUpdating() {
-        if (Platform.isLinux) {
+        if (Platform.isLinux)
             console.log("[LocationService] D-Bus call to GeoClue Start");
-        }
     }
 
     function _platformStopUpdating() {
-        if (Platform.isLinux) {
+        if (Platform.isLinux)
             console.log("[LocationService] D-Bus call to GeoClue Stop");
-        }
     }
 
     function _platformSetAccuracy(accuracyLevel) {
@@ -173,10 +141,8 @@ QtObject {
             level = 8;
             break;
         }
-
-        if (Platform.isLinux) {
+        if (Platform.isLinux)
             console.log("[LocationService] GeoClue accuracy level:", level);
-        }
     }
 
     function _simulateLocationUpdate() {
@@ -187,11 +153,41 @@ QtObject {
         heading = Math.random() * 360;
         speed = Math.random() * 10;
         lastUpdate = new Date().toISOString();
-
         locationChanged(latitude, longitude, accuracy_meters);
     }
 
-    property Timer locationUpdateTimer: Timer {
+    Component.onCompleted: {
+        console.log("[LocationService] Initialized");
+        console.log("[LocationService] GeoClue available:", Platform.isLinux);
+        latitude = 37.7749;
+        longitude = -122.419;
+    }
+
+    _permissionConnections: Connections {
+        function onPermissionGranted(appId, permission) {
+            if (appId === "shell" && permission === "location") {
+                console.log("[LocationService] Location permission granted");
+                hasPermission = true;
+                permissionChanged(true);
+                // Auto-start location updates if enabled
+                if (locationEnabled)
+                    startUpdating();
+            }
+        }
+
+        function onPermissionDenied(appId, permission) {
+            if (appId === "shell" && permission === "location") {
+                console.log("[LocationService] Location permission denied");
+                hasPermission = false;
+                permissionChanged(false);
+                locationEnabled = false;
+            }
+        }
+
+        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+    }
+
+    locationUpdateTimer: Timer {
         interval: 5000
         repeat: true
         running: false
@@ -200,13 +196,5 @@ QtObject {
                 _simulateLocationUpdate();
             }
         }
-    }
-
-    Component.onCompleted: {
-        console.log("[LocationService] Initialized");
-        console.log("[LocationService] GeoClue available:", Platform.isLinux);
-
-        latitude = 37.7749;
-        longitude = -122.4194;
     }
 }

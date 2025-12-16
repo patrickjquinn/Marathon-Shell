@@ -1,13 +1,11 @@
+import "../UI"
+import MarathonOS.Shell
 // Marathon Virtual Keyboard - Phone Layout
 // Phone number pad with common symbols
 import QtQuick
-import MarathonOS.Shell
-import "../UI"
 
 Item {
     id: layout
-
-    implicitHeight: layoutColumn.implicitHeight
 
     signal keyClicked(string text)
     signal backspaceClicked
@@ -16,16 +14,20 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
+    implicitHeight: layoutColumn.implicitHeight
+
     Column {
         id: layoutColumn
+
         width: parent.width
         spacing: 0
 
         // Row 1: 1 2 3 + - ( )
         Row {
+            readonly property real keyWidth: (width - spacing * 6) / 7
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            readonly property real keyWidth: (width - spacing * 6) / 7
 
             Repeater {
                 model: ["1", "2", "3", "+", "-", "(", ")"]
@@ -34,7 +36,6 @@ Item {
                     width: parent.keyWidth
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -60,7 +61,6 @@ Item {
                     width: Math.round(65 * Constants.scaleFactor)
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -72,7 +72,6 @@ Item {
                 width: Math.round(100 * Constants.scaleFactor)
                 iconName: "delete"
                 isSpecial: true
-
                 onClicked: {
                     layout.backspaceClicked();
                 }
@@ -97,7 +96,6 @@ Item {
                     width: Math.round(65 * Constants.scaleFactor)
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -109,7 +107,6 @@ Item {
                 width: Math.round(100 * Constants.scaleFactor)
                 text: " "
                 displayText: "space"
-
                 onClicked: {
                     layout.spaceClicked();
                 }
@@ -133,7 +130,6 @@ Item {
                 text: "ABC"
                 displayText: "ABC"
                 isSpecial: true
-
                 onClicked: {
                     layout.layoutSwitchClicked("qwerty");
                 }
@@ -146,7 +142,6 @@ Item {
                     width: Math.round(80 * Constants.scaleFactor)
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -158,7 +153,6 @@ Item {
                 width: Math.round(120 * Constants.scaleFactor)
                 iconName: "corner-down-left"
                 isSpecial: true
-
                 onClicked: {
                     layout.enterClicked();
                 }

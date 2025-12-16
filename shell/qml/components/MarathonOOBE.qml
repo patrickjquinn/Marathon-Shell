@@ -1,11 +1,11 @@
+import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Controls
+import MarathonUI.Core
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Controls
-import MarathonUI.Core
-import MarathonUI.Containers
 
 /**
  * Marathon OS - Out-of-Box Experience (OOBE)
@@ -14,36 +14,37 @@ import MarathonUI.Containers
  */
 Item {
     id: oobeRoot
-    anchors.fill: parent
-    visible: !SettingsManagerCpp.firstRunComplete
-    z: Constants.zIndexModalOverlay
-
-    signal setupComplete
 
     // State management
     property int currentPage: 0
     readonly property var pages: [
         {
-            id: "welcome",
-            title: "Welcome"
+            "id": "welcome",
+            "title": "Welcome"
         },
         {
-            id: "wifi",
-            title: "WiFi"
+            "id": "wifi",
+            "title": "WiFi"
         },
         {
-            id: "timezone",
-            title: "Time"
+            "id": "timezone",
+            "title": "Time"
         },
         {
-            id: "gestures",
-            title: "Gestures"
+            "id": "gestures",
+            "title": "Gestures"
         },
         {
-            id: "complete",
-            title: "Done"
+            "id": "complete",
+            "title": "Done"
         }
     ]
+
+    signal setupComplete
+
+    anchors.fill: parent
+    visible: !SettingsManagerCpp.firstRunComplete
+    z: Constants.zIndexModalOverlay
 
     // Background with subtle radial gradient pattern
     Rectangle {
@@ -54,18 +55,22 @@ Item {
         Rectangle {
             anchors.fill: parent
             opacity: 0.08
+
             gradient: Gradient {
                 orientation: Gradient.Vertical
+
                 GradientStop {
-                    position: 0.0
+                    position: 0
                     color: MColors.accent
                 }
+
                 GradientStop {
                     position: 0.5
                     color: "transparent"
                 }
+
                 GradientStop {
-                    position: 1.0
+                    position: 1
                     color: MColors.accent
                 }
             }
@@ -77,6 +82,7 @@ Item {
     // =========================================================================
     MarathonStatusBar {
         id: statusBar
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
@@ -86,6 +92,7 @@ Item {
     // Page container
     SwipeView {
         id: swipeView
+
         anchors.fill: parent
         anchors.topMargin: Constants.statusBarHeight
         anchors.leftMargin: MSpacing.xl
@@ -107,17 +114,17 @@ Item {
                     height: Math.round(180 * Constants.scaleFactor)
 
                     Image {
+                        // Removed animations for better performance
+
                         anchors.centerIn: parent
                         width: Math.min(parent.width * 0.45, Math.round(180 * Constants.scaleFactor))
                         height: width
                         source: "qrc:/images/marathon.png"
                         fillMode: Image.PreserveAspectFit
-                        smooth: false  // Better performance
-                        mipmap: false  // Better performance
+                        smooth: false // Better performance
+                        mipmap: false // Better performance
                         asynchronous: true
                         cache: true
-
-                        // Removed animations for better performance
                     }
                 }
 
@@ -160,6 +167,7 @@ Item {
             // Header row with title and skip button
             Row {
                 id: wifiHeader
+
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -188,6 +196,7 @@ Item {
 
                 Column {
                     id: wifiColumn
+
                     width: parent.width
                     spacing: MSpacing.xxl
 
@@ -213,6 +222,7 @@ Item {
 
                             Icon {
                                 id: wifiIcon
+
                                 name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
                                 size: Math.round(24 * Constants.scaleFactor)
                                 color: SystemStatusStore.isWifiOn ? MColors.accent : MColors.textSecondary
@@ -242,6 +252,7 @@ Item {
 
                             MToggle {
                                 id: wifiToggleSwitch
+
                                 checked: SystemStatusStore.isWifiOn
                                 onToggled: SystemControlStore.toggleWifi()
                                 anchors.verticalCenter: parent.verticalCenter
@@ -266,18 +277,16 @@ Item {
 
                         // Network List
                         Repeater {
-                            model: NetworkManager.availableWifiNetworks
+                            model: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.availableNetworks : []
 
                             MCard {
                                 width: parent.parent.width
                                 height: MSpacing.touchTargetMedium
                                 elevation: 2
                                 interactive: true
-
                                 onPressedChanged: {
                                     border.color = pressed ? MColors.accent : MColors.border;
                                 }
-
                                 // Use MCard's built-in onClicked signal instead of redundant MouseArea
                                 onClicked: {
                                     Logger.info("OOBE", "WiFi network selected:", modelData.ssid);
@@ -292,15 +301,22 @@ Item {
 
                                     // Signal strength icon (proper signal bars, not opacity)
                                     Icon {
+                                        // 3-4 bars (excellent)
+
                                         name: {
                                             // Use proper signal bar icons based on strength
                                             if (modelData.strength === 0)
                                                 return "wifi-zero";
+
                                             if (modelData.strength <= 33)
-                                                return "wifi-low";     // 1-2 bars (weak)
+                                                return "wifi-low";
+
+                                            // 1-2 bars (weak)
                                             if (modelData.strength <= 66)
-                                                return "wifi";         // 2-3 bars (good)
-                                            return "wifi-high";                                   // 3-4 bars (excellent)
+                                                return "wifi";
+
+                                            // 2-3 bars (good)
+                                            return "wifi-high";
                                         }
                                         size: Math.round(24 * Constants.scaleFactor)
                                         color: modelData.connected ? MColors.accent : MColors.text
@@ -338,7 +354,7 @@ Item {
                                                 text: "•"
                                                 font.pixelSize: MTypography.sizeSmall
                                                 color: MColors.textSecondary
-                                                visible: !modelData.connected  // Hide separator for connected networks
+                                                visible: !modelData.connected // Hide separator for connected networks
                                             }
 
                                             Text {
@@ -346,14 +362,14 @@ Item {
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
                                                 color: MColors.textSecondary
-                                                visible: !modelData.connected  // Hide strength % for connected networks (icon is enough)
+                                                visible: !modelData.connected // Hide strength % for connected networks (icon is enough)
                                             }
 
                                             Icon {
                                                 name: "lock"
                                                 size: Math.round(16 * Constants.scaleFactor)
                                                 color: MColors.textTertiary
-                                                visible: modelData.secured && !modelData.connected  // Hide lock for connected networks
+                                                visible: modelData.secured && !modelData.connected // Hide lock for connected networks
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
                                         }
@@ -380,6 +396,7 @@ Item {
             // Header row with title
             Row {
                 id: timeHeader
+
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -408,6 +425,7 @@ Item {
 
                 Column {
                     id: timeColumn
+
                     width: parent.width
                     spacing: MSpacing.xxl
 
@@ -463,6 +481,7 @@ Item {
 
                             Icon {
                                 id: clockIcon
+
                                 name: "clock"
                                 size: Math.round(24 * Constants.scaleFactor)
                                 color: MColors.text
@@ -471,6 +490,7 @@ Item {
 
                             Text {
                                 id: timeFormatText
+
                                 text: "Time Format"
                                 font.pixelSize: MTypography.sizeLarge
                                 font.family: MTypography.fontFamily
@@ -485,6 +505,7 @@ Item {
 
                             Row {
                                 id: buttonsRow
+
                                 spacing: MSpacing.md
                                 anchors.verticalCenter: parent.verticalCenter
 
@@ -529,6 +550,7 @@ Item {
             // Header row with title
             Row {
                 id: gesturesHeader
+
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -557,6 +579,7 @@ Item {
 
                 Column {
                     id: gestureColumn
+
                     width: parent.width
                     spacing: MSpacing.xxl
 
@@ -572,29 +595,29 @@ Item {
                     Repeater {
                         model: [
                             {
-                                icon: "chevron-up",
-                                title: "Swipe Up",
-                                description: "From bottom edge to open app grid"
+                                "icon": "chevron-up",
+                                "title": "Swipe Up",
+                                "description": "From bottom edge to open app grid"
                             },
                             {
-                                icon: "chevron-down",
-                                title: "Swipe Down",
-                                description: "From top edge to open quick settings"
+                                "icon": "chevron-down",
+                                "title": "Swipe Down",
+                                "description": "From top edge to open quick settings"
                             },
                             {
-                                icon: "chevron-right",
-                                title: "Swipe Right",
-                                description: "From left edge to open Hub"
+                                "icon": "chevron-right",
+                                "title": "Swipe Right",
+                                "description": "From left edge to open Hub"
                             },
                             {
-                                icon: "grid",
-                                title: "Pinch In",
-                                description: "In app grid to open task switcher"
+                                "icon": "grid",
+                                "title": "Pinch In",
+                                "description": "In app grid to open task switcher"
                             },
                             {
-                                icon: "chevrons-up",
-                                title: "Swipe Sideways",
-                                description: "Navigate between pages"
+                                "icon": "chevrons-up",
+                                "title": "Swipe Sideways",
+                                "description": "Navigate between pages"
                             }
                         ]
 
@@ -702,6 +725,7 @@ Item {
     // =========================================================================
     Row {
         id: navigationRow
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: pageIndicatorRow.top
@@ -753,6 +777,7 @@ Item {
     // =========================================================================
     Row {
         id: pageIndicatorRow
+
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: navBar.top
         anchors.bottomMargin: MSpacing.xxl
@@ -767,7 +792,7 @@ Item {
                 height: oobeRoot.currentPage === index ? Math.round(20 * Constants.scaleFactor) : Math.round(12 * Constants.scaleFactor)
                 radius: oobeRoot.currentPage === index ? Math.round(10 * Constants.scaleFactor) : Math.round(6 * Constants.scaleFactor)
                 color: oobeRoot.currentPage === index ? MColors.accent : MColors.textTertiary
-                opacity: oobeRoot.currentPage === index ? 1.0 : 0.5
+                opacity: oobeRoot.currentPage === index ? 1 : 0.5
                 anchors.verticalCenter: parent.verticalCenter // Vertically align all dots
             }
         }
@@ -795,11 +820,11 @@ Item {
     // =========================================================================
     MarathonNavBar {
         id: navBar
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         z: 100
-
         // Hook up nav bar back gesture to OOBE navigation
         onSwipeLeft: {
             if (oobeRoot.currentPage > 0) {
@@ -807,7 +832,6 @@ Item {
                 oobeRoot.currentPage--;
             }
         }
-
         onSwipeRight: {
             if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
                 HapticService.light();
@@ -819,27 +843,29 @@ Item {
     // WiFi password dialog
     Loader {
         id: wifiPasswordDialogLoader
-        anchors.fill: parent
-        active: false
-        sourceComponent: WiFiPasswordDialog {
-            onConnectRequested: (ssid, password) => {
-                Logger.info("OOBE", "Connecting to WiFi:", ssid);
-                NetworkManager.connectToWifi(ssid, password);
-            }
-            onCancelled: {
-                Logger.info("OOBE", "WiFi connection cancelled");
-            }
-        }
 
         function show(ssid, strength, security, secured) {
             active = true;
             if (item)
                 item.show(ssid, strength, security, secured);
         }
+
+        anchors.fill: parent
+        active: false
+
+        sourceComponent: WiFiPasswordDialog {
+            onConnectRequested: (ssid, password) => {
+                Logger.info("OOBE", "Connecting to WiFi:", ssid);
+                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
+                    NetworkManagerCpp.connectToNetwork(ssid, password);
+            }
+            onCancelled: {
+                Logger.info("OOBE", "WiFi connection cancelled");
+            }
+        }
     }
 
     Connections {
-        target: NetworkManager
         function onConnectionSuccess() {
             if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item) {
                 wifiPasswordDialogLoader.item.hide();
@@ -847,11 +873,13 @@ Item {
             }
             HapticService.medium();
         }
+
         function onConnectionFailed(message) {
-            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item) {
+            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item)
                 wifiPasswordDialogLoader.item.showError(message);
-            }
         }
+
+        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
     }
 
     Timer {
@@ -859,8 +887,10 @@ Item {
         running: SystemStatusStore.isWifiOn
         repeat: false
         onTriggered: {
-            if (SystemStatusStore.isWifiOn)
-                NetworkManager.scanWifi();
+            if (SystemStatusStore.isWifiOn) {
+                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
+                    NetworkManagerCpp.scanWifi();
+            }
         }
     }
 }

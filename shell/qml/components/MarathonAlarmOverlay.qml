@@ -1,23 +1,18 @@
-import QtQuick
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 Rectangle {
     id: alarmOverlay
-    anchors.fill: parent
-    color: Qt.rgba(0, 0, 0, 0.95)
-    visible: false
-    z: 10000
 
     property var currentAlarm: null
 
     function show(alarm) {
         currentAlarm = alarm;
         visible = true;
-
-        swipeUpText.opacity = 1.0;
+        swipeUpText.opacity = 1;
         swipeAnimation.start();
     }
 
@@ -37,32 +32,31 @@ Rectangle {
         visible = false;
     }
 
-    MouseArea {
-        anchors.fill: parent
-        preventStealing: true
+    anchors.fill: parent
+    color: Qt.rgba(0, 0, 0, 0.95)
+    visible: false
+    z: 10000
 
+    MouseArea {
         property real startY: 0
         property bool dragging: false
 
+        anchors.fill: parent
+        preventStealing: true
         onPressed: mouse => {
             startY = mouse.y;
             dragging = false;
         }
-
         onPositionChanged: mouse => {
-            if (Math.abs(mouse.y - startY) > 20) {
+            if (Math.abs(mouse.y - startY) > 20)
                 dragging = true;
-            }
 
             if (dragging) {
                 var delta = mouse.y - startY;
-
-                if (delta < -100) {
+                if (delta < -100)
                     alarmOverlay.dismiss();
-                }
             }
         }
-
         onReleased: {
             dragging = false;
         }
@@ -183,6 +177,7 @@ Rectangle {
 
         Text {
             id: swipeUpText
+
             anchors.horizontalCenter: parent.horizontalCenter
             text: "↑ Swipe up to dismiss"
             color: MColors.textSecondary
@@ -191,12 +186,13 @@ Rectangle {
 
             SequentialAnimation {
                 id: swipeAnimation
+
                 loops: Animation.Infinite
 
                 NumberAnimation {
                     target: swipeUpText
                     property: "opacity"
-                    from: 1.0
+                    from: 1
                     to: 0.3
                     duration: 1500
                     easing.type: Easing.InOutQuad
@@ -206,7 +202,7 @@ Rectangle {
                     target: swipeUpText
                     property: "opacity"
                     from: 0.3
-                    to: 1.0
+                    to: 1
                     duration: 1500
                     easing.type: Easing.InOutQuad
                 }
@@ -216,6 +212,7 @@ Rectangle {
 
     Timer {
         id: updateTimeTimer
+
         interval: 1000
         repeat: true
         running: alarmOverlay.visible
@@ -225,10 +222,10 @@ Rectangle {
     }
 
     Connections {
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
-
         function onAlarmTriggered(alarm) {
             alarmOverlay.show(alarm);
         }
+
+        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
     }
 }

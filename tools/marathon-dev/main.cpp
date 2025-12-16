@@ -8,11 +8,11 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QTextStream>
-#include "../../shell/src/marathonapppackager.h"
-#include "../../shell/src/marathonappverifier.h"
-#include "../../shell/src/marathonappinstaller.h"
-#include "../../shell/src/marathonappregistry.h"
-#include "../../shell/src/marathonappscanner.h"
+#include "marathonapppackager.h"
+#include "marathonappverifier.h"
+#include "marathonappinstaller.h"
+#include "marathonappregistry.h"
+#include "marathonappscanner.h"
 
 void printSuccess(const QString &message) {
     QTextStream out(stdout);

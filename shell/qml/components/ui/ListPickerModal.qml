@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Modal {
     id: listPickerModal
@@ -15,7 +15,7 @@ Modal {
 
     Column {
         width: parent.width
-        spacing: 0  // No spacing between list items
+        spacing: 0 // No spacing between list items
 
         Repeater {
             model: options
@@ -53,17 +53,6 @@ Modal {
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 100
-                        }
-                    }
-                }
-
-                transform: Translate {
-                    y: itemMouseArea.pressed ? -2 : 0
-
-                    Behavior on y {
-                        NumberAnimation {
-                            duration: 200
-                            easing.type: Easing.OutCubic
                         }
                     }
                 }
@@ -113,12 +102,23 @@ Modal {
 
                 MouseArea {
                     id: itemMouseArea
-                    anchors.fill: parent
 
+                    anchors.fill: parent
                     onClicked: {
                         selectedIndex = index;
                         listPickerModal.selected(index, modelData);
                         listPickerModal.close();
+                    }
+                }
+
+                transform: Translate {
+                    y: itemMouseArea.pressed ? -2 : 0
+
+                    Behavior on y {
+                        NumberAnimation {
+                            duration: 200
+                            easing.type: Easing.OutCubic
+                        }
                     }
                 }
             }

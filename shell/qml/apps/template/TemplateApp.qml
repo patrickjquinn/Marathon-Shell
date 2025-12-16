@@ -1,8 +1,8 @@
-import QtQuick
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 MApp {
     id: templateApp
@@ -17,7 +17,6 @@ MApp {
     appId: _appId
     appName: _appName
     appIcon: _appIcon
-
     // Template apps have no navigation depth, so back gesture will close them automatically
     navigationDepth: 0
 
@@ -44,32 +43,46 @@ MApp {
                             // Map app icons to lucide icon names (all downloaded from lucide icon set)
                             if (iconPath === "phone")
                                 return "phone";
+
                             if (iconPath === "messages")
                                 return "message-square";
+
                             if (iconPath === "browser")
                                 return "globe";
+
                             if (iconPath === "camera")
                                 return "camera";
+
                             if (iconPath === "gallery" || iconPath === "photos")
                                 return "image";
+
                             if (iconPath === "music")
                                 return "music";
+
                             if (iconPath === "calendar")
                                 return "calendar";
+
                             if (iconPath === "clock")
                                 return "clock";
+
                             if (iconPath === "maps")
                                 return "map";
+
                             if (iconPath === "calculator")
                                 return "calculator";
+
                             if (iconPath === "notes")
                                 return "file-text";
+
                             if (iconPath === "files")
                                 return "folder";
+
                             if (iconPath === "email")
                                 return "mail";
+
                             if (iconPath === "settings")
                                 return "settings";
+
                             // Generic fallback for unmapped apps
                             return "grid";
                         }
@@ -97,5 +110,7 @@ MApp {
                 }
             }
         }
-    }  // End Rectangle (content)
+        // End Rectangle (content)
+
+    }
 }

@@ -1,31 +1,139 @@
-import QtQuick
-import QtQuick.Effects
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Feedback
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Effects
 
 // High-Performance PIN Entry Screen with Frosted Glass Effect
 Item {
-    id: pinScreen
-    anchors.fill: parent
+    // Small delay for visual feedback
 
-    signal pinCorrect
-    signal cancelled
+    id: pinScreen
 
     property string pin: ""
     property string password: ""
     property string error: ""
-    property real entryProgress: 0.0
-    property bool passwordMode: false  // true = password input, false = PIN pad
+    property real entryProgress: 0
+    property bool passwordMode: false // true = password input, false = PIN pad
     property bool biometricInProgress: false
-    property bool authenticating: false  // Show spinner when validating
+    property bool authenticating: false // Show spinner when validating
 
+    signal pinCorrect
+    signal cancelled
+
+    function handleInput(digit) {
+        if (pin.length < 6) {
+            pin += digit;
+            error = "";
+            if (pin.length === 6)
+                verifyTimer.start();
+        }
+    }
+
+    function verifyPin() {
+        // Check if locked out
+        if (SecurityManagerCpp.isLockedOut) {
+            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+            error = "Locked for " + secs + "s";
+            HapticService.heavy();
+            return;
+        }
+        // Show spinner
+        Logger.info("PinScreen", "🔄 Starting authentication, showing spinner");
+        authenticating = true;
+        // Authenticate based on current mode
+        if (SecurityManagerCpp.hasQuickPIN && !passwordMode) {
+            // Quick PIN authentication
+            SecurityManagerCpp.authenticateQuickPIN(pin);
+        } else {
+            // System password authentication via PAM
+            var inputPassword = passwordMode ? password : pin;
+            SecurityManagerCpp.authenticatePassword(inputPassword);
+        }
+    }
+
+    function verifyPasswordInput() {
+        if (SecurityManagerCpp.isLockedOut) {
+            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+            error = "Locked for " + secs + "s";
+            HapticService.heavy();
+            return;
+        }
+        if (password.trim().length === 0) {
+            error = "Password cannot be empty";
+            HapticService.light();
+            return;
+        }
+        // Show spinner
+        Logger.info("PinScreen", "🔄 Starting password authentication, showing spinner");
+        authenticating = true;
+        SecurityManagerCpp.authenticatePassword(password);
+    }
+
+    function startBiometric() {
+        if (SecurityManagerCpp.isLockedOut) {
+            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
+            error = "Locked for " + secs + "s";
+            HapticService.heavy();
+            return;
+        }
+        if (!SecurityManagerCpp.fingerprintAvailable) {
+            error = "Fingerprint not enrolled";
+            HapticService.light();
+            return;
+        }
+        biometricInProgress = true;
+        error = "Place your finger...";
+        SecurityManagerCpp.authenticateBiometric(0); // 0 = Fingerprint
+    }
+
+    function switchToPasswordMode() {
+        passwordMode = true;
+        pin = "";
+        password = "";
+        passwordTextInput.text = ""; // Explicitly clear TextInput
+        error = "";
+        Logger.info("PinScreen", "Switched to password mode");
+        // Focus the password field
+        Qt.callLater(function () {
+            passwordTextInput.forceActiveFocus();
+        });
+    }
+
+    function switchToPINMode() {
+        passwordMode = false;
+        pin = "";
+        password = "";
+        passwordTextInput.text = ""; // Explicitly clear TextInput
+        error = "";
+        Logger.info("PinScreen", "Switched to PIN mode");
+    }
+
+    function reset() {
+        pin = "";
+        password = "";
+        passwordTextInput.text = ""; // Explicitly clear TextInput for security
+        error = "";
+        entryProgress = 0;
+    }
+
+    function show() {
+        pin = "";
+        password = "";
+        passwordTextInput.text = ""; // Explicitly clear TextInput for security
+        error = "";
+        entryProgress = 1;
+        passwordMode = false; // Reset to PIN mode
+        forceActiveFocus();
+        Logger.info("PinScreen", "📱 PIN screen shown");
+    }
+
+    anchors.fill: parent
     // NO fade animation - opacity controlled by parent state for instant security
     // Pre-render for zero-latency display
     layer.enabled: true
     layer.smooth: true
-
     // Update SessionStore to show lock icon in status bar when PIN screen visible
     onVisibleChanged: {
         if (visible) {
@@ -36,7 +144,6 @@ Item {
             Logger.info("PinScreen", "PIN screen hidden - showing clock in status bar");
         }
     }
-
     Keys.onPressed: function (event) {
         if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
             var digit = String.fromCharCode(event.key);
@@ -48,26 +155,20 @@ Item {
             event.accepted = true;
         }
     }
-
-    focus: visible && entryProgress >= 1.0
+    focus: visible && entryProgress >= 1
 
     // Security Manager connections
     Connections {
-        target: SecurityManagerCpp
-
         function onAuthenticationSuccess() {
             Logger.info("PinScreen", " Authentication successful, hiding spinner");
             authenticating = false;
             HapticService.medium();
-
             // Clear password field for security
             pin = "";
             password = "";
             passwordTextInput.text = "";
-
             // Trigger unlock animation in status bar
             SessionStore.triggerUnlockAnimation();
-
             // Delay unlock to allow animation to play (350ms for smooth unlock visual)
             unlockDelayTimer.start();
         }
@@ -79,7 +180,6 @@ Item {
             error = reason;
             errorTimer.start();
             biometricInProgress = false;
-
             // Trigger shake animation in status bar
             SessionStore.triggerShakeAnimation();
         }
@@ -96,11 +196,14 @@ Item {
                 Logger.warn("PinScreen", "🔒 Account locked for", secs, "seconds");
             }
         }
+
+        target: SecurityManagerCpp
     }
 
     // Wallpaper background (source for blur)
     Image {
         id: wallpaperSource
+
         anchors.fill: parent
         source: WallpaperStore.path
         fillMode: Image.PreserveAspectCrop
@@ -112,6 +215,7 @@ Item {
     // Frosted glass overlay covering entire screen
     Rectangle {
         id: glassRect
+
         anchors.fill: parent
         color: MColors.background
         opacity: 0.95
@@ -120,6 +224,7 @@ Item {
         // Capture wallpaper for blurring
         ShaderEffectSource {
             id: wallpaperCapture
+
             anchors.fill: parent
             sourceItem: wallpaperSource
             sourceRect: Qt.rect(0, 0, width, height)
@@ -131,9 +236,9 @@ Item {
             anchors.fill: parent
             source: wallpaperCapture
             blurEnabled: true
-            blur: 1.0
+            blur: 1
             blurMax: 64
-            blurMultiplier: 1.0
+            blurMultiplier: 1
             saturation: 0.3
             brightness: -0.2
         }
@@ -150,18 +255,17 @@ Item {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: Math.round(-20 * Constants.scaleFactor)
         spacing: Math.round(24 * Constants.scaleFactor) // Reduced from 40
-        z: 100  // PIN UI on top of blur
-
+        z: 100 // PIN UI on top of blur
         // GPU layer for column content
         layer.enabled: true
         layer.smooth: true
 
         // Header
         Column {
+            // Lock icon removed - now shown in status bar for consistency
+
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(16 * Constants.scaleFactor) // Reduced from 24
-
-            // Lock icon removed - now shown in status bar for consistency
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -179,10 +283,12 @@ Item {
                             to: 0
                             duration: 100
                         }
+
                         PropertyAction {
                             target: parent.children[1]
                             property: "text"
                         }
+
                         NumberAnimation {
                             target: parent.children[1]
                             property: "opacity"
@@ -202,6 +308,7 @@ Item {
             // PIN dots
             Row {
                 id: pinCircles
+
                 spacing: Math.round(16 * Constants.scaleFactor)
 
                 Repeater {
@@ -215,6 +322,8 @@ Item {
                         border.width: 2
                         border.color: index < pin.length ? MColors.accentBright : MColors.borderSubtle
                         antialiasing: true
+                        // Quick scale pulse
+                        scale: (index === pin.length - 1 && pin.length > 0) ? 1.3 : 1
 
                         // Simple, fast animations
                         Behavior on color {
@@ -228,9 +337,6 @@ Item {
                                 duration: 100
                             }
                         }
-
-                        // Quick scale pulse
-                        scale: (index === pin.length - 1 && pin.length > 0) ? 1.3 : 1.0
 
                         Behavior on scale {
                             NumberAnimation {
@@ -249,7 +355,7 @@ Item {
                 color: MColors.accentBright
                 running: authenticating && !passwordMode
                 visible: authenticating && !passwordMode
-                opacity: visible ? 1.0 : 0.0
+                opacity: visible ? 1 : 0
 
                 Behavior on opacity {
                     NumberAnimation {
@@ -267,13 +373,7 @@ Item {
             radius: Math.round(8 * Constants.scaleFactor)
             color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
             visible: error !== ""
-            opacity: error !== "" ? 1.0 : 0.0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
+            opacity: error !== "" ? 1 : 0
 
             Text {
                 anchors.centerIn: parent
@@ -284,25 +384,36 @@ Item {
                 renderType: Text.NativeRendering
             }
 
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
+
             // Simple shake
             SequentialAnimation on x {
                 running: error !== ""
+
                 NumberAnimation {
                     to: 8
                     duration: 40
                 }
+
                 NumberAnimation {
                     to: -8
                     duration: 40
                 }
+
                 NumberAnimation {
                     to: 4
                     duration: 40
                 }
+
                 NumberAnimation {
                     to: -4
                     duration: 40
                 }
+
                 NumberAnimation {
                     to: 0
                     duration: 40
@@ -321,7 +432,6 @@ Item {
                 columns: 3
                 columnSpacing: Math.round(16 * Constants.scaleFactor)
                 rowSpacing: Math.round(12 * Constants.scaleFactor) // Reduced from 16
-
                 // GPU layer for grid
                 layer.enabled: true
                 layer.smooth: true
@@ -330,10 +440,10 @@ Item {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
                     delegate: Item {
+                        property string digit: modelData
+
                         width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor) // Reduced from 80
                         height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor) // Reduced from 80
-
-                        property string digit: modelData
 
                         MCircularIconButton {
                             anchors.centerIn: parent
@@ -431,16 +541,17 @@ Item {
 
                 Rectangle {
                     id: passwordField
+
                     anchors.fill: parent
                     radius: Math.round(12 * Constants.scaleFactor)
                     color: MColors.bb10Surface
                     border.width: 2
                     border.color: passwordTextInput.activeFocus ? MColors.marathonTeal : MColors.borderSubtle
-
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: 200
-                        }
+                    Component.onCompleted: {
+                        if (passwordMode)
+                            Qt.callLater(function () {
+                                passwordTextInput.forceActiveFocus();
+                            });
                     }
 
                     Text {
@@ -456,9 +567,10 @@ Item {
 
                     TextInput {
                         id: passwordTextInput
+
                         anchors.fill: parent
                         anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-                        anchors.rightMargin: Math.round(48 * Constants.scaleFactor)  // Extra space for spinner
+                        anchors.rightMargin: Math.round(48 * Constants.scaleFactor) // Extra space for spinner
                         verticalAlignment: TextInput.AlignVCenter
                         color: MColors.textPrimary
                         selectedTextColor: MColors.textOnAccent
@@ -467,7 +579,6 @@ Item {
                         font.family: MTypography.fontFamily
                         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
                         echoMode: TextInput.Password
-
                         onAccepted: verifyPasswordInput()
                         onTextChanged: {
                             password = text;
@@ -475,11 +586,9 @@ Item {
                         }
                     }
 
-                    Component.onCompleted: {
-                        if (passwordMode) {
-                            Qt.callLater(function () {
-                                passwordTextInput.forceActiveFocus();
-                            });
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: 200
                         }
                     }
                 }
@@ -493,7 +602,7 @@ Item {
                     color: MColors.accentBright
                     running: authenticating && passwordMode
                     visible: authenticating && passwordMode
-                    opacity: visible ? 1.0 : 0.0
+                    opacity: visible ? 1 : 0
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -553,14 +662,9 @@ Item {
             opacity: cancelMouseArea.pressed ? 0.5 : 0.8
             renderType: Text.NativeRendering
 
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 80
-                }
-            }
-
             MouseArea {
                 id: cancelMouseArea
+
                 anchors.fill: parent
                 anchors.margins: Math.round(-16 * Constants.scaleFactor)
                 onClicked: {
@@ -568,116 +672,25 @@ Item {
                     cancelled();
                 }
             }
-        }
-    }
 
-    function handleInput(digit) {
-        if (pin.length < 6) {
-            pin += digit;
-            error = "";
-
-            if (pin.length === 6) {
-                // Small delay for visual feedback
-                verifyTimer.start();
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 80
+                }
             }
         }
     }
 
     Timer {
         id: verifyTimer
+
         interval: 100
         onTriggered: verifyPin()
     }
 
-    function verifyPin() {
-        // Check if locked out
-        if (SecurityManagerCpp.isLockedOut) {
-            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
-            error = "Locked for " + secs + "s";
-            HapticService.heavy();
-            return;
-        }
-
-        // Show spinner
-        Logger.info("PinScreen", "🔄 Starting authentication, showing spinner");
-        authenticating = true;
-
-        // Authenticate based on current mode
-        if (SecurityManagerCpp.hasQuickPIN && !passwordMode) {
-            // Quick PIN authentication
-            SecurityManagerCpp.authenticateQuickPIN(pin);
-        } else {
-            // System password authentication via PAM
-            var inputPassword = passwordMode ? password : pin;
-            SecurityManagerCpp.authenticatePassword(inputPassword);
-        }
-    }
-
-    function verifyPasswordInput() {
-        if (SecurityManagerCpp.isLockedOut) {
-            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
-            error = "Locked for " + secs + "s";
-            HapticService.heavy();
-            return;
-        }
-
-        if (password.trim().length === 0) {
-            error = "Password cannot be empty";
-            HapticService.light();
-            return;
-        }
-
-        // Show spinner
-        Logger.info("PinScreen", "🔄 Starting password authentication, showing spinner");
-        authenticating = true;
-
-        SecurityManagerCpp.authenticatePassword(password);
-    }
-
-    function startBiometric() {
-        if (SecurityManagerCpp.isLockedOut) {
-            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
-            error = "Locked for " + secs + "s";
-            HapticService.heavy();
-            return;
-        }
-
-        if (!SecurityManagerCpp.fingerprintAvailable) {
-            error = "Fingerprint not enrolled";
-            HapticService.light();
-            return;
-        }
-
-        biometricInProgress = true;
-        error = "Place your finger...";
-        SecurityManagerCpp.authenticateBiometric(0);  // 0 = Fingerprint
-    }
-
-    function switchToPasswordMode() {
-        passwordMode = true;
-        pin = "";
-        password = "";
-        passwordTextInput.text = "";  // Explicitly clear TextInput
-        error = "";
-        Logger.info("PinScreen", "Switched to password mode");
-
-        // Focus the password field
-        Qt.callLater(function () {
-            passwordTextInput.forceActiveFocus();
-        });
-    }
-
-    function switchToPINMode() {
-        passwordMode = false;
-        pin = "";
-        password = "";
-        passwordTextInput.text = "";  // Explicitly clear TextInput
-        error = "";
-        Logger.info("PinScreen", "Switched to PIN mode");
-    }
-
     Timer {
         id: errorTimer
+
         interval: 1200
         onTriggered: {
             pin = "";
@@ -687,28 +700,10 @@ Item {
 
     Timer {
         id: unlockDelayTimer
-        interval: 350  // Match unlock animation duration
+
+        interval: 350 // Match unlock animation duration
         onTriggered: {
-            pinCorrect();  // Now emit the unlock signal
+            pinCorrect(); // Now emit the unlock signal
         }
-    }
-
-    function reset() {
-        pin = "";
-        password = "";
-        passwordTextInput.text = "";  // Explicitly clear TextInput for security
-        error = "";
-        entryProgress = 0.0;
-    }
-
-    function show() {
-        pin = "";
-        password = "";
-        passwordTextInput.text = "";  // Explicitly clear TextInput for security
-        error = "";
-        entryProgress = 1.0;
-        passwordMode = false;  // Reset to PIN mode
-        forceActiveFocus();
-        Logger.info("PinScreen", "📱 PIN screen shown");
     }
 }

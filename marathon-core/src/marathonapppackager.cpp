@@ -8,6 +8,41 @@
 #include <QProcess>
 #include <QTemporaryDir>
 
+static bool copyDirRecursively(const QString &sourceDir, const QString &destDir) {
+    QDir src(sourceDir);
+    if (!src.exists()) {
+        return false;
+    }
+
+    QDir dst(destDir);
+    if (!dst.exists()) {
+        if (!dst.mkpath(".")) {
+            return false;
+        }
+    }
+
+    const QFileInfoList entries = src.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries);
+    for (const QFileInfo &entry : entries) {
+        const QString srcPath = entry.absoluteFilePath();
+        const QString dstPath = destDir + "/" + entry.fileName();
+
+        if (entry.isDir()) {
+            if (!copyDirRecursively(srcPath, dstPath)) {
+                return false;
+            }
+        } else {
+            // Overwrite if it exists
+            if (QFile::exists(dstPath)) {
+                QFile::remove(dstPath);
+            }
+            if (!QFile::copy(srcPath, dstPath)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 MarathonAppPackager::MarathonAppPackager(QObject *parent)
     : QObject(parent) {}
 
@@ -263,19 +298,22 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
         }
     }
 
-    // Create parent directory
+    // Ensure parent directory exists (but DO NOT create destDir itself; rename needs it absent)
     QDir parentDir = QFileInfo(destDir).dir();
-    if (!parentDir.mkpath(QFileInfo(destDir).fileName())) {
-        m_lastError = "Failed to create destination directory";
+    if (!parentDir.exists() && !parentDir.mkpath(".")) {
+        m_lastError = "Failed to create destination parent directory";
         emit error(m_lastError);
         return false;
     }
 
-    // Rename temp directory to destination
+    // Prefer atomic-ish move (fast) when possible.
     if (!QDir().rename(tempExtractPath, destDir)) {
-        m_lastError = "Failed to move extracted files to destination";
-        emit error(m_lastError);
-        return false;
+        // Cross-filesystem or permissions can cause rename to fail. Fall back to recursive copy.
+        if (!copyDirRecursively(tempExtractPath, destDir)) {
+            m_lastError = "Failed to move extracted files to destination";
+            emit error(m_lastError);
+            return false;
+        }
     }
 
     emit extractionProgress(100);

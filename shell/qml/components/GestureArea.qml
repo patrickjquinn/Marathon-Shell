@@ -1,20 +1,19 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import QtQuick
 
 MouseArea {
     id: gestureArea
+
+    property real startY: 0
+    property bool isPeeking: false
 
     signal peekStarted
     signal peekProgress(real progress)
     signal peekReleased(bool committed)
 
-    property real startY: 0
-    property bool isPeeking: false
-
     preventStealing: false
     propagateComposedEvents: true
-
     onPressed: mouse => {
         startY = mouse.y;
         if (mouse.y > height - Constants.peekThreshold) {
@@ -25,7 +24,6 @@ MouseArea {
             mouse.accepted = false;
         }
     }
-
     onPositionChanged: mouse => {
         if (isPeeking) {
             var dragY = startY - mouse.y;
@@ -34,7 +32,6 @@ MouseArea {
             mouse.accepted = true;
         }
     }
-
     onReleased: mouse => {
         if (isPeeking) {
             var dragY = startY - mouse.y;

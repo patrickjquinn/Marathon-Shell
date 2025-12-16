@@ -1,6 +1,6 @@
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
 import QtQuick
 import QtWayland.Compositor
 
@@ -27,15 +27,6 @@ ShellSurfaceItem {
     // This prevents Vulkan surface lost errors when apps like Chromium destroy their surface during minimize
     // The buffer stays visible for task switcher preview even after surface destruction
     property bool isMinimized: false
-
-    // CRITICAL: Let Qt's ShellSurfaceItem automatically create popup items
-    // This handles positioning, sizing, and rendering of xdg_popups without manual intervention
-    autoCreatePopupItems: true
-
-    // CRITICAL: Hide the surface until we've sent the initial size configuration
-    // This prevents apps like Chromium from rendering at the wrong size on first launch
-    // The splash screen remains visible until the app receives its proper dimensions
-    opacity: hasSentInitialSize ? 1 : 0
 
     // CRITICAL: Debounced size update to prevent resize spam during animations
     // Apps rescale when they receive size changes, causing fuzzy/squished rendering
@@ -87,14 +78,19 @@ ShellSurfaceItem {
         // Reference: https://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-xdg-shell
         // Reference: Phosh/phoc compositor source (wlroots-based mobile compositor)
         toplevel.sendMaximized(newSize);
-
         // AUTO-ACTIVATE: Activate window when ready (removes "grey" state)
         // This ensures the app looks active/focused immediately on launch
-        if (AppLaunchService.compositor) {
+        if (AppLaunchService.compositor)
             AppLaunchService.compositor.activateSurface(surfaceId);
-        }
     }
 
+    // CRITICAL: Let Qt's ShellSurfaceItem automatically create popup items
+    // This handles positioning, sizing, and rendering of xdg_popups without manual intervention
+    autoCreatePopupItems: true
+    // CRITICAL: Hide the surface until we've sent the initial size configuration
+    // This prevents apps like Chromium from rendering at the wrong size on first launch
+    // The splash screen remains visible until the app receives its proper dimensions
+    opacity: hasSentInitialSize ? 1 : 0
     // bufferLocked is inherited from WaylandQuickItem (parent of ShellSurfaceItem)
     // When true, the compositor retains the buffer instead of releasing it to the client
     bufferLocked: isMinimized
@@ -114,16 +110,13 @@ ShellSurfaceItem {
         if (autoResize)
             scheduleSizeUpdate();
     }
-
     onHeightChanged: {
         if (autoResize)
             scheduleSizeUpdate();
     }
-
     onSurfaceDestroyed: {
         Logger.info("WaylandShellSurfaceItem", "Surface destroyed");
     }
-
     // CRITICAL: surfaceId may be set via binding AFTER Component.onCompleted
     // so we also register on property change
     onSurfaceIdChanged: {
@@ -132,7 +125,6 @@ ShellSurfaceItem {
             SurfaceRegistry.registerSurface(surfaceId, this);
         }
     }
-
     Component.onCompleted: {
         // Initial registration if surfaceId is already set
         if (surfaceId !== -1) {
@@ -140,11 +132,9 @@ ShellSurfaceItem {
             SurfaceRegistry.registerSurface(surfaceId, this);
         }
     }
-
     Component.onDestruction: {
-        if (surfaceId !== -1) {
+        if (surfaceId !== -1)
             SurfaceRegistry.unregisterSurface(surfaceId);
-        }
     }
 
     Item {

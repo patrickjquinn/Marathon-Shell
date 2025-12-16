@@ -1,13 +1,12 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 QtObject {
     id: router
 
     property int currentPageIndex: 2
     property int previousPageIndex: 2
-
     readonly property int pageHub: 0
     readonly property int pageFrames: 1
     readonly property int pageApps: 2

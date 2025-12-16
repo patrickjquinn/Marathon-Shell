@@ -5,7 +5,6 @@ QtObject {
     id: windowManager
 
     readonly property bool isWaylandCompositor: false
-
     property var windows: []
     property string activeWindow: ""
 
@@ -17,42 +16,36 @@ QtObject {
 
     function registerWindow(appId, surface) {
         console.log("[WindowManager] Registering window for app:", appId);
-
         var windowId = _generateWindowId(appId);
-
         var window = {
-            id: windowId,
-            appId: appId,
-            surface: surface,
-            geometry: {
-                x: 0,
-                y: 0,
-                width: 720,
-                height: 1280
+            "id": windowId,
+            "appId": appId,
+            "surface": surface,
+            "geometry": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 1280
             },
-            state: "normal",
-            timestamp: Date.now()
+            "state": "normal",
+            "timestamp": Date.now()
         };
-
         windows.push(window);
         windowsChanged();
         windowCreated(windowId, surface);
-
         return windowId;
     }
 
     function unregisterWindow(windowId) {
         console.log("[WindowManager] Unregistering window:", windowId);
-
         for (var i = 0; i < windows.length; i++) {
             if (windows[i].id === windowId) {
                 windows.splice(i, 1);
                 windowsChanged();
                 windowDestroyed(windowId);
-
-                if (activeWindow === windowId) {
+                if (activeWindow === windowId)
                     activeWindow = "";
-                }
+
                 return;
             }
         }
@@ -66,7 +59,6 @@ QtObject {
 
     function minimizeWindow(windowId) {
         console.log("[WindowManager] Minimizing window:", windowId);
-
         for (var i = 0; i < windows.length; i++) {
             if (windows[i].id === windowId) {
                 windows[i].state = "minimized";
@@ -79,7 +71,6 @@ QtObject {
 
     function restoreWindow(windowId) {
         console.log("[WindowManager] Restoring window:", windowId);
-
         for (var i = 0; i < windows.length; i++) {
             if (windows[i].id === windowId) {
                 windows[i].state = "normal";
@@ -92,9 +83,8 @@ QtObject {
 
     function getWindowForApp(appId) {
         for (var i = 0; i < windows.length; i++) {
-            if (windows[i].appId === appId) {
+            if (windows[i].appId === appId)
                 return windows[i];
-            }
         }
         return null;
     }

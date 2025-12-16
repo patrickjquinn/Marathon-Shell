@@ -15,3 +15,4 @@ check_output.cpp
 cmake/
 .cache/
 compile_commands.json
+build-tests/

@@ -1,6 +1,6 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: inputContainer
@@ -44,19 +44,16 @@ Rectangle {
             border.color: {
                 if (hasError)
                     return "#CC0000";
+
                 if (textInput.activeFocus)
                     return "#006666";
-                return "#333333";
-            }
 
-            Behavior on border.color {
-                ColorAnimation {
-                    duration: 200
-                }
+                return "#333333";
             }
 
             TextInput {
                 id: textInput
+
                 anchors.fill: parent
                 anchors.margins: 12
                 color: disabled ? "#666666" : "#FFFFFF"
@@ -65,6 +62,14 @@ Rectangle {
                 echoMode: password ? TextInput.Password : TextInput.Normal
                 enabled: !disabled
                 verticalAlignment: TextInput.AlignVCenter
+                onTextChanged: inputContainer.inputTextChanged(text)
+                onAccepted: inputContainer.accepted()
+                onActiveFocusChanged: {
+                    if (activeFocus)
+                        inputContainer.focused();
+                    else
+                        inputContainer.unfocused();
+                }
 
                 Text {
                     visible: parent.text === "" && !parent.activeFocus
@@ -73,14 +78,11 @@ Rectangle {
                     font: parent.font
                     anchors.verticalCenter: parent.verticalCenter
                 }
+            }
 
-                onTextChanged: inputContainer.inputTextChanged(text)
-                onAccepted: inputContainer.accepted()
-                onActiveFocusChanged: {
-                    if (activeFocus)
-                        inputContainer.focused();
-                    else
-                        inputContainer.unfocused();
+            Behavior on border.color {
+                ColorAnimation {
+                    duration: 200
                 }
             }
         }

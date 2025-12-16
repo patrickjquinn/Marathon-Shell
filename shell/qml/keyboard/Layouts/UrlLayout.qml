@@ -1,17 +1,14 @@
+import "../UI"
+import MarathonOS.Shell
 // Marathon Virtual Keyboard - URL Layout
 // Optimized for URLs with /, :, and domain shortcuts
 import QtQuick
-import MarathonOS.Shell
-import "../UI"
 
 Item {
     id: layout
 
     // Properties
     property bool shifted: false
-
-    // Expose Column's implicit height
-    implicitHeight: layoutColumn.implicitHeight
 
     // Signals
     signal keyClicked(string text)
@@ -21,16 +18,21 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
+    // Expose Column's implicit height
+    implicitHeight: layoutColumn.implicitHeight
+
     Column {
         id: layoutColumn
+
         width: parent.width
         spacing: 0
 
         // Row 1: Q W E R T Y U I O P
         Row {
+            readonly property real keyWidth: (width - spacing * 9) / 10
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            readonly property real keyWidth: (width - spacing * 9) / 10
 
             Repeater {
                 model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
@@ -39,7 +41,6 @@ Item {
                     width: parent.keyWidth
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -55,9 +56,10 @@ Item {
 
         // Row 2: A S D F G H J K L /
         Row {
+            readonly property real keyWidth: (width - spacing * 9) / 10
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            readonly property real keyWidth: (width - spacing * 9) / 10
 
             Repeater {
                 model: ["a", "s", "d", "f", "g", "h", "j", "k", "l", "/"]
@@ -67,7 +69,6 @@ Item {
                     text: modelData
                     displayText: (modelData === "/" || !layout.shifted) ? modelData : modelData.toUpperCase()
                     isSpecial: modelData === "/"
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -92,7 +93,6 @@ Item {
                 iconName: layout.capsLock ? "chevrons-up" : "chevron-up"
                 isSpecial: true
                 highlighted: layout.shifted
-
                 onClicked: {
                     layout.shifted = !layout.shifted;
                 }
@@ -106,7 +106,6 @@ Item {
                     width: Math.round(55 * Constants.scaleFactor)
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -118,7 +117,6 @@ Item {
                 width: Math.round(60 * Constants.scaleFactor)
                 iconName: "delete"
                 isSpecial: true
-
                 onClicked: {
                     layout.backspaceClicked();
                 }
@@ -142,7 +140,6 @@ Item {
                 text: "123"
                 displayText: "123"
                 isSpecial: true
-
                 onClicked: {
                     layout.layoutSwitchClicked("symbols");
                 }
@@ -172,7 +169,6 @@ Item {
                 width: Math.round(120 * Constants.scaleFactor)
                 text: " "
                 displayText: "space"
-
                 onClicked: {
                     layout.spaceClicked();
                 }
@@ -184,7 +180,6 @@ Item {
                 text: ".com"
                 displayText: ".com"
                 isSpecial: true
-
                 onClicked: {
                     layout.keyClicked(".com");
                 }
@@ -195,7 +190,6 @@ Item {
                 text: "www."
                 displayText: "www."
                 isSpecial: true
-
                 onClicked: {
                     layout.keyClicked("www.");
                 }
@@ -206,7 +200,6 @@ Item {
                 width: Math.round(60 * Constants.scaleFactor)
                 iconName: "corner-down-left"
                 isSpecial: true
-
                 onClicked: {
                     layout.enterClicked();
                 }

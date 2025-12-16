@@ -1,6 +1,6 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 /**
  * @singleton
@@ -25,6 +25,10 @@ import MarathonOS.Shell
  * NavigationRouter.quickLaunch("camera")
  */
 QtObject {
+    // Generic app launch (includes Settings now)
+    // Navigate to messages tab
+    // Launch the app first using UIStore
+
     id: router
 
     /**
@@ -32,19 +36,16 @@ QtObject {
      * @type {string}
      */
     property string currentApp: ""
-
     /**
      * @brief Currently active page within the app
      * @type {string}
      */
     property string currentPage: ""
-
     /**
      * @brief Current navigation parameters
      * @type {Object}
      */
     property var currentParams: ({})
-
     /**
      * @brief Navigation history stack
      * @type {Array<Object>}
@@ -56,13 +57,16 @@ QtObject {
      * @param {string} uri - The URI that was navigated to
      */
     signal navigated(string uri)
-
     /**
      * @brief Emitted when navigation fails
      * @param {string} uri - The URI that failed
      * @param {string} error - Error message
      */
     signal navigationFailed(string uri, string error)
+    // Signals for specific navigation events
+    signal settingsNavigationRequested(string page, string subpage, var params)
+    signal hubTabRequested(int tabIndex)
+    signal deepLinkRequested(string appId, string route, var params)
 
     /**
      * @brief Navigates to a Marathon URI
@@ -75,7 +79,6 @@ QtObject {
      */
     function navigate(uri) {
         Logger.info("NavigationRouter", "Navigate to: " + uri);
-
         var parsed = parseURI(uri);
         if (!parsed.valid) {
             var error = "Invalid URI format: " + uri;
@@ -83,30 +86,25 @@ QtObject {
             navigationFailed(uri, error);
             return false;
         }
-
         // Add to history
         history.push({
-            uri: uri,
-            app: parsed.app,
-            page: parsed.page,
-            params: parsed.params,
-            timestamp: Date.now()
+            "uri": uri,
+            "app": parsed.app,
+            "page": parsed.page,
+            "params": parsed.params,
+            "timestamp": Date.now()
         });
-
         // Update current state
         currentApp = parsed.app;
         currentPage = parsed.page;
         currentParams = parsed.params;
-
         // Route to appropriate handler
-        if (parsed.app === "hub") {
+        if (parsed.app === "hub")
             return handleHubRoute(parsed);
-        } else if (parsed.app === "browser") {
+        else if (parsed.app === "browser")
             return handleBrowserRoute(parsed);
-        } else {
-            // Generic app launch (includes Settings now)
+        else
             return handleAppRoute(parsed);
-        }
     }
 
     /**
@@ -140,42 +138,35 @@ QtObject {
      */
     function parseURI(uri) {
         var result = {
-            valid: false,
-            app: "",
-            page: "",
-            subpage: "",
-            params: {}
+            "valid": false,
+            "app": "",
+            "page": "",
+            "subpage": "",
+            "params": {}
         };
-
         // Check for marathon:// scheme
-        if (!uri.startsWith("marathon://")) {
+        if (!uri.startsWith("marathon://"))
             return result;
-        }
 
         // Remove scheme
         var path = uri.substring("marathon://".length);
-
         // Split query params
         var pathAndQuery = path.split("?");
         var pathParts = pathAndQuery[0].split("/");
-
         // Parse path
         result.app = pathParts[0] || "";
         result.page = pathParts[1] || "";
         result.subpage = pathParts[2] || "";
-
         // Parse query params
         if (pathAndQuery.length > 1) {
             var queryString = pathAndQuery[1];
             var queryParts = queryString.split("&");
             for (var i = 0; i < queryParts.length; i++) {
                 var pair = queryParts[i].split("=");
-                if (pair.length === 2) {
+                if (pair.length === 2)
                     result.params[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
-                }
             }
         }
-
         result.valid = result.app !== "";
         return result;
     }
@@ -185,17 +176,13 @@ QtObject {
      */
     function handleHubRoute(parsed) {
         Logger.info("NavigationRouter", "Routing to Hub: " + parsed.page);
-
         // Open Hub and select tab
-        if (parsed.page === "messages") {
-            // Navigate to messages tab
+        if (parsed.page === "messages")
             hubTabRequested(0);
-        } else if (parsed.page === "notifications") {
+        else if (parsed.page === "notifications")
             hubTabRequested(1);
-        } else if (parsed.page === "calendar") {
+        else if (parsed.page === "calendar")
             hubTabRequested(2);
-        }
-
         navigated("marathon://hub/" + parsed.page);
         return true;
     }
@@ -205,14 +192,11 @@ QtObject {
      */
     function handleBrowserRoute(parsed) {
         Logger.info("NavigationRouter", "Routing to Browser");
-
         var url = parsed.params.url || "";
-
         // Launch browser with URL parameter
         deepLinkRequested("browser", "", {
-            url: url
+            "url": url
         });
-
         navigated("marathon://browser");
         return true;
     }
@@ -222,47 +206,32 @@ QtObject {
      */
     function handleAppRoute(parsed) {
         Logger.info("NavigationRouter", "Routing to app: " + parsed.app);
-
         // Request app launch via deep link signal
         deepLinkRequested(parsed.app, "", {});
-
         navigated("marathon://" + parsed.app);
         return true;
     }
 
-    // Signals for specific navigation events
-    signal settingsNavigationRequested(string page, string subpage, var params)
-    signal hubTabRequested(int tabIndex)
-    signal deepLinkRequested(string appId, string route, var params)
-
     function navigateToDeepLink(appId, route, params) {
         Logger.info("NavigationRouter", "Deep link requested: " + appId + " → " + route);
-
         // Get app info
         var appInfo = typeof MarathonAppRegistry !== 'undefined' ? MarathonAppRegistry.getApp(appId) : null;
-
         if (!appInfo) {
             Logger.error("NavigationRouter", "App not found for deep link: " + appId);
             return false;
         }
-
         // Check if THIS specific app is already open
         var isAppOpen = (UIStore.appWindowOpen && UIStore.currentAppId === appId);
-
-        if (!isAppOpen) {
-            // Launch the app first using UIStore
+        if (!isAppOpen)
             UIStore.openApp(appId, appInfo.name, appInfo.icon);
-        }
 
         // Emit deep link signal for app to handle (after a small delay if we just opened it)
-        if (isAppOpen) {
+        if (isAppOpen)
             deepLinkRequested(appId, route, params || {});
-        } else {
+        else
             Qt.callLater(function () {
                 deepLinkRequested(appId, route, params || {});
             });
-        }
-
         return true;
     }
 

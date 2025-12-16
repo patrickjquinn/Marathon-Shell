@@ -1,18 +1,17 @@
 pragma Singleton
-import QtQuick
 import Qt.labs.settings
+import QtQuick
 
 Item {
     id: root
 
     property var runningApps: ({})
     property var appStates: ({})
-
     readonly property Settings settings: Settings {
-        category: "AppState"
-
         property string runningAppIds: ""
         property string appStateData: ""
+
+        category: "AppState"
     }
 
     readonly property Timer autoSaveTimer: Timer {
@@ -25,11 +24,10 @@ Item {
     function registerApp(appId: string, isVisible: bool) {
         const timestamp = Date.now();
         runningApps[appId] = {
-            appId: appId,
-            isVisible: isVisible,
-            timestamp: timestamp
+            "appId": appId,
+            "isVisible": isVisible,
+            "timestamp": timestamp
         };
-
         console.log("StateManager: Registered app", appId, "visible:", isVisible);
     }
 
@@ -49,10 +47,9 @@ Item {
 
     function saveAppState(appId: string, state: string) {
         appStates[appId] = {
-            state: state,
-            timestamp: Date.now()
+            "state": state,
+            "timestamp": Date.now()
         };
-
         console.log("StateManager: Saved state for", appId, ":", state);
     }
 
@@ -84,9 +81,8 @@ Item {
     }
 
     function clearAppState(appId: string) {
-        if (appStates[appId]) {
+        if (appStates[appId])
             delete appStates[appId];
-        }
     }
 
     function clearAllStates() {

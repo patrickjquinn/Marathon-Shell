@@ -1,13 +1,10 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: confirmDialog
-    anchors.fill: parent
-    visible: false
-    z: 2500
 
     property string title: ""
     property string message: ""
@@ -31,8 +28,13 @@ Item {
         fadeOut.start();
     }
 
+    anchors.fill: parent
+    visible: false
+    z: 2500
+
     Rectangle {
         id: backdrop
+
         anchors.fill: parent
         color: "#000000"
         opacity: 0
@@ -43,6 +45,7 @@ Item {
                 cancelled();
                 if (onCancel)
                     onCancel();
+
                 hide();
             }
         }
@@ -50,6 +53,7 @@ Item {
 
     Rectangle {
         id: dialog
+
         anchors.centerIn: parent
         width: Math.min(parent.width - 64, 400)
         height: contentColumn.height + MSpacing.touchTargetLarge
@@ -72,6 +76,7 @@ Item {
 
         Column {
             id: contentColumn
+
             anchors.centerIn: parent
             width: parent.width - MSpacing.touchTargetLarge
             spacing: MSpacing.xl
@@ -112,6 +117,7 @@ Item {
                         cancelled();
                         if (onCancel)
                             onCancel();
+
                         hide();
                     }
                 }
@@ -124,6 +130,7 @@ Item {
                         confirmed();
                         if (onConfirm)
                             onConfirm();
+
                         hide();
                     }
                 }
@@ -133,6 +140,7 @@ Item {
 
     ParallelAnimation {
         id: fadeIn
+
         NumberAnimation {
             target: backdrop
             property: "opacity"
@@ -140,6 +148,7 @@ Item {
             duration: 200
             easing.type: Easing.OutCubic
         }
+
         NumberAnimation {
             target: dialog
             property: "opacity"
@@ -147,6 +156,7 @@ Item {
             duration: 200
             easing.type: Easing.OutCubic
         }
+
         NumberAnimation {
             target: dialog
             property: "scale"
@@ -158,6 +168,11 @@ Item {
 
     ParallelAnimation {
         id: fadeOut
+
+        onFinished: {
+            confirmDialog.visible = false;
+        }
+
         NumberAnimation {
             target: backdrop
             property: "opacity"
@@ -165,6 +180,7 @@ Item {
             duration: 150
             easing.type: Easing.InCubic
         }
+
         NumberAnimation {
             target: dialog
             property: "opacity"
@@ -172,15 +188,13 @@ Item {
             duration: 150
             easing.type: Easing.InCubic
         }
+
         NumberAnimation {
             target: dialog
             property: "scale"
             to: 0.9
             duration: 150
             easing.type: Easing.InCubic
-        }
-        onFinished: {
-            confirmDialog.visible = false;
         }
     }
 }

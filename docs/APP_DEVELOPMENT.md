@@ -274,8 +274,9 @@ HapticService.medium()
 HapticService.heavy()
 
 // Network status
-NetworkManager.isOnline
-NetworkManager.connectionType
+NetworkManagerCpp.wifiConnected
+NetworkManagerCpp.wifiSsid
+NetworkManagerCpp.ethernetConnected
 
 // Power management
 PowerManager.batteryLevel

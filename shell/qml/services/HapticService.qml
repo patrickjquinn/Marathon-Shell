@@ -34,7 +34,6 @@ QtObject {
      * @readonly
      */
     readonly property bool isAvailable: Platform.isLinux || Platform.isAndroid
-
     /**
      * @brief Whether haptic feedback is enabled (user preference)
      * @type {bool}
@@ -50,6 +49,7 @@ QtObject {
     function light() {
         if (!enabled || !isAvailable)
             return;
+
         vibrate(10);
     }
 
@@ -61,6 +61,7 @@ QtObject {
     function medium() {
         if (!enabled || !isAvailable)
             return;
+
         vibrate(25);
     }
 
@@ -72,6 +73,7 @@ QtObject {
     function heavy() {
         if (!enabled || !isAvailable)
             return;
+
         vibrate(50);
     }
 
@@ -87,6 +89,7 @@ QtObject {
     function pattern(durations) {
         if (!enabled || !isAvailable)
             return;
+
         console.log("[HapticService] Vibration pattern:", durations);
     }
 
@@ -98,15 +101,14 @@ QtObject {
     function vibratePattern(durations, repeat) {
         if (!enabled || !isAvailable)
             return;
-        console.log("[HapticService] Vibration pattern:", durations, "repeat:", repeat);
 
+        console.log("[HapticService] Vibration pattern:", durations, "repeat:", repeat);
         // For now, just do a single vibration
         // In production, this would be wired to HapticManagerCpp
-        if (typeof HapticManagerCpp !== 'undefined') {
+        if (typeof HapticManagerCpp !== 'undefined')
             HapticManagerCpp.vibratePattern(durations, repeat);
-        } else {
+        else
             vibrate(durations[0] || 500);
-        }
     }
 
     /**
@@ -115,25 +117,23 @@ QtObject {
     function stopVibration() {
         if (!isAvailable)
             return;
-        console.log("[HapticService] Stopping vibration");
 
-        if (typeof HapticManagerCpp !== 'undefined') {
+        console.log("[HapticService] Stopping vibration");
+        if (typeof HapticManagerCpp !== 'undefined')
             HapticManagerCpp.stopVibration();
-        }
     }
 
     function vibrate(duration) {
         if (!enabled || !isAvailable)
             return;
-        console.log("[HapticService] Vibrate:", duration + "ms");
 
-        if (typeof HapticManagerCpp !== 'undefined') {
+        console.log("[HapticService] Vibrate:", duration + "ms");
+        if (typeof HapticManagerCpp !== 'undefined')
             HapticManagerCpp.vibrate(duration);
-        } else if (Platform.isLinux) {
+        else if (Platform.isLinux)
             _vibrateLinux(duration);
-        } else if (Platform.isAndroid) {
+        else if (Platform.isAndroid)
             _vibrateAndroid(duration);
-        }
     }
 
     function _vibrateLinux(duration) {

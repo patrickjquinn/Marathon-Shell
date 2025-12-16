@@ -188,6 +188,10 @@ Rectangle {
     }
 
     MouseArea {
+        // Right zone (keyboard) always enabled
+        // When app is open, swipe left = back gesture
+        // Otherwise, navigate pages left
+
         id: navMouseArea
 
         property real velocityX: 0
@@ -203,8 +207,6 @@ Rectangle {
         anchors.topMargin: 0
         z: 200
         onPressed: mouse => {
-            // Right zone (keyboard) always enabled
-
             startX = mouse.x;
             startY = mouse.y;
             lastX = mouse.x;
@@ -387,10 +389,8 @@ Rectangle {
                         "isAppOpen": isAppOpen
                     });
                     if (isAppOpen)
-                        // When app is open, swipe left = back gesture
                         swipeBack();
                     else
-                        // Otherwise, navigate pages left
                         swipeLeft();
                 } else {
                     Logger.gesture("NavBar", "swipeRight", {

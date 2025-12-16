@@ -1,17 +1,18 @@
+import "../UI"
+import MarathonOS.Shell
+import MarathonUI.Theme
 // Marathon Virtual Keyboard - Symbol Layout
 // Special characters and symbols
 import QtQuick
-import MarathonOS.Shell
-import MarathonUI.Theme
-import "../UI"
 
 Item {
     id: layout
 
     property bool shifted: false
-
-    // Expose Column's implicit height
-    implicitHeight: layoutColumn.implicitHeight
+    // Symbol key definitions
+    readonly property var row1Keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
+    readonly property var row2Keys: ["@", "#", "$", "_", "&", "-", "+", "(", ")", "/"]
+    readonly property var row3Keys: ["*", "\"", "'", ":", ";", "!", "?", "~", "`"]
 
     signal keyClicked(string text)
     signal backspaceClicked
@@ -20,21 +21,21 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
-    // Symbol key definitions
-    readonly property var row1Keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
-    readonly property var row2Keys: ["@", "#", "$", "_", "&", "-", "+", "(", ")", "/"]
-    readonly property var row3Keys: ["*", "\"", "'", ":", ";", "!", "?", "~", "`"]
+    // Expose Column's implicit height
+    implicitHeight: layoutColumn.implicitHeight
 
     Column {
         id: layoutColumn
+
         width: parent.width
         spacing: 0
 
         // Row 1: 1 2 3 4 5 6 7 8 9 0
         Row {
+            readonly property real keyWidth: (width - spacing * 9) / 10
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            readonly property real keyWidth: (width - spacing * 9) / 10
 
             Repeater {
                 model: row1Keys
@@ -43,7 +44,6 @@ Item {
                     width: parent.keyWidth
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -55,15 +55,16 @@ Item {
         Rectangle {
             width: parent.width
             height: Math.round(2 * Constants.scaleFactor)
-            color: "#666666"  // BRIGHT grey line - very visible
-            opacity: 1.0
+            color: "#666666" // BRIGHT grey line - very visible
+            opacity: 1
         }
 
         // Row 2: @ # $ _ & - + ( ) /
         Row {
+            readonly property real keyWidth: (width - spacing * 9) / 10
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            readonly property real keyWidth: (width - spacing * 9) / 10
 
             Repeater {
                 model: row2Keys
@@ -72,7 +73,6 @@ Item {
                     width: parent.keyWidth
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -91,9 +91,11 @@ Item {
         // Row 3: =\< * " ' : ; ! ? ~ ` Backspace
         Row {
             id: row3
+
+            property real availableWidth: width - spacing * 10
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            property real availableWidth: width - spacing * 10
 
             // Shift key (switches to alternate symbols)
             Key {
@@ -101,7 +103,6 @@ Item {
                 text: "=\\<"
                 displayText: "=\\<"
                 isSpecial: true
-
                 onClicked: {
                     Logger.info("SymbolLayout", "Shift symbols - not yet implemented");
                 }
@@ -112,10 +113,9 @@ Item {
                 model: row3Keys
 
                 Key {
-                    width: row3.availableWidth * 0.075  // Reduced from 0.10 to fit all keys
+                    width: row3.availableWidth * 0.075 // Reduced from 0.10 to fit all keys
                     text: modelData
                     displayText: modelData
-
                     onClicked: {
                         layout.keyClicked(displayText);
                     }
@@ -124,11 +124,10 @@ Item {
 
             // Backspace key (slightly wider to fill remaining space and touch edge)
             Key {
-                width: row3.availableWidth * 0.175  // Increased from 0.15 to 0.175 to fill gap
+                width: row3.availableWidth * 0.175 // Increased from 0.15 to 0.175 to fill gap
                 text: "backspace"
                 iconName: "delete"
                 isSpecial: true
-
                 onClicked: {
                     layout.backspaceClicked();
                 }
@@ -146,9 +145,11 @@ Item {
         // Row 4: ABC, Comma, Space, Dismiss, Period, Enter (matching QWERTY layout)
         Row {
             id: row4
+
+            property real availableWidth: width - spacing * 5
+
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
-            property real availableWidth: width - spacing * 5
 
             // ABC key (back to letters)
             Key {
@@ -156,7 +157,6 @@ Item {
                 text: "ABC"
                 displayText: "ABC"
                 isSpecial: true
-
                 onClicked: {
                     layout.layoutSwitchClicked("qwerty");
                 }
@@ -167,7 +167,6 @@ Item {
                 width: row4.availableWidth * 0.08
                 text: ","
                 displayText: ","
-
                 onClicked: {
                     layout.keyClicked(",");
                 }
@@ -175,11 +174,10 @@ Item {
 
             // Space bar (MASSIVE - 50% of row)
             Key {
-                width: row4.availableWidth * 0.50
+                width: row4.availableWidth * 0.5
                 text: " "
                 displayText: "space"
                 isSpecial: true
-
                 onClicked: {
                     layout.spaceClicked();
                 }
@@ -191,7 +189,6 @@ Item {
                 text: "dismiss"
                 iconName: "chevron-down"
                 isSpecial: true
-
                 onClicked: {
                     layout.dismissClicked();
                 }
@@ -202,7 +199,6 @@ Item {
                 width: row4.availableWidth * 0.08
                 text: "."
                 displayText: "."
-
                 onClicked: {
                     layout.keyClicked(".");
                 }
@@ -214,7 +210,6 @@ Item {
                 text: "enter"
                 iconName: "corner-down-left"
                 isSpecial: true
-
                 onClicked: {
                     layout.enterClicked();
                 }

@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonApp.Test
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 Item {
     Flickable {
@@ -13,18 +13,21 @@ Item {
 
         Column {
             id: systemColumn
+
             width: parent.width
             spacing: MSpacing.md
             padding: MSpacing.lg
 
             Row {
                 spacing: MSpacing.sm
+
                 Icon {
                     name: "cpu"
                     size: 24
                     color: MColors.accent
                     anchors.verticalCenter: parent.verticalCenter
                 }
+
                 MLabel {
                     text: "System Services"
                     variant: "headline"
@@ -103,23 +106,23 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "WiFi: " + (NetworkManager.wifiConnected ? ("Connected (" + NetworkManager.wifiSsid + ")") : "Disconnected")
+                            text: "WiFi: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected) ? ("Connected (" + NetworkManagerCpp.wifiSsid + ")") : "Disconnected")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Signal: " + NetworkManager.wifiSignalStrength + "%"
+                            text: "Signal: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0) + "%"
                             variant: "secondary"
-                            visible: NetworkManager.wifiConnected
+                            visible: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected
                         }
 
                         MLabel {
-                            text: "Cellular: " + (NetworkManager.cellularConnected ? NetworkManager.cellularOperator : "Disconnected")
+                            text: "Cellular: " + ((typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.registered) ? ModemManagerCpp.operatorName : "Disconnected")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Airplane Mode: " + (NetworkManager.airplaneModeEnabled ? "On" : "Off")
+                            text: "Airplane Mode: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.airplaneModeEnabled) ? "On" : "Off")
                             variant: "secondary"
                         }
                     }
@@ -132,7 +135,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                NetworkManager.scanWifi();
+                                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
+                                    NetworkManagerCpp.scanWifi();
+
                                 Logger.info("TestApp", "WiFi scan initiated");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -146,7 +151,9 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                NetworkManager.toggleAirplaneMode();
+                                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
+                                    NetworkManagerCpp.setAirplaneMode(!NetworkManagerCpp.airplaneModeEnabled);
+
                                 Logger.info("TestApp", "Toggled airplane mode");
                                 if (testApp) {
                                     testApp.passedTests++;

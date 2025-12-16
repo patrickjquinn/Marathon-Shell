@@ -176,7 +176,6 @@ set(QML_FILES
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
-    qml/services/NetworkManager.qml
     qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
@@ -230,7 +229,6 @@ set(SINGLETON_FILES
     qml/services/Platform.qml
     qml/services/ServiceBus.qml
     qml/services/PowerManager.qml
-    qml/services/NetworkManager.qml
     qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml

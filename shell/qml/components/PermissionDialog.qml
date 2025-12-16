@@ -1,37 +1,54 @@
-import QtQuick
-import QtQuick.Controls
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
-import MarathonOS.Shell
+import QtQuick
+import QtQuick.Controls
 
 MModal {
+    // MModal already handles width/height in its internal container,
+    // but we can override content size if needed.
+    // However, MModal's contentItem fills the remaining space.
+    // Let's just let MModal handle the container size.
+
     id: permissionDialog
-
-    // CRITICAL: Must be parented to shell root overlay to appear above apps
-    parent: Overlay.overlay
-
-    // MModal uses 'showing' property for visibility/animation
-    showing: PermissionManager.promptActive
 
     property string appId: PermissionManager.currentAppId
     property string permission: PermissionManager.currentPermission
     property string appName: getAppName(appId)
     property string permissionDesc: PermissionManager.getPermissionDescription(permission)
 
-    // MModal already handles width/height in its internal container,
-    // but we can override content size if needed.
-    // However, MModal's contentItem fills the remaining space.
-    // Let's just let MModal handle the container size.
-
-    title: "Permission Request"
-
     function getAppName(id) {
         // Try to get app name from registry
         if (!id)
             return "Unknown App";
+
         return AppStore.getAppName(id) || id;
     }
+
+    function getPermissionIcon(perm) {
+        const icons = {
+            "network": "network",
+            "location": "location_on",
+            "camera": "camera_alt",
+            "microphone": "mic",
+            "contacts": "contacts",
+            "calendar": "event",
+            "storage": "folder",
+            "notifications": "notifications",
+            "telephony": "phone",
+            "sms": "message",
+            "bluetooth": "bluetooth",
+            "system": "settings"
+        };
+        return icons[perm] || "help";
+    }
+
+    // CRITICAL: Must be parented to shell root overlay to appear above apps
+    parent: Overlay.overlay
+    // MModal uses 'showing' property for visibility/animation
+    showing: PermissionManager.promptActive
+    title: "Permission Request"
 
     Column {
         width: parent.width
@@ -99,6 +116,7 @@ MModal {
 
                 Text {
                     id: permissionDescText
+
                     text: permissionDialog.permissionDesc
                     font.pixelSize: 14
                     width: parent.width - 36
@@ -144,23 +162,5 @@ MModal {
                 onClicked: PermissionManager.setPermission(permissionDialog.appId, permissionDialog.permission, false, true)
             }
         }
-    }
-
-    function getPermissionIcon(perm) {
-        const icons = {
-            "network": "network",
-            "location": "location_on",
-            "camera": "camera_alt",
-            "microphone": "mic",
-            "contacts": "contacts",
-            "calendar": "event",
-            "storage": "folder",
-            "notifications": "notifications",
-            "telephony": "phone",
-            "sms": "message",
-            "bluetooth": "bluetooth",
-            "system": "settings"
-        };
-        return icons[perm] || "help";
     }
 }

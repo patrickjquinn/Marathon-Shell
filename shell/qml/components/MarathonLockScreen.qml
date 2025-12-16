@@ -1,143 +1,66 @@
-import QtQuick
-import QtQuick.Effects
+import "."
+import "./ui"
 import MarathonOS.Shell
 import MarathonOS.Shell 1.0 as Shell
 import MarathonUI.Core
-import "."
-import "./ui"
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Effects
 
 Item {
+    // No overlay needed - content underneath (PIN/launcher) is already visible
+
     id: lockScreen
-    anchors.fill: parent
+
+    property real swipeProgress: 0
+    property string expandedCategory: "" // Track which notification category is expanded
+    property int idleTimeoutMs: 30000 // 30 seconds idle timeout before blanking screen
 
     signal unlockRequested
     signal cameraLaunched
     signal phoneLaunched
     signal notificationTapped(int notifId, string appId, string title)
 
-    property real swipeProgress: 0.0
-    property string expandedCategory: ""  // Track which notification category is expanded
-    property int idleTimeoutMs: 30000  // 30 seconds idle timeout before blanking screen
-
-    // Keep lock screen visible during entire swipe (only hide when opacity reaches 0)
-    // This prevents home screen flash-through
-    visible: opacity > 0.01
-
-    // Idle timer to blank screen after inactivity
-    Timer {
-        id: idleTimer
-        interval: idleTimeoutMs
-        running: lockScreen.visible && DisplayManager.screenOn
-        repeat: false
-        onTriggered: {
-            // Check if any surface inhibits idle (e.g., video playback)
-            // The compositor checks all native wayland surfaces for inhibitsIdle
-            if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
-                Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
-                idleTimer.restart();  // Keep checking
-                return;
-            }
-            Logger.info("LockScreen", "Idle timeout - blanking screen");
-            DisplayManager.turnScreenOff();
-        }
-    }
-
     // Reset idle timer on any user interaction
     function resetIdleTimer() {
-        if (lockScreen.visible && DisplayManager.screenOn) {
+        if (lockScreen.visible && DisplayManager.screenOn)
             idleTimer.restart();
-        }
-    }
-
-    // Auto-expand notifications when they arrive while on lock screen
-    Connections {
-        target: NotificationService
-        function onNotificationReceived(notification) {
-            if (lockScreen.visible) {
-                Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
-
-                // Wake screen if off
-                if (!DisplayManager.screenOn) {
-                    DisplayManager.turnScreenOn();
-                }
-
-                // Auto-expand the notification's category
-                var appId = notification.appId || "other";
-                expandedCategory = appId;
-
-                // Reset idle timer
-                resetIdleTimer();
-
-                Logger.info("LockScreen", "Auto-expanded category: " + appId);
-            }
-        }
-    }
-
-    // Restart idle timer when screen turns on
-    Connections {
-        target: DisplayManager
-        function onScreenStateChanged(isOn) {
-            if (isOn) {
-                // Show lock screen when screen turns on (preserves grace period if unlocked)
-                SessionStore.showLock();
-                if (lockScreen.visible) {
-                    Logger.info("LockScreen", "Screen turned on - starting idle timer");
-                    resetIdleTimer();
-                }
-            }
-        // Note: Don't lock the session when screen turns off - preserve grace period!
-        // When screen turns on, showLock() displays lock screen but keeps isLocked state
-        }
-    }
-
-    // Categories Model - Moved to top level for reliable access
-    ListModel {
-        id: categoriesModel
     }
 
     // Update categories function
     function updateCategories() {
         var cats = {};
-
         // Iterate through NotificationModel using Repeater pattern
         for (var i = 0; i < NotificationModel.rowCount(); i++) {
             var idx = NotificationModel.index(i, 0);
             var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false;
-
             // Skip read notifications
             if (isRead)
                 continue;
+
             var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other";
             var icon = NotificationModel.data(idx, Shell.NotificationRoles.IconRole) || "bell";
-
-            if (!cats[appId]) {
+            if (!cats[appId])
                 cats[appId] = {
-                    appId: appId,
-                    icon: icon,
-                    count: 0
+                    "appId": appId,
+                    "icon": icon,
+                    "count": 0
                 };
-            }
+
             cats[appId].count++;
         }
-
         // Rebuild model
         categoriesModel.clear();
         for (var cat in cats) {
             categoriesModel.append(cats[cat]);
         }
-
         Logger.info("LockScreen", "Updated categories. Count: " + categoriesModel.count);
     }
 
-    // Update categories when notifications change
-    Connections {
-        target: NotificationModel
-        function onCountChanged() {
-            lockScreen.updateCategories();
-        }
-    }
-
+    anchors.fill: parent
+    // Keep lock screen visible during entire swipe (only hide when opacity reaches 0)
+    // This prevents home screen flash-through
+    visible: opacity > 0.01
     // Refresh categories when lock screen becomes visible
     // Update SessionStore to show lock icon in status bar
     onVisibleChanged: {
@@ -149,7 +72,6 @@ Item {
             SessionStore.isOnLockScreen = false;
         }
     }
-
     // Set initial state on component creation
     Component.onCompleted: {
         if (visible) {
@@ -159,15 +81,91 @@ Item {
             lockScreen.updateCategories();
         }
     }
-
     // Performance optimization: use layers for static content
     layer.enabled: true
     layer.smooth: true
 
+    // Idle timer to blank screen after inactivity
+    Timer {
+        id: idleTimer
+
+        interval: idleTimeoutMs
+        running: lockScreen.visible && DisplayManager.screenOn
+        repeat: false
+        onTriggered: {
+            // Check if any surface inhibits idle (e.g., video playback)
+            // The compositor checks all native wayland surfaces for inhibitsIdle
+            if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
+                Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
+                idleTimer.restart(); // Keep checking
+                return;
+            }
+            Logger.info("LockScreen", "Idle timeout - blanking screen");
+            DisplayManager.turnScreenOff();
+        }
+    }
+
+    // Auto-expand notifications when they arrive while on lock screen
+    Connections {
+        function onNotificationReceived(notification) {
+            if (lockScreen.visible) {
+                Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
+                // Wake screen if off
+                if (!DisplayManager.screenOn)
+                    DisplayManager.turnScreenOn();
+
+                // Auto-expand the notification's category
+                var appId = notification.appId || "other";
+                expandedCategory = appId;
+                // Reset idle timer
+                resetIdleTimer();
+                Logger.info("LockScreen", "Auto-expanded category: " + appId);
+            }
+        }
+
+        target: NotificationService
+    }
+
+    // Restart idle timer when screen turns on
+    Connections {
+        // Note: Don't lock the session when screen turns off - preserve grace period!
+        // When screen turns on, showLock() displays lock screen but keeps isLocked state
+
+        function onScreenStateChanged(isOn) {
+            if (isOn) {
+                // Show lock screen when screen turns on (preserves grace period if unlocked)
+                SessionStore.showLock();
+                if (lockScreen.visible) {
+                    Logger.info("LockScreen", "Screen turned on - starting idle timer");
+                    resetIdleTimer();
+                }
+            }
+        }
+
+        target: DisplayManager
+    }
+
+    // Categories Model - Moved to top level for reliable access
+    ListModel {
+        id: categoriesModel
+    }
+
+    // Update categories when notifications change
+    Connections {
+        function onCountChanged() {
+            lockScreen.updateCategories();
+        }
+
+        target: NotificationModel
+    }
+
     Item {
         id: lockContent
+
         anchors.fill: parent
         z: 1
+        // Fade out effect as user swipes
+        opacity: 1 - Math.pow(swipeProgress, 0.7)
 
         // Wallpaper with proper caching
         Image {
@@ -177,7 +175,6 @@ Item {
             asynchronous: true
             cache: true
             smooth: true
-
             // GPU-accelerated layer
             layer.enabled: true
             layer.smooth: true
@@ -197,6 +194,7 @@ Item {
 
         MarathonStatusBar {
             id: statusBar
+
             width: parent.width
             z: 5
         }
@@ -204,44 +202,14 @@ Item {
         // Time and Date - centered, or pushed up if unread notifications present
         Column {
             id: clockColumn
+
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingSmall
-            width: parent.width * 0.9  // Constrain width for children
-
+            width: parent.width * 0.9 // Constrain width for children
             // Default state (centered)
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
-
             onYChanged: Logger.info("LockScreen", "ClockColumn Y changed to: " + y)
-
-            // States for layout transitions
-            states: State {
-                name: "hasNotifications"
-                when: categoriesModel.count > 0
-                AnchorChanges {
-                    target: clockColumn
-                    anchors.verticalCenter: undefined
-                    anchors.top: parent.top
-                }
-                PropertyChanges {
-                    target: clockColumn
-                    anchors.topMargin: Math.round(80 * Constants.scaleFactor)
-                    anchors.verticalCenterOffset: 0
-                }
-            }
-
-            transitions: Transition {
-                AnchorAnimation {
-                    duration: 300
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    properties: "anchors.topMargin,anchors.verticalCenterOffset"
-                    duration: 300
-                    easing.type: Easing.OutCubic
-                }
-            }
-
             // GPU layer for text rendering
             layer.enabled: true
             layer.smooth: true
@@ -254,8 +222,8 @@ Item {
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
                 renderType: Text.NativeRendering
-
                 layer.enabled: true
+
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: "#80000000"
@@ -272,8 +240,8 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 opacity: 0.9
                 renderType: Text.NativeRendering
-
                 layer.enabled: true
+
                 layer.effect: MultiEffect {
                     shadowEnabled: true
                     shadowColor: "#80000000"
@@ -291,31 +259,65 @@ Item {
 
             MediaPlaybackManager {
                 id: lockScreenMediaPlayer
+
                 width: Math.min(parent.width, 400 * Constants.scaleFactor)
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: hasMedia
+                border.width: Constants.borderWidthThin
+                border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3) // MColors.marathonTealBorder approx
 
                 // Override background opacity for lock screen integration
                 // Dark teal gradient background
                 gradient: Gradient {
                     GradientStop {
-                        position: 0.0
+                        position: 0
                         color: Qt.rgba(0, 191 / 255, 165 / 255, 0.15)
-                    } // MColors.marathonTealGlowTop approx
+                    }
+
+                    // MColors.marathonTealGlowTop approx
                     GradientStop {
-                        position: 1.0
+                        position: 1
                         color: Qt.rgba(0, 0, 0, 0.2)
                     }
                 }
+            }
 
-                border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3) // MColors.marathonTealBorder approx
+            // States for layout transitions
+            states: State {
+                name: "hasNotifications"
+                when: categoriesModel.count > 0
+
+                AnchorChanges {
+                    target: clockColumn
+                    anchors.verticalCenter: undefined
+                    anchors.top: parent.top
+                }
+
+                PropertyChanges {
+                    target: clockColumn
+                    anchors.topMargin: Math.round(80 * Constants.scaleFactor)
+                    anchors.verticalCenterOffset: 0
+                }
+            }
+
+            transitions: Transition {
+                AnchorAnimation {
+                    duration: 300
+                    easing.type: Easing.OutCubic
+                }
+
+                NumberAnimation {
+                    properties: "anchors.topMargin,anchors.verticalCenterOffset"
+                    duration: 300
+                    easing.type: Easing.OutCubic
+                }
             }
         }
 
         // BB10-style Hub Notifications
         Item {
             id: notificationContainer
+
             // Anchor to clockColumn to ensure no overlap
             anchors.top: clockColumn.bottom
             anchors.topMargin: Constants.spacingMedium
@@ -324,39 +326,38 @@ Item {
             anchors.right: parent.right
             visible: categoriesModel.count > 0
             z: 10
-
             onYChanged: Logger.info("LockScreen", "NotificationContainer Y changed to: " + y)
 
             // Category icons on left edge
             Column {
+                // Expose category count for clock positioning - NO LONGER NEEDED, using top level model
+                // property alias unreadCategoryCount: categoriesModel.count
+
                 id: categoryIcons
+
                 anchors.left: parent.left
                 anchors.leftMargin: Constants.spacingMedium
-
                 // Position relative to container
                 anchors.top: categoriesModel.count <= 3 ? parent.top : undefined
                 anchors.topMargin: categoriesModel.count <= 3 ? Math.round(20 * Constants.scaleFactor) : 0
-
                 anchors.verticalCenter: categoriesModel.count > 3 ? parent.verticalCenter : undefined
                 spacing: Constants.spacingLarge
                 z: 100
-
-                // Expose category count for clock positioning - NO LONGER NEEDED, using top level model
-                // property alias unreadCategoryCount: categoriesModel.count
 
                 Repeater {
                     model: categoriesModel
 
                     delegate: Item {
-                        width: Math.round(56 * Constants.scaleFactor)
-                        height: Math.round(56 * Constants.scaleFactor)
-
                         property string category: model.appId
                         property bool isActive: expandedCategory === category
+
+                        width: Math.round(56 * Constants.scaleFactor)
+                        height: Math.round(56 * Constants.scaleFactor)
 
                         // Category icon
                         Rectangle {
                             id: categoryIconBg
+
                             width: Math.round(48 * Constants.scaleFactor)
                             height: Math.round(48 * Constants.scaleFactor)
                             radius: Math.round(24 * Constants.scaleFactor)
@@ -365,28 +366,7 @@ Item {
                             border.color: isActive ? MColors.accent : "#3A3A3A"
                             anchors.centerIn: parent
                             antialiasing: true
-
                             layer.enabled: true
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#000000"
-                                shadowOpacity: 0.5
-                                shadowBlur: 0.5
-                                shadowVerticalOffset: 2
-                                shadowHorizontalOffset: 1
-                            }
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 200
-                                }
-                            }
-
-                            Behavior on border.color {
-                                ColorAnimation {
-                                    duration: 200
-                                }
-                            }
 
                             Icon {
                                 name: model.icon
@@ -419,6 +399,27 @@ Item {
                                     renderType: Text.NativeRendering
                                 }
                             }
+
+                            layer.effect: MultiEffect {
+                                shadowEnabled: true
+                                shadowColor: "#000000"
+                                shadowOpacity: 0.5
+                                shadowBlur: 0.5
+                                shadowVerticalOffset: 2
+                                shadowHorizontalOffset: 1
+                            }
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 200
+                                }
+                            }
+
+                            Behavior on border.color {
+                                ColorAnimation {
+                                    duration: 200
+                                }
+                            }
                         }
 
                         MouseArea {
@@ -441,13 +442,6 @@ Item {
 
             Item {
                 id: lineAndChevron
-                visible: expandedCategory !== ""
-                anchors.left: categoryIcons.right
-                anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-                anchors.top: categoryIcons.top
-                anchors.bottom: categoryIcons.bottom
-                width: Math.round(24 * Constants.scaleFactor)
-                z: 50
 
                 // Calculate chevron Y position based on active category
                 function calculateChevronY() {
@@ -458,7 +452,6 @@ Item {
                             break;
                         }
                     }
-
                     if (activeIndex === -1)
                         activeIndex = 0;
 
@@ -466,32 +459,42 @@ Item {
                     // Icon center: activeIndex * (56 + 20) + 28
                     // Chevron is 16px, center it: icon_center - 8 = activeIndex * 76 + 20
                     var itemHeight = Math.round(56 * Constants.scaleFactor);
-                    var itemSpacing = Math.round(20 * Constants.scaleFactor);  // Constants.spacingLarge
+                    var itemSpacing = Math.round(20 * Constants.scaleFactor); // Constants.spacingLarge
                     var yPos = activeIndex * (itemHeight + itemSpacing) + Math.round(20 * Constants.scaleFactor);
                     Logger.info("LockScreen", "Chevron Y calculated: " + yPos + " for category: " + expandedCategory + " at index: " + activeIndex);
                     return yPos;
                 }
 
+                visible: expandedCategory !== ""
+                anchors.left: categoryIcons.right
+                anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
+                anchors.top: categoryIcons.top
+                anchors.bottom: categoryIcons.bottom
+                width: Math.round(24 * Constants.scaleFactor)
+                z: 50
+
                 Connections {
-                    target: lockScreen
                     function onExpandedCategoryChanged() {
                         chevronCanvas.y = lineAndChevron.calculateChevronY();
-                        topLineSegment.height = chevronCanvas.y;  // Line goes right up to chevron
-                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor);  // Start right after chevron
+                        topLineSegment.height = chevronCanvas.y; // Line goes right up to chevron
+                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor); // Start right after chevron
                     }
+
+                    target: lockScreen
                 }
 
                 // Top line segment (from top to chevron)
                 Rectangle {
                     id: topLineSegment
+
                     anchors.left: parent.left
                     anchors.top: parent.top
                     width: Math.round(2 * Constants.scaleFactor)
                     height: Math.round(20 * Constants.scaleFactor)
                     color: "white"
                     opacity: 0.6
-
                     layer.enabled: true
+
                     layer.effect: MultiEffect {
                         shadowEnabled: true
                         shadowColor: "#000000"
@@ -505,26 +508,16 @@ Item {
                 // Chevron positioned at the active icon's vertical center
                 Canvas {
                     id: chevronCanvas
-                    anchors.right: topLineSegment.horizontalCenter  // Trailing edge aligned with line center
+
+                    anchors.right: topLineSegment.horizontalCenter // Trailing edge aligned with line center
                     y: Math.round(20 * Constants.scaleFactor)
                     width: Math.round(12 * Constants.scaleFactor)
                     height: Math.round(16 * Constants.scaleFactor)
-
                     layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-
                     onYChanged: {
                         Logger.info("LockScreen", "Chevron Y changed to: " + y);
                         requestPaint();
                     }
-
                     onPaint: {
                         var ctx = getContext("2d");
                         ctx.clearRect(0, 0, width, height);
@@ -538,11 +531,21 @@ Item {
                         ctx.lineTo(width, height);
                         ctx.stroke();
                     }
+
+                    layer.effect: MultiEffect {
+                        shadowEnabled: true
+                        shadowColor: "#000000"
+                        shadowOpacity: 0.6
+                        shadowBlur: 0.4
+                        shadowVerticalOffset: 1
+                        shadowHorizontalOffset: 1
+                    }
                 }
 
                 // Bottom line segment (from chevron to bottom)
                 Rectangle {
                     id: bottomLineSegment
+
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.topMargin: Math.round(36 * Constants.scaleFactor)
@@ -550,8 +553,8 @@ Item {
                     width: Math.round(2 * Constants.scaleFactor)
                     color: "white"
                     opacity: 0.6
-
                     layer.enabled: true
+
                     layer.effect: MultiEffect {
                         shadowEnabled: true
                         shadowColor: "#000000"
@@ -566,6 +569,30 @@ Item {
             // Notification list for active category - positioned to the right of line, aligned with icons
             ListView {
                 id: notificationList
+
+                function updateFilteredNotifications() {
+                    filteredNotificationsModel.clear();
+                    if (expandedCategory === "")
+                        return;
+
+                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
+                        var idx = NotificationModel.index(i, 0);
+                        var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false;
+                        // Skip read notifications
+                        if (isRead)
+                            continue;
+
+                        var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other";
+                        if (appId === expandedCategory)
+                            filteredNotificationsModel.append({
+                                "notifId": NotificationModel.data(idx, Shell.NotificationRoles.IdRole),
+                                "title": NotificationModel.data(idx, Shell.NotificationRoles.TitleRole),
+                                "body": NotificationModel.data(idx, Shell.NotificationRoles.BodyRole),
+                                "timestamp": NotificationModel.data(idx, Shell.NotificationRoles.TimestampRole)
+                            });
+                    }
+                }
+
                 visible: expandedCategory !== ""
                 anchors.left: lineAndChevron.right
                 anchors.leftMargin: Math.round(4 * Constants.scaleFactor)
@@ -577,11 +604,6 @@ Item {
                 spacing: Constants.spacingSmall
                 clip: true
                 z: 40
-
-                model: ListModel {
-                    id: filteredNotificationsModel
-                }
-
                 // Update filtered notifications when category changes
                 onVisibleChanged: {
                     if (visible)
@@ -589,44 +611,24 @@ Item {
                 }
 
                 Connections {
-                    target: lockScreen
                     function onExpandedCategoryChanged() {
                         notificationList.updateFilteredNotifications();
                     }
+
+                    target: lockScreen
                 }
 
                 Connections {
-                    target: NotificationModel
                     function onCountChanged() {
-                        if (notificationList.visible) {
+                        if (notificationList.visible)
                             notificationList.updateFilteredNotifications();
-                        }
                     }
+
+                    target: NotificationModel
                 }
 
-                function updateFilteredNotifications() {
-                    filteredNotificationsModel.clear();
-
-                    if (expandedCategory === "")
-                        return;
-                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
-                        var idx = NotificationModel.index(i, 0);
-                        var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false;
-
-                        // Skip read notifications
-                        if (isRead)
-                            continue;
-                        var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other";
-
-                        if (appId === expandedCategory) {
-                            filteredNotificationsModel.append({
-                                "notifId": NotificationModel.data(idx, Shell.NotificationRoles.IdRole),
-                                "title": NotificationModel.data(idx, Shell.NotificationRoles.TitleRole),
-                                "body": NotificationModel.data(idx, Shell.NotificationRoles.BodyRole),
-                                "timestamp": NotificationModel.data(idx, Shell.NotificationRoles.TimestampRole)
-                            });
-                        }
-                    }
+                model: ListModel {
+                    id: filteredNotificationsModel
                 }
 
                 delegate: Item {
@@ -653,8 +655,8 @@ Item {
                                 elide: Text.ElideRight
                                 width: parent.width
                                 renderType: Text.NativeRendering
-
                                 layer.enabled: true
+
                                 layer.effect: MultiEffect {
                                     shadowEnabled: true
                                     shadowColor: "#80000000"
@@ -671,8 +673,8 @@ Item {
                                 elide: Text.ElideRight
                                 width: parent.width
                                 renderType: Text.NativeRendering
-
                                 layer.enabled: true
+
                                 layer.effect: MultiEffect {
                                     shadowEnabled: true
                                     shadowColor: "#80000000"
@@ -685,14 +687,15 @@ Item {
                         // Timestamp on right
                         Text {
                             id: timestampText
+
                             text: Qt.formatTime(new Date(model.timestamp), "h:mm AP")
                             color: "#B0FFFFFF"
                             font.pixelSize: MTypography.sizeSmall
                             font.family: MTypography.fontFamily
                             anchors.verticalCenter: parent.verticalCenter
                             renderType: Text.NativeRendering
-
                             layer.enabled: true
+
                             layer.effect: MultiEffect {
                                 shadowEnabled: true
                                 shadowColor: "#80000000"
@@ -708,11 +711,9 @@ Item {
                             HapticService.light();
                             resetIdleTimer();
                             Logger.info("LockScreen", "Notification tapped: " + model.title);
-
                             // Get the full notification data
                             var notifId = model.notifId || 0;
                             var appId = "";
-
                             // Find the appId from the original notification
                             for (var i = 0; i < NotificationModel.rowCount(); i++) {
                                 var idx = NotificationModel.index(i, 0);
@@ -722,7 +723,6 @@ Item {
                                     break;
                                 }
                             }
-
                             // Emit signal with notification info
                             notificationTapped(notifId, appId, model.title);
                         }
@@ -734,12 +734,12 @@ Item {
         // Use actual BottomBar component
         MarathonBottomBar {
             id: lockScreenBottomBar
+
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             showPageIndicators: false
             z: 10
-
             onAppLaunched: app => {
                 if (app.id === "phone") {
                     HapticService.medium();
@@ -770,11 +770,13 @@ Item {
                 SequentialAnimation on y {
                     running: true
                     loops: Animation.Infinite
+
                     NumberAnimation {
                         to: -6
                         duration: 800
                         easing.type: Easing.InOutQuad
                     }
+
                     NumberAnimation {
                         to: 0
                         duration: 800
@@ -792,11 +794,9 @@ Item {
             }
         }
 
-        // Fade out effect as user swipes
-        opacity: 1.0 - Math.pow(swipeProgress, 0.7)
-
         Behavior on opacity {
             enabled: swipeProgress > 0.5
+
             NumberAnimation {
                 duration: 200
                 easing.type: Easing.OutCubic
@@ -804,13 +804,9 @@ Item {
         }
     }
 
-    // No overlay needed - content underneath (PIN/launcher) is already visible
-
     // Optimized touch handling with momentum
     MouseArea {
-        anchors.fill: parent
-        z: 0
-        propagateComposedEvents: true
+        // Don't reject here - we need to track the gesture to determine if it's a swipe or tap
 
         property real startY: 0
         property real lastY: 0
@@ -818,6 +814,9 @@ Item {
         property bool isDragging: false
         property real lastTime: 0
 
+        anchors.fill: parent
+        z: 0
+        propagateComposedEvents: true
         onPressed: mouse => {
             startY = mouse.y;
             lastY = mouse.y;
@@ -825,48 +824,38 @@ Item {
             isDragging = false;
             lastTime = Date.now();
             resetIdleTimer();
-        // Don't reject here - we need to track the gesture to determine if it's a swipe or tap
         }
-
         onPositionChanged: mouse => {
             const deltaY = lastY - mouse.y;
             const now = Date.now();
             const deltaTime = now - lastTime;
-
-            if (deltaTime > 0) {
+            if (deltaTime > 0)
                 velocity = deltaY / deltaTime;
-            }
 
             lastY = mouse.y;
             lastTime = now;
-
             // Allow swipes from anywhere on the screen (including swipe indicator area)
             const totalDelta = startY - mouse.y;
-
             if (totalDelta > 10) {
                 isDragging = true;
                 // Once we detect dragging, stop propagating to notification taps
                 mouse.accepted = true;
             }
-
             if (isDragging) {
                 // Super easy: only need to swipe 15% of screen height
                 const threshold = height * 0.15;
-                swipeProgress = Math.max(0, Math.min(1.0, totalDelta / threshold));
-
+                swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
                 // Haptic feedback at 50% and 100%
-                if (swipeProgress > 0.5 && swipeProgress < 0.55) {
+                if (swipeProgress > 0.5 && swipeProgress < 0.55)
                     HapticService.light();
-                }
             }
         }
-
         onReleased: mouse => {
             if (isDragging) {
                 // Very low threshold: 20% progress OR positive velocity
-                if (swipeProgress > 0.20 || velocity > 0.5) {
+                if (swipeProgress > 0.2 || velocity > 0.5) {
                     // Animate to complete
-                    swipeProgress = 1.0;
+                    swipeProgress = 1;
                     HapticService.medium();
                     unlockTimer.start();
                 } else {
@@ -878,27 +867,28 @@ Item {
                 // Was a tap, not a swipe - notifications will handle it via their MouseAreas
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
             }
-
             isDragging = false;
             velocity = 0;
         }
     }
 
-    // Smooth spring animation for swipe progress
-    Behavior on swipeProgress {
-        enabled: swipeProgress < 1.0
-        SmoothedAnimation {
-            velocity: 8
-            duration: 150
-        }
-    }
-
     Timer {
         id: unlockTimer
+
         interval: 100
         onTriggered: {
             Logger.state("LockScreen", "unlocked", "dissolve complete");
             unlockRequested();
+        }
+    }
+
+    // Smooth spring animation for swipe progress
+    Behavior on swipeProgress {
+        enabled: swipeProgress < 1
+
+        SmoothedAnimation {
+            velocity: 8
+            duration: 150
         }
     }
 }

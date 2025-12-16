@@ -3,6 +3,8 @@ import MarathonOS.Shell
 import QtQuick
 
 QtObject {
+    // Not needed for bringing to foreground
+
     id: root
 
     property var compositor: null
@@ -30,8 +32,6 @@ QtObject {
                     app = appObj;
                     Logger.info("AppLaunchService", "Found app in AppModel: " + app.name);
                 } else {
-                    // Not needed for bringing to foreground
-
                     // Fallback: Check if it's a running task (e.g. launched externally)
                     if (typeof TaskModel !== 'undefined') {
                         var task = TaskModel.getTaskByAppId(appId);

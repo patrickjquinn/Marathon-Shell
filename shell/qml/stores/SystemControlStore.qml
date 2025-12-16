@@ -1,13 +1,23 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 QtObject {
+    // Don't set brightness property here - let the binding update from DisplayManager
+    // Don't set volume property here - let the binding update from AudioManager
+    // Bindings automatically update from NetworkManagerCpp/BluetoothManagerCpp properties and Binding objects above
+    // No need for Connections - the Binding objects with restoreMode handle everything
+    // Binding automatically updates from PowerManager.isPowerSaveMode (line 32)
+    // Don't assign - let the binding update automatically
+    // Don't assign - let the binding update automatically
+    // Don't assign - let the binding update automatically
+    // Default hotspot config - can be customized later
+
     id: systemControl
 
-    property bool isWifiOn: NetworkManager.wifiEnabled
-    property bool isBluetoothOn: NetworkManager.bluetoothEnabled
-    property bool isAirplaneModeOn: NetworkManager.airplaneModeEnabled
+    property bool isWifiOn: typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : true
+    property bool isBluetoothOn: typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp ? BluetoothManagerCpp.enabled : false
+    property bool isAirplaneModeOn: typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.airplaneModeEnabled : false
     property bool isRotationLocked: DisplayManager.rotationLocked
     property bool isFlashlightOn: typeof FlashlightManager !== 'undefined' ? FlashlightManager.enabled : false
     property bool isCellularOn: typeof CellularManager !== 'undefined' ? CellularManager.modemEnabled : false
@@ -19,60 +29,45 @@ QtObject {
     property bool isHotspotOn: typeof NetworkManagerCpp !== 'undefined' ? NetworkManagerCpp.isHotspotActive() : false
     property bool isVibrationOn: typeof HapticManager !== 'undefined' ? HapticManager.enabled : true
     property bool isNightLightOn: DisplayManagerCpp.nightLightEnabled
+    property int brightness: 50 // Managed by binding below
+    property int volume: 50 // Managed by binding below
+    // Two-way bindings with restore mode (as properties)
+    property Binding brightnessBinding
+    property Binding volumeBinding
+    property bool isLowPowerMode: PowerManager.isPowerSaveMode
+    // Two-way binding for rotation lock (as property)
+    property Binding rotationLockBinding
 
     function _hasEnabledAlarm() {
         if (typeof AlarmManager !== 'undefined' && AlarmManager.alarms) {
             for (var i = 0; i < AlarmManager.alarms.length; i++) {
-                if (AlarmManager.alarms[i].enabled) {
+                if (AlarmManager.alarms[i].enabled)
                     return true;
-                }
             }
         }
         return false;
     }
 
-    property int brightness: 50  // Managed by binding below
-    property int volume: 50  // Managed by binding below
-
-    // Two-way bindings with restore mode (as properties)
-    property Binding brightnessBinding: Binding {
-        target: systemControl
-        property: "brightness"
-        value: Math.round(DisplayManager.brightness * 100)
-        restoreMode: Binding.RestoreBinding
-    }
-
-    property Binding volumeBinding: Binding {
-        target: systemControl
-        property: "volume"
-        value: Math.round(AudioManager.volume * 100)
-        restoreMode: Binding.RestoreBinding
-    }
-
-    property bool isLowPowerMode: PowerManager.isPowerSaveMode
-
     function toggleWifi() {
-        NetworkManager.toggleWifi();
-        Logger.info("SystemControl", "WiFi toggled to: " + NetworkManager.wifiEnabled);
+        if (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp)
+            NetworkManagerCpp.toggleWifi();
+
+        Logger.info("SystemControl", "WiFi toggled to: " + (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : "unknown"));
     }
 
     function toggleBluetooth() {
-        NetworkManager.toggleBluetooth();
-        Logger.info("SystemControl", "Bluetooth toggled to: " + NetworkManager.bluetoothEnabled);
+        if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp)
+            BluetoothManagerCpp.enabled = !BluetoothManagerCpp.enabled;
+
+        Logger.info("SystemControl", "Bluetooth toggled to: " + (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp ? BluetoothManagerCpp.enabled : "unknown"));
     }
 
     function toggleAirplaneMode() {
         var newMode = !isAirplaneModeOn;
-        NetworkManager.setAirplaneMode(newMode);
-        Logger.info("SystemControl", "Airplane mode toggled to: " + newMode);
-    }
+        if (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp)
+            NetworkManagerCpp.setAirplaneMode(newMode);
 
-    // Two-way binding for rotation lock (as property)
-    property Binding rotationLockBinding: Binding {
-        target: systemControl
-        property: "isRotationLocked"
-        value: DisplayManager.rotationLocked
-        restoreMode: Binding.RestoreBinding
+        Logger.info("SystemControl", "Airplane mode toggled to: " + newMode);
     }
 
     function toggleRotationLock() {
@@ -82,26 +77,23 @@ QtObject {
     }
 
     function toggleFlashlight() {
-        if (typeof FlashlightManager !== 'undefined') {
+        if (typeof FlashlightManager !== 'undefined')
             FlashlightManager.toggle();
-            // Don't assign - let the binding update automatically
-        }
+
         Logger.info("SystemControl", "Flashlight: " + isFlashlightOn);
     }
 
     function toggleCellular() {
-        if (typeof CellularManager !== 'undefined') {
+        if (typeof CellularManager !== 'undefined')
             CellularManager.toggleModem();
-            // Don't assign - let the binding update automatically
-        }
+
         Logger.info("SystemControl", "Cellular: " + isCellularOn);
     }
 
     function toggleCellularData() {
-        if (typeof CellularManager !== 'undefined') {
+        if (typeof CellularManager !== 'undefined')
             CellularManager.toggleData();
-            // Don't assign - let the binding update automatically
-        }
+
         Logger.info("SystemControl", "Cellular Data: " + isCellularDataOn);
     }
 
@@ -129,23 +121,20 @@ QtObject {
 
     function toggleLocation() {
         if (typeof LocationManager !== 'undefined') {
-            if (isLocationOn) {
+            if (isLocationOn)
                 LocationManager.stop();
-            } else {
+            else
                 LocationManager.start();
-            }
             Logger.info("SystemControl", "Location toggled to: " + !isLocationOn);
         }
     }
 
     function toggleHotspot() {
         if (typeof NetworkManagerCpp !== 'undefined') {
-            if (isHotspotOn) {
+            if (isHotspotOn)
                 NetworkManagerCpp.stopHotspot();
-            } else {
-                // Default hotspot config - can be customized later
+            else
                 NetworkManagerCpp.createHotspot("Marathon Hotspot", "marathon2025");
-            }
             Logger.info("SystemControl", "Hotspot toggled");
         }
     }
@@ -167,23 +156,20 @@ QtObject {
     function captureScreenshot() {
         Logger.info("SystemControl", "Screenshot captured");
         // Screenshot logic will be handled by ScreenshotService
-        if (typeof ScreenshotService !== 'undefined') {
+        if (typeof ScreenshotService !== 'undefined')
             ScreenshotService.captureScreen();
-        }
     }
 
     function setBrightness(value) {
         var clamped = Math.max(0, Math.min(100, value));
-        DisplayManager.setBrightness(clamped / 100.0);
+        DisplayManager.setBrightness(clamped / 100);
         Logger.debug("SystemControl", "Brightness: " + clamped);
-    // Don't set brightness property here - let the binding update from DisplayManager
     }
 
     function setVolume(value) {
         var clamped = Math.max(0, Math.min(100, value));
-        AudioManager.setVolume(clamped / 100.0);
+        AudioManager.setVolume(clamped / 100);
         Logger.debug("SystemControl", "Volume: " + clamped);
-    // Don't set volume property here - let the binding update from AudioManager
     }
 
     function sleep() {
@@ -201,12 +187,28 @@ QtObject {
         PowerManager.restart();
     }
 
-    // Bindings automatically update from NetworkManager properties and Binding objects above
-    // No need for Connections - the Binding objects with restoreMode handle everything
-
-    // Binding automatically updates from PowerManager.isPowerSaveMode (line 32)
-
     Component.onCompleted: {
         console.log("[SystemControlStore] Initialized with real services");
+    }
+
+    brightnessBinding: Binding {
+        target: systemControl
+        property: "brightness"
+        value: Math.round(DisplayManager.brightness * 100)
+        restoreMode: Binding.RestoreBinding
+    }
+
+    volumeBinding: Binding {
+        target: systemControl
+        property: "volume"
+        value: Math.round(AudioManager.volume * 100)
+        restoreMode: Binding.RestoreBinding
+    }
+
+    rotationLockBinding: Binding {
+        target: systemControl
+        property: "isRotationLocked"
+        value: DisplayManager.rotationLocked
+        restoreMode: Binding.RestoreBinding
     }
 }

@@ -1,19 +1,21 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Item {
+    // Power is an action menu
+    // Alarm is a link to Clock app
+    // Screenshot is an action
+
     id: tile
 
     property var toggleData: ({})
     property real tileWidth: 160
     property bool isAvailable: toggleData.available !== undefined ? toggleData.available : true
-
     // Determine if this is a toggleable tile (has on/off state) vs a link tile
-    readonly property bool isToggleable: toggleData.id !== "settings" && toggleData.id !== "lock" && toggleData.id !== "power" &&  // Power is an action menu
-    toggleData.id !== "monitor" && toggleData.id !== "alarm" &&  // Alarm is a link to Clock app
-    toggleData.id !== "screenshot"  // Screenshot is an action
+    readonly property bool isToggleable: toggleData.id !== "settings" && toggleData.id !== "lock" && toggleData.id !== "power" && toggleData.id !== "monitor" && toggleData.id !== "alarm" && toggleData.id !== "screenshot"
+    property bool isPressed: false
 
     signal tapped
     signal longPressed
@@ -21,25 +23,15 @@ Item {
     width: tileWidth
     height: Constants.hubHeaderHeight
 
-    property bool isPressed: false
-
     // TOGGLEABLE TILE: Split design - ALWAYS visible (structure consistent across states)
     Rectangle {
         id: toggleableTile
+
         visible: isToggleable
         anchors.fill: parent
         color: "transparent"
-        scale: isPressed ? 0.98 : 1.0
-        opacity: isAvailable ? 1.0 : 0.5
-
-        Behavior on scale {
-            enabled: Constants.enableAnimations
-            SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
-                epsilon: MMotion.epsilon
-            }
-        }
+        scale: isPressed ? 0.98 : 1
+        opacity: isAvailable ? 1 : 0.5
 
         Row {
             anchors.fill: parent
@@ -48,6 +40,7 @@ Item {
             // LEFT: Square icon box - ALWAYS VISIBLE
             Rectangle {
                 id: iconBox
+
                 width: Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSharp
@@ -55,20 +48,13 @@ Item {
                 color: toggleData.active ? MColors.accentBright : MColors.bb10Elevated
                 antialiasing: Constants.enableAntialiasing
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 200
-                        easing.type: Easing.OutCubic
-                    }
-                }
-
                 Icon {
                     // For toggleable items with -off variants, show the -off icon when inactive
                     name: {
                         var iconName = toggleData.icon || "grid";
-                        if (!toggleData.active && (toggleData.id === "wifi" || toggleData.id === "bluetooth")) {
+                        if (!toggleData.active && (toggleData.id === "wifi" || toggleData.id === "bluetooth"))
                             iconName = iconName + "-off";
-                        }
+
                         return iconName;
                     }
                     // OFF: standard text color. ON: dark (readable on teal). Unavailable: dim via opacity
@@ -80,6 +66,13 @@ Item {
                         ColorAnimation {
                             duration: 200
                         }
+                    }
+                }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 200
+                        easing.type: Easing.OutCubic
                     }
                 }
             }
@@ -95,13 +88,6 @@ Item {
                 // OFF: subtle border. ON: teal border for cohesion
                 border.color: toggleData.active ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 200
-                        easing.type: Easing.OutCubic
-                    }
-                }
 
                 // Inner border for depth
                 Rectangle {
@@ -155,12 +141,19 @@ Item {
                     color: MColors.accentBright
                     visible: toggleData.active
                     antialiasing: Constants.enableAntialiasing
-                    opacity: toggleData.active ? 1.0 : 0.0
+                    opacity: toggleData.active ? 1 : 0
 
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 200
                         }
+                    }
+                }
+
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 200
+                        easing.type: Easing.OutCubic
                     }
                 }
             }
@@ -180,11 +173,22 @@ Item {
                 }
             }
         }
+
+        Behavior on scale {
+            enabled: Constants.enableAnimations
+
+            SpringAnimation {
+                spring: MMotion.springMedium
+                damping: MMotion.dampingMedium
+                epsilon: MMotion.epsilon
+            }
+        }
     }
 
     // ACTION/LINK TILE: Solid card design (Settings, Lock, Monitor, Alarm)
     Rectangle {
         id: linkTile
+
         visible: !isToggleable
         anchors.fill: parent
         radius: Constants.borderRadiusSharp
@@ -193,17 +197,8 @@ Item {
         // Action tiles use elevated surface for visual distinction from toggles
         color: isAvailable ? MColors.bb10Card : Qt.rgba(MColors.bb10Card.r, MColors.bb10Card.g, MColors.bb10Card.b, 0.5)
         antialiasing: Constants.enableAntialiasing
-        scale: isPressed ? 0.98 : 1.0
-        opacity: isAvailable ? 1.0 : 0.5
-
-        Behavior on scale {
-            enabled: Constants.enableAnimations
-            SpringAnimation {
-                spring: MMotion.springMedium
-                damping: MMotion.dampingMedium
-                epsilon: MMotion.epsilon
-            }
-        }
+        scale: isPressed ? 0.98 : 1
+        opacity: isAvailable ? 1 : 0.5
 
         // Inner border for depth
         Rectangle {
@@ -281,26 +276,33 @@ Item {
                 }
             }
         }
+
+        Behavior on scale {
+            enabled: Constants.enableAnimations
+
+            SpringAnimation {
+                spring: MMotion.springMedium
+                damping: MMotion.dampingMedium
+                epsilon: MMotion.epsilon
+            }
+        }
     }
 
     MouseArea {
         id: toggleMouseArea
+
         anchors.fill: parent
         enabled: isAvailable
-
         onPressed: function (mouse) {
             isPressed = true;
             HapticService.light();
         }
-
         onReleased: {
             isPressed = false;
         }
-
         onCanceled: {
             isPressed = false;
         }
-
         onClicked: {
             if (!isAvailable) {
                 Logger.warn("QuickSettings", "Attempted to toggle unavailable feature: " + toggleData.id);
@@ -308,10 +310,10 @@ Item {
             }
             tile.tapped();
         }
-
         onPressAndHold: {
             if (!isAvailable)
                 return;
+
             HapticService.medium();
             tile.longPressed();
         }

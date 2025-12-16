@@ -1,17 +1,13 @@
 pragma Singleton
-import QtQuick
 import QtCore
+import QtQuick
 
 QtObject {
     id: clipboardService
 
     property var clipboardHistory: []
     readonly property int maxHistorySize: 20
-
-    property var settings: Settings {
-        category: "Clipboard"
-        property alias history: clipboardService.clipboardHistory
-    }
+    property var settings
 
     signal clipboardChanged(var item)
     signal historyCleared
@@ -19,28 +15,24 @@ QtObject {
     function addToHistory(text, type) {
         if (!text || text.length === 0)
             return;
-        var item = {
-            text: text,
-            type: type || "text",
-            timestamp: Date.now()
-        };
 
+        var item = {
+            "text": text,
+            "type": type || "text",
+            "timestamp": Date.now()
+        };
         for (var i = 0; i < clipboardHistory.length; i++) {
             if (clipboardHistory[i].text === text) {
                 clipboardHistory.splice(i, 1);
                 break;
             }
         }
-
         clipboardHistory.unshift(item);
-
-        if (clipboardHistory.length > maxHistorySize) {
+        if (clipboardHistory.length > maxHistorySize)
             clipboardHistory = clipboardHistory.slice(0, maxHistorySize);
-        }
 
         clipboardHistory = clipboardHistory;
         clipboardChanged(item);
-
         console.log("[ClipboardService] Added to history, total items:", clipboardHistory.length);
     }
 
@@ -69,5 +61,11 @@ QtObject {
 
     Component.onCompleted: {
         console.log("[ClipboardService] Initialized with", clipboardHistory.length, "items");
+    }
+
+    settings: Settings {
+        property alias history: clipboardService.clipboardHistory
+
+        category: "Clipboard"
     }
 }

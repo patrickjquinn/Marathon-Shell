@@ -1,8 +1,8 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 /**
  * Lock Screen Incoming Call Overlay
@@ -11,11 +11,9 @@ import MarathonUI.Theme
  * Provides answer/decline buttons and shows caller information.
  */
 Rectangle {
+    // 1 second pulse
+
     id: callOverlay
-    anchors.fill: parent
-    color: MColors.background
-    z: Constants.zIndexModalOverlay + 100  // Above everything
-    visible: false
 
     property string callerNumber: ""
     property string callerName: "Unknown"
@@ -29,16 +27,13 @@ Rectangle {
         callerName = name || "Unknown";
         isRinging = true;
         visible = true;
-
         // Play ringtone
-        if (typeof AudioManager !== 'undefined') {
+        if (typeof AudioManager !== 'undefined')
             AudioManager.playRingtone();
-        }
 
         // Vibrate
-        if (typeof HapticService !== 'undefined') {
-            HapticService.vibrate(1000);  // 1 second pulse
-        }
+        if (typeof HapticService !== 'undefined')
+            HapticService.vibrate(1000);
 
         Logger.info("IncomingCallOverlay", "Showing call from: " + number);
     }
@@ -46,14 +41,18 @@ Rectangle {
     function hide() {
         isRinging = false;
         visible = false;
-
         // Stop ringtone
-        if (typeof AudioManager !== 'undefined') {
+        if (typeof AudioManager !== 'undefined')
             AudioManager.stopRingtone();
-        }
 
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
+
+    anchors.fill: parent
+    color: MColors.background
+    z: Constants.zIndexModalOverlay + 100 // Above everything
+    visible: false
+    opacity: callOverlay.visible ? 1 : 0
 
     // Background with blur effect
     Rectangle {
@@ -89,27 +88,10 @@ Rectangle {
                     color: MColors.accent
                 }
 
-                // Pulsing animation
-                SequentialAnimation on scale {
-                    running: callOverlay.isRinging
-                    loops: Animation.Infinite
-                    NumberAnimation {
-                        from: 1.0
-                        to: 1.15
-                        duration: 1000
-                        easing.type: Easing.InOutQuad
-                    }
-                    NumberAnimation {
-                        from: 1.15
-                        to: 1.0
-                        duration: 1000
-                        easing.type: Easing.InOutQuad
-                    }
-                }
-
                 // Ripple effect
                 Repeater {
                     model: 3
+
                     Rectangle {
                         anchors.centerIn: parent
                         width: parent.width
@@ -123,25 +105,48 @@ Rectangle {
                         SequentialAnimation on scale {
                             running: callOverlay.isRinging
                             loops: Animation.Infinite
+
                             PauseAnimation {
                                 duration: index * 700
                             }
+
                             ParallelAnimation {
                                 NumberAnimation {
-                                    from: 1.0
+                                    from: 1
                                     to: 1.8
                                     duration: 2100
                                     easing.type: Easing.OutQuad
                                 }
+
                                 NumberAnimation {
                                     target: parent
                                     property: "opacity"
                                     from: 0.6
-                                    to: 0.0
+                                    to: 0
                                     duration: 2100
                                 }
                             }
                         }
+                    }
+                }
+
+                // Pulsing animation
+                SequentialAnimation on scale {
+                    running: callOverlay.isRinging
+                    loops: Animation.Infinite
+
+                    NumberAnimation {
+                        from: 1
+                        to: 1.15
+                        duration: 1000
+                        easing.type: Easing.InOutQuad
+                    }
+
+                    NumberAnimation {
+                        from: 1.15
+                        to: 1
+                        duration: 1000
+                        easing.type: Easing.InOutQuad
                     }
                 }
             }
@@ -197,6 +202,7 @@ Rectangle {
                     border.width: Constants.borderWidthThick
                     border.color: Qt.darker(MColors.error, 1.2)
                     anchors.horizontalCenter: parent.horizontalCenter
+                    scale: declineMouseArea.pressed ? 0.95 : 1
 
                     Icon {
                         anchors.centerIn: parent
@@ -208,22 +214,20 @@ Rectangle {
 
                     MouseArea {
                         id: declineMouseArea
+
                         anchors.fill: parent
                         anchors.margins: -Constants.spacingMedium
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call declined");
                             HapticService.medium();
-
-                            if (typeof TelephonyService !== 'undefined') {
+                            if (typeof TelephonyService !== 'undefined')
                                 TelephonyService.hangup();
-                            }
 
                             declined();
                             hide();
                         }
                     }
 
-                    scale: declineMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
                         NumberAnimation {
                             duration: Constants.animationDurationFast
@@ -253,6 +257,7 @@ Rectangle {
                     border.width: Constants.borderWidthThick
                     border.color: Qt.darker(MColors.success, 1.2)
                     anchors.horizontalCenter: parent.horizontalCenter
+                    scale: answerMouseArea.pressed ? 0.95 : 1
 
                     Icon {
                         anchors.centerIn: parent
@@ -263,26 +268,22 @@ Rectangle {
 
                     MouseArea {
                         id: answerMouseArea
+
                         anchors.fill: parent
                         anchors.margins: -Constants.spacingMedium
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call answered");
                             HapticService.heavy();
-
-                            if (typeof TelephonyService !== 'undefined') {
+                            if (typeof TelephonyService !== 'undefined')
                                 TelephonyService.answer();
-                            }
 
                             answered();
                             hide();
-
-                            if (typeof UIStore !== 'undefined') {
+                            if (typeof UIStore !== 'undefined')
                                 UIStore.openApp("phone", "Phone", "");
-                            }
                         }
                     }
 
-                    scale: answerMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
                         NumberAnimation {
                             duration: Constants.animationDurationFast
@@ -316,7 +317,9 @@ Rectangle {
     // Slide in animation
     transform: Translate {
         id: slideTransform
+
         y: callOverlay.visible ? 0 : -callOverlay.height
+
         Behavior on y {
             NumberAnimation {
                 duration: Constants.animationDurationNormal
@@ -325,7 +328,6 @@ Rectangle {
         }
     }
 
-    opacity: callOverlay.visible ? 1.0 : 0.0
     Behavior on opacity {
         NumberAnimation {
             duration: Constants.animationDurationFast

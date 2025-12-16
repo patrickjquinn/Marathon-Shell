@@ -1,7 +1,7 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Item {
     id: toolBar
@@ -45,6 +45,9 @@ Item {
 
         width: Math.round(40 * Constants.scaleFactor)
         height: Math.round(30 * Constants.scaleFactor)
+        onClicked: {
+            HapticService.light();
+        }
 
         background: Rectangle {
             color: parent.pressed ? "#33ffffff" : "transparent"
@@ -53,17 +56,19 @@ Item {
 
         contentItem: Item {
             Icon {
+                // Use QtQuick.Controls.IconLabel or similar?
+                // Actually, let's just use a ShaderEffect to colorize it white.
+
                 anchors.centerIn: parent
                 name: parent.parent.iconName
                 size: Math.round(20 * Constants.scaleFactor)
                 color: "white"
                 opacity: 0.9
-                // Use QtQuick.Controls.IconLabel or similar?
-                // Actually, let's just use a ShaderEffect to colorize it white.
-
                 layer.enabled: true
+
                 layer.effect: ShaderEffect {
                     property color color: "white"
+
                     fragmentShader: "
                         uniform lowp sampler2D source;
                         uniform lowp vec4 color;
@@ -75,10 +80,6 @@ Item {
                     "
                 }
             }
-        }
-
-        onClicked: {
-            HapticService.light();
         }
     }
 }

@@ -1,19 +1,32 @@
+import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Navigation
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Layouts
-import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Theme
-import MarathonUI.Containers
-import MarathonUI.Navigation
 
 MApp {
     id: testApp
-    appId: "test"
-    appName: "System Test Suite"
 
     property int passedTests: 0
     property int failedTests: 0
     property int totalTests: 0
+
+    appId: "test"
+    appName: "System Test Suite"
+    Component.onCompleted: {
+        Logger.info("TestApp", "System Test Suite initialized");
+        Logger.info("TestApp", "Available services:");
+        Logger.info("TestApp", "  - TelephonyService: " + (typeof TelephonyService !== 'undefined'));
+        Logger.info("TestApp", "  - SMSService: " + (typeof SMSService !== 'undefined'));
+        Logger.info("TestApp", "  - NotificationService: " + (typeof NotificationService !== 'undefined'));
+        Logger.info("TestApp", "  - AlarmManager: " + (typeof AlarmManager !== 'undefined'));
+        Logger.info("TestApp", "  - AudioManager: " + (typeof AudioManager !== 'undefined'));
+        Logger.info("TestApp", "  - PowerManager: " + (typeof PowerManager !== 'undefined'));
+        Logger.info("TestApp", "  - NetworkManagerCpp: " + (typeof NetworkManagerCpp !== 'undefined'));
+        Logger.info("TestApp", "  - DisplayManager: " + (typeof DisplayManager !== 'undefined'));
+    }
 
     content: Item {
         anchors.fill: parent
@@ -44,12 +57,14 @@ MApp {
 
                         Row {
                             spacing: MSpacing.xs
+
                             Icon {
                                 name: "check"
                                 size: 16
                                 color: MColors.success
                                 anchors.verticalCenter: parent.verticalCenter
                             }
+
                             MLabel {
                                 text: testApp.passedTests.toString()
                                 color: MColors.success
@@ -59,12 +74,14 @@ MApp {
 
                         Row {
                             spacing: MSpacing.xs
+
                             Icon {
                                 name: "x"
                                 size: 16
                                 color: MColors.error
                                 anchors.verticalCenter: parent.verticalCenter
                             }
+
                             MLabel {
                                 text: testApp.failedTests.toString()
                                 color: MColors.error
@@ -74,12 +91,14 @@ MApp {
 
                         Row {
                             spacing: MSpacing.xs
+
                             Icon {
                                 name: "list"
                                 size: 16
                                 color: MColors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
                             }
+
                             MLabel {
                                 text: testApp.totalTests.toString()
                                 variant: "secondary"
@@ -92,67 +111,59 @@ MApp {
 
             StackLayout {
                 id: stackLayout
+
                 width: parent.width
                 height: testApp.height - 100 - 70
                 currentIndex: tabBar.activeTab
 
                 TelephonyTestsPage {}
+
                 NotificationTestsPage {}
+
                 AlarmTestsPage {}
+
                 MediaTestsPage {}
+
                 SystemTestsPage {}
+
                 SensorTestsPage {}
             }
 
             MTabBar {
                 id: tabBar
+
                 width: parent.width
                 activeTab: 0
-
                 tabs: [
                     {
-                        label: "Telephony",
-                        icon: "phone"
+                        "label": "Telephony",
+                        "icon": "phone"
                     },
                     {
-                        label: "Notifications",
-                        icon: "bell"
+                        "label": "Notifications",
+                        "icon": "bell"
                     },
                     {
-                        label: "Alarms",
-                        icon: "clock"
+                        "label": "Alarms",
+                        "icon": "clock"
                     },
                     {
-                        label: "Media",
-                        icon: "music"
+                        "label": "Media",
+                        "icon": "music"
                     },
                     {
-                        label: "System",
-                        icon: "cpu"
+                        "label": "System",
+                        "icon": "cpu"
                     },
                     {
-                        label: "Sensors",
-                        icon: "activity"
+                        "label": "Sensors",
+                        "icon": "activity"
                     }
                 ]
-
                 onTabSelected: index => {
                     HapticService.light();
                 }
             }
         }
-    }
-
-    Component.onCompleted: {
-        Logger.info("TestApp", "System Test Suite initialized");
-        Logger.info("TestApp", "Available services:");
-        Logger.info("TestApp", "  - TelephonyService: " + (typeof TelephonyService !== 'undefined'));
-        Logger.info("TestApp", "  - SMSService: " + (typeof SMSService !== 'undefined'));
-        Logger.info("TestApp", "  - NotificationService: " + (typeof NotificationService !== 'undefined'));
-        Logger.info("TestApp", "  - AlarmManager: " + (typeof AlarmManager !== 'undefined'));
-        Logger.info("TestApp", "  - AudioManager: " + (typeof AudioManager !== 'undefined'));
-        Logger.info("TestApp", "  - PowerManager: " + (typeof PowerManager !== 'undefined'));
-        Logger.info("TestApp", "  - NetworkManager: " + (typeof NetworkManager !== 'undefined'));
-        Logger.info("TestApp", "  - DisplayManager: " + (typeof DisplayManager !== 'undefined'));
     }
 }

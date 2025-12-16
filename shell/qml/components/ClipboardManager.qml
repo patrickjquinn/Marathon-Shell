@@ -1,22 +1,16 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: clipboardManager
+
     anchors.fill: parent
     color: Qt.rgba(0, 0, 0, 0.95)
     visible: UIStore.clipboardManagerOpen
     z: 2650
     opacity: visible ? 1 : 0
-
-    Behavior on opacity {
-        NumberAnimation {
-            duration: 200
-            easing.type: Easing.OutCubic
-        }
-    }
 
     MouseArea {
         anchors.fill: parent
@@ -79,8 +73,16 @@ Rectangle {
             height: parent.height - 56
             clip: true
             spacing: Constants.spacingSmall
-
             model: ClipboardService.getHistory()
+
+            Text {
+                visible: parent.count === 0
+                text: "No clipboard history"
+                color: MColors.textSecondary
+                font.pixelSize: MTypography.sizeBody
+                font.family: MTypography.fontFamily
+                anchors.centerIn: parent
+            }
 
             delegate: Rectangle {
                 width: ListView.view.width
@@ -90,12 +92,6 @@ Rectangle {
                 border.width: Constants.borderWidthThin
                 border.color: itemMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
                 layer.enabled: true
-
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 150
-                    }
-                }
 
                 Rectangle {
                     anchors.fill: parent
@@ -145,12 +141,6 @@ Rectangle {
                         color: deleteMouseArea.pressed ? Qt.rgba(230, 57, 70, 0.2) : Qt.rgba(255, 255, 255, 0.05)
                         anchors.verticalCenter: parent.verticalCenter
 
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 100
-                            }
-                        }
-
                         Icon {
                             name: "trash-2"
                             size: Constants.iconSizeSmall
@@ -160,10 +150,17 @@ Rectangle {
 
                         MouseArea {
                             id: deleteMouseArea
+
                             anchors.fill: parent
                             onClicked: {
                                 ClipboardService.deleteItem(index);
                                 HapticService.light();
+                            }
+                        }
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 100
                             }
                         }
                     }
@@ -171,6 +168,7 @@ Rectangle {
 
                 MouseArea {
                     id: itemMouseArea
+
                     anchors.fill: parent
                     anchors.rightMargin: Math.round(52 * Constants.scaleFactor)
                     onClicked: {
@@ -180,16 +178,20 @@ Rectangle {
                         UIStore.closeClipboardManager();
                     }
                 }
-            }
 
-            Text {
-                visible: parent.count === 0
-                text: "No clipboard history"
-                color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeBody
-                font.family: MTypography.fontFamily
-                anchors.centerIn: parent
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 150
+                    }
+                }
             }
+        }
+    }
+
+    Behavior on opacity {
+        NumberAnimation {
+            duration: 200
+            easing.type: Easing.OutCubic
         }
     }
 }
