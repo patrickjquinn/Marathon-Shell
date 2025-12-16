@@ -177,9 +177,7 @@ set(QML_FILES
     qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
-    qml/services/TelephonyManager.qml
     qml/services/LocationService.qml
-    qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
@@ -226,9 +224,7 @@ set(SINGLETON_FILES
     qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
-    qml/services/TelephonyManager.qml
     qml/services/LocationService.qml
-    qml/services/SessionManager.qml
     qml/services/AppLauncher.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml

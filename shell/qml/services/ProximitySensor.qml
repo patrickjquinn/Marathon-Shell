@@ -23,7 +23,7 @@ Item {
             distance = near ? 0 : 100;
             Logger.info("ProximitySensor", "NEAR = " + near);
             proximityChanged(near);
-            if (autoScreenOff && typeof TelephonyManager !== "undefined" && TelephonyManager.hasActiveCall) {
+            if (autoScreenOff && typeof TelephonyIntegration !== "undefined" && TelephonyIntegration.hasActiveCall) {
                 if (near && DisplayManager.screenOn) {
                     Logger.info("ProximitySensor", "Auto screen OFF (during call)");
                     DisplayManager.turnScreenOff();

@@ -162,70 +162,22 @@ Display Hardware (HDMI/DSI)
 
 ### Components
 
-#### 1. SessionManager.qml (Singleton)
-**Location**: `shell/qml/services/SessionManager.qml`
-
-**Responsibilities**:
-- Tracks session state (active, idle, locked)
-- Monitors user activity via timestamps
-- Implements idle detection timer
-- Locks/unlocks session
-- Controls screen power state
-
-**Key Properties**:
-```qml
-property double lastActivityTime: Date.now()  // 64-bit timestamp
-property double idleTime: 0                    // Milliseconds since last activity
-property int idleTimeout: 3600000              // 1 hour (milliseconds)
-property int lockTimeout: 3600000              // Additional time before lock
-property bool screenLocked: false              // Current lock state
-property string sessionState: "active"         // active, idle, locked
-```
-
-**Idle Detection Algorithm**:
-```javascript
-Timer {
-    interval: 5000  // Check every 5 seconds
-    running: idleDetectionEnabled && sessionActive && !screenLocked
-    onTriggered: {
-        var now = Date.now()
-        idleTime = now - lastActivityTime
-        
-        if (sessionState === "locked") {
-            return  // Don't process if already locked
-        }
-        
-        if (idleTime >= idleTimeout) {
-            // Transition to idle, then lock after lockTimeout
-            sessionState = "idle"
-            if (idleTime >= (idleTimeout + lockTimeout)) {
-                lockSession()
-            }
-        }
-    }
-}
-```
-
-#### 2. SessionStore.qml (Singleton)
+#### 1. SessionStore.qml (Singleton)
 **Location**: `shell/qml/stores/SessionStore.qml`
 
 **Responsibilities**:
 - High-level session state management
-- Interfaces between UI and SessionManager
 - Validates session timeouts
 - Manages unlock timestamps
 
 **Key Functions**:
 ```qml
 function unlock() {
-    SessionManager.unlockSession()
-    isLocked = false
-    lastUnlockTime = Date.now()
+    // Hides lock screen and starts grace period
 }
 
 function lock() {
-    SessionManager.lockSession()
-    isLocked = true
+    // Shows lock screen and marks session locked
 }
 
 function checkSession() {
@@ -238,7 +190,7 @@ function checkSession() {
 }
 ```
 
-#### 3. MarathonLockScreen.qml
+#### 2. MarathonLockScreen.qml
 **Location**: `shell/qml/components/MarathonLockScreen.qml`
 
 **Responsibilities**:

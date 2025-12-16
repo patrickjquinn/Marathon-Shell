@@ -9,6 +9,8 @@ QtObject {
     property string lastCallerNumber: ""
     property bool callWasAnswered: false
     property var incomingCallOverlay: null
+    // True whenever we have an active or ringing call (used by proximity sensor / screen policy).
+    property bool hasActiveCall: false
 
     function resolveContactName(number) {
         if (typeof ContactsManager !== 'undefined') {
@@ -66,6 +68,7 @@ QtObject {
 
     function handleCallStateChanged(state) {
         Logger.info("TelephonyIntegration", "📞 Call state changed: " + state);
+        root.hasActiveCall = (state === "incoming" || state === "ringing" || state === "active");
         if (root.lastCallState === "incoming" && (state === "idle" || state === "terminated")) {
             if (!root.callWasAnswered) {
                 Logger.info("TelephonyIntegration", "📞 MISSED CALL from: " + root.lastCallerNumber);
