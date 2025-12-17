@@ -18,9 +18,18 @@ PowerPolicyController::PowerPolicyController(PowerManagerCpp   *powerManager,
             emit wakeLockCountChanged();
             emitCanSleepMaybeChanged();
         });
+
+        // Battery policy lives here (QML should not encode threshold logic).
+        connect(m_powerManager, &PowerManagerCpp::batteryLevelChanged, this,
+                &PowerPolicyController::handleBatteryPolicy);
+        connect(m_powerManager, &PowerManagerCpp::isChargingChanged, this,
+                &PowerPolicyController::handleBatteryPolicy);
     }
 
     m_lastCanSleep = canSleep();
+
+    // Evaluate battery policy once on startup (best-effort).
+    handleBatteryPolicy();
 }
 
 int PowerPolicyController::wakeLockCount() const {
@@ -54,6 +63,128 @@ void PowerPolicyController::emitCanSleepMaybeChanged() {
     if (now != m_lastCanSleep) {
         m_lastCanSleep = now;
         emit canSleepChanged();
+    }
+}
+
+void PowerPolicyController::handleBatteryPolicy() {
+    if (!m_powerManager)
+        return;
+
+    const int  level      = m_powerManager->batteryLevel();
+    const bool isCharging = m_powerManager->isCharging();
+    const uint warning    = m_powerManager->warningLevel();
+
+    if (isCharging) {
+        m_lastBatteryWarningLevel = 100;
+        m_hasShownCriticalWarning = false;
+        if (m_emergencyShutdownArmed) {
+            m_emergencyShutdownArmed = false;
+            emit emergencyShutdownDisarmed();
+        }
+        return;
+    }
+
+    // Prefer UPower WarningLevel for policy:
+    // 0 Unknown, 1 None, 2 Discharging (UPS only), 3 Low, 4 Critical, 5 Action
+    if (warning >= 4 && !m_hasShownCriticalWarning) {
+        QString action = QStringLiteral("shutdown");
+        if (m_powerManager) {
+            const QString configured = m_powerManager->criticalAction();
+            if (!configured.isEmpty())
+                action = configured;
+        }
+        emit batteryWarning(
+            QStringLiteral("Critical Battery"),
+            QStringLiteral("Device will %1 in 10 seconds to prevent data loss").arg(action),
+            QStringLiteral("battery-warning"),
+            /*hapticLevel*/ 3);
+        m_hasShownCriticalWarning = true;
+        m_lastBatteryWarningLevel = qMin(level, 3);
+        if (!m_emergencyShutdownArmed) {
+            m_emergencyShutdownArmed = true;
+            emit emergencyShutdownArmed(10);
+        }
+        return;
+    }
+
+    // If we recovered to a non-critical warning level, disarm.
+    if (m_emergencyShutdownArmed && warning < 4) {
+        m_emergencyShutdownArmed = false;
+        emit emergencyShutdownDisarmed();
+    }
+
+    // Low warning: show a single toast when UPower says Low.
+    if (warning == 3 && m_lastBatteryWarningLevel > 20) {
+        emit batteryWarning(QStringLiteral("Battery Low"),
+                            QStringLiteral("%1% remaining").arg(level), QStringLiteral("battery"),
+                            /*hapticLevel*/ 1);
+        m_lastBatteryWarningLevel = 20;
+        return;
+    }
+
+    // Fallback % warnings only when WarningLevel isn't available.
+    if (warning <= 2 && level <= 5 && m_lastBatteryWarningLevel > 5) {
+        emit batteryWarning(
+            QStringLiteral("Very Low Battery"),
+            QStringLiteral("%1% remaining. Connect charger immediately.").arg(level),
+            QStringLiteral("battery-warning"),
+            /*hapticLevel*/ 3);
+        m_lastBatteryWarningLevel = 5;
+        return;
+    }
+
+    if (warning <= 2 && level <= 10 && m_lastBatteryWarningLevel > 10) {
+        emit batteryWarning(QStringLiteral("Low Battery"),
+                            QStringLiteral("%1% remaining. Connect charger soon.").arg(level),
+                            QStringLiteral("battery"),
+                            /*hapticLevel*/ 2);
+        m_lastBatteryWarningLevel = 10;
+        return;
+    }
+
+    if (warning <= 2 && level <= 20 && m_lastBatteryWarningLevel > 20) {
+        emit batteryWarning(QStringLiteral("Battery Low"),
+                            QStringLiteral("%1% remaining").arg(level), QStringLiteral("battery"),
+                            /*hapticLevel*/ 1);
+        m_lastBatteryWarningLevel = 20;
+        return;
+    }
+}
+
+PowerPolicyController::PowerButtonAction
+PowerPolicyController::powerButtonAction(bool screenOn, bool sessionLocked) const {
+    if (!screenOn) {
+        return TurnScreenOn;
+    }
+    if (!sessionLocked) {
+        return LockAndTurnScreenOff;
+    }
+    return TurnScreenOff;
+}
+
+PowerPolicyController::SleepAction PowerPolicyController::sleepAction(bool sessionLocked) const {
+    return sessionLocked ? SleepNoLock : LockThenSleep;
+}
+
+void PowerPolicyController::performCriticalPowerAction() {
+    if (!m_powerManager)
+        return;
+
+    const QString action = m_powerManager->criticalAction();
+    qInfo() << "[PowerPolicyController] Performing critical power action:" << action;
+
+    if (action.compare("HybridSleep", Qt::CaseInsensitive) == 0) {
+        m_powerManager->hybridSleep();
+    } else if (action.compare("Hibernate", Qt::CaseInsensitive) == 0) {
+        m_powerManager->hibernate();
+    } else if (action.compare("PowerOff", Qt::CaseInsensitive) == 0 ||
+               action.compare("Shutdown", Qt::CaseInsensitive) == 0) {
+        m_powerManager->shutdown();
+    } else if (action.compare("Suspend", Qt::CaseInsensitive) == 0) {
+        m_powerManager->suspend();
+    } else {
+        // Conservative fallback.
+        m_powerManager->shutdown();
     }
 }
 

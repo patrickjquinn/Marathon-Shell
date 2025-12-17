@@ -1730,19 +1730,33 @@ Item {
         target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
     }
 
+    // Battery policy comes from C++ (Deepak: keep orchestration out of QML).
     Connections {
-        function onBatteryLevelChanged() {
-            PowerBatteryHandler.errorToast = errorToast;
-            PowerBatteryHandler.shutdownCallback = function () {
-                criticalBatteryShutdownTimer.start();
-            };
-            PowerBatteryHandler.shutdownStopCallback = function () {
-                criticalBatteryShutdownTimer.stop();
-            };
-            PowerBatteryHandler.handleBatteryLevelChanged();
+        function onBatteryWarning(title, body, iconName, hapticLevel) {
+            if (errorToast)
+                errorToast.show(title, body, iconName);
+
+            if (typeof HapticService !== "undefined" && HapticService) {
+                if (hapticLevel >= 3)
+                    HapticService.heavy();
+                else if (hapticLevel === 2)
+                    HapticService.medium();
+                else if (hapticLevel === 1)
+                    HapticService.light();
+            }
         }
 
-        target: typeof PowerManager !== 'undefined' ? PowerManager : null
+        function onEmergencyShutdownArmed(secondsUntilShutdown) {
+            // Keep timer-based shutdown in QML so UI can show last-second UX if needed.
+            criticalBatteryShutdownTimer.interval = Math.max(0, secondsUntilShutdown * 1000);
+            criticalBatteryShutdownTimer.start();
+        }
+
+        function onEmergencyShutdownDisarmed() {
+            criticalBatteryShutdownTimer.stop();
+        }
+
+        target: typeof PowerPolicyControllerCpp !== "undefined" ? PowerPolicyControllerCpp : null
     }
 
     Timer {
@@ -1751,8 +1765,11 @@ Item {
         interval: 10000
         repeat: false
         onTriggered: {
-            Logger.critical("Battery", "Emergency shutdown due to critical battery");
-            if (typeof PowerManager !== 'undefined' && PowerManager)
+            Logger.critical("Battery", "Emergency critical power action due to battery");
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+                PowerPolicyControllerCpp.performCriticalPowerAction();
+            else if (typeof PowerManager !== "undefined" && PowerManager)
+                // Conservative fallback if the policy controller isn't available.
                 PowerManager.shutdown();
         }
     }
@@ -1892,8 +1909,19 @@ Item {
 
         onSleepRequested: {
             Logger.info("Shell", "Sleep requested from power menu");
-            SessionStore.lock(); // Lock first
-            PowerManager.sleep(); // Then sleep
+            var locked = SessionStore.isLocked;
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
+                var action = PowerPolicyControllerCpp.sleepAction(locked);
+                if (action === PowerPolicyControllerCpp.LockThenSleep)
+                    SessionStore.lock();
+            } else if (!locked) {
+                SessionStore.lock();
+            }
+            // Sleep is shell-level policy, so prefer the C++ controller when present.
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+                PowerPolicyControllerCpp.sleep();
+            else
+                PowerManager.sleep();
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");

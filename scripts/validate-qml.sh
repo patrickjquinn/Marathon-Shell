@@ -17,6 +17,12 @@ echo " QML Validation with Full Type Resolution"
 echo "============================================="
 echo ""
 
+# Guardrail: QML singletons must be valid (pragma before imports).
+if [ -x "$PROJECT_ROOT/scripts/check-qml-singletons.sh" ]; then
+    "$PROJECT_ROOT/scripts/check-qml-singletons.sh"
+    echo ""
+fi
+
 # Set up ALL import paths
 MARATHON_UI_PATH="$HOME/.local/share/marathon-ui"
 SHELL_QML_PATH="$PROJECT_ROOT/shell/qml"

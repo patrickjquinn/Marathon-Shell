@@ -22,6 +22,8 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_upowerInterface(nullptr)
     , m_logindInterface(nullptr)
     , m_batteryLevel(75)
+    , m_warningLevel(0)
+    , m_batteryLevelCoarse(0)
     , m_isCharging(false)
     , m_isPluggedIn(false)
     , m_isPowerSaveMode(false)
@@ -38,7 +40,8 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_systemSuspended(false)
     , m_wakelockSupported(false)
     , m_fallbackMode("none")
-    , m_rtcAlarmSupported(false) {
+    , m_rtcAlarmSupported(false)
+    , m_criticalAction(QStringLiteral("PowerOff")) {
     qCritical() << "[PowerManagerCpp] Initializing PowerManagerCpp Service";
 
     // Try to connect to UPower D-Bus
@@ -49,6 +52,14 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     if (m_upowerInterface->isValid()) {
         m_hasUPower = true;
         qInfo() << "[PowerManagerCpp] Connected to UPower D-Bus";
+        // Read the system-configured critical action (UPower policy).
+        // This is advisory for shells; we use it to align our critical-battery behavior.
+        QDBusReply<QString> criticalReply = m_upowerInterface->call("GetCriticalAction");
+        if (criticalReply.isValid() && !criticalReply.value().isEmpty()) {
+            m_criticalAction = criticalReply.value();
+            emit criticalActionChanged();
+        }
+        qInfo() << "[PowerManagerCpp] UPower critical action:" << m_criticalAction;
         setupDBusConnections();
         setupDisplayDevice();
     } else {
@@ -142,29 +153,49 @@ void PowerManagerCpp::updateAggregateState() {
             m_batteryLevel = 100;
             m_isCharging =
                 false; // "Fully Charged" usually means not charging, but for VM we can say plugged in.
-            m_isPluggedIn = true;
+            m_isPluggedIn        = true;
+            m_warningLevel       = 1; // None
+            m_batteryLevelCoarse = 1; // Not supported
             emit batteryLevelChanged();
+            emit warningLevelChanged();
+            emit batteryLevelCoarseChanged();
             emit isChargingChanged();
             emit isPluggedInChanged();
         }
         return;
     }
 
-    int  newLevel = qRound(m_displayDeviceInterface->property("Percentage").toDouble());
-    uint state    = m_displayDeviceInterface->property("State").toUInt();
-    uint type     = m_displayDeviceInterface->property("Type").toUInt();
+    int          newLevel     = qRound(m_displayDeviceInterface->property("Percentage").toDouble());
+    uint         state        = m_displayDeviceInterface->property("State").toUInt();
+    const uint   warningLevel = m_displayDeviceInterface->property("WarningLevel").toUInt();
+    const uint   coarseLevel  = m_displayDeviceInterface->property("BatteryLevel").toUInt();
+    const qint64 timeToEmptySeconds =
+        m_displayDeviceInterface->property("TimeToEmpty").toLongLong();
+    const qint64 timeToFullSeconds = m_displayDeviceInterface->property("TimeToFull").toLongLong();
 
-    bool newCharging  = (state == 1 || state == 5); // 1=Charging, 5=Pending Charge
-    bool newPluggedIn = (state == 1 || state == 4 || state == 5 || type == 1); // 4=Fully Charged
+    // UPower Device.State:
+    // 0 Unknown, 1 Charging, 2 Discharging, 3 Empty, 4 Fully charged, 5 Pending charge, 6 Pending discharge
+    const bool newCharging  = (state == 1 || state == 5);
+    const bool newPluggedIn = (state == 1 || state == 4 || state == 5);
 
     if (m_batteryLevel != newLevel) {
         qInfo() << "[PowerManagerCpp] Battery Level Changed:" << m_batteryLevel << "->" << newLevel;
         m_batteryLevel = newLevel;
         emit batteryLevelChanged();
+    }
 
-        if (m_batteryLevel <= 5) {
+    if (m_warningLevel != warningLevel) {
+        m_warningLevel = warningLevel;
+        emit warningLevelChanged();
+        // Critical and Action warning levels indicate immediate user attention is required.
+        if (m_warningLevel >= 4) {
             emit criticalBattery();
         }
+    }
+
+    if (m_batteryLevelCoarse != coarseLevel) {
+        m_batteryLevelCoarse = coarseLevel;
+        emit batteryLevelCoarseChanged();
     }
 
     if (m_isCharging != newCharging) {
@@ -175,6 +206,22 @@ void PowerManagerCpp::updateAggregateState() {
     if (m_isPluggedIn != newPluggedIn) {
         m_isPluggedIn = newPluggedIn;
         emit isPluggedInChanged();
+    }
+
+    // Estimated time (minutes): TimeToEmpty when discharging; TimeToFull when charging.
+    // UPower reports seconds; 0 means unknown.
+    int newEstimatedMinutes = -1;
+    if (state == 2 || state == 6) { // Discharging / Pending discharge
+        if (timeToEmptySeconds > 0)
+            newEstimatedMinutes = static_cast<int>(timeToEmptySeconds / 60);
+    } else if (state == 1 || state == 5) { // Charging / Pending charge
+        if (timeToFullSeconds > 0)
+            newEstimatedMinutes = static_cast<int>(timeToFullSeconds / 60);
+    }
+
+    if (m_estimatedBatteryTime != newEstimatedMinutes) {
+        m_estimatedBatteryTime = newEstimatedMinutes;
+        emit estimatedBatteryTimeChanged();
     }
 
     qDebug() << "[PowerManagerCpp] State Updated - Level:" << m_batteryLevel
@@ -255,6 +302,21 @@ void PowerManagerCpp::hibernate() {
     } else {
         qDebug() << "[PowerManagerCpp] systemd-logind not available, cannot hibernate";
         emit powerError("Hibernate not available");
+    }
+}
+
+void PowerManagerCpp::hybridSleep() {
+    qDebug() << "[PowerManagerCpp] Hybrid sleeping system";
+
+    if (m_hasLogind) {
+        QDBusReply<void> reply = m_logindInterface->call("HybridSleep", true);
+        if (!reply.isValid()) {
+            qDebug() << "[PowerManagerCpp] Failed to hybrid sleep:" << reply.error().message();
+            emit powerError("Failed to hybrid sleep system");
+        }
+    } else {
+        qDebug() << "[PowerManagerCpp] systemd-logind not available, cannot hybrid sleep";
+        emit powerError("HybridSleep not available");
     }
 }
 

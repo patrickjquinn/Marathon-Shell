@@ -306,7 +306,30 @@ Rectangle {
     opacity: 0.98
     Component.onCompleted: {
         Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)");
-        Logger.info("QuickSettings", "Enabled tiles: " + SettingsManagerCpp.enabledQuickSettingsTiles.length + " of " + allTiles.length);
+        // Don't log raw enabledQuickSettingsTiles length; it can contain legacy/unknown IDs.
+        var enabled = SettingsManagerCpp.enabledQuickSettingsTiles || [];
+        var knownCount = 0;
+        var unknownCount = 0;
+        var seen = {};
+        for (var i = 0; i < enabled.length; i++) {
+            var id = enabled[i];
+            if (seen[id])
+                continue;
+
+            seen[id] = true;
+            var isKnown = false;
+            for (var j = 0; j < allTiles.length; j++) {
+                if (allTiles[j].id === id) {
+                    isKnown = true;
+                    break;
+                }
+            }
+            if (isKnown)
+                knownCount++;
+            else
+                unknownCount++;
+        }
+        Logger.info("QuickSettings", "Enabled tiles: " + knownCount + " of " + allTiles.length + (unknownCount > 0 ? (" (" + unknownCount + " unknown in settings)") : ""));
     }
 
     Connections {

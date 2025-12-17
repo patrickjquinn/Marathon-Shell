@@ -225,6 +225,11 @@ Item {
 
             // Unlock animation for valid PIN
             SequentialAnimation {
+                // Unlocking is session logic and should be triggered by the auth flow (PinScreen),
+                // not by a UI animation. This also avoids duplicate unlocks if multiple status bars
+                // exist in different shell states.
+                // Return to normal scale; the icon name will update via SessionStore.isLocked changes.
+
                 id: unlockAnimation
 
                 // Disable automatic name behavior during custom animation
@@ -246,15 +251,7 @@ Item {
                     duration: 200
                     easing.type: Easing.OutCubic
                 }
-                // Trigger proper unlock (sets grace period, updates state, changes icon)
-
-                ScriptAction {
-                    script: {
-                        console.log("[StatusBar] Animation calling SessionStore.unlock()...");
-                        SessionStore.unlock();
-                    }
-                }
-                // Return to normal scale (icon has changed via SessionStore.unlock)
+                // IMPORTANT: Do not call SessionStore.unlock() from the status bar.
 
                 NumberAnimation {
                     target: lockIcon

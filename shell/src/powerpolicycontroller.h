@@ -12,6 +12,7 @@ class DisplayManagerCpp;
  * Owns shell-level power orchestration/policy that should not live in QML:
  * - wake/sleep helpers
  * - scheduled wake bookkeeping (RTC alarm)
+ * - battery warnings / emergency shutdown policy (UI presentation stays in QML)
  *
  * Low-level system integration remains in PowerManagerCpp / DisplayManagerCpp.
  */
@@ -27,6 +28,20 @@ class PowerPolicyController : public QObject {
     Q_PROPERTY(QString wakeReason READ wakeReason NOTIFY wakeReasonChanged)
 
   public:
+    enum PowerButtonAction {
+        NoOp = 0,
+        TurnScreenOn,
+        LockAndTurnScreenOff,
+        TurnScreenOff,
+    };
+    Q_ENUM(PowerButtonAction)
+
+    enum SleepAction {
+        SleepNoLock = 0,
+        LockThenSleep,
+    };
+    Q_ENUM(SleepAction)
+
     explicit PowerPolicyController(PowerManagerCpp *powerManager, DisplayManagerCpp *displayManager,
                                    QObject *parent = nullptr);
 
@@ -55,6 +70,20 @@ class PowerPolicyController : public QObject {
     Q_INVOKABLE QString wake(const QString &reason);
     Q_INVOKABLE bool    sleep();
 
+    // Power button press policy:
+    // - If screen is off -> turn it on
+    // - Else if session is unlocked -> lock and turn screen off
+    // - Else (already locked) -> turn screen off
+    Q_INVOKABLE PowerButtonAction powerButtonAction(bool screenOn, bool sessionLocked) const;
+
+    // Power menu policy:
+    // - If unlocked -> lock first, then sleep
+    // - If already locked -> sleep immediately
+    Q_INVOKABLE SleepAction sleepAction(bool sessionLocked) const;
+
+    // Execute the system-configured UPower critical action (best-effort).
+    Q_INVOKABLE void performCriticalPowerAction();
+
     // Epoch seconds (UTC) keeps QML↔C++ conversion simple
     Q_INVOKABLE QString scheduleWakeEpoch(qint64 epochSeconds, const QString &reason);
     Q_INVOKABLE bool    cancelScheduledWake(const QString &wakeId);
@@ -69,8 +98,16 @@ class PowerPolicyController : public QObject {
     void systemWaking(const QString &reason);
     void systemSleeping();
 
+    // Battery policy signals (presentation belongs in QML).
+    // hapticLevel: 1=light, 2=medium, 3=heavy
+    void batteryWarning(const QString &title, const QString &body, const QString &iconName,
+                        int hapticLevel);
+    void emergencyShutdownArmed(int secondsUntilShutdown);
+    void emergencyShutdownDisarmed();
+
   private:
     void               emitCanSleepMaybeChanged();
+    void               handleBatteryPolicy();
 
     PowerManagerCpp   *m_powerManager   = nullptr;
     DisplayManagerCpp *m_displayManager = nullptr;
@@ -80,4 +117,9 @@ class PowerPolicyController : public QObject {
     bool               m_lastCanSleep   = true;
     QVariantList       m_scheduledWakes;
     QString            m_wakeReason;
+
+    // Battery policy state (prevents repeated warnings).
+    int  m_lastBatteryWarningLevel = 100;
+    bool m_hasShownCriticalWarning = false;
+    bool m_emergencyShutdownArmed  = false;
 };

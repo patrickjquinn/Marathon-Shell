@@ -102,6 +102,14 @@ QtObject {
      */
     function unlock() {
         console.log("[SessionStore] unlock() called - current isLocked:", isLocked);
+        // If an unlock transition is already in progress, ignore duplicate calls.
+        // (Multiple UI components may react to the same unlock trigger.)
+        if (isAnimatingLock && lockTransition === "unlocking") {
+            console.log("[SessionStore] Unlock already in progress, ignoring duplicate");
+            showLockScreen = false;
+            isOnLockScreen = false;
+            return;
+        }
         if (!isLocked) {
             // Common case during grace-period: session is already unlocked but lock screen is showing
             // (e.g. screen turned on, or user tapped a notification on the lock screen).
