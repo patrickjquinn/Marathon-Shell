@@ -7,7 +7,7 @@ This directory contains the implementation of RT thread priorities per **Maratho
 ### Files Added
 
 1. **`shell/src/rtscheduler.h/cpp`** - C++ RT scheduler class
-2. **`shell/src/waylandcompositor.cpp`** - Compositor RT priority (75)
+2. **`shell/src/wayland/waylandcompositor.cpp`** - Compositor RT priority (75)
 3. **`shell/main.cpp`** - Main thread RT priority (85) for input handling
 4. **`scripts/configure-rt-linux.sh`** - Linux system configuration script
 

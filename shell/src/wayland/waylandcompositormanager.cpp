@@ -1,5 +1,5 @@
-#include "waylandcompositormanager.h"
-#include "settingsmanager.h"
+#include "src/wayland/waylandcompositormanager.h"
+#include "src/settingsmanager.h"
 #include <QDebug>
 
 WaylandCompositorManager::WaylandCompositorManager(SettingsManager *settingsManager,

@@ -47,7 +47,7 @@
 #include "smsservice.h"
 #include "medialibrarymanager.h"
 #include "musiclibrarymanager.h"
-#include "src/waylandcompositormanager.h"
+#include "src/wayland/waylandcompositormanager.h"
 #include "src/marathoninputmethodengine.h"
 #include "src/rtscheduler.h"
 #include "src/cursormanager.h"
@@ -69,7 +69,7 @@
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
-#include "src/waylandcompositor.h"
+#include "src/wayland/waylandcompositor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
 #endif

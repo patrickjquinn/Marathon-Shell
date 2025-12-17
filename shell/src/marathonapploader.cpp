@@ -241,33 +241,32 @@ QObject *MarathonAppLoader::createAppInstance(const QString &appId, QQmlComponen
 
     qDebug() << "[MarathonAppLoader] Creating instance for:" << appId;
 
-    QObject *appInstance = nullptr;
-    try {
-        appInstance = component->create();
-    } catch (const std::exception &e) {
-        qCritical() << "[MarathonAppLoader] EXCEPTION during app creation:" << e.what();
-        emit loadError(appId, QString("Exception: %1").arg(e.what()));
-        m_components.remove(appId);
-        component->deleteLater();
-        return nullptr;
-    } catch (...) {
-        qCritical() << "[MarathonAppLoader] UNKNOWN EXCEPTION during app creation";
-        emit loadError(appId, "Unknown exception during app creation");
-        m_components.remove(appId);
-        component->deleteLater();
+    // IMPORTANT:
+    // Use beginCreate/completeCreate so we can set initial properties (like appIcon) BEFORE
+    // Component.onCompleted runs inside the QML app. If we call component->create() and then
+    // set properties afterwards, onCompleted will observe the default values (often relative
+    // paths like "assets/icon.svg"), and lifecycle registration will capture the wrong icon.
+    QQmlContext *ctx = component->creationContext();
+    if (!ctx) {
+        // Fallback: use engine root context
+        ctx = m_engine ? m_engine->rootContext() : nullptr;
+    }
+    if (!ctx) {
+        qWarning() << "[MarathonAppLoader] No QQmlContext available for app creation:" << appId;
+        emit loadError(appId, "No QML context available");
         return nullptr;
     }
 
+    QObject *appInstance = component->beginCreate(ctx);
     if (!appInstance) {
-        qWarning() << "[MarathonAppLoader] Failed to create app instance:"
-                   << component->errorString();
+        qWarning() << "[MarathonAppLoader] beginCreate failed:" << component->errorString();
         emit loadError(appId, component->errorString());
         m_components.remove(appId);
         component->deleteLater();
         return nullptr;
     }
 
-    // Inject icon path from registry
+    // Inject icon path from registry BEFORE completeCreate (so QML sees it in onCompleted).
     MarathonAppRegistry::AppInfo *appInfo = m_registry->getAppInfo(appId);
     if (appInfo && appInstance->property("appIcon").isValid()) {
         QString iconPath = appInfo->icon;
@@ -275,6 +274,16 @@ QObject *MarathonAppLoader::createAppInstance(const QString &appId, QQmlComponen
             appInstance->setProperty("appIcon", iconPath);
             qDebug() << "  Injected icon:" << iconPath;
         }
+    }
+
+    component->completeCreate();
+    if (component->isError()) {
+        qWarning() << "[MarathonAppLoader] completeCreate error:" << component->errorString();
+        emit loadError(appId, component->errorString());
+        appInstance->deleteLater();
+        m_components.remove(appId);
+        component->deleteLater();
+        return nullptr;
     }
 
     qDebug() << "[MarathonAppLoader] Successfully created instance for:" << appId;

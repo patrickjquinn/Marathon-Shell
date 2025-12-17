@@ -453,7 +453,9 @@ MApp {
                                         spacing: MSpacing.sm
 
                                         Text {
-                                            text: modelData.phone
+                                            // Some entries may have missing/undefined phone values (e.g. older history rows).
+                                            // QML will warn if we try to assign undefined to a string property.
+                                            text: modelData.phone || ""
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary

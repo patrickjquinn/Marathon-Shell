@@ -5,7 +5,7 @@
 #include <QQuickWindow>
 
 #ifdef HAVE_WAYLAND
-#include "waylandcompositor.h"
+#include "src/wayland/waylandcompositor.h"
 #endif
 
 // Forward declarations

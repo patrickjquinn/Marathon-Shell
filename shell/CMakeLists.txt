@@ -84,16 +84,16 @@ set(SOURCES
 )
 
 list(APPEND SOURCES
-    src/waylandcompositormanager.h
-    src/waylandcompositormanager.cpp
+    src/wayland/waylandcompositormanager.h
+    src/wayland/waylandcompositormanager.cpp
     src/cursormanager.h
     src/cursormanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
     list(APPEND SOURCES
-        src/waylandcompositor.h
-        src/waylandcompositor.cpp
+        src/wayland/waylandcompositor.h
+        src/wayland/waylandcompositor.cpp
     )
 endif()
 

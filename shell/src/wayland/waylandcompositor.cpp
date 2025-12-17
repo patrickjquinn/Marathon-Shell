@@ -1,5 +1,5 @@
-#include "waylandcompositor.h"
-#include "settingsmanager.h"
+#include "src/wayland/waylandcompositor.h"
+#include "src/settingsmanager.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -42,7 +42,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
 
     // CRITICAL: Set compositor properties BEFORE create()
     // Per Qt docs, these must be set before the compositor is initialized
-    setSocketName("marathon-wayland-0");
+    const QByteArray socketNameEnv = qgetenv("MARATHON_WL_SOCKET_NAME").trimmed();
+    const QByteArray socketNameBytes =
+        socketNameEnv.isEmpty() ? QByteArrayLiteral("marathon-wayland-0") : socketNameEnv;
+    setSocketName(socketNameBytes);
 
     // CRITICAL: Explicitly enable SHM Support for GTK Apps
     // This forces QWaylandCompositor to create the wl_shm global
@@ -69,20 +72,37 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
         qInfo() << "[WaylandCompositor] wl_shell disabled (legacy protocol)";
     }
 
-    // CRITICAL: Enable wp_viewporter protocol for Firefox/GTK fractional scaling
-    // Firefox uses this to set destination size for surface buffers.
-    // Without this, Firefox renders at wrong size despite correct configure events.
-    m_viewporter = new QWaylandViewporter(this);
+    // Only enable protocol globals we need (Deepak: avoid unnecessary protocol surface area).
+    // These are enabled by default but can be turned off for debugging/minimal builds.
+    const bool enableViewporter  = envBool("MARATHON_WL_ENABLE_VIEWPORTER", true);
+    const bool enableTextInputV2 = envBool("MARATHON_WL_ENABLE_TEXT_INPUT_V2", true);
+    const bool enableIdleInhibit = envBool("MARATHON_WL_ENABLE_IDLE_INHIBIT", true);
 
-    // CRITICAL: Enable zwp_text_input_manager_v2 for native app virtual keyboard support
-    // Native Wayland apps (Firefox, Chromium, GTK) use this protocol to communicate
-    // with the compositor about text input focus and request on-screen keyboard.
-    m_textInputManager = new QWaylandTextInputManager(this);
+    // wp_viewporter: Firefox/GTK use this to set destination size for surface buffers.
+    // Without this, some clients render at wrong size despite correct configure events.
+    if (enableViewporter) {
+        m_viewporter = new QWaylandViewporter(this);
+        qInfo() << "[WaylandCompositor] wp_viewporter enabled";
+    } else {
+        qInfo() << "[WaylandCompositor] wp_viewporter disabled";
+    }
 
-    // CRITICAL: Enable zwp_idle_inhibit_manager_v1 for video playback
-    // Video apps (VLC, MPV, Firefox video) use this to prevent screen blanking
-    // during playback. The surface's inhibitsIdle property is set automatically.
-    m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
+    // zwp_text_input_manager_v2: Needed for native Wayland apps + on-screen keyboard integration.
+    if (enableTextInputV2) {
+        m_textInputManager = new QWaylandTextInputManager(this);
+        qInfo() << "[WaylandCompositor] zwp_text_input_manager_v2 enabled";
+    } else {
+        qInfo() << "[WaylandCompositor] zwp_text_input_manager_v2 disabled";
+    }
+
+    // zwp_idle_inhibit_manager_v1: Used by media apps to prevent screen blanking during playback.
+    // When disabled, surface->inhibitsIdle() will remain false and we won't honor client inhibitors.
+    if (enableIdleInhibit) {
+        m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
+        qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 enabled";
+    } else {
+        qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 disabled";
+    }
 
     // Connect seat keyboard focus changes to emit text input panel signal
     // When a native app surface gains keyboard focus, we may need to show the keyboard
