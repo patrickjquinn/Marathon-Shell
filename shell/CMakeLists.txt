@@ -177,12 +177,9 @@ set(QML_FILES
     qml/core/Router.qml
     qml/models/FilteredAppModel.qml
     qml/services/Platform.qml
-    qml/services/PowerManager.qml
-    qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
     qml/services/LocationService.qml
-    qml/services/AppLauncher.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
@@ -196,7 +193,6 @@ set(QML_FILES
     qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
-    qml/services/FlashlightManager.qml
     qml/services/StateManager.qml
 )
 
@@ -222,12 +218,9 @@ set(SINGLETON_FILES
     qml/core/SurfaceRegistry.qml
     qml/core/Router.qml
     qml/services/Platform.qml
-    qml/services/PowerManager.qml
-    qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
     qml/services/LocationService.qml
-    qml/services/AppLauncher.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
@@ -241,7 +234,6 @@ set(SINGLETON_FILES
     qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
-    qml/services/FlashlightManager.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -293,33 +285,12 @@ target_include_directories(marathon-shell PRIVATE
 
 find_package(Qt6 REQUIRED COMPONENTS Gui)
 
-# Check for GuiPrivate or manually add headers
+# GuiPrivate is Qt-internal; only link it when enabled and available.
 if(TARGET Qt6::GuiPrivate)
     target_link_libraries(marathon-shell PRIVATE Qt6::GuiPrivate)
+    target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_QT_GUI_PRIVATE=1)
 else()
-    message(STATUS "Qt6::GuiPrivate target not found. Attempting to locate private headers manually.")
-    # Try to find the private headers manually
-    # We know it's at /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui/qpa/qplatformscreen.h
-    # So we need /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
-    
-    # Get Qt version from Core
-    if(TARGET Qt6::Core)
-        get_target_property(QT_CORE_VERSION Qt6::Core VERSION)
-    endif()
-    
-    find_path(QT_GUI_PRIVATE_INCLUDE_DIR qpa/qplatformscreen.h
-        HINTS 
-        /usr/include/${CMAKE_LIBRARY_ARCHITECTURE}/qt6/QtGui/${QT_CORE_VERSION}/QtGui
-        /usr/include/qt6/QtGui/${QT_CORE_VERSION}/QtGui
-        /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
-    )
-    
-    if(QT_GUI_PRIVATE_INCLUDE_DIR)
-        target_include_directories(marathon-shell PRIVATE ${QT_GUI_PRIVATE_INCLUDE_DIR})
-        message(STATUS "Found Qt6 Gui Private headers: ${QT_GUI_PRIVATE_INCLUDE_DIR}")
-    else()
-        message(WARNING "Qt6 Gui Private headers not found! Build may fail.")
-    endif()
+    target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_QT_GUI_PRIVATE=0)
 endif()
 
 target_link_libraries(marathon-shell PRIVATE

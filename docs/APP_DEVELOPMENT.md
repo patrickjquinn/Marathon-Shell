@@ -279,8 +279,8 @@ NetworkManagerCpp.wifiSsid
 NetworkManagerCpp.ethernetConnected
 
 // Power management
-PowerManager.batteryLevel
-PowerManager.isCharging
+PowerManagerService.batteryLevel
+PowerManagerService.isCharging
 ```
 
 ## Best Practices

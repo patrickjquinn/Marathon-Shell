@@ -53,17 +53,17 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Battery: " + PowerManager.batteryLevel + "%"
+                            text: "Battery: " + ((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.batteryLevel : 0) + "%"
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Charging: " + (PowerManager.isCharging ? "Yes" : "No")
+                            text: "Charging: " + (((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isCharging : false) ? "Yes" : "No")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Power Save: " + (PowerManager.isPowerSaveMode ? "On" : "Off")
+                            text: "Power Save: " + (((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isPowerSaveMode : false) ? "On" : "Off")
                             variant: "secondary"
                         }
                     }
@@ -76,7 +76,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                PowerManager.togglePowerSaveMode();
+                                if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                                    PowerManagerService.setPowerSaveMode(!PowerManagerService.isPowerSaveMode);
+
                                 Logger.info("TestApp", "Toggled power save mode");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -183,12 +185,12 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Brightness: " + Math.round(DisplayManager.brightness * 100) + "%"
+                            text: "Brightness: " + ((typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? Math.round(DisplayManagerCpp.brightness * 100) : 0) + "%"
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Auto-brightness: " + (DisplayManager.autoBrightnessEnabled ? "On" : "Off")
+                            text: "Auto-brightness: " + (((typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.autoBrightnessEnabled : false) ? "On" : "Off")
                             variant: "secondary"
                         }
                     }
@@ -202,7 +204,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                DisplayManager.increaseBrightness();
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.brightness = Math.min(1, DisplayManagerCpp.brightness + 0.1);
+
                                 Logger.info("TestApp", "Increased brightness");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -216,7 +220,9 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                DisplayManager.decreaseBrightness();
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.brightness = Math.max(0, DisplayManagerCpp.brightness - 0.1);
+
                                 Logger.info("TestApp", "Decreased brightness");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -230,7 +236,9 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                DisplayManager.setAutoBrightness(!DisplayManager.autoBrightnessEnabled);
+                                if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                                    DisplayPolicyControllerCpp.autoBrightnessEnabled = !DisplayPolicyControllerCpp.autoBrightnessEnabled;
+
                                 Logger.info("TestApp", "Toggled auto-brightness");
                                 if (testApp) {
                                     testApp.passedTests++;

@@ -23,9 +23,9 @@ MApp {
         Logger.info("TestApp", "  - NotificationService: " + (typeof NotificationService !== 'undefined'));
         Logger.info("TestApp", "  - AlarmManager: " + (typeof AlarmManager !== 'undefined'));
         Logger.info("TestApp", "  - AudioManager: " + (typeof AudioManager !== 'undefined'));
-        Logger.info("TestApp", "  - PowerManager: " + (typeof PowerManager !== 'undefined'));
+        Logger.info("TestApp", "  - PowerManager: " + (typeof PowerManagerService !== 'undefined'));
         Logger.info("TestApp", "  - NetworkManagerCpp: " + (typeof NetworkManagerCpp !== 'undefined'));
-        Logger.info("TestApp", "  - DisplayManager: " + (typeof DisplayManager !== 'undefined'));
+        Logger.info("TestApp", "  - DisplayManager: " + (typeof DisplayManagerCpp !== 'undefined'));
     }
 
     content: Item {

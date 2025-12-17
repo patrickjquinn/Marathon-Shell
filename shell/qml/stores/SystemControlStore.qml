@@ -18,8 +18,8 @@ QtObject {
     property bool isWifiOn: typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : true
     property bool isBluetoothOn: typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp ? BluetoothManagerCpp.enabled : false
     property bool isAirplaneModeOn: typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.airplaneModeEnabled : false
-    property bool isRotationLocked: DisplayManager.rotationLocked
-    property bool isFlashlightOn: typeof FlashlightManager !== 'undefined' ? FlashlightManager.enabled : false
+    property bool isRotationLocked: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.rotationLocked : false
+    property bool isFlashlightOn: (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp) ? FlashlightManagerCpp.enabled : false
     property bool isCellularOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.modemEnabled : false
     property bool isCellularDataOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
     property bool isDndMode: AudioManager.dndEnabled
@@ -34,7 +34,7 @@ QtObject {
     // Two-way bindings with restore mode (as properties)
     property Binding brightnessBinding
     property Binding volumeBinding
-    property bool isLowPowerMode: PowerManager.isPowerSaveMode
+    property bool isLowPowerMode: (typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isPowerSaveMode : false
     // Two-way binding for rotation lock (as property)
     property Binding rotationLockBinding
 
@@ -72,13 +72,15 @@ QtObject {
 
     function toggleRotationLock() {
         var newLock = !isRotationLocked;
-        DisplayManager.setRotationLock(newLock);
+        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.setRotationLock(newLock);
+
         Logger.info("SystemControl", "Rotation lock: " + newLock);
     }
 
     function toggleFlashlight() {
-        if (typeof FlashlightManager !== 'undefined')
-            FlashlightManager.toggle();
+        if (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp)
+            FlashlightManagerCpp.toggle();
 
         Logger.info("SystemControl", "Flashlight: " + isFlashlightOn);
     }
@@ -115,7 +117,9 @@ QtObject {
 
     function toggleLowPowerMode() {
         var newMode = !isLowPowerMode;
-        PowerManager.setPowerSaveMode(newMode);
+        if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.setPowerSaveMode(newMode);
+
         Logger.info("SystemControl", "Low power mode toggled to: " + newMode);
     }
 
@@ -168,7 +172,9 @@ QtObject {
 
     function setBrightness(value) {
         var clamped = Math.max(0, Math.min(100, value));
-        DisplayManager.setBrightness(clamped / 100);
+        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.brightness = clamped / 100;
+
         Logger.debug("SystemControl", "Brightness: " + clamped);
     }
 
@@ -180,17 +186,20 @@ QtObject {
 
     function sleep() {
         Logger.info("SystemControl", "Sleep triggered");
-        PowerManager.suspend();
+        if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.suspend();
     }
 
     function powerOff() {
         Logger.info("SystemControl", "Power off triggered");
-        PowerManager.shutdown();
+        if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.shutdown();
     }
 
     function reboot() {
         Logger.info("SystemControl", "Reboot triggered");
-        PowerManager.restart();
+        if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.restart();
     }
 
     Component.onCompleted: {
@@ -200,7 +209,7 @@ QtObject {
     brightnessBinding: Binding {
         target: systemControl
         property: "brightness"
-        value: Math.round(DisplayManager.brightness * 100)
+        value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? Math.round(DisplayManagerCpp.brightness * 100) : 50
         restoreMode: Binding.RestoreBinding
     }
 
@@ -214,7 +223,7 @@ QtObject {
     rotationLockBinding: Binding {
         target: systemControl
         property: "isRotationLocked"
-        value: DisplayManager.rotationLocked
+        value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.rotationLocked : false
         restoreMode: Binding.RestoreBinding
     }
 }

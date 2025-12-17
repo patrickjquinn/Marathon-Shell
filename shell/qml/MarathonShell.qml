@@ -1765,12 +1765,13 @@ Item {
         interval: 10000
         repeat: false
         onTriggered: {
+            // Conservative fallback if the policy controller isn't available.
+
             Logger.critical("Battery", "Emergency critical power action due to battery");
             if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
                 PowerPolicyControllerCpp.performCriticalPowerAction();
-            else if (typeof PowerManager !== "undefined" && PowerManager)
-                // Conservative fallback if the policy controller isn't available.
-                PowerManager.shutdown();
+            else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                PowerManagerService.shutdown();
         }
     }
 
@@ -1921,15 +1922,17 @@ Item {
             if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
                 PowerPolicyControllerCpp.sleep();
             else
-                PowerManager.sleep();
+                PowerManagerService.suspend();
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");
-            PowerManager.restart();
+            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                PowerManagerService.restart();
         }
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu");
-            PowerManager.shutdown();
+            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                PowerManagerService.shutdown();
         }
     }
 

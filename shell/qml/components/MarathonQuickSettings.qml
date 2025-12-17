@@ -132,7 +132,7 @@ Rectangle {
             "icon": "flashlight",
             "label": "Torch",
             "active": SystemControlStore.isFlashlightOn,
-            "available": (typeof FlashlightManager !== 'undefined' && FlashlightManager.available),
+            "available": (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp.available),
             "trigger": updateTrigger
         },
         {

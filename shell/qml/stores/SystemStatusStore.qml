@@ -10,10 +10,10 @@ QtObject {
 
     id: systemStatus
 
-    property int batteryLevel: PowerManager.batteryLevel
-    property bool isCharging: PowerManager.isCharging
-    property bool isPluggedIn: PowerManager.isPluggedIn
-    property string chargingType: PowerManager.isCharging ? "usb" : "none"
+    property int batteryLevel: (typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.batteryLevel : 0
+    property bool isCharging: (typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isCharging : false
+    property bool isPluggedIn: (typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isPluggedIn : false
+    property string chargingType: isCharging ? "usb" : "none"
     property bool isWifiOn: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : true
     property int wifiStrength: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiSignalStrength : 0
     property string wifiNetwork: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiSsid : ""
@@ -103,7 +103,7 @@ QtObject {
     }
 
     powerManagerConnections: Connections {
-        target: PowerManager
+        target: typeof PowerManagerService !== "undefined" ? PowerManagerService : null
     }
 
     notificationServiceConnections: Connections {

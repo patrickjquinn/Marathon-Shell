@@ -9,16 +9,25 @@ QtObject {
         if (typeof PowerPolicyControllerCpp === "undefined" || !PowerPolicyControllerCpp)
             return;
 
-        var screenOn = (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.screenOn : DisplayManager.screenOn;
+        var screenOn = (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.screenOn : true;
         var isLocked = SessionStore.isLocked;
         var action = PowerPolicyControllerCpp.powerButtonAction(screenOn, isLocked);
         if (action === PowerPolicyControllerCpp.TurnScreenOn) {
-            DisplayManager.turnScreenOn();
+            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                DisplayPolicyControllerCpp.turnScreenOn();
+            else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                DisplayManagerCpp.setScreenState(true);
         } else if (action === PowerPolicyControllerCpp.LockAndTurnScreenOff) {
             SessionStore.lock();
-            DisplayManager.turnScreenOff();
+            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                DisplayPolicyControllerCpp.turnScreenOff();
+            else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                DisplayManagerCpp.setScreenState(false);
         } else if (action === PowerPolicyControllerCpp.TurnScreenOff) {
-            DisplayManager.turnScreenOff();
+            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                DisplayPolicyControllerCpp.turnScreenOff();
+            else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                DisplayManagerCpp.setScreenState(false);
         }
         if (typeof HapticService !== "undefined" && HapticService)
             HapticService.medium();

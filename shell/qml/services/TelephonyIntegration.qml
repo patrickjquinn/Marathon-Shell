@@ -48,12 +48,14 @@ QtObject {
         Logger.info("TelephonyIntegration", "📞 INCOMING CALL from: " + number);
         root.lastCallerNumber = number;
         root.callWasAnswered = false;
-        if (typeof PowerManager !== 'undefined')
-            PowerManager.wake("call");
-
-        if (typeof DisplayManager !== 'undefined')
-            DisplayManager.turnScreenOn();
-
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            PowerPolicyControllerCpp.wake("call");
+        else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.acquireWakelock("call");
+        if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+            DisplayPolicyControllerCpp.turnScreenOn();
+        else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.setScreenState(true);
         // Play ringtone
         if (typeof AudioManager !== 'undefined')
             AudioManager.playRingtone();
@@ -96,9 +98,10 @@ QtObject {
 
     function handleMessageReceived(sender, text, timestamp) {
         Logger.info("TelephonyIntegration", "💬 SMS RECEIVED from: " + sender);
-        if (typeof PowerManager !== 'undefined')
-            PowerManager.wake("notification");
-
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            PowerPolicyControllerCpp.wake("notification");
+        else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.acquireWakelock("notification");
         var contactName = root.resolveContactName(sender);
         if (typeof NotificationService !== 'undefined')
             NotificationService.sendNotification("messages", contactName, text, {

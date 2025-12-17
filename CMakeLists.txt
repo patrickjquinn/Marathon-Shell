@@ -49,15 +49,32 @@ set(CMAKE_AUTOUIC ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Optional: Qt private API usage is sometimes needed for low-level platform hooks (e.g. screen power).
+# Qt prints a warning when GuiPrivate headers are used because it ties you to the exact Qt build.
+option(MARATHON_USE_QT_GUI_PRIVATE "Use Qt GuiPrivate (Qt internal headers) for platform hooks" ON)
+option(MARATHON_SUPPRESS_QT_PRIVATE_WARNINGS "Silence Qt warning about using private modules" ON)
+if(MARATHON_SUPPRESS_QT_PRIVATE_WARNINGS)
+    set(QT_NO_PRIVATE_MODULE_WARNING ON CACHE BOOL "Silence Qt private module warning" FORCE)
+endif()
+
 # LunaSVG - Lightweight SVG rendering library with full clipPath support
 # Qt's SVG module doesn't support clipPath, which breaks GNOME icon rendering
 include(FetchContent)
+set(LUNASVG_BUILD_EXAMPLES OFF CACHE BOOL "Disable lunasvg examples (svg2png) in Marathon builds" FORCE)
 FetchContent_Declare(
     lunasvg
     GIT_REPOSITORY https://github.com/sammycage/lunasvg.git
     GIT_TAG v3.2.0
 )
 FetchContent_MakeAvailable(lunasvg)
+# Our project enables CMake AUTOGEN globally for Qt, but lunasvg is a non-Qt library.
+# Disable Qt AUTOGEN on lunasvg targets to avoid noisy dev warnings.
+if(TARGET lunasvg)
+    set_target_properties(lunasvg PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+endif()
+if(TARGET svg2png)
+    set_target_properties(svg2png PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+endif()
 message(STATUS "LunaSVG fetched for proper SVG icon rendering")
 
 # Qt6 detection - support both Homebrew (macOS) and system installations (Linux)
@@ -94,14 +111,16 @@ find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Sensors
 )
 
-# GuiPrivate is optional - Debian packages Qt6 differently than Arch/Fedora
-# On Debian, the private headers are in qt6-base-private-dev but no separate cmake config
-find_package(Qt6 6.4 COMPONENTS GuiPrivate QUIET)
+# GuiPrivate is optional: it's a Qt-internal module (unstable across Qt versions).
+# We only use it when explicitly enabled.
+if(MARATHON_USE_QT_GUI_PRIVATE)
+    find_package(Qt6 6.4 COMPONENTS GuiPrivate QUIET)
+endif()
 if(TARGET Qt6::GuiPrivate)
     message(STATUS "Qt6::GuiPrivate found - enabling private API features")
     set(HAVE_GUI_PRIVATE TRUE)
 else()
-    message(STATUS "Qt6::GuiPrivate not found - private API features disabled (Debian-based system?)")
+    message(STATUS "Qt6::GuiPrivate not found/disabled - private API features disabled")
     set(HAVE_GUI_PRIVATE FALSE)
 endif()
 

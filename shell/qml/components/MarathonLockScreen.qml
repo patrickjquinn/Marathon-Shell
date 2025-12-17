@@ -23,7 +23,7 @@ Item {
 
     // Reset idle timer on any user interaction
     function resetIdleTimer() {
-        if (lockScreen.visible && DisplayManager.screenOn)
+        if (lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true))
             idleTimer.restart();
     }
 
@@ -90,7 +90,7 @@ Item {
         id: idleTimer
 
         interval: idleTimeoutMs
-        running: lockScreen.visible && DisplayManager.screenOn
+        running: lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true)
         repeat: false
         onTriggered: {
             // Check if any surface inhibits idle (e.g., video playback)
@@ -101,7 +101,10 @@ Item {
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
-            DisplayManager.turnScreenOff();
+            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                DisplayPolicyControllerCpp.turnScreenOff();
+            else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                DisplayManagerCpp.setScreenState(false);
         }
     }
 
@@ -111,9 +114,13 @@ Item {
             if (lockScreen.visible) {
                 Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
                 // Wake screen if off
-                if (!DisplayManager.screenOn)
-                    DisplayManager.turnScreenOn();
-
+                var screenOn = (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.screenOn : true;
+                if (!screenOn) {
+                    if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                        DisplayPolicyControllerCpp.turnScreenOn();
+                    else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                        DisplayManagerCpp.setScreenState(true);
+                }
                 // Auto-expand the notification's category
                 var appId = notification.appId || "other";
                 expandedCategory = appId;
@@ -142,7 +149,7 @@ Item {
             }
         }
 
-        target: DisplayManager
+        target: typeof DisplayManagerCpp !== "undefined" ? DisplayManagerCpp : null
     }
 
     // Categories Model - Moved to top level for reliable access

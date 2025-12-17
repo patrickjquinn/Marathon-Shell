@@ -62,12 +62,14 @@ QtObject {
             if (root.compositor)
                 root.compositor.setCompositorActive(on);
         });
-        DisplayManager.orientationSet.connect(function (orientation) {
-            if (root.compositor)
-                Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
+        if (typeof RotationManager !== "undefined" && RotationManager)
+            RotationManager.orientationChanged.connect(function () {
+                var orientation = RotationManager.currentOrientation;
+                if (root.compositor)
+                    Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
 
-            if (root.compositor)
-                root.compositor.setOutputOrientation(orientation);
-        });
+                if (root.compositor)
+                    root.compositor.setOutputOrientation(orientation);
+            });
     }
 }

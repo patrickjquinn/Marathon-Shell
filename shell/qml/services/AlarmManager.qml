@@ -231,9 +231,13 @@ Item {
             // In production, this would set a system wake alarm via:
             // - Linux: /sys/class/rtc/rtc0/wakealarm
             // - OR: systemd timer with WakeSystem=true
-            if (typeof PowerManager !== 'undefined')
-                PowerManager.scheduleWake(nextTime, "alarm");
-
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
+                var epochTime = Math.floor(nextTime.getTime() / 1000);
+                PowerPolicyControllerCpp.scheduleWakeEpoch(epochTime, "alarm");
+            } else if (typeof PowerManagerService !== "undefined" && PowerManagerService) {
+                var epochTimeFallback = Math.floor(nextTime.getTime() / 1000);
+                PowerManagerService.setRtcAlarm(epochTimeFallback);
+            }
             checkTimer.interval = Math.min(msUntil, 60000); // Check at least every minute
             checkTimer.restart();
         } else {
@@ -245,8 +249,13 @@ Item {
     function _scheduleSnooze(alarm, minutes) {
         var snoozeTime = new Date();
         snoozeTime.setMinutes(snoozeTime.getMinutes() + minutes);
-        if (typeof PowerManager !== 'undefined')
-            PowerManager.scheduleWake(snoozeTime, "alarm_snooze");
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
+            var epochTime = Math.floor(snoozeTime.getTime() / 1000);
+            PowerPolicyControllerCpp.scheduleWakeEpoch(epochTime, "alarm_snooze");
+        } else if (typeof PowerManagerService !== "undefined" && PowerManagerService) {
+            var epochTimeFallback = Math.floor(snoozeTime.getTime() / 1000);
+            PowerManagerService.setRtcAlarm(epochTimeFallback);
+        }
     }
 
     function _rescheduleRepeatingAlarm(alarmId) {
@@ -281,13 +290,15 @@ Item {
         activeAlarms.push(alarm);
         activeAlarmsChanged();
         // Wake the system
-        if (typeof PowerManager !== 'undefined')
-            PowerManager.wake("alarm");
-
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            PowerPolicyControllerCpp.wake("alarm");
+        else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.acquireWakelock("alarm");
         // Turn on screen
-        if (typeof DisplayManager !== 'undefined')
-            DisplayManager.turnScreenOn();
-
+        if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+            DisplayPolicyControllerCpp.turnScreenOn();
+        else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.setScreenState(true);
         // Play alarm sound
         if (alarm.sound && typeof AudioManager !== 'undefined')
             AudioManager.playAlarmSound();

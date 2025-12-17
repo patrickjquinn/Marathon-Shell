@@ -75,17 +75,19 @@ Item {
             }
         }
         // Smooth brightness changes - apply a simple moving average
-        var currentBrightness = DisplayManager.brightness;
+        var currentBrightness = (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.brightness : 0.5;
         var smoothed = currentBrightness * 0.7 + brightness * 0.3;
         Logger.debug("AmbientLightSensor", "Auto-brightness: " + Math.round(smoothed * 100) + "% (lux: " + Math.round(lux) + ")");
-        DisplayManager.setBrightness(smoothed);
+        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.brightness = smoothed;
+
         brightnessAdjusted(smoothed);
     }
 
     Component.onCompleted: {
         Logger.info("AmbientLightSensor", "Initialized");
         // Start if auto-brightness already enabled
-        if (DisplayManager.autoBrightnessEnabled)
+        if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp && DisplayPolicyControllerCpp.autoBrightnessEnabled)
             enableAutoBrightness();
     }
 
@@ -99,15 +101,15 @@ Item {
         target: SensorManagerCpp
     }
 
-    // Sync with DisplayManager auto-brightness setting
+    // Sync with display policy auto-brightness setting
     Connections {
         function onAutoBrightnessEnabledChanged() {
-            if (DisplayManager.autoBrightnessEnabled)
+            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp && DisplayPolicyControllerCpp.autoBrightnessEnabled)
                 enableAutoBrightness();
             else
                 disableAutoBrightness();
         }
 
-        target: DisplayManager
+        target: typeof DisplayPolicyControllerCpp !== "undefined" ? DisplayPolicyControllerCpp : null
     }
 }
