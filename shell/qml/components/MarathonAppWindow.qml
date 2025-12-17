@@ -54,7 +54,7 @@ Rectangle {
                         var capturedId = id;
                         nativeInstance.requestClose.connect(function (skipNative) {
                             Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
-                            appWindow.closeApp(skipNative === true);
+                            appWindow.closeApp(skipNative === true, capturedId);
                         });
                     }
                     // CRITICAL: Register native app with lifecycle manager so it can be minimized/restored
@@ -270,12 +270,21 @@ Rectangle {
     }
 
     // Call this when actually closing the app (user explicitly closes, not minimize)
-    function closeApp(skipNativeClose) {
+    function closeApp(skipNativeClose, appIdOverride) {
         // Ensure lifecycle manager knows the app is fully closed (removes task)
         // skipNativeClose: true if closed by "X" button native (surface already gone)
         // skipNativeClose: false if closed by shell UI (task switcher/gesture)
+        var targetAppId = (appIdOverride !== undefined && appIdOverride !== null && appIdOverride !== "") ? appIdOverride : appId;
+        if (targetAppId === "")
+            return;
+
         if (typeof AppLifecycleManager !== 'undefined')
-            AppLifecycleManager.closeApp(appId, skipNativeClose === true);
+            AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
+
+        // If we're closing an app that is NOT currently shown in this AppWindow,
+        // do NOT touch UIStore/appContentLoader. (E.g., a minimized native app exits.)
+        if (targetAppId !== appId)
+            return;
 
         // CRITICAL: Cleanup any active dialog overlays (file pickers, etc.)
         // If we don't do this, they remain attached to the surface which causes

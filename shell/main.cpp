@@ -22,6 +22,8 @@
 #include "src/crashhandler.h"
 #include "src/appmodel.h"
 #include "src/taskmodel.h"
+#include "src/applaunchservice.h"
+#include "src/applifecyclemanager.h"
 #include "src/notificationmodel.h"
 #include "src/networkmanagercpp.h"
 #include "src/powermanagercpp.h"
@@ -332,6 +334,9 @@ int main(int argc, char *argv[]) {
     // Register LunaSVG image provider for proper SVG rendering
     // Qt's SVG module doesn't support clipPath, which breaks GNOME icons
     engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
+    // MarathonUI currently references image://lunasvgqrc/... for QRC SVGs
+    // Provide a compatibility alias so icons in task cards / app grids render correctly.
+    engine.addImageProvider("lunasvgqrc", new LunaSvgImageProvider());
     qInfo() << "[MarathonShell] ✓ LunaSVG image provider registered";
 
     auto *ctx = engine.rootContext();
@@ -369,7 +374,8 @@ int main(int argc, char *argv[]) {
     auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
     auto *appScanner =
         createObject<MarathonAppScanner>(ctx, "MarathonAppScanner", appRegistry, &app);
-    createObject<MarathonAppLoader>(ctx, "MarathonAppLoader", appRegistry, &engine, &app);
+    auto *appLoader =
+        createObject<MarathonAppLoader>(ctx, "MarathonAppLoader", appRegistry, &engine, &app);
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
                                                             appRegistry, appScanner, &app);
     qCritical() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
@@ -379,8 +385,8 @@ int main(int argc, char *argv[]) {
     qInfo() << "Input Method Engine initialized";
 
     // Register C++ models
-    auto *appModel = createObject<AppModel>(ctx, "AppModel", &app);
-    createObject<TaskModel>(ctx, "TaskModel", &app);
+    auto *appModel          = createObject<AppModel>(ctx, "AppModel", &app);
+    auto *taskModel         = createObject<TaskModel>(ctx, "TaskModel", &app);
     auto *notificationModel = createObject<NotificationModel>(ctx, "NotificationModel", &app);
     //
     // Register NotificationModel enums so they're accessible in QML
@@ -403,6 +409,16 @@ int main(int argc, char *argv[]) {
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
     createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
+
+    // App launch orchestration (C++).
+    auto *appLaunchService =
+        createObject<AppLaunchService>(ctx, "AppLaunchService", appModel, taskModel, &app);
+
+    // App lifecycle orchestration (C++). Replaces the QML singleton AppLifecycleManager.qml.
+    // QML registers app instances via AppLifecycleManager.registerApp(appId, instance).
+    auto *appLifecycleManager =
+        new AppLifecycleManager(taskModel, appLoader, appLaunchService, &app);
+    ctx->setContextProperty("AppLifecycleManager", appLifecycleManager);
 
     // Power policy/orchestration lives in C++ (Deepak: keep perf-sensitive system glue out of QML)
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);

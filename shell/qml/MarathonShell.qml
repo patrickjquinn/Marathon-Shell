@@ -148,8 +148,11 @@ Item {
         shell.forceActiveFocus();
         compositor = shellInitialization.initialize(shell, Window.window);
         // Initialize global services
+        // Wire QML singletons + compositor handles into C++ launch service.
         AppLaunchService.compositor = compositor;
         AppLaunchService.appWindow = appWindow;
+        AppLaunchService.uiStore = UIStore;
+        AppLaunchService.appLifecycleManager = AppLifecycleManager;
         // Initialize ScreenshotService with shell window reference
         ScreenshotService.shellWindow = shell;
         // CRITICAL: Connect compositor signals AFTER compositor is created

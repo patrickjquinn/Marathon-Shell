@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
+#include <QPointer>
 #include <QStandardPaths>
 
 MarathonAppLoader::MarathonAppLoader(MarathonAppRegistry *registry, QQmlEngine *engine,
@@ -162,20 +163,32 @@ void MarathonAppLoader::loadAppAsync(const QString &appId) {
     emit appLoadProgress(appId, 30); // Component created
 
     // Connect to statusChanged signal for async handling
+    // IMPORTANT: This is async. The component may be unloaded/cancelled before it becomes Ready.
+    // Use QPointer + a registry check to avoid creating instances from stale components.
+    QPointer<QQmlComponent> safeComponent(component);
     connect(component, &QQmlComponent::statusChanged, this,
-            [this, appId, component](QQmlComponent::Status status) {
+            [this, appId, safeComponent](QQmlComponent::Status status) {
+                if (!safeComponent)
+                    return;
+                if (m_components.value(appId, nullptr) != safeComponent.data()) {
+                    // Component was unloaded/replaced; ignore late signals.
+                    qDebug() << "[MarathonAppLoader] Ignoring statusChanged for stale component:"
+                             << appId;
+                    return;
+                }
+
                 qDebug() << "[MarathonAppLoader] Component status changed for" << appId << ":"
                          << status;
 
                 if (status == QQmlComponent::Ready) {
                     emit appLoadProgress(appId, 70); // Component ready
-                    handleComponentStatusAsync(appId, component);
+                    handleComponentStatusAsync(appId, safeComponent.data());
                 } else if (status == QQmlComponent::Error) {
                     qWarning() << "[MarathonAppLoader] Component error:"
-                               << component->errorString();
-                    emit loadError(appId, component->errorString());
+                               << safeComponent->errorString();
+                    emit loadError(appId, safeComponent->errorString());
                     m_components.remove(appId);
-                    component->deleteLater();
+                    safeComponent->deleteLater();
                 }
             });
 
@@ -189,6 +202,14 @@ void MarathonAppLoader::loadAppAsync(const QString &appId) {
 // Handle component status asynchronously
 void MarathonAppLoader::handleComponentStatusAsync(const QString &appId, QQmlComponent *component) {
     qDebug() << "[MarathonAppLoader] Handling component status for:" << appId;
+
+    // If the component was unloaded/replaced, don't proceed.
+    if (m_components.value(appId, nullptr) != component) {
+        qDebug()
+            << "[MarathonAppLoader] Skipping handleComponentStatusAsync for unloaded component:"
+            << appId;
+        return;
+    }
 
     if (!component || component->isError()) {
         qWarning() << "[MarathonAppLoader] Invalid or error component";

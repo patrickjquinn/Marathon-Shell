@@ -6,6 +6,10 @@ set(SOURCES
     src/lunasvgimageprovider.cpp
     src/appmodel.h
     src/appmodel.cpp
+    src/applaunchservice.h
+    src/applaunchservice.cpp
+    src/applifecyclemanager.h
+    src/applifecyclemanager.cpp
     src/taskmodel.h
     src/taskmodel.cpp
     src/notificationmodel.h
@@ -184,9 +188,7 @@ set(QML_FILES
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
-    qml/services/AppLifecycleManager.qml
     qml/services/UnifiedSearchService.qml
-    qml/services/AppLaunchService.qml
     qml/services/NotificationHandler.qml
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
@@ -231,9 +233,7 @@ set(SINGLETON_FILES
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
-    qml/services/AppLifecycleManager.qml
     qml/services/UnifiedSearchService.qml
-    qml/services/AppLaunchService.qml
     qml/services/NotificationHandler.qml
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
