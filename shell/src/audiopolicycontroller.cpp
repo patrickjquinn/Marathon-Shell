@@ -7,6 +7,7 @@
 #include <QAudioOutput>
 #include <QDebug>
 #include <QMediaPlayer>
+#include <QtGlobal>
 
 namespace {
     QUrl toUrl(const QString &pathOrUrl) {
@@ -47,9 +48,26 @@ AudioPolicyController::AudioPolicyController(AudioManagerCpp *audioManager,
 
     wirePlayerVolumes();
 
-    // Apply profile side-effects on startup (but don't force master volume unless profile says so).
+    // IMPORTANT:
+    // When running the shell inside another desktop session (dev/testing), we must NOT
+    // stomp global system audio state (mute/volume) on startup, or we will "duck" whatever
+    // audio is already playing on the host.
+    //
+    // Only enforce persisted profile side-effects automatically when we are actually the
+    // active desktop session.
     if (m_settings) {
-        applyProfileSideEffects(m_settings->audioProfile());
+        const QString profile           = m_settings->audioProfile();
+        const QString desktop           = qEnvironmentVariable("XDG_CURRENT_DESKTOP");
+        const QString session           = qEnvironmentVariable("XDG_SESSION_DESKTOP");
+        const bool    isMarathonSession = (desktop.compare("marathon", Qt::CaseInsensitive) == 0) ||
+            (session.compare("marathon", Qt::CaseInsensitive) == 0);
+
+        if (isMarathonSession) {
+            applyProfileSideEffects(profile);
+        } else {
+            qInfo() << "[AudioPolicyController] Skipping profile side-effects on startup (desktop:"
+                    << desktop << "session:" << session << "profile:" << profile << ")";
+        }
     }
 }
 
