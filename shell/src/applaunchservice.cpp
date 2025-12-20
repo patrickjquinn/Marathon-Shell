@@ -7,6 +7,21 @@
 #include <QVariant>
 #include <QDebug>
 #include <QJSValue>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QRegularExpression>
+#include <QDBusConnection>
+#include <QDBusInterface>
+#include <QDBusMessage>
+
+#if defined(HAVE_WAYLAND)
+#include "wayland/waylandcompositor.h"
+#include <QtWaylandCompositor/QWaylandClient>
+#include <QtWaylandCompositor/QWaylandSurface>
+#include <QtWaylandCompositor/QWaylandXdgSurface>
+#include <QtWaylandCompositor/QWaylandXdgToplevel>
+#endif
 
 AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QObject *parent)
     : QObject(parent)
@@ -16,7 +31,31 @@ AppLaunchService::AppLaunchService(AppModel *appModel, TaskModel *taskModel, QOb
 void AppLaunchService::setCompositor(QObject *obj) {
     if (m_compositor == obj)
         return;
+
+    if (m_compositor)
+        QObject::disconnect(m_compositor, nullptr, this, nullptr);
+
     m_compositor = obj;
+
+    // Connect compositor signals in C++ (no more QML "pending app" glue).
+    if (m_compositor) {
+#if defined(HAVE_WAYLAND)
+        if (auto *wc = qobject_cast<WaylandCompositor *>(m_compositor.data())) {
+            QObject::connect(wc, &WaylandCompositor::appLaunched, this,
+                             [this](const QString &command, qint64 pid) {
+                                 onCompositorAppLaunched(command, pid);
+                             });
+            QObject::connect(wc, &WaylandCompositor::appClosed, this,
+                             [this](qint64 pid) { onCompositorAppClosed(pid); });
+            QObject::connect(
+                wc, &WaylandCompositor::surfaceCreated, this,
+                [this](QWaylandSurface *surface, int surfaceId, QWaylandXdgSurface *xdgSurface) {
+                    onCompositorSurfaceCreated(surface, surfaceId, xdgSurface);
+                });
+        }
+#endif
+    }
+
     emit compositorChanged();
 }
 
@@ -207,9 +246,6 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
         return false;
     }
 
-    m_pendingNativeApp = app;
-    emit pendingNativeAppChanged();
-
     // UI state (QML singleton)
     if (m_uiStore)
         invokeVoid(m_uiStore, "openApp", {appId, name, icon});
@@ -220,6 +256,14 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
 
     // Launch native app via compositor
     if (!exec.isEmpty()) {
+        // Track the exact command we pass into launchApp(), then correlate to pid/surface.
+        PendingLaunch p;
+        p.appId   = appId;
+        p.name    = name;
+        p.icon    = icon;
+        p.command = exec;
+        m_pendingByCommand.insert(exec, p);
+
         const bool ok = QMetaObject::invokeMethod(compositorRef, "launchApp", Qt::DirectConnection,
                                                   Q_ARG(QString, exec));
         if (!ok)
@@ -238,51 +282,70 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject * /*com
     const QString icon  = app.value("icon").toString();
     const QString type  = app.value("type").toString();
 
-    // If app is already running, bring it forward and restore UI
-    bool isRunning = false;
-    if (m_appLifecycleManager) {
-        bool       isRunningRet = false;
-        const bool ok =
-            QMetaObject::invokeMethod(m_appLifecycleManager, "isAppRunning", Qt::DirectConnection,
-                                      Q_RETURN_ARG(bool, isRunningRet), Q_ARG(QString, appId));
-        if (!ok) {
-            qWarning() << "[AppLaunchService] Failed to invoke isAppRunning(QString)";
-        } else {
-            isRunning = isRunningRet;
-        }
+    // New architecture: run Marathon apps out-of-process via marathon-app-runner.
+    // They become Wayland clients, just like other native apps.
+    QObject *comp = m_compositor.data();
+    if (!comp) {
+        m_launchingApps.remove(appId);
+        emit appLaunchFailed(appId, name, "Compositor not available");
+        return false;
     }
 
-    if (isRunning) {
-        if (m_appLifecycleManager) {
-            const bool ok = QMetaObject::invokeMethod(m_appLifecycleManager, "bringToForeground",
-                                                      Qt::DirectConnection, Q_ARG(QString, appId));
-            if (!ok)
-                qWarning() << "[AppLaunchService] Failed to invoke bringToForeground(QString)";
+    // Out-of-process apps are tracked via TaskModel once their surface arrives.
+    // If we already have a native task with a live surface, just bring it to foreground.
+    if (m_taskModel) {
+        if (Task *existing = m_taskModel->getTaskByAppId(appId)) {
+            if (existing->appType() == "native" && existing->surfaceId() >= 0 &&
+                existing->waylandSurface()) {
+                if (m_uiStore)
+                    invokeVoid(m_uiStore, "restoreApp", {appId, name, icon});
+
+                invokeVoid(appWindowRef, "show",
+                           {appId, name, icon, QStringLiteral("native"),
+                            QVariant::fromValue(existing->waylandSurface()),
+                            existing->surfaceId()});
+
+                m_launchingApps.remove(appId);
+                emit appLaunchCompleted(appId, name);
+                return true;
+            }
         }
-
-        invokeVoid(appWindowRef, "show", {appId, name, icon, type, QVariant(), -1});
-
-        if (m_uiStore)
-            invokeVoid(m_uiStore, "restoreApp", {appId, name, icon});
-
-        m_launchingApps.remove(appId);
-        emit appLaunchCompleted(appId, name);
-        return true;
     }
 
     if (m_uiStore)
         invokeVoid(m_uiStore, "openApp", {appId, name, icon});
 
     emit appLaunchProgress(appId, 30);
-    invokeVoid(appWindowRef, "show", {appId, name, icon, type, QVariant(), -1});
+    // Show splash (no surface yet). We render this app as a Wayland-embedded client.
+    invokeVoid(appWindowRef, "show", {appId, name, icon, QStringLiteral("native"), QVariant(), -1});
     emit appLaunchProgress(appId, 60);
 
-    if (m_appLifecycleManager) {
-        const bool ok = QMetaObject::invokeMethod(m_appLifecycleManager, "bringToForeground",
-                                                  Qt::DirectConnection, Q_ARG(QString, appId));
-        if (!ok)
-            qWarning() << "[AppLaunchService] Failed to invoke bringToForeground(QString)";
+    // Launch the out-of-process runner as a Wayland client (connects to our compositor socket).
+    // Prefer the build-tree runner when developing; fall back to PATH lookup for installed setups.
+    QString       runnerPath;
+    const QDir    shellBinDir(QCoreApplication::applicationDirPath()); // .../build/shell
+    const QString candidate =
+        shellBinDir.filePath("../tools/marathon-app-runner/marathon-app-runner");
+    if (QFileInfo::exists(candidate)) {
+        runnerPath = candidate;
+    } else {
+        runnerPath = QStringLiteral("marathon-app-runner");
     }
+
+    const QString cmd = QStringLiteral("%1 --app-id %2").arg(runnerPath, appId);
+
+    // Track the runner command for pid/surface correlation.
+    PendingLaunch p;
+    p.appId   = appId;
+    p.name    = name;
+    p.icon    = icon;
+    p.command = cmd;
+    m_pendingByCommand.insert(cmd, p);
+
+    const bool ok =
+        QMetaObject::invokeMethod(comp, "launchApp", Qt::DirectConnection, Q_ARG(QString, cmd));
+    if (!ok)
+        qWarning() << "[AppLaunchService] Failed to invoke launchApp(QString) on compositor";
 
     m_launchingApps.remove(appId);
     emit appLaunchProgress(appId, 100);
@@ -354,4 +417,179 @@ bool AppLaunchService::invokeBool(QObject *obj, const char *method, const QVaria
     if (ok && out)
         *out = ret.toBool();
     return ok;
+}
+
+void AppLaunchService::onCompositorAppLaunched(const QString &command, qint64 pid) {
+    auto it = m_pendingByCommand.find(command);
+    if (it == m_pendingByCommand.end()) {
+        qInfo() << "[AppLaunchService] appLaunched:" << command << "PID" << pid << "(untracked)";
+        return;
+    }
+    PendingLaunch p = it.value();
+    p.pid           = pid;
+    m_pendingByCommand.erase(it);
+    m_activeByPid.insert(pid, p);
+    m_pidToAppId.insert(pid, p.appId);
+    m_appIdToPid.insert(p.appId, pid);
+    qInfo() << "[AppLaunchService] appLaunched tracked:" << p.appId << "PID" << pid;
+}
+
+void AppLaunchService::onCompositorAppClosed(qint64 pid) {
+    auto it = m_activeByPid.find(pid);
+    if (it == m_activeByPid.end()) {
+        qInfo() << "[AppLaunchService] appClosed PID" << pid << "(untracked)";
+        return;
+    }
+    const PendingLaunch &p = it.value();
+    m_activeByPid.erase(it);
+    m_pidToAppId.remove(pid);
+    if (m_appIdToPid.value(p.appId) == pid)
+        m_appIdToPid.remove(p.appId);
+
+    // Close task when the process actually terminates (authoritative lifecycle).
+    if (m_taskModel) {
+        if (Task *t = m_taskModel->getTaskByAppId(p.appId)) {
+            m_taskModel->closeTask(t->id());
+            qInfo() << "[AppLaunchService] Closed task for app" << p.appId << "on PID exit";
+        }
+    }
+}
+
+QString AppLaunchService::appIdForPid(qint64 pid) const {
+    return m_pidToAppId.value(pid, QString());
+}
+
+void AppLaunchService::registerPidForAppId(qint64 pid, const QString &appId) {
+    if (pid <= 0 || appId.isEmpty())
+        return;
+    m_pidToAppId.insert(pid, appId);
+    m_appIdToPid.insert(appId, pid);
+}
+
+bool AppLaunchService::isMarathonAppId(const QString &appId) const {
+    if (!m_appModel)
+        return false;
+    if (App *a = m_appModel->getApp(appId))
+        return a->type() == QStringLiteral("marathon");
+    return false;
+}
+
+static QString runnerServiceNameForPid(qint64 pid) {
+    // D-Bus well-known name elements cannot start with a digit, so prefix the PID.
+    return QStringLiteral("org.marathonos.AppRunner.pid%1").arg(pid);
+}
+
+static bool callRunnerLifecycle(qint64 pid, const char *method) {
+    if (pid <= 0)
+        return false;
+    QDBusInterface iface(
+        runnerServiceNameForPid(pid), QStringLiteral("/org/marathonos/AppRunner/Lifecycle"),
+        QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QDBusConnection::sessionBus());
+    if (!iface.isValid())
+        return false;
+    QDBusMessage r = iface.call(QString::fromLatin1(method));
+    return r.type() != QDBusMessage::ErrorMessage;
+}
+
+bool AppLaunchService::sendBackToRunner(const QString &appId) {
+    const qint64 pid = m_appIdToPid.value(appId, -1);
+    return callRunnerLifecycle(pid, "Back");
+}
+
+bool AppLaunchService::sendForwardToRunner(const QString &appId) {
+    const qint64 pid = m_appIdToPid.value(appId, -1);
+    return callRunnerLifecycle(pid, "Forward");
+}
+
+void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
+                                                  QWaylandXdgSurface *xdgSurface) {
+    if (!surface) {
+        qWarning() << "[AppLaunchService] surfaceCreated received null surface";
+        return;
+    }
+
+    qint64 pid = -1;
+    if (surface->client())
+        pid = surface->client()->processId();
+
+    QString xdgAppId;
+    QString title;
+    if (xdgSurface && xdgSurface->toplevel()) {
+        xdgAppId = xdgSurface->toplevel()->appId();
+        title    = xdgSurface->toplevel()->title();
+    }
+
+    // Prefer passing the xdg surface object into QML so ShellSurfaceItem can access toplevel/configure.
+    // QWaylandSurface alone is not enough for sizing/configure in our QML glue.
+    QObject *qmlSurfaceObj =
+        xdgSurface ? static_cast<QObject *>(xdgSurface) : static_cast<QObject *>(surface);
+
+    // Case 1: match by PID (our launches)
+    if (pid > 0) {
+        auto it = m_activeByPid.find(pid);
+        if (it != m_activeByPid.end()) {
+            const PendingLaunch &p = it.value();
+            qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to PID" << pid
+                    << "app" << p.appId;
+
+            if (m_taskModel) {
+                if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
+                    m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
+                } else {
+                    m_taskModel->launchTask(p.appId, p.name, p.icon, "native", surfaceId,
+                                            qmlSurfaceObj);
+                }
+            }
+
+            // Ensure UI shows it (swap splash -> real surface)
+            if (m_appWindow)
+                invokeVoid(m_appWindow, "show",
+                           {p.appId, p.name, p.icon, QStringLiteral("native"),
+                            QVariant::fromValue(qmlSurfaceObj), surfaceId});
+            return;
+        }
+    }
+
+    // Case 2: secondary window for an existing task (match by xdg app_id)
+    if (!xdgAppId.isEmpty() && m_taskModel) {
+        if (Task *existing = m_taskModel->getTaskByAppId(xdgAppId)) {
+            qInfo() << "[AppLaunchService] Secondary surface for existing appId" << xdgAppId
+                    << "surfaceId" << surfaceId;
+            m_taskModel->updateTaskNativeInfo(xdgAppId, surfaceId, qmlSurfaceObj);
+            return;
+        }
+    }
+
+    // Case 3: external launch — create a task based on appId/title (best-effort)
+    QString effectiveAppId = xdgAppId;
+    if (effectiveAppId.isEmpty() && !title.isEmpty())
+        effectiveAppId =
+            "native-app-" + title.toLower().replace(QRegularExpression("[^a-z0-9]+"), "-");
+    if (effectiveAppId.isEmpty())
+        effectiveAppId = QStringLiteral("native-surface-%1").arg(surfaceId);
+
+    QString appName = !title.isEmpty() ? title : (!xdgAppId.isEmpty() ? xdgAppId : effectiveAppId);
+
+    QString appIcon = !xdgAppId.isEmpty() ? xdgAppId : QStringLiteral("application-x-executable");
+    if (m_appModel && !xdgAppId.isEmpty()) {
+        if (App *a = m_appModel->getApp(xdgAppId)) {
+            // Prefer theme lookup by appId if present; otherwise use whatever AppModel provides.
+            if (!a->icon().isEmpty())
+                appIcon = a->icon();
+        }
+    }
+
+    if (m_taskModel) {
+        if (Task *existing = m_taskModel->getTaskByAppId(effectiveAppId)) {
+            m_taskModel->updateTaskNativeInfo(effectiveAppId, surfaceId, qmlSurfaceObj);
+        } else {
+            m_taskModel->launchTask(effectiveAppId, appName, appIcon, "native", surfaceId,
+                                    qmlSurfaceObj);
+        }
+    }
+
+    if (m_appWindow)
+        invokeVoid(m_appWindow, "show",
+                   {effectiveAppId, appName, appIcon, QStringLiteral("native"),
+                    QVariant::fromValue(qmlSurfaceObj), surfaceId});
 }

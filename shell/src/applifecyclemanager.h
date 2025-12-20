@@ -8,7 +8,6 @@
 #include <QVariantMap>
 
 class TaskModel;
-class MarathonAppLoader;
 class AppLaunchService;
 
 /**
@@ -21,8 +20,8 @@ class AppLifecycleManager : public QObject {
     Q_OBJECT
 
   public:
-    explicit AppLifecycleManager(TaskModel *taskModel, MarathonAppLoader *appLoader,
-                                 AppLaunchService *appLaunchService, QObject *parent = nullptr);
+    explicit AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
+                                 QObject *parent = nullptr);
 
     Q_INVOKABLE void        registerApp(const QString &appId, QObject *appInstance);
     Q_INVOKABLE void        unregisterApp(const QString &appId);
@@ -60,7 +59,6 @@ class AppLifecycleManager : public QObject {
     QVariantMap         appInfoFromInstance(const QString &appId, QObject *instance) const;
 
     QPointer<TaskModel> m_taskModel;
-    QPointer<MarathonAppLoader>       m_appLoader;
     QPointer<AppLaunchService>        m_appLaunchService;
 
     QHash<QString, QPointer<QObject>> m_appRegistry;

@@ -139,6 +139,9 @@ void BluetoothManager::initializeAdapter() {
     QDBusPendingCall         asyncCall = manager.asyncCall("GetManagedObjects");
     QDBusPendingCallWatcher *watcher   = new QDBusPendingCallWatcher(asyncCall, this);
 
+    // Ensure watcher is cleaned up even if the connected slot returns early.
+    connect(watcher, &QDBusPendingCallWatcher::finished, watcher, &QObject::deleteLater);
+
     connect(
         watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *call) {
             QDBusPendingReply<ManagedObjectMap> reply = *call;
@@ -153,7 +156,6 @@ void BluetoothManager::initializeAdapter() {
                 }
                 m_available = false;
                 emit availableChanged();
-                call->deleteLater();
                 return;
             }
 
@@ -183,7 +185,6 @@ void BluetoothManager::initializeAdapter() {
                 qDebug() << "[BluetoothManager] No Bluetooth adapter found (no hardware detected)";
                 m_available = false;
                 emit availableChanged();
-                call->deleteLater();
                 return;
             }
 
@@ -243,7 +244,12 @@ void BluetoothManager::initializeAdapter() {
             m_scanTimer->setSingleShot(true);
             connect(m_scanTimer, &QTimer::timeout, this, &BluetoothManager::stopScan);
 
-            call->deleteLater();
+            // While scanning, periodically refresh managed objects.
+            // Some BlueZ setups don't emit InterfacesAdded for all discoveries, but properties update.
+            m_deviceRefreshTimer = new QTimer(this);
+            m_deviceRefreshTimer->setInterval(2000);
+            connect(m_deviceRefreshTimer, &QTimer::timeout, this,
+                    &BluetoothManager::refreshDevices);
         });
 }
 
@@ -298,19 +304,31 @@ void BluetoothManager::updateAdapterProperties() {
 
 void BluetoothManager::refreshDevices() {
     QDBusInterface manager("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", m_bus);
-    QDBusReply<QMap<QDBusObjectPath, QVariantMap>> reply = manager.call("GetManagedObjects");
+    // GetManagedObjects returns a deeply nested structure:
+    //   a{oa{sa{sv}}}
+    // Use the registered ManagedObjectMap type (see bluetoothmanager.h).
+    QDBusReply<ManagedObjectMap> reply = manager.call("GetManagedObjects");
 
     if (!reply.isValid()) {
         return;
     }
 
-    auto objects = reply.value();
+    // Update properties on already-known devices (RSSI/connected/paired can change during discovery).
+    for (QObject *obj : m_devices) {
+        if (auto *dev = qobject_cast<BluetoothDevice *>(obj)) {
+            dev->updateProperties();
+        }
+    }
+
+    const ManagedObjectMap objects = reply.value();
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
+        const QString path = it.key().path();
+        // Only consider devices belonging to our adapter (if known).
+        if (!m_adapterPath.isEmpty() && !path.startsWith(m_adapterPath))
+            continue;
         if (it.value().contains("org.bluez.Device1")) {
-            QString path = it.key().path();
-            if (!findDeviceByPath(path)) {
+            if (!findDeviceByPath(path))
                 addDevice(path);
-            }
         }
     }
 }
@@ -351,6 +369,11 @@ void BluetoothManager::startScan() {
     if (m_scanTimer) {
         m_scanTimer->start();
     }
+
+    // Kick an immediate refresh + keep refreshing while scanning.
+    refreshDevices();
+    if (m_deviceRefreshTimer)
+        m_deviceRefreshTimer->start();
 }
 
 void BluetoothManager::stopScan() {
@@ -363,6 +386,8 @@ void BluetoothManager::stopScan() {
     if (m_scanTimer) {
         m_scanTimer->stop();
     }
+    if (m_deviceRefreshTimer)
+        m_deviceRefreshTimer->stop();
 }
 
 void BluetoothManager::pairDevice(const QString &address, const QString &pin) {

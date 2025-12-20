@@ -10,14 +10,16 @@ set(SOURCES
     src/applaunchservice.cpp
     src/applifecyclemanager.h
     src/applifecyclemanager.cpp
+    src/ipc/shellipcserver.h
+    src/ipc/shellipcserver.cpp
+    src/ipc/shellservices.h
+    src/ipc/shellservices.cpp
     src/taskmodel.h
     src/taskmodel.cpp
     src/notificationmodel.h
     src/notificationmodel.cpp
     src/crashhandler.h
     src/crashhandler.cpp
-    src/marathonappprocess.h
-    src/marathonappprocess.cpp
     qml/keyboard/Data/WordEngine.h
     qml/keyboard/Data/WordEngine.cpp
     src/networkmanagercpp.h
@@ -45,8 +47,6 @@ set(SOURCES
     src/bluetoothagent.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
-    src/marathonapploader.h
-    src/marathonapploader.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
     src/rtscheduler.h
@@ -134,7 +134,6 @@ set(QML_FILES
     qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
-    qml/components/CompositorConnections.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonOOBE.qml

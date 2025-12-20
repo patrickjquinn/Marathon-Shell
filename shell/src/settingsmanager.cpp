@@ -3,6 +3,8 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
+#include <QStandardPaths>
+#include <QUrl>
 
 SettingsManager::SettingsManager(QObject *parent)
     : QObject(parent)
@@ -51,11 +53,111 @@ SettingsManager::SettingsManager(QObject *parent)
     load();
 }
 
+namespace {
+    QString defaultSystemDataDir() {
+#ifdef Q_OS_MACOS
+        return "/usr/local/share/marathon-shell";
+#else
+        return "/usr/share/marathon-shell";
+#endif
+    }
+
+    QString dataDirFromEnvOrDefault() {
+        const QByteArray env = qgetenv("MARATHON_DATA_DIR").trimmed();
+        if (!env.isEmpty()) {
+            return QString::fromLocal8Bit(env);
+        }
+        const QString sys = defaultSystemDataDir();
+        if (QDir(sys).exists())
+            return sys;
+
+        const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
+        const QString user = home + "/.local/share/marathon-shell";
+        if (QDir(user).exists())
+            return user;
+
+        return {};
+    }
+
+    QString toFileUrlIfExists(const QString &absolutePath) {
+        if (absolutePath.isEmpty())
+            return {};
+        if (!QFileInfo::exists(absolutePath))
+            return {};
+        return QUrl::fromLocalFile(absolutePath).toString();
+    }
+
+    QString qrcFallbackForRelative(const QString &relativePath) {
+        if (relativePath.startsWith("wallpapers/")) {
+            return "qrc:/wallpapers/" + relativePath.mid(QString("wallpapers/").size());
+        }
+        if (relativePath.startsWith("sounds/")) {
+            // In resources.qrc, sounds are under prefix "/sounds" and live at resources/sounds/...
+            return "qrc:/sounds/resources/sounds/" + relativePath.mid(QString("sounds/").size());
+        }
+        return {};
+    }
+
+    QString migrateQrcToFile(const QString &pathOrUrl, const QString &dataDir) {
+        // Convert legacy qrc paths to the new filesystem layout when possible.
+        if (dataDir.isEmpty())
+            return pathOrUrl;
+
+        const QString wpPrefix = "qrc:/wallpapers/";
+        if (pathOrUrl.startsWith(wpPrefix)) {
+            const QString rel  = "wallpapers/" + pathOrUrl.mid(wpPrefix.size());
+            const QString file = toFileUrlIfExists(QDir(dataDir).filePath(rel));
+            return file.isEmpty() ? pathOrUrl : file;
+        }
+
+        const QString sndPrefix = "qrc:/sounds/resources/sounds/";
+        if (pathOrUrl.startsWith(sndPrefix)) {
+            const QString rel  = "sounds/" + pathOrUrl.mid(sndPrefix.size());
+            const QString file = toFileUrlIfExists(QDir(dataDir).filePath(rel));
+            return file.isEmpty() ? pathOrUrl : file;
+        }
+
+        return pathOrUrl;
+    }
+
+    QStringList scanSoundDir(const QString &dataDir, const QString &subdir) {
+        QStringList out;
+        if (dataDir.isEmpty())
+            return out;
+        const QString base = QDir(dataDir).filePath("sounds/" + subdir);
+        if (!QDir(base).exists())
+            return out;
+        const QStringList filters = {"*.wav", "*.ogg", "*.mp3", "*.m4a"};
+        QDirIterator      it(base, filters, QDir::Files, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            const QString abs = it.next();
+            out.push_back(QUrl::fromLocalFile(abs).toString());
+        }
+        out.sort(Qt::CaseInsensitive);
+        return out;
+    }
+} // namespace
+
+QString SettingsManager::assetUrl(const QString &relativePath) const {
+    const QString dir = dataDirFromEnvOrDefault();
+    if (!dir.isEmpty()) {
+        const QString abs  = QDir(dir).filePath(relativePath);
+        const QString file = toFileUrlIfExists(abs);
+        if (!file.isEmpty())
+            return file;
+    }
+    const QString qrc = qrcFallbackForRelative(relativePath);
+    return qrc.isEmpty() ? relativePath : qrc;
+}
+
 void SettingsManager::load() {
+    const QString dataDir = dataDirFromEnvOrDefault();
+
     // Existing
     m_userScaleFactor = m_settings.value("ui/userScaleFactor", 1.0).toReal();
     m_wallpaperPath =
-        m_settings.value("ui/wallpaperPath", "qrc:/wallpapers/wallpaper.jpg").toString();
+        m_settings.value("ui/wallpaperPath", assetUrl("wallpapers/wallpaper.jpg")).toString();
+    m_wallpaperPath = migrateQrcToFile(m_wallpaperPath, dataDir);
 
     // Migrated from QML
     m_deviceName               = m_settings.value("system/deviceName", "Marathon OS").toString();
@@ -66,15 +168,14 @@ void SettingsManager::load() {
     m_dateFormat               = m_settings.value("system/dateFormat", "US").toString();
 
     // Audio
-    m_ringtone = m_settings.value("audio/ringtone", "qrc:/sounds/resources/sounds/phone/bbpro1.wav")
-                     .toString();
+    m_ringtone = m_settings.value("audio/ringtone", assetUrl("sounds/phone/bbpro1.wav")).toString();
+    m_ringtone = migrateQrcToFile(m_ringtone, dataDir);
     m_notificationSound =
-        m_settings.value("audio/notificationSound", "qrc:/sounds/resources/sounds/text/chime.wav")
-            .toString();
-    m_alarmSound =
-        m_settings
-            .value("audio/alarmSound", "qrc:/sounds/resources/sounds/alarms/alarm_sunrise.wav")
-            .toString();
+        m_settings.value("audio/notificationSound", assetUrl("sounds/text/chime.wav")).toString();
+    m_notificationSound = migrateQrcToFile(m_notificationSound, dataDir);
+    m_alarmSound = m_settings.value("audio/alarmSound", assetUrl("sounds/alarms/alarm_sunrise.wav"))
+                       .toString();
+    m_alarmSound         = migrateQrcToFile(m_alarmSound, dataDir);
     m_mediaVolume        = m_settings.value("audio/mediaVolume", 0.6).toReal();
     m_ringtoneVolume     = m_settings.value("audio/ringtoneVolume", 0.8).toReal();
     m_alarmVolume        = m_settings.value("audio/alarmVolume", 0.9).toReal();
@@ -508,63 +609,91 @@ void SettingsManager::setKeyboardHapticStrength(const QString &strength) {
 
 // Sound scanning methods
 QStringList SettingsManager::availableRingtones() {
-    // Qt resources don't support directory listing, so we hardcode the list
-    // Note: The full path includes 'resources/sounds' because that's how they're stored in resources.qrc
-    QStringList ringtones = {
-        "qrc:/sounds/resources/sounds/phone/bbpro1.wav",
-        "qrc:/sounds/resources/sounds/phone/bbpro2.wav",
-        "qrc:/sounds/resources/sounds/phone/bbpro3.wav",
-        "qrc:/sounds/resources/sounds/phone/bbpro4.wav",
-        "qrc:/sounds/resources/sounds/bbm/bbpro5.wav", // bbpro5-6 are in the bbm folder
-        "qrc:/sounds/resources/sounds/bbm/bbpro6.wav",
-        "qrc:/sounds/resources/sounds/phone/bonjour.wav",
-        "qrc:/sounds/resources/sounds/phone/classicphone.wav",
-        "qrc:/sounds/resources/sounds/phone/clean.wav",
-        "qrc:/sounds/resources/sounds/phone/evolving_destiny.wav",
-        "qrc:/sounds/resources/sounds/phone/fresh.wav",
-        "qrc:/sounds/resources/sounds/phone/lively.wav",
-        "qrc:/sounds/resources/sounds/phone/open.wav",
-        "qrc:/sounds/resources/sounds/phone/radiant.wav",
-        "qrc:/sounds/resources/sounds/phone/spirit.wav"};
+    const QString dataDir = dataDirFromEnvOrDefault();
+    QStringList   ringtones;
+    ringtones += scanSoundDir(dataDir, "phone");
+    ringtones += scanSoundDir(dataDir, "bbm");
+
+    if (!ringtones.isEmpty()) {
+        qDebug() << "[SettingsManager] Available ringtones (filesystem):" << ringtones.size();
+        return ringtones;
+    }
+
+    // Fallback for older builds / minimal installs: qrc list.
+    ringtones = {"qrc:/sounds/resources/sounds/phone/bbpro1.wav",
+                 "qrc:/sounds/resources/sounds/phone/bbpro2.wav",
+                 "qrc:/sounds/resources/sounds/phone/bbpro3.wav",
+                 "qrc:/sounds/resources/sounds/phone/bbpro4.wav",
+                 "qrc:/sounds/resources/sounds/bbm/bbpro5.wav",
+                 "qrc:/sounds/resources/sounds/bbm/bbpro6.wav",
+                 "qrc:/sounds/resources/sounds/phone/bonjour.wav",
+                 "qrc:/sounds/resources/sounds/phone/classicphone.wav",
+                 "qrc:/sounds/resources/sounds/phone/clean.wav",
+                 "qrc:/sounds/resources/sounds/phone/evolving_destiny.wav",
+                 "qrc:/sounds/resources/sounds/phone/fresh.wav",
+                 "qrc:/sounds/resources/sounds/phone/lively.wav",
+                 "qrc:/sounds/resources/sounds/phone/open.wav",
+                 "qrc:/sounds/resources/sounds/phone/radiant.wav",
+                 "qrc:/sounds/resources/sounds/phone/spirit.wav"};
 
     qDebug() << "[SettingsManager] Available ringtones:" << ringtones.size();
     return ringtones;
 }
 
 QStringList SettingsManager::availableNotificationSounds() {
-    QStringList sounds = {// Text sounds
-                          "qrc:/sounds/resources/sounds/text/bikebell.wav",
-                          "qrc:/sounds/resources/sounds/text/brief.wav",
-                          "qrc:/sounds/resources/sounds/text/caffeine.wav",
-                          "qrc:/sounds/resources/sounds/text/chigong.wav",
-                          "qrc:/sounds/resources/sounds/text/chime.wav",
-                          "qrc:/sounds/resources/sounds/text/crystal.wav",
-                          "qrc:/sounds/resources/sounds/text/lucid.wav",
-                          "qrc:/sounds/resources/sounds/text/presto.wav",
-                          "qrc:/sounds/resources/sounds/text/pure.wav",
-                          "qrc:/sounds/resources/sounds/text/tight.wav",
-                          "qrc:/sounds/resources/sounds/text/ufo.wav",
-                          // Message sounds
-                          "qrc:/sounds/resources/sounds/messages/bright.wav",
-                          "qrc:/sounds/resources/sounds/messages/confident.wav",
-                          "qrc:/sounds/resources/sounds/messages/contentment.wav",
-                          "qrc:/sounds/resources/sounds/messages/eager.wav",
-                          "qrc:/sounds/resources/sounds/messages/gungho.wav"};
+    const QString dataDir = dataDirFromEnvOrDefault();
+    QStringList   sounds;
+    sounds += scanSoundDir(dataDir, "text");
+    sounds += scanSoundDir(dataDir, "messages");
+    sounds += scanSoundDir(dataDir, "bbm");
+
+    if (!sounds.isEmpty()) {
+        qDebug() << "[SettingsManager] Available notification sounds (filesystem):"
+                 << sounds.size();
+        return sounds;
+    }
+
+    sounds = {// Text sounds
+              "qrc:/sounds/resources/sounds/text/bikebell.wav",
+              "qrc:/sounds/resources/sounds/text/brief.wav",
+              "qrc:/sounds/resources/sounds/text/caffeine.wav",
+              "qrc:/sounds/resources/sounds/text/chigong.wav",
+              "qrc:/sounds/resources/sounds/text/chime.wav",
+              "qrc:/sounds/resources/sounds/text/crystal.wav",
+              "qrc:/sounds/resources/sounds/text/lucid.wav",
+              "qrc:/sounds/resources/sounds/text/presto.wav",
+              "qrc:/sounds/resources/sounds/text/pure.wav",
+              "qrc:/sounds/resources/sounds/text/tight.wav",
+              "qrc:/sounds/resources/sounds/text/ufo.wav",
+              // Message sounds
+              "qrc:/sounds/resources/sounds/messages/bright.wav",
+              "qrc:/sounds/resources/sounds/messages/confident.wav",
+              "qrc:/sounds/resources/sounds/messages/contentment.wav",
+              "qrc:/sounds/resources/sounds/messages/eager.wav",
+              "qrc:/sounds/resources/sounds/messages/gungho.wav"};
 
     qDebug() << "[SettingsManager] Available notification sounds:" << sounds.size();
     return sounds;
 }
 
 QStringList SettingsManager::availableAlarmSounds() {
-    QStringList alarms = {"qrc:/sounds/resources/sounds/alarms/alarm_antelope.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_bbproalarm.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_definite.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_earlyriser.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_electronic.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_highalert.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_sunrise.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_transition.wav",
-                          "qrc:/sounds/resources/sounds/alarms/alarm_vintagealarm.wav"};
+    const QString dataDir = dataDirFromEnvOrDefault();
+    QStringList   alarms  = scanSoundDir(dataDir, "alarms");
+
+    if (!alarms.isEmpty()) {
+        qDebug() << "[SettingsManager] Available alarm sounds (filesystem):" << alarms.size();
+        return alarms;
+    }
+
+    alarms = {"qrc:/sounds/resources/sounds/alarms/alarm_antelope.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_bbproalarm.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_definite.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_earlyriser.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_electronic.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_highalert.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_sunrise.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_transition.wav",
+              "qrc:/sounds/resources/sounds/alarms/alarm_vintagealarm.wav"};
 
     qDebug() << "[SettingsManager] Available alarm sounds:" << alarms.size();
     return alarms;
@@ -685,8 +814,13 @@ void SettingsManager::setDefaultApps(const QVariantMap &apps) {
 }
 
 QString SettingsManager::formatSoundName(const QString &path) {
-    // Extract filename from path
-    QFileInfo info(path);
+    // Extract filename from URL/path
+    QString    p = path;
+    const QUrl url(path);
+    if (url.isValid() && url.isLocalFile())
+        p = url.toLocalFile();
+    // qrc:/... is not a local file; QFileInfo still parses the basename fine.
+    QFileInfo info(p);
     QString   baseName = info.baseName();
 
     // Remove prefixes like "alarm_"

@@ -177,6 +177,7 @@ class BluetoothManager : public QObject {
     bool             m_discoverable = false;
     bool             m_available    = false;
     QList<QObject *> m_devices;
-    QTimer          *m_scanTimer = nullptr;
-    BluetoothAgent  *m_agent     = nullptr;
+    QTimer          *m_scanTimer          = nullptr;
+    QTimer          *m_deviceRefreshTimer = nullptr;
+    BluetoothAgent  *m_agent              = nullptr;
 };

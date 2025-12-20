@@ -1,18 +1,16 @@
 #include "applifecyclemanager.h"
 
 #include "applaunchservice.h"
-#include "marathonapploader.h"
 #include "taskmodel.h"
 
 #include <QDateTime>
 #include <QMetaObject>
 #include <QVariant>
 
-AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, MarathonAppLoader *appLoader,
-                                         AppLaunchService *appLaunchService, QObject *parent)
+AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
+                                         QObject *parent)
     : QObject(parent)
     , m_taskModel(taskModel)
-    , m_appLoader(appLoader)
     , m_appLaunchService(appLaunchService) {}
 
 void AppLifecycleManager::registerApp(const QString &appId, QObject *appInstance) {
@@ -125,6 +123,12 @@ bool AppLifecycleManager::handleSystemBack() {
 
     const bool isNative = app->property("isNative").toBool();
     if (isNative) {
+        // Marathon apps run out-of-process but are still rendered as Wayland clients (NativeAppWindow).
+        // For those, Escape injection is not the right "Back" semantic; instead send a lifecycle
+        // back event to the runner so it can call MApp.handleBack().
+        if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
+            return m_appLaunchService->sendBackToRunner(m_foregroundAppId);
+        }
         QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
         if (compositor) {
             // Escape key
@@ -151,6 +155,9 @@ bool AppLifecycleManager::handleSystemForward() {
 
     const bool isNative = app->property("isNative").toBool();
     if (isNative) {
+        if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
+            return m_appLaunchService->sendForwardToRunner(m_foregroundAppId);
+        }
         QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
         if (compositor) {
             // Alt+Right
@@ -222,10 +229,6 @@ void AppLifecycleManager::closeApp(const QString &appId, bool skipNativeClose) {
         m_foregroundAppId.clear();
 
     unregisterApp(appId);
-
-    // Ensure fresh load next time for Marathon apps
-    if (m_appLoader)
-        m_appLoader->unloadApp(appId);
 }
 
 QVariantMap AppLifecycleManager::getAppState(const QString &appId) const {

@@ -297,6 +297,9 @@ class SettingsManager : public QObject {
     Q_INVOKABLE QStringList screenTimeoutOptions();
     Q_INVOKABLE int         screenTimeoutValue(const QString &option);
     Q_INVOKABLE QString     formatSoundName(const QString &path);
+    // Shared assets (Option C): resolve `wallpapers/foo.jpg` or `sounds/phone/bar.wav` to a URL.
+    // Prefers filesystem assets under MARATHON_DATA_DIR, falls back to qrc for compatibility.
+    Q_INVOKABLE QString assetUrl(const QString &relativePath) const;
 
     // Existing invokables
     Q_INVOKABLE QVariant get(const QString &key, const QVariant &defaultValue = QVariant());

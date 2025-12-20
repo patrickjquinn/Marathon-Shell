@@ -37,7 +37,6 @@
 #include "src/bluetoothmanager.h"
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
-#include "src/marathonapploader.h"
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
 #include "src/marathonappstoreservice.h"
@@ -66,6 +65,7 @@
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
+#include "src/ipc/shellipcserver.h"
 #include <QDBusConnection>
 
 #ifdef HAVE_WAYLAND
@@ -102,6 +102,11 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
         // In non-debug mode, suppress known benign warnings
         if ((msg.contains("Could not connect") &&
              (msg.contains("NetworkManager") || msg.contains("UPower"))) ||
+            // Mesa/Wayland often prints these repeatedly in mixed GPU/VM environments.
+            // They can spam the logs and cause flush storms on embedded builds where
+            // info/debug output is compiled out, so warnings are the hot path.
+            msg.contains("libEGL warning: failed to get driver name for fd -1") ||
+            msg.contains("MESA-LOADER: failed to retrieve device information") ||
             msg.contains("Failed to initialize EGL display")) {
             return;
         }
@@ -249,23 +254,19 @@ int main(int argc, char *argv[]) {
     // ============================================================================
     // CRITICAL: Install Crash Protection (MITIGATION ONLY - NOT A FIX!)
     // ============================================================================
-    // This installs signal handlers to catch crashes from apps running in-process.
-    // WARNING: This is a band-aid, not a solution. The PROPER fix is to run each
-    // app in its own process. Signal handlers have limitations and can't always
-    // prevent all crashes from taking down the shell.
+    // This installs signal handlers to capture shell crashes and write useful diagnostics.
+    // NOTE: Marathon apps are launched out-of-process (strict isolation). These handlers
+    // do NOT "protect" the shell from external app process crashes; they only help with
+    // diagnosing faults within this process.
     //
-    // TODO: Implement multi-process app architecture (see MarathonAppLoader)
     // ============================================================================
     CrashHandler *crashHandler = CrashHandler::instance();
     crashHandler->install();
     crashHandler->setCrashCallback([](const QString &msg) {
         qCritical() << "[Marathon] App crash detected:" << msg;
-        qCritical() << "[Marathon] This crash was likely caused by an app, but due to";
-        qCritical() << "[Marathon] poor isolation, it's taking down the entire shell.";
+        qCritical() << "[Marathon] Crash occurred in the shell process.";
     });
     qInfo() << "[Marathon] Crash protection installed (signal handlers active)";
-    qInfo() << "[Marathon] ⚠ WARNING: Apps run in-process - crashes can still kill the shell";
-    qInfo() << "[Marathon] ⚠ TODO: Implement proper multi-process architecture";
 
     // Set RT priority for input handling (Priority 85 per Marathon OS spec)
 #ifdef Q_OS_LINUX
@@ -353,9 +354,10 @@ int main(int argc, char *argv[]) {
     auto *settingsManager = createObject<SettingsManager>(ctx, "SettingsManagerCpp", &app);
 
     // Register compositor manager (available on all platforms, returns null on unsupported platforms)
-    // Pass SettingsManager for dynamic physical size calculation
-    createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", settingsManager, &app);
-    qCritical() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
+    createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
+    if (debugEnabled || profileMode) {
+        qWarning() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
+    }
 
     // Set debug mode context property
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
@@ -374,11 +376,11 @@ int main(int argc, char *argv[]) {
     auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
     auto *appScanner =
         createObject<MarathonAppScanner>(ctx, "MarathonAppScanner", appRegistry, &app);
-    auto *appLoader =
-        createObject<MarathonAppLoader>(ctx, "MarathonAppLoader", appRegistry, &engine, &app);
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
                                                             appRegistry, appScanner, &app);
-    qCritical() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled || profileMode) {
+        qWarning() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
+    }
 
     // Register Marathon Input Method Engine
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
@@ -394,7 +396,7 @@ int main(int argc, char *argv[]) {
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
     // Register C++ services (SettingsManager already created above for compositor)
-    createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
+    auto *networkManager  = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
     auto *powerManager    = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
     auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
     auto *displayManager  = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
@@ -402,7 +404,7 @@ int main(int argc, char *argv[]) {
     auto *audioManager    = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
     createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
     createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
-    createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
+    auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     createObject<LocationManager>(ctx, "LocationManager", &app);
     createObject<HapticManager>(ctx, "HapticManager", &app);
     createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
@@ -414,10 +416,32 @@ int main(int argc, char *argv[]) {
     auto *appLaunchService =
         createObject<AppLaunchService>(ctx, "AppLaunchService", appModel, taskModel, &app);
 
+    // Optional dev helper: auto-launch a specific app at startup (useful for debugging IPC/apps).
+    // Example:
+    //   MARATHON_AUTO_LAUNCH_APP_ID=settings MARATHON_DEBUG=1 ./run.sh
+    const QByteArray autoLaunchRaw = qgetenv("MARATHON_AUTO_LAUNCH_APP_ID").trimmed();
+    if (!autoLaunchRaw.isEmpty()) {
+        const QString autoAppId = QString::fromLocal8Bit(autoLaunchRaw);
+        auto          launched  = std::make_shared<bool>(false);
+        auto          tryLaunch = [appLaunchService, autoAppId, launched]() {
+            if (!appLaunchService || *launched)
+                return;
+            if (!appLaunchService->compositor() || !appLaunchService->appWindow())
+                return;
+            *launched = true;
+            QTimer::singleShot(0, appLaunchService, [appLaunchService, autoAppId]() {
+                qWarning() << "[MarathonShell] Auto-launching app:" << autoAppId;
+                appLaunchService->launchApp(autoAppId);
+            });
+        };
+        QObject::connect(appLaunchService, &AppLaunchService::compositorChanged, &app, tryLaunch);
+        QObject::connect(appLaunchService, &AppLaunchService::appWindowChanged, &app, tryLaunch);
+        QTimer::singleShot(3000, &app, tryLaunch);
+    }
+
     // App lifecycle orchestration (C++). Replaces the QML singleton AppLifecycleManager.qml.
     // QML registers app instances via AppLifecycleManager.registerApp(appId, instance).
-    auto *appLifecycleManager =
-        new AppLifecycleManager(taskModel, appLoader, appLaunchService, &app);
+    auto *appLifecycleManager = new AppLifecycleManager(taskModel, appLaunchService, &app);
     ctx->setContextProperty("AppLifecycleManager", appLifecycleManager);
 
     // Power policy/orchestration lives in C++ (Deepak: keep perf-sensitive system glue out of QML)
@@ -438,7 +462,9 @@ int main(int argc, char *argv[]) {
 
     // Cursor auto-hide manager for EGLFS
     createObject<CursorManager>(ctx, "CursorManager", &app);
-    qCritical() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
+    if (debugEnabled || profileMode) {
+        qWarning() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
+    }
 
     // Wire AudioManager to PowerManager for audio playback wakelocks
     QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,
@@ -503,8 +529,9 @@ int main(int argc, char *argv[]) {
         qDebug() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
     }
 
-    // Register Permission Manager
-    createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
+    // Register Permission Manager (shell-local UI + DBus service for isolated apps)
+    auto *permissionManager =
+        createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
     qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
 
     // Register App Store Service
@@ -531,6 +558,22 @@ int main(int argc, char *argv[]) {
                          }
                      });
     qInfo() << "[MarathonShell] ✓ Audio routing wired to telephony";
+
+    // Register Media Library services (needed by Gallery app under strict isolation)
+    auto *mediaLibraryManager = createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
+    createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
+
+    // Register shell → app DBus IPC (no in-runner stubs; apps talk to the shell over DBus)
+    {
+        auto *ipc = new ShellIpcServer(
+            permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
+            mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
+            audioManager, audioPolicyController, networkManager, appLaunchService, &app);
+        if (!ipc->registerOnSessionBus()) {
+            qCritical()
+                << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";
+        }
+    }
 
     // Wire CallHistoryManager to TelephonyService for call logging
     // Track call start time and calculate duration
@@ -579,9 +622,7 @@ int main(int argc, char *argv[]) {
                      });
     qInfo() << "[MarathonShell] ✓ Call history wired to telephony";
 
-    // Register Media Library services
-    createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
-    createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
+    // Media library services already registered above (needed for DBus IPC too).
 
     // Note: Marathon apps are auto-initialized in AppModel constructor.
     // Load any already-registered Marathon apps immediately (fast).
@@ -719,48 +760,71 @@ int main(int argc, char *argv[]) {
     }
 
     // Defer expensive scans until the UI is up and the event loop is running.
-    QTimer::singleShot(0, &app, [&app, settingsManager, appModel, appRegistry, appScanner]() {
-        // 1) Scan for native apps (.desktop). This can be slow on low-end storage.
-        const QStringList searchPaths = {
-            "/usr/share/applications", "/usr/local/share/applications",
-            QDir::homePath() + "/.local/share/applications",
-            "/var/lib/flatpak/exports/share/applications", // System Flatpak apps
-            QDir::homePath() +
-                "/.local/share/flatpak/exports/share/applications" // User Flatpak apps
-        };
+    QTimer::singleShot(
+        0, &app, [&app, settingsManager, appModel, appRegistry, appScanner, permissionManager]() {
+            // 1) Scan for native apps (.desktop). This can be slow on low-end storage.
+            const QStringList searchPaths = {
+                "/usr/share/applications", "/usr/local/share/applications",
+                QDir::homePath() + "/.local/share/applications",
+                "/var/lib/flatpak/exports/share/applications", // System Flatpak apps
+                QDir::homePath() +
+                    "/.local/share/flatpak/exports/share/applications" // User Flatpak apps
+            };
 
-        const bool filterMobile = settingsManager->filterMobileFriendlyApps();
+            const bool filterMobile = settingsManager->filterMobileFriendlyApps();
 
 #ifdef HAVE_QT_CONCURRENT
-        auto *watcher = new QFutureWatcher<QVariantList>(&app);
-        QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, &app,
-                         [watcher, appModel]() {
-                             const QVariantList nativeApps = watcher->result();
-                             appModel->addApps(nativeApps);
-                             watcher->deleteLater();
-                         });
+            auto *watcher = new QFutureWatcher<QVariantList>(&app);
+            QObject::connect(watcher, &QFutureWatcher<QVariantList>::finished, &app,
+                             [watcher, appModel]() {
+                                 const QVariantList nativeApps = watcher->result();
+                                 appModel->addApps(nativeApps);
+                                 watcher->deleteLater();
+                             });
 
-        QFuture<QVariantList> future = QtConcurrent::run([searchPaths, filterMobile]() {
-            DesktopFileParser parser;
-            return parser.scanApplications(searchPaths, filterMobile);
-        });
-        watcher->setFuture(future);
+            QFuture<QVariantList> future = QtConcurrent::run([searchPaths, filterMobile]() {
+                DesktopFileParser parser;
+                return parser.scanApplications(searchPaths, filterMobile);
+            });
+            watcher->setFuture(future);
 #else
         DesktopFileParser parser;
         const QVariantList nativeApps = parser.scanApplications(searchPaths, filterMobile);
         appModel->addApps(nativeApps);
 #endif
 
-        // 2) Scan for Marathon apps (already supports async internally).
-        QObject::connect(appScanner, &MarathonAppScanner::scanComplete, &app,
-                         [appModel, appRegistry](int) { appModel->loadFromRegistry(appRegistry); });
+            // 2) Scan for Marathon apps (already supports async internally).
+            //
+            // IMPORTANT for strict multi-process isolation:
+            // Protected (built-in) apps must have their manifest-declared permissions granted up-front,
+            // otherwise they will spam "AccessDenied" on startup when the runner queries shell services.
+            auto grantProtected = [permissionManager, appRegistry](const QString &appId) {
+                if (!permissionManager || !appRegistry)
+                    return;
+                auto *info = appRegistry->getAppInfo(appId);
+                if (!info || !info->isProtected)
+                    return;
+                for (const QString &perm : info->permissions) {
+                    if (!perm.isEmpty())
+                        permissionManager->setPermission(appId, perm, true, true);
+                }
+            };
+
+            QObject::connect(appScanner, &MarathonAppScanner::appDiscovered, &app, grantProtected);
+            QObject::connect(appScanner, &MarathonAppScanner::scanComplete, &app,
+                             [appModel, appRegistry, grantProtected](int) {
+                                 // Ensure any already-registered apps are also granted (safety net).
+                                 for (const QString &id : appRegistry->getAllAppIds())
+                                     grantProtected(id);
+                                 appModel->loadFromRegistry(appRegistry);
+                             });
 
 #ifdef HAVE_QT_CONCURRENT
-        appScanner->scanApplicationsAsync();
+            appScanner->scanApplicationsAsync();
 #else
         appScanner->scanApplications();
 #endif
-    });
+        });
 
     qDebug() << "Marathon OS Shell started";
     return app.exec();
