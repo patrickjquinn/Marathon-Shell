@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QDateTime>
 #include <QDebug>
+#include <QCryptographicHash>
+#include <QUrl>
 
 // Static const for extensions
 const QStringList MediaScanWorker::IMAGE_EXTENSIONS = {"jpg", "jpeg", "png",  "gif",
@@ -370,11 +372,27 @@ QVariantList MediaLibraryManager::getPhotos(const QString &albumId) {
 
     if (query.exec()) {
         while (query.next()) {
+            const int     mediaId   = query.value(0).toInt();
+            const QString mediaPath = query.value(1).toString();
+            QString       thumbPath = query.value(2).toString();
+            if (thumbPath.isEmpty() || !QFileInfo::exists(thumbPath) ||
+                !thumbPath.contains("_thumb_v2")) {
+                const QString regenerated = createThumbnail(mediaPath);
+                if (!regenerated.isEmpty()) {
+                    thumbPath = regenerated;
+                    QSqlQuery update(m_database);
+                    update.prepare("UPDATE media SET thumbnail_path = ? WHERE id = ?");
+                    update.addBindValue(thumbPath);
+                    update.addBindValue(mediaId);
+                    update.exec();
+                }
+            }
+
             QVariantMap map;
-            map["id"]   = query.value(0).toInt();
-            map["path"] = "file://" + query.value(1).toString();
+            map["id"]   = mediaId;
+            map["path"] = QUrl::fromLocalFile(mediaPath).toString();
             map["thumbnailPath"] =
-                query.value(2).toString().isEmpty() ? "" : "file://" + query.value(2).toString();
+                thumbPath.isEmpty() ? "" : QUrl::fromLocalFile(thumbPath).toString();
             map["width"]     = query.value(3).toInt();
             map["height"]    = query.value(4).toInt();
             map["timestamp"] = query.value(5).toLongLong();
@@ -393,12 +411,27 @@ QVariantList MediaLibraryManager::getVideos() {
                "BY timestamp DESC");
 
     while (query.next()) {
+        const int     mediaId   = query.value(0).toInt();
+        const QString mediaPath = query.value(1).toString();
+        QString       thumbPath = query.value(2).toString();
+        if (thumbPath.isEmpty() || !QFileInfo::exists(thumbPath) ||
+            !thumbPath.contains("_thumb_v2")) {
+            const QString regenerated = createThumbnail(mediaPath);
+            if (!regenerated.isEmpty()) {
+                thumbPath = regenerated;
+                QSqlQuery update(m_database);
+                update.prepare("UPDATE media SET thumbnail_path = ? WHERE id = ?");
+                update.addBindValue(thumbPath);
+                update.addBindValue(mediaId);
+                update.exec();
+            }
+        }
+
         QVariantMap map;
-        map["id"]   = query.value(0).toInt();
-        map["path"] = "file://" + query.value(1).toString();
-        map["thumbnailPath"] =
-            query.value(2).toString().isEmpty() ? "" : "file://" + query.value(2).toString();
-        map["timestamp"] = query.value(3).toLongLong();
+        map["id"]            = mediaId;
+        map["path"]          = QUrl::fromLocalFile(mediaPath).toString();
+        map["thumbnailPath"] = thumbPath.isEmpty() ? "" : QUrl::fromLocalFile(thumbPath).toString();
+        map["timestamp"]     = query.value(3).toLongLong();
         list.append(map);
     }
 
@@ -413,15 +446,30 @@ QVariantList MediaLibraryManager::getAllPhotos() {
                "type = 'photo' ORDER BY timestamp DESC");
 
     while (query.next()) {
+        const int     mediaId   = query.value(0).toInt();
+        const QString mediaPath = query.value(1).toString();
+        QString       thumbPath = query.value(2).toString();
+        if (thumbPath.isEmpty() || !QFileInfo::exists(thumbPath) ||
+            !thumbPath.contains("_thumb_v2")) {
+            const QString regenerated = createThumbnail(mediaPath);
+            if (!regenerated.isEmpty()) {
+                thumbPath = regenerated;
+                QSqlQuery update(m_database);
+                update.prepare("UPDATE media SET thumbnail_path = ? WHERE id = ?");
+                update.addBindValue(thumbPath);
+                update.addBindValue(mediaId);
+                update.exec();
+            }
+        }
+
         QVariantMap map;
-        map["id"]   = query.value(0).toInt();
-        map["path"] = "file://" + query.value(1).toString();
-        map["thumbnailPath"] =
-            query.value(2).toString().isEmpty() ? "" : "file://" + query.value(2).toString();
-        map["width"]     = query.value(3).toInt();
-        map["height"]    = query.value(4).toInt();
-        map["timestamp"] = query.value(5).toLongLong();
-        map["album"]     = query.value(6).toString();
+        map["id"]            = mediaId;
+        map["path"]          = QUrl::fromLocalFile(mediaPath).toString();
+        map["thumbnailPath"] = thumbPath.isEmpty() ? "" : QUrl::fromLocalFile(thumbPath).toString();
+        map["width"]         = query.value(3).toInt();
+        map["height"]        = query.value(4).toInt();
+        map["timestamp"]     = query.value(5).toLongLong();
+        map["album"]         = query.value(6).toString();
         list.append(map);
     }
 
@@ -583,24 +631,50 @@ void MediaLibraryManager::extractPhotoMetadata(const QString &path, MediaItem &i
 }
 
 QString MediaLibraryManager::createThumbnail(const QString &sourcePath) {
-    QFileInfo sourceInfo(sourcePath);
-    QString   thumbnailsDir = getThumbnailsDir();
-    QString   thumbFileName = sourceInfo.fileName() + "_thumb.jpg";
-    QString   thumbPath     = thumbnailsDir + "/" + thumbFileName;
+    QFileInfo        sourceInfo(sourcePath);
+    QString          thumbnailsDir = getThumbnailsDir();
+    const int        targetSizeEnv = qEnvironmentVariableIntValue("MARATHON_THUMBNAIL_SIZE");
+    const int        targetSize    = (targetSizeEnv > 0) ? targetSizeEnv : 768;
+
+    const QByteArray hash =
+        QCryptographicHash::hash(sourcePath.toUtf8(), QCryptographicHash::Sha1).toHex();
+
+    const bool isPngSource         = sourceInfo.suffix().compare("png", Qt::CaseInsensitive) == 0;
+    const bool looksLikeScreenshot = sourcePath.contains("/Screenshots/", Qt::CaseInsensitive) ||
+        sourceInfo.baseName().contains("screenshot", Qt::CaseInsensitive);
+
+    const QString ext = (isPngSource || looksLikeScreenshot) ? "png" : "jpg";
+    const QString thumbFileName =
+        QString::fromLatin1(hash.left(16)) + QString("_thumb_v2_%1.%2").arg(targetSize).arg(ext);
+    const QString thumbPath = thumbnailsDir + "/" + thumbFileName;
 
     if (QFile::exists(thumbPath)) {
         return thumbPath;
     }
 
-    QImage image(sourcePath);
+    QImageReader reader(sourcePath);
+    reader.setAutoTransform(true);
+    // Decode at (roughly) thumbnail size while preserving aspect ratio.
+    // Avoid forcing a square scaledSize, which can distort and look "grainy" when rendered.
+    const QSize origSize = reader.size();
+    if (origSize.isValid() && origSize.width() > 0 && origSize.height() > 0) {
+        const QSize scaled = origSize.scaled(QSize(targetSize, targetSize), Qt::KeepAspectRatio);
+        reader.setScaledSize(scaled);
+    }
+    const QImage image = reader.read();
     if (image.isNull()) {
         return QString();
     }
 
-    QImage thumbnail = image.scaled(256, 256, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-    if (thumbnail.save(thumbPath, "JPG", 85)) {
-        return thumbPath;
+    if (ext == "png") {
+        if (image.save(thumbPath, "PNG")) {
+            return thumbPath;
+        }
+    } else {
+        // Higher quality helps avoid "grainy" thumbnails, especially for UI screenshots.
+        if (image.save(thumbPath, "JPG", 92)) {
+            return thumbPath;
+        }
     }
 
     return QString();
