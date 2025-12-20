@@ -1,26 +1,75 @@
-import QtQuick
-import QtLocation
-import QtPositioning
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtLocation
+import QtPositioning
+import QtQuick
 
 MApp {
     id: mapsApp
-    appId: "maps"
-    appName: "Maps"
-    appIcon: "assets/icon.svg"
 
     property bool showSearch: false
     property var searchResults: []
     property bool isSearching: false
     property bool mapLoaded: false
     property bool hasLocationPermission: false
+    // The Map object is created inside the content Loader, so store a reference here
+    // for access from non-content scopes (e.g. PositionSource).
+    property var mapObject: null
 
+    function searchLocation(query) {
+        if (query.length === 0) {
+            searchResults = [];
+            return;
+        }
+        isSearching = true;
+        var xhr = new XMLHttpRequest();
+        var url = "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(query) + "&format=json&limit=5";
+        xhr.open("GET", url);
+        xhr.setRequestHeader("User-Agent", "MarathonOS/1.0");
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                isSearching = false;
+                if (xhr.status === 200) {
+                    try {
+                        var results = JSON.parse(xhr.responseText);
+                        searchResults = results.map(function (result) {
+                            return {
+                                "name": result.display_name.split(',')[0],
+                                "address": result.display_name,
+                                "lat": parseFloat(result.lat),
+                                "lon": parseFloat(result.lon),
+                                "type": result.type
+                            };
+                        });
+                        Logger.info("Maps", "Found " + searchResults.length + " results");
+                    } catch (e) {
+                        Logger.error("Maps", "Failed to parse search results: " + e);
+                        searchResults = [];
+                    }
+                } else {
+                    Logger.error("Maps", "Search request failed: " + xhr.status);
+                    searchResults = [];
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    function goToLocation(lat, lon) {
+        if (mapsApp.mapObject) {
+            mapsApp.mapObject.center = QtPositioning.coordinate(lat, lon);
+            mapsApp.mapObject.zoomLevel = 15;
+            showSearch = false;
+        }
+    }
+
+    appId: "maps"
+    appName: "Maps"
+    appIcon: "assets/icon.svg"
     onAppLaunched: {
         loadTimer.start();
-
         // Check location permission
         if (typeof PermissionManager !== 'undefined') {
             if (PermissionManager.hasPermission(appId, "location")) {
@@ -38,8 +87,6 @@ MApp {
 
     // Listen for permission responses
     Connections {
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
-
         function onPermissionGranted(grantedAppId, permission) {
             if (grantedAppId === appId && permission === "location") {
                 Logger.info("Maps", "Location permission granted");
@@ -54,10 +101,13 @@ MApp {
                 hasLocationPermission = false;
             }
         }
+
+        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
     }
 
     Timer {
         id: loadTimer
+
         interval: 100
         onTriggered: {
             mapLoaded = true;
@@ -66,71 +116,18 @@ MApp {
 
     PositionSource {
         id: positionSource
+
         active: mapLoaded && hasLocationPermission
         updateInterval: 5000
-
         onPositionChanged: {
-            if (position.latitudeValid && position.longitudeValid && mapLoader.item) {
-                mapLoader.item.center = position.coordinate;
+            if (position.latitudeValid && position.longitudeValid && mapsApp.mapObject) {
+                mapsApp.mapObject.center = position.coordinate;
                 Logger.info("Maps", "Position updated: " + position.coordinate);
             }
         }
-
         onSourceErrorChanged: {
-            if (sourceError !== PositionSource.NoError) {
+            if (sourceError !== PositionSource.NoError)
                 Logger.warn("Maps", "Position source error (macOS stub mode)");
-            }
-        }
-    }
-
-    function searchLocation(query) {
-        if (query.length === 0) {
-            searchResults = [];
-            return;
-        }
-
-        isSearching = true;
-        var xhr = new XMLHttpRequest();
-        var url = "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(query) + "&format=json&limit=5";
-
-        xhr.open("GET", url);
-        xhr.setRequestHeader("User-Agent", "MarathonOS/1.0");
-
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === XMLHttpRequest.DONE) {
-                isSearching = false;
-                if (xhr.status === 200) {
-                    try {
-                        var results = JSON.parse(xhr.responseText);
-                        searchResults = results.map(function (result) {
-                            return {
-                                name: result.display_name.split(',')[0],
-                                address: result.display_name,
-                                lat: parseFloat(result.lat),
-                                lon: parseFloat(result.lon),
-                                type: result.type
-                            };
-                        });
-                        Logger.info("Maps", "Found " + searchResults.length + " results");
-                    } catch (e) {
-                        Logger.error("Maps", "Failed to parse search results: " + e);
-                        searchResults = [];
-                    }
-                } else {
-                    Logger.error("Maps", "Search request failed: " + xhr.status);
-                    searchResults = [];
-                }
-            }
-        };
-
-        xhr.send();
-    }
-
-    function goToLocation(lat, lon) {
-        if (mapLoader.item) {
-            mapLoader.item.center = QtPositioning.coordinate(lat, lon);
-            mapLoader.item.zoomLevel = 15;
-            showSearch = false;
         }
     }
 
@@ -139,33 +136,39 @@ MApp {
         color: MColors.background
 
         Loader {
+            // Gestures are enabled by default in Qt 6
+            // gesture.enabled: true removed - not a valid property
+
             id: mapLoader
+
             anchors.fill: parent
             active: mapLoaded
             asynchronous: true
+            onLoaded: {
+                mapsApp.mapObject = item;
+            }
+            onActiveChanged: {
+                if (!active)
+                    mapsApp.mapObject = null;
+            }
 
             sourceComponent: Map {
                 id: map
+
                 anchors.fill: parent
-
-                plugin: Plugin {
-                    name: "osm"
-                }
-
-                center: positionSource.position.valid ? positionSource.position.coordinate : QtPositioning.coordinate(37.7749, -122.4194)
+                center: positionSource.position.valid ? positionSource.position.coordinate : QtPositioning.coordinate(37.7749, -122.419)
                 zoomLevel: 14
-
-                // Gestures are enabled by default in Qt 6
-                // gesture.enabled: true removed - not a valid property
 
                 MapQuickItem {
                     id: userLocationMarker
+
                     coordinate: positionSource.position.valid ? positionSource.position.coordinate : map.center
                     anchorPoint.x: locationDot.width / 2
                     anchorPoint.y: locationDot.height / 2
 
                     sourceItem: Rectangle {
                         id: locationDot
+
                         width: MSpacing.lg
                         height: MSpacing.lg
                         radius: width / 2
@@ -181,6 +184,10 @@ MApp {
                             color: "white"
                         }
                     }
+                }
+
+                plugin: Plugin {
+                    name: "osm"
                 }
             }
         }
@@ -220,6 +227,7 @@ MApp {
 
         Row {
             id: searchBar
+
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
@@ -245,15 +253,14 @@ MApp {
 
             MTextInput {
                 id: searchInput
+
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
                 placeholderText: "Search for places..."
-
                 onTextChanged: {
                     showSearch = text.length > 0;
-                    if (text.length > 2) {
+                    if (text.length > 2)
                         searchTimer.restart();
-                    }
                 }
             }
 
@@ -272,6 +279,7 @@ MApp {
 
         Timer {
             id: searchTimer
+
             interval: 500
             onTriggered: {
                 searchLocation(searchInput.text);
@@ -280,6 +288,7 @@ MApp {
 
         Rectangle {
             id: searchResultsPanel
+
             anchors.top: searchBar.bottom
             anchors.left: parent.left
             anchors.right: parent.right
@@ -295,10 +304,10 @@ MApp {
 
             ListView {
                 id: searchResultsList
+
                 anchors.fill: parent
                 anchors.margins: MSpacing.sm
                 clip: true
-
                 model: searchResults
 
                 delegate: Item {
@@ -309,6 +318,11 @@ MApp {
                         anchors.fill: parent
                         anchors.margins: MSpacing.xs
                         interactive: true
+                        onClicked: {
+                            HapticService.light();
+                            Logger.info("Maps", "Selected: " + modelData.name);
+                            goToLocation(modelData.lat, modelData.lon);
+                        }
 
                         Row {
                             anchors.fill: parent
@@ -344,12 +358,6 @@ MApp {
                                 }
                             }
                         }
-
-                        onClicked: {
-                            HapticService.light();
-                            Logger.info("Maps", "Selected: " + modelData.name);
-                            goToLocation(modelData.lat, modelData.lon);
-                        }
                     }
                 }
             }
@@ -370,9 +378,8 @@ MApp {
                 variant: "secondary"
                 onClicked: {
                     HapticService.light();
-                    if (mapLoader.item) {
+                    if (mapLoader.item)
                         mapLoader.item.zoomLevel = Math.min(mapLoader.item.zoomLevel + 1, mapLoader.item.maximumZoomLevel);
-                    }
                 }
             }
 
@@ -383,15 +390,15 @@ MApp {
                 variant: "secondary"
                 onClicked: {
                     HapticService.light();
-                    if (mapLoader.item) {
+                    if (mapLoader.item)
                         mapLoader.item.zoomLevel = Math.max(mapLoader.item.zoomLevel - 1, mapLoader.item.minimumZoomLevel);
-                    }
                 }
             }
         }
 
         MCircularIconButton {
             id: locateButton
+
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: MSpacing.md

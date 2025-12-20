@@ -1,15 +1,12 @@
-import QtQuick
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 MApp {
     id: calcApp
-    appId: "calculator"
-    appName: "Calculator"
-    appIcon: "qrc:/images/calculator.svg"
 
     property string display: "0"
     property real currentValue: 0
@@ -43,7 +40,6 @@ MApp {
     function calculate() {
         var result = currentValue;
         var value = parseFloat(display);
-
         switch (currentOperator) {
         case "+":
             result = currentValue + value;
@@ -58,7 +54,6 @@ MApp {
             result = value !== 0 ? currentValue / value : 0;
             break;
         }
-
         display = result.toString();
         currentOperator = "";
         newNumber = true;
@@ -70,6 +65,11 @@ MApp {
         currentOperator = "";
         newNumber = true;
     }
+
+    appId: "calculator"
+    appName: "Calculator"
+    // Prefer app-local asset path so the icon works both in-process and in marathon-app-runner.
+    appIcon: "assets/icon.svg"
 
     content: Rectangle {
         anchors.fill: parent
@@ -113,6 +113,7 @@ MApp {
 
                     Item {
                         required property string modelData
+
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         Layout.preferredHeight: 60
@@ -126,10 +127,13 @@ MApp {
                             variant: {
                                 if (modelData === "=")
                                     return "primary";
+
                                 if (modelData === "C" || modelData === "⌫")
                                     return "secondary";
+
                                 if ("+-×÷".indexOf(modelData) !== -1)
                                     return "secondary";
+
                                 return "secondary";
                             }
                             onClicked: {
@@ -137,20 +141,18 @@ MApp {
                                 if (modelData === "C") {
                                     calcApp.clear();
                                 } else if (modelData === "⌫") {
-                                    if (calcApp.display.length > 1) {
+                                    if (calcApp.display.length > 1)
                                         calcApp.display = calcApp.display.slice(0, -1);
-                                    } else {
+                                    else
                                         calcApp.display = "0";
-                                    }
-                                } else if (modelData === "=") {
+                                } else if (modelData === "=")
                                     calcApp.calculate();
-                                } else if ("+-×÷".indexOf(modelData) !== -1) {
+                                else if ("+-×÷".indexOf(modelData) !== -1)
                                     calcApp.setOperator(modelData);
-                                } else if (modelData === ".") {
+                                else if (modelData === ".")
                                     calcApp.appendDecimal();
-                                } else {
+                                else
                                     calcApp.appendDigit(modelData);
-                                }
                             }
                         }
                     }
