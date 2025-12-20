@@ -159,16 +159,16 @@ SettingsPageTemplate {
                     title: "Auto-Brightness"
                     subtitle: "Adjust brightness automatically"
                     showToggle: true
-                    toggleValue: typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.autoBrightnessEnabled : false
+                    toggleValue: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.autoBrightnessEnabled : false
                     onToggleChanged: value => {
-                        if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
-                            DisplayPolicyControllerCpp.autoBrightnessEnabled = value;
+                        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                            DisplayManagerCpp.autoBrightnessEnabled = value;
                     }
                 }
 
                 MSettingsListItem {
                     title: "Screen Timeout"
-                    value: typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenTimeoutString : ""
+                    value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.screenTimeoutString : ""
                     showChevron: true
                     onSettingClicked: {
                         displayPage.parent.push(screenTimeoutPageComponent);
