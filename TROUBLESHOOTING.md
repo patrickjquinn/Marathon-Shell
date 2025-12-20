@@ -55,7 +55,7 @@ If this file exists, MarathonUI is installed correctly.
 **Symptom:**
 The **Browser** app fails to launch, and logs show:
 ```
-[WARNING] [MarathonAppLoader] Component error: ".../BrowserApp.qml:2 module "QtWebEngine" is not installed"
+[WARNING] ... Component error: ".../BrowserApp.qml:2 module "QtWebEngine" is not installed"
 ```
 
 **Root Cause:**

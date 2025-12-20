@@ -29,10 +29,10 @@ The MApp framework consists of three core components:
    - Provides lifecycle hooks and state management
    - Handles auto-registration with AppLifecycleManager
 
-2. **MarathonAppLoader** (`shell/src/marathonapploader.cpp`)
-   - C++ service for loading app QML components
-   - Manages async loading and component caching
-   - Configures import paths automatically
+2. **marathon-app-runner** (`tools/marathon-app-runner/`)
+   - Isolated app process (Wayland client) that loads the app QML module
+   - Hosts app-side DBus proxy clients for shell services (Settings/Network/etc.)
+   - Keeps app UI out of the shell process for stability and security
 
 3. **AppLifecycleManager** (`shell/qml/services/AppLifecycleManager.qml`)
    - Singleton service coordinating app lifecycle
