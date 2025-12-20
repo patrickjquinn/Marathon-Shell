@@ -15,6 +15,9 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 # Default prefix from install location (…/bin -> …)
 export MARATHON_PREFIX="${MARATHON_PREFIX:-$(dirname -- "$SCRIPT_DIR")}"
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
+# Shared system data (wallpapers, sounds, config). Apps run out-of-process, so they must be able
+# to load these assets from disk (not from the shell binary's qrc resources).
+export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-$MARATHON_PREFIX/share/marathon-shell}"
 # Ensure libs are found immediately
 export LD_LIBRARY_PATH="$MARATHON_PREFIX/lib:${LD_LIBRARY_PATH:-}"
 

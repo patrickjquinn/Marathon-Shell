@@ -171,6 +171,7 @@ add_subdirectory(marathon-services)
 add_subdirectory(marathon-ui)
 add_subdirectory(shell)
 add_subdirectory(tools/marathon-dev)
+add_subdirectory(tools/marathon-app-runner)
 
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")
@@ -198,6 +199,19 @@ install(FILES systemd/marathon-shell.service
 # Install polkit policy
 install(FILES polkit/org.marathonos.shell.policy
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions
+)
+
+# Install shared system assets (Option C: filesystem assets shared across processes)
+# Wallpapers
+install(DIRECTORY shell/resources/wallpapers/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/wallpapers
+    FILES_MATCHING PATTERN "*.jpg" PATTERN "*.png" PATTERN "*.jpeg" PATTERN "*.webp"
+)
+
+# Sounds
+install(DIRECTORY shell/resources/sounds/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/sounds
+    FILES_MATCHING PATTERN "*.wav" PATTERN "*.ogg" PATTERN "*.mp3" PATTERN "*.m4a"
 )
 
 # Install XDG autostart

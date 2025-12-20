@@ -1,15 +1,16 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: wallpaperPage
-    pageTitle: "Wallpaper"
 
     property string pageName: "wallpaper"
+
+    pageTitle: "Wallpaper"
 
     content: Flickable {
         contentHeight: wallpaperContent.height + 40
@@ -18,6 +19,7 @@ SettingsPageTemplate {
 
         Column {
             id: wallpaperContent
+
             width: parent.width
             spacing: MSpacing.lg
             leftPadding: MSpacing.lg
@@ -54,35 +56,11 @@ SettingsPageTemplate {
                             border.color: WallpaperStore.currentWallpaper === modelData.path ? MColors.marathonTeal : MColors.border
                             clip: true
 
-                            Behavior on border.width {
-                                NumberAnimation {
-                                    duration: Constants.animationDurationFast
-                                }
-                            }
-
-                            Behavior on border.color {
-                                ColorAnimation {
-                                    duration: Constants.animationDurationFast
-                                }
-                            }
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: Constants.animationDurationFast
-                                }
-                            }
-
                             Rectangle {
                                 anchors.fill: parent
                                 anchors.margins: WallpaperStore.currentWallpaper === modelData.path ? Math.round(4 * Constants.scaleFactor) : Constants.borderWidthThin
                                 radius: Constants.borderRadiusMedium
                                 clip: true
-
-                                Behavior on anchors.margins {
-                                    NumberAnimation {
-                                        duration: Constants.animationDurationFast
-                                    }
-                                }
 
                                 Image {
                                     anchors.fill: parent
@@ -103,6 +81,12 @@ SettingsPageTemplate {
                                         }
                                     }
                                 }
+
+                                Behavior on anchors.margins {
+                                    NumberAnimation {
+                                        duration: Constants.animationDurationFast
+                                    }
+                                }
                             }
 
                             Rectangle {
@@ -114,6 +98,8 @@ SettingsPageTemplate {
                                 height: Math.round(Constants.iconSizeLarge * 1.2)
                                 radius: width / 2
                                 color: MColors.textPrimary
+                                scale: WallpaperStore.currentWallpaper === modelData.path ? 1 : 0
+                                opacity: WallpaperStore.currentWallpaper === modelData.path ? 1 : 0
 
                                 Icon {
                                     anchors.centerIn: parent
@@ -121,9 +107,6 @@ SettingsPageTemplate {
                                     size: Constants.iconSizeMedium
                                     color: MColors.marathonTeal
                                 }
-
-                                scale: WallpaperStore.currentWallpaper === modelData.path ? 1.0 : 0.0
-                                opacity: WallpaperStore.currentWallpaper === modelData.path ? 1.0 : 0.0
 
                                 Behavior on scale {
                                     NumberAnimation {
@@ -163,11 +146,29 @@ SettingsPageTemplate {
 
                             MouseArea {
                                 id: wallpaperMouseArea
+
                                 anchors.fill: parent
                                 onClicked: {
                                     Logger.info("WallpaperPage", "Selected wallpaper: " + modelData.path);
-                                    WallpaperStore.currentWallpaper = modelData.path;
-                                    SettingsManagerCpp.wallpaperPath = modelData.path;
+                                    WallpaperStore.setWallpaper(modelData.path, modelData.isDark);
+                                }
+                            }
+
+                            Behavior on border.width {
+                                NumberAnimation {
+                                    duration: Constants.animationDurationFast
+                                }
+                            }
+
+                            Behavior on border.color {
+                                ColorAnimation {
+                                    duration: Constants.animationDurationFast
+                                }
+                            }
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: Constants.animationDurationFast
                                 }
                             }
                         }
