@@ -1,12 +1,8 @@
 #include "src/wayland/waylandcompositormanager.h"
-#include "src/settingsmanager.h"
 #include <QDebug>
 
-WaylandCompositorManager::WaylandCompositorManager(SettingsManager *settingsManager,
-                                                   QObject         *parent)
-    : QObject(parent)
-    , m_settingsManager(settingsManager) {
-    qInfo() << "[WaylandCompositorManager] Initialized with SettingsManager";
+WaylandCompositorManager::WaylandCompositorManager(QObject *parent)
+    : QObject(parent) {
 #ifdef HAVE_WAYLAND
     qInfo() << "[WaylandCompositorManager] HAVE_WAYLAND is defined - Wayland support enabled";
 #else
@@ -23,12 +19,6 @@ WaylandCompositor *WaylandCompositorManager::createCompositor(QQuickWindow *wind
         return nullptr;
     }
 
-    if (!m_settingsManager) {
-        qWarning()
-            << "[WaylandCompositorManager] Cannot create compositor - SettingsManager is NULL";
-        return nullptr;
-    }
-
 #ifdef HAVE_WAYLAND
     qInfo() << "[WaylandCompositorManager] HAVE_WAYLAND defined, proceeding...";
 
@@ -38,7 +28,7 @@ WaylandCompositor *WaylandCompositorManager::createCompositor(QQuickWindow *wind
     }
 
     qInfo() << "[WaylandCompositorManager] Creating new WaylandCompositor...";
-    m_compositor = new WaylandCompositor(window, m_settingsManager);
+    m_compositor = new WaylandCompositor(window);
     qInfo() << "[WaylandCompositorManager] WaylandCompositor created successfully";
     qInfo() << "[WaylandCompositorManager] Compositor pointer:" << m_compositor;
     return m_compositor;

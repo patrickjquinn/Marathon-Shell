@@ -18,9 +18,6 @@
 #include <QProcess>
 #include <QPointer>
 
-// Forward declaration
-class SettingsManager;
-
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
@@ -29,7 +26,7 @@ class WaylandCompositor : public QWaylandCompositor {
                    hasIdleInhibitingSurfaceChanged)
 
   public:
-    explicit WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager);
+    explicit WaylandCompositor(QQuickWindow *window);
     ~WaylandCompositor() override;
 
     QQmlListProperty<QObject> surfaces();
@@ -82,7 +79,6 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandIdleInhibitManagerV1        *m_idleInhibitManager = nullptr;
     QWaylandQuickOutput                 *m_output             = nullptr;
     QQuickWindow                        *m_window             = nullptr;
-    SettingsManager                     *m_settingsManager    = nullptr;
 
     QList<QObject *>                     m_surfaces;
     QMap<int, QPointer<QWaylandSurface>> m_surfaceMap; // surfaceId -> surface

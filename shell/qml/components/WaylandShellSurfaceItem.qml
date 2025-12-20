@@ -27,6 +27,12 @@ ShellSurfaceItem {
     // This prevents Vulkan surface lost errors when apps like Chromium destroy their surface during minimize
     // The buffer stays visible for task switcher preview even after surface destruction
     property bool isMinimized: false
+    // True once the client has committed at least one buffer.
+    // We use this to avoid a "white gap" between splash dismissal and first frame.
+    readonly property bool hasFirstFrame: {
+        var s = _surfaceFromObj(surfaceObj);
+        return s ? s.hasContent : false;
+    }
 
     // CRITICAL: Debounced size update to prevent resize spam during animations
     // Apps rescale when they receive size changes, causing fuzzy/squished rendering
@@ -39,6 +45,52 @@ ShellSurfaceItem {
             sizeUpdateScheduled = false;
             sendSizeToApp();
         });
+    }
+
+    function _xdgSurfaceFromObj(obj) {
+        if (!obj)
+            return null;
+
+        // Some call sites pass a wrapper object { xdgSurface, toplevel }.
+        if (obj.xdgSurface)
+            return obj.xdgSurface;
+
+        // Others may pass the xdg surface itself.
+        return obj;
+    }
+
+    function _surfaceFromObj(obj) {
+        if (!obj)
+            return null;
+
+        // If we got an xdg surface, it usually exposes `.surface`.
+        if (obj.surface)
+            return obj.surface;
+
+        // Wrapper cases: { xdgSurface: ..., surface: ... }
+        if (obj.xdgSurface && obj.xdgSurface.surface)
+            return obj.xdgSurface.surface;
+
+        if (obj.xdgSurface && obj.xdgSurface.surface)
+            return obj.xdgSurface.surface;
+
+        return null;
+    }
+
+    function _toplevelFromObj(obj) {
+        if (!obj)
+            return null;
+
+        // Wrapper object path
+        if (obj.toplevel)
+            return obj.toplevel;
+
+        // xdg surface path
+        var xdg = _xdgSurfaceFromObj(obj);
+        if (xdg && xdg.toplevel)
+            return xdg.toplevel;
+
+        return null;
     }
 
     function sendSizeToApp() {
@@ -63,7 +115,7 @@ ShellSurfaceItem {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: width " + width + " is below minimum (" + Math.round(minWidth) + "px) - waiting for layout completion");
             return;
         }
-        var toplevel = surfaceObj ? surfaceObj.toplevel : null;
+        var toplevel = _toplevelFromObj(surfaceObj);
         if (!toplevel) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: no toplevel (surfaceObj: " + (surfaceObj ? "exists" : "null") + ")");
             return;
@@ -90,14 +142,18 @@ ShellSurfaceItem {
     // CRITICAL: Let Qt's ShellSurfaceItem automatically create popup items
     // This handles positioning, sizing, and rendering of xdg_popups without manual intervention
     autoCreatePopupItems: true
-    // CRITICAL: Hide the surface until we've sent the initial size configuration
-    // This prevents apps like Chromium from rendering at the wrong size on first launch
-    // The splash screen remains visible until the app receives its proper dimensions
-    opacity: hasSentInitialSize ? 1 : 0
+    // Hide the surface until:
+    // - we sent the initial configure (size), AND
+    // - the client has committed a buffer (hasFirstFrame)
+    // This prevents "white flashes" and wrong-size first frames.
+    opacity: hasSentInitialSize && hasFirstFrame ? 1 : 0
     // bufferLocked is inherited from WaylandQuickItem (parent of ShellSurfaceItem)
     // When true, the compositor retains the buffer instead of releasing it to the client
     bufferLocked: isMinimized
-    shellSurface: surfaceObj && surfaceObj.xdgSurface ? surfaceObj.xdgSurface : null
+    // Accept either:
+    // - wrapper object containing { xdgSurface } (older glue)
+    // - the xdg surface itself (preferred from C++)
+    shellSurface: _xdgSurfaceFromObj(surfaceObj)
     touchEventsEnabled: true
     // CRITICAL: Bind output to compositor's output
     // Qt's XdgToplevelIntegration gets output from view()->output()

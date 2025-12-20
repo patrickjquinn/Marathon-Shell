@@ -1,5 +1,4 @@
 #include "src/wayland/waylandcompositor.h"
-#include "src/settingsmanager.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -7,6 +6,7 @@
 #include <QFile>
 #include <QDir>
 #include <QTextStream>
+#include <QCoreApplication>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
@@ -32,10 +32,9 @@ static bool envBool(const char *name, bool defaultValue) {
 #include <pthread.h>
 #endif
 
-WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *settingsManager)
+WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     : QWaylandCompositor()
     , m_window(window)
-    , m_settingsManager(settingsManager)
     , m_nextSurfaceId(1)
     , m_output(nullptr)
     , m_hasIdleInhibitor(false) {
@@ -136,16 +135,9 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
     // XdgToplevelIntegration internally looks for defaultOutput() - must be set!
     setDefaultOutput(m_output);
 
-    // Set Wayland output scale factor to 1
-    // NOTE: Phosh uses scale=2 for HiDPI phones, but that requires physical HiDPI display.
-    // With scale=1 + 96 DPI physical size, apps should render at 1:1 pixels.
-    // Firefox may still apply internal scaling if it detects fractional-scale or DPI mismatch.
-    m_output->setScaleFactor(1);
-
-    // CRITICAL: Set availableGeometry for XdgToplevelIntegration
-    m_output->setAvailableGeometry(QRect(QPoint(0, 0), window->size()));
-
-    // CRITICAL: Set physical size for mobile DPI detection
+    // CRITICAL: Configure wl_output metrics (scale + physical size + availableGeometry).
+    // If wl_output scale is wrong (e.g. stuck at 1 on a HiDPI screen), client apps will render
+    // low-res buffers and the compositor will scale them up -> blurry UI.
     calculateAndSetPhysicalSize();
 
     qDebug() << "[WaylandCompositor] Initialized on socket:" << socketName()
@@ -156,10 +148,6 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window, SettingsManager *sett
 
     // NOTE: We no longer create a custom D-Bus session - apps use the host's session
     // This prevents 25-second timeouts waiting for system services (GeoClue2, etc.)
-
-    // React to user scale factor changes
-    connect(m_settingsManager, &SettingsManager::userScaleFactorChanged, this,
-            &WaylandCompositor::calculateAndSetPhysicalSize);
 
     // CRITICAL FIX: Install Event Filter to intercept global keys BEFORE they reach Wayland clients
     // This solves the "Double Action" bug where clients handle Press (Back) and Shell handles Release (Close)
@@ -293,36 +281,53 @@ void WaylandCompositor::launchApp(const QString &command) {
     env.insert("WAYLAND_DISPLAY", socketName());
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
-    env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", "wayland-egl"); // Prefer EGL for Qt apps
+
+    // In this dev setup, Qt logging may go to journald instead of the captured stderr.
+    // Force stderr logging in debug mode so runner logs show up in the shell log stream.
+    {
+        const QByteArray debugEnv = qgetenv("MARATHON_DEBUG").trimmed().toLower();
+        const bool       debug    = (debugEnv == "1" || debugEnv == "true");
+        if (debug)
+            env.insert("QT_FORCE_STDERR_LOGGING", "1");
+    }
+    // Client buffer integration:
+    // Prefer GPU/EGL for smooth animations and high FPS.
+    //
+    // If you need to debug on systems where EGL is flaky, you can force SHM/software via env:
+    //   - MARATHON_FORCE_WAYLAND_SHM=1
+    //   - QT_QUICK_BACKEND=software   (or QSG_RHI_BACKEND=software)
+    const bool forceShm = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
+    if (!env.contains("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION")) {
+        env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", forceShm ? "shm" : "wayland-egl");
+    }
     env.insert("GDK_BACKEND", "wayland");
     env.insert("CLUTTER_BACKEND", "wayland");
     env.insert("SDL_VIDEODRIVER", "wayland");
     env.insert("MOZ_ENABLE_WAYLAND", "1"); // Force Firefox/Mozilla to use Wayland
-    env.insert("EGL_PLATFORM", "wayland"); // Force EGL to use Wayland platform
+    // Don't force EGL platform for clients; let the chosen backend decide.
 
     // Mobile form factor environment variables
     // These tell GTK4/libadwaita and Qt apps to use mobile/adaptive layouts
     env.insert("LIBADWAITA_MOBILE", "1");        // Force libadwaita mobile mode
     env.insert("PURISM_FORM_FACTOR", "phone");   // Phosh compatibility (used by Phosh/Purism apps)
     env.insert("QT_QUICK_CONTROLS_MOBILE", "1"); // Qt Quick Controls mobile mode
-    env.insert("QT_QUICK_CONTROLS_STYLE", "Mobile"); // Qt Quick Controls mobile style
-    env.insert("GTK_CSD", "1");                      // Force client-side decorations for GTK apps
+    // Qt6 Quick Controls does not ship a "Mobile" style plugin. Forcing it causes QML to fail
+    // with errors like: module "Mobile" is not installed (seen in Clock's AlarmEditorDialog).
+    // Keep the mobile/adaptive *hints* above, but use a real style.
+    env.insert("QT_QUICK_CONTROLS_STYLE", "Basic");
+    env.insert("GTK_CSD", "1");        // Force client-side decorations for GTK apps
     env.insert("GTK_USE_PORTAL", "0"); // Disable portals (can cause issues in nested compositors)
 
-    // Use Marathon's user-configurable scale factor for native apps
-    // This is the same value used in QML (Constants.userScaleFactor) that users can set in Settings
-    // For HiDPI displays, this should be > 1.0 (e.g., 1.5 or 2.0) to prevent blurry rendering
-    QString scaleStr = QString::number(m_settingsManager->userScaleFactor(), 'f', 2);
-
-    // GDK/GTK scaling
-    env.insert("GDK_SCALE", scaleStr);
-    env.insert("GDK_DPI_SCALE", "1"); // Keep DPI scaling at 1, we use integer scaling via GDK_SCALE
-
-    // Qt scaling
-    env.insert("QT_SCALE_FACTOR", scaleStr);
-    env.insert("QT_AUTO_SCREEN_SCALE_FACTOR",
-               "0"); // Disable auto-detection, we provide explicit scale
+    // Scaling:
+    // Let clients follow Wayland's output scale (wl_output::scaleFactor). Do not force toolkit
+    // scaling env vars here, as that double-scales buffers and is a common cause of blur.
     env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1"); // No client-side decorations for Qt
+
+    // For Marathon app runner IPC: allow the runner to verify lifecycle calls come from the shell.
+    // Only set this for marathon-app-runner launches.
+    if (actualCommand.contains("marathon-app-runner")) {
+        env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
+    }
 
     process->setProcessEnvironment(env);
 
@@ -363,7 +368,28 @@ void WaylandCompositor::launchApp(const QString &command) {
     m_processes[process] = actualCommand;
 
     qDebug() << "[WaylandCompositor] Starting process:" << actualCommand;
-    process->start("/bin/sh", {"-c", actualCommand});
+
+    // Prefer direct exec (so the PID we emit matches the real client PID for strict PID↔surface mapping).
+    // Only fall back to /bin/sh when the command needs shell features.
+    const QStringList parts    = QProcess::splitCommand(actualCommand);
+    const bool        hasParts = !parts.isEmpty();
+    const QString     program  = hasParts ? parts.first() : QString();
+    const QStringList args     = hasParts ? parts.mid(1) : QStringList();
+
+    // Heuristic: if splitCommand can't parse, or the string contains obvious shell metacharacters,
+    // fall back to /bin/sh -c.
+    const bool needsShell = !hasParts || actualCommand.contains('|') ||
+        actualCommand.contains('&') || actualCommand.contains(';') ||
+        actualCommand.contains("&&") || actualCommand.contains("||") ||
+        actualCommand.contains('>') || actualCommand.contains('<');
+
+    if (!needsShell) {
+        process->setProgram(program);
+        process->setArguments(args);
+        process->start();
+    } else {
+        process->start("/bin/sh", {"-c", actualCommand});
+    }
 
     if (process->waitForStarted(3000)) {
         qint64 pid = process->processId();
@@ -470,9 +496,13 @@ QObject *WaylandCompositor::getSurfaceById(int surfaceId) {
 }
 
 void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
-    qWarning() << "[WaylandCompositor] ========== RAW SURFACE CREATED ==========";
-    qWarning() << "[WaylandCompositor]   Surface:" << surface;
-    qWarning() << "[WaylandCompositor]   Client:" << surface->client();
+    // This is very noisy during normal operation (apps can create multiple surfaces).
+    // Keep it available for debugging, but don't log as warning.
+    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
+        qInfo() << "[WaylandCompositor] ========== RAW SURFACE CREATED ==========";
+        qInfo() << "[WaylandCompositor]   Surface:" << surface;
+        qInfo() << "[WaylandCompositor]   Client:" << surface->client();
+    }
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
@@ -507,13 +537,15 @@ void WaylandCompositor::activateSurface(int surfaceId) {
 
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                                                  QWaylandXdgSurface  *xdgSurface) {
-    qWarning() << "[WaylandCompositor] handleXdgToplevelCreated called";
-    qWarning() << "[WaylandCompositor]   toplevel:" << toplevel;
-    qWarning() << "[WaylandCompositor]   xdgSurface:" << xdgSurface;
-    if (toplevel)
-        qWarning() << "[WaylandCompositor]   appId:" << toplevel->appId();
-    if (toplevel)
-        qWarning() << "[WaylandCompositor]   title:" << toplevel->title();
+    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
+        qInfo() << "[WaylandCompositor] handleXdgToplevelCreated called";
+        qInfo() << "[WaylandCompositor]   toplevel:" << toplevel;
+        qInfo() << "[WaylandCompositor]   xdgSurface:" << xdgSurface;
+        if (toplevel)
+            qInfo() << "[WaylandCompositor]   appId:" << toplevel->appId();
+        if (toplevel)
+            qInfo() << "[WaylandCompositor]   title:" << toplevel->title();
+    }
 
     // CRITICAL: Null check before ANY operations to prevent crashes from malformed surfaces
     if (!toplevel || !xdgSurface) {
@@ -546,16 +578,18 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     // CRITICAL: Store xdgSurface for graceful close via sendClose()
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
 
-    // DEBUG: Log before emitting to verify signal is fired
-    qWarning() << "[WaylandCompositor] ========== EMITTING surfaceCreated ==========";
-    qWarning() << "[WaylandCompositor]   surfaceId:" << surfaceId;
-    qWarning() << "[WaylandCompositor]   appId:" << toplevel->appId();
-    qWarning() << "[WaylandCompositor]   title:" << toplevel->title();
+    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
+        qInfo() << "[WaylandCompositor] ========== EMITTING surfaceCreated ==========";
+        qInfo() << "[WaylandCompositor]   surfaceId:" << surfaceId;
+        qInfo() << "[WaylandCompositor]   appId:" << toplevel->appId();
+        qInfo() << "[WaylandCompositor]   title:" << toplevel->title();
+    }
 
     // NOW emit surfaceCreated with surfaceId, xdgSurface AND toplevel
     emit surfaceCreated(surface, surfaceId, xdgSurface);
 
-    qWarning() << "[WaylandCompositor] ========== surfaceCreated EMITTED ==========";
+    if (qEnvironmentVariableIsSet("MARATHON_DEBUG"))
+        qInfo() << "[WaylandCompositor] ========== surfaceCreated EMITTED ==========";
 
     // Connect signals with QPointer for safe access to toplevel and surface
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
@@ -633,11 +667,14 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
         surface->setProperty("surfaceId", surfaceId);
     }
 
-    // Get parent surface info for logging
-    QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
-    QWaylandSurface    *parentSurface    = parentXdgSurface ? parentXdgSurface->surface() : nullptr;
-    qDebug() << "[WaylandCompositor] Popup created:" << surfaceId
-             << "parent:" << (parentSurface ? parentSurface->property("surfaceId").toInt() : -1);
+    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
+        // Parent surface info is useful for debugging popup routing.
+        QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
+        qWarning() << "[WaylandCompositor] Popup created:" << surfaceId << "parent:"
+                   << (parentXdgSurface && parentXdgSurface->surface() ?
+                           parentXdgSurface->surface()->property("surfaceId").toInt() :
+                           -1);
+    }
 
     // Store popup data
     surface->setProperty("isPopup", true);
@@ -740,90 +777,74 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
 }
 
 void WaylandCompositor::calculateAndSetPhysicalSize() {
-    if (!m_window || !m_output || !m_settingsManager) {
-        qWarning() << "[WaylandCompositor] Cannot calculate physical size - missing dependencies";
+    if (!m_window || !m_output) {
+        qWarning() << "[WaylandCompositor] Cannot configure output metrics - missing window/output";
         return;
     }
 
-    // ====================================================================================
-    // DYNAMIC PHYSICAL SIZE CALCULATION FOR MOBILE APP DETECTION
-    // ====================================================================================
+    // --- Scale factor (wl_output::scale) ---
     //
-    // Problem: GTK4/libadwaita, Qt/KDE, and Firefox determine if they're running on a
-    // mobile device by calculating DPI from wl_output::physical_size and window dimensions.
-    // Without physical_size, they default to ~96 DPI (desktop) regardless of window size.
-    //
-    // Solution: Calculate physical size based on:
-    //   1. Window dimensions (from m_window->size())
-    //   2. Target mobile DPI (typically 150-250 for phones)
-    //   3. User's UI scale factor (from Settings)
-    //
-    // Formula: DPI = pixels / (mm / 25.4)
-    //          mm = (pixels / DPI) * 25.4
-    //
-    // With user scale compensation:
-    //   effectiveDPI = targetDPI / userScale
-    //   (If user wants 125% scale, we report a "larger" physical size to compensate)
-    //
-    // ====================================================================================
+    // Proper Wayland behavior: the compositor advertises an integer output scale, and clients
+    // render higher-resolution buffers when scale > 1. Hardcoding scale=1 makes all apps blurry
+    // on HiDPI displays because their buffers are upscaled.
+    QScreen *screen = m_window->screen();
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
 
-    // Constants
-    const qreal TARGET_MOBILE_DPI = 200.0; // Target DPI for mobile form factor
-    const qreal MM_PER_INCH       = 25.4;
+    qreal dpr = 1.0;
+    if (screen)
+        dpr = screen->devicePixelRatio();
 
-    // Get current state
-    QSize windowSize = m_window->size();
-    qreal userScale  = m_settingsManager->userScaleFactor(); // 1.0 = 100%, 1.25 = 125%, etc.
+    // Wayland core protocol uses an integer scale. Choose the nearest sensible integer.
+    const int scale = qMax(1, qRound(dpr));
+    if (m_output->scaleFactor() != scale)
+        m_output->setScaleFactor(scale);
 
-    // Validate user scale
-    if (userScale <= 0.0) {
-        qWarning() << "[WaylandCompositor] Invalid user scale factor:" << userScale
-                   << "- using 1.0";
-        userScale = 1.0;
+    // --- Available geometry ---
+    // Required for Qt's XdgToplevelIntegration; keep in logical coords (window size).
+    const QSize windowSize = m_window->size();
+    m_output->setAvailableGeometry(QRect(QPoint(0, 0), windowSize));
+
+    // --- Physical size (wl_output::physical_size) ---
+    // Compute proportionally from the host screen's physical size, so DPI remains consistent
+    // without inventing a fake "target DPI".
+    QSize physicalSizeMm(0, 0);
+    if (screen) {
+        const QSizeF hostMm = screen->physicalSize();    // millimeters (Qt6 uses QSizeF)
+        const QSize  hostPx = screen->geometry().size(); // logical px in Qt coordinate space
+
+        if (hostMm.isValid() && hostMm.width() > 0.0 && hostMm.height() > 0.0 && hostPx.isValid() &&
+            hostPx.width() > 0 && hostPx.height() > 0) {
+            const qreal rx =
+                static_cast<qreal>(windowSize.width()) / static_cast<qreal>(hostPx.width());
+            const qreal ry =
+                static_cast<qreal>(windowSize.height()) / static_cast<qreal>(hostPx.height());
+            physicalSizeMm =
+                QSize(qMax(1, qRound(hostMm.width() * rx)), qMax(1, qRound(hostMm.height() * ry)));
+        }
     }
 
-    // Calculate effective DPI accounting for user's scale preference
-    // If user wants larger UI (scale > 1.0), we report smaller DPI to compensate
-    qreal effectiveDPI = TARGET_MOBILE_DPI / userScale;
+    // Fallback: if host physical size is unknown, derive mm from DPI.
+    if (!physicalSizeMm.isValid() || physicalSizeMm.width() <= 0 || physicalSizeMm.height() <= 0) {
+        const qreal mmPerInch = 25.4;
+        qreal       dpi       = 0.0;
+        if (screen) {
+            dpi = screen->physicalDotsPerInch();
+            if (dpi <= 0.0)
+                dpi = screen->logicalDotsPerInch();
+        }
+        if (dpi <= 0.0)
+            dpi = 96.0; // last-resort fallback when the platform reports nothing useful
 
-    // Calculate physical dimensions in millimeters
-    qreal physicalWidthMM  = (windowSize.width() / effectiveDPI) * MM_PER_INCH;
-    qreal physicalHeightMM = (windowSize.height() / effectiveDPI) * MM_PER_INCH;
+        physicalSizeMm = QSize(qMax(1, qRound((windowSize.width() / dpi) * mmPerInch)),
+                               qMax(1, qRound((windowSize.height() / dpi) * mmPerInch)));
+    }
 
-    QSize physicalSize(qRound(physicalWidthMM), qRound(physicalHeightMM));
+    m_output->setPhysicalSize(physicalSizeMm);
 
-    // Set the physical size on the output
-    m_output->setPhysicalSize(physicalSize);
-
-    // Calculate resulting DPI for logging
-    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) - used in logging below
-    qreal actualDPI = (windowSize.width() / physicalWidthMM) * MM_PER_INCH;
-    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) - used in logging below
-    qreal diagonalInches =
-        qSqrt(qPow(physicalWidthMM / MM_PER_INCH, 2) + qPow(physicalHeightMM / MM_PER_INCH, 2));
-
-    qInfo() << "[WaylandCompositor] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-    qInfo() << "[WaylandCompositor] Physical Size Configuration (Mobile Detection)";
-    qInfo() << "[WaylandCompositor] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-    qInfo() << "[WaylandCompositor]   Window size:       " << windowSize.width() << "x"
-            << windowSize.height() << "px";
-    qInfo() << "[WaylandCompositor]   User scale:        "
-            << QString::number(userScale * 100, 'f', 0) << "% (" << userScale << ")";
-    qInfo() << "[WaylandCompositor]   Target DPI:        " << TARGET_MOBILE_DPI;
-    qInfo() << "[WaylandCompositor]   Effective DPI:     " << QString::number(effectiveDPI, 'f', 1);
-    qInfo() << "[WaylandCompositor]   Physical size:     " << physicalSize.width() << "x"
-            << physicalSize.height() << " mm";
-    qInfo() << "[WaylandCompositor]   Resulting DPI:     " << QString::number(actualDPI, 'f', 1)
-            << " (GTK/Qt will calculate this)";
-    qInfo() << "[WaylandCompositor]   Screen diagonal:   "
-            << QString::number(diagonalInches, 'f', 2) << " inches (virtual)";
-    qInfo() << "[WaylandCompositor] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-    qInfo() << "[WaylandCompositor] ✓ Apps will detect as mobile device";
-    qInfo() << "[WaylandCompositor]   - GTK/libadwaita: Will use mobile layouts (AdwBreakpoint "
-               "narrow mode)";
-    qInfo() << "[WaylandCompositor]   - Qt/KDE: Will respect QT_QUICK_CONTROLS_MOBILE";
-    qInfo() << "[WaylandCompositor]   - Firefox: Will calculate mobile-appropriate DPI";
-    qInfo() << "[WaylandCompositor] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+    qInfo() << "[WaylandCompositor] Output metrics:"
+            << "window=" << windowSize << "scale=" << m_output->scaleFactor()
+            << "physical(mm)=" << physicalSizeMm << "screenDpr=" << dpr;
 }
 
 void WaylandCompositor::setCompositorRealtimePriority() {

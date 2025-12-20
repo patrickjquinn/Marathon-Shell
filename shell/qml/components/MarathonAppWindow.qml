@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Rectangle {
+    // MarathonAppLoader removed: apps are isolated processes (Wayland clients).
+
     id: appWindow
 
     property string appId: ""
@@ -182,61 +184,10 @@ Rectangle {
                     component.statusChanged.connect(finishCreation);
             }
         } else {
-            // Check if app exists in registry
-            var appInfo = MarathonAppRegistry.getApp(id);
-            if (appInfo && appInfo.absolutePath && appInfo.entryPoint) {
-                // Check if app instance already exists in lifecycle manager
-                var existingInstance = null;
-                if (typeof AppLifecycleManager !== 'undefined')
-                    existingInstance = AppLifecycleManager.getAppInstance(id);
-
-                if (existingInstance) {
-                    // Reuse existing instance - just reparent it
-                    Logger.info("AppWindow", "Reusing existing app instance: " + id);
-                    console.log("AppWindow: Reusing and re-registering existing instance:", id);
-                    // Re-register to ensure it's in foreground state
-                    if (typeof AppLifecycleManager !== 'undefined')
-                        AppLifecycleManager.registerApp(id, existingInstance);
-
-                    existingInstance.visible = true;
-                    appWindow.pendingAppInstance = existingInstance;
-                    existingInstance.visible = true;
-                    appWindow.pendingAppInstance = existingInstance;
-                    // OPTIMIZATON: If loader is already ready, simply adopt the instance
-                    if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
-                        appContentLoader.item.adoptPendingApp();
-                    } else {
-                        // Force reload
-                        appContentLoader.sourceComponent = undefined;
-                        appContentLoader.sourceComponent = appInstanceContainer;
-                    }
-                } else {
-                    // Load external Marathon app asynchronously
-                    Logger.info("AppWindow", "Loading external app from: " + appInfo.absolutePath);
-                    console.log("[DEBUG] MarathonAppLoader exists:", typeof MarathonAppLoader !== 'undefined');
-                    console.log("[DEBUG] MarathonAppLoader value:", MarathonAppLoader);
-                    // Show loading splash while component loads
-                    appWindow.isLoadingComponent = true;
-                    // Use async loading to avoid blocking UI
-                    if (typeof MarathonAppLoader !== 'undefined' && MarathonAppLoader !== null) {
-                        console.log("[DEBUG] Calling MarathonAppLoader.loadAppAsync for:", id);
-                        MarathonAppLoader.loadAppAsync(id);
-                    } else {
-                        console.error("[ERROR] MarathonAppLoader is not available!");
-                        appWindow.hasError = true;
-                        appWindow.loadError = "MarathonAppLoader not available";
-                        appWindow.isLoadingComponent = false;
-                    }
-                }
-            } else {
-                // Load placeholder template app
-                Logger.info("AppWindow", "Loading template app for: " + id);
-                appContentLoader.setSource("../apps/template/TemplateApp.qml", {
-                    "_appId": id,
-                    "_appName": name,
-                    "_appIcon": icon
-                });
-            }
+            // Marathon apps are out-of-process Wayland clients (marathon-app-runner).
+            // The shell does not load app QML in-process anymore.
+            Logger.warn("AppWindow", "Non-native show() requested for appId=" + id + " - waiting for Wayland surface");
+            appWindow.isLoadingComponent = true;
         }
         visible = true;
         forceActiveFocus();
@@ -348,7 +299,6 @@ Rectangle {
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
             console.log("[AppWindow] Back/Escape key pressed");
-            MarathonAppLoader.unloadApp(appId);
             hide();
             event.accepted = true;
         }
@@ -360,7 +310,10 @@ Rectangle {
 
         anchors.fill: parent
         color: MColors.background
-        visible: appWindow.isLoadingComponent && !appWindow.hasError
+        // Keep the *outer* splash visible until the embedded native window reports it has
+        // both configured AND painted at least one frame. Otherwise we get a white flash
+        // during the handoff (outer splash hides, inner splash not yet visible/painted).
+        visible: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appContentLoader.item && appContentLoader.item.appInstance && appContentLoader.item.appInstance.revealReady === true)
         z: 1000
 
         Column {
@@ -598,52 +551,13 @@ Rectangle {
     }
 
     Timer {
+        // Leave isLoadingComponent true; the splash visibility is now gated by
+        // the embedded client's first frame (readyForReveal).
+
         id: splashHideTimer
 
         interval: 100
-        onTriggered: {
-            appWindow.isLoadingComponent = false;
-        }
-    }
-
-    Connections {
-        function onAppLoadProgress(appId, percent) {
-            if (appId === appWindow.appId)
-                Logger.debug("AppWindow", "Load progress for " + appId + ": " + percent + "%");
-        }
-
-        function onAppInstanceReady(appId, instance) {
-            if (appId === appWindow.appId) {
-                Logger.info("AppWindow", "App instance ready: " + appId);
-                // IMMEDIATELY register the app with AppLifecycleManager
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    console.log("AppWindow: Registering app:", appId);
-                    AppLifecycleManager.registerApp(appId, instance);
-                } else {
-                    console.error("AppWindow: AppLifecycleManager not available!");
-                }
-                // Store instance and set component - container will pick it up
-                appWindow.pendingAppInstance = instance;
-                // FORCE reload by clearing first
-                appContentLoader.sourceComponent = undefined;
-                appContentLoader.sourceComponent = appInstanceContainer;
-                Logger.info("AppWindow", "External app loaded successfully: " + appId);
-                appWindow.hasError = false;
-                appWindow.isLoadingComponent = false;
-            }
-        }
-
-        function onLoadError(appId, error) {
-            if (appId === appWindow.appId) {
-                Logger.error("AppWindow", "Received loadError signal for: " + appId + " - " + error);
-                appWindow.hasError = true;
-                appWindow.loadError = error;
-                appWindow.isLoadingComponent = false;
-            }
-        }
-
-        target: MarathonAppLoader
-        enabled: MarathonAppLoader !== null
+        onTriggered: {}
     }
 
     dialogOverlayComponent: Component {

@@ -24,11 +24,11 @@ QtObject {
     property bool isCellularDataOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
     property bool isDndMode: AudioManager.dndEnabled
     property bool isAlarmOn: typeof AlarmManager !== 'undefined' ? (AlarmManager.hasActiveAlarm || _hasEnabledAlarm()) : false
-    property bool isAutoBrightnessOn: DisplayManagerCpp.autoBrightnessEnabled
+    property bool isAutoBrightnessOn: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.autoBrightnessEnabled : false
     property bool isLocationOn: typeof LocationManager !== 'undefined' ? LocationManager.active : false
     property bool isHotspotOn: typeof NetworkManagerCpp !== 'undefined' ? NetworkManagerCpp.isHotspotActive() : false
     property bool isVibrationOn: typeof HapticManager !== 'undefined' ? HapticManager.enabled : true
-    property bool isNightLightOn: DisplayManagerCpp.nightLightEnabled
+    property bool isNightLightOn: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.nightLightEnabled : false
     property int brightness: 50 // Managed by binding below
     property int volume: 50 // Managed by binding below
     // Two-way bindings with restore mode (as properties)
@@ -73,7 +73,7 @@ QtObject {
     function toggleRotationLock() {
         var newLock = !isRotationLocked;
         if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-            DisplayManagerCpp.setRotationLock(newLock);
+            DisplayManagerCpp.rotationLocked = newLock;
 
         Logger.info("SystemControl", "Rotation lock: " + newLock);
     }
@@ -125,7 +125,9 @@ QtObject {
 
     function toggleAutoBrightness() {
         var newMode = !isAutoBrightnessOn;
-        DisplayManagerCpp.setAutoBrightness(newMode);
+        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.autoBrightnessEnabled = newMode;
+
         Logger.info("SystemControl", "Auto-brightness toggled to: " + newMode);
     }
 
@@ -159,7 +161,9 @@ QtObject {
 
     function toggleNightLight() {
         var newMode = !isNightLightOn;
-        DisplayManagerCpp.setNightLightEnabled(newMode);
+        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.nightLightEnabled = newMode;
+
         Logger.info("SystemControl", "Night Light toggled to: " + newMode);
     }
 

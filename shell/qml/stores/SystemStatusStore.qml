@@ -53,7 +53,10 @@ QtObject {
 
     function updateTime() {
         systemStatus.currentTime = new Date();
-        systemStatus.timeString = Qt.formatTime(systemStatus.currentTime, SettingsManagerCpp.timeFormat === "24h" ? "HH:mm" : "h:mm AP");
+        // In strict app process isolation, apps may import MarathonOS.Shell QML but won't have
+        // shell-only context properties like SettingsManagerCpp. Guard to avoid ReferenceError spam.
+        var tf = (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) ? SettingsManagerCpp.timeFormat : "24h";
+        systemStatus.timeString = Qt.formatTime(systemStatus.currentTime, tf === "24h" ? "HH:mm" : "h:mm AP");
         systemStatus.dateString = Qt.formatDate(systemStatus.currentTime, "dddd, MMMM d");
     }
 

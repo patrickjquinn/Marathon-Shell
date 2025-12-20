@@ -24,6 +24,8 @@ Item {
     // ESC and Meta consumption removed here - handled by C++ filter
     // Only after initialization
     // Only after initialization
+    // Lucide Icon Font is now owned by MarathonUI.Core (see `marathon-ui/Core/Icon.qml`).
+    // Avoid loading it from the shell qrc so it also works for isolated apps.
 
     id: shell
 
@@ -158,26 +160,6 @@ Item {
         // CRITICAL: Connect compositor signals AFTER compositor is created
         // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
-            compositor.surfaceCreated.connect(shell, function (surface, surfaceId, xdgSurface) {
-                compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp);
-                compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface);
-            });
-            compositor.surfaceDestroyed.connect(shell, function (surface, surfaceId) {
-                // NOTE: We do NOT remove tasks on surface destruction.
-                // Apps like Chromium unmap/destroy their surface when minimized but the process is still running.
-                // Tasks should only be removed when:
-                // 1. The process actually terminates (handled by appClosed signal)
-                // 2. User explicitly closes from task switcher (handled by task switcher close button)
-                console.log("[Shell] surfaceDestroyed for surfaceId: " + surfaceId + " (task NOT removed - process may still be running)");
-                // Still notify CompositorConnections for window cleanup
-                compositorConnections.handleSurfaceDestroyed(surface, surfaceId);
-            });
-            compositor.appLaunched.connect(shell, function (command, pid) {
-                compositorConnections.handleAppLaunched(command, pid);
-            });
-            compositor.appClosed.connect(shell, function (pid) {
-                compositorConnections.handleAppClosed(pid);
-            });
             // Connect Global Input Signals (from C++ Event Filter)
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
@@ -524,13 +506,6 @@ Item {
         id: slateBold
 
         source: "qrc:/fonts/Slate-Bold.ttf"
-    }
-
-    // Lucide Icon Font
-    FontLoader {
-        id: lucideFont
-
-        source: "qrc:/fonts/lucide.ttf"
     }
 
     // Global mouse area to track ALL mouse movement for cursor visibility
@@ -970,8 +945,8 @@ Item {
                             }
                         }
                     }
-                    // Default: Marathon app or native app fallback
-                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon");
+                    // Default: ask C++ to launch (out-of-process) if we don't have a native surface to show.
+                    AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
 
@@ -1009,8 +984,8 @@ Item {
                             }
                         }
                     }
-                    // Default: Marathon app or native app fallback
-                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon");
+                    // Default: ask C++ to launch (out-of-process) if we don't have a native surface to show.
+                    AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
 
@@ -1707,7 +1682,6 @@ Item {
     Comp.PermissionDialog {
         id: permissionDialog
 
-        anchors.centerIn: parent
         z: Constants.zIndexModalOverlay + 50
     }
 
@@ -1760,13 +1734,13 @@ Item {
     }
 
     Timer {
+        // Conservative fallback if the policy controller isn't available.
+
         id: criticalBatteryShutdownTimer
 
         interval: 10000
         repeat: false
         onTriggered: {
-            // Conservative fallback if the policy controller isn't available.
-
             Logger.critical("Battery", "Emergency critical power action due to battery");
             if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
                 PowerPolicyControllerCpp.performCriticalPowerAction();
@@ -1899,10 +1873,6 @@ Item {
             Logger.info("Shell", "Power button LONG PRESS detected - showing power menu");
             powerMenu.show();
         }
-    }
-
-    Comp.CompositorConnections {
-        id: compositorConnections
     }
 
     PowerMenu {

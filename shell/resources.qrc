@@ -106,6 +106,5 @@
         <file alias="Slate-MediumItalic.ttf">resources/fonts/SlateMedIt.TTF</file>
         <file alias="Slate-Bold.ttf">resources/fonts/SlateBold.TTF</file>
         <file alias="Slate-BoldItalic.ttf">resources/fonts/SlateBoldIt.TTF</file>
-        <file alias="lucide.ttf">resources/fonts/lucide.ttf</file>
     </qresource>
 </RCC>

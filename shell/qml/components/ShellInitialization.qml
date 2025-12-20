@@ -10,7 +10,6 @@ QtObject {
 
     function initialize(shellRef, rootWindow) {
         root.shell = shellRef;
-        WallpaperStore.currentWallpaper = SettingsManagerCpp.wallpaperPath;
         Constants.updateScreenSize(shellRef.width, shellRef.height, Screen.pixelDensity * 25.4);
         UIStore.shellRef = shellRef;
         Logger.info("ShellInitialization", "Screen size: " + shellRef.width + "x" + shellRef.height + " @ " + Math.round(Screen.pixelDensity * 25.4) + " DPI");
