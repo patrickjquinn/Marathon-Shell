@@ -32,6 +32,10 @@ import QtQuick
  * )
  */
 QtObject {
+    // Following freedesktop.org spec: ALL apps (internal or external) call the DBus interface
+    // The notification daemon (shell) handles everything in _handleExternalNotification()
+    // This prevents duplicate handling and follows the standard architecture
+
     id: notificationService
 
     /**
@@ -128,10 +132,6 @@ QtObject {
      * )
      */
     function sendNotification(appId, title, body, options) {
-        // Following freedesktop.org spec: ALL apps (internal or external) call the DBus interface
-        // The notification daemon (shell) handles everything in _handleExternalNotification()
-        // This prevents duplicate handling and follows the standard architecture
-
         if (!notificationsEnabled) {
             console.log("[NotificationService] Notifications disabled, ignoring");
             return -1;
@@ -269,18 +269,18 @@ QtObject {
     }
 
     function _platformNotify(notification) {
+        // app_name
+        // replaces_id (0 = new, >0 = replace existing)
+        // app_icon
+        // summary
+        // body
+        // actions
+        // hints
+        // expire_timeout (0 = never, else milliseconds)
+
         if (Platform.isLinux) {
             // Emit via org.freedesktop.Notifications DBus interface
             if (typeof FreedesktopNotifications !== 'undefined') {
-                // app_name
-                // replaces_id (0 = new, >0 = replace existing)
-                // app_icon
-                // summary
-                // body
-                // actions
-                // hints
-                // expire_timeout (0 = never, else milliseconds)
-
                 console.log("[NotificationService] Emitting D-Bus notification:", notification.title);
                 // Convert actions array to QStringList format (key, label, key, label, ...)
                 var actionsList = [];
@@ -371,6 +371,10 @@ QtObject {
     // Both internal Marathon OS apps and external apps go through this path
     function _handleExternalNotification(id) {
         console.log("[NotificationService] Notification received via DBus:", id);
+        if (typeof NotificationModel === "undefined" || !NotificationModel) {
+            console.warn("[NotificationService] NotificationModel not available (isolated app process?)");
+            return;
+        }
         // Get the notification from the model (added by FreedesktopNotifications::Notify)
         var notification = NotificationModel.getNotification(id);
         if (!notification) {
@@ -405,8 +409,12 @@ QtObject {
 
     Component.onCompleted: {
         console.log("[NotificationService] Initialized");
-        // Connect to NotificationModel signal for external notifications
-        NotificationModel.notificationAdded.connect(_handleExternalNotification);
+        // Connect to NotificationModel signal for external notifications.
+        // In strict process isolation, apps may import MarathonOS.Shell QML without having the
+        // shell-only NotificationModel context property; guard to avoid ReferenceError spam.
+        if (typeof NotificationModel !== "undefined" && NotificationModel)
+            NotificationModel.notificationAdded.connect(_handleExternalNotification);
+
         if (!Platform.isLinux && !Platform.isMacOS)
             _populateTestNotifications();
     }

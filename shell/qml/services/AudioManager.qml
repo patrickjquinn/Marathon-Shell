@@ -40,12 +40,17 @@ QtObject {
 
     function setVolume(value) {
         var clamped = Math.max(0, Math.min(1, value));
-        if (typeof AudioPolicyControllerCpp !== 'undefined')
+        // Prefer direct AudioManagerCpp control (runner uses a DBus-backed proxy under strict isolation).
+        if (typeof AudioManagerCpp !== 'undefined')
+            AudioManagerCpp.setVolume(clamped);
+        else if (typeof AudioPolicyControllerCpp !== 'undefined')
             AudioPolicyControllerCpp.setMasterVolume(clamped);
     }
 
     function setMuted(mute) {
-        if (typeof AudioPolicyControllerCpp !== 'undefined')
+        if (typeof AudioManagerCpp !== 'undefined')
+            AudioManagerCpp.setMuted(mute);
+        else if (typeof AudioPolicyControllerCpp !== 'undefined')
             AudioPolicyControllerCpp.setMuted(mute);
     }
 
@@ -59,6 +64,8 @@ QtObject {
     }
 
     function setDoNotDisturb(enabled) {
+        // DND is persisted in SettingsManager; policy controller is optional.
+        SettingsManagerCpp.dndEnabled = enabled;
         if (typeof AudioPolicyControllerCpp !== 'undefined')
             AudioPolicyControllerCpp.setDoNotDisturb(enabled);
     }
