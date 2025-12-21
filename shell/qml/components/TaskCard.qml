@@ -267,6 +267,8 @@ Item {
                                             item.anchors.fill = nativeSurfaceLoader;
                                             item.autoResize = false;
                                             item.hasSentInitialSize = true;
+                                            // Keep the last committed frame for the task switcher preview.
+                                            item.isMinimized = true;
                                         }
                                     }
 

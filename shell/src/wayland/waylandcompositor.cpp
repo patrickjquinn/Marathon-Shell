@@ -178,22 +178,37 @@ void WaylandCompositor::launchApp(const QString &command) {
     qDebug() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << qgetenv("XDG_RUNTIME_DIR");
 
     // Handle Flatpak and Snap apps
-    QString actualCommand = command;
-    bool    isFlatpak     = command.startsWith("FLATPAK:");
-    bool    isSnap        = command.startsWith("SNAP:");
+    QString    actualCommand = command;
+    const bool isFlatpak     = command.startsWith("FLATPAK:");
+    const bool isSnap        = command.startsWith("SNAP:");
+    // If we can represent a command as an argv vector, prefer that to preserve correctness.
+    QStringList execPartsOverride;
 
     if (isFlatpak) {
-        actualCommand = command.mid(8); // Remove "FLATPAK:" prefix
-        QString socketPath =
-            QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR")) + "/" + socketName();
-
-        // Add Wayland permissions to Flatpak command
-        actualCommand += " --socket=wayland";
-        actualCommand += " --env=WAYLAND_DISPLAY=" + socketName();
-        actualCommand += " --filesystem=xdg-run/" + socketName();
-        actualCommand += " --unset-env=DBUS_SESSION_BUS_ADDRESS";
-
-        qInfo() << "[WaylandCompositor] Flatpak command with permissions:" << actualCommand;
+        // IMPORTANT (correctness): flatpak syntax is:
+        //   flatpak run [OPTION...] REF [ARG...]
+        // Options must come BEFORE REF. Appending options at the end turns them into app args.
+        actualCommand           = command.mid(8); // Remove "FLATPAK:" prefix
+        const QStringList parts = QProcess::splitCommand(actualCommand);
+        if (parts.size() >= 2 && parts.at(0) == "flatpak" && parts.at(1) == "run") {
+            QStringList newParts;
+            newParts << "flatpak"
+                     << "run"
+                     << "--socket=wayland"
+                     << QStringLiteral("--filesystem=xdg-run/%1").arg(socketName())
+                     << QStringLiteral("--env=WAYLAND_DISPLAY=%1").arg(socketName());
+            // Keep the rest of the user's args intact (including any existing options and REF).
+            newParts << parts.mid(2);
+            execPartsOverride = newParts;
+            actualCommand     = newParts.join(' ');
+        } else {
+            // Best-effort fallback: don't mutate unknown flatpak command shapes.
+            qWarning()
+                << "[WaylandCompositor] FLATPAK: command did not look like 'flatpak run ...':"
+                << actualCommand;
+        }
+        qInfo() << "[WaylandCompositor] Flatpak command (Wayland socket injected):"
+                << actualCommand;
     }
 
     if (isSnap) {
@@ -235,47 +250,56 @@ void WaylandCompositor::launchApp(const QString &command) {
     qint64 timestamp   = QDateTime::currentMSecsSinceEpoch();
     uint   commandHash = qHash(actualCommand);
 
-    // Create /tmp/marathon-apps directory if it doesn't exist
-    QDir tmpDir("/tmp/marathon-apps");
-    if (!tmpDir.exists()) {
-        tmpDir.mkpath(".");
+    // For sandboxed Flatpak apps, forcing a synthetic desktop file is unnecessary and can be
+    // counter-productive. Keep this behavior for non-Flatpak apps where we observed host instance
+    // interference via GApplication single-instance activation.
+    //
+    // Also skip this for marathon-app-runner launches: runner instances are isolated and do not
+    // participate in GApplication single-instance activation.
+    const bool isRunner = actualCommand.contains("marathon-app-runner");
+    if (!isFlatpak && !isRunner) {
+        // Create /tmp/marathon-apps directory if it doesn't exist
+        QDir tmpDir("/tmp/marathon-apps");
+        if (!tmpDir.exists()) {
+            tmpDir.mkpath(".");
+        }
+
+        // Create unique desktop file path
+        QString uniqueDesktopFile =
+            QString("/tmp/marathon-apps/marathon-%1-%2.desktop").arg(timestamp).arg(commandHash);
+
+        // Create a properly formatted desktop file for GApplication
+        QFile desktopFile(uniqueDesktopFile);
+        if (desktopFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&desktopFile);
+            out << "[Desktop Entry]\n";
+            out << "Version=1.0\n"; // Desktop Entry Spec version
+            out << "Type=Application\n";
+            out << "Name=Marathon Embedded App\n";
+            out << "GenericName=Application\n";
+            out << "Comment=Application running in Marathon OS\n";
+            out << "Exec=" << actualCommand << "\n";
+            out << "Terminal=false\n";                  // Not a terminal app
+            out << "Categories=Utility;\n";             // FreeDesktop category
+            out << "StartupNotify=true\n";              // Supports startup notification
+            out << "X-GNOME-UsesNotifications=false\n"; // Prevent notification parsing
+            out << "X-Marathon-Embedded=true\n";        // Custom field for identification
+            desktopFile.close();
+
+            qDebug()
+                << "[WaylandCompositor] Created desktop file with full specification compliance";
+        } else {
+            qWarning() << "[WaylandCompositor] Failed to create desktop file:" << uniqueDesktopFile;
+        }
+
+        env.insert("GIO_LAUNCHED_DESKTOP_FILE", uniqueDesktopFile);
+        env.insert("GIO_LAUNCHED_DESKTOP_FILE_PID",
+                   QString::number(QCoreApplication::applicationPid()));
+        // Remember it so we can clean it up when the process exits.
+        process->setProperty("marathonDesktopFile", uniqueDesktopFile);
+
+        qDebug() << "[WaylandCompositor] Created unique desktop file:" << uniqueDesktopFile;
     }
-
-    // Create unique desktop file path
-    QString uniqueDesktopFile =
-        QString("/tmp/marathon-apps/marathon-%1-%2.desktop").arg(timestamp).arg(commandHash);
-
-    // Create a properly formatted desktop file for GApplication
-    // GApplication uses the desktop file basename for D-Bus name generation and parses
-    // various fields. Including all standard fields prevents GLib warnings and ensures
-    // proper application behavior across GTK, Qt, and other toolkits.
-    QFile desktopFile(uniqueDesktopFile);
-    if (desktopFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&desktopFile);
-        out << "[Desktop Entry]\n";
-        out << "Version=1.0\n"; // Desktop Entry Spec version
-        out << "Type=Application\n";
-        out << "Name=Marathon Embedded App\n";
-        out << "GenericName=Application\n";
-        out << "Comment=Application running in Marathon OS\n";
-        out << "Exec=" << actualCommand << "\n";
-        out << "Terminal=false\n";                  // Not a terminal app
-        out << "Categories=Utility;\n";             // FreeDesktop category
-        out << "StartupNotify=true\n";              // Supports startup notification
-        out << "X-GNOME-UsesNotifications=false\n"; // Prevent notification parsing
-        out << "X-Marathon-Embedded=true\n";        // Custom field for identification
-        desktopFile.close();
-
-        qDebug() << "[WaylandCompositor] Created desktop file with full specification compliance";
-    } else {
-        qWarning() << "[WaylandCompositor] Failed to create desktop file:" << uniqueDesktopFile;
-    }
-
-    env.insert("GIO_LAUNCHED_DESKTOP_FILE", uniqueDesktopFile);
-    env.insert("GIO_LAUNCHED_DESKTOP_FILE_PID",
-               QString::number(QCoreApplication::applicationPid()));
-
-    qDebug() << "[WaylandCompositor] Created unique desktop file:" << uniqueDesktopFile;
 
     // Set OUR compositor variables
     env.insert("WAYLAND_DISPLAY", socketName());
@@ -315,8 +339,16 @@ void WaylandCompositor::launchApp(const QString &command) {
     // with errors like: module "Mobile" is not installed (seen in Clock's AlarmEditorDialog).
     // Keep the mobile/adaptive *hints* above, but use a real style.
     env.insert("QT_QUICK_CONTROLS_STYLE", "Basic");
-    env.insert("GTK_CSD", "1");        // Force client-side decorations for GTK apps
-    env.insert("GTK_USE_PORTAL", "0"); // Disable portals (can cause issues in nested compositors)
+    env.insert("GTK_CSD", "1"); // Force client-side decorations for GTK apps
+    // Portals:
+    // - For Flatpak apps, portals are the standard integration mechanism (file chooser, etc.).
+    // - For non-Flatpak nested compositor usage, portals can pop dialogs outside the shell.
+    // Keep non-Flatpak default OFF for backwards-compat, but allow opting in for "first-class"
+    // desktop integration via MARATHON_ENABLE_PORTALS=1.
+    if (!env.contains("GTK_USE_PORTAL")) {
+        const bool enablePortals = isFlatpak || envBool("MARATHON_ENABLE_PORTALS", false);
+        env.insert("GTK_USE_PORTAL", enablePortals ? "1" : "0");
+    }
 
     // Scaling:
     // Let clients follow Wayland's output scale (wl_output::scaleFactor). Do not force toolkit
@@ -371,7 +403,8 @@ void WaylandCompositor::launchApp(const QString &command) {
 
     // Prefer direct exec (so the PID we emit matches the real client PID for strict PID↔surface mapping).
     // Only fall back to /bin/sh when the command needs shell features.
-    const QStringList parts    = QProcess::splitCommand(actualCommand);
+    const QStringList parts =
+        execPartsOverride.isEmpty() ? QProcess::splitCommand(actualCommand) : execPartsOverride;
     const bool        hasParts = !parts.isEmpty();
     const QString     program  = hasParts ? parts.first() : QString();
     const QStringList args     = hasParts ? parts.mid(1) : QStringList();
@@ -383,23 +416,21 @@ void WaylandCompositor::launchApp(const QString &command) {
         actualCommand.contains("&&") || actualCommand.contains("||") ||
         actualCommand.contains('>') || actualCommand.contains('<');
 
+    // Emit appLaunched once the process actually starts (avoid blocking waitForStarted on the UI thread).
+    connect(process, &QProcess::started, this, [this, command, process]() {
+        const qint64 pid = process ? process->processId() : -1;
+        if (pid > 0) {
+            qInfo() << "[WaylandCompositor] Started PID" << pid;
+            emit appLaunched(command, static_cast<int>(pid));
+        }
+    });
+
     if (!needsShell) {
         process->setProgram(program);
         process->setArguments(args);
         process->start();
     } else {
         process->start("/bin/sh", {"-c", actualCommand});
-    }
-
-    if (process->waitForStarted(3000)) {
-        qint64 pid = process->processId();
-        qInfo() << "[WaylandCompositor] Started PID" << pid;
-        emit appLaunched(command, pid);
-    } else {
-        qWarning() << "[WaylandCompositor] Failed to start:" << actualCommand << "-"
-                   << process->errorString();
-        m_processes.remove(process);
-        process->deleteLater();
     }
 }
 
@@ -609,38 +640,39 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                 }
             });
 
-    // CRITICAL: Monitor hasContent changes to detect when app hides its window
-    // Many GNOME/GTK apps don't terminate when you click their internal X button
-    // They just unmap the surface and keep running in the background
-    connect(surface, &QWaylandSurface::hasContentChanged, this, [this, safeSurface, surfaceId]() {
-        if (safeSurface && !safeSurface->hasContent()) {
-            qInfo() << "[WaylandCompositor] Surface lost content (window hidden/unmapped) "
-                       "- surfaceId:"
-                    << surfaceId;
-            qInfo() << "[WaylandCompositor] Treating as app close and destroying surface";
+    // NOTE (correctness): a surface becoming "unmapped"/hasContent=false is not an authoritative
+    // app exit. Many apps intentionally hide/minimize or reconfigure surfaces. Treating this as a
+    // close can wrongly delete tasks.
+    //
+    // If you need legacy behavior for specific environments, enable it explicitly:
+    //   MARATHON_TREAT_UNMAP_AS_CLOSE=1
+    const bool treatUnmapAsClose = envBool("MARATHON_TREAT_UNMAP_AS_CLOSE", false);
+    if (treatUnmapAsClose) {
+        connect(
+            surface, &QWaylandSurface::hasContentChanged, this, [this, safeSurface, surfaceId]() {
+                if (safeSurface && !safeSurface->hasContent()) {
+                    qInfo() << "[WaylandCompositor] Surface lost content (window hidden/unmapped) "
+                               "- surfaceId:"
+                            << surfaceId;
+                    qInfo() << "[WaylandCompositor] Treating as app close (legacy mode)";
 
-            // CRITICAL: Emit surfaceDestroyed signal BEFORE cleaning up internal state
-            // so QML handlers can still access the surface if needed
-            qInfo() << "[WaylandCompositor] Emitting surfaceDestroyed signal for surfaceId:"
-                    << surfaceId;
-            emit surfaceDestroyed(safeSurface.data(), surfaceId);
-            qInfo() << "[WaylandCompositor] surfaceDestroyed signal emitted";
+                    // Emit surfaceDestroyed signal BEFORE cleaning up internal state so QML can react.
+                    emit surfaceDestroyed(safeSurface.data(), surfaceId);
 
-            // Clean up our internal state
-            if (m_surfaceIdToPid.contains(surfaceId)) {
-                qint64 pid = m_surfaceIdToPid[surfaceId];
-                m_pidToSurfaceId.remove(pid);
-                m_surfaceIdToPid.remove(surfaceId);
-                qDebug() << "[WaylandCompositor] Cleaned up PID mapping for" << pid;
-            }
+                    if (m_surfaceIdToPid.contains(surfaceId)) {
+                        qint64 pid = m_surfaceIdToPid[surfaceId];
+                        m_pidToSurfaceId.remove(pid);
+                        m_surfaceIdToPid.remove(surfaceId);
+                        qDebug() << "[WaylandCompositor] Cleaned up PID mapping for" << pid;
+                    }
 
-            m_surfaceMap.remove(surfaceId);
-            m_xdgSurfaceMap.remove(surfaceId);
-            m_surfaces.removeAll(safeSurface);
-
-            emit surfacesChanged();
-        }
-    });
+                    m_surfaceMap.remove(surfaceId);
+                    m_xdgSurfaceMap.remove(surfaceId);
+                    m_surfaces.removeAll(safeSurface);
+                    emit surfacesChanged();
+                }
+            });
+    }
 }
 
 void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
@@ -738,6 +770,17 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
 
     QString command = m_processes.value(process, "unknown");
     qint64  pid     = process->processId();
+
+    // Clean up any per-launch synthetic desktop file we created.
+    const QString desktopFile = process->property("marathonDesktopFile").toString();
+    if (!desktopFile.isEmpty()) {
+        if (QFile::exists(desktopFile)) {
+            if (!QFile::remove(desktopFile)) {
+                qWarning() << "[WaylandCompositor] Failed to remove temp desktop file:"
+                           << desktopFile;
+            }
+        }
+    }
 
     // gapplication launch spawns a subprocess and exits immediately, so PID tracking doesn't work
     bool isGApplication = command.contains("gapplication launch");
@@ -886,6 +929,12 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
     qWarning() << "[WaylandCompositor] Process error for" << command << ":" << errorString;
     qWarning() << "[WaylandCompositor] Error details:" << process->errorString();
 
+    // If we created a synthetic desktop file for this launch, remove it on failure too.
+    const QString desktopFile = process->property("marathonDesktopFile").toString();
+    if (!desktopFile.isEmpty() && QFile::exists(desktopFile)) {
+        QFile::remove(desktopFile);
+    }
+
     // Read any error output
     QString output      = QString::fromLocal8Bit(process->readAllStandardOutput());
     QString errorOutput = QString::fromLocal8Bit(process->readAllStandardError());
@@ -894,6 +943,13 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
     }
     if (!errorOutput.isEmpty()) {
         qDebug() << "[WaylandCompositor] stderr:" << errorOutput;
+    }
+
+    // Maintain lifecycle/task-model correctness: if a process never started, ensure we don't
+    // keep a stale QProcess entry around.
+    if (error == QProcess::FailedToStart) {
+        m_processes.remove(process);
+        process->deleteLater();
     }
 }
 

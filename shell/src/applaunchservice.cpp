@@ -9,6 +9,7 @@
 #include <QJSValue>
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QDBusConnection>
@@ -501,6 +502,37 @@ bool AppLaunchService::sendForwardToRunner(const QString &appId) {
     return callRunnerLifecycle(pid, "Forward");
 }
 
+#ifdef Q_OS_LINUX
+static bool isDescendantPid(qint64 childPid, qint64 ancestorPid) {
+    if (childPid <= 0 || ancestorPid <= 0)
+        return false;
+    if (childPid == ancestorPid)
+        return true;
+
+    qint64 current = childPid;
+    for (int i = 0; i < 128 && current > 1; ++i) {
+        QFile statFile(QStringLiteral("/proc/%1/stat").arg(current));
+        if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            return false;
+        const QByteArray statLine = statFile.readAll();
+        const qsizetype  closeIdx = statLine.lastIndexOf(')');
+        if (closeIdx < 0)
+            return false;
+        const QByteArray        after = statLine.mid(closeIdx + 1).trimmed(); // "S <ppid> ..."
+        const QList<QByteArray> parts = after.split(' ');
+        if (parts.size() < 2)
+            return false;
+        const qint64 ppid = parts.at(1).toLongLong();
+        if (ppid == ancestorPid)
+            return true;
+        if (ppid <= 1)
+            return false;
+        current = ppid;
+    }
+    return false;
+}
+#endif
+
 void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int surfaceId,
                                                   QWaylandXdgSurface *xdgSurface) {
     if (!surface) {
@@ -549,6 +581,43 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
             return;
         }
     }
+
+    // Case 1b (Flatpak/Sandbox correctness): the PID that connects to our Wayland socket may be
+    // a descendant of the PID we spawned (e.g. flatpak/bwrap wrapper). If so, attribute the
+    // surface to the original PendingLaunch instead of creating a "native-surface-*" task.
+#ifdef Q_OS_LINUX
+    if (pid > 0 && !m_activeByPid.isEmpty()) {
+        for (auto it = m_activeByPid.constBegin(); it != m_activeByPid.constEnd(); ++it) {
+            const qint64 parentPid = it.key();
+            if (parentPid <= 0)
+                continue;
+            if (!isDescendantPid(pid, parentPid))
+                continue;
+
+            const PendingLaunch &p = it.value();
+            qInfo() << "[AppLaunchService] Matched surfaceId" << surfaceId << "to child PID" << pid
+                    << "(ancestor PID" << parentPid << ") app" << p.appId;
+
+            // Record the real client pid for IPC enforcement (DBus sender pid → appId).
+            registerPidForAppId(pid, p.appId);
+
+            if (m_taskModel) {
+                if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
+                    m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
+                } else {
+                    m_taskModel->launchTask(p.appId, p.name, p.icon, "native", surfaceId,
+                                            qmlSurfaceObj);
+                }
+            }
+
+            if (m_appWindow)
+                invokeVoid(m_appWindow, "show",
+                           {p.appId, p.name, p.icon, QStringLiteral("native"),
+                            QVariant::fromValue(qmlSurfaceObj), surfaceId});
+            return;
+        }
+    }
+#endif
 
     // Case 2: secondary window for an existing task (match by xdg app_id)
     if (!xdgAppId.isEmpty() && m_taskModel) {
