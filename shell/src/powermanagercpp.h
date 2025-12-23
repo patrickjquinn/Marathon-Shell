@@ -18,6 +18,10 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     // ...
 
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
+    // UPower WarningLevel (0..5): Unknown/None/Discharging(UPS)/Low/Critical/Action
+    Q_PROPERTY(uint warningLevel READ warningLevel NOTIFY warningLevelChanged)
+    // UPower BatteryLevel (coarse) is optional; 1 means "not supported". Exposed for debugging.
+    Q_PROPERTY(uint batteryLevelCoarse READ batteryLevelCoarse NOTIFY batteryLevelCoarseChanged)
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY isChargingChanged)
     Q_PROPERTY(bool isPluggedIn READ isPluggedIn NOTIFY isPluggedInChanged)
     Q_PROPERTY(bool isPowerSaveMode READ isPowerSaveMode NOTIFY isPowerSaveModeChanged)
@@ -31,6 +35,11 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_PROPERTY(bool systemSuspended READ isSystemSuspended NOTIFY systemSuspendedChanged)
     Q_PROPERTY(bool wakelockSupported READ wakelockSupported CONSTANT)
     Q_PROPERTY(bool rtcAlarmSupported READ rtcAlarmSupported CONSTANT)
+    Q_PROPERTY(QStringList activeWakelocks READ activeWakelocks NOTIFY activeWakelocksChanged)
+    Q_PROPERTY(int wakeLockCount READ wakeLockCount NOTIFY activeWakelocksChanged)
+    // System-configured action for critical battery, from UPower.GetCriticalAction()
+    // Common values: "HybridSleep", "Hibernate", "PowerOff"
+    Q_PROPERTY(QString criticalAction READ criticalAction NOTIFY criticalActionChanged)
 
   public:
     enum PowerProfile {
@@ -46,6 +55,12 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     int batteryLevel() const {
         return m_batteryLevel;
     }
+    uint warningLevel() const {
+        return m_warningLevel;
+    }
+    uint batteryLevelCoarse() const {
+        return m_batteryLevelCoarse;
+    }
     bool isCharging() const {
         return m_isCharging;
     }
@@ -60,6 +75,9 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     }
     QString powerProfile() const {
         return m_powerProfileString;
+    }
+    QString criticalAction() const {
+        return m_criticalAction;
     }
     bool powerProfilesSupported() const {
         return m_powerProfilesSupported;
@@ -80,8 +98,14 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
         return m_rtcAlarmSupported;
     }
 
+    QStringList activeWakelocks() const;
+    int         wakeLockCount() const {
+        return activeWakelocks().size();
+    }
+
     Q_INVOKABLE void suspend();
     Q_INVOKABLE void hibernate();
+    Q_INVOKABLE void hybridSleep();
     Q_INVOKABLE void shutdown();
     Q_INVOKABLE void restart();
     Q_INVOKABLE void setPowerSaveMode(bool enabled);
@@ -103,11 +127,14 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
 
   signals:
     void batteryLevelChanged();
+    void warningLevelChanged();
+    void batteryLevelCoarseChanged();
     void isChargingChanged();
     void isPluggedInChanged();
     void isPowerSaveModeChanged();
     void estimatedBatteryTimeChanged();
     void powerProfileChanged();
+    void criticalActionChanged();
     void idleTimeoutChanged();
     void autoSuspendEnabledChanged();
     void systemSuspendedChanged();
@@ -119,6 +146,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     prepareForSuspend(); // Emitted when system is about to suspend (from PrepareForSleep signal)
     void resumedFromSuspend();        // Emitted when system resumes from suspend
     void idleStateChanged(bool idle); // Emitted when idle state changes
+    void activeWakelocksChanged();
 
   private slots:
     void updateAggregateState();
@@ -143,6 +171,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     QTimer         *m_idleTimer;
 
     int             m_batteryLevel;
+    uint            m_warningLevel;
+    uint            m_batteryLevelCoarse;
     bool            m_isCharging;
     bool            m_isPluggedIn;
     bool            m_isPowerSaveMode;
@@ -166,7 +196,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     QString                 m_fallbackMode; // "wakelock", "inhibitor", or "none"
 
     // RTC alarm support
-    bool m_rtcAlarmSupported;
+    bool    m_rtcAlarmSupported;
+    QString m_criticalAction;
 };
 
 #endif // POWERMANAGERCPP_H

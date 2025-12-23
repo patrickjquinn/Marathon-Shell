@@ -5,6 +5,8 @@ import MarathonUI.Theme
 import QtQuick
 
 Rectangle {
+    // MarathonAppLoader removed: apps are isolated processes (Wayland clients).
+
     id: appWindow
 
     property string appId: ""
@@ -26,44 +28,61 @@ Rectangle {
     // These are xdg_toplevel windows that should float above the main app
     property Component dialogOverlayComponent
 
-    dialogOverlayComponent: Component {
-        WaylandShellSurfaceItem {
-            id: dialogItem
-
-            property var dialogSurface: null
-            property int dialogSurfaceId: -1
-
-            // Fill the app window for maximized dialogs (mobile UX)
-            anchors.fill: parent
-            z: 1000
-            // Bind to the dialog surface
-            surfaceObj: dialogSurface
-            surfaceId: dialogSurfaceId
-            shellSurface: dialogSurface ? dialogSurface.xdgSurface : null
-            // Dialogs should be visible immediately
-            hasSentInitialSize: true
-            autoResize: true
-            Component.onCompleted: {
-                Logger.info("DialogOverlay", "Created dialog overlay for surfaceId: " + dialogSurfaceId);
-            }
-
-            // Destroy when the surface is destroyed
-            Connections {
-                function onSurfaceDestroyed() {
-                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
-                    dialogItem.destroy();
-                }
-
-                target: dialogSurface
-            }
-        }
-    }
-
     signal closed
     signal minimized
 
     function show(id, name, icon, type, surface, sid) {
+        function finishCreation() {
+            if (!component)
+                return;
 
+            if (component.status === Component.Ready) {
+                var nativeInstance = component.createObject(null, {
+                    "nativeAppId": id,
+                    "nativeTitle": name,
+                    "nativeAppIcon": icon,
+                    "waylandSurface": surface,
+                    "surfaceId": sid
+                });
+                if (nativeInstance) {
+                    appWindow.pendingAppInstance = nativeInstance;
+                    appContentLoader.sourceComponent = undefined;
+                    appContentLoader.sourceComponent = appInstanceContainer;
+                    appWindow.isLoadingComponent = false;
+                    // Connect close request signal
+                    if (nativeInstance.requestClose) {
+                        // CRITICAL: Capture `id` in closure scope - do NOT use appWindow.appId
+                        // because appWindow.appId may have changed to a different app!
+                        var capturedId = id;
+                        nativeInstance.requestClose.connect(function (skipNative) {
+                            Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
+                            appWindow.closeApp(skipNative === true, capturedId);
+                        });
+                    }
+                    // CRITICAL: Register native app with lifecycle manager so it can be minimized/restored
+                    if (typeof AppLifecycleManager !== 'undefined') {
+                        Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
+                        AppLifecycleManager.registerApp(id, nativeInstance);
+                        AppLifecycleManager.bringToForeground(id);
+                    }
+                    Logger.info("AppWindow", "Native app instance created successfully: " + id);
+                    appWindow.hasError = false;
+                } else {
+                    appWindow.isLoadingComponent = false;
+                    Logger.error("AppWindow", "Failed to create native app instance: " + id);
+                    appWindow.hasError = true;
+                    appWindow.loadError = "Failed to create native app instance.";
+                }
+            } else if (component.status === Component.Error) {
+                appWindow.isLoadingComponent = false;
+                Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString());
+                appWindow.hasError = true;
+                appWindow.loadError = component.errorString();
+            }
+        }
+
+        // Hoist to avoid qt.qml.usedbeforedeclared warnings (finishCreation() references it)
+        var component = null;
         // FAST PATH: Seamlessly update surface for active, visible native app
         // This prevents unparenting/reloading which causes flickering/splash screen
         // CRITICAL: Only use fast path if the appInstance is actually present and visible
@@ -98,13 +117,7 @@ Rectangle {
 
             return;
         }
-        var launchStartTime = Date.now(); // Performance measurement
-        console.log("=============== SHOW() CALLED ===============");
-        console.log("  id:", id);
-        console.log("  name:", name);
-        console.log("  type:", type);
-        console.log("  surface:", surface);
-        console.log("  sid:", sid);
+        var launchStartTime = Date.now();
         appId = id;
         appName = name;
         appIcon = icon;
@@ -113,7 +126,6 @@ Rectangle {
         surfaceId = sid || -1;
         hasError = false;
         loadError = "";
-        console.log("  appType set to:", appType);
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
         // CRITICAL: Cleanup connections and unparent the current app instance BEFORE switching
         if (appContentLoader.item) {
@@ -136,13 +148,10 @@ Rectangle {
 
             if (existingNativeInstance) {
                 // Reuse existing native app instance - just reparent it
-                console.log("[NATIVE APP] Reusing existing instance:", id);
                 Logger.info("AppWindow", "Reusing existing native app instance: " + id);
                 existingNativeInstance.visible = true;
                 appWindow.pendingAppInstance = existingNativeInstance;
-                existingNativeInstance.visible = true;
-                appWindow.pendingAppInstance = existingNativeInstance;
-                // OPTIMIZATON: If loader is already ready, simply adopt the instance
+                // Optimization: if loader is already ready, adopt the instance
                 // to avoid destroying/recreating the container (prevents blank flash)
                 if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
                     appContentLoader.item.adoptPendingApp();
@@ -154,120 +163,20 @@ Rectangle {
                 }
             } else {
                 // Create new native app instance using dynamic loading
-                console.log("[NATIVE APP] Creating new instance:", id);
                 Logger.info("AppWindow", "Creating new native app instance: " + id);
                 appWindow.isLoadingComponent = true;
                 Logger.info("AppWindow", "Showing loading splash...");
-                var component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
-
-                function finishCreation() {
-                    if (component.status === Component.Ready) {
-                        var nativeInstance = component.createObject(null, {
-                            "nativeAppId": id,
-                            "nativeTitle": name,
-                            "nativeAppIcon": icon,
-                            "waylandSurface": surface,
-                            "surfaceId": sid
-                        });
-                        if (nativeInstance) {
-                            appWindow.pendingAppInstance = nativeInstance;
-                            appContentLoader.sourceComponent = undefined;
-                            appContentLoader.sourceComponent = appInstanceContainer;
-                            appWindow.isLoadingComponent = false;
-                            // Connect close request signal
-                            if (nativeInstance.requestClose) {
-                                // CRITICAL: Capture `id` in closure scope - do NOT use appWindow.appId
-                                // because appWindow.appId may have changed to a different app!
-                                var capturedId = id;
-                                nativeInstance.requestClose.connect(function (skipNative) {
-                                    Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
-                                    appWindow.closeApp(skipNative === true);
-                                });
-                            }
-
-                            // CRITICAL: Register native app with lifecycle manager so it can be minimized/restored
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
-                                AppLifecycleManager.registerApp(id, nativeInstance);
-                                AppLifecycleManager.bringToForeground(id);
-                            }
-                            Logger.info("AppWindow", "Native app instance created successfully: " + id);
-                            appWindow.hasError = false;
-                        } else {
-                            appWindow.isLoadingComponent = false;
-                            Logger.error("AppWindow", "Failed to create native app instance: " + id);
-                            appWindow.hasError = true;
-                            appWindow.loadError = "Failed to create native app instance.";
-                        }
-                    } else if (component.status === Component.Error) {
-                        appWindow.isLoadingComponent = false;
-                        Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString());
-                        appWindow.hasError = true;
-                        appWindow.loadError = component.errorString();
-                    }
-                }
-
+                component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
                 if (component.status === Component.Ready)
                     finishCreation();
                 else
                     component.statusChanged.connect(finishCreation);
             }
         } else {
-            // Check if app exists in registry
-            var appInfo = MarathonAppRegistry.getApp(id);
-            if (appInfo && appInfo.absolutePath && appInfo.entryPoint) {
-                // Check if app instance already exists in lifecycle manager
-                var existingInstance = null;
-                if (typeof AppLifecycleManager !== 'undefined')
-                    existingInstance = AppLifecycleManager.getAppInstance(id);
-
-                if (existingInstance) {
-                    // Reuse existing instance - just reparent it
-                    Logger.info("AppWindow", "Reusing existing app instance: " + id);
-                    console.log("AppWindow: Reusing and re-registering existing instance:", id);
-                    // Re-register to ensure it's in foreground state
-                    if (typeof AppLifecycleManager !== 'undefined')
-                        AppLifecycleManager.registerApp(id, existingInstance);
-
-                    existingInstance.visible = true;
-                    appWindow.pendingAppInstance = existingInstance;
-                    existingInstance.visible = true;
-                    appWindow.pendingAppInstance = existingInstance;
-                    // OPTIMIZATON: If loader is already ready, simply adopt the instance
-                    if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
-                        appContentLoader.item.adoptPendingApp();
-                    } else {
-                        // Force reload
-                        appContentLoader.sourceComponent = undefined;
-                        appContentLoader.sourceComponent = appInstanceContainer;
-                    }
-                } else {
-                    // Load external Marathon app asynchronously
-                    Logger.info("AppWindow", "Loading external app from: " + appInfo.absolutePath);
-                    console.log("[DEBUG] MarathonAppLoader exists:", typeof MarathonAppLoader !== 'undefined');
-                    console.log("[DEBUG] MarathonAppLoader value:", MarathonAppLoader);
-                    // Show loading splash while component loads
-                    appWindow.isLoadingComponent = true;
-                    // Use async loading to avoid blocking UI
-                    if (typeof MarathonAppLoader !== 'undefined' && MarathonAppLoader !== null) {
-                        console.log("[DEBUG] Calling MarathonAppLoader.loadAppAsync for:", id);
-                        MarathonAppLoader.loadAppAsync(id);
-                    } else {
-                        console.error("[ERROR] MarathonAppLoader is not available!");
-                        appWindow.hasError = true;
-                        appWindow.loadError = "MarathonAppLoader not available";
-                        appWindow.isLoadingComponent = false;
-                    }
-                }
-            } else {
-                // Load placeholder template app
-                Logger.info("AppWindow", "Loading template app for: " + id);
-                appContentLoader.setSource("../apps/template/TemplateApp.qml", {
-                    "_appId": id,
-                    "_appName": name,
-                    "_appIcon": icon
-                });
-            }
+            // Marathon apps are out-of-process Wayland clients (marathon-app-runner).
+            // The shell does not load app QML in-process anymore.
+            Logger.warn("AppWindow", "Non-native show() requested for appId=" + id + " - waiting for Wayland surface");
+            appWindow.isLoadingComponent = true;
         }
         visible = true;
         forceActiveFocus();
@@ -301,12 +210,21 @@ Rectangle {
     }
 
     // Call this when actually closing the app (user explicitly closes, not minimize)
-    function closeApp(skipNativeClose) {
+    function closeApp(skipNativeClose, appIdOverride) {
         // Ensure lifecycle manager knows the app is fully closed (removes task)
         // skipNativeClose: true if closed by "X" button native (surface already gone)
         // skipNativeClose: false if closed by shell UI (task switcher/gesture)
+        var targetAppId = (appIdOverride !== undefined && appIdOverride !== null && appIdOverride !== "") ? appIdOverride : appId;
+        if (targetAppId === "")
+            return;
+
         if (typeof AppLifecycleManager !== 'undefined')
-            AppLifecycleManager.closeApp(appId, skipNativeClose === true);
+            AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
+
+        // If we're closing an app that is NOT currently shown in this AppWindow,
+        // do NOT touch UIStore/appContentLoader. (E.g., a minimized native app exits.)
+        if (targetAppId !== appId)
+            return;
 
         // CRITICAL: Cleanup any active dialog overlays (file pickers, etc.)
         // If we don't do this, they remain attached to the surface which causes
@@ -370,18 +288,21 @@ Rectangle {
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape || event.key === Qt.Key_Back) {
             console.log("[AppWindow] Back/Escape key pressed");
-            MarathonAppLoader.unloadApp(appId);
             hide();
             event.accepted = true;
         }
     }
+
     // Loading splash (shown while component is loading)
     Rectangle {
         id: loadingSplash
 
         anchors.fill: parent
         color: MColors.background
-        visible: appWindow.isLoadingComponent && !appWindow.hasError
+        // Keep the *outer* splash visible until the embedded native window reports it has
+        // both configured AND painted at least one frame. Otherwise we get a white flash
+        // during the handoff (outer splash hides, inner splash not yet visible/painted).
+        visible: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appContentLoader.item && appContentLoader.item.appInstance && appContentLoader.item.appInstance.revealReady === true)
         z: 1000
 
         Column {
@@ -619,51 +540,45 @@ Rectangle {
     }
 
     Timer {
+        // Leave isLoadingComponent true; the splash visibility is now gated by
+        // the embedded client's first frame (readyForReveal).
+
         id: splashHideTimer
 
         interval: 100
-        onTriggered: {
-            appWindow.isLoadingComponent = false;
-        }
+        onTriggered: {}
     }
 
-    Connections {
-        function onAppLoadProgress(appId, percent) {
-            if (appId === appWindow.appId)
-                Logger.debug("AppWindow", "Load progress for " + appId + ": " + percent + "%");
-        }
+    dialogOverlayComponent: Component {
+        WaylandShellSurfaceItem {
+            id: dialogItem
 
-        function onAppInstanceReady(appId, instance) {
-            if (appId === appWindow.appId) {
-                Logger.info("AppWindow", "App instance ready: " + appId);
-                // IMMEDIATELY register the app with AppLifecycleManager
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    console.log("AppWindow: Registering app:", appId);
-                    AppLifecycleManager.registerApp(appId, instance);
-                } else {
-                    console.error("AppWindow: AppLifecycleManager not available!");
+            property var dialogSurface: null
+            property int dialogSurfaceId: -1
+
+            // Fill the app window for maximized dialogs (mobile UX)
+            anchors.fill: parent
+            z: 1000
+            // Bind to the dialog surface
+            surfaceObj: dialogSurface
+            surfaceId: dialogSurfaceId
+            shellSurface: dialogSurface ? dialogSurface.xdgSurface : null
+            // Dialogs should be visible immediately
+            hasSentInitialSize: true
+            autoResize: true
+            Component.onCompleted: {
+                Logger.info("DialogOverlay", "Created dialog overlay for surfaceId: " + dialogSurfaceId);
+            }
+
+            // Destroy when the surface is destroyed
+            Connections {
+                function onSurfaceDestroyed() {
+                    Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
+                    dialogItem.destroy();
                 }
-                // Store instance and set component - container will pick it up
-                appWindow.pendingAppInstance = instance;
-                // FORCE reload by clearing first
-                appContentLoader.sourceComponent = undefined;
-                appContentLoader.sourceComponent = appInstanceContainer;
-                Logger.info("AppWindow", "External app loaded successfully: " + appId);
-                appWindow.hasError = false;
-                appWindow.isLoadingComponent = false;
+
+                target: dialogSurface
             }
         }
-
-        function onLoadError(appId, error) {
-            if (appId === appWindow.appId) {
-                Logger.error("AppWindow", "Received loadError signal for: " + appId + " - " + error);
-                appWindow.hasError = true;
-                appWindow.loadError = error;
-                appWindow.isLoadingComponent = false;
-            }
-        }
-
-        target: MarathonAppLoader
-        enabled: MarathonAppLoader !== null
     }
 }

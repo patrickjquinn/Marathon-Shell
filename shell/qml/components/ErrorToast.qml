@@ -1,7 +1,7 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 /**
  * ErrorToast - System-wide error notification
@@ -11,9 +11,6 @@ import MarathonUI.Theme
  */
 Item {
     id: errorToast
-    anchors.fill: parent
-    visible: false
-    z: 2500 // Above everything except keyboard
 
     property string errorMessage: ""
     property string errorTitle: ""
@@ -39,9 +36,14 @@ Item {
         hideAnimation.start();
     }
 
+    anchors.fill: parent
+    visible: false
+    z: 2500 // Above everything except keyboard
+
     // Auto-dismiss timer
     Timer {
         id: dismissTimer
+
         interval: errorToast.displayDuration
         onTriggered: errorToast.hide()
     }
@@ -55,6 +57,7 @@ Item {
     // Error card
     Rectangle {
         id: errorCard
+
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: Constants.statusBarHeight + Constants.spacingLarge
@@ -65,38 +68,34 @@ Item {
         border.width: Constants.borderWidthMedium
         border.color: MColors.error
         opacity: 0
-
         // Glass morphism
         layer.enabled: true
-        layer.effect: ShaderEffect {
-            property real blur: 16
-        }
 
         // Swipe down to dismiss
         MouseArea {
+            // Swiped down far enough - dismiss
+            // Snap back
+
             id: swipeArea
+
             anchors.fill: parent
             drag.target: errorCard
             drag.axis: Drag.YAxis
             drag.minimumY: -errorCard.height
             drag.maximumY: 100
-
             onReleased: {
-                if (errorCard.y > 50) {
-                    // Swiped down far enough - dismiss
+                if (errorCard.y > 50)
                     errorToast.hide();
-                } else {
-                    // Snap back
+                else
                     snapBackAnimation.start();
-                }
             }
-
             // Prevent click-through
             onClicked: mouse.accepted = true
         }
 
         Column {
             id: errorContent
+
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
@@ -165,6 +164,7 @@ Item {
 
                     MouseArea {
                         id: closeMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
@@ -184,6 +184,10 @@ Item {
                 wrapMode: Text.WordWrap
                 visible: errorToast.errorMessage.length > 0
             }
+        }
+
+        layer.effect: ShaderEffect {
+            property real blur: 16
         }
     }
 
@@ -243,6 +247,7 @@ Item {
     // Snap back animation (after partial swipe)
     NumberAnimation {
         id: snapBackAnimation
+
         target: errorCard
         property: "y"
         to: Constants.statusBarHeight + Constants.spacingLarge

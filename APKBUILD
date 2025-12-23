@@ -124,9 +124,7 @@ package() {
 	install -Dm644 "$builddir/marathon-config.json" \
 		"$pkgdir/usr/share/marathon-shell/marathon-config.json"
 	
-	# Fix session script to use -platform eglfs flag
-	sed -i 's|exec /usr/bin/marathon-shell-bin "$@"|exec /usr/bin/marathon-shell-bin -platform eglfs "$@"|' \
-		"$pkgdir/usr/bin/marathon-shell-session"
+	# Session script is installed from platforms/generic/ and resolves prefix dynamically.
 }
 
 sha512sums=""

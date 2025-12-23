@@ -1,15 +1,12 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: contextMenu
-    anchors.fill: parent
-    visible: false
-    z: 2550
 
     property var appData: null
     property point position: Qt.point(0, 0)
@@ -21,10 +18,8 @@ Item {
     function show(app, pos) {
         appData = app;
         position = pos;
-
         menu.x = Math.min(Math.max(pos.x - menu.width / 2, 16), parent.width - menu.width - 16);
         menu.y = Math.max(pos.y - menu.height - 10, Constants.statusBarHeight + 16);
-
         visible = true;
         fadeIn.start();
     }
@@ -33,6 +28,10 @@ Item {
         fadeOut.start();
     }
 
+    anchors.fill: parent
+    visible: false
+    z: 2550
+
     MouseArea {
         anchors.fill: parent
         onClicked: hide()
@@ -40,6 +39,7 @@ Item {
 
     Rectangle {
         id: menu
+
         width: Math.round(180 * Constants.scaleFactor)
         height: menuColumn.height + Constants.spacingMedium
         radius: Constants.borderRadiusSmall
@@ -61,6 +61,7 @@ Item {
 
         Column {
             id: menuColumn
+
             anchors.centerIn: parent
             width: parent.width - Constants.spacingMedium
             spacing: 0
@@ -70,12 +71,6 @@ Item {
                 height: Constants.inputHeight
                 radius: Constants.borderRadiusSmall
                 color: infoMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 100
-                    }
-                }
 
                 Row {
                     anchors.fill: parent
@@ -101,12 +96,19 @@ Item {
 
                 MouseArea {
                     id: infoMouseArea
+
                     anchors.fill: parent
                     onClicked: {
                         Logger.info("AppContextMenu", "App info for: " + appData.name);
                         HapticService.light();
                         appInfo();
                         hide();
+                    }
+                }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 100
                     }
                 }
             }
@@ -122,12 +124,6 @@ Item {
                 height: Constants.inputHeight
                 radius: Constants.borderRadiusSmall
                 color: uninstallMouseArea.pressed ? Qt.rgba(255, 255, 255, 0.08) : "transparent"
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 100
-                    }
-                }
 
                 Row {
                     anchors.fill: parent
@@ -153,6 +149,7 @@ Item {
 
                 MouseArea {
                     id: uninstallMouseArea
+
                     anchors.fill: parent
                     onClicked: {
                         Logger.info("AppContextMenu", "Uninstall: " + appData.name);
@@ -164,12 +161,19 @@ Item {
                         });
                     }
                 }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 100
+                    }
+                }
             }
         }
     }
 
     ParallelAnimation {
         id: fadeIn
+
         NumberAnimation {
             target: menu
             property: "opacity"
@@ -177,6 +181,7 @@ Item {
             duration: 150
             easing.type: Easing.OutCubic
         }
+
         NumberAnimation {
             target: menu
             property: "scale"
@@ -188,6 +193,11 @@ Item {
 
     ParallelAnimation {
         id: fadeOut
+
+        onFinished: {
+            contextMenu.visible = false;
+        }
+
         NumberAnimation {
             target: menu
             property: "opacity"
@@ -195,15 +205,13 @@ Item {
             duration: 100
             easing.type: Easing.InCubic
         }
+
         NumberAnimation {
             target: menu
             property: "scale"
             to: 0.9
             duration: 100
             easing.type: Easing.InCubic
-        }
-        onFinished: {
-            contextMenu.visible = false;
         }
     }
 }

@@ -18,6 +18,12 @@ MApp {
     // This retains the last rendered frame during minimize for smooth task switcher preview
     property bool isMinimized: false
     property bool isNative: true
+    // The ShellSurfaceItem lives inside `content`, so referencing its id directly from here
+    // can fail depending on how the component is instantiated (we saw ReferenceError).
+    // Use an explicit ref that the child sets on completed.
+    property var surfaceItemRef: null
+    // Non-arbitrary readiness: the client has been configured AND has committed a buffer.
+    readonly property bool revealReady: surfaceItemRef && surfaceItemRef.hasSentInitialSize && surfaceItemRef.hasFirstFrame
 
     // Signal to request closing the app window (e.g. when native app exits)
     // skipNative: true if the native surface is already destroyed (client closed)
@@ -57,15 +63,15 @@ MApp {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
                 } else {
                     Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
-                    // The native app was closed by the user from within the app UI
-                    // Emit requestClose to properly clean up the app window
-                    // The native app was closed by the user from within the app UI
-                    // Emit requestClose to properly clean up the app window
+                    // The native app was closed by the user from within the app UI.
+                    // Notify the shell to clean up the app window.
                     // skipNative=true because the surface is ALREADY destroyed!
                     nativeAppWindow.requestClose(true);
                 }
             }
             Component.onCompleted: {
+                // Publish a stable reference for outer-shell splash gating.
+                nativeAppWindow.surfaceItemRef = surfaceItem;
                 Logger.info("NativeAppWindow", "ShellSurfaceItem created for: " + nativeAppWindow.nativeAppId);
                 Logger.info("NativeAppWindow", "  Container size: " + contentContainer.width + "x" + contentContainer.height);
                 Logger.info("NativeAppWindow", "  Item size: " + width + "x" + height);
@@ -78,7 +84,8 @@ MApp {
 
             anchors.fill: parent
             color: MColors.background
-            visible: surfaceItem.shellSurface === null
+            // Keep splash up until the client is configured and has committed a buffer.
+            visible: !nativeAppWindow.revealReady
             z: 10
 
             Column {

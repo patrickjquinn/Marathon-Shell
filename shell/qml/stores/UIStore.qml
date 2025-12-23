@@ -1,6 +1,6 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 QtObject {
     id: uiStore
@@ -8,17 +8,15 @@ QtObject {
     property bool quickSettingsOpen: false
     property real quickSettingsHeight: 0
     property bool quickSettingsDragging: false
-
     property bool appWindowOpen: false
     property string currentAppId: ""
     property string currentAppName: ""
     property string currentAppIcon: ""
-
     property bool settingsOpen: false
-
     property bool searchOpen: false
     property bool shareSheetOpen: false
     property bool clipboardManagerOpen: false
+    property var shellRef: null // Reference to shell for dynamic sizing
 
     signal showNotificationToast(var notification)
     signal showSystemHUD(string type, real value)
@@ -36,11 +34,10 @@ QtObject {
     }
 
     function toggleSearch() {
-        if (searchOpen) {
+        if (searchOpen)
             closeSearch();
-        } else {
+        else
             openSearch();
-        }
     }
 
     function openShareSheet(content, contentType) {
@@ -60,15 +57,12 @@ QtObject {
         clipboardManagerOpen = false;
     }
 
-    property var shellRef: null  // Reference to shell for dynamic sizing
-
     function openQuickSettings() {
         quickSettingsOpen = true;
-        if (shellRef) {
+        if (shellRef)
             quickSettingsHeight = shellRef.maxQuickSettingsHeight;
-        } else {
-            quickSettingsHeight = 1000;  // Fallback
-        }
+        else
+            quickSettingsHeight = 1000; // Fallback
         Logger.state("UIStore", "quickSettings closed", "open");
     }
 
@@ -79,11 +73,10 @@ QtObject {
     }
 
     function toggleQuickSettings() {
-        if (quickSettingsOpen) {
+        if (quickSettingsOpen)
             closeQuickSettings();
-        } else {
+        else
             openQuickSettings();
-        }
     }
 
     function openApp(appId, appName, appIcon) {
@@ -91,20 +84,16 @@ QtObject {
         currentAppName = appName;
         currentAppIcon = appIcon;
         appWindowOpen = true;
-
         // Also set settingsOpen for Settings app (for layout decisions)
-        if (appId === "settings") {
+        if (appId === "settings")
             settingsOpen = true;
-        }
     }
 
     function closeApp() {
         appWindowOpen = false;
-
         // Also clear settingsOpen if it was Settings
-        if (currentAppId === "settings") {
+        if (currentAppId === "settings")
             settingsOpen = false;
-        }
 
         currentAppId = "";
         currentAppName = "";
@@ -113,11 +102,9 @@ QtObject {
 
     function minimizeApp() {
         appWindowOpen = false;
-
         // Also clear settingsOpen if it was Settings
-        if (currentAppId === "settings") {
+        if (currentAppId === "settings")
             settingsOpen = false;
-        }
 
         // CRITICAL: Clear currentAppId so restoring the same app later triggers onCurrentAppIdChanged
         currentAppId = "";
@@ -130,12 +117,10 @@ QtObject {
         appWindowOpen = true;
         currentAppName = appName;
         currentAppIcon = appIcon;
-        currentAppId = appId;  // Set last so onCurrentAppIdChanged fires with appWindowOpen=true
-
+        currentAppId = appId; // Set last so onCurrentAppIdChanged fires with appWindowOpen=true
         // Also set settingsOpen for Settings app
-        if (appId === "settings") {
+        if (appId === "settings")
             settingsOpen = true;
-        }
     }
 
     function openSettings() {
@@ -149,7 +134,9 @@ QtObject {
     }
 
     function minimizeSettings() {
-        settingsOpen = false;
+        // Settings runs as a regular app window; minimizing it must clear the app window state
+        // (otherwise the detached AppWindow container can remain visible and cover ActiveFrames).
+        minimizeApp();
     }
 
     function closeAll() {

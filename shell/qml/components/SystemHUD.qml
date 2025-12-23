@@ -1,12 +1,10 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: hudContainer
-    anchors.fill: parent
-    z: 2900
 
     property string hudType: "volume"
     property real hudValue: 0
@@ -35,8 +33,12 @@ Item {
         fadeOut.start();
     }
 
+    anchors.fill: parent
+    z: 2900
+
     Rectangle {
         id: hud
+
         anchors.centerIn: parent
         width: 200
         height: 200
@@ -47,14 +49,6 @@ Item {
         antialiasing: Constants.enableAntialiasing
         opacity: 0
         visible: hudVisible
-
-        Behavior on opacity {
-            enabled: Constants.enableAnimations
-            NumberAnimation {
-                duration: Constants.animationNormal
-                easing.type: Easing.OutCubic
-            }
-        }
 
         Rectangle {
             anchors.fill: parent
@@ -114,16 +108,27 @@ Item {
                 }
             }
         }
+
+        Behavior on opacity {
+            enabled: Constants.enableAnimations
+
+            NumberAnimation {
+                duration: Constants.animationNormal
+                easing.type: Easing.OutCubic
+            }
+        }
     }
 
     Timer {
         id: autoHideTimer
+
         interval: 2000
         onTriggered: hide()
     }
 
     NumberAnimation {
         id: fadeOut
+
         target: hud
         property: "opacity"
         to: 0

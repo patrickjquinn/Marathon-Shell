@@ -1,30 +1,29 @@
+import MarathonOS.Shell
+import MarathonUI.Core
+import MarathonUI.Theme
 // Marathon Virtual Keyboard - Key Component
 // Optimized for zero-latency input
 import QtQuick
 import QtQuick.Effects
-import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
 
 Rectangle {
+    // Pure black for letter keys
+
     id: key
 
     // Key properties
     property string text: ""
     property string displayText: text
-    property string alternateText: ""  // For long-press (e.g., "1" shows "!")
-    property var alternateChars: []    // Array of alternate characters
-    property bool isSpecial: false     // Shift, Enter, Backspace
-    property string iconName: ""       // Lucide icon for special keys
+    property string alternateText: "" // For long-press (e.g., "1" shows "!")
+    property var alternateChars: [] // Array of alternate characters
+    property bool isSpecial: false // Shift, Enter, Backspace
+    property string iconName: "" // Lucide icon for special keys
     property int keyCode: Qt.Key_unknown
-
     property alias fontFamily: keyText.font.family
-
     // State
     property bool pressed: false
     property bool highlighted: false
     property bool showingAlternates: false
-
     // PERFORMANCE: Cache text metrics to avoid re-layout
     property real cachedTextWidth: 0
     property real cachedTextHeight: 0
@@ -42,14 +41,22 @@ Rectangle {
     color: {
         if (pressed)
             return MColors.accentBright;
-        if (isSpecial)
-            return "#1a1a1a";  // Dark grey for special keys
-        return "#000000";  // Pure black for letter keys
-    }
 
+        if (isSpecial)
+            return "#1a1a1a";
+
+        // Dark grey for special keys
+        return "#000000";
+    }
     // Physical button styling - DARK borders, partial (bottom/right only)
-    border.width: 0  // No full border
+    border.width: 0
+    // No full border
     antialiasing: Constants.enableAntialiasing
+    // PERFORMANCE: Enable layer for GPU-accelerated scale/transform animations
+    // This moves rendering to GPU, preventing CPU-bound repaints on every frame
+    layer.enabled: true
+    layer.smooth: true
+    scale: pressed ? 0.95 : 1
 
     // Bottom border (darker, creates depth)
     Rectangle {
@@ -57,7 +64,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: Math.round(2 * Constants.scaleFactor)
-        color: "#0a0a0a"  // Very dark, almost black
+        color: "#0a0a0a" // Very dark, almost black
         radius: 0
     }
 
@@ -67,40 +74,9 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Math.round(2 * Constants.scaleFactor)
-        color: "#0a0a0a"  // Very dark, almost black
+        color: "#0a0a0a" // Very dark, almost black
         radius: 0
     }
-
-    // PERFORMANCE: Enable layer for GPU-accelerated scale/transform animations
-    // This moves rendering to GPU, preventing CPU-bound repaints on every frame
-    layer.enabled: true
-    layer.smooth: true
-
-    // PERFORMANCE: Use fast color animation instead of general Behavior
-    Behavior on color {
-        ColorAnimation {
-            duration: 50 // Fixed duration for predictability
-            easing.type: Easing.Linear // Linear is fastest
-        }
-    }
-
-    Behavior on border.color {
-        ColorAnimation {
-            duration: 50
-            easing.type: Easing.Linear
-        }
-    }
-
-    // PERFORMANCE: Use NumberAnimation instead of SpringAnimation for scale
-    // SpringAnimation is expensive - only use for special effects
-    Behavior on scale {
-        NumberAnimation {
-            duration: 50
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    scale: pressed ? 0.95 : 1.0
 
     // Inner border for physical button depth (shine effect)
     Rectangle {
@@ -109,7 +85,7 @@ Rectangle {
         radius: parent.radius > 0 ? parent.radius - 2 : 0
         color: "transparent"
         border.width: Math.round(1 * Constants.scaleFactor)
-        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555"  // Lighter grey for depth
+        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555" // Lighter grey for depth
         antialiasing: parent.antialiasing
     }
 
@@ -124,23 +100,24 @@ Rectangle {
             visible: key.iconName !== ""
             name: key.iconName
             size: Math.round(20 * Constants.scaleFactor)
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style
+            color: key.pressed ? MColors.bb10Black : MColors.textPrimary // Dark text on bright teal, matching primary button style
             anchors.centerIn: parent
-            opacity: key.pressed ? 1.0 : 0.9
+            opacity: key.pressed ? 1 : 0.9
         }
 
         // Text for regular keys
         Text {
             id: keyText
+
             visible: key.iconName === ""
             text: key.displayText
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary  // Dark text on bright teal, matching primary button style
+            color: key.pressed ? MColors.bb10Black : MColors.textPrimary // Dark text on bright teal, matching primary button style
             font.pixelSize: key.isSpecial ? Math.round(14 * Constants.scaleFactor) : Math.round(18 * Constants.scaleFactor)
             font.weight: key.isSpecial ? Font.Medium : Font.Normal
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             anchors.centerIn: parent
-            opacity: key.pressed ? 1.0 : 0.9
+            opacity: key.pressed ? 1 : 0.9
         }
 
         // Alternate text (top-right corner for long-press hint)
@@ -159,18 +136,20 @@ Rectangle {
     // Character preview popup (BB10 style) - HIDDEN when showing alternates
     Rectangle {
         id: preview
+
         visible: key.pressed && !key.isSpecial && !key.showingAlternates
         width: Math.round(70 * Constants.scaleFactor)
         height: Math.round(80 * Constants.scaleFactor)
         x: (parent.width - width) / 2
         y: -height - Math.round(10 * Constants.scaleFactor)
         z: 1000
-
         radius: Constants.borderRadiusMedium
         color: MColors.elevated
         border.width: Constants.borderWidthMedium
         border.color: MColors.border
         antialiasing: true
+        // Shadow effect
+        layer.enabled: true
 
         // Inner border
         Rectangle {
@@ -183,15 +162,6 @@ Rectangle {
             antialiasing: true
         }
 
-        // Shadow effect
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowColor: "#000000"
-            shadowBlur: 0.4
-            shadowOpacity: 0.6
-        }
-
         // Preview text (larger)
         Text {
             text: key.displayText
@@ -200,37 +170,42 @@ Rectangle {
             font.weight: Font.Normal
             anchors.centerIn: parent
         }
+
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: "#000000"
+            shadowBlur: 0.4
+            shadowOpacity: 0.6
+        }
     }
 
     // Long-press alternate popup - DYNAMIC positioning to prevent off-screen
     Loader {
+        // Too far left, shift right
+        // Too far right, shift left
+        // Centered is fine
+
         id: alternatePopup
-        active: key.showingAlternates && key.alternateChars.length > 0
-        z: 2000
 
         // Dynamic positioning based on key location
         property real popupWidth: Math.round((60 * key.alternateChars.length + 4 * (key.alternateChars.length - 1)) * Constants.scaleFactor)
         property real keyGlobalX: key.mapToItem(null, 0, 0).x
         property real screenWidth: Constants.screenWidth
 
+        active: key.showingAlternates && key.alternateChars.length > 0
+        z: 2000
         // Center by default, but shift if too close to edge
         x: {
             var centerX = (key.width - popupWidth) / 2;
             var leftEdge = keyGlobalX + centerX;
             var rightEdge = leftEdge + popupWidth;
-
-            if (leftEdge < 0) {
-                // Too far left, shift right
+            if (leftEdge < 0)
                 return -keyGlobalX;
-            } else if (rightEdge > screenWidth) {
-                // Too far right, shift left
+            else if (rightEdge > screenWidth)
                 return screenWidth - keyGlobalX - popupWidth;
-            } else {
-                // Centered is fine
+            else
                 return centerX;
-            }
         }
-
         anchors.bottom: parent.top
         anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
 
@@ -242,14 +217,7 @@ Rectangle {
             border.width: Constants.borderWidthMedium
             border.color: MColors.accentBright
             antialiasing: true
-
             layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: "#000000"
-                shadowBlur: 0.4
-                shadowOpacity: 0.6
-            }
 
             Row {
                 anchors.centerIn: parent
@@ -273,6 +241,7 @@ Rectangle {
 
                         MouseArea {
                             id: altMouseArea
+
                             anchors.fill: parent
                             onClicked: {
                                 HapticService.light();
@@ -283,48 +252,49 @@ Rectangle {
                     }
                 }
             }
+
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: "#000000"
+                shadowBlur: 0.4
+                shadowOpacity: 0.6
+            }
         }
     }
 
     // Touch handling - OPTIMIZED FOR ZERO LATENCY
     MouseArea {
+        // Emit clicked immediately
+
         id: mouseArea
-        anchors.fill: parent
 
         property bool longPressTriggered: false
 
+        anchors.fill: parent
         // CRITICAL: onPressed fires IMMEDIATELY (synchronous)
         // This gives instant visual feedback before event propagation
         onPressed: function (mouse) {
-            key.pressed = true;  // INSTANT visual change
+            key.pressed = true; // INSTANT visual change
             longPressTriggered = false;
             HapticService.light();
-
             // Start long-press timer if alternates exist
-            if (key.alternateChars.length > 0) {
+            if (key.alternateChars.length > 0)
                 longPressTimer.restart();
-            }
 
             // Accept event to prevent propagation delay
             mouse.accepted = true;
         }
-
         onReleased: function (mouse) {
             longPressTimer.stop();
             key.pressed = false;
-
             if (!longPressTriggered && containsMouse) {
-                if (!key.showingAlternates) {
-                    // Emit clicked immediately
+                if (!key.showingAlternates)
                     key.clicked();
-                }
             }
-
             key.showingAlternates = false;
             key.released();
             mouse.accepted = true;
         }
-
         onCanceled: {
             longPressTimer.stop();
             key.pressed = false;
@@ -335,6 +305,7 @@ Rectangle {
     // Long-press timer
     Timer {
         id: longPressTimer
+
         interval: 500
         repeat: false
         onTriggered: {
@@ -344,6 +315,30 @@ Rectangle {
                 mouseArea.longPressTriggered = true;
                 key.pressAndHold();
             }
+        }
+    }
+
+    // PERFORMANCE: Use fast color animation instead of general Behavior
+    Behavior on color {
+        ColorAnimation {
+            duration: 50 // Fixed duration for predictability
+            easing.type: Easing.Linear // Linear is fastest
+        }
+    }
+
+    Behavior on border.color {
+        ColorAnimation {
+            duration: 50
+            easing.type: Easing.Linear
+        }
+    }
+
+    // PERFORMANCE: Use NumberAnimation instead of SpringAnimation for scale
+    // SpringAnimation is expensive - only use for special effects
+    Behavior on scale {
+        NumberAnimation {
+            duration: 50
+            easing.type: Easing.OutCubic
         }
     }
 }

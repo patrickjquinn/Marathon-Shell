@@ -6,14 +6,15 @@ Marathon OS apps can be built as **pure QML** (fast iteration) or **hybrid QML +
 
 ## Architecture
 
-### Current System
+### Current System (isolation-first)
 ```
 Marathon Shell (C++ executable with QML runtime)
-├── MarathonAppLoader (loads QML modules)
 ├── MarathonAppRegistry (scans for apps)
-└── Apps: QML modules in ~/.local/share/marathon-apps/
-    ├── Pure QML apps (just copied)
-    └── C++ apps (compiled as Qt plugins)
+├── Wayland compositor (hosts app surfaces)
+├── Shell DBus IPC service: org.marathonos.Shell (permissions + system APIs)
+└── Apps: launched as isolated processes (Wayland clients) via marathon-app-runner
+    ├── Pure QML apps (QML modules)
+    └── Hybrid apps (QML + optional C++ plugin)
 ```
 
 ### App Structure
@@ -274,12 +275,13 @@ HapticService.medium()
 HapticService.heavy()
 
 // Network status
-NetworkManager.isOnline
-NetworkManager.connectionType
+NetworkManagerCpp.wifiConnected
+NetworkManagerCpp.wifiSsid
+NetworkManagerCpp.ethernetConnected
 
 // Power management
-PowerManager.batteryLevel
-PowerManager.isCharging
+PowerManagerService.batteryLevel
+PowerManagerService.isCharging
 ```
 
 ## Best Practices

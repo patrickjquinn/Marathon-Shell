@@ -28,6 +28,8 @@ qt6_add_qml_module(marathon-ui-core
     URI MarathonUI.Core
     VERSION 2.0
     QML_FILES ${CORE_QML_FILES}
+    RESOURCES
+        fonts/lucide.ttf
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Core
 )
 

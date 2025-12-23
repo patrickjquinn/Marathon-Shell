@@ -9,9 +9,13 @@ import QtQuick
  * animations across the UI (status bar lock icon, lock screen, etc.)
  */
 QtObject {
-    id: sessionStore
-
     // ===== SESSION STATE =====
+    // ===== ANIMATION STATE =====
+    // ===== SIGNALS =====
+    // ===== PUBLIC API =====
+    // ===== INTERNAL =====
+
+    id: sessionStore
 
     /**
      * @brief Whether the session is currently locked
@@ -19,7 +23,6 @@ QtObject {
      * @default true
      */
     property bool isLocked: true
-
     /**
      * @brief Whether we're currently viewing the lock screen
      * Used to show lock icon in status bar
@@ -27,7 +30,6 @@ QtObject {
      * @default false
      */
     property bool isOnLockScreen: false
-
     /**
      * @brief Whether the lock screen should be visible
      * True when session is locked OR when returning from screen-off with valid grace period
@@ -35,55 +37,44 @@ QtObject {
      * @default true
      */
     property bool showLockScreen: true
-
-    // ===== ANIMATION STATE =====
-
     /**
      * @brief Whether a lock state transition animation is in progress
      * @type {bool}
      * @default false
      */
     property bool isAnimatingLock: false
-
     /**
      * @brief Current lock transition direction
      * @type {string}
      * @values "locking" | "unlocking" | ""
      */
     property string lockTransition: ""
-
     /**
      * @brief Timestamp until which session is valid (grace period)
      * @type {number}
      * @private
      */
     property real sessionValidUntil: 0
-
-    // ===== SIGNALS =====
+    property Timer lockTimer
 
     /**
      * @brief Emitted when lock state is about to change
      * @param {bool} toLocked - Target lock state
      */
     signal lockStateChanging(bool toLocked)
-
     /**
      * @brief Emitted when lock state has changed (after animation)
      * @param {bool} isLocked - New lock state
      */
     signal lockStateChanged(bool isLocked)
-
     /**
      * @brief Trigger shake animation on lock icon (invalid PIN)
      */
     signal triggerShakeAnimation
-
     /**
      * @brief Trigger unlock animation on lock icon (valid PIN)
      */
     signal triggerUnlockAnimation
-
-    // ===== PUBLIC API =====
 
     /**
      * @brief Lock the session with animation
@@ -94,14 +85,12 @@ QtObject {
             console.log("[SessionStore] Already locked, ignoring");
             return;
         }
-
         console.log("[SessionStore] Locking session...");
-        showLockScreen = true;  // Show lock screen when locking
+        showLockScreen = true; // Show lock screen when locking
         console.log("[SessionStore] Set showLockScreen to true");
         lockTransition = "locking";
         isAnimatingLock = true;
         lockStateChanging(true);
-
         // Complete animation after 300ms
         lockTimer.interval = 300;
         lockTimer.targetLocked = true;
@@ -113,21 +102,31 @@ QtObject {
      */
     function unlock() {
         console.log("[SessionStore] unlock() called - current isLocked:", isLocked);
-        if (!isLocked) {
-            console.log("[SessionStore] Already unlocked, ignoring");
+        // If an unlock transition is already in progress, ignore duplicate calls.
+        // (Multiple UI components may react to the same unlock trigger.)
+        if (isAnimatingLock && lockTransition === "unlocking") {
+            console.log("[SessionStore] Unlock already in progress, ignoring duplicate");
+            showLockScreen = false;
+            isOnLockScreen = false;
             return;
         }
-
+        if (!isLocked) {
+            // Common case during grace-period: session is already unlocked but lock screen is showing
+            // (e.g. screen turned on, or user tapped a notification on the lock screen).
+            // In this case we still need to dismiss the lock screen.
+            console.log("[SessionStore] Already unlocked - dismissing lock screen");
+            showLockScreen = false;
+            isOnLockScreen = false;
+            return;
+        }
         console.log("[SessionStore] Unlocking session...");
-        showLockScreen = false;  // Hide lock screen when unlocking
+        showLockScreen = false; // Hide lock screen when unlocking
         lockTransition = "unlocking";
         isAnimatingLock = true;
         lockStateChanging(false);
-
         // Mark session as valid for 5 minutes (grace period)
         sessionValidUntil = Date.now() + (5 * 60 * 1000);
         console.log("[SessionStore] Grace period set until:", new Date(sessionValidUntil).toLocaleTimeString());
-
         // Complete animation after 300ms
         lockTimer.interval = 300;
         lockTimer.targetLocked = false;
@@ -142,10 +141,8 @@ QtObject {
         // Grace period: unlock without PIN if < 5 minutes since last unlock
         var now = Date.now();
         var isValid = sessionValidUntil > now;
-
-        if (!isValid) {
+        if (!isValid)
             console.log("[SessionStore] Session expired, PIN required");
-        }
 
         return isValid;
     }
@@ -159,9 +156,11 @@ QtObject {
         showLockScreen = true;
     }
 
-    // ===== INTERNAL =====
+    Component.onCompleted: {
+        console.log("[SessionStore] Initialized - session locked by default");
+    }
 
-    property Timer lockTimer: Timer {
+    lockTimer: Timer {
         property bool targetLocked: true
 
         onTriggered: {
@@ -172,9 +171,5 @@ QtObject {
             lockTransition = "";
             lockStateChanged(isLocked);
         }
-    }
-
-    Component.onCompleted: {
-        console.log("[SessionStore] Initialized - session locked by default");
     }
 }

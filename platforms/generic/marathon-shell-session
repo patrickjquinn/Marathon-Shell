@@ -1,0 +1,115 @@
+#!/bin/sh
+# Marathon Shell Wayland Session Startup Script
+# Sets up environment and launches the shell
+#
+# NOTE: This is the generic (embedded-first) session script. Per-device overrides
+# should live under platforms/<device>/config/.
+
+# Set session name
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=marathon
+export XDG_CURRENT_DESKTOP=marathon
+
+# Marathon-specific paths
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# Default prefix from install location (…/bin -> …)
+export MARATHON_PREFIX="${MARATHON_PREFIX:-$(dirname -- "$SCRIPT_DIR")}"
+export MARATHON_APPS_DIR=~/.local/share/marathon-apps
+# Shared system data (wallpapers, sounds, config). Apps run out-of-process, so they must be able
+# to load these assets from disk (not from the shell binary's qrc resources).
+export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-$MARATHON_PREFIX/share/marathon-shell}"
+# Ensure libs are found immediately
+export LD_LIBRARY_PATH="$MARATHON_PREFIX/lib:${LD_LIBRARY_PATH:-}"
+
+# Qt/QML environment - DO NOT set QT_QPA_PLATFORM for a Wayland compositor
+# The shell IS the compositor, not a client. Qt will auto-select the correct backend.
+# FORCE eglfs for Raspberry Pi / Embedded
+export QT_QPA_PLATFORM=eglfs
+export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+# Use EGLFS KMS backend with logind integration for proper VT/DRM handover
+export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+# KMS config: card1 (DPI-1), software cursor, per Qt 6 EGLFS docs
+export QT_QPA_EGLFS_KMS_CONFIG="$MARATHON_PREFIX/share/marathon/eglfs.json"
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+# Hide cursor on startup (EGLFS specific) - will be managed by CursorManager if needed
+# cursor logic handled by CursorManager
+# Unset style to allow theme control (matching run.sh)
+export QT_QUICK_CONTROLS_STYLE=""
+export QT_MEDIA_BACKEND=gstreamer
+export QT_WEBENGINE_DISABLE_SANDBOX=1
+export QML_IMPORT_PATH=$HOME/.local/share:/usr/lib/qml:$QML_IMPORT_PATH
+export QML2_IMPORT_PATH=$HOME/.local/share:/usr/lib/qml:$QML2_IMPORT_PATH
+
+# Enable QML disk cache for ARM performance (caches compiled QML at runtime)
+export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QT_QML_DISK_CACHE_PATH"
+
+# Display scaling for OnePlus 6 (1080x2280, ~402 DPI)
+export QT_SCALE_FACTOR=1
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_SCREEN_SCALE_FACTORS=1
+export QT_ENABLE_HIGHDPI_SCALING=0
+
+# Wayland environment
+export WAYLAND_DISPLAY=wayland-0
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+
+# D-Bus session
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# ===== PERFORMANCE OPTIMIZATIONS =====
+# Threaded render loop (uses Pi5's multiple cores for rendering)
+export QSG_RENDER_LOOP=threaded
+
+# VSync: 1=smooth synced to display, 0=lower latency but may tear
+export QT_QPA_EGLFS_SWAPINTERVAL=1
+
+# EGL stream buffering (frames in flight) - helps with stuttering
+export QT_QPA_EGLFS_STREAM_FIFO_LENGTH=3
+
+# Use OpenGL ES explicitly
+export QSG_RHI_BACKEND=opengl
+
+# Ensure libinput is used for input handling
+export QT_QPA_EGLFS_NO_LIBINPUT=0
+
+# ===== DEBUG LOGGING =====
+# Set MARATHON_DEBUG=1 in environment to enable verbose logging
+if [ "$MARATHON_DEBUG" = "1" ]; then
+    export QT_LOGGING_RULES="*.debug=true;marathon.*.info=true;qt.qpa.input=true"
+else
+    # Production: minimal logging
+    export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
+fi
+
+# Performance: Disable QML AOT compilation (causes slowdowns and excessive temp files)
+export QML_DISABLE_DISK_CACHE=0
+export QT_QUICK_CONTROLS_IMAGINE_PATH=""
+export QML_DISABLE_OPTIMIZER=0
+
+# Use QML cache for faster startup
+export QML_FORCE_DISK_CACHE=1
+
+# Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
+export NO_AT_BRIDGE=1
+export GTK_A11Y=none
+export QT_ACCESSIBILITY=0
+
+# GIO/GSettings - use memory backend if no dconf
+export GIO_USE_VFS=local
+export GSETTINGS_BACKEND=memory
+
+# Enable Q20 keyboard scroll mode (CapsLock LED triggers firmware scroll mode)
+# Under eglfs, XKB doesn't control LEDs, so we toggle via sysfs
+CAPSLOCK_LED="/sys/class/leds/input0::capslock/brightness"
+if [ -w "$CAPSLOCK_LED" ]; then
+    echo 1 > "$CAPSLOCK_LED"
+    echo "🎮 Q20 scroll mode enabled"
+fi
+
+# Start the compositor
+exec "$MARATHON_PREFIX/bin/marathon-shell-bin" "$@"
+
+

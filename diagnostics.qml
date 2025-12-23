@@ -1,18 +1,26 @@
-import QtQuick
-import QtQuick.Controls
-import MarathonOS.Shell
-
 // Marathon Shell Internal Diagnostics
 // Shows what all C++ services are reporting
 
+import MarathonOS.Shell
+import QtQuick
+import QtQuick.Controls
+
 ApplicationWindow {
     id: diagnosticsWindow
+
     visible: true
     width: 800
     height: 1000
     title: "Marathon Shell - Internal Diagnostics"
-
     color: "#1a1a1a"
+    Component.onCompleted: {
+        console.log("=== MARATHON SHELL DIAGNOSTICS ===");
+        console.log("BluetoothManagerCpp available:", typeof BluetoothManagerCpp !== 'undefined');
+        if (typeof BluetoothManagerCpp !== 'undefined') {
+            console.log("  enabled:", BluetoothManagerCpp.enabled);
+            console.log("  available:", BluetoothManagerCpp.available);
+        }
+    }
 
     Flickable {
         anchors.fill: parent
@@ -21,6 +29,7 @@ ApplicationWindow {
 
         Column {
             id: diagnosticsColumn
+
             width: parent.width
             spacing: 15
 
@@ -40,6 +49,7 @@ ApplicationWindow {
 
                 Column {
                     id: bluetoothCol
+
                     anchors.centerIn: parent
                     width: parent.width - 20
                     spacing: 5
@@ -103,6 +113,7 @@ ApplicationWindow {
 
                 Column {
                     id: displayCol
+
                     anchors.centerIn: parent
                     width: parent.width - 20
                     spacing: 5
@@ -152,6 +163,7 @@ ApplicationWindow {
 
                 Column {
                     id: audioCol
+
                     anchors.centerIn: parent
                     width: parent.width - 20
                     spacing: 5
@@ -194,6 +206,7 @@ ApplicationWindow {
 
                 Column {
                     id: networkCol
+
                     anchors.centerIn: parent
                     width: parent.width - 20
                     spacing: 5
@@ -257,6 +270,7 @@ ApplicationWindow {
 
                 Column {
                     id: powerCol
+
                     anchors.centerIn: parent
                     width: parent.width - 20
                     spacing: 5
@@ -305,20 +319,20 @@ ApplicationWindow {
             }
 
             Text {
-                text: "QML Services (from NetworkManager.qml)"
+                text: "C++ Services (NetworkManagerCpp / BluetoothManagerCpp)"
                 font.pixelSize: 14
                 font.bold: true
                 color: "#ffffff"
             }
 
             Text {
-                text: "bluetoothEnabled (from QML): " + (typeof NetworkManager !== 'undefined' ? NetworkManager.bluetoothEnabled : "N/A")
+                text: "bluetoothEnabled (C++): " + (typeof BluetoothManagerCpp !== 'undefined' ? BluetoothManagerCpp.enabled : "N/A")
                 font.family: "monospace"
                 color: "#ffffff"
             }
 
             Text {
-                text: "wifiEnabled (from QML): " + (typeof NetworkManager !== 'undefined' ? NetworkManager.wifiEnabled : "N/A")
+                text: "wifiEnabled (C++): " + (typeof NetworkManagerCpp !== 'undefined' ? NetworkManagerCpp.wifiEnabled : "N/A")
                 font.family: "monospace"
                 color: "#ffffff"
             }
@@ -347,15 +361,6 @@ ApplicationWindow {
                 font.family: "monospace"
                 color: "#ffffff"
             }
-        }
-    }
-
-    Component.onCompleted: {
-        console.log("=== MARATHON SHELL DIAGNOSTICS ===");
-        console.log("BluetoothManagerCpp available:", typeof BluetoothManagerCpp !== 'undefined');
-        if (typeof BluetoothManagerCpp !== 'undefined') {
-            console.log("  enabled:", BluetoothManagerCpp.enabled);
-            console.log("  available:", BluetoothManagerCpp.available);
         }
     }
 }

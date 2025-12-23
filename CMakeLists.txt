@@ -49,15 +49,32 @@ set(CMAKE_AUTOUIC ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Optional: Qt private API usage is sometimes needed for low-level platform hooks (e.g. screen power).
+# Qt prints a warning when GuiPrivate headers are used because it ties you to the exact Qt build.
+option(MARATHON_USE_QT_GUI_PRIVATE "Use Qt GuiPrivate (Qt internal headers) for platform hooks" ON)
+option(MARATHON_SUPPRESS_QT_PRIVATE_WARNINGS "Silence Qt warning about using private modules" ON)
+if(MARATHON_SUPPRESS_QT_PRIVATE_WARNINGS)
+    set(QT_NO_PRIVATE_MODULE_WARNING ON CACHE BOOL "Silence Qt private module warning" FORCE)
+endif()
+
 # LunaSVG - Lightweight SVG rendering library with full clipPath support
 # Qt's SVG module doesn't support clipPath, which breaks GNOME icon rendering
 include(FetchContent)
+set(LUNASVG_BUILD_EXAMPLES OFF CACHE BOOL "Disable lunasvg examples (svg2png) in Marathon builds" FORCE)
 FetchContent_Declare(
     lunasvg
     GIT_REPOSITORY https://github.com/sammycage/lunasvg.git
     GIT_TAG v3.2.0
 )
 FetchContent_MakeAvailable(lunasvg)
+# Our project enables CMake AUTOGEN globally for Qt, but lunasvg is a non-Qt library.
+# Disable Qt AUTOGEN on lunasvg targets to avoid noisy dev warnings.
+if(TARGET lunasvg)
+    set_target_properties(lunasvg PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+endif()
+if(TARGET svg2png)
+    set_target_properties(svg2png PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+endif()
 message(STATUS "LunaSVG fetched for proper SVG icon rendering")
 
 # Qt6 detection - support both Homebrew (macOS) and system installations (Linux)
@@ -94,14 +111,16 @@ find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Sensors
 )
 
-# GuiPrivate is optional - Debian packages Qt6 differently than Arch/Fedora
-# On Debian, the private headers are in qt6-base-private-dev but no separate cmake config
-find_package(Qt6 6.4 COMPONENTS GuiPrivate QUIET)
+# GuiPrivate is optional: it's a Qt-internal module (unstable across Qt versions).
+# We only use it when explicitly enabled.
+if(MARATHON_USE_QT_GUI_PRIVATE)
+    find_package(Qt6 6.4 COMPONENTS GuiPrivate QUIET)
+endif()
 if(TARGET Qt6::GuiPrivate)
     message(STATUS "Qt6::GuiPrivate found - enabling private API features")
     set(HAVE_GUI_PRIVATE TRUE)
 else()
-    message(STATUS "Qt6::GuiPrivate not found - private API features disabled (Debian-based system?)")
+    message(STATUS "Qt6::GuiPrivate not found/disabled - private API features disabled")
     set(HAVE_GUI_PRIVATE FALSE)
 endif()
 
@@ -147,9 +166,12 @@ endif()
 add_subdirectory(marathon-core)
 message(STATUS "Marathon Core library added for app management")
 
+add_subdirectory(marathon-services)
+
 add_subdirectory(marathon-ui)
 add_subdirectory(shell)
 add_subdirectory(tools/marathon-dev)
+add_subdirectory(tools/marathon-app-runner)
 
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")
@@ -160,12 +182,12 @@ message(STATUS "==================")
 include(GNUInstallDirs)
 
 # Install session launcher script
-install(PROGRAMS marathon-shell-session
+install(PROGRAMS platforms/generic/marathon-shell-session
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 # Install Wayland session file
-install(FILES marathon.desktop
+install(FILES platforms/generic/marathon.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions
 )
 
@@ -177,6 +199,19 @@ install(FILES systemd/marathon-shell.service
 # Install polkit policy
 install(FILES polkit/org.marathonos.shell.policy
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions
+)
+
+# Install shared system assets (Option C: filesystem assets shared across processes)
+# Wallpapers
+install(DIRECTORY shell/resources/wallpapers/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/wallpapers
+    FILES_MATCHING PATTERN "*.jpg" PATTERN "*.png" PATTERN "*.jpeg" PATTERN "*.webp"
+)
+
+# Sounds
+install(DIRECTORY shell/resources/sounds/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/sounds
+    FILES_MATCHING PATTERN "*.wav" PATTERN "*.ogg" PATTERN "*.mp3" PATTERN "*.m4a"
 )
 
 # Install XDG autostart
@@ -197,9 +232,14 @@ install(FILES pam.d/marathon-shell
 )
 
 # Install greetd configuration example
-install(FILES marathon-shell.toml
+install(FILES platforms/generic/marathon-shell.toml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/greetd
     RENAME marathon-shell-example.toml
+)
+
+# Install EGLFS KMS config (used by marathon-shell-session when running under eglfs_kms)
+install(FILES platforms/generic/eglfs.json
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon
 )
 
 # Install documentation

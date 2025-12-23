@@ -7,7 +7,7 @@ Before=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/marathon-shell-session
+ExecStart=marathon-shell-session
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=10

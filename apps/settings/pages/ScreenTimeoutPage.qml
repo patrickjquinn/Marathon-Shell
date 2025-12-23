@@ -1,14 +1,15 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: screenTimeoutPage
-    pageTitle: "Screen Timeout"
 
     property string pageName: "screentimeout"
+
+    pageTitle: "Screen Timeout"
 
     content: Flickable {
         contentHeight: timeoutContent.height + MSpacing.xl * 3
@@ -17,6 +18,7 @@ SettingsPageTemplate {
 
         Column {
             id: timeoutContent
+
             width: parent.width
             spacing: MSpacing.lg
             leftPadding: MSpacing.lg
@@ -52,8 +54,8 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: timeoutMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : (DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
-                                border.width: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Constants.borderWidthMedium : 0
+                                color: timeoutMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : ((typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
+                                border.width: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Constants.borderWidthMedium : 0
                                 border.color: MColors.marathonTeal
 
                                 Behavior on color {
@@ -75,8 +77,8 @@ SettingsPageTemplate {
                                     height: Constants.iconSizeMedium
                                     radius: Constants.iconSizeMedium / 2
                                     color: "transparent"
-                                    border.width: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
-                                    border.color: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? MColors.marathonTeal : MColors.border
+                                    border.width: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Math.round(6 * Constants.scaleFactor) : Constants.borderWidthMedium
+                                    border.color: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? MColors.marathonTeal : MColors.border
 
                                     Rectangle {
                                         anchors.centerIn: parent
@@ -84,7 +86,7 @@ SettingsPageTemplate {
                                         height: Constants.iconSizeSmall
                                         radius: Constants.iconSizeSmall / 2
                                         color: MColors.marathonTeal
-                                        visible: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
+                                        visible: typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)
                                     }
                                 }
 
@@ -94,16 +96,19 @@ SettingsPageTemplate {
                                     color: MColors.textPrimary
                                     font.pixelSize: MTypography.sizeBody
                                     font.family: MTypography.fontFamily
-                                    font.weight: DisplayManager.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData) ? Font.DemiBold : Font.Normal
+                                    font.weight: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp && DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Font.DemiBold : Font.Normal
                                 }
                             }
 
                             MouseArea {
                                 id: timeoutMouseArea
+
                                 anchors.fill: parent
                                 onClicked: {
                                     var value = SettingsManagerCpp.screenTimeoutValue(modelData);
-                                    DisplayManager.setScreenTimeout(value);
+                                    if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                        DisplayManagerCpp.screenTimeout = value;
+
                                     Logger.info("ScreenTimeoutPage", "Screen timeout changed to: " + modelData);
                                 }
                             }

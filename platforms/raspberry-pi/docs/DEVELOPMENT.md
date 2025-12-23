@@ -29,7 +29,7 @@ After successfully swiping up and entering the PIN, Marathon Shell would immedia
    - **Conclusion**: Something was actively trying to re-lock the session
 
 2. **Debug Logging**
-   - Added `Logger.warn()` statements throughout `SessionManager.qml`
+  - Added additional logging in session/lock handling (SessionStore / lock screen)
    - Discovered `_checkIdleState()` was being called and detecting immediate idle state
 
 3. **Timestamp Analysis**

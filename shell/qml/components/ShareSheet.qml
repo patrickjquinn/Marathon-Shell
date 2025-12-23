@@ -1,39 +1,42 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: shareSheet
-    anchors.fill: parent
-    visible: UIStore.shareSheetOpen
-    z: 2600
 
     property var content: null
     property string contentType: "text"
 
+    anchors.fill: parent
+    visible: UIStore.shareSheetOpen
+    z: 2600
+
     Rectangle {
         id: backdrop
+
         anchors.fill: parent
         color: "#000000"
         opacity: shareSheet.visible ? 0.7 : 0
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: UIStore.closeShareSheet()
+        }
 
         Behavior on opacity {
             NumberAnimation {
                 duration: 200
             }
         }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: UIStore.closeShareSheet()
-        }
     }
 
     Rectangle {
         id: sheet
+
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
@@ -44,13 +47,6 @@ Item {
         border.color: Qt.rgba(255, 255, 255, 0.15)
         layer.enabled: true
         y: shareSheet.visible ? 0 : parent.height
-
-        Behavior on y {
-            NumberAnimation {
-                duration: 300
-                easing.type: Easing.OutCubic
-            }
-        }
 
         Rectangle {
             anchors.fill: parent
@@ -110,27 +106,26 @@ Item {
                 cellWidth: width / 4
                 cellHeight: 100
                 clip: true
-
                 model: [
                     {
-                        name: "Messages",
-                        icon: "message-square",
-                        appId: "messages"
+                        "name": "Messages",
+                        "icon": "message-square",
+                        "appId": "messages"
                     },
                     {
-                        name: "Email",
-                        icon: "mail",
-                        appId: "email"
+                        "name": "Email",
+                        "icon": "mail",
+                        "appId": "email"
                     },
                     {
-                        name: "Notes",
-                        icon: "file-text",
-                        appId: "notes"
+                        "name": "Notes",
+                        "icon": "file-text",
+                        "appId": "notes"
                     },
                     {
-                        name: "Copy Link",
-                        icon: "link",
-                        appId: "clipboard"
+                        "name": "Copy Link",
+                        "icon": "link",
+                        "appId": "clipboard"
                     }
                 ]
 
@@ -151,17 +146,17 @@ Item {
                             border.width: 1
                             border.color: targetMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
 
-                            Behavior on border.color {
-                                ColorAnimation {
-                                    duration: 150
-                                }
-                            }
-
                             Icon {
                                 name: modelData.icon
                                 size: Constants.iconSizeMedium
                                 color: MColors.textPrimary
                                 anchors.centerIn: parent
+                            }
+
+                            Behavior on border.color {
+                                ColorAnimation {
+                                    duration: 150
+                                }
                             }
                         }
 
@@ -176,6 +171,7 @@ Item {
 
                     MouseArea {
                         id: targetMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             Logger.info("ShareSheet", "Share to: " + modelData.name);
@@ -186,13 +182,21 @@ Item {
                 }
             }
         }
+
+        Behavior on y {
+            NumberAnimation {
+                duration: 300
+                easing.type: Easing.OutCubic
+            }
+        }
     }
 
     Connections {
-        target: UIStore
         function onShowShareSheet(content, type) {
             shareSheet.content = content;
             shareSheet.contentType = type;
         }
+
+        target: UIStore
     }
 }

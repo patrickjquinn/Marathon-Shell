@@ -1,11 +1,9 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: screenshotPreview
-    anchors.fill: parent
-    z: 2700
 
     property bool showing: false
     property string filePath: ""
@@ -23,8 +21,12 @@ Item {
         slideOut.start();
     }
 
+    anchors.fill: parent
+    z: 2700
+
     Rectangle {
         id: previewCard
+
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.bottomMargin: Constants.navBarHeight + Constants.bottomBarHeight + 16
@@ -80,37 +82,30 @@ Item {
         }
 
         MouseArea {
+            property real startX: 0
+
             anchors.fill: parent
             onClicked: {
                 Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath);
                 hide();
-
-                // Deep link to gallery app with the screenshot
-                if (typeof DeepLinkHandler !== 'undefined') {
-                    DeepLinkHandler.handleDeepLink("gallery", "/image", {
-                        path: filePath
-                    });
-                } else {
-                    Logger.warn("ScreenshotPreview", "DeepLinkHandler not available");
-                }
+                // Deep link to gallery app with the screenshot (shell handles showing the app window)
+                NavigationRouter.navigateToDeepLink("gallery", "/image", {
+                    "path": filePath
+                });
             }
-
-            property real startX: 0
-
             onPressed: mouse => {
                 startX = mouse.x;
             }
-
             onPositionChanged: mouse => {
-                if (mouse.x - startX > 50) {
+                if (mouse.x - startX > 50)
                     hide();
-                }
             }
         }
     }
 
     NumberAnimation {
         id: slideIn
+
         target: previewCard
         property: "opacity"
         from: 0
@@ -121,6 +116,7 @@ Item {
 
     NumberAnimation {
         id: slideOut
+
         target: previewCard
         property: "opacity"
         to: 0
@@ -133,12 +129,14 @@ Item {
 
     Timer {
         id: autoHideTimer
+
         interval: 3000
         onTriggered: hide()
     }
 
     Rectangle {
         id: flashOverlay
+
         anchors.fill: parent
         color: "#FFFFFF"
         opacity: 0
@@ -146,6 +144,7 @@ Item {
 
         SequentialAnimation {
             id: flashAnimation
+
             NumberAnimation {
                 target: flashOverlay
                 property: "opacity"
@@ -153,6 +152,7 @@ Item {
                 duration: 50
                 easing.type: Easing.OutCubic
             }
+
             NumberAnimation {
                 target: flashOverlay
                 property: "opacity"
@@ -164,10 +164,11 @@ Item {
     }
 
     Connections {
-        target: ScreenshotService
         function onScreenshotCaptured(path, image) {
             flashAnimation.start();
             screenshotPreview.show(path, image);
         }
+
+        target: ScreenshotService
     }
 }

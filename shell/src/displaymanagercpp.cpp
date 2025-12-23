@@ -13,7 +13,9 @@
 #include <QTimer>
 #include <QFileSystemWatcher>
 #include <QScreen>
+#if MARATHON_HAVE_QT_GUI_PRIVATE
 #include <qpa/qplatformscreen.h>
+#endif
 
 DisplayManagerCpp::DisplayManagerCpp(PowerManagerCpp *powerManager,
                                      RotationManager *rotationManager, QObject *parent)
@@ -319,6 +321,7 @@ void DisplayManagerCpp::setNightLightSchedule(const QString &schedule) {
 }
 
 void DisplayManagerCpp::setScreenState(bool on) {
+#if MARATHON_HAVE_QT_GUI_PRIVATE
     QPlatformScreen *platformScreen = QGuiApplication::primaryScreen()->handle();
 
     if (platformScreen) {
@@ -331,6 +334,10 @@ void DisplayManagerCpp::setScreenState(bool on) {
     } else {
         qDebug() << "[DisplayManagerCpp] No QPlatformScreen handle found!";
     }
+#else
+    Q_UNUSED(on);
+    qDebug() << "[DisplayManagerCpp] Screen power control disabled (Qt GuiPrivate not enabled)";
+#endif
 
     // Manage display wakelock based on screen state
     if (m_powerManager) {

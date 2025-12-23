@@ -1,9 +1,9 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Controls
+import QtQuick
+import QtQuick.Controls
 
 /**
  * Polished Bluetooth Pairing Dialog
@@ -18,9 +18,6 @@ import MarathonUI.Controls
  */
 Item {
     id: bluetoothPairDialog
-    anchors.fill: parent
-    visible: false
-    z: Constants.zIndexModalOverlay + 10
 
     // Public API
     property string deviceName: ""
@@ -45,15 +42,12 @@ Item {
         errorMessage = "";
         pinInput.text = "";
         passkeyInput.text = "";
-
         if (pairingMode === "pin" || pairingMode === "passkey") {
-            if (pairingMode === "pin") {
+            if (pairingMode === "pin")
                 pinInput.forceActiveFocus();
-            } else {
+            else
                 passkeyInput.forceActiveFocus();
-            }
         }
-
         bluetoothPairDialog.visible = true;
         showAnimation.start();
         HapticService.light();
@@ -69,7 +63,6 @@ Item {
         displayedPasskey = passkey;
         isPairing = false;
         errorMessage = "";
-
         bluetoothPairDialog.visible = true;
         showAnimation.start();
         HapticService.light();
@@ -94,9 +87,83 @@ Item {
         errorMessage = "";
     }
 
+    // Helper functions
+    function getDeviceIcon(type) {
+        switch (type.toLowerCase()) {
+        case "headphones":
+        case "headset":
+            return "headphones";
+        case "keyboard":
+            return "keyboard";
+        case "mouse":
+            return "mouse";
+        case "phone":
+        case "smartphone":
+            return "smartphone";
+        case "computer":
+        case "laptop":
+            return "monitor";
+        case "speaker":
+            return "volume-2";
+        default:
+            return "bluetooth";
+        }
+    }
+
+    function getPairingModeText(mode) {
+        switch (mode) {
+        case "pin":
+            return "Enter PIN to pair";
+        case "passkey":
+            return "Enter passkey displayed on device";
+        case "confirm":
+            return "Confirm pairing code";
+        case "justworks":
+        default:
+            return "Ready to pair";
+        }
+    }
+
+    function getHelpText(mode) {
+        switch (mode) {
+        case "pin":
+            return "Enter the PIN shown on your device (usually 0000 or 1234)";
+        case "passkey":
+            return "Type the 6-digit passkey displayed on the device";
+        case "confirm":
+            return "Make sure the code above matches what's shown on your device";
+        case "justworks":
+        default:
+            return "No PIN required for this device";
+        }
+    }
+
+    function canPair() {
+        if (pairingMode === "confirm" || pairingMode === "justworks")
+            return true;
+
+        if (pairingMode === "pin")
+            return pinInput.text.length >= 4;
+
+        if (pairingMode === "passkey")
+            return passkeyInput.text.length === 6;
+
+        return false;
+    }
+
+    anchors.fill: parent
+    visible: false
+    z: Constants.zIndexModalOverlay + 10
+    // Handle escape key
+    Keys.onEscapePressed: {
+        if (!isPairing)
+            bluetoothPairDialog.hide();
+    }
+
     // Background overlay
     Rectangle {
         id: overlay
+
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.6)
         opacity: 0
@@ -104,9 +171,8 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                if (!isPairing) {
+                if (!isPairing)
                     bluetoothPairDialog.hide();
-                }
             }
         }
     }
@@ -114,6 +180,7 @@ Item {
     // Dialog card
     Rectangle {
         id: dialogCard
+
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 0
@@ -123,19 +190,12 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        transform: Translate {
-            id: translateTransform
-            y: dialogCard.height
-        }
-
         // Glass morphism effect
         layer.enabled: true
-        layer.effect: ShaderEffect {
-            property real blur: 32
-        }
 
         Column {
             id: contentColumn
+
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
@@ -199,12 +259,6 @@ Item {
                 border.color: errorMessage !== "" ? MColors.error : ((pinInput.activeFocus || passkeyInput.activeFocus) ? MColors.accent : MColors.border)
                 visible: pairingMode === "pin" || pairingMode === "passkey"
 
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 150
-                    }
-                }
-
                 Row {
                     anchors.fill: parent
                     anchors.margins: Constants.spacingMedium
@@ -219,6 +273,7 @@ Item {
 
                     TextInput {
                         id: pinInput
+
                         visible: pairingMode === "pin"
                         width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
                         anchors.verticalCenter: parent.verticalCenter
@@ -229,6 +284,10 @@ Item {
                         maximumLength: 6
                         enabled: !isPairing
                         selectByMouse: true
+                        Keys.onReturnPressed: {
+                            if (pinInput.text.length >= 4)
+                                pairButton.clicked();
+                        }
 
                         // Placeholder
                         Text {
@@ -238,16 +297,11 @@ Item {
                             visible: pinInput.text.length === 0 && !pinInput.activeFocus
                             anchors.verticalCenter: parent.verticalCenter
                         }
-
-                        Keys.onReturnPressed: {
-                            if (pinInput.text.length >= 4) {
-                                pairButton.clicked();
-                            }
-                        }
                     }
 
                     TextInput {
                         id: passkeyInput
+
                         visible: pairingMode === "passkey"
                         width: parent.width - Constants.iconSizeMedium - Constants.spacingMedium
                         anchors.verticalCenter: parent.verticalCenter
@@ -258,6 +312,10 @@ Item {
                         maximumLength: 6
                         enabled: !isPairing
                         selectByMouse: true
+                        Keys.onReturnPressed: {
+                            if (passkeyInput.text.length === 6)
+                                pairButton.clicked();
+                        }
 
                         // Placeholder
                         Text {
@@ -267,12 +325,12 @@ Item {
                             visible: passkeyInput.text.length === 0 && !passkeyInput.activeFocus
                             anchors.verticalCenter: parent.verticalCenter
                         }
+                    }
+                }
 
-                        Keys.onReturnPressed: {
-                            if (passkeyInput.text.length === 6) {
-                                pairButton.clicked();
-                            }
-                        }
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 150
                     }
                 }
             }
@@ -336,6 +394,7 @@ Item {
 
                     Text {
                         id: errorText
+
                         text: errorMessage
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
@@ -402,13 +461,10 @@ Item {
                         onClicked: {
                             Logger.info("BluetoothPairDialog", "Pairing cancelled/rejected");
                             HapticService.light();
-
-                            if (pairingMode === "confirm") {
+                            if (pairingMode === "confirm")
                                 bluetoothPairDialog.pairConfirmed(false);
-                            } else {
+                            else
                                 bluetoothPairDialog.cancelled();
-                            }
-
                             bluetoothPairDialog.hide();
                         }
                     }
@@ -417,13 +473,14 @@ Item {
                 // Pair/Accept button
                 Rectangle {
                     id: pairButton
+
+                    signal clicked
+
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: canPair() ? MColors.accent : Qt.darker(MColors.accent, 1.5)
-                    opacity: canPair() ? 1.0 : 0.5
-
-                    signal clicked
+                    opacity: canPair() ? 1 : 0.5
 
                     Text {
                         text: pairingMode === "confirm" ? "Accept" : "Pair"
@@ -435,23 +492,22 @@ Item {
                     }
 
                     MouseArea {
+                        // Just works mode
+
                         anchors.fill: parent
                         enabled: canPair()
                         onClicked: {
                             Logger.info("BluetoothPairDialog", "Pair/Accept clicked");
                             HapticService.medium();
                             bluetoothPairDialog.showPairing();
-
-                            if (pairingMode === "confirm") {
+                            if (pairingMode === "confirm")
                                 bluetoothPairDialog.pairConfirmed(true);
-                            } else if (pairingMode === "pin") {
+                            else if (pairingMode === "pin")
                                 bluetoothPairDialog.pairRequested(pinInput.text);
-                            } else if (pairingMode === "passkey") {
+                            else if (pairingMode === "passkey")
                                 bluetoothPairDialog.pairRequested(passkeyInput.text);
-                            } else {
-                                // Just works mode
+                            else
                                 bluetoothPairDialog.pairRequested("");
-                            }
                         }
                     }
                 }
@@ -469,73 +525,16 @@ Item {
                 visible: !isPairing
             }
         }
-    }
 
-    // Helper functions
-    function getDeviceIcon(type) {
-        switch (type.toLowerCase()) {
-        case "headphones":
-        case "headset":
-            return "headphones";
-        case "keyboard":
-            return "keyboard";
-        case "mouse":
-            return "mouse";
-        case "phone":
-        case "smartphone":
-            return "smartphone";
-        case "computer":
-        case "laptop":
-            return "monitor";
-        case "speaker":
-            return "volume-2";
-        default:
-            return "bluetooth";
-        }
-    }
+        transform: Translate {
+            id: translateTransform
 
-    function getPairingModeText(mode) {
-        switch (mode) {
-        case "pin":
-            return "Enter PIN to pair";
-        case "passkey":
-            return "Enter passkey displayed on device";
-        case "confirm":
-            return "Confirm pairing code";
-        case "justworks":
-        default:
-            return "Ready to pair";
-        }
-    }
-
-    function getHelpText(mode) {
-        switch (mode) {
-        case "pin":
-            return "Enter the PIN shown on your device (usually 0000 or 1234)";
-        case "passkey":
-            return "Type the 6-digit passkey displayed on the device";
-        case "confirm":
-            return "Make sure the code above matches what's shown on your device";
-        case "justworks":
-        default:
-            return "No PIN required for this device";
-        }
-    }
-
-    function canPair() {
-        if (pairingMode === "confirm" || pairingMode === "justworks") {
-            return true;
+            y: dialogCard.height
         }
 
-        if (pairingMode === "pin") {
-            return pinInput.text.length >= 4;
+        layer.effect: ShaderEffect {
+            property real blur: 32
         }
-
-        if (pairingMode === "passkey") {
-            return passkeyInput.text.length === 6;
-        }
-
-        return false;
     }
 
     // Show animation
@@ -591,13 +590,6 @@ Item {
                 errorMessage = "";
                 isPairing = false;
             }
-        }
-    }
-
-    // Handle escape key
-    Keys.onEscapePressed: {
-        if (!isPairing) {
-            bluetoothPairDialog.hide();
         }
     }
 }

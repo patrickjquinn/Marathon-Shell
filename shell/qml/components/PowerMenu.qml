@@ -1,7 +1,7 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 /**
  * World-Class Power Menu - Tile Grid Design
@@ -9,16 +9,13 @@ import MarathonUI.Core
  */
 Item {
     id: root
-    anchors.fill: parent
-    visible: false
-    z: Constants.zIndexModal + 100
+
+    property bool showing: false
 
     signal sleepRequested
     signal rebootRequested
     signal shutdownRequested
     signal canceled
-
-    property bool showing: false
 
     function show() {
         showing = true;
@@ -32,9 +29,14 @@ Item {
         fadeOut.start();
     }
 
+    anchors.fill: parent
+    visible: false
+    z: Constants.zIndexModal + 100
+
     // Dark backdrop
     Rectangle {
         id: backdrop
+
         anchors.fill: parent
         color: "#000000"
         opacity: 0
@@ -51,6 +53,7 @@ Item {
     // Power menu dialog
     Rectangle {
         id: dialog
+
         anchors.centerIn: parent
         width: Math.min(parent.width * 0.85, Math.round(360 * Constants.scaleFactor))
         height: contentColumn.height + MSpacing.xxl * 2
@@ -80,6 +83,7 @@ Item {
 
         Column {
             id: contentColumn
+
             anchors.centerIn: parent
             width: parent.width - MSpacing.xxl * 2
             spacing: MSpacing.lg
@@ -105,27 +109,14 @@ Item {
                 // Sleep Tile
                 Rectangle {
                     id: sleepTile
+
                     width: (parent.width - MSpacing.md) / 2
                     height: Math.round(90 * Constants.scaleFactor)
                     radius: MRadius.md
                     color: sleepMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
                     border.width: Math.max(1, Math.round(Constants.scaleFactor))
                     border.color: MColors.border
-
-                    scale: sleepMouseArea.pressed ? 0.95 : 1.0
-                    Behavior on scale {
-                        SpringAnimation {
-                            spring: MMotion.springMedium
-                            damping: MMotion.dampingMedium
-                            epsilon: MMotion.epsilon
-                        }
-                    }
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: MMotion.xs
-                        }
-                    }
+                    scale: sleepMouseArea.pressed ? 0.95 : 1
 
                     // Inner border
                     Rectangle {
@@ -160,6 +151,7 @@ Item {
 
                     MouseArea {
                         id: sleepMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.medium();
@@ -167,19 +159,7 @@ Item {
                             root.hide();
                         }
                     }
-                }
 
-                // Reboot Tile
-                Rectangle {
-                    id: rebootTile
-                    width: (parent.width - MSpacing.md) / 2
-                    height: Math.round(90 * Constants.scaleFactor)
-                    radius: MRadius.md
-                    color: rebootMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
-                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
-                    border.color: MColors.border
-
-                    scale: rebootMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
                         SpringAnimation {
                             spring: MMotion.springMedium
@@ -193,6 +173,19 @@ Item {
                             duration: MMotion.xs
                         }
                     }
+                }
+
+                // Reboot Tile
+                Rectangle {
+                    id: rebootTile
+
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    color: rebootMouseArea.pressed ? MColors.bb10Elevated : MColors.bb10Card
+                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
+                    border.color: MColors.border
+                    scale: rebootMouseArea.pressed ? 0.95 : 1
 
                     // Inner border
                     Rectangle {
@@ -227,6 +220,7 @@ Item {
 
                     MouseArea {
                         id: rebootMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.medium();
@@ -234,34 +228,7 @@ Item {
                             root.hide();
                         }
                     }
-                }
 
-                // Power Off Tile (primary/teal)
-                Rectangle {
-                    id: powerOffTile
-                    width: (parent.width - MSpacing.md) / 2
-                    height: Math.round(90 * Constants.scaleFactor)
-                    radius: MRadius.md
-
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop {
-                            position: 0.0
-                            color: powerOffMouseArea.pressed ? MColors.marathonTealDark : MColors.marathonTealBright
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: MColors.marathonTeal
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: MColors.marathonTealDark
-                        }
-                    }
-
-                    border.width: 0
-
-                    scale: powerOffMouseArea.pressed ? 0.95 : 1.0
                     Behavior on scale {
                         SpringAnimation {
                             spring: MMotion.springMedium
@@ -269,6 +236,23 @@ Item {
                             epsilon: MMotion.epsilon
                         }
                     }
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: MMotion.xs
+                        }
+                    }
+                }
+
+                // Power Off Tile (primary/teal)
+                Rectangle {
+                    id: powerOffTile
+
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    border.width: 0
+                    scale: powerOffMouseArea.pressed ? 0.95 : 1
 
                     // Outer glow
                     Rectangle {
@@ -306,6 +290,7 @@ Item {
 
                     MouseArea {
                         id: powerOffMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.medium();
@@ -313,19 +298,26 @@ Item {
                             root.hide();
                         }
                     }
-                }
 
-                // Cancel Tile
-                Rectangle {
-                    id: cancelTile
-                    width: (parent.width - MSpacing.md) / 2
-                    height: Math.round(90 * Constants.scaleFactor)
-                    radius: MRadius.md
-                    color: "transparent"
-                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
-                    border.color: cancelMouseArea.pressed ? MColors.borderGlass : MColors.border
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
 
-                    scale: cancelMouseArea.pressed ? 0.95 : 1.0
+                        GradientStop {
+                            position: 0
+                            color: powerOffMouseArea.pressed ? MColors.marathonTealDark : MColors.marathonTealBright
+                        }
+
+                        GradientStop {
+                            position: 0.5
+                            color: MColors.marathonTeal
+                        }
+
+                        GradientStop {
+                            position: 1
+                            color: MColors.marathonTealDark
+                        }
+                    }
+
                     Behavior on scale {
                         SpringAnimation {
                             spring: MMotion.springMedium
@@ -333,12 +325,19 @@ Item {
                             epsilon: MMotion.epsilon
                         }
                     }
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: MMotion.xs
-                        }
-                    }
+                // Cancel Tile
+                Rectangle {
+                    id: cancelTile
+
+                    width: (parent.width - MSpacing.md) / 2
+                    height: Math.round(90 * Constants.scaleFactor)
+                    radius: MRadius.md
+                    color: "transparent"
+                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
+                    border.color: cancelMouseArea.pressed ? MColors.borderGlass : MColors.border
+                    scale: cancelMouseArea.pressed ? 0.95 : 1
 
                     Column {
                         anchors.centerIn: parent
@@ -363,11 +362,26 @@ Item {
 
                     MouseArea {
                         id: cancelMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
                             root.canceled();
                             root.hide();
+                        }
+                    }
+
+                    Behavior on scale {
+                        SpringAnimation {
+                            spring: MMotion.springMedium
+                            damping: MMotion.dampingMedium
+                            epsilon: MMotion.epsilon
+                        }
+                    }
+
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: MMotion.xs
                         }
                     }
                 }
@@ -378,6 +392,7 @@ Item {
     // Fade in animation
     ParallelAnimation {
         id: fadeIn
+
         NumberAnimation {
             target: backdrop
             property: "opacity"
@@ -385,6 +400,7 @@ Item {
             duration: MMotion.quick
             easing.type: Easing.OutCubic
         }
+
         NumberAnimation {
             target: dialog
             property: "opacity"
@@ -392,6 +408,7 @@ Item {
             duration: MMotion.quick
             easing.type: Easing.OutCubic
         }
+
         NumberAnimation {
             target: dialog
             property: "scale"
@@ -405,6 +422,7 @@ Item {
     // Fade out animation
     SequentialAnimation {
         id: fadeOut
+
         ParallelAnimation {
             NumberAnimation {
                 target: backdrop
@@ -413,6 +431,7 @@ Item {
                 duration: MMotion.fast
                 easing.type: Easing.InCubic
             }
+
             NumberAnimation {
                 target: dialog
                 property: "opacity"
@@ -420,6 +439,7 @@ Item {
                 duration: MMotion.fast
                 easing.type: Easing.InCubic
             }
+
             NumberAnimation {
                 target: dialog
                 property: "scale"
@@ -428,6 +448,7 @@ Item {
                 easing.type: Easing.InCubic
             }
         }
+
         PropertyAction {
             target: root
             property: "visible"

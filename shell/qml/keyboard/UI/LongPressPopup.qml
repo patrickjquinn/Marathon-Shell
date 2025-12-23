@@ -1,7 +1,7 @@
+import MarathonOS.Shell
 // Marathon Virtual Keyboard - Long Press Handler
 // Handles long-press for alternate characters
 import QtQuick
-import MarathonOS.Shell
 
 Item {
     id: longPressHandler
@@ -43,9 +43,9 @@ Item {
     // Get alternates for a character
     function getAlternates(character) {
         var lowerChar = character.toLowerCase();
-        if (alternates.hasOwnProperty(lowerChar)) {
+        if (alternates.hasOwnProperty(lowerChar))
             return alternates[lowerChar];
-        }
+
         return [];
     }
 

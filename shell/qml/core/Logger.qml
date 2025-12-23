@@ -1,6 +1,6 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 QtObject {
     id: logger
@@ -17,44 +17,37 @@ QtObject {
     property int currentLevel: Constants.debugMode ? Logger.Level.DEBUG : Logger.Level.WARN
 
     function debug(component, message) {
-        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode)
             console.log("[DEBUG]", component + ":", message);
-        }
     }
 
     function info(component, message) {
-        if (currentLevel <= Logger.Level.INFO && Constants.debugMode) {
+        if (currentLevel <= Logger.Level.INFO && Constants.debugMode)
             console.log("[INFO]", component + ":", message);
-        }
     }
 
     function warn(component, message) {
-        if (currentLevel <= Logger.Level.WARN) {
+        if (currentLevel <= Logger.Level.WARN)
             console.warn("[WARN]", component + ":", message);
-        }
     }
 
     function error(component, message) {
-        if (currentLevel <= Logger.Level.ERROR) {
+        if (currentLevel <= Logger.Level.ERROR)
             console.error("[ERROR]", component + ":", message);
-        }
     }
 
     function gesture(component, action, data) {
-        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode)
             console.log("[GESTURE]", component + ":", action, JSON.stringify(data || {}));
-        }
     }
 
     function state(component, from, to) {
-        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode)
             console.log("[STATE]", component + ":", from, "→", to);
-        }
     }
 
     function nav(from, to, method) {
-        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode) {
+        if (currentLevel <= Logger.Level.DEBUG && Constants.debugMode)
             console.log("[NAV]", from, "→", to, "(" + method + ")");
-        }
     }
 }

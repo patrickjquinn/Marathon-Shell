@@ -1,135 +1,20 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: displayPage
-    pageTitle: "Display & Brightness"
 
     property string pageName: "display"
 
-    content: Flickable {
-        contentHeight: displayContent.height + 40
-        clip: true
-
-        Column {
-            id: displayContent
-            width: parent.width
-            spacing: MSpacing.xl
-            leftPadding: 24
-            rightPadding: 24
-            topPadding: 24
-
-            MSection {
-                title: "Brightness"
-                width: parent.width - 48
-
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.md
-                    leftPadding: MSpacing.md
-                    rightPadding: MSpacing.md
-
-                    MSlider {
-                        width: parent.width - parent.leftPadding - parent.rightPadding
-                        from: 0
-                        to: 100
-                        value: SystemControlStore.brightness
-                        onValueChanged: {
-                            if (pressed) {
-                                SystemControlStore.setBrightness(value);
-                            }
-                        }
-                    }
-                }
-            }
-
-            MSection {
-                title: "Display Settings"
-                width: parent.width - 48
-
-                MSettingsListItem {
-                    title: "Rotation Lock"
-                    subtitle: "Lock screen orientation"
-                    showToggle: true
-                    toggleValue: SystemControlStore.isRotationLocked
-                    onToggleChanged: {
-                        SystemControlStore.toggleRotationLock();
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Auto-Brightness"
-                    subtitle: "Adjust brightness automatically"
-                    showToggle: true
-                    toggleValue: DisplayManager.autoBrightnessEnabled
-                    onToggleChanged: value => {
-                        DisplayManager.setAutoBrightness(value);
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Screen Timeout"
-                    value: DisplayManager.screenTimeoutString
-                    showChevron: true
-                    onSettingClicked: {
-                        displayPage.parent.push(screenTimeoutPageComponent);
-                    }
-                }
-            }
-
-            MSection {
-                title: "Status Bar"
-                width: parent.width - 48
-
-                MSettingsListItem {
-                    title: "Clock Position"
-                    subtitle: "Choose where the clock appears"
-                    value: {
-                        var pos = SettingsManagerCpp.statusBarClockPosition || "center";
-                        return pos.charAt(0).toUpperCase() + pos.slice(1);
-                    }
-                    showChevron: true
-                    onSettingClicked: {
-                        displayPage.parent.push(clockPositionPageComponent);
-                    }
-                }
-            }
-
-            MSection {
-                title: "Interface"
-                width: parent.width - 48
-
-                MSettingsListItem {
-                    title: "UI Scale"
-                    subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
-                    showChevron: true
-                    onSettingClicked: {
-                        displayPage.parent.push(scalePageComponent);
-                    }
-                }
-
-                MSettingsListItem {
-                    title: "Wallpaper"
-                    subtitle: "Change background image"
-                    showChevron: true
-                    onSettingClicked: {
-                        displayPage.parent.push(wallpaperPageComponent);
-                    }
-                }
-            }
-
-            Item {
-                height: Constants.navBarHeight
-            }
-        }
-    }
+    pageTitle: "Display & Brightness"
 
     Component {
         id: scalePageComponent
+
         ScalePage {
             onNavigateBack: displayPage.parent.pop()
         }
@@ -137,6 +22,7 @@ SettingsPageTemplate {
 
     Component {
         id: wallpaperPageComponent
+
         WallpaperPage {
             onNavigateBack: displayPage.parent.pop()
         }
@@ -144,6 +30,7 @@ SettingsPageTemplate {
 
     Component {
         id: screenTimeoutPageComponent
+
         ScreenTimeoutPage {
             onNavigateBack: displayPage.parent.pop()
         }
@@ -151,8 +38,10 @@ SettingsPageTemplate {
 
     Component {
         id: clockPositionPageComponent
+
         SettingsPageTemplate {
             pageTitle: "Clock Position"
+            onNavigateBack: displayPage.parent.pop()
 
             content: Flickable {
                 contentHeight: clockPositionContent.height + 40
@@ -160,6 +49,7 @@ SettingsPageTemplate {
 
                 Column {
                     id: clockPositionContent
+
                     width: parent.width
                     spacing: MSpacing.xl
                     leftPadding: 24
@@ -212,8 +102,124 @@ SettingsPageTemplate {
                     }
                 }
             }
+        }
+    }
 
-            onNavigateBack: displayPage.parent.pop()
+    content: Flickable {
+        contentHeight: displayContent.height + 40
+        clip: true
+
+        Column {
+            id: displayContent
+
+            width: parent.width
+            spacing: MSpacing.xl
+            leftPadding: 24
+            rightPadding: 24
+            topPadding: 24
+
+            MSection {
+                title: "Brightness"
+                width: parent.width - 48
+
+                Column {
+                    width: parent.width
+                    spacing: MSpacing.md
+                    leftPadding: MSpacing.md
+                    rightPadding: MSpacing.md
+
+                    MSlider {
+                        width: parent.width - parent.leftPadding - parent.rightPadding
+                        from: 0
+                        to: 100
+                        value: SystemControlStore.brightness
+                        onValueChanged: {
+                            if (pressed)
+                                SystemControlStore.setBrightness(value);
+                        }
+                    }
+                }
+            }
+
+            MSection {
+                title: "Display Settings"
+                width: parent.width - 48
+
+                MSettingsListItem {
+                    title: "Rotation Lock"
+                    subtitle: "Lock screen orientation"
+                    showToggle: true
+                    toggleValue: SystemControlStore.isRotationLocked
+                    onToggleChanged: {
+                        SystemControlStore.toggleRotationLock();
+                    }
+                }
+
+                MSettingsListItem {
+                    title: "Auto-Brightness"
+                    subtitle: "Adjust brightness automatically"
+                    showToggle: true
+                    toggleValue: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.autoBrightnessEnabled : false
+                    onToggleChanged: value => {
+                        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                            DisplayManagerCpp.autoBrightnessEnabled = value;
+                    }
+                }
+
+                MSettingsListItem {
+                    title: "Screen Timeout"
+                    value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.screenTimeoutString : ""
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(screenTimeoutPageComponent);
+                    }
+                }
+            }
+
+            MSection {
+                title: "Status Bar"
+                width: parent.width - 48
+
+                MSettingsListItem {
+                    title: "Clock Position"
+                    subtitle: "Choose where the clock appears"
+                    value: {
+                        var pos = SettingsManagerCpp.statusBarClockPosition || "center";
+                        return pos.charAt(0).toUpperCase() + pos.slice(1);
+                    }
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(clockPositionPageComponent);
+                    }
+                }
+            }
+
+            MSection {
+                title: "Interface"
+                width: parent.width - 48
+
+                MSettingsListItem {
+                    title: "UI Scale"
+                    subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(scalePageComponent);
+                    }
+                }
+
+                MSettingsListItem {
+                    title: "Wallpaper"
+                    subtitle: "Change background image"
+                    showChevron: true
+                    onSettingClicked: {
+                        displayPage.parent.push(wallpaperPageComponent);
+                    }
+                }
+            }
+
+            Item {
+                height: Constants.navBarHeight
+            }
         }
     }
 }

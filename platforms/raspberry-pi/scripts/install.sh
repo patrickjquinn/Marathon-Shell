@@ -73,18 +73,12 @@ fi
 
 if [ "$SKIP_PATCHES" != "1" ]; then
     echo -e "\n${GREEN}=== Step 2: Applying QML patches ===${NC}"
-    
+
     cd "$HOME/Marathon-Shell"
-    
-    # Check if patches are already applied
-    if grep -q "property double lastActivityTime" shell/qml/services/SessionManager.qml; then
-        echo "✓ SessionManager patch already applied"
-    else
-        echo "Applying SessionManager patch..."
-        patch -p1 < "$REPO_DIR/patches/01-sessionmanager-fix.patch"
-        echo "✓ Applied SessionManager patch"
-    fi
-    
+
+    # Session lock/unlock behavior is implemented in SessionStore/MarathonLockScreen.
+    # Older revisions patched SessionManager.qml, but that file no longer exists.
+
     # Check if SessionStore patch is needed
     if grep -q "30 second guard" shell/qml/stores/SessionStore.qml; then
         echo "Applying SessionStore patch..."

@@ -1,14 +1,15 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: aboutPage
-    pageTitle: "About Device"
 
     property string pageName: "about"
+
+    pageTitle: "About Device"
 
     content: Flickable {
         contentHeight: aboutContent.height + 40
@@ -16,6 +17,7 @@ SettingsPageTemplate {
 
         Column {
             id: aboutContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -64,7 +66,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Display"
-                    value: DisplayManager.width + "x" + DisplayManager.height
+                    value: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? (ScreenMetricsCpp.width + "x" + ScreenMetricsCpp.height) : ""
                 }
 
                 MSettingsListItem {

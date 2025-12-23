@@ -2,7 +2,7 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QDir>
-#include "../shell/src/marathonappverifier.h"
+#include "marathonappverifier.h"
 
 class TestAppVerifier : public QObject {
     Q_OBJECT
@@ -54,11 +54,11 @@ void TestAppVerifier::testVerifyValidSignature() {
 
     // Sign the manifest
     QString signaturePath = testAppPath + "/SIGNATURE.txt";
-    bool signed           = verifier->signManifest(manifestPath, signaturePath);
+    bool    signedOk      = verifier->signManifest(manifestPath, signaturePath);
 
     // In dev mode (no trusted keys), this should succeed if GPG is available
     // If GPG is not available, skip this test
-    if (!signed) {
+    if (!signedOk) {
         QSKIP("GPG not available or key not configured");
         return;
     }

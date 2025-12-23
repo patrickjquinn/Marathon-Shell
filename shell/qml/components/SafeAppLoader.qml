@@ -1,8 +1,8 @@
+import MarathonOS.Shell
+import MarathonUI.Core
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
-import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
 
 Item {
     id: root
@@ -15,8 +15,26 @@ Item {
     signal loadError(string message)
     signal loadSuccess
 
+    function restart() {
+        console.log("SafeAppLoader: Restarting app", root.appId);
+        errorContainer.visible = false;
+        loader.active = false;
+        Qt.callLater(() => {
+            loader.active = true;
+        });
+    }
+
+    function unload() {
+        loader.active = false;
+    }
+
+    function reload() {
+        restart();
+    }
+
     Rectangle {
         id: errorContainer
+
         anchors.fill: parent
         color: MColors.background
         visible: false
@@ -62,21 +80,19 @@ Item {
 
     Loader {
         id: loader
+
         anchors.fill: parent
         active: root.isActive
         asynchronous: true
         sourceComponent: root.sourceComponent
-
         onStatusChanged: {
             if (status === Loader.Error) {
                 console.error("SafeAppLoader: Failed to load app", root.appId);
                 console.error("  Error string:", loader.sourceComponent);
                 errorContainer.visible = true;
                 root.loadError("Failed to load component");
-
-                if (root.appId) {
+                if (root.appId)
                     StateManager.saveAppState(root.appId, "crashed");
-                }
             } else if (status === Loader.Ready) {
                 errorContainer.visible = false;
                 root.loadSuccess();
@@ -84,51 +100,26 @@ Item {
                 errorContainer.visible = false;
             }
         }
-
         onLoaded: {
             if (item) {
                 console.log("SafeAppLoader: Successfully loaded app", root.appId);
-
                 // Connect to app's registration signals
-                if (item.requestRegister) {
+                if (item.requestRegister)
                     item.requestRegister.connect(function (appId, appInstance) {
                         console.log("SafeAppLoader: App requested registration:", appId);
-                        if (typeof AppLifecycleManager !== 'undefined') {
+                        if (typeof AppLifecycleManager !== 'undefined')
                             AppLifecycleManager.registerApp(appId, appInstance);
-                        } else {
+                        else
                             console.error("SafeAppLoader: AppLifecycleManager not available!");
-                        }
                     });
-                }
 
-                if (item.requestUnregister) {
+                if (item.requestUnregister)
                     item.requestUnregister.connect(function (appId) {
                         console.log("SafeAppLoader: App requested unregistration:", appId);
-                        if (typeof AppLifecycleManager !== 'undefined') {
+                        if (typeof AppLifecycleManager !== 'undefined')
                             AppLifecycleManager.unregisterApp(appId);
-                        }
                     });
-                }
             }
         }
-    }
-
-    function restart() {
-        console.log("SafeAppLoader: Restarting app", root.appId);
-        errorContainer.visible = false;
-
-        loader.active = false;
-
-        Qt.callLater(() => {
-            loader.active = true;
-        });
-    }
-
-    function unload() {
-        loader.active = false;
-    }
-
-    function reload() {
-        restart();
     }
 }

@@ -1,6 +1,6 @@
+import MarathonOS.Shell
 import QtQuick
 import QtQuick.Window
-import MarathonOS.Shell
 
 QtObject {
     id: root
@@ -8,40 +8,19 @@ QtObject {
     property var shell: null
     property var compositor: null
 
-    Component.onCompleted: {
-        DisplayManagerCpp.screenStateChanged.connect(function (on) {
-            if (root.compositor)
-                root.compositor.setCompositorActive(on);
-        });
-
-        DisplayManager.orientationSet.connect(function (orientation) {
-            if (root.compositor)
-                Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
-            root.compositor.setOutputOrientation(orientation);
-        });
-    }
-
     function initialize(shellRef, rootWindow) {
         root.shell = shellRef;
-
-        WallpaperStore.currentWallpaper = SettingsManagerCpp.wallpaperPath;
-
         Constants.updateScreenSize(shellRef.width, shellRef.height, Screen.pixelDensity * 25.4);
         UIStore.shellRef = shellRef;
         Logger.info("ShellInitialization", "Screen size: " + shellRef.width + "x" + shellRef.height + " @ " + Math.round(Screen.pixelDensity * 25.4) + " DPI");
         Logger.info("ShellInitialization", "Scale factor: " + Constants.scaleFactor + " (base: " + (Constants.screenHeight / Constants.baseHeight) + " x user: " + Constants.userScaleFactor + ")");
-
         shellRef.forceActiveFocus();
         Logger.info("ShellInitialization", "Marathon Shell initialized");
-
         root.compositor = root.initializeCompositor(rootWindow);
-
-        if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
+        if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled)
             root.startBluetoothReconnect(shellRef);
-        }
 
         root.logSystemServices();
-
         return root.compositor;
     }
 
@@ -50,20 +29,15 @@ QtObject {
             Logger.info("ShellInitialization", "Wayland Compositor not available on this platform (expected on macOS)");
             return null;
         }
-
         if (!rootWindow) {
             Logger.info("ShellInitialization", "No root window provided (Wayland not available)");
             return null;
         }
-
         var compositor = WaylandCompositorManager.createCompositor(rootWindow);
-
-        if (compositor) {
+        if (compositor)
             Logger.info("ShellInitialization", "Wayland Compositor initialized: " + compositor.socketName);
-        } else {
+        else
             Logger.info("ShellInitialization", "Wayland Compositor not available on this platform");
-        }
-
         return compositor;
     }
 
@@ -78,8 +52,23 @@ QtObject {
     }
 
     function startBluetoothReconnect(shellRef) {
-        if (shellRef && shellRef.bluetoothReconnectTimer) {
+        if (shellRef && shellRef.bluetoothReconnectTimer)
             shellRef.bluetoothReconnectTimer.start();
-        }
+    }
+
+    Component.onCompleted: {
+        DisplayManagerCpp.screenStateChanged.connect(function (on) {
+            if (root.compositor)
+                root.compositor.setCompositorActive(on);
+        });
+        if (typeof RotationManager !== "undefined" && RotationManager)
+            RotationManager.orientationChanged.connect(function () {
+                var orientation = RotationManager.currentOrientation;
+                if (root.compositor)
+                    Logger.info("ShellInitialization", "Setting output orientation to: " + orientation);
+
+                if (root.compositor)
+                    root.compositor.setOutputOrientation(orientation);
+            });
     }
 }

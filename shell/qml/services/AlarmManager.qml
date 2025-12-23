@@ -1,21 +1,8 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 Item {
-    id: alarmManager
-
-    property var alarms: []  // Array of alarm objects
-    property var activeAlarms: []  // Currently ringing alarms
-    property bool hasActiveAlarm: activeAlarms.length > 0
-
-    signal alarmTriggered(var alarm)
-    signal alarmDismissed(string alarmId)
-    signal alarmSnoozed(string alarmId, int minutes)
-    signal alarmCreated(var alarm)
-    signal alarmUpdated(var alarm)
-    signal alarmDeleted(string alarmId)
-
     // Alarm object structure:
     // {
     //   id: string,
@@ -28,28 +15,47 @@ Item {
     //   snoozeEnabled: bool,
     //   snoozeDuration: int (minutes)
     // }
+    // Pattern
+    // Not scheduled for today
+
+    id: alarmManager
+
+    property var alarms: [] // Array of alarm objects
+    property var activeAlarms: [] // Currently ringing alarms
+    property bool hasActiveAlarm: activeAlarms.length > 0
+    property var checkTimer
+
+    signal alarmTriggered(var alarm)
+    signal alarmDismissed(string alarmId)
+    signal alarmSnoozed(string alarmId, int minutes)
+    signal alarmCreated(var alarm)
+    signal alarmUpdated(var alarm)
+    signal alarmDeleted(string alarmId)
+
+    // Test/debug helper: allow triggering an alarm via the same codepath used by the scheduler.
+    // This keeps the "System Test Suite" app honest (sound, vibration, wake, UI).
+    function triggerAlarmForTesting(alarm) {
+        _triggerAlarm(alarm);
+    }
 
     function createAlarm(time, label, repeat, options) {
         var alarm = {
-            id: Qt.md5(Date.now() + time + label),
-            time: time,
-            enabled: true,
-            label: label || "Alarm",
-            repeat: repeat || [],
-            sound: (options && options.sound) || "default",
-            vibrate: (options && options.vibrate) !== false,
-            snoozeEnabled: (options && options.snoozeEnabled) !== false,
-            snoozeDuration: (options && options.snoozeDuration) || 10
+            "id": Qt.md5(Date.now() + time + label),
+            "time": time,
+            "enabled": true,
+            "label": label || "Alarm",
+            "repeat": repeat || [],
+            "sound": (options && options.sound) || "default",
+            "vibrate": (options && options.vibrate) !== false,
+            "snoozeEnabled": (options && options.snoozeEnabled) !== false,
+            "snoozeDuration": (options && options.snoozeDuration) || 10
         };
-
         alarms.push(alarm);
         alarmsChanged();
         _saveAlarms();
         _scheduleNextAlarm();
-
         Logger.info("AlarmManager", "Alarm created: " + alarm.id + " at " + time);
         alarmCreated(alarm);
-
         return alarm.id;
     }
 
@@ -63,7 +69,6 @@ Item {
                 alarmsChanged();
                 _saveAlarms();
                 _scheduleNextAlarm();
-
                 Logger.info("AlarmManager", "Alarm updated: " + alarmId);
                 alarmUpdated(alarms[i]);
                 return true;
@@ -79,7 +84,6 @@ Item {
                 alarmsChanged();
                 _saveAlarms();
                 _scheduleNextAlarm();
-
                 Logger.info("AlarmManager", "Alarm deleted: " + alarmId);
                 alarmDeleted(alarmId);
                 return true;
@@ -90,23 +94,22 @@ Item {
 
     function enableAlarm(alarmId) {
         return updateAlarm(alarmId, {
-            enabled: true
+            "enabled": true
         });
     }
 
     function disableAlarm(alarmId) {
         return updateAlarm(alarmId, {
-            enabled: false
+            "enabled": false
         });
     }
 
     function toggleAlarm(alarmId) {
         for (var i = 0; i < alarms.length; i++) {
-            if (alarms[i].id === alarmId) {
+            if (alarms[i].id === alarmId)
                 return updateAlarm(alarmId, {
-                    enabled: !alarms[i].enabled
+                    "enabled": !alarms[i].enabled
                 });
-            }
         }
         return false;
     }
@@ -116,17 +119,26 @@ Item {
             if (activeAlarms[i].id === alarmId) {
                 var alarm = activeAlarms[i];
                 var snoozeDuration = alarm.snoozeDuration || 10;
-
                 // Remove from active
                 activeAlarms.splice(i, 1);
                 activeAlarmsChanged();
+                // Stop alarm feedback if nothing else is ringing
+                if (activeAlarms.length === 0) {
+                    if (typeof AudioManager !== 'undefined')
+                        AudioManager.stopAlarmSound();
 
+                    if (typeof HapticService !== 'undefined')
+                        HapticService.stopVibration();
+
+                    // If the session is already unlocked (grace period), don't strand the user on the lock screen
+                    // after dismissing the alarm UI.
+                    if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+                        SessionStore.unlock();
+                }
                 // Schedule wake for snooze
                 _scheduleSnooze(alarm, snoozeDuration);
-
                 Logger.info("AlarmManager", "Alarm snoozed: " + alarmId + " for " + snoozeDuration + " minutes");
                 alarmSnoozed(alarmId, snoozeDuration);
-
                 return true;
             }
         }
@@ -138,13 +150,23 @@ Item {
             if (activeAlarms[i].id === alarmId) {
                 activeAlarms.splice(i, 1);
                 activeAlarmsChanged();
+                // Stop alarm feedback if nothing else is ringing
+                if (activeAlarms.length === 0) {
+                    if (typeof AudioManager !== 'undefined')
+                        AudioManager.stopAlarmSound();
 
+                    if (typeof HapticService !== 'undefined')
+                        HapticService.stopVibration();
+
+                    // If the session is already unlocked (grace period), don't strand the user on the lock screen
+                    // after dismissing the alarm UI.
+                    if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+                        SessionStore.unlock();
+                }
                 Logger.info("AlarmManager", "Alarm dismissed: " + alarmId);
                 alarmDismissed(alarmId);
-
                 // Re-schedule if repeating
                 _rescheduleRepeatingAlarm(alarmId);
-
                 return true;
             }
         }
@@ -155,17 +177,16 @@ Item {
         var now = new Date();
         var nextTime = null;
         var nextAlarm = null;
-
         for (var i = 0; i < alarms.length; i++) {
             if (!alarms[i].enabled)
                 continue;
+
             var alarmTime = _calculateNextOccurrence(alarms[i], now);
             if (alarmTime && (!nextTime || alarmTime < nextTime)) {
                 nextTime = alarmTime;
                 nextAlarm = alarms[i];
             }
         }
-
         return nextTime;
     }
 
@@ -173,14 +194,11 @@ Item {
         var parts = alarm.time.split(":");
         var hours = parseInt(parts[0]);
         var minutes = parseInt(parts[1]);
-
         var next = new Date(fromDate);
         next.setHours(hours, minutes, 0, 0);
-
         // If time has passed today, start from tomorrow
-        if (next <= fromDate) {
+        if (next <= fromDate)
             next.setDate(next.getDate() + 1);
-        }
 
         // Handle repeating alarms
         if (alarm.repeat && alarm.repeat.length > 0) {
@@ -188,7 +206,6 @@ Item {
             var currentDay = next.getDay();
             var daysToAdd = 0;
             var found = false;
-
             for (var i = 0; i < 7; i++) {
                 var checkDay = (currentDay + i) % 7;
                 if (alarm.repeat.indexOf(checkDay) !== -1) {
@@ -197,34 +214,31 @@ Item {
                     break;
                 }
             }
-
-            if (found) {
+            if (found)
                 next.setDate(next.getDate() + daysToAdd);
-            } else {
-                return null;  // No valid repeat day
-            }
+            else
+                return null; // No valid repeat day
         }
-
         return next;
     }
 
     function _scheduleNextAlarm() {
         var nextTime = getNextAlarmTime();
-
         if (nextTime) {
             var now = new Date();
             var msUntil = nextTime - now;
-
             Logger.info("AlarmManager", "Next alarm in " + Math.round(msUntil / 1000 / 60) + " minutes");
-
             // In production, this would set a system wake alarm via:
             // - Linux: /sys/class/rtc/rtc0/wakealarm
             // - OR: systemd timer with WakeSystem=true
-            if (typeof PowerManager !== 'undefined') {
-                PowerManager.scheduleWake(nextTime, "alarm");
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
+                var epochTime = Math.floor(nextTime.getTime() / 1000);
+                PowerPolicyControllerCpp.scheduleWakeEpoch(epochTime, "alarm");
+            } else if (typeof PowerManagerService !== "undefined" && PowerManagerService) {
+                var epochTimeFallback = Math.floor(nextTime.getTime() / 1000);
+                PowerManagerService.setRtcAlarm(epochTimeFallback);
             }
-
-            checkTimer.interval = Math.min(msUntil, 60000);  // Check at least every minute
+            checkTimer.interval = Math.min(msUntil, 60000); // Check at least every minute
             checkTimer.restart();
         } else {
             Logger.info("AlarmManager", "No alarms scheduled");
@@ -235,9 +249,12 @@ Item {
     function _scheduleSnooze(alarm, minutes) {
         var snoozeTime = new Date();
         snoozeTime.setMinutes(snoozeTime.getMinutes() + minutes);
-
-        if (typeof PowerManager !== 'undefined') {
-            PowerManager.scheduleWake(snoozeTime, "alarm_snooze");
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
+            var epochTime = Math.floor(snoozeTime.getTime() / 1000);
+            PowerPolicyControllerCpp.scheduleWakeEpoch(epochTime, "alarm_snooze");
+        } else if (typeof PowerManagerService !== "undefined" && PowerManagerService) {
+            var epochTimeFallback = Math.floor(snoozeTime.getTime() / 1000);
+            PowerManagerService.setRtcAlarm(epochTimeFallback);
         }
     }
 
@@ -249,7 +266,6 @@ Item {
     function _checkAlarms() {
         var now = new Date();
         var currentTime = Qt.formatTime(now, "HH:mm");
-
         for (var i = 0; i < alarms.length; i++) {
             var alarm = alarms[i];
             if (!alarm.enabled)
@@ -259,12 +275,9 @@ Item {
             if (alarm.time === currentTime) {
                 // Check day of week for repeating alarms
                 if (alarm.repeat && alarm.repeat.length > 0) {
-                    if (alarm.repeat.indexOf(now.getDay()) === -1) {
-                        // Not scheduled for today
+                    if (alarm.repeat.indexOf(now.getDay()) === -1)
                         continue;
-                    }
                 }
-
                 // Trigger alarm
                 _triggerAlarm(alarm);
             }
@@ -273,30 +286,26 @@ Item {
 
     function _triggerAlarm(alarm) {
         Logger.info("AlarmManager", "ALARM TRIGGERED: " + alarm.label);
-
         // Add to active alarms
         activeAlarms.push(alarm);
         activeAlarmsChanged();
-
         // Wake the system
-        if (typeof PowerManager !== 'undefined') {
-            PowerManager.wake("alarm");
-        }
-
+        if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+            PowerPolicyControllerCpp.wake("alarm");
+        else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+            PowerManagerService.acquireWakelock("alarm");
         // Turn on screen
-        if (typeof DisplayManager !== 'undefined') {
-            DisplayManager.turnScreenOn();
-        }
-
+        if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+            DisplayPolicyControllerCpp.turnScreenOn();
+        else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.setScreenState(true);
         // Play alarm sound
-        if (alarm.sound && typeof AudioManager !== 'undefined') {
+        if (alarm.sound && typeof AudioManager !== 'undefined')
             AudioManager.playAlarmSound();
-        }
 
         // Vibrate
-        if (alarm.vibrate && typeof HapticService !== 'undefined') {
-            HapticService.pattern([500, 200, 500, 200, 500]);  // Pattern
-        }
+        if (alarm.vibrate && typeof HapticService !== 'undefined')
+            HapticService.pattern([500, 200, 500, 200, 500]);
 
         // Show alarm UI
         alarmTriggered(alarm);
@@ -318,8 +327,15 @@ Item {
         }
     }
 
-    property var checkTimer: Timer {
+    Component.onCompleted: {
+        Logger.info("AlarmManager", "Initialized");
+        _loadAlarms();
+        _scheduleNextAlarm();
+    }
+
+    checkTimer: Timer {
         id: checkTimer
+
         repeat: true
         running: true
         interval: 60000
@@ -327,11 +343,5 @@ Item {
             _checkAlarms();
             _scheduleNextAlarm();
         }
-    }
-
-    Component.onCompleted: {
-        Logger.info("AlarmManager", "Initialized");
-        _loadAlarms();
-        _scheduleNextAlarm();
     }
 }

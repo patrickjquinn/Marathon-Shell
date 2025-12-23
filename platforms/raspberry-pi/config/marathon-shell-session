@@ -13,6 +13,7 @@ export XDG_CURRENT_DESKTOP=marathon
 # Marathon-specific paths
 export MARATHON_PREFIX=/usr
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
+export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-$MARATHON_PREFIX/share/marathon-shell}"
 
 # Qt/QML environment
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1

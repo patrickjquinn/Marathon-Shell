@@ -4,6 +4,18 @@
 #include <QDir>
 #include <QTimer>
 
+void HapticManager::vibratePatternVariant(const QVariantList &pattern) {
+    QList<int> ints;
+    ints.reserve(pattern.size());
+    for (const QVariant &v : pattern) {
+        bool      ok = false;
+        const int i  = v.toInt(&ok);
+        if (ok)
+            ints.append(i);
+    }
+    vibratePattern(ints);
+}
+
 HapticManager::HapticManager(QObject *parent)
     : QObject(parent)
     , m_available(false)

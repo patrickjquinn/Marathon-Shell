@@ -1,9 +1,9 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Controls
+import QtQuick
+import QtQuick.Controls
 
 /**
  * Polished WiFi Password Dialog
@@ -18,9 +18,6 @@ import MarathonUI.Controls
  */
 Item {
     id: wifiDialog
-    anchors.fill: parent
-    visible: false
-    z: Constants.zIndexModalOverlay + 10
 
     // Public API
     property string networkSsid: ""
@@ -67,9 +64,19 @@ Item {
         errorMessage = "";
     }
 
+    anchors.fill: parent
+    visible: false
+    z: Constants.zIndexModalOverlay + 10
+    // Handle back button/escape key
+    Keys.onEscapePressed: {
+        if (!isConnecting)
+            wifiDialog.hide();
+    }
+
     // Background overlay
     Rectangle {
         id: overlay
+
         anchors.fill: parent
         color: Qt.rgba(0, 0, 0, 0.6)
         opacity: 0
@@ -77,9 +84,8 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                if (!isConnecting) {
+                if (!isConnecting)
                     wifiDialog.hide();
-                }
             }
         }
     }
@@ -87,6 +93,7 @@ Item {
     // Dialog card
     Rectangle {
         id: dialogCard
+
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 0
@@ -96,19 +103,12 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        transform: Translate {
-            id: translateTransform
-            y: dialogCard.height
-        }
-
         // Glass morphism effect
         layer.enabled: true
-        layer.effect: ShaderEffect {
-            property real blur: 32
-        }
 
         Column {
             id: contentColumn
+
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
@@ -165,6 +165,7 @@ Item {
 
                             Text {
                                 id: securityBadgeText
+
                                 text: secured ? securityType : "Open"
                                 font.pixelSize: MTypography.sizeXSmall
                                 font.weight: Font.Medium
@@ -196,12 +197,6 @@ Item {
                 border.color: errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.accent : MColors.border)
                 visible: secured
 
-                Behavior on border.color {
-                    ColorAnimation {
-                        duration: 150
-                    }
-                }
-
                 Row {
                     anchors.fill: parent
                     anchors.margins: Constants.spacingMedium
@@ -216,6 +211,7 @@ Item {
 
                     TextInput {
                         id: passwordInput
+
                         width: parent.width - Constants.iconSizeMedium - Constants.touchTargetSmall - Constants.spacingMedium * 2
                         anchors.verticalCenter: parent.verticalCenter
                         font.pixelSize: MTypography.sizeBody
@@ -226,6 +222,10 @@ Item {
                         enabled: !isConnecting
                         selectByMouse: true
                         clip: true
+                        Keys.onReturnPressed: {
+                            if (passwordInput.text.length >= 8)
+                                connectButton.clicked();
+                        }
 
                         // Placeholder text (TextInput doesn't render placeholderText, so we fake it)
                         Text {
@@ -235,18 +235,14 @@ Item {
                             visible: passwordInput.text.length === 0 && !passwordInput.activeFocus
                             anchors.verticalCenter: parent.verticalCenter
                         }
-
-                        Keys.onReturnPressed: {
-                            if (passwordInput.text.length >= 8) {
-                                connectButton.clicked();
-                            }
-                        }
                     }
 
                     // Show/hide password toggle
                     Rectangle {
                         id: showPasswordToggle
+
                         property bool checked: false
+
                         width: Constants.touchTargetSmall
                         height: Constants.touchTargetSmall
                         radius: Constants.borderRadiusSmall
@@ -267,6 +263,12 @@ Item {
                                 HapticService.light();
                             }
                         }
+                    }
+                }
+
+                Behavior on border.color {
+                    ColorAnimation {
+                        duration: 150
                     }
                 }
             }
@@ -296,6 +298,7 @@ Item {
 
                     Text {
                         id: errorText
+
                         text: errorMessage
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
@@ -347,7 +350,7 @@ Item {
                     color: "transparent"
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
-                    opacity: isConnecting ? 0.5 : 1.0
+                    opacity: isConnecting ? 0.5 : 1
 
                     Text {
                         text: "Cancel"
@@ -372,13 +375,14 @@ Item {
                 // Connect button
                 Rectangle {
                     id: connectButton
+
+                    signal clicked
+
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
                     color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.accent, 1.5) : MColors.accent
-                    opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1.0
-
-                    signal clicked
+                    opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1
 
                     Text {
                         text: "Connect"
@@ -413,6 +417,16 @@ Item {
                 wrapMode: Text.WordWrap
                 visible: !isConnecting
             }
+        }
+
+        transform: Translate {
+            id: translateTransform
+
+            y: dialogCard.height
+        }
+
+        layer.effect: ShaderEffect {
+            property real blur: 32
         }
     }
 
@@ -468,13 +482,6 @@ Item {
                 errorMessage = "";
                 isConnecting = false;
             }
-        }
-    }
-
-    // Handle back button/escape key
-    Keys.onEscapePressed: {
-        if (!isConnecting) {
-            wifiDialog.hide();
         }
     }
 }

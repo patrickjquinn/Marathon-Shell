@@ -1,16 +1,15 @@
-import QtQuick
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: connectionToast
-    anchors.fill: parent
-    z: 2950
 
     property string message: ""
     property string iconName: "wifi"
     property bool showing: false
+    property bool initialized: false
 
     function show(msg, icon) {
         message = msg;
@@ -25,8 +24,15 @@ Item {
         slideOut.start();
     }
 
+    anchors.fill: parent
+    z: 2950
+    Component.onCompleted: {
+        initDelayTimer.start();
+    }
+
     Rectangle {
         id: toast
+
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height
         width: Math.min(parent.width - 32, 300)
@@ -69,6 +75,7 @@ Item {
 
     NumberAnimation {
         id: slideIn
+
         target: toast
         property: "y"
         to: Constants.statusBarHeight + 16
@@ -78,6 +85,7 @@ Item {
 
     NumberAnimation {
         id: slideOut
+
         target: toast
         property: "y"
         to: -toast.height
@@ -90,41 +98,38 @@ Item {
 
     Timer {
         id: autoHideTimer
+
         interval: 3000
         onTriggered: hide()
     }
 
-    property bool initialized: false
-
     Connections {
-        target: SystemStatusStore
         function onIsWifiOnChanged() {
-            if (initialized && SystemStatusStore.isWifiOn) {
+            if (initialized && SystemStatusStore.isWifiOn)
                 show("Connected to " + (SystemStatusStore.wifiNetwork || "WiFi"), "wifi");
-            }
         }
+
         function onIsBluetoothOnChanged() {
-            if (initialized && SystemStatusStore.isBluetoothOn) {
+            if (initialized && SystemStatusStore.isBluetoothOn)
                 show("Bluetooth enabled", "bluetooth");
-            }
         }
+
         function onIsAirplaneModeChanged() {
             if (!initialized)
                 return;
-            if (SystemStatusStore.isAirplaneMode) {
-                show("Airplane mode enabled", "plane");
-            } else {
-                show("Airplane mode disabled", "plane");
-            }
-        }
-    }
 
-    Component.onCompleted: {
-        initDelayTimer.start();
+            if (SystemStatusStore.isAirplaneMode)
+                show("Airplane mode enabled", "plane");
+            else
+                show("Airplane mode disabled", "plane");
+        }
+
+        target: SystemStatusStore
     }
 
     Timer {
         id: initDelayTimer
+
         interval: 1000
         onTriggered: {
             connectionToast.initialized = true;

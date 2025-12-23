@@ -1,15 +1,10 @@
-import QtQuick
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: modal
-    anchors.fill: parent
-    color: Qt.rgba(0, 0, 0, 0.7)
-    visible: false
-    opacity: 0
-    z: 2000
 
     property alias title: modalTitle.text
     default property alias content: contentArea.children
@@ -25,8 +20,15 @@ Rectangle {
         closeAnimation.start();
     }
 
+    anchors.fill: parent
+    color: Qt.rgba(0, 0, 0, 0.7)
+    visible: false
+    opacity: 0
+    z: 2000
+
     NumberAnimation {
         id: openAnimation
+
         target: modal
         property: "opacity"
         from: 0
@@ -37,6 +39,7 @@ Rectangle {
 
     SequentialAnimation {
         id: closeAnimation
+
         NumberAnimation {
             target: modal
             property: "opacity"
@@ -45,11 +48,13 @@ Rectangle {
             duration: Constants.animationDurationFast
             easing.type: Easing.InCubic
         }
+
         PropertyAction {
             target: modal
             property: "visible"
             value: false
         }
+
         ScriptAction {
             script: modal.closed()
         }
@@ -63,6 +68,7 @@ Rectangle {
 
     Rectangle {
         id: modalCard
+
         anchors.centerIn: parent
         width: Math.min(parent.width - 64, 500)
         height: Math.min(modalColumn.height + MSpacing.touchTargetLarge, parent.height - 128)
@@ -84,17 +90,20 @@ Rectangle {
 
         Column {
             id: modalColumn
+
             anchors.fill: parent
             anchors.margins: MSpacing.xl
             spacing: MSpacing.lg
 
             Item {
                 id: modalHeader
+
                 width: parent.width
                 height: MSpacing.touchTargetMedium
 
                 Text {
                     id: modalTitle
+
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     color: MColors.textPrimary
@@ -117,6 +126,7 @@ Rectangle {
 
             Item {
                 id: contentArea
+
                 width: parent.width
                 height: childrenRect.height
             }

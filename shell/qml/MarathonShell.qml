@@ -24,6 +24,8 @@ Item {
     // ESC and Meta consumption removed here - handled by C++ filter
     // Only after initialization
     // Only after initialization
+    // Lucide Icon Font is now owned by MarathonUI.Core (see `marathon-ui/Core/Icon.qml`).
+    // Avoid loading it from the shell qrc so it also works for isolated apps.
 
     id: shell
 
@@ -148,33 +150,16 @@ Item {
         shell.forceActiveFocus();
         compositor = shellInitialization.initialize(shell, Window.window);
         // Initialize global services
+        // Wire QML singletons + compositor handles into C++ launch service.
         AppLaunchService.compositor = compositor;
         AppLaunchService.appWindow = appWindow;
+        AppLaunchService.uiStore = UIStore;
+        AppLaunchService.appLifecycleManager = AppLifecycleManager;
         // Initialize ScreenshotService with shell window reference
         ScreenshotService.shellWindow = shell;
         // CRITICAL: Connect compositor signals AFTER compositor is created
         // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
-            compositor.surfaceCreated.connect(shell, function (surface, surfaceId, xdgSurface) {
-                compositorConnections.setupConnections(compositor, appWindow, AppLaunchService.pendingNativeApp);
-                compositorConnections.handleSurfaceCreated(surface, surfaceId, xdgSurface);
-            });
-            compositor.surfaceDestroyed.connect(shell, function (surface, surfaceId) {
-                // NOTE: We do NOT remove tasks on surface destruction.
-                // Apps like Chromium unmap/destroy their surface when minimized but the process is still running.
-                // Tasks should only be removed when:
-                // 1. The process actually terminates (handled by appClosed signal)
-                // 2. User explicitly closes from task switcher (handled by task switcher close button)
-                console.log("[Shell] surfaceDestroyed for surfaceId: " + surfaceId + " (task NOT removed - process may still be running)");
-                // Still notify CompositorConnections for window cleanup
-                compositorConnections.handleSurfaceDestroyed(surface, surfaceId);
-            });
-            compositor.appLaunched.connect(shell, function (command, pid) {
-                compositorConnections.handleAppLaunched(command, pid);
-            });
-            compositor.appClosed.connect(shell, function (pid) {
-                compositorConnections.handleAppClosed(pid);
-            });
             // Connect Global Input Signals (from C++ Event Filter)
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
@@ -523,13 +508,6 @@ Item {
         source: "qrc:/fonts/Slate-Bold.ttf"
     }
 
-    // Lucide Icon Font
-    FontLoader {
-        id: lucideFont
-
-        source: "qrc:/fonts/lucide.ttf"
-    }
-
     // Global mouse area to track ALL mouse movement for cursor visibility
     // Must be ON TOP but NOT steal keyboard focus
     MouseArea {
@@ -573,8 +551,21 @@ Item {
     // Handle deep link requests from NavigationRouter
     Connections {
         function onDeepLinkRequested(appId, route, params) {
-            DeepLinkHandler.appWindow = appWindow;
-            DeepLinkHandler.handleDeepLink(appId, route, params);
+            // Inline deep-link handling to avoid an extra proxy service layer.
+            // NOTE: `NavigationRouter.navigateToDeepLink()` already calls `UIStore.openApp()` for us,
+            // but we also need to actually show the app window here.
+            var appInfo = typeof MarathonAppRegistry !== "undefined" ? MarathonAppRegistry.getApp(appId) : null;
+            if (appInfo && appInfo.id) {
+                // Ensure shell state is set to "app"
+                UIStore.openApp(appInfo.id, appInfo.name, appInfo.icon);
+                if (appWindow)
+                    appWindow.show(appInfo.id, appInfo.name, appInfo.icon, appInfo.type);
+
+                if (typeof AppLifecycleManager !== "undefined")
+                    AppLifecycleManager.bringToForeground(appInfo.id);
+            } else {
+                Logger.warn("Shell", "App not found for deep link: " + appId);
+            }
         }
 
         target: NavigationRouter
@@ -954,8 +945,8 @@ Item {
                             }
                         }
                     }
-                    // Default: Marathon app or native app fallback
-                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon");
+                    // Default: ask C++ to launch (out-of-process) if we don't have a native surface to show.
+                    AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
 
@@ -993,8 +984,8 @@ Item {
                             }
                         }
                     }
-                    // Default: Marathon app or native app fallback
-                    appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "marathon");
+                    // Default: ask C++ to launch (out-of-process) if we don't have a native surface to show.
+                    AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
 
@@ -1691,53 +1682,70 @@ Item {
     Comp.PermissionDialog {
         id: permissionDialog
 
-        anchors.centerIn: parent
         z: Constants.zIndexModalOverlay + 50
     }
 
     // Wire network manager to connection toast
     Connections {
         function onWifiConnectedChanged() {
-            if (NetworkManager.wifiConnected)
+            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Connected to Wi-Fi", "wifi");
-            else if (NetworkManager.wifiEnabled && !NetworkManager.wifiConnected)
+            else if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled && !NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Wi-Fi disconnected", "wifi-off");
         }
 
         function onEthernetConnectedChanged() {
-            if (NetworkManager.ethernetConnected)
+            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.ethernetConnected)
                 connectionToast.show("Connected to Ethernet", "plug-zap");
-            else if (!NetworkManager.ethernetConnected && !NetworkManager.wifiConnected)
+            else if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && !NetworkManagerCpp.ethernetConnected && !NetworkManagerCpp.wifiConnected)
                 connectionToast.show("No network connection", "wifi-off");
         }
 
-        target: NetworkManager
+        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
     }
 
+    // Battery policy comes from C++ (Deepak: keep orchestration out of QML).
     Connections {
-        function onBatteryLevelChanged() {
-            PowerBatteryHandler.errorToast = errorToast;
-            PowerBatteryHandler.shutdownCallback = function () {
-                criticalBatteryShutdownTimer.start();
-            };
-            PowerBatteryHandler.shutdownStopCallback = function () {
-                criticalBatteryShutdownTimer.stop();
-            };
-            PowerBatteryHandler.handleBatteryLevelChanged();
+        function onBatteryWarning(title, body, iconName, hapticLevel) {
+            if (errorToast)
+                errorToast.show(title, body, iconName);
+
+            if (typeof HapticService !== "undefined" && HapticService) {
+                if (hapticLevel >= 3)
+                    HapticService.heavy();
+                else if (hapticLevel === 2)
+                    HapticService.medium();
+                else if (hapticLevel === 1)
+                    HapticService.light();
+            }
         }
 
-        target: typeof PowerManager !== 'undefined' ? PowerManager : null
+        function onEmergencyShutdownArmed(secondsUntilShutdown) {
+            // Keep timer-based shutdown in QML so UI can show last-second UX if needed.
+            criticalBatteryShutdownTimer.interval = Math.max(0, secondsUntilShutdown * 1000);
+            criticalBatteryShutdownTimer.start();
+        }
+
+        function onEmergencyShutdownDisarmed() {
+            criticalBatteryShutdownTimer.stop();
+        }
+
+        target: typeof PowerPolicyControllerCpp !== "undefined" ? PowerPolicyControllerCpp : null
     }
 
     Timer {
+        // Conservative fallback if the policy controller isn't available.
+
         id: criticalBatteryShutdownTimer
 
         interval: 10000
         repeat: false
         onTriggered: {
-            Logger.critical("Battery", "Emergency shutdown due to critical battery");
-            if (typeof PowerManager !== 'undefined' && PowerManager)
-                PowerManager.shutdown();
+            Logger.critical("Battery", "Emergency critical power action due to battery");
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+                PowerPolicyControllerCpp.performCriticalPowerAction();
+            else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                PowerManagerService.shutdown();
         }
     }
 
@@ -1784,7 +1792,7 @@ Item {
     // Wire alarm manager to overlay
     Connections {
         function onAlarmTriggered(alarm) {
-            Logger.info("Shell", "Alarm triggered: " + alarm.title);
+            Logger.info("Shell", "Alarm triggered: " + (alarm && alarm.label ? alarm.label : "(unknown)"));
             alarmOverlay.show(alarm);
             HapticService.heavy();
         }
@@ -1867,25 +1875,34 @@ Item {
         }
     }
 
-    Comp.CompositorConnections {
-        id: compositorConnections
-    }
-
     PowerMenu {
         id: powerMenu
 
         onSleepRequested: {
             Logger.info("Shell", "Sleep requested from power menu");
-            SessionStore.lock(); // Lock first
-            PowerManager.sleep(); // Then sleep
+            var locked = SessionStore.isLocked;
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
+                var action = PowerPolicyControllerCpp.sleepAction(locked);
+                if (action === PowerPolicyControllerCpp.LockThenSleep)
+                    SessionStore.lock();
+            } else if (!locked) {
+                SessionStore.lock();
+            }
+            // Sleep is shell-level policy, so prefer the C++ controller when present.
+            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
+                PowerPolicyControllerCpp.sleep();
+            else
+                PowerManagerService.suspend();
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");
-            PowerManager.restart();
+            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                PowerManagerService.restart();
         }
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu");
-            PowerManager.shutdown();
+            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                PowerManagerService.shutdown();
         }
     }
 
@@ -1931,7 +1948,8 @@ Item {
         anchors.fill: parent
         z: Constants.zIndexModalOverlay + 100
         active: false
-        source: "qrc:/MarathonOS/Shell/qml/components/IncomingCallOverlay.qml"
+        // Use a relative URL so this works regardless of the Qt6 resource prefix (:/qt/qml vs :/).
+        source: Qt.resolvedUrl("components/IncomingCallOverlay.qml")
     }
 
     Connections {

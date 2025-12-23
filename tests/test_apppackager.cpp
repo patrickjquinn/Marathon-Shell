@@ -2,7 +2,7 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QDir>
-#include "../shell/src/marathonapppackager.h"
+#include "marathonapppackager.h"
 
 class TestAppPackager : public QObject {
     Q_OBJECT

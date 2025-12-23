@@ -1,12 +1,11 @@
-import QtQuick
-import MarathonOS.Shell
 import "."
-import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: bottomBar
-    height: Constants.bottomBarHeight
 
     property int currentPage: 0
     property int totalPages: 1
@@ -16,26 +15,31 @@ Item {
     signal appLaunched(var app)
     signal pageNavigationRequested(int page)
 
+    height: Constants.bottomBarHeight
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
 
     Rectangle {
         id: background
+
         anchors.fill: parent
+        z: Constants.zIndexBackground
+
         gradient: Gradient {
             GradientStop {
-                position: 0.0
+                position: 0
                 color: "transparent"
             }
+
             GradientStop {
-                position: 1.0
+                position: 1
                 color: WallpaperStore.isDark ? "#80000000" : "#80FFFFFF"
             }
         }
-        z: Constants.zIndexBackground
     }
 
     Item {
         id: phoneShortcut
+
         anchors.left: parent.left
         anchors.leftMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
@@ -51,7 +55,7 @@ Item {
             anchors.centerIn: parent
             asynchronous: true
             cache: true
-            opacity: phoneMouseArea.pressed ? 0.6 : 1.0
+            opacity: phoneMouseArea.pressed ? 0.6 : 1
 
             Behavior on opacity {
                 NumberAnimation {
@@ -62,24 +66,23 @@ Item {
 
         MouseArea {
             id: phoneMouseArea
-            anchors.fill: parent
-            propagateComposedEvents: true
-            preventStealing: false
 
             property real startY: 0
 
+            anchors.fill: parent
+            propagateComposedEvents: true
+            preventStealing: false
             onPressed: mouse => {
                 startY = mouse.y;
             }
-
             onReleased: mouse => {
                 // Only trigger click if no significant vertical movement (not a swipe)
                 const deltaY = Math.abs(mouse.y - startY);
                 if (deltaY < 10) {
                     var app = {
-                        id: "phone",
-                        name: "Phone",
-                        icon: "phone"
+                        "id": "phone",
+                        "name": "Phone",
+                        "icon": "phone"
                     };
                     appLaunched(app);
                 } else {
@@ -91,6 +94,7 @@ Item {
 
     Row {
         id: pageIndicatorRow
+
         anchors.centerIn: parent
         anchors.verticalCenterOffset: 0
         spacing: Constants.spacingMedium
@@ -99,27 +103,12 @@ Item {
 
         Rectangle {
             id: hubIndicator
+
             width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: 999  // BB10: True circle
+            radius: 999 // BB10: True circle
             color: bottomBar.currentPage === -2 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
-
-            Behavior on width {
-                NumberAnimation {
-                    duration: 200
-                }
-            }
-            Behavior on height {
-                NumberAnimation {
-                    duration: 200
-                }
-            }
-            Behavior on color {
-                ColorAnimation {
-                    duration: 200
-                }
-            }
 
             Icon {
                 name: "inbox"
@@ -133,31 +122,34 @@ Item {
                 anchors.fill: parent
                 onClicked: bottomBar.pageNavigationRequested(-2)
             }
-        }
-
-        Rectangle {
-            id: framesIndicator
-            width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: 999  // BB10: True circle
-            color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
-            anchors.verticalCenter: parent.verticalCenter
 
             Behavior on width {
                 NumberAnimation {
                     duration: 200
                 }
             }
+
             Behavior on height {
                 NumberAnimation {
                     duration: 200
                 }
             }
+
             Behavior on color {
                 ColorAnimation {
                     duration: 200
                 }
             }
+        }
+
+        Rectangle {
+            id: framesIndicator
+
+            width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            radius: 999 // BB10: True circle
+            color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
+            anchors.verticalCenter: parent.verticalCenter
 
             Icon {
                 name: "layers" // Task Switcher usually represented by layers
@@ -170,37 +162,41 @@ Item {
                 anchors.fill: parent
                 onClicked: bottomBar.pageNavigationRequested(-1)
             }
+
+            Behavior on width {
+                NumberAnimation {
+                    duration: 200
+                }
+            }
+
+            Behavior on height {
+                NumberAnimation {
+                    duration: 200
+                }
+            }
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 200
+                }
+            }
         }
 
         Repeater {
             id: appGridIndicators
+
             model: bottomBar.totalPages
 
             Rectangle {
                 id: pageIndicator
-                width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
-                height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
-                radius: 999  // BB10: True circle
-                color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
-                anchors.verticalCenter: parent.verticalCenter
 
                 property int pageIndex: index
 
-                Behavior on width {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
-                Behavior on height {
-                    NumberAnimation {
-                        duration: 200
-                    }
-                }
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 200
-                    }
-                }
+                width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
+                height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
+                radius: 999 // BB10: True circle
+                color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
+                anchors.verticalCenter: parent.verticalCenter
 
                 Text {
                     text: (pageIndicator.pageIndex + 1).toString()
@@ -209,7 +205,7 @@ Item {
                     font.weight: Font.Medium
                     anchors.centerIn: parent
                     visible: pageIndicator.pageIndex === bottomBar.currentPage
-                    opacity: visible ? 1.0 : 0.0
+                    opacity: visible ? 1 : 0
 
                     Behavior on opacity {
                         NumberAnimation {
@@ -222,6 +218,24 @@ Item {
                     anchors.fill: parent
                     onClicked: bottomBar.pageNavigationRequested(pageIndicator.pageIndex)
                 }
+
+                Behavior on width {
+                    NumberAnimation {
+                        duration: 200
+                    }
+                }
+
+                Behavior on height {
+                    NumberAnimation {
+                        duration: 200
+                    }
+                }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 200
+                    }
+                }
             }
         }
     }
@@ -229,36 +243,9 @@ Item {
     // Drag/scrub gesture handler
     MouseArea {
         id: scrubGesture
-        anchors.fill: pageIndicatorRow
-        anchors.margins: -Constants.spacingSmall
-        z: 2
-        preventStealing: false
-        propagateComposedEvents: false
 
         property bool isDragging: false
         property int lastHoveredPage: -999
-
-        onPressed: mouse => {
-            isDragging = true;
-            lastHoveredPage = -999;
-            checkPageUnderMouse(mouse.x, mouse.y);
-        }
-
-        onPositionChanged: mouse => {
-            if (isDragging) {
-                checkPageUnderMouse(mouse.x, mouse.y);
-            }
-        }
-
-        onReleased: {
-            isDragging = false;
-            lastHoveredPage = -999;
-        }
-
-        onCanceled: {
-            isDragging = false;
-            lastHoveredPage = -999;
-        }
 
         function checkPageUnderMouse(mouseX, mouseY) {
             // Check Hub indicator
@@ -270,7 +257,6 @@ Item {
                 }
                 return;
             }
-
             // Check Frames indicator
             var framesPos = mapToItem(framesIndicator, mouseX, mouseY);
             if (framesPos.x >= 0 && framesPos.x <= framesIndicator.width && framesPos.y >= 0 && framesPos.y <= framesIndicator.height) {
@@ -280,7 +266,6 @@ Item {
                 }
                 return;
             }
-
             // Check each app grid page indicator
             for (var i = 0; i < appGridIndicators.count; i++) {
                 var indicator = appGridIndicators.itemAt(i);
@@ -296,10 +281,34 @@ Item {
                 }
             }
         }
+
+        anchors.fill: pageIndicatorRow
+        anchors.margins: -Constants.spacingSmall
+        z: 2
+        preventStealing: false
+        propagateComposedEvents: false
+        onPressed: mouse => {
+            isDragging = true;
+            lastHoveredPage = -999;
+            checkPageUnderMouse(mouse.x, mouse.y);
+        }
+        onPositionChanged: mouse => {
+            if (isDragging)
+                checkPageUnderMouse(mouse.x, mouse.y);
+        }
+        onReleased: {
+            isDragging = false;
+            lastHoveredPage = -999;
+        }
+        onCanceled: {
+            isDragging = false;
+            lastHoveredPage = -999;
+        }
     }
 
     Item {
         id: cameraShortcut
+
         anchors.right: parent.right
         anchors.rightMargin: Constants.spacingLarge
         anchors.verticalCenter: parent.verticalCenter
@@ -315,7 +324,7 @@ Item {
             asynchronous: true
             cache: true
             anchors.centerIn: parent
-            opacity: cameraMouseArea.pressed ? 0.6 : 1.0
+            opacity: cameraMouseArea.pressed ? 0.6 : 1
 
             Behavior on opacity {
                 NumberAnimation {
@@ -326,24 +335,23 @@ Item {
 
         MouseArea {
             id: cameraMouseArea
-            anchors.fill: parent
-            propagateComposedEvents: true
-            preventStealing: false
 
             property real startY: 0
 
+            anchors.fill: parent
+            propagateComposedEvents: true
+            preventStealing: false
             onPressed: mouse => {
                 startY = mouse.y;
             }
-
             onReleased: mouse => {
                 // Only trigger click if no significant vertical movement (not a swipe)
                 const deltaY = Math.abs(mouse.y - startY);
                 if (deltaY < 10) {
                     var app = {
-                        id: "camera",
-                        name: "Camera",
-                        icon: "qrc:/images/camera.svg"
+                        "id": "camera",
+                        "name": "Camera",
+                        "icon": "qrc:/images/camera.svg"
                     };
                     appLaunched(app);
                 } else {

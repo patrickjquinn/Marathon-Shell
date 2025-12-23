@@ -6,8 +6,53 @@
 #include <QDBusMetaType>
 #include <QDBusPendingCall>
 #include <QDBusPendingReply>
+#include <QDBusArgument>
 #include <QRandomGenerator>
 #include <QUuid>
+#include <algorithm>
+
+static QByteArray dbusByteArrayFromVariant(const QVariant &v) {
+    // NetworkManager exposes SSID as `ay` (byte array). Depending on Qt/DBus,
+    // it may arrive as QByteArray or as QDBusArgument.
+    if (v.canConvert<QByteArray>())
+        return v.toByteArray();
+
+    if (v.userType() == qMetaTypeId<QDBusArgument>()) {
+        // First try QtDBus' built-in conversion from `ay` to QByteArray.
+        {
+            const QByteArray out = qdbus_cast<QByteArray>(v);
+            if (!out.isEmpty())
+                return out;
+        }
+
+        // Some builds expose `ay` as QDBusArgument. Try streaming directly to QByteArray.
+        {
+            const QDBusArgument arg = v.value<QDBusArgument>();
+            QByteArray          out;
+            // For many DBus types, this works (including `ay`).
+            arg >> out;
+            if (!out.isEmpty())
+                return out;
+        }
+
+        // Last-resort manual decode as an array of bytes.
+        const QDBusArgument arg = v.value<QDBusArgument>();
+        QByteArray          out;
+        arg.beginArray();
+        while (!arg.atEnd()) {
+            quint8 b = 0;
+            arg >> b;
+            out.append(static_cast<char>(b));
+        }
+        arg.endArray();
+        return out;
+    }
+
+    if (v.canConvert<QDBusVariant>())
+        return dbusByteArrayFromVariant(v.value<QDBusVariant>().variant());
+
+    return {};
+}
 
 NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     : QObject(parent)
@@ -44,6 +89,11 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
         queryWifiState();
         queryConnectionState();
 
+        // Populate AP list immediately from cached NetworkManager state so UIs don't start empty.
+        // (RequestScan may be slow or polkit-gated; AccessPoints/GetAllAccessPoints usually has data.)
+        if (!m_wifiDevicePath.isEmpty())
+            scanAccessPoints();
+
         qInfo() << "[NetworkManagerCpp] Initial state - WiFi:" << m_wifiConnected
                 << "Ethernet:" << m_ethernetConnected;
     } else {
@@ -78,8 +128,9 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     m_scanTimer->setInterval(30000); // Scan every 30 seconds
     connect(m_scanTimer, &QTimer::timeout, this, &NetworkManagerCpp::scanAccessPoints);
     if (m_hasNetworkManager && m_wifiAvailable && m_wifiEnabled) {
-        // Do initial scan
-        QTimer::singleShot(1000, this, &NetworkManagerCpp::scanAccessPoints);
+        // Do an immediate access-point refresh so UIs have something to show quickly.
+        // This reads cached APs (no RequestScan required) and avoids "empty lists" on first launch.
+        QTimer::singleShot(0, this, &NetworkManagerCpp::scanAccessPoints);
         m_scanTimer->start();
     }
 }
@@ -384,6 +435,8 @@ void NetworkManagerCpp::scanWifi() {
                 qDebug() << "[NetworkManagerCpp] Failed to request WiFi scan:"
                          << reply.error().message();
                 emit networkError("Failed to scan for networks");
+                // Even if RequestScan is denied, refresh cached AP list so the UI isn't empty.
+                QTimer::singleShot(250, this, &NetworkManagerCpp::scanAccessPoints);
             }
         }
     } else {
@@ -407,11 +460,21 @@ void NetworkManagerCpp::scanAccessPoints() {
         return;
     }
 
-    // Get list of access points
-    QVariant               accessPointsVar = wifiDevice.property("AccessPoints");
-    QList<QDBusObjectPath> accessPoints    = qdbus_cast<QList<QDBusObjectPath>>(accessPointsVar);
+    // Get list of access points.
+    // NOTE: The `AccessPoints` property can be stale/empty depending on NM/driver.
+    // Prefer the method call, fall back to the property.
+    QList<QDBusObjectPath> accessPoints;
+    {
+        QDBusReply<QList<QDBusObjectPath>> r = wifiDevice.call("GetAllAccessPoints");
+        if (r.isValid()) {
+            accessPoints = r.value();
+        } else {
+            QVariant accessPointsVar = wifiDevice.property("AccessPoints");
+            accessPoints             = qdbus_cast<QList<QDBusObjectPath>>(accessPointsVar);
+        }
+    }
 
-    qDebug() << "[NetworkManagerCpp] Found" << accessPoints.size() << "access points";
+    qWarning() << "[NetworkManagerCpp] Found" << accessPoints.size() << "access points";
 
     m_availableNetworks.clear();
 
@@ -419,7 +482,19 @@ void NetworkManagerCpp::scanAccessPoints() {
         processAccessPoint(apPath.path());
     }
 
-    qDebug() << "[NetworkManagerCpp] Processed" << m_availableNetworks.size() << "networks";
+    // Sort by strongest signal, with the currently-connected SSID pinned to the top.
+    std::sort(m_availableNetworks.begin(), m_availableNetworks.end(),
+              [this](const QVariant &a, const QVariant &b) {
+                  const QVariantMap am = a.toMap();
+                  const QVariantMap bm = b.toMap();
+                  const bool        ac = am.value("connected").toBool();
+                  const bool        bc = bm.value("connected").toBool();
+                  if (ac != bc)
+                      return ac; // connected first
+                  return am.value("strength").toInt() > bm.value("strength").toInt();
+              });
+
+    qWarning() << "[NetworkManagerCpp] Processed" << m_availableNetworks.size() << "networks";
     emit availableNetworksChanged();
 }
 
@@ -432,10 +507,10 @@ void NetworkManagerCpp::processAccessPoint(const QString &apPath) {
         return;
     }
 
-    // Get SSID (comes as byte array)
-    QVariant   ssidVar   = accessPoint.property("Ssid");
-    QByteArray ssidBytes = ssidVar.toByteArray();
-    QString    ssid      = QString::fromUtf8(ssidBytes);
+    // Get SSID (DBus `ay`)
+    const QVariant   ssidVar   = accessPoint.property("Ssid");
+    const QByteArray ssidBytes = dbusByteArrayFromVariant(ssidVar);
+    const QString    ssid      = QString::fromUtf8(ssidBytes);
 
     // Skip hidden networks or invalid SSIDs
     if (ssid.isEmpty()) {
@@ -446,7 +521,6 @@ void NetworkManagerCpp::processAccessPoint(const QString &apPath) {
     uint strength = accessPoint.property("Strength").toUInt();
 
     // Get security flags
-    uint    flags    = accessPoint.property("Flags").toUInt();
     uint    wpaFlags = accessPoint.property("WpaFlags").toUInt();
     uint    rsnFlags = accessPoint.property("RsnFlags").toUInt();
 

@@ -1,54 +1,55 @@
 pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 Item {
+    // Very dark
+    // Dark room
+    // Dim room
+    // Office
+    // Bright room
+    // Sunlight indirect
+    // Direct sunlight
+    // Default
+
     id: ambientLightSensor
 
     property bool available: SensorManagerCpp.available
     property bool active: true
     property real lightLevel: SensorManagerCpp.ambientLight
-    property real minLux: 0.0
-    property real maxLux: 10000.0
-
+    property real minLux: 0
+    property real maxLux: 10000
     property bool autoBrightnessEnabled: false
-
     // Brightness mapping
     property var brightnessMap: [
         {
-            maxLux: 10,
-            brightness: 0.1
-        }      // Very dark
-        ,
+            "maxLux": 10,
+            "brightness": 0.1
+        },
         {
-            maxLux: 50,
-            brightness: 0.2
-        }      // Dark room
-        ,
+            "maxLux": 50,
+            "brightness": 0.2
+        },
         {
-            maxLux: 100,
-            brightness: 0.3
-        }     // Dim room
-        ,
+            "maxLux": 100,
+            "brightness": 0.3
+        },
         {
-            maxLux: 300,
-            brightness: 0.5
-        }     // Office
-        ,
+            "maxLux": 300,
+            "brightness": 0.5
+        },
         {
-            maxLux: 1000,
-            brightness: 0.7
-        }    // Bright room
-        ,
+            "maxLux": 1000,
+            "brightness": 0.7
+        },
         {
-            maxLux: 5000,
-            brightness: 0.85
-        }   // Sunlight indirect
-        ,
+            "maxLux": 5000,
+            "brightness": 0.85
+        },
         {
-            maxLux: 999999,
-            brightness: 1.0
-        }   // Direct sunlight
+            "maxLux": 999999,
+            "brightness": 1
+        }
     ]
 
     signal brightnessAdjusted(real value)
@@ -66,53 +67,49 @@ Item {
 
     function _adjustBrightness(lux) {
         // Map lux to brightness using lookup table
-        var brightness = 0.5;  // Default
-
+        var brightness = 0.5;
         for (var i = 0; i < brightnessMap.length; i++) {
             if (lux <= brightnessMap[i].maxLux) {
                 brightness = brightnessMap[i].brightness;
                 break;
             }
         }
-
         // Smooth brightness changes - apply a simple moving average
-        var currentBrightness = DisplayManager.brightness;
+        var currentBrightness = (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.brightness : 0.5;
         var smoothed = currentBrightness * 0.7 + brightness * 0.3;
-
         Logger.debug("AmbientLightSensor", "Auto-brightness: " + Math.round(smoothed * 100) + "% (lux: " + Math.round(lux) + ")");
+        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+            DisplayManagerCpp.brightness = smoothed;
 
-        DisplayManager.setBrightness(smoothed);
         brightnessAdjusted(smoothed);
     }
 
+    Component.onCompleted: {
+        Logger.info("AmbientLightSensor", "Initialized");
+        // Start if auto-brightness already enabled
+        if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp && DisplayPolicyControllerCpp.autoBrightnessEnabled)
+            enableAutoBrightness();
+    }
+
     Connections {
-        target: SensorManagerCpp
         function onAmbientLightChanged() {
             var lux = SensorManagerCpp.ambientLight;
             lightLevel = Math.min(maxLux, Math.max(minLux, lux));
             _adjustBrightness(lightLevel);
         }
+
+        target: SensorManagerCpp
     }
 
-    // Sync with DisplayManager auto-brightness setting
+    // Sync with display policy auto-brightness setting
     Connections {
-        target: DisplayManager
-
         function onAutoBrightnessEnabledChanged() {
-            if (DisplayManager.autoBrightnessEnabled) {
+            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp && DisplayPolicyControllerCpp.autoBrightnessEnabled)
                 enableAutoBrightness();
-            } else {
+            else
                 disableAutoBrightness();
-            }
         }
-    }
 
-    Component.onCompleted: {
-        Logger.info("AmbientLightSensor", "Initialized");
-
-        // Start if auto-brightness already enabled
-        if (DisplayManager.autoBrightnessEnabled) {
-            enableAutoBrightness();
-        }
+        target: typeof DisplayPolicyControllerCpp !== "undefined" ? DisplayPolicyControllerCpp : null
     }
 }

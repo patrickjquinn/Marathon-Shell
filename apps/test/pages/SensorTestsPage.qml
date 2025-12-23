@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonApp.Test
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 Item {
     Flickable {
@@ -13,18 +13,21 @@ Item {
 
         Column {
             id: sensorColumn
+
             width: parent.width
             spacing: MSpacing.md
             padding: MSpacing.lg
 
             Row {
                 spacing: MSpacing.sm
+
                 Icon {
                     name: "activity"
                     size: 24
                     color: MColors.accent
                     anchors.verticalCenter: parent.verticalCenter
                 }
+
                 MLabel {
                     text: "Sensors"
                     variant: "headline"
@@ -242,7 +245,7 @@ Item {
                     }
 
                     MLabel {
-                        text: "Status: " + (FlashlightManager.enabled ? "On" : "Off")
+                        text: "Status: " + (((typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp) ? FlashlightManagerCpp.enabled : false) ? "On" : "Off")
                         variant: "secondary"
                     }
 
@@ -254,7 +257,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                FlashlightManager.toggle();
+                                if (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp)
+                                    FlashlightManagerCpp.toggle();
+
                                 Logger.info("TestApp", "Toggled flashlight");
                                 if (testApp) {
                                     testApp.passedTests++;

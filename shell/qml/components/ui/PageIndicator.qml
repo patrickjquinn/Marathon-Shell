@@ -1,9 +1,8 @@
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 Row {
     id: pageIndicator
-    spacing: Constants.spacingMedium
 
     property int currentPage: 0
     property int totalPages: 1
@@ -12,6 +11,8 @@ Row {
 
     signal hubClicked
     signal taskSwitcherClicked
+
+    spacing: Constants.spacingMedium
 
     Rectangle {
         visible: showHubIcon

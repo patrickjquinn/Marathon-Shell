@@ -238,7 +238,6 @@ SecurityManager *securityManager = new SecurityManager(&app);
 
 // 4. App system
 MarathonAppRegistry *appRegistry = new MarathonAppRegistry(&app);
-MarathonAppLoader *appLoader = new MarathonAppLoader(appRegistry, &engine, &app);
 
 // 5. Expose to QML
 engine.rootContext()->setContextProperty("NetworkManagerCpp", networkManager);
@@ -267,15 +266,18 @@ Marathon apps are QML modules installed to `~/.local/share/marathon-apps/`:
 └── libmyapp.so           # Optional C++ plugin
 ```
 
-**Loading Process:**
+**Launch + Isolation Model (current):**
 
 1. `MarathonAppScanner` scans `~/.local/share/marathon-apps/`
 2. Parses `manifest.json` for each app
 3. `MarathonAppRegistry` stores app metadata
-4. User launches app from App Grid
-5. `MarathonAppLoader` loads QML module via `QQmlComponent`
-6. App instance created with `MApp` root component
-7. `AppLifecycleManager` transitions app to foreground state
+4. User launches app from App Grid / task switcher
+5. Shell launches `marathon-app-runner --app-id <id>` as an *out-of-process Wayland client*
+6. App renders to the shell’s Wayland compositor and appears as a surface in the UI
+7. App calls system functionality via **DBus IPC** (`org.marathonos.Shell.*`) gated by permissions
+
+This keeps UI (QML) and system services (C++ managers) cleanly separated and avoids
+in-process QML loading for apps inside the shell.
 
 ### Package Format
 
@@ -357,15 +359,15 @@ MarathonShell.qml: calls AppLifecycleManager.launchApp(appId)
     ↓
 AppLifecycleManager: queries MarathonAppRegistry for app metadata
     ↓
-MarathonAppLoader: creates QQmlComponent from app's entry point
+WaylandCompositor: launches `marathon-app-runner --app-id <id>`
     ↓
-QML Engine: loads MyApp.qml and dependencies
+App (runner): loads the app QML entry point in its own process
     ↓
-MApp component: signals appReady()
+App connects to shell compositor (Wayland) and creates an xdg_toplevel surface
     ↓
-AppLifecycleManager: transitions app to foreground
+Shell: receives surface, binds it into `MarathonAppWindow` / task model
     ↓
-MarathonShell: displays app in AppWindow
+AppLifecycleManager: tracks foreground/background, minimize/restore
 ```
 
 ### Example 3: Gesture Navigation

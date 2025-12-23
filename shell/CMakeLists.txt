@@ -6,20 +6,30 @@ set(SOURCES
     src/lunasvgimageprovider.cpp
     src/appmodel.h
     src/appmodel.cpp
+    src/applaunchservice.h
+    src/applaunchservice.cpp
+    src/applifecyclemanager.h
+    src/applifecyclemanager.cpp
+    src/ipc/shellipcserver.h
+    src/ipc/shellipcserver.cpp
+    src/ipc/shellservices.h
+    src/ipc/shellservices.cpp
     src/taskmodel.h
     src/taskmodel.cpp
     src/notificationmodel.h
     src/notificationmodel.cpp
     src/crashhandler.h
     src/crashhandler.cpp
-    src/marathonappprocess.h
-    src/marathonappprocess.cpp
     qml/keyboard/Data/WordEngine.h
     qml/keyboard/Data/WordEngine.cpp
     src/networkmanagercpp.h
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
     src/powermanagercpp.cpp
+    src/powerpolicycontroller.h
+    src/powerpolicycontroller.cpp
+    src/displaypolicycontroller.h
+    src/displaypolicycontroller.cpp
     src/displaymanagercpp.h
     src/displaymanagercpp.cpp
     src/audiomanagercpp.h
@@ -37,8 +47,6 @@ set(SOURCES
     src/bluetoothagent.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
-    src/marathonapploader.h
-    src/marathonapploader.cpp
     src/marathoninputmethodengine.h
     src/marathoninputmethodengine.cpp
     src/rtscheduler.h
@@ -53,18 +61,7 @@ set(SOURCES
     src/portalmanager.cpp
     src/marathonappstoreservice.h
     src/marathonappstoreservice.cpp
-    src/contactsmanager.h
-    src/contactsmanager.cpp
-    src/telephonyservice.h
-    src/telephonyservice.cpp
-    src/callhistorymanager.h
-    src/callhistorymanager.cpp
-    src/smsservice.h
-    src/smsservice.cpp
-    src/medialibrarymanager.h
-    src/medialibrarymanager.cpp
-    src/musiclibrarymanager.h
-    src/musiclibrarymanager.cpp
+    # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/mpris2controller.h
     src/mpris2controller.cpp
@@ -74,23 +71,29 @@ set(SOURCES
     src/locationmanager.cpp
     src/hapticmanager.h
     src/hapticmanager.cpp
+    src/flashlightmanagercpp.h
+    src/flashlightmanagercpp.cpp
     src/audioroutingmanager.h
     src/audioroutingmanager.cpp
+    src/audiopolicycontroller.h
+    src/audiopolicycontroller.cpp
     src/securitymanager.h
     src/securitymanager.cpp
+    src/screenmetrics.h
+    src/screenmetrics.cpp
 )
 
 list(APPEND SOURCES
-    src/waylandcompositormanager.h
-    src/waylandcompositormanager.cpp
+    src/wayland/waylandcompositormanager.h
+    src/wayland/waylandcompositormanager.cpp
     src/cursormanager.h
     src/cursormanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
     list(APPEND SOURCES
-        src/waylandcompositor.h
-        src/waylandcompositor.cpp
+        src/wayland/waylandcompositor.h
+        src/wayland/waylandcompositor.cpp
     )
 endif()
 
@@ -131,7 +134,6 @@ set(QML_FILES
     qml/components/AppContextMenu.qml
     qml/components/ClipboardManager.qml
     qml/components/ConnectionToast.qml
-    qml/components/CompositorConnections.qml
     qml/components/ShellInitialization.qml
     qml/components/MarathonAlarmOverlay.qml
     qml/components/MarathonOOBE.qml
@@ -174,26 +176,15 @@ set(QML_FILES
     qml/core/Router.qml
     qml/models/FilteredAppModel.qml
     qml/services/Platform.qml
-    qml/services/ServiceBus.qml
-    qml/services/PowerManager.qml
-    qml/services/NetworkManager.qml
-    qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
-    qml/services/TelephonyManager.qml
     qml/services/LocationService.qml
-    qml/services/SessionManager.qml
-    qml/services/AppLauncher.qml
-    qml/services/WindowManager.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
-    qml/services/AppLifecycleManager.qml
     qml/services/UnifiedSearchService.qml
-    qml/services/AppLaunchService.qml
-    qml/services/DeepLinkHandler.qml
     qml/services/NotificationHandler.qml
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
@@ -201,8 +192,6 @@ set(QML_FILES
     qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
-    qml/services/FlashlightManager.qml
-    qml/services/CellularManager.qml
     qml/services/StateManager.qml
 )
 
@@ -228,26 +217,15 @@ set(SINGLETON_FILES
     qml/core/SurfaceRegistry.qml
     qml/core/Router.qml
     qml/services/Platform.qml
-    qml/services/ServiceBus.qml
-    qml/services/PowerManager.qml
-    qml/services/NetworkManager.qml
-    qml/services/DisplayManager.qml
     qml/services/AudioManager.qml
     qml/services/NotificationService.qml
-    qml/services/TelephonyManager.qml
     qml/services/LocationService.qml
-    qml/services/SessionManager.qml
-    qml/services/AppLauncher.qml
-    qml/services/WindowManager.qml
     qml/services/StatusBarIconService.qml
     qml/services/ScreenshotService.qml
     qml/services/HapticService.qml
     qml/services/ClipboardService.qml
     qml/services/NavigationRouter.qml
-    qml/services/AppLifecycleManager.qml
     qml/services/UnifiedSearchService.qml
-    qml/services/AppLaunchService.qml
-    qml/services/DeepLinkHandler.qml
     qml/services/NotificationHandler.qml
     qml/services/TelephonyIntegration.qml
     qml/services/PowerBatteryHandler.qml
@@ -255,8 +233,6 @@ set(SINGLETON_FILES
     qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
-    qml/services/FlashlightManager.qml
-    qml/services/CellularManager.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -308,33 +284,12 @@ target_include_directories(marathon-shell PRIVATE
 
 find_package(Qt6 REQUIRED COMPONENTS Gui)
 
-# Check for GuiPrivate or manually add headers
+# GuiPrivate is Qt-internal; only link it when enabled and available.
 if(TARGET Qt6::GuiPrivate)
     target_link_libraries(marathon-shell PRIVATE Qt6::GuiPrivate)
+    target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_QT_GUI_PRIVATE=1)
 else()
-    message(STATUS "Qt6::GuiPrivate target not found. Attempting to locate private headers manually.")
-    # Try to find the private headers manually
-    # We know it's at /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui/qpa/qplatformscreen.h
-    # So we need /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
-    
-    # Get Qt version from Core
-    if(TARGET Qt6::Core)
-        get_target_property(QT_CORE_VERSION Qt6::Core VERSION)
-    endif()
-    
-    find_path(QT_GUI_PRIVATE_INCLUDE_DIR qpa/qplatformscreen.h
-        HINTS 
-        /usr/include/${CMAKE_LIBRARY_ARCHITECTURE}/qt6/QtGui/${QT_CORE_VERSION}/QtGui
-        /usr/include/qt6/QtGui/${QT_CORE_VERSION}/QtGui
-        /usr/include/aarch64-linux-gnu/qt6/QtGui/6.8.2/QtGui
-    )
-    
-    if(QT_GUI_PRIVATE_INCLUDE_DIR)
-        target_include_directories(marathon-shell PRIVATE ${QT_GUI_PRIVATE_INCLUDE_DIR})
-        message(STATUS "Found Qt6 Gui Private headers: ${QT_GUI_PRIVATE_INCLUDE_DIR}")
-    else()
-        message(WARNING "Qt6 Gui Private headers not found! Build may fail.")
-    endif()
+    target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_QT_GUI_PRIVATE=0)
 endif()
 
 target_link_libraries(marathon-shell PRIVATE
@@ -350,6 +305,7 @@ target_link_libraries(marathon-shell PRIVATE
     Qt6::Network
     Qt6::Sensors
     MarathonCore
+    MarathonServices
     marathon-ui-theme
     marathon-ui-containers
     marathon-ui-core

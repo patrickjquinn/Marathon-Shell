@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonApp.Test
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 Item {
     Flickable {
@@ -13,18 +13,21 @@ Item {
 
         Column {
             id: systemColumn
+
             width: parent.width
             spacing: MSpacing.md
             padding: MSpacing.lg
 
             Row {
                 spacing: MSpacing.sm
+
                 Icon {
                     name: "cpu"
                     size: 24
                     color: MColors.accent
                     anchors.verticalCenter: parent.verticalCenter
                 }
+
                 MLabel {
                     text: "System Services"
                     variant: "headline"
@@ -50,17 +53,17 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Battery: " + PowerManager.batteryLevel + "%"
+                            text: "Battery: " + ((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.batteryLevel : 0) + "%"
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Charging: " + (PowerManager.isCharging ? "Yes" : "No")
+                            text: "Charging: " + (((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isCharging : false) ? "Yes" : "No")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Power Save: " + (PowerManager.isPowerSaveMode ? "On" : "Off")
+                            text: "Power Save: " + (((typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isPowerSaveMode : false) ? "On" : "Off")
                             variant: "secondary"
                         }
                     }
@@ -73,7 +76,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                PowerManager.togglePowerSaveMode();
+                                if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                                    PowerManagerService.setPowerSaveMode(!PowerManagerService.isPowerSaveMode);
+
                                 Logger.info("TestApp", "Toggled power save mode");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -103,23 +108,23 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "WiFi: " + (NetworkManager.wifiConnected ? ("Connected (" + NetworkManager.wifiSsid + ")") : "Disconnected")
+                            text: "WiFi: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected) ? ("Connected (" + NetworkManagerCpp.wifiSsid + ")") : "Disconnected")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Signal: " + NetworkManager.wifiSignalStrength + "%"
+                            text: "Signal: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0) + "%"
                             variant: "secondary"
-                            visible: NetworkManager.wifiConnected
+                            visible: typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected
                         }
 
                         MLabel {
-                            text: "Cellular: " + (NetworkManager.cellularConnected ? NetworkManager.cellularOperator : "Disconnected")
+                            text: "Cellular: " + ((typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.registered) ? ModemManagerCpp.operatorName : "Disconnected")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Airplane Mode: " + (NetworkManager.airplaneModeEnabled ? "On" : "Off")
+                            text: "Airplane Mode: " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.airplaneModeEnabled) ? "On" : "Off")
                             variant: "secondary"
                         }
                     }
@@ -132,7 +137,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                NetworkManager.scanWifi();
+                                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
+                                    NetworkManagerCpp.scanWifi();
+
                                 Logger.info("TestApp", "WiFi scan initiated");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -146,7 +153,9 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                NetworkManager.toggleAirplaneMode();
+                                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
+                                    NetworkManagerCpp.setAirplaneMode(!NetworkManagerCpp.airplaneModeEnabled);
+
                                 Logger.info("TestApp", "Toggled airplane mode");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -176,12 +185,12 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Brightness: " + Math.round(DisplayManager.brightness * 100) + "%"
+                            text: "Brightness: " + ((typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? Math.round(DisplayManagerCpp.brightness * 100) : 0) + "%"
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Auto-brightness: " + (DisplayManager.autoBrightnessEnabled ? "On" : "Off")
+                            text: "Auto-brightness: " + (((typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.autoBrightnessEnabled : false) ? "On" : "Off")
                             variant: "secondary"
                         }
                     }
@@ -195,7 +204,9 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                DisplayManager.increaseBrightness();
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.brightness = Math.min(1, DisplayManagerCpp.brightness + 0.1);
+
                                 Logger.info("TestApp", "Increased brightness");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -209,7 +220,9 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                DisplayManager.decreaseBrightness();
+                                if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
+                                    DisplayManagerCpp.brightness = Math.max(0, DisplayManagerCpp.brightness - 0.1);
+
                                 Logger.info("TestApp", "Decreased brightness");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -223,7 +236,9 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                DisplayManager.setAutoBrightness(!DisplayManager.autoBrightnessEnabled);
+                                if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
+                                    DisplayPolicyControllerCpp.autoBrightnessEnabled = !DisplayPolicyControllerCpp.autoBrightnessEnabled;
+
                                 Logger.info("TestApp", "Toggled auto-brightness");
                                 if (testApp) {
                                     testApp.passedTests++;

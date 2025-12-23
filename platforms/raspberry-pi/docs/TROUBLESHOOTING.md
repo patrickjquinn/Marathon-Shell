@@ -231,20 +231,12 @@ Reboot after changes.
 
 **Solution**:
 
-This should be fixed by the patches included in this repository. Verify patches are applied:
+Session lock/unlock behavior is handled by `SessionStore.qml` + `MarathonLockScreen.qml`.
+This should be fixed by the patches included in this repository. Verify the `SessionStore` patch is applied and rebuild:
 
 ```bash
-# Check SessionManager has the fix
-grep "property double lastActivityTime" ~/Marathon-Shell/shell/qml/services/SessionManager.qml
-
-# Should return:
-#   property double lastActivityTime: Date.now()
-# NOT:
-#   property int lastActivityTime: 0
-
-# If still showing 'int', re-apply patches:
 cd ~/Marathon-Shell
-patch -p1 < ~/marathon-hackberry-pi/patches/01-sessionmanager-fix.patch
+patch -p1 < ~/marathon-hackberry-pi/patches/02-sessionstore-fix.patch
 cd build
 ninja install
 sudo reboot
@@ -258,21 +250,14 @@ sudo reboot
 
 1. **Check idle detection is enabled**
    ```bash
-   # Edit SessionManager.qml
-   nano ~/Marathon-Shell/shell/qml/services/SessionManager.qml
-   
-   # Verify this line:
-   property bool idleDetectionEnabled: true
+   # Idle/session behavior lives in SessionStore + MarathonLockScreen
+   # (SessionManager.qml is no longer used)
    ```
 
 2. **Check timeout values**
    ```bash
-   # In SessionManager.qml:
-   property int idleTimeout: 3600000  // 1 hour in milliseconds
-   property int lockTimeout: 3600000  // Additional time before lock
-   
-   # For testing, temporarily reduce to 30 seconds:
-   property int idleTimeout: 30000  // 30 seconds
+   # Timeouts are controlled by SettingsManagerCpp (screen timeout) and lock screen logic.
+   # For quick testing, adjust settings via the Settings app, then rebuild/restart.
    ```
 
 3. **Rebuild after changes**

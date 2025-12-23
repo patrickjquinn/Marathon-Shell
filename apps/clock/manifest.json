@@ -5,7 +5,7 @@
   "entryPoint": "ClockApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["notifications"],
+  "permissions": ["notifications", "storage"],
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["Utility"],

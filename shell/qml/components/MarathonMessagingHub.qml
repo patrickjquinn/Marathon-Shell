@@ -1,15 +1,16 @@
-import QtQuick
+import "."
 import MarathonOS.Shell
 import MarathonUI.Core
-import "."
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: messagingHub
-    height: 0
-    visible: false
 
     property bool showVertical: false
+
+    height: 0
+    visible: false
 
     Rectangle {
         visible: false
