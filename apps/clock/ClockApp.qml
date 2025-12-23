@@ -1,23 +1,18 @@
-import QtQuick
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 MApp {
-    id: clockApp
-    appId: "clock"
-    appName: "Clock"
     // appIcon loaded from registry - don't override here
 
-    property var alarms  // No initial binding - set by loadAlarms()
-    property int nextAlarmId: 1
+    id: clockApp
 
-    Component.onCompleted: {
-        loadAlarms();
-    }
+    property var alarms // No initial binding - set by loadAlarms()
+    property int nextAlarmId: 1
 
     function loadAlarms() {
         if (typeof AlarmManager !== 'undefined') {
@@ -26,12 +21,13 @@ MApp {
             var savedAlarms = SettingsManagerCpp.get("clock/alarms", "[]");
             try {
                 alarms = JSON.parse(savedAlarms);
-                if (alarms.length > 0) {
-                    nextAlarmId = Math.max(...alarms.map(a => parseInt(a.id) || 0)) + 1;
-                }
+                if (alarms.length > 0)
+                    nextAlarmId = Math.max(alarms.map(a => {
+                        return parseInt(a.id) || 0;
+                    })) + 1;
             } catch (e) {
                 Logger.error("ClockApp", "Failed to load alarms: " + e);
-                alarms = [];  // Fallback to empty array on error
+                alarms = []; // Fallback to empty array on error
             }
         }
         alarmsChanged();
@@ -45,32 +41,30 @@ MApp {
     function createAlarm(hour, minute, label, enabled) {
         var timeString = _padZero(hour) + ":" + _padZero(minute);
         var repeat = [];
-
         if (typeof AlarmManager !== 'undefined') {
             var alarmId = AlarmManager.createAlarm(timeString, label, repeat, {
-                vibrate: true,
-                snoozeEnabled: true,
-                snoozeDuration: 10
+                "vibrate": true,
+                "snoozeEnabled": true,
+                "snoozeDuration": 10
             });
-
             loadAlarms();
             return {
-                id: alarmId,
-                hour: hour,
-                minute: minute,
-                label: label,
-                enabled: true,
-                repeat: repeat
+                "id": alarmId,
+                "hour": hour,
+                "minute": minute,
+                "label": label,
+                "enabled": true,
+                "repeat": repeat
             };
         } else {
             var alarm = {
-                id: String(nextAlarmId++),
-                time: timeString,
-                hour: hour,
-                minute: minute,
-                label: label || "Alarm",
-                enabled: enabled !== undefined ? enabled : true,
-                repeat: []
+                "id": String(nextAlarmId++),
+                "time": timeString,
+                "hour": hour,
+                "minute": minute,
+                "label": label || "Alarm",
+                "enabled": enabled !== undefined ? enabled : true,
+                "repeat": []
             };
             alarms.push(alarm);
             alarmsChanged();
@@ -81,24 +75,20 @@ MApp {
 
     function updateAlarm(id, hour, minute, label, enabled, repeat) {
         var timeString = _padZero(hour) + ":" + _padZero(minute);
-
         if (typeof AlarmManager !== 'undefined') {
             var repeatDays = [];
             if (repeat) {
                 for (var i = 0; i < repeat.length; i++) {
-                    if (repeat[i]) {
+                    if (repeat[i])
                         repeatDays.push(i);
-                    }
                 }
             }
-
             AlarmManager.updateAlarm(id, {
-                time: timeString,
-                label: label,
-                enabled: enabled,
-                repeat: repeatDays
+                "time": timeString,
+                "label": label,
+                "enabled": enabled,
+                "repeat": repeatDays
             });
-
             loadAlarms();
         } else {
             for (var i = 0; i < alarms.length; i++) {
@@ -110,6 +100,7 @@ MApp {
                     alarms[i].enabled = enabled;
                     if (repeat)
                         alarms[i].repeat = repeat;
+
                     alarmsChanged();
                     saveAlarms();
                     return true;
@@ -157,10 +148,13 @@ MApp {
         return (num < 10 ? "0" : "") + num;
     }
 
-    Connections {
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
-        enabled: typeof AlarmManager !== 'undefined'
+    appId: "clock"
+    appName: "Clock"
+    Component.onCompleted: {
+        loadAlarms();
+    }
 
+    Connections {
         function onAlarmCreated() {
             loadAlarms();
         }
@@ -172,6 +166,9 @@ MApp {
         function onAlarmDeleted() {
             loadAlarms();
         }
+
+        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
+        enabled: typeof AlarmManager !== 'undefined'
     }
 
     content: Rectangle {
@@ -179,10 +176,10 @@ MApp {
         color: MColors.background
 
         Column {
+            property int currentView: 0
+
             anchors.fill: parent
             spacing: 0
-
-            property int currentView: 0
 
             StackLayout {
                 width: parent.width
@@ -212,31 +209,30 @@ MApp {
 
             MTabBar {
                 id: tabBar
-                width: parent.width
 
+                width: parent.width
                 tabs: [
                     {
-                        label: "Clock",
-                        icon: "clock"
+                        "label": "Clock",
+                        "icon": "clock"
                     },
                     {
-                        label: "World",
-                        icon: "globe"
+                        "label": "World",
+                        "icon": "globe"
                     },
                     {
-                        label: "Alarm",
-                        icon: "bell"
+                        "label": "Alarm",
+                        "icon": "bell"
                     },
                     {
-                        label: "Timer",
-                        icon: "timer"
+                        "label": "Timer",
+                        "icon": "timer"
                     },
                     {
-                        label: "Stopwatch",
-                        icon: "stopwatch"
+                        "label": "Stopwatch",
+                        "icon": "watch"
                     }
                 ]
-
                 onTabSelected: index => {
                     HapticService.light();
                     parent.currentView = index;
