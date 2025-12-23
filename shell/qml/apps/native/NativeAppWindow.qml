@@ -14,19 +14,11 @@ MApp {
     property string nativeTitle: ""
     property string nativeAppIcon: ""
     property int surfaceId: -1
-    // When minimized, signal to shell surface item to lock its buffer
-    // This retains the last rendered frame during minimize for smooth task switcher preview
     property bool isMinimized: false
     property bool isNative: true
-    // The ShellSurfaceItem lives inside `content`, so referencing its id directly from here
-    // can fail depending on how the component is instantiated (we saw ReferenceError).
-    // Use an explicit ref that the child sets on completed.
     property var surfaceItemRef: null
-    // Non-arbitrary readiness: the client has been configured AND has committed a buffer.
     readonly property bool revealReady: surfaceItemRef && surfaceItemRef.hasSentInitialSize && surfaceItemRef.hasFirstFrame
 
-    // Signal to request closing the app window (e.g. when native app exits)
-    // skipNative: true if the native surface is already destroyed (client closed)
     signal requestClose(bool skipNative)
 
     appId: nativeAppId
@@ -42,35 +34,23 @@ MApp {
         anchors.fill: parent
         color: MColors.background
 
-        // CRITICAL: Use our custom WaylandShellSurfaceItem with autoResize control
         ShellComponents.WaylandShellSurfaceItem {
             id: surfaceItem
 
             anchors.fill: parent
-            // NativeAppWindow SHOULD send size updates (it's the main window, not a thumbnail)
             autoResize: true
-            // Pass the surface object so our custom component can access toplevel
             surfaceObj: nativeAppWindow.waylandSurface
-            // CRITICAL: Pass surfaceId so this item registers with SurfaceRegistry for popup parenting
             surfaceId: nativeAppWindow.surfaceId
-            // Pass isMinimized to lock buffer during minimize (prevents VK_ERROR_SURFACE_LOST)
             isMinimized: nativeAppWindow.isMinimized
             onSurfaceDestroyed: {
-                // Determine if this is a user-initiated close vs. a minimize transition
-                // If the app is already minimized (user swiped to task switcher), keep it alive
-                // If the app is NOT minimized, the native app itself is closing (user clicked X button)
                 if (nativeAppWindow.isMinimized) {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
                 } else {
                     Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
-                    // The native app was closed by the user from within the app UI.
-                    // Notify the shell to clean up the app window.
-                    // skipNative=true because the surface is ALREADY destroyed!
                     nativeAppWindow.requestClose(true);
                 }
             }
             Component.onCompleted: {
-                // Publish a stable reference for outer-shell splash gating.
                 nativeAppWindow.surfaceItemRef = surfaceItem;
                 Logger.info("NativeAppWindow", "ShellSurfaceItem created for: " + nativeAppWindow.nativeAppId);
                 Logger.info("NativeAppWindow", "  Container size: " + contentContainer.width + "x" + contentContainer.height);
@@ -78,13 +58,11 @@ MApp {
             }
         }
 
-        // Splash screen - shown while app is launching
         Rectangle {
             id: splashScreen
 
             anchors.fill: parent
             color: MColors.background
-            // Keep splash up until the client is configured and has committed a buffer.
             visible: !nativeAppWindow.revealReady
             z: 10
 
@@ -92,7 +70,6 @@ MApp {
                 anchors.centerIn: parent
                 spacing: MSpacing.xl
 
-                // High-quality app icon with proper scaling
                 MAppIcon {
                     id: splashIcon
 

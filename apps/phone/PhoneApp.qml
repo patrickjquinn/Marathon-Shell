@@ -1,134 +1,74 @@
-import QtQuick
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 MApp {
     id: phoneApp
-    appId: "phone"
-    appName: "Phone"
-    appIcon: "assets/icon.svg"
+
     property bool hasContactsPermission: false
     property var contacts: hasContactsPermission && typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
     property var callHistory: typeof CallHistoryManager !== 'undefined' ? CallHistoryManager.history : []
-
     property string dialedNumber: ""
     property bool inCall: typeof TelephonyService !== 'undefined' && TelephonyService.callState !== "idle"
-
     property int editingContactId: -1
     property string editingContactName: ""
     property string editingContactPhone: ""
     property string editingContactEmail: ""
 
-    // Check contacts permission on launch
-    Component.onCompleted: {
-        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
-            var number = TelephonyService.activeNumber;
-            var contactName = resolveContactName(number);
-            activeCallPage.show(number, contactName);
-            Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
-        }
-
-        // Check contacts permission
-        if (typeof PermissionManager !== 'undefined') {
-            if (PermissionManager.hasPermission(appId, "contacts")) {
-                Logger.info("Phone", "Contacts permission already granted");
-                hasContactsPermission = true;
-            } else {
-                Logger.info("Phone", "Requesting contacts permission");
-                PermissionManager.requestPermission(appId, "contacts");
-            }
-        } else {
-            Logger.warn("Phone", "PermissionManager not available, auto-granting");
-            hasContactsPermission = true;
-        }
-    }
-
-    // Listen for permission responses
-    Connections {
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
-
-        function onPermissionGranted(grantedAppId, permission) {
-            if (grantedAppId === appId && permission === "contacts") {
-                Logger.info("Phone", "Contacts permission granted");
-                hasContactsPermission = true;
-            }
-        }
-
-        function onPermissionDenied(deniedAppId, permission) {
-            if (deniedAppId === appId && permission === "contacts") {
-                Logger.warn("Phone", "Contacts permission denied");
-                hasContactsPermission = false;
-            }
-        }
-    }
-
-    Connections {
-        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
-        enabled: target !== null
-        function onIncomingCall(number) {
-            Logger.info("Phone", "Incoming call from: " + number);
-            var contactName = resolveContactName(number);
-            incomingCallScreen.show(number, contactName);
-        }
-
-        function onCallStateChanged(state) {
-            Logger.info("Phone", "Call state changed: " + state);
-            if (state === "idle") {
-                // Call ended
-                if (dialedNumber.length > 0) {
-                    dialedNumber = "";
-                }
-                if (activeCallPage.visible) {
-                    activeCallPage.hide();
-                }
-                if (incomingCallScreen.visible) {
-                    incomingCallScreen.hide();
-                }
-            } else if (state === "active") {
-                // Call answered - hide incoming screen, show active call screen
-                if (incomingCallScreen.visible) {
-                    incomingCallScreen.hide();
-                }
-                if (!activeCallPage.visible && typeof TelephonyService !== 'undefined') {
-                    var number = TelephonyService.activeNumber;
-                    var contactName = resolveContactName(number);
-                    activeCallPage.show(number, contactName);
-                }
-            }
-        }
-    }
-
     function resolveContactName(number) {
         for (var i = 0; i < contacts.length; i++) {
-            if (contacts[i].phone === number) {
+            if (contacts[i].phone === number)
                 return contacts[i].name;
-            }
         }
         return "Unknown";
     }
 
     function formatTimestamp(timestamp) {
         var now = Date.now();
-        var diff = now - timestamp;
+        var ts = Number(timestamp);
+        // Allow seconds-precision timestamps (convert to ms).
+        if (Number.isFinite(ts) && ts > 0 && ts < 1e+11)
+            ts = ts * 1000;
+
+        if (!Number.isFinite(ts) || ts <= 0)
+            return "";
+
+        var diff = now - ts;
         var minutes = Math.floor(diff / (1000 * 60));
         var hours = Math.floor(diff / (1000 * 60 * 60));
         var days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
         if (minutes < 60)
             return minutes + "m";
+
         if (hours < 24)
             return hours + "h";
+
         return days + "d";
     }
 
     function formatDuration(seconds) {
-        var minutes = Math.floor(seconds / 60);
-        var remainingSeconds = seconds % 60;
+        var s = Number(seconds);
+        if (!Number.isFinite(s) || s <= 0)
+            return "";
+
+        var minutes = Math.floor(s / 60);
+        var remainingSeconds = Math.floor(s % 60);
         return minutes + ":" + (remainingSeconds < 10 ? "0" : "") + remainingSeconds;
+    }
+
+    function historyField(row, key, fallbackValue) {
+        if (!row)
+            return fallbackValue;
+
+        var v = row[key];
+        if (v === undefined || v === null || v === "")
+            return fallbackValue;
+
+        return v;
     }
 
     function addDigit(digit) {
@@ -160,15 +100,96 @@ MApp {
         }
     }
 
+    appId: "phone"
+    appName: "Phone"
+    appIcon: "assets/icon.svg"
+    // Check contacts permission on launch
+    Component.onCompleted: {
+        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
+            var number = TelephonyService.activeNumber;
+            var contactName = resolveContactName(number);
+            activeCallPage.show(number, contactName);
+            Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
+        }
+        // Check contacts permission
+        if (typeof PermissionManager !== 'undefined') {
+            if (PermissionManager.hasPermission(appId, "contacts")) {
+                Logger.info("Phone", "Contacts permission already granted");
+                hasContactsPermission = true;
+            } else {
+                Logger.info("Phone", "Requesting contacts permission");
+                PermissionManager.requestPermission(appId, "contacts");
+            }
+        } else {
+            Logger.warn("Phone", "PermissionManager not available, auto-granting");
+            hasContactsPermission = true;
+        }
+    }
+
+    // Listen for permission responses
+    Connections {
+        function onPermissionGranted(grantedAppId, permission) {
+            if (grantedAppId === appId && permission === "contacts") {
+                Logger.info("Phone", "Contacts permission granted");
+                hasContactsPermission = true;
+            }
+        }
+
+        function onPermissionDenied(deniedAppId, permission) {
+            if (deniedAppId === appId && permission === "contacts") {
+                Logger.warn("Phone", "Contacts permission denied");
+                hasContactsPermission = false;
+            }
+        }
+
+        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+    }
+
+    Connections {
+        function onIncomingCall(number) {
+            Logger.info("Phone", "Incoming call from: " + number);
+            var contactName = resolveContactName(number);
+            incomingCallScreen.show(number, contactName);
+        }
+
+        function onCallStateChanged(state) {
+            Logger.info("Phone", "Call state changed: " + state);
+            if (state === "idle") {
+                // Call ended
+                if (dialedNumber.length > 0)
+                    dialedNumber = "";
+
+                if (activeCallPage.visible)
+                    activeCallPage.hide();
+
+                if (incomingCallScreen.visible)
+                    incomingCallScreen.hide();
+            } else if (state === "active") {
+                // Call answered - hide incoming screen, show active call screen
+                if (incomingCallScreen.visible)
+                    incomingCallScreen.hide();
+
+                if (!activeCallPage.visible && typeof TelephonyService !== 'undefined') {
+                    var number = TelephonyService.activeNumber;
+                    var contactName = resolveContactName(number);
+                    activeCallPage.show(number, contactName);
+                }
+            }
+        }
+
+        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
+        enabled: target !== null
+    }
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
 
         Column {
+            property int currentIndex: 0
+
             anchors.fill: parent
             spacing: 0
-
-            property int currentIndex: 0
 
             StackLayout {
                 width: parent.width
@@ -215,52 +236,52 @@ MApp {
                             Repeater {
                                 model: [
                                     {
-                                        digit: "1",
-                                        letters: ""
+                                        "digit": "1",
+                                        "letters": ""
                                     },
                                     {
-                                        digit: "2",
-                                        letters: "ABC"
+                                        "digit": "2",
+                                        "letters": "ABC"
                                     },
                                     {
-                                        digit: "3",
-                                        letters: "DEF"
+                                        "digit": "3",
+                                        "letters": "DEF"
                                     },
                                     {
-                                        digit: "4",
-                                        letters: "GHI"
+                                        "digit": "4",
+                                        "letters": "GHI"
                                     },
                                     {
-                                        digit: "5",
-                                        letters: "JKL"
+                                        "digit": "5",
+                                        "letters": "JKL"
                                     },
                                     {
-                                        digit: "6",
-                                        letters: "MNO"
+                                        "digit": "6",
+                                        "letters": "MNO"
                                     },
                                     {
-                                        digit: "7",
-                                        letters: "PQRS"
+                                        "digit": "7",
+                                        "letters": "PQRS"
                                     },
                                     {
-                                        digit: "8",
-                                        letters: "TUV"
+                                        "digit": "8",
+                                        "letters": "TUV"
                                     },
                                     {
-                                        digit: "9",
-                                        letters: "WXYZ"
+                                        "digit": "9",
+                                        "letters": "WXYZ"
                                     },
                                     {
-                                        digit: "*",
-                                        letters: ""
+                                        "digit": "*",
+                                        "letters": ""
                                     },
                                     {
-                                        digit: "0",
-                                        letters: "+"
+                                        "digit": "0",
+                                        "letters": "+"
                                     },
                                     {
-                                        digit: "#",
-                                        letters: ""
+                                        "digit": "#",
+                                        "letters": ""
                                     }
                                 ]
 
@@ -375,10 +396,10 @@ MApp {
                                         HapticService.medium();
                                     }
                                     onReleased: {
-                                        parent.scale = 1.0;
+                                        parent.scale = 1;
                                     }
                                     onCanceled: {
-                                        parent.scale = 1.0;
+                                        parent.scale = 1;
                                     }
                                     onClicked: {
                                         makeCall();
@@ -401,7 +422,6 @@ MApp {
                     Layout.fillHeight: true
                     clip: true
                     topMargin: MSpacing.md
-
                     model: callHistory
 
                     delegate: Item {
@@ -410,15 +430,15 @@ MApp {
 
                         MCard {
                             id: card
+
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.leftMargin: MSpacing.md
                             anchors.rightMargin: MSpacing.md
                             elevation: 1
                             interactive: true
-
                             onClicked: {
-                                dialedNumber = modelData.phone;
+                                dialedNumber = historyField(modelData, "number", "");
                                 parent.parent.parent.parent.currentIndex = 0;
                             }
 
@@ -429,9 +449,9 @@ MApp {
 
                                 Icon {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    name: modelData.type === "outgoing" ? "phone-outgoing" : modelData.type === "incoming" ? "phone-incoming" : "phone-missed"
+                                    name: historyField(modelData, "type", "") === "outgoing" ? "phone-outgoing" : historyField(modelData, "type", "") === "incoming" ? "phone-incoming" : "phone-missed"
                                     size: 20
-                                    color: modelData.type === "missed" ? MColors.error : MColors.accent
+                                    color: historyField(modelData, "type", "") === "missed" ? MColors.error : MColors.accent
                                 }
 
                                 Column {
@@ -441,7 +461,7 @@ MApp {
 
                                     Text {
                                         width: parent.width
-                                        text: modelData.contactName
+                                        text: historyField(modelData, "contactName", "Unknown")
                                         font.pixelSize: MTypography.sizeBody
                                         font.weight: MTypography.weightDemiBold
                                         font.family: MTypography.fontFamily
@@ -453,9 +473,7 @@ MApp {
                                         spacing: MSpacing.sm
 
                                         Text {
-                                            // Some entries may have missing/undefined phone values (e.g. older history rows).
-                                            // QML will warn if we try to assign undefined to a string property.
-                                            text: modelData.phone || ""
+                                            text: historyField(modelData, "number", "")
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
@@ -466,20 +484,22 @@ MApp {
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
+                                            visible: formatDuration(historyField(modelData, "duration", 0)) !== ""
                                         }
 
                                         Text {
-                                            text: formatDuration(modelData.duration)
+                                            text: formatDuration(historyField(modelData, "duration", 0))
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
+                                            visible: text !== ""
                                         }
                                     }
                                 }
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: formatTimestamp(modelData.timestamp)
+                                    text: formatTimestamp(historyField(modelData, "timestamp", 0))
                                     font.pixelSize: MTypography.sizeSmall
                                     font.family: MTypography.fontFamily
                                     color: MColors.textTertiary
@@ -495,10 +515,10 @@ MApp {
 
                     ListView {
                         id: contactsList
+
                         anchors.fill: parent
                         clip: true
                         topMargin: MSpacing.md
-
                         model: contacts
 
                         delegate: Item {
@@ -507,13 +527,13 @@ MApp {
 
                             MCard {
                                 id: contactCard
+
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.leftMargin: MSpacing.md
                                 anchors.rightMargin: MSpacing.md
                                 elevation: 1
                                 interactive: true
-
                                 onClicked: {
                                     editingContactId = modelData.id || -1;
                                     editingContactName = modelData.name || "";
@@ -590,24 +610,23 @@ MApp {
 
             MTabBar {
                 id: tabBar
+
                 width: parent.width
                 activeTab: parent.currentIndex
-
                 tabs: [
                     {
-                        label: "Dial",
-                        icon: "phone"
+                        "label": "Dial",
+                        "icon": "phone"
                     },
                     {
-                        label: "History",
-                        icon: "clock"
+                        "label": "History",
+                        "icon": "clock"
                     },
                     {
-                        label: "Contacts",
-                        icon: "users"
+                        "label": "Contacts",
+                        "icon": "users"
                     }
                 ]
-
                 onTabSelected: index => {
                     HapticService.light();
                     tabBar.parent.currentIndex = index;
@@ -617,6 +636,7 @@ MApp {
 
         Loader {
             id: contactEditorLoader
+
             anchors.fill: parent
             active: false
             z: 999
@@ -627,7 +647,6 @@ MApp {
                     contactName: phoneApp.editingContactName
                     contactPhone: phoneApp.editingContactPhone
                     contactEmail: phoneApp.editingContactEmail
-
                     onContactSaved: {
                         contactEditorLoader.active = false;
                     }
@@ -640,11 +659,13 @@ MApp {
 
         IncomingCallScreen {
             id: incomingCallScreen
+
             anchors.fill: parent
         }
 
         ActiveCallPage {
             id: activeCallPage
+
             anchors.fill: parent
         }
     }
