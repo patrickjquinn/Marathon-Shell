@@ -5,17 +5,8 @@ import QtQuick
 import QtWayland.Compositor
 
 ShellSurfaceItem {
-    // SOLUTION: Mobile compositors MAXIMIZE all windows by default
-    // sendMaximized() tells the app:
-    // - "You MUST fill this exact size" (not a hint, but a requirement)
-    // - "You are maximized" (XDG_TOPLEVEL_STATE_MAXIMIZED)
-    // - "Remove window decorations" (no title bar, borders, etc.)
-    // This is how Phosh, Plasma Mobile, and other mobile shells work:
-    // - All apps are maximized by default (fill the screen)
-    // - Apps respond to the maximized state by using their mobile/adaptive layouts
-    // - Combined with physical size (68mm) and env vars (LIBADWAITA_MOBILE=1),
-    //   this triggers full mobile behavior
-    // ShellSurfaceItem created for native app
+    // Native Wayland apps are configured as maximized by default (mobile-shell semantics).
+    // We send maximized configure events and keep sizing stable to avoid resize/jank issues in toolkits.
 
     property var surfaceObj: null
     property int surfaceId: -1
@@ -68,9 +59,6 @@ ShellSurfaceItem {
             return obj.surface;
 
         // Wrapper cases: { xdgSurface: ..., surface: ... }
-        if (obj.xdgSurface && obj.xdgSurface.surface)
-            return obj.xdgSurface.surface;
-
         if (obj.xdgSurface && obj.xdgSurface.surface)
             return obj.xdgSurface.surface;
 
@@ -129,9 +117,7 @@ ShellSurfaceItem {
         }
         lastSentSize = newSize;
         hasSentInitialSize = true;
-        Logger.info("WaylandShellSurfaceItem", "📱 Configuring app as MAXIMIZED: " + newSize.width + "x" + newSize.height);
-        // Reference: https://wayland.freedesktop.org/docs/html/apa.html#protocol-spec-xdg-shell
-        // Reference: Phosh/phoc compositor source (wlroots-based mobile compositor)
+        Logger.info("WaylandShellSurfaceItem", "Configuring app as maximized: " + newSize.width + "x" + newSize.height);
         toplevel.sendMaximized(newSize);
         // AUTO-ACTIVATE: Activate window when ready (removes "grey" state)
         // This ensures the app looks active/focused immediately on launch

@@ -8,7 +8,6 @@
 #include <QTextStream>
 #include <QCoreApplication>
 #include <QWaylandXdgToplevel>
-#include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
 #include <QtMath>
@@ -27,6 +26,11 @@ static bool envBool(const char *name, bool defaultValue) {
     return defaultValue;
 }
 
+static bool wlVerbose() {
+    // Opt-in log verbosity for Wayland compositor bring-up/debugging.
+    return envBool("MARATHON_WL_VERBOSE", false);
+}
+
 #ifdef Q_OS_LINUX
 #include <sched.h>
 #include <pthread.h>
@@ -39,26 +43,22 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     , m_output(nullptr)
     , m_hasIdleInhibitor(false) {
 
-    // CRITICAL: Set compositor properties BEFORE create()
-    // Per Qt docs, these must be set before the compositor is initialized
+    // Must be set before create().
     const QByteArray socketNameEnv = qgetenv("MARATHON_WL_SOCKET_NAME").trimmed();
     const QByteArray socketNameBytes =
         socketNameEnv.isEmpty() ? QByteArrayLiteral("marathon-wayland-0") : socketNameEnv;
     setSocketName(socketNameBytes);
 
-    // CRITICAL: Explicitly enable SHM Support for GTK Apps
-    // This forces QWaylandCompositor to create the wl_shm global
+    // Ensure wl_shm is advertised (many toolkits rely on SHM buffers).
     QList<QWaylandCompositor::ShmFormat> shmFormats;
     shmFormats << QWaylandCompositor::ShmFormat_ARGB8888;
     shmFormats << QWaylandCompositor::ShmFormat_XRGB8888;
     setAdditionalShmFormats(shmFormats);
 
-    // CRITICAL: Call create() BEFORE constructing QWaylandOutput
-    // Per Qt documentation: "The create() function must be called on the
-    // compositor before constructing a QWaylandOutput for it."
+    // Qt requirement: create() must be called before constructing QWaylandOutput.
     create();
 
-    // Shell extensions - can be created after create()
+    // Shell extensions (safe after create()).
     m_xdgShell = new QWaylandXdgShell(this);
     // wl_shell is legacy/deprecated; keep it OFF by default and allow opting in for compatibility.
     const bool enableWlShell = envBool("MARATHON_WL_ENABLE_WL_SHELL", false);
@@ -71,8 +71,7 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] wl_shell disabled (legacy protocol)";
     }
 
-    // Only enable protocol globals we need (Deepak: avoid unnecessary protocol surface area).
-    // These are enabled by default but can be turned off for debugging/minimal builds.
+    // Protocol globals we intentionally expose. Enabled by default; can be disabled for debugging.
     const bool enableViewporter  = envBool("MARATHON_WL_ENABLE_VIEWPORTER", true);
     const bool enableTextInputV2 = envBool("MARATHON_WL_ENABLE_TEXT_INPUT_V2", true);
     const bool enableIdleInhibit = envBool("MARATHON_WL_ENABLE_IDLE_INHIBIT", true);
@@ -103,20 +102,12 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 disabled";
     }
 
-    // Connect seat keyboard focus changes to emit text input panel signal
-    // When a native app surface gains keyboard focus, we may need to show the keyboard
     connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
             [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
                 Q_UNUSED(oldFocus);
-                // When a native app surface has keyboard focus, emit signal
-                // The QML side decides whether to show the keyboard based on Platform.hasHardwareKeyboard
-                if (newFocus) {
+                if (wlVerbose() && newFocus)
                     qDebug() << "[WaylandCompositor] Keyboard focus changed to surface:"
                              << newFocus;
-                    // Native apps will explicitly request text input via the text input protocol
-                    // For now, just log the focus change. Full text input integration requires
-                    // monitoring zwp_text_input events which Qt handles internally.
-                }
             });
 
     connect(this, &QWaylandCompositor::surfaceCreated, this,
@@ -127,30 +118,22 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     connect(m_xdgShell, &QWaylandXdgShell::popupCreated, this,
             &WaylandCompositor::handleXdgPopupCreated);
 
-    // NOW create output AFTER compositor is initialized
+    // Create output after compositor is initialized.
     m_output = new QWaylandQuickOutput(this, window);
     m_output->setSizeFollowsWindow(true);
 
-    // CRITICAL: Explicitly set as default output
-    // XdgToplevelIntegration internally looks for defaultOutput() - must be set!
+    // Required by Qt's XdgToplevelIntegration.
     setDefaultOutput(m_output);
 
-    // CRITICAL: Configure wl_output metrics (scale + physical size + availableGeometry).
-    // If wl_output scale is wrong (e.g. stuck at 1 on a HiDPI screen), client apps will render
-    // low-res buffers and the compositor will scale them up -> blurry UI.
     calculateAndSetPhysicalSize();
 
-    qDebug() << "[WaylandCompositor] Initialized on socket:" << socketName()
-             << "- output:" << window->size() << "(scale=" << m_output->scaleFactor() << ")";
+    qInfo() << "[WaylandCompositor] Initialized on socket:" << socketName()
+            << "output:" << window->size() << "(scale=" << m_output->scaleFactor() << ")";
 
     // Set RT priority for compositor rendering thread (Priority 75 per spec)
     setCompositorRealtimePriority();
 
-    // NOTE: We no longer create a custom D-Bus session - apps use the host's session
-    // This prevents 25-second timeouts waiting for system services (GeoClue2, etc.)
-
-    // CRITICAL FIX: Install Event Filter to intercept global keys BEFORE they reach Wayland clients
-    // This solves the "Double Action" bug where clients handle Press (Back) and Shell handles Release (Close)
+    // Intercept global keys before Wayland clients to avoid double-handling (press/release split).
     m_window->installEventFilter(this);
 }
 
@@ -173,9 +156,11 @@ QQmlListProperty<QObject> WaylandCompositor::surfaces() {
 }
 
 void WaylandCompositor::launchApp(const QString &command) {
-    qDebug() << "[WaylandCompositor] Launching app:" << command;
-    qDebug() << "[WaylandCompositor] Socket name:" << socketName();
-    qDebug() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << qgetenv("XDG_RUNTIME_DIR");
+    if (wlVerbose()) {
+        qDebug() << "[WaylandCompositor] Launching app:" << command;
+        qDebug() << "[WaylandCompositor] Socket name:" << socketName();
+        qDebug() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << qgetenv("XDG_RUNTIME_DIR");
+    }
 
     // Handle Flatpak and Snap apps
     QString    actualCommand = command;
@@ -363,7 +348,8 @@ void WaylandCompositor::launchApp(const QString &command) {
 
     process->setProcessEnvironment(env);
 
-    qDebug() << "[WaylandCompositor] Launching:" << command;
+    if (wlVerbose())
+        qDebug() << "[WaylandCompositor] Launching:" << command;
 
     connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
             &WaylandCompositor::handleProcessFinished);
@@ -372,34 +358,28 @@ void WaylandCompositor::launchApp(const QString &command) {
     // Use separate channels to properly capture stderr on errors
     process->setProcessChannelMode(QProcess::SeparateChannels);
 
-    // Capture stdout for debugging (only in verbose mode)
-    // Use QPointer for safe process access
+    // Capture stdout/stderr for debugging (opt-in).
     QPointer<QProcess> safeProcess(process);
     connect(process, &QProcess::readyReadStandardOutput, this, [safeProcess, command]() {
         if (!safeProcess)
             return;
-        QString output    = QString::fromLocal8Bit(safeProcess->readAllStandardOutput());
-        QString debugEnv  = qgetenv("MARATHON_DEBUG");
-        bool    debugMode = (debugEnv == "1" || debugEnv.toLower() == "true");
-        if (debugMode && !output.trimmed().isEmpty()) {
-            qDebug() << "[WaylandCompositor] App stdout:" << command << "->" << output.trimmed();
-        }
+        QString output = QString::fromLocal8Bit(safeProcess->readAllStandardOutput());
+        if (wlVerbose() && !output.trimmed().isEmpty())
+            qDebug() << "[WaylandCompositor] stdout:" << command << "->" << output.trimmed();
     });
 
-    // Always capture stderr for error reporting
-    // Use QPointer for safe process access
     connect(process, &QProcess::readyReadStandardError, this, [safeProcess, command]() {
         if (!safeProcess)
             return;
         QString error = QString::fromLocal8Bit(safeProcess->readAllStandardError());
-        if (!error.trimmed().isEmpty()) {
-            qWarning() << "[WaylandCompositor] App stderr:" << command << "->" << error.trimmed();
-        }
+        if (wlVerbose() && !error.trimmed().isEmpty())
+            qDebug() << "[WaylandCompositor] stderr:" << command << "->" << error.trimmed();
     });
 
     m_processes[process] = actualCommand;
 
-    qDebug() << "[WaylandCompositor] Starting process:" << actualCommand;
+    if (wlVerbose())
+        qDebug() << "[WaylandCompositor] Starting process:" << actualCommand;
 
     // Prefer direct exec (so the PID we emit matches the real client PID for strict PID↔surface mapping).
     // Only fall back to /bin/sh when the command needs shell features.
@@ -527,13 +507,8 @@ QObject *WaylandCompositor::getSurfaceById(int surfaceId) {
 }
 
 void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
-    // This is very noisy during normal operation (apps can create multiple surfaces).
-    // Keep it available for debugging, but don't log as warning.
-    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
-        qInfo() << "[WaylandCompositor] ========== RAW SURFACE CREATED ==========";
-        qInfo() << "[WaylandCompositor]   Surface:" << surface;
-        qInfo() << "[WaylandCompositor]   Client:" << surface->client();
-    }
+    if (wlVerbose())
+        qDebug() << "[WaylandCompositor] Surface created:" << surface;
 
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
@@ -560,7 +535,8 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     QWaylandSurface *surface = qobject_cast<QWaylandSurface *>(getSurfaceById(surfaceId));
     if (surface && defaultSeat()) {
         defaultSeat()->setKeyboardFocus(surface);
-        qDebug() << "[WaylandCompositor] Activated surface (set keyboard focus):" << surfaceId;
+        if (wlVerbose())
+            qDebug() << "[WaylandCompositor] Activated surface (set keyboard focus):" << surfaceId;
     } else {
         qWarning() << "[WaylandCompositor] Failed to activate surface:" << surfaceId;
     }
@@ -568,17 +544,6 @@ void WaylandCompositor::activateSurface(int surfaceId) {
 
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                                                  QWaylandXdgSurface  *xdgSurface) {
-    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
-        qInfo() << "[WaylandCompositor] handleXdgToplevelCreated called";
-        qInfo() << "[WaylandCompositor]   toplevel:" << toplevel;
-        qInfo() << "[WaylandCompositor]   xdgSurface:" << xdgSurface;
-        if (toplevel)
-            qInfo() << "[WaylandCompositor]   appId:" << toplevel->appId();
-        if (toplevel)
-            qInfo() << "[WaylandCompositor]   title:" << toplevel->title();
-    }
-
-    // CRITICAL: Null check before ANY operations to prevent crashes from malformed surfaces
     if (!toplevel || !xdgSurface) {
         qWarning()
             << "[WaylandCompositor] XDG toplevel creation with null toplevel/xdgSurface - ignoring";
@@ -589,8 +554,6 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
         qWarning() << "[WaylandCompositor] No output available for XDG toplevel - ignoring surface";
         return;
     }
-
-    qDebug() << "[WaylandCompositor] XDG Toplevel created for surface";
 
     QWaylandSurface *surface = xdgSurface->surface();
     if (!surface || !surface->client()) {
@@ -609,18 +572,11 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     // CRITICAL: Store xdgSurface for graceful close via sendClose()
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
 
-    if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
-        qInfo() << "[WaylandCompositor] ========== EMITTING surfaceCreated ==========";
-        qInfo() << "[WaylandCompositor]   surfaceId:" << surfaceId;
-        qInfo() << "[WaylandCompositor]   appId:" << toplevel->appId();
-        qInfo() << "[WaylandCompositor]   title:" << toplevel->title();
-    }
+    qInfo() << "[WaylandCompositor] New toplevel:" << surfaceId << toplevel->appId() << "-"
+            << toplevel->title();
 
     // NOW emit surfaceCreated with surfaceId, xdgSurface AND toplevel
     emit surfaceCreated(surface, surfaceId, xdgSurface);
-
-    if (qEnvironmentVariableIsSet("MARATHON_DEBUG"))
-        qInfo() << "[WaylandCompositor] ========== surfaceCreated EMITTED ==========";
 
     // Connect signals with QPointer for safe access to toplevel and surface
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);

@@ -117,13 +117,7 @@ Rectangle {
 
             return;
         }
-        var launchStartTime = Date.now(); // Performance measurement
-        console.log("=============== SHOW() CALLED ===============");
-        console.log("  id:", id);
-        console.log("  name:", name);
-        console.log("  type:", type);
-        console.log("  surface:", surface);
-        console.log("  sid:", sid);
+        var launchStartTime = Date.now();
         appId = id;
         appName = name;
         appIcon = icon;
@@ -132,7 +126,6 @@ Rectangle {
         surfaceId = sid || -1;
         hasError = false;
         loadError = "";
-        console.log("  appType set to:", appType);
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
         // CRITICAL: Cleanup connections and unparent the current app instance BEFORE switching
         if (appContentLoader.item) {
@@ -155,13 +148,10 @@ Rectangle {
 
             if (existingNativeInstance) {
                 // Reuse existing native app instance - just reparent it
-                console.log("[NATIVE APP] Reusing existing instance:", id);
                 Logger.info("AppWindow", "Reusing existing native app instance: " + id);
                 existingNativeInstance.visible = true;
                 appWindow.pendingAppInstance = existingNativeInstance;
-                existingNativeInstance.visible = true;
-                appWindow.pendingAppInstance = existingNativeInstance;
-                // OPTIMIZATON: If loader is already ready, simply adopt the instance
+                // Optimization: if loader is already ready, adopt the instance
                 // to avoid destroying/recreating the container (prevents blank flash)
                 if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
                     appContentLoader.item.adoptPendingApp();
@@ -173,7 +163,6 @@ Rectangle {
                 }
             } else {
                 // Create new native app instance using dynamic loading
-                console.log("[NATIVE APP] Creating new instance:", id);
                 Logger.info("AppWindow", "Creating new native app instance: " + id);
                 appWindow.isLoadingComponent = true;
                 Logger.info("AppWindow", "Showing loading splash...");

@@ -63,10 +63,8 @@ MApp {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
                 } else {
                     Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
-                    // The native app was closed by the user from within the app UI
-                    // Emit requestClose to properly clean up the app window
-                    // The native app was closed by the user from within the app UI
-                    // Emit requestClose to properly clean up the app window
+                    // The native app was closed by the user from within the app UI.
+                    // Notify the shell to clean up the app window.
                     // skipNative=true because the surface is ALREADY destroyed!
                     nativeAppWindow.requestClose(true);
                 }
