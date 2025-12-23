@@ -374,21 +374,9 @@ QVariantList MediaLibraryManager::getPhotos(const QString &albumId) {
         while (query.next()) {
             const int     mediaId   = query.value(0).toInt();
             const QString mediaPath = query.value(1).toString();
-            QString       thumbPath = query.value(2).toString();
-            if (thumbPath.isEmpty() || !QFileInfo::exists(thumbPath) ||
-                !thumbPath.contains("_thumb_v2")) {
-                const QString regenerated = createThumbnail(mediaPath);
-                if (!regenerated.isEmpty()) {
-                    thumbPath = regenerated;
-                    QSqlQuery update(m_database);
-                    update.prepare("UPDATE media SET thumbnail_path = ? WHERE id = ?");
-                    update.addBindValue(thumbPath);
-                    update.addBindValue(mediaId);
-                    update.exec();
-                }
-            }
+            const QString thumbPath = query.value(2).toString();
 
-            QVariantMap map;
+            QVariantMap   map;
             map["id"]   = mediaId;
             map["path"] = QUrl::fromLocalFile(mediaPath).toString();
             map["thumbnailPath"] =
@@ -413,21 +401,9 @@ QVariantList MediaLibraryManager::getVideos() {
     while (query.next()) {
         const int     mediaId   = query.value(0).toInt();
         const QString mediaPath = query.value(1).toString();
-        QString       thumbPath = query.value(2).toString();
-        if (thumbPath.isEmpty() || !QFileInfo::exists(thumbPath) ||
-            !thumbPath.contains("_thumb_v2")) {
-            const QString regenerated = createThumbnail(mediaPath);
-            if (!regenerated.isEmpty()) {
-                thumbPath = regenerated;
-                QSqlQuery update(m_database);
-                update.prepare("UPDATE media SET thumbnail_path = ? WHERE id = ?");
-                update.addBindValue(thumbPath);
-                update.addBindValue(mediaId);
-                update.exec();
-            }
-        }
+        const QString thumbPath = query.value(2).toString();
 
-        QVariantMap map;
+        QVariantMap   map;
         map["id"]            = mediaId;
         map["path"]          = QUrl::fromLocalFile(mediaPath).toString();
         map["thumbnailPath"] = thumbPath.isEmpty() ? "" : QUrl::fromLocalFile(thumbPath).toString();
@@ -448,21 +424,9 @@ QVariantList MediaLibraryManager::getAllPhotos() {
     while (query.next()) {
         const int     mediaId   = query.value(0).toInt();
         const QString mediaPath = query.value(1).toString();
-        QString       thumbPath = query.value(2).toString();
-        if (thumbPath.isEmpty() || !QFileInfo::exists(thumbPath) ||
-            !thumbPath.contains("_thumb_v2")) {
-            const QString regenerated = createThumbnail(mediaPath);
-            if (!regenerated.isEmpty()) {
-                thumbPath = regenerated;
-                QSqlQuery update(m_database);
-                update.prepare("UPDATE media SET thumbnail_path = ? WHERE id = ?");
-                update.addBindValue(thumbPath);
-                update.addBindValue(mediaId);
-                update.exec();
-            }
-        }
+        const QString thumbPath = query.value(2).toString();
 
-        QVariantMap map;
+        QVariantMap   map;
         map["id"]            = mediaId;
         map["path"]          = QUrl::fromLocalFile(mediaPath).toString();
         map["thumbnailPath"] = thumbPath.isEmpty() ? "" : QUrl::fromLocalFile(thumbPath).toString();

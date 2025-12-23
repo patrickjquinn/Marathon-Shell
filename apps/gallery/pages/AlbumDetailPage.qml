@@ -1,26 +1,38 @@
-import QtQuick
 import MarathonApp.Gallery
-import QtQuick.Controls
 import MarathonApp.Gallery
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 Rectangle {
     id: root
-    color: MColors.background
 
     property string albumId: ""
     property string albumName: ""
     property var photos: []
 
-    Component.onCompleted: {
-        if (typeof MediaLibraryManager !== 'undefined' && albumId) {
-            photos = MediaLibraryManager.getPhotos(albumId);
+    function findParentApp(item) {
+        var parent = item.parent;
+        while (parent) {
+            if (parent.objectName === "galleryApp" || parent.appId === "gallery")
+                return parent;
+
+            parent = parent.parent;
         }
+        return galleryApp;
+    }
+
+    color: MColors.background
+    Component.onCompleted: {
+        if (typeof MediaLibraryManager !== 'undefined' && albumId)
+            Qt.callLater(function () {
+                photos = MediaLibraryManager.getPhotos(albumId);
+            });
     }
 
     ColumnLayout {
@@ -74,15 +86,14 @@ Rectangle {
             cellWidth: width / 3
             cellHeight: cellWidth
             clip: true
-
             model: photos
+            cacheBuffer: cellHeight * 2
 
             delegate: MCard {
                 width: GridView.view.cellWidth - MSpacing.xs
                 height: GridView.view.cellHeight - MSpacing.xs
                 elevation: 1
                 interactive: true
-
                 onClicked: {
                     Logger.info("Gallery", "View photo: " + modelData.id);
                     var app = findParentApp(root);
@@ -100,6 +111,8 @@ Rectangle {
                     asynchronous: true
                     cache: true
                     clip: true
+                    sourceSize.width: Math.round(width)
+                    sourceSize.height: Math.round(height)
 
                     Rectangle {
                         anchors.fill: parent
@@ -117,16 +130,5 @@ Rectangle {
                 }
             }
         }
-    }
-
-    function findParentApp(item) {
-        var parent = item.parent;
-        while (parent) {
-            if (parent.objectName === "galleryApp" || parent.appId === "gallery") {
-                return parent;
-            }
-            parent = parent.parent;
-        }
-        return galleryApp;
     }
 }
