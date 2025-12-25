@@ -170,6 +170,8 @@ Item {
                                     }
                                     var instance = AppLifecycleManager.getAppInstance(taskCard.appId);
                                     liveApp = instance;
+                                    if (liveApp)
+                                        snapshotUpdateDebounce.restart();
                                 }
 
                                 anchors.fill: parent
@@ -177,26 +179,60 @@ Item {
                                 clip: true
                                 onWatchedAppIdChanged: updateLiveApp()
                                 Component.onCompleted: updateLiveApp()
+                                onLiveAppChanged: snapshotUpdateDebounce.restart()
 
+                                // Debounced snapshot refresh (avoid spamming scheduleUpdate)
                                 Timer {
-                                    id: lateRegistrationTimer
+                                    id: snapshotUpdateDebounce
 
-                                    property int attempts: 0
-                                    readonly property int maxAttempts: 50
-
-                                    interval: 100
-                                    repeat: true
-                                    running: previewContainer.liveApp === null && taskCard.type !== "native"
+                                    interval: 16
+                                    repeat: false
                                     onTriggered: {
-                                        previewContainer.updateLiveApp();
-                                        attempts++;
-                                        if (attempts >= maxAttempts)
-                                            stop();
+                                        if (liveSnapshot.visible)
+                                            liveSnapshot.scheduleUpdate();
                                     }
-                                    onRunningChanged: {
-                                        if (running)
-                                            attempts = 0;
+                                }
+
+                                // Prefer signal-based registration over polling.
+                                Connections {
+                                    function onAppRegistered(appId, instance) {
+                                        if (taskCard.type === "native")
+                                            return;
+
+                                        if (appId !== taskCard.appId)
+                                            return;
+
+                                        previewContainer.liveApp = instance;
+                                        snapshotUpdateDebounce.restart();
                                     }
+
+                                    function onAppUnregistered(appId) {
+                                        if (appId !== taskCard.appId)
+                                            return;
+
+                                        previewContainer.liveApp = null;
+                                    }
+
+                                    target: typeof AppLifecycleManager !== "undefined" ? AppLifecycleManager : null
+                                }
+
+                                Connections {
+                                    function onTaskSwitcherVisibleChanged() {
+                                        if (taskCard.taskSwitcherVisible)
+                                            snapshotUpdateDebounce.restart();
+                                    }
+
+                                    function onGridMovingChanged() {
+                                        if (!taskCard.gridMoving)
+                                            snapshotUpdateDebounce.restart();
+                                    }
+
+                                    function onGridDraggingChanged() {
+                                        if (!taskCard.gridDragging)
+                                            snapshotUpdateDebounce.restart();
+                                    }
+
+                                    target: taskCard
                                 }
 
                                 ShaderEffectSource {
@@ -207,7 +243,8 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     sourceItem: previewContainer.liveApp
-                                    live: previewContainer.liveApp !== null && !taskCard.gridMoving && !taskCard.gridDragging
+                                    // Snapshot-based preview: avoid live recursive rendering per-card.
+                                    live: false
                                     recursive: true
                                     visible: previewContainer.liveApp !== null
                                     hideSource: false
@@ -219,21 +256,16 @@ Item {
                                         if (visible)
                                             liveSnapshot.scheduleUpdate();
                                     }
+                                }
 
-                                    Timer {
-                                        interval: 100
-                                        repeat: true
-                                        running: liveSnapshot.live && liveSnapshot.visible
-                                        onTriggered: liveSnapshot.scheduleUpdate()
-                                    }
+                                // Throttled live updates: keep previews feeling alive without per-frame cost.
+                                Timer {
+                                    id: livePreviewRefreshTimer
 
-                                    Connections {
-                                        function onChildrenChanged() {
-                                            liveSnapshot.scheduleUpdate();
-                                        }
-
-                                        target: previewContainer.liveApp
-                                    }
+                                    interval: 200
+                                    repeat: true
+                                    running: taskCard.taskSwitcherVisible && previewContainer.liveApp !== null && !taskCard.gridMoving && !taskCard.gridDragging
+                                    onTriggered: liveSnapshot.scheduleUpdate()
                                 }
 
                                 Loader {

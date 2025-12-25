@@ -41,6 +41,10 @@ class AppLifecycleManager : public QObject {
     Q_INVOKABLE bool        isAppRunning(const QString &appId) const;
     Q_INVOKABLE QString     getForegroundAppId() const;
 
+  signals:
+    void appRegistered(const QString &appId, QObject *appInstance);
+    void appUnregistered(const QString &appId);
+
   private:
     struct AppState {
         bool   isActive     = false;
