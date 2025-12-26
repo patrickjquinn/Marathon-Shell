@@ -492,7 +492,7 @@ Rectangle {
             z: 1000
             surfaceObj: dialogSurface
             surfaceId: dialogSurfaceId
-            shellSurface: dialogSurface ? dialogSurface.xdgSurface : null
+            shellSurface: (dialogSurface && dialogSurface.xdgSurface) ? dialogSurface.xdgSurface : null
             hasSentInitialSize: true
             autoResize: true
             Component.onCompleted: {
@@ -500,7 +500,7 @@ Rectangle {
             }
 
             Connections {
-                function onSurfaceDestroyed() {
+                function onDestroyed() {
                     Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
                     dialogItem.destroy();
                 }

@@ -10,6 +10,7 @@
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
+#include <QWaylandInputMethodControl>
 #include <QtMath>
 #include <QQuickItem>
 #include <QKeyEvent>
@@ -28,6 +29,16 @@ static bool envBool(const char *name, bool defaultValue) {
 
 static bool wlVerbose() {
     return envBool("MARATHON_WL_VERBOSE", false);
+}
+
+static bool appLogsEnabled() {
+    // If you want app logs without debug noise, export MARATHON_APP_LOGS=1.
+    return envBool("MARATHON_APP_LOGS", false) || envBool("MARATHON_DEBUG", false);
+}
+
+static bool appLogsAllEnabled() {
+    // Opt-in to very noisy logs (e.g. libEGL spam) from app runner processes.
+    return envBool("MARATHON_APP_LOGS_ALL", false);
 }
 
 #ifdef Q_OS_LINUX
@@ -279,22 +290,78 @@ void WaylandCompositor::launchApp(const QString &command) {
     connect(process, &QProcess::errorOccurred, this, &WaylandCompositor::handleProcessError);
 
     process->setProcessChannelMode(QProcess::SeparateChannels);
+    process->setProperty("marathonStdoutTail", QString());
+    process->setProperty("marathonStderrTail", QString());
 
     QPointer<QProcess> safeProcess(process);
     connect(process, &QProcess::readyReadStandardOutput, this, [safeProcess, command]() {
         if (!safeProcess)
             return;
         QString output = QString::fromLocal8Bit(safeProcess->readAllStandardOutput());
-        if (wlVerbose() && !output.trimmed().isEmpty())
-            qDebug() << "[WaylandCompositor] stdout:" << command << "->" << output.trimmed();
+        if (!output.isEmpty()) {
+            QString tail = safeProcess->property("marathonStdoutTail").toString();
+            tail += output;
+            if (tail.size() > 64 * 1024)
+                tail = tail.right(64 * 1024);
+            safeProcess->setProperty("marathonStdoutTail", tail);
+
+            if (wlVerbose() && !output.trimmed().isEmpty())
+                qDebug() << "[WaylandCompositor] stdout:" << command << "->" << output.trimmed();
+
+            // In debug mode, stream marathon-app-runner output so app logs show up in the shell logs.
+            // This is critical for debugging apps like Browser, which run out-of-process.
+            if (appLogsEnabled() && command.contains("marathon-app-runner") &&
+                !output.trimmed().isEmpty()) {
+                const QStringList lines = output.split('\n');
+                int               shown = 0;
+                for (const QString &l : lines) {
+                    const QString line = l.trimmed();
+                    if (line.isEmpty())
+                        continue;
+                    if (!appLogsAllEnabled()) {
+                        if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
+                            continue;
+                    }
+                    qWarning().noquote() << "[AppRunner stdout]" << command << "->" << line;
+                    if (++shown >= 25)
+                        break;
+                }
+            }
+        }
     });
 
     connect(process, &QProcess::readyReadStandardError, this, [safeProcess, command]() {
         if (!safeProcess)
             return;
         QString error = QString::fromLocal8Bit(safeProcess->readAllStandardError());
-        if (wlVerbose() && !error.trimmed().isEmpty())
-            qDebug() << "[WaylandCompositor] stderr:" << command << "->" << error.trimmed();
+        if (!error.isEmpty()) {
+            QString tail = safeProcess->property("marathonStderrTail").toString();
+            tail += error;
+            if (tail.size() > 64 * 1024)
+                tail = tail.right(64 * 1024);
+            safeProcess->setProperty("marathonStderrTail", tail);
+
+            if (wlVerbose() && !error.trimmed().isEmpty())
+                qDebug() << "[WaylandCompositor] stderr:" << command << "->" << error.trimmed();
+
+            if (appLogsEnabled() && command.contains("marathon-app-runner") &&
+                !error.trimmed().isEmpty()) {
+                const QStringList lines = error.split('\n');
+                int               shown = 0;
+                for (const QString &l : lines) {
+                    const QString line = l.trimmed();
+                    if (line.isEmpty())
+                        continue;
+                    if (!appLogsAllEnabled()) {
+                        if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
+                            continue;
+                    }
+                    qWarning().noquote() << "[AppRunner stderr]" << command << "->" << line;
+                    if (++shown >= 25)
+                        break;
+                }
+            }
+        }
     });
 
     m_processes[process] = actualCommand;
@@ -422,6 +489,15 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
 
+    // Monitor text input state for this surface. When a client app's text input
+    // is enabled, we emit nativeTextInputPanelRequested so the shell shows
+    // the virtual keyboard.
+    // Note: We use string-based connection to avoid ABI issues with private Qt symbols.
+    if (auto *inputControl = surface->inputMethodControl()) {
+        connect(inputControl, SIGNAL(enabledChanged(bool)), this,
+                SLOT(handleTextInputEnabled(bool)));
+    }
+
     int surfaceId           = m_nextSurfaceId++;
     m_surfaceMap[surfaceId] = surface;
     surface->setProperty("surfaceId", surfaceId);
@@ -448,6 +524,12 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     } else {
         qWarning() << "[WaylandCompositor] Failed to activate surface:" << surfaceId;
     }
+}
+
+void WaylandCompositor::handleTextInputEnabled(bool enabled) {
+    if (wlVerbose())
+        qDebug() << "[WaylandCompositor] Native text input enabled changed:" << enabled;
+    emit nativeTextInputPanelRequested(enabled);
 }
 
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
@@ -640,6 +722,21 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
         qInfo() << "[WaylandCompositor] Process finished:" << command << "PID:" << pid
                 << "exitCode:" << exitCode << "status:" << statusStr;
 
+        const bool abnormal = (exitStatus != QProcess::NormalExit) || (exitCode != 0);
+        if (abnormal && !closeRequested) {
+            const QString outputTail = process->property("marathonStdoutTail").toString();
+            const QString errTail    = process->property("marathonStderrTail").toString();
+            const QString output =
+                outputTail + QString::fromLocal8Bit(process->readAllStandardOutput());
+            const QString err = errTail + QString::fromLocal8Bit(process->readAllStandardError());
+            if (!output.trimmed().isEmpty())
+                qWarning() << "[WaylandCompositor] stdout tail for" << command << ":\n"
+                           << output.trimmed();
+            if (!err.trimmed().isEmpty())
+                qWarning() << "[WaylandCompositor] stderr tail for" << command << ":\n"
+                           << err.trimmed();
+        }
+
         if (pid > 0) {
             emit appClosed(pid);
         }
@@ -770,14 +867,16 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
         QFile::remove(desktopFile);
     }
 
-    QString output      = QString::fromLocal8Bit(process->readAllStandardOutput());
-    QString errorOutput = QString::fromLocal8Bit(process->readAllStandardError());
-    if (!output.isEmpty()) {
-        qDebug() << "[WaylandCompositor] stdout:" << output;
-    }
-    if (!errorOutput.isEmpty()) {
-        qDebug() << "[WaylandCompositor] stderr:" << errorOutput;
-    }
+    const QString outputTail = process->property("marathonStdoutTail").toString();
+    const QString errTail    = process->property("marathonStderrTail").toString();
+    const QString output = outputTail + QString::fromLocal8Bit(process->readAllStandardOutput());
+    const QString err    = errTail + QString::fromLocal8Bit(process->readAllStandardError());
+
+    // Always dump recent output on errors (even if MARATHON_WL_VERBOSE=0).
+    if (!output.trimmed().isEmpty())
+        qWarning() << "[WaylandCompositor] stdout tail for" << command << ":\n" << output.trimmed();
+    if (!err.trimmed().isEmpty())
+        qWarning() << "[WaylandCompositor] stderr tail for" << command << ":\n" << err.trimmed();
 
     if (error == QProcess::FailedToStart) {
         m_processes.remove(process);

@@ -94,8 +94,17 @@ ShellSurfaceItem {
         hasSentInitialSize = true;
         Logger.info("WaylandShellSurfaceItem", "Configuring app as maximized: " + newSize.width + "x" + newSize.height);
         toplevel.sendMaximized(newSize);
-        if (AppLaunchService.compositor)
+        if (AppLaunchService.compositor) {
             AppLaunchService.compositor.activateSurface(surfaceId);
+            // Take QML focus so keyboard events flow to the WaylandQuickItem
+            Qt.callLater(takeFocusForKeyboard);
+        }
+    }
+
+    // Take QML focus when the surface is activated so keyboard events flow to it
+    function takeFocusForKeyboard() {
+        if (!isMinimized && hasSentInitialSize)
+            forceActiveFocus();
     }
 
     autoCreatePopupItems: true
@@ -103,6 +112,7 @@ ShellSurfaceItem {
     bufferLocked: isMinimized
     shellSurface: _xdgSurfaceFromObj(surfaceObj)
     touchEventsEnabled: true
+    focusOnClick: true // Ensure keyboard focus on click
     output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
     onShellSurfaceChanged: {
         if (shellSurface) {

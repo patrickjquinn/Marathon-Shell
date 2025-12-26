@@ -67,6 +67,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void handleSurfaceDestroyed();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
+    void handleTextInputEnabled(bool enabled);
 
   private:
     void                                    setCompositorRealtimePriority();

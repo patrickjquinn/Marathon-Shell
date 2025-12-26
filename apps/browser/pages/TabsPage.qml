@@ -1,20 +1,22 @@
-import QtQuick
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: tabsPage
-    color: MColors.background
+
+    property var tabs: null // ListModel
+    property int currentTabId: -1
+    property int maxTabs: 12
 
     signal tabSelected(int tabId)
     signal newTabRequested
     signal closeTab(int tabId)
 
-    property var tabs: null // ListModel
-    property int currentTabId: -1
+    color: MColors.background
 
     Column {
         anchors.fill: parent
@@ -26,10 +28,10 @@ Rectangle {
 
             ListView {
                 id: tabsList
+
                 anchors.fill: parent
                 clip: true
                 spacing: MSpacing.md
-
                 model: tabsPage.tabs
 
                 delegate: Item {
@@ -41,12 +43,10 @@ Rectangle {
                         width: parent.width - MSpacing.lg * 2
                         tabData: model
                         isCurrentTab: model.tabId === tabsPage.currentTabId
-
                         onTabClicked: {
                             HapticService.light();
                             tabsPage.tabSelected(model.tabId);
                         }
-
                         onCloseRequested: {
                             HapticService.light();
                             tabsPage.closeTab(model.tabId);
@@ -57,6 +57,7 @@ Rectangle {
                 header: Item {
                     height: MSpacing.md
                 }
+
                 footer: Item {
                     height: MSpacing.md
                 }
@@ -74,7 +75,7 @@ Rectangle {
             width: parent.width
             height: Constants.touchTargetSmall + MSpacing.md
             color: MColors.surface
-            opacity: (tabsPage.tabs && tabsPage.tabs.count >= 20) ? 0.5 : 1.0
+            opacity: (tabsPage.tabs && tabsPage.tabs.count >= tabsPage.maxTabs) ? 0.5 : 1
 
             Rectangle {
                 anchors.top: parent.top
@@ -85,11 +86,10 @@ Rectangle {
 
             MButton {
                 anchors.centerIn: parent
-                text: (tabsPage.tabs && tabsPage.tabs.count >= 20) ? "Tab Limit Reached" : "New Tab"
+                text: (tabsPage.tabs && tabsPage.tabs.count >= tabsPage.maxTabs) ? "Tab Limit Reached" : "New Tab"
                 iconName: "plus"
                 variant: "primary"
-                disabled: tabsPage.tabs && tabsPage.tabs.count >= 20
-
+                disabled: tabsPage.tabs && tabsPage.tabs.count >= tabsPage.maxTabs
                 onClicked: {
                     tabsPage.newTabRequested();
                 }
