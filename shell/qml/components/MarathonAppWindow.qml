@@ -25,53 +25,53 @@ Rectangle {
     signal closed
     signal minimized
 
-    function show(id, name, icon, type, surface, sid) {
-        function finishCreation() {
-            if (!component)
-                return;
+    // Helper function for finishing component creation (moved to top level to avoid hoisting issues)
+    function _finishNativeCreation(component, id, name, icon, surface, sid) {
+        if (!component)
+            return;
 
-            if (component.status === Component.Ready) {
-                var nativeInstance = component.createObject(null, {
-                    "nativeAppId": id,
-                    "nativeTitle": name,
-                    "nativeAppIcon": icon,
-                    "waylandSurface": surface,
-                    "surfaceId": sid
-                });
-                if (nativeInstance) {
-                    appWindow.pendingAppInstance = nativeInstance;
-                    appContentLoader.sourceComponent = undefined;
-                    appContentLoader.sourceComponent = appInstanceContainer;
-                    appWindow.isLoadingComponent = false;
-                    if (nativeInstance.requestClose) {
-                        var capturedId = id;
-                        nativeInstance.requestClose.connect(function (skipNative) {
-                            Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
-                            appWindow.closeApp(skipNative === true, capturedId);
-                        });
-                    }
-                    if (typeof AppLifecycleManager !== 'undefined') {
-                        Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
-                        AppLifecycleManager.registerApp(id, nativeInstance);
-                        AppLifecycleManager.bringToForeground(id);
-                    }
-                    Logger.info("AppWindow", "Native app instance created successfully: " + id);
-                    appWindow.hasError = false;
-                } else {
-                    appWindow.isLoadingComponent = false;
-                    Logger.error("AppWindow", "Failed to create native app instance: " + id);
-                    appWindow.hasError = true;
-                    appWindow.loadError = "Failed to create native app instance.";
-                }
-            } else if (component.status === Component.Error) {
+        if (component.status === Component.Ready) {
+            var nativeInstance = component.createObject(null, {
+                "nativeAppId": id,
+                "nativeTitle": name,
+                "nativeAppIcon": icon,
+                "waylandSurface": surface,
+                "surfaceId": sid
+            });
+            if (nativeInstance) {
+                appWindow.pendingAppInstance = nativeInstance;
+                appContentLoader.sourceComponent = undefined;
+                appContentLoader.sourceComponent = appInstanceContainer;
                 appWindow.isLoadingComponent = false;
-                Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString());
+                if (nativeInstance.requestClose) {
+                    var capturedId = id;
+                    nativeInstance.requestClose.connect(function (skipNative) {
+                        Logger.info("AppWindow", "Native app requested close: " + capturedId + " skipNative=" + skipNative);
+                        appWindow.closeApp(skipNative === true, capturedId);
+                    });
+                }
+                if (typeof AppLifecycleManager !== 'undefined') {
+                    Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
+                    AppLifecycleManager.registerApp(id, nativeInstance);
+                    AppLifecycleManager.bringToForeground(id);
+                }
+                Logger.info("AppWindow", "Native app instance created successfully: " + id);
+                appWindow.hasError = false;
+            } else {
+                appWindow.isLoadingComponent = false;
+                Logger.error("AppWindow", "Failed to create native app instance: " + id);
                 appWindow.hasError = true;
-                appWindow.loadError = component.errorString();
+                appWindow.loadError = "Failed to create native app instance.";
             }
+        } else if (component.status === Component.Error) {
+            appWindow.isLoadingComponent = false;
+            Logger.error("AppWindow", "Error loading NativeAppWindow: " + component.errorString());
+            appWindow.hasError = true;
+            appWindow.loadError = component.errorString();
         }
+    }
 
-        var component = null;
+    function show(id, name, icon, type, surface, sid) {
         if (appWindow.appId === id && type === "native" && appContentLoader.item && appContentLoader.status === Loader.Ready && appContentLoader.item.appInstance && appContentLoader.item.appInstance.visible) {
             if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface && surface !== null) {
                 Logger.info("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " - creating overlay");
@@ -137,11 +137,21 @@ Rectangle {
                 Logger.info("AppWindow", "Creating new native app instance: " + id);
                 appWindow.isLoadingComponent = true;
                 Logger.info("AppWindow", "Showing loading splash...");
-                component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
-                if (component.status === Component.Ready)
-                    finishCreation();
-                else
-                    component.statusChanged.connect(finishCreation);
+                var component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
+                if (component.status === Component.Ready) {
+                    _finishNativeCreation(component, id, name, icon, surface, sid);
+                } else {
+                    // Capture variables for the callback
+                    var capturedComponent = component;
+                    var capturedId = id;
+                    var capturedName = name;
+                    var capturedIcon = icon;
+                    var capturedSurface = surface;
+                    var capturedSid = sid;
+                    component.statusChanged.connect(function () {
+                        _finishNativeCreation(capturedComponent, capturedId, capturedName, capturedIcon, capturedSurface, capturedSid);
+                    });
+                }
             }
         } else {
             Logger.warn("AppWindow", "Non-native show() requested for appId=" + id + " - waiting for Wayland surface");

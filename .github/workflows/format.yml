@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run formatters
+        id: format
         continue-on-error: true
         run: |
           git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -32,13 +33,13 @@ jobs:
           /usr/lib/qt6/bin/qmlformat -i $(git ls-files '*.qml')
 
           if [[ -n $(git status --porcelain) ]]; then
-            echo "needs_formatting=true" >> $GITHUB_ENV
+            echo "needs_formatting=true" >> $GITHUB_OUTPUT
           else
-            echo "needs_formatting=false" >> $GITHUB_ENV
+            echo "needs_formatting=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Post comment on PR if needed
-        if: ${{ github.event_name == 'pull_request' && env.needs_formatting == 'true' }}
+        if: github.event_name == 'pull_request' && steps.format.outputs.needs_formatting == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           message: |
@@ -52,7 +53,7 @@ jobs:
             Commit the updated files and push again.
 
       - name: Fail job
-        if: ${{ env.needs_formatting == 'true' }}
+        if: steps.format.outputs.needs_formatting == 'true'
         run: |
           echo "Formatting required. Failing."
           exit 1
