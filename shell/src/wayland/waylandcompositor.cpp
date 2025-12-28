@@ -32,12 +32,10 @@ static bool wlVerbose() {
 }
 
 static bool appLogsEnabled() {
-    // If you want app logs without debug noise, export MARATHON_APP_LOGS=1.
     return envBool("MARATHON_APP_LOGS", false) || envBool("MARATHON_DEBUG", false);
 }
 
 static bool appLogsAllEnabled() {
-    // Opt-in to very noisy logs (e.g. libEGL spam) from app runner processes.
     return envBool("MARATHON_APP_LOGS_ALL", false);
 }
 
@@ -257,8 +255,10 @@ void WaylandCompositor::launchApp(const QString &command) {
     }
     const bool forceShm = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
     if (!env.contains("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION")) {
+        // wayland-egl for hardware accelerated rendering
         env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", forceShm ? "shm" : "wayland-egl");
     }
+
     env.insert("GDK_BACKEND", "wayland");
     env.insert("CLUTTER_BACKEND", "wayland");
     env.insert("SDL_VIDEODRIVER", "wayland");
@@ -275,6 +275,8 @@ void WaylandCompositor::launchApp(const QString &command) {
     }
 
     env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1");
+
+    env.insert("QT_MEDIA_BACKEND", "ffmpeg");
 
     if (actualCommand.contains("marathon-app-runner")) {
         env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
@@ -308,8 +310,6 @@ void WaylandCompositor::launchApp(const QString &command) {
             if (wlVerbose() && !output.trimmed().isEmpty())
                 qDebug() << "[WaylandCompositor] stdout:" << command << "->" << output.trimmed();
 
-            // In debug mode, stream marathon-app-runner output so app logs show up in the shell logs.
-            // This is critical for debugging apps like Browser, which run out-of-process.
             if (appLogsEnabled() && command.contains("marathon-app-runner") &&
                 !output.trimmed().isEmpty()) {
                 const QStringList lines = output.split('\n');
@@ -489,10 +489,6 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
 
-    // Monitor text input state for this surface. When a client app's text input
-    // is enabled, we emit nativeTextInputPanelRequested so the shell shows
-    // the virtual keyboard.
-    // Note: We use string-based connection to avoid ABI issues with private Qt symbols.
     if (auto *inputControl = surface->inputMethodControl()) {
         connect(inputControl, SIGNAL(enabledChanged(bool)), this,
                 SLOT(handleTextInputEnabled(bool)));
