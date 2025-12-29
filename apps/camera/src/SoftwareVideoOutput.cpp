@@ -103,9 +103,6 @@ QSGNode *SoftwareVideoOutput::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeD
     if (m_fillMode == Stretch) {
         targetRect = itemRect;
     } else {
-        qreal itemRatio = itemRect.width() / itemRect.height();
-        qreal texRatio  = static_cast<qreal>(texSize.width()) / texSize.height();
-
         bool  fit = (m_fillMode == PreserveAspectFit);
 
         qreal scaleW = itemRect.width() / texSize.width();

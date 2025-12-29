@@ -10,6 +10,8 @@ file(GLOB_RECURSE QML_FILES
 set(SOURCES
     src/SoftwareVideoOutput.cpp
     src/SoftwareVideoOutput.h
+    src/CameraController.cpp
+    src/CameraController.h
 )
 
 add_marathon_app(${APP_NAME}
