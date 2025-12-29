@@ -1,8 +1,22 @@
 #include "CameraController.h"
-#include <QStandardPaths>
-#include <QDir>
 #include <QDateTime>
 #include <QDebug>
+#include <QDir>
+#include <QStandardPaths>
+
+namespace {
+    static QtMessageHandler originalHandler = nullptr;
+
+    void                    cameraMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                                                 const QString &msg) {
+        if (msg.contains("V4L2_MEMORY_USERPTR") || msg.contains("memorytransfer")) {
+            return;
+        }
+        if (originalHandler) {
+            originalHandler(type, context, msg);
+        }
+    }
+}
 
 CameraController::CameraController(QObject *parent)
     : QObject(parent)
@@ -12,6 +26,11 @@ CameraController::CameraController(QObject *parent)
     , m_mediaRecorder(new QMediaRecorder(this))
     , m_countdownTimer(new QTimer(this))
     , m_recordingTimer(new QTimer(this)) {
+
+    if (!originalHandler) {
+        originalHandler = qInstallMessageHandler(cameraMessageHandler);
+    }
+
     m_savePath = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation) + "/Marathon";
     QDir().mkpath(m_savePath);
 
@@ -166,7 +185,9 @@ void CameraController::focusOnPoint(qreal x, qreal y) {
 
     QPointF point(x, y);
     m_camera->setCustomFocusPoint(point);
-    m_camera->setFocusMode(QCamera::FocusModeAutoNear);
+    if (m_camera->isFocusModeSupported(QCamera::FocusModeAutoNear)) {
+        m_camera->setFocusMode(QCamera::FocusModeAutoNear);
+    }
 }
 
 QVideoSink *CameraController::videoSink() const {
