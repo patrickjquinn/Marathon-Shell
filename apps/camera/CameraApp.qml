@@ -1,214 +1,255 @@
-import QtQuick
-import QtMultimedia
-import Qt.labs.platform
-import QtQuick.Layouts
+import MarathonApp.Camera 1.0
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Modals
+import MarathonUI.Theme
+import Qt5Compat.GraphicalEffects
+import QtQuick
+import QtQuick.Controls
 
 MApp {
     id: cameraApp
+
+    property string currentMode: "photo"
+    property bool flipRequested: false
+
+    function triggerFlash() {
+        flashOverlay.opacity = 1;
+        flashTimer.restart();
+    }
+
     appId: "camera"
     appName: "Camera"
     appIcon: "assets/icon.svg"
+    onAppResumed: cameraController.start()
+    onAppPaused: cameraController.stop()
+    onAppRestored: cameraController.start()
+    onAppMinimized: cameraController.stop()
 
-    property string currentMode: "photo"
-    property bool flashEnabled: false
-    property int photoCount: 0
-    property bool isRecording: false
-    property bool frontCamera: false
-    property string savePath: StandardPaths.writableLocation(StandardPaths.PicturesLocation) + "/Marathon"
-    property int recordingSeconds: 0
-    property bool hasPermission: false
+    CameraController {
+        id: cameraController
 
-    Timer {
-        id: recordingTimer
-        interval: 1000
-        running: isRecording
-        repeat: true
-        onTriggered: {
-            recordingSeconds++;
+        onPhotoSaved: path => {
+            HapticService.heavy();
+            triggerFlash();
+        }
+        onCameraFlipStarted: cameraApp.flipRequested = !cameraApp.flipRequested
+        onErrorOccurred: message => {
+            return console.warn("[Camera] Error:", message);
         }
     }
 
-    function updateLatestPhoto() {
-        if (typeof MediaLibraryManager !== 'undefined') {
-            var photos = MediaLibraryManager.getAllPhotos();
-            if (photos && photos.length > 0) {
-                // Photos are sorted by timestamp DESC
-                var photo = photos[0];
-                latestPhotoPath = photo.thumbnailPath || photo.path;
-                Logger.info("Camera", "Latest photo: " + latestPhotoPath);
-            } else {
-                latestPhotoPath = "";
-            }
-        }
-    }
-
-    // Listen for new media
-    Connections {
-        target: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager : null
-        function onLibraryChanged() {
-            updateLatestPhoto();
-        }
-        function onNewMediaAdded(path) {
-            updateLatestPhoto();
-        }
-    }
-
-    property string latestPhotoPath: ""
-
-    Component.onCompleted: {
-        var dir = Qt.createQmlObject('import Qt.labs.platform; FolderDialog {}', cameraApp);
-        var folder = new String(savePath);
-        Logger.info("Camera", "Save path: " + savePath);
-
-        // Check camera permission
-        if (typeof PermissionManager !== 'undefined') {
-            if (PermissionManager.hasPermission(appId, "camera")) {
-                Logger.info("Camera", "Camera permission already granted");
-                hasPermission = true;
-                initializeCamera();
-            } else {
-                Logger.info("Camera", "Requesting camera permission");
-                PermissionManager.requestPermission(appId, "camera");
-            }
-        } else {
-            Logger.warn("Camera", "PermissionManager not available, auto-granting");
-            hasPermission = true;
-            initializeCamera();
-        }
-
-        // Load latest photo
-        updateLatestPhoto();
-    }
-
-    function initializeCamera() {
-        Logger.info("Camera", "Initializing camera hardware");
-        camera.active = true;
-    }
-
-    // Listen for permission responses
-    Connections {
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
-
-        function onPermissionGranted(grantedAppId, permission) {
-            if (grantedAppId === appId && permission === "camera") {
-                Logger.info("Camera", "Camera permission granted");
-                hasPermission = true;
-                initializeCamera();
-            }
-        }
-
-        function onPermissionDenied(deniedAppId, permission) {
-            if (deniedAppId === appId && permission === "camera") {
-                Logger.warn("Camera", "Camera permission denied");
-                hasPermission = false;
-            }
-        }
-    }
-
-    // List available cameras
-    MediaDevices {
-        id: mediaDevices
-    }
-
-    // Media capture session (Qt6 way) - defined after content to avoid forward reference
-    property var captureSession: null
-
-    // Camera component
-    Camera {
-        id: camera
-        active: false  // Will be activated after permission is granted
-
-        Component.onCompleted: {
-            // Set initial camera device
-            if (mediaDevices.videoInputs.length > 0) {
-                cameraDevice = mediaDevices.videoInputs[0];
-            }
-        }
-
-        // Error handling
-        onErrorOccurred: function (error, errorString) {
-            Logger.error("Camera", "Camera error: " + errorString);
-        }
-    }
-
-    // Image capture component
-    ImageCapture {
-        id: imageCapture
-
-        onImageSaved: function (id, path) {
-            photoCount++;
-            Logger.info("Camera", "Photo saved: " + path);
-            if (typeof MediaLibraryManager !== 'undefined') {
-                MediaLibraryManager.scanLibrary();
-            }
-            // Update thumbnail immediately if possible, though scanLibrary will trigger signal
-            latestPhotoPath = "file://" + path;
-        }
-
-        onErrorOccurred: function (id, error, errorString) {
-            Logger.error("Camera", "Image capture error: " + errorString);
-        }
-    }
-
-    // Video recording component
-    MediaRecorder {
-        id: mediaRecorder
-
-        onRecorderStateChanged: function (state) {
-            if (state === MediaRecorder.RecordingState) {
-                isRecording = true;
-            } else if (state === MediaRecorder.StoppedState) {
-                isRecording = false;
-            }
-        }
-
-        onErrorOccurred: function (error, errorString) {
-            Logger.error("Camera", "Video recording error: " + errorString);
-            isRecording = false;
-        }
-    }
-
-    // Flash overlay
     Rectangle {
         id: flashOverlay
+
+        parent: cameraApp
         anchors.fill: parent
         color: "white"
-        opacity: 0.0
+        opacity: 0
         visible: opacity > 0
         z: 100
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 100
+                duration: 50
             }
         }
     }
 
-    function triggerFlash() {
-        flashOverlay.opacity = 1.0;
-        flashTimer.restart();
-    }
-
     Timer {
         id: flashTimer
+
         interval: 50
-        onTriggered: flashOverlay.opacity = 0.0
+        onTriggered: flashOverlay.opacity = 0
     }
 
     content: Rectangle {
-        anchors.fill: parent
-        color: "black" // Use black background for camera
+        id: contentRoot
 
-        // Permission denied placeholder
+        anchors.fill: parent
+        color: "black"
+        Component.onCompleted: {
+            cameraController.videoSink = viewfinder.videoSink;
+            cameraController.start();
+        }
+
+        Connections {
+            function onFlipRequestedChanged() {
+                flipAnimation.start();
+            }
+
+            target: cameraApp
+        }
+
+        SequentialAnimation {
+            id: flipAnimation
+
+            NumberAnimation {
+                target: viewfinderRotation
+                property: "angle"
+                from: 0
+                to: 90
+                duration: 150
+                easing.type: Easing.InQuad
+            }
+
+            NumberAnimation {
+                target: viewfinderRotation
+                property: "angle"
+                from: -90
+                to: 0
+                duration: 150
+                easing.type: Easing.OutQuad
+            }
+        }
+
+        SoftwareVideoOutput {
+            id: viewfinder
+
+            anchors.fill: parent
+            fillMode: SoftwareVideoOutput.PreserveAspectFit
+            visible: cameraController.active
+
+            PinchHandler {
+                target: null
+                onScaleChanged: delta => {
+                    cameraController.zoomLevel = cameraController.zoomLevel * delta;
+                }
+            }
+
+            TapHandler {
+                onTapped: eventPoint => {
+                    var point = eventPoint.position;
+                    focusRing.x = point.x - focusRing.width / 2;
+                    focusRing.y = point.y - focusRing.height / 2;
+                    focusRingAnimation.restart();
+                    cameraController.focusOnPoint(point.x / viewfinder.width, point.y / viewfinder.height);
+                }
+            }
+
+            Rectangle {
+                id: focusRing
+
+                width: 64
+                height: 64
+                radius: 32
+                color: "transparent"
+                border.width: 2
+                border.color: "#fbbf24"
+                opacity: 0
+                visible: opacity > 0
+
+                SequentialAnimation {
+                    id: focusRingAnimation
+
+                    ParallelAnimation {
+                        NumberAnimation {
+                            target: focusRing
+                            property: "scale"
+                            from: 1.5
+                            to: 1
+                            duration: 200
+                            easing.type: Easing.OutCubic
+                        }
+
+                        NumberAnimation {
+                            target: focusRing
+                            property: "opacity"
+                            from: 0
+                            to: 1
+                            duration: 200
+                        }
+                    }
+
+                    PauseAnimation {
+                        duration: 500
+                    }
+
+                    NumberAnimation {
+                        target: focusRing
+                        property: "opacity"
+                        to: 0
+                        duration: 300
+                    }
+                }
+            }
+
+            Rectangle {
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottomMargin: 120
+                width: 60
+                height: 30
+                radius: 15
+                color: "#80000000"
+                visible: cameraController.zoomLevel > 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: cameraController.zoomLevel.toFixed(1) + "x"
+                    color: "white"
+                    font.weight: Font.Bold
+                    font.pixelSize: 14
+                }
+            }
+
+            transform: Rotation {
+                id: viewfinderRotation
+
+                origin.x: viewfinder.width / 2
+                origin.y: viewfinder.height / 2
+                angle: 0
+
+                axis {
+                    x: 0
+                    y: 1
+                    z: 0
+                }
+            }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            font.pixelSize: 120
+            font.weight: Font.Bold
+            color: "white"
+            style: Text.Outline
+            styleColor: "black"
+            text: cameraController.timerCountdown
+            visible: cameraController.timerActive && cameraController.timerCountdown > 0
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            visible: !cameraController.active && cameraController.ready
+            color: "#0f0f23"
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 8
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: cameraController.currentCameraName || "Camera"
+                    font.pixelSize: 14
+                    font.weight: Font.Medium
+                    color: "#80ffffff"
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "○ Initializing..."
+                    font.pixelSize: 12
+                    color: "#fbbf24"
+                }
+            }
+        }
+
         Column {
             anchors.centerIn: parent
             spacing: MSpacing.lg
-            visible: !hasPermission
+            visible: cameraController.cameraCount === 0
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -218,209 +259,120 @@ MApp {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Camera Permission Required"
+                text: "No Camera Found"
                 font.pixelSize: MTypography.sizeLarge
                 font.weight: Font.Bold
                 color: MColors.textPrimary
             }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "Please grant camera permission to use this app"
-                font.pixelSize: MTypography.sizeBody
-                color: MColors.textSecondary
-                horizontalAlignment: Text.AlignHCenter
-                width: parent.parent.width * 0.8
-                wrapMode: Text.WordWrap
-            }
-
-            MButton {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "Request Permission"
-                variant: "primary"
-                onClicked: {
-                    if (typeof PermissionManager !== 'undefined') {
-                        PermissionManager.requestPermission(appId, "camera");
-                    }
-                }
-            }
         }
 
-        // Full-screen camera viewfinder
-        VideoOutput {
-            id: viewfinder
+        Rectangle {
             anchors.fill: parent
-            fillMode: VideoOutput.PreserveAspectCrop
-            visible: hasPermission
+            visible: cameraController.ready
 
-            // Tap to focus
-            MouseArea {
-                anchors.fill: parent
-                onClicked: mouse => {
-                    var point = Qt.point(mouse.x / width, mouse.y / height);
-                    camera.focusPoint = point;
-                    camera.focusMode = Camera.FocusModeAutoNear;
-
-                    // Visual feedback
-                    focusRing.x = mouse.x - focusRing.width / 2;
-                    focusRing.y = mouse.y - focusRing.height / 2;
-                    focusRing.visible = true;
-                    focusRingAnimation.restart();
+            gradient: Gradient {
+                GradientStop {
+                    position: 0
+                    color: "#40000000"
                 }
-            }
 
-            Rectangle {
-                id: focusRing
-                width: 64
-                height: 64
-                radius: 32
-                color: "transparent"
-                border.width: 2
-                border.color: MColors.accent
-                visible: false
+                GradientStop {
+                    position: 0.12
+                    color: "transparent"
+                }
 
-                SequentialAnimation {
-                    id: focusRingAnimation
-                    NumberAnimation {
-                        target: focusRing
-                        property: "scale"
-                        from: 1.5
-                        to: 1.0
-                        duration: 200
-                        easing.type: Easing.OutQuad
-                    }
-                    PauseAnimation {
-                        duration: 500
-                    }
-                    NumberAnimation {
-                        target: focusRing
-                        property: "opacity"
-                        from: 1.0
-                        to: 0.0
-                        duration: 200
-                    }
-                    ScriptAction {
-                        script: {
-                            focusRing.visible = false;
-                            focusRing.opacity = 1.0;
-                        }
-                    }
+                GradientStop {
+                    position: 0.88
+                    color: "transparent"
+                }
+
+                GradientStop {
+                    position: 1
+                    color: "#60000000"
                 }
             }
         }
 
-        // Recording time indicator
         Rectangle {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.margins: MSpacing.lg + 40 // Move down to avoid status bar overlap
-            width: Constants.touchTargetLarge * 2
-            height: Constants.touchTargetMedium
-            radius: Constants.borderRadiusSharp
-            color: "#80000000"
-            visible: isRecording
+            anchors.topMargin: MSpacing.lg + 48
+            width: 120
+            height: 40
+            radius: 20
+            color: "#c0000000"
+            visible: cameraController.isRecording
+            z: 10
 
             Row {
                 anchors.centerIn: parent
                 spacing: MSpacing.sm
 
                 Rectangle {
+                    width: 12
+                    height: 12
+                    radius: 6
+                    color: "#ff4444"
                     anchors.verticalCenter: parent.verticalCenter
-                    width: MSpacing.md
-                    height: MSpacing.md
-                    radius: width / 2
-                    color: MColors.error
 
                     SequentialAnimation on opacity {
-                        running: isRecording
+                        running: cameraController.isRecording
                         loops: Animation.Infinite
+
                         NumberAnimation {
-                            from: 1.0
-                            to: 0.0
+                            from: 1
+                            to: 0.2
                             duration: 500
                         }
+
                         NumberAnimation {
-                            from: 0.0
-                            to: 1.0
+                            from: 0.2
+                            to: 1
                             duration: 500
                         }
                     }
                 }
 
                 Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Math.floor(recordingSeconds / 60) + ":" + (recordingSeconds % 60 < 10 ? "0" : "") + (recordingSeconds % 60)
-                    font.pixelSize: MTypography.sizeLarge
-                    font.weight: Font.Bold
+                    text: {
+                        var mins = Math.floor(cameraController.recordingDuration / 60);
+                        var secs = cameraController.recordingDuration % 60;
+                        return mins + ":" + (secs < 10 ? "0" : "") + secs;
+                    }
+                    font.pixelSize: 18
+                    font.bold: true
                     color: "white"
+                    anchors.verticalCenter: parent.verticalCenter
                 }
             }
         }
 
-        // Setup capture session after viewfinder is created
-        Component.onCompleted: {
-            captureSession = Qt.createQmlObject(`
-                import QtMultimedia
-                CaptureSession {
-                    camera: camera
-                    imageCapture: imageCapture
-                    recorder: mediaRecorder
-                    videoOutput: viewfinder
-                }
-            `, cameraApp);
-        }
-
-        // Dark overlay for better UI contrast (gradient at top/bottom)
-        Rectangle {
-            anchors.fill: parent
-            gradient: Gradient {
-                GradientStop {
-                    position: 0.0
-                    color: "#80000000"
-                }
-                GradientStop {
-                    position: 0.2
-                    color: "transparent"
-                }
-                GradientStop {
-                    position: 0.8
-                    color: "transparent"
-                }
-                GradientStop {
-                    position: 1.0
-                    color: "#80000000"
-                }
-            }
-        }
-
-        // Top right controls
         Row {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.topMargin: MSpacing.xl
             anchors.rightMargin: MSpacing.xl
-            spacing: MSpacing.xl // Increased spacing
+            spacing: MSpacing.xl
             z: 10
+            visible: cameraController.ready
 
             MIconButton {
-                iconName: flashEnabled ? "zap" : "zap-off"
-                iconSize: 20
-                width: 48 // Larger touch target
+                iconName: cameraController.flashEnabled ? "zap" : "zap-off"
+                iconSize: 22
+                width: 48
                 height: 48
-                variant: flashEnabled ? "primary" : "secondary"
+                variant: cameraController.flashEnabled ? "primary" : "secondary"
+                visible: cameraController.flashAvailable
                 onClicked: {
                     HapticService.light();
-                    flashEnabled = !flashEnabled;
-                    if (camera.cameraDevice && camera.cameraDevice.flashMode !== undefined) {
-                        camera.flashMode = flashEnabled ? Camera.FlashOn : Camera.FlashOff;
-                    }
+                    cameraController.flashEnabled = !cameraController.flashEnabled;
                 }
             }
 
             MIconButton {
                 iconName: "settings"
-                iconSize: 20
-                width: 48 // Larger touch target
+                iconSize: 22
+                width: 48
                 height: 48
                 variant: "secondary"
                 onClicked: {
@@ -430,18 +382,18 @@ MApp {
             }
         }
 
-        // Mode Switcher (Moved to bottom)
         Row {
             anchors.bottom: bottomControls.top
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: MSpacing.xl
             spacing: MSpacing.xl
             z: 10
+            visible: cameraController.ready
 
             MButton {
                 text: "PHOTO"
                 variant: currentMode === "photo" ? "primary" : "text"
-                opacity: currentMode === "photo" ? 1.0 : 0.6
+                opacity: currentMode === "photo" ? 1 : 0.6
                 onClicked: {
                     HapticService.light();
                     currentMode = "photo";
@@ -451,7 +403,7 @@ MApp {
             MButton {
                 text: "VIDEO"
                 variant: currentMode === "video" ? "primary" : "text"
-                opacity: currentMode === "video" ? 1.0 : 0.6
+                opacity: currentMode === "video" ? 1 : 0.6
                 onClicked: {
                     HapticService.light();
                     currentMode = "video";
@@ -459,115 +411,115 @@ MApp {
             }
         }
 
-        // Bottom controls
         Row {
             id: bottomControls
+
             anchors.bottom: parent.bottom
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottomMargin: MSpacing.xl + MSpacing.lg
-            spacing: MSpacing.xl * 2 // More spacing between shutter and other buttons
+            spacing: MSpacing.xl * 2
             z: 10
+            visible: cameraController.ready
 
-            // Gallery button with thumbnail
-            Rectangle {
-                id: galleryButton
-                width: 56
-                height: 56
-                radius: 28
-                color: "transparent"
+            Item {
+                width: 60
+                height: 60
                 anchors.verticalCenter: parent.verticalCenter
-                clip: true
 
-                // Thumbnail image
-                Image {
-                    anchors.fill: parent
-                    source: latestPhotoPath
-                    visible: latestPhotoPath !== ""
-                    fillMode: Image.PreserveAspectCrop
-                }
-
-                // Border
                 Rectangle {
+                    id: galleryThumbnailBorder
+
                     anchors.fill: parent
-                    radius: 28
+                    radius: width / 2
                     color: "transparent"
                     border.width: 2
                     border.color: "white"
-                    visible: latestPhotoPath !== ""
                 }
 
-                // Default icon if no photo
-                MIconButton {
-                    anchors.centerIn: parent
-                    iconName: "image"
-                    iconSize: 24
-                    width: 56
-                    height: 56
-                    variant: "secondary"
-                    visible: latestPhotoPath === ""
-                    onClicked: galleryButton.openGallery()
+                Item {
+                    id: thumbnailContent
+
+                    anchors.fill: parent
+                    anchors.margins: 3
+                    visible: false
+
+                    Image {
+                        anchors.fill: parent
+                        source: cameraController.latestPhotoPath
+                        fillMode: Image.PreserveAspectCrop
+                        sourceSize: Qt.size(120, 120)
+                        visible: cameraController.latestPhotoPath !== ""
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#2a2a3a"
+                        visible: cameraController.latestPhotoPath === ""
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "image"
+                            size: 24
+                            color: MColors.textSecondary
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: thumbnailMask
+
+                    anchors.fill: thumbnailContent
+                    radius: width / 2
+                    visible: false
+                }
+
+                OpacityMask {
+                    anchors.fill: thumbnailContent
+                    source: thumbnailContent
+                    maskSource: thumbnailMask
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    enabled: latestPhotoPath !== ""
-                    onClicked: galleryButton.openGallery()
-                }
-
-                function openGallery() {
-                    HapticService.light();
-                    if (latestPhotoPath) {
-                        Logger.info("Camera", "Opening photo: " + latestPhotoPath);
-                        Qt.openUrlExternally(latestPhotoPath);
-                    } else {
-                        Logger.info("Camera", "No photos to open");
+                    onClicked: {
+                        HapticService.light();
+                        NavigationService.launchApp("gallery");
                     }
                 }
             }
 
-            // Main capture button
             Rectangle {
                 width: 80
                 height: 80
                 radius: 40
                 color: "transparent"
                 border.width: 4
-                border.color: isRecording ? MColors.error : "white"
-                antialiasing: true
+                border.color: cameraController.isRecording ? "#ff4444" : "white"
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: parent.width - 12
-                    height: parent.height - 12
-                    radius: width / 2
-                    color: isRecording ? MColors.error : "white"
-                    antialiasing: true
+                    width: cameraController.isRecording ? 28 : parent.width - 12
+                    height: cameraController.isRecording ? 28 : parent.height - 12
+                    radius: cameraController.isRecording ? 6 : width / 2
+                    color: cameraController.isRecording ? "#ff4444" : "white"
 
                     Behavior on width {
                         NumberAnimation {
-                            duration: 100
+                            duration: 150
                         }
                     }
+
                     Behavior on height {
                         NumberAnimation {
-                            duration: 100
+                            duration: 150
                         }
                     }
+
                     Behavior on radius {
                         NumberAnimation {
-                            duration: 100
+                            duration: 150
                         }
                     }
-                }
-
-                // Recording indicator (square shape when recording)
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: isRecording ? 24 : 0
-                    height: isRecording ? 24 : 0
-                    radius: 4
-                    color: "white"
-                    visible: isRecording
                 }
 
                 MouseArea {
@@ -576,30 +528,16 @@ MApp {
                         parent.scale = 0.9;
                         HapticService.medium();
                     }
-                    onReleased: {
-                        parent.scale = 1.0;
-                    }
-                    onCanceled: {
-                        parent.scale = 1.0;
-                    }
+                    onReleased: parent.scale = 1
+                    onCanceled: parent.scale = 1
                     onClicked: {
                         if (currentMode === "photo") {
-                            triggerFlash();
-                            imageCapture.capture();
-                            Logger.info("Camera", "Photo taken");
+                            cameraController.captureWithTimer();
                         } else {
-                            if (isRecording) {
-                                mediaRecorder.stop();
-                                isRecording = false;
-                                recordingSeconds = 0;
-                                Logger.info("Camera", "Video recording stopped");
-                            } else {
-                                mediaRecorder.outputLocation = "file://" + savePath + "/VID_" + Date.now() + ".mp4";
-                                mediaRecorder.record();
-                                isRecording = true;
-                                recordingSeconds = 0;
-                                Logger.info("Camera", "Video recording started");
-                            }
+                            if (cameraController.isRecording)
+                                cameraController.stopRecording();
+                            else
+                                cameraController.startRecording();
                         }
                     }
                 }
@@ -611,7 +549,6 @@ MApp {
                 }
             }
 
-            // Camera switch button
             MIconButton {
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "refresh-cw"
@@ -619,84 +556,101 @@ MApp {
                 width: 56
                 height: 56
                 variant: "secondary"
-                onClicked: {
-                    HapticService.light();
-                    frontCamera = !frontCamera;
+                rotation: cameraController.isFrontCamera ? 180 : 0
+                onClicked: cameraController.flipCamera()
 
-                    // Switch camera device
-                    if (mediaDevices.videoInputs.length > 1) {
-                        var currentIndex = -1;
-                        for (var i = 0; i < mediaDevices.videoInputs.length; i++) {
-                            if (mediaDevices.videoInputs[i].id === camera.cameraDevice.id) {
-                                currentIndex = i;
-                                break;
-                            }
-                        }
-                        var nextIndex = (currentIndex + 1) % mediaDevices.videoInputs.length;
-                        camera.cameraDevice = mediaDevices.videoInputs[nextIndex];
-                        Logger.info("Camera", "Switched to camera: " + camera.cameraDevice.description);
+                Behavior on rotation {
+                    NumberAnimation {
+                        duration: 300
+                        easing.type: Easing.OutBack
                     }
                 }
             }
         }
 
-        // Settings Sheet
         MSheet {
             id: settingsSheet
+
             title: "Camera Settings"
-            sheetHeight: 0.4
+            sheetHeight: 0.5
             onClosed: settingsSheet.hide()
 
             content: Column {
                 width: parent.width
                 spacing: MSpacing.lg
 
-                // Grid Toggle
-                Item {
+                Column {
                     width: parent.width
-                    height: MSpacing.touchTargetMedium
-
-                    Text {
-                        text: "Grid Lines"
-                        color: MColors.textPrimary
-                        font.pixelSize: MTypography.sizeBody
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                    }
-
-                    MButton {
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Off" // Placeholder
-                        variant: "secondary"
-                        onClicked:
-                        // TODO: Implement grid
-                        {}
-                    }
-                }
-
-                // Timer
-                Item {
-                    width: parent.width
-                    height: MSpacing.touchTargetMedium
+                    spacing: MSpacing.sm
 
                     Text {
                         text: "Timer"
                         color: MColors.textPrimary
                         font.pixelSize: MTypography.sizeBody
+                        font.weight: Font.DemiBold
+                    }
+
+                    Row {
+                        spacing: MSpacing.md
+
+                        Repeater {
+
+                            model: ListModel {
+                                ListElement {
+                                    label: "Off"
+                                    value: 0
+                                }
+
+                                ListElement {
+                                    label: "3s"
+                                    value: 3
+                                }
+
+                                ListElement {
+                                    label: "10s"
+                                    value: 10
+                                }
+                            }
+
+                            delegate: MButton {
+                                required property string label
+                                required property int value
+
+                                text: label
+                                variant: cameraController.timerDuration === value ? "primary" : "secondary"
+                                onClicked: {
+                                    cameraController.timerDuration = value;
+                                    HapticService.light();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: MSpacing.touchTargetMedium
+
+                    Text {
+                        text: "Camera"
+                        color: MColors.textPrimary
+                        font.pixelSize: MTypography.sizeBody
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                     }
 
-                    MButton {
+                    Text {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Off"
-                        variant: "secondary"
+                        text: cameraController.currentCameraName || "None"
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeSmall
+                        elide: Text.ElideRight
+                        width: parent.width * 0.6
+                        horizontalAlignment: Text.AlignRight
                     }
                 }
 
-                // Storage
                 Item {
                     width: parent.width
                     height: MSpacing.touchTargetMedium

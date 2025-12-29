@@ -18,6 +18,7 @@ void AppLifecycleManager::registerApp(const QString &appId, QObject *appInstance
         return;
 
     m_appRegistry.insert(appId, appInstance);
+    emit appRegistered(appId, appInstance);
 
     if (!m_appStates.contains(appId)) {
         AppState st;
@@ -50,6 +51,8 @@ void AppLifecycleManager::unregisterApp(const QString &appId) {
     m_pendingForegroundApps.removeAll(appId);
     if (m_foregroundAppId == appId)
         m_foregroundAppId.clear();
+
+    emit appUnregistered(appId);
 }
 
 QObject *AppLifecycleManager::getAppInstance(const QString &appId) const {

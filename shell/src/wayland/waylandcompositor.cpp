@@ -10,6 +10,7 @@
 #include <QWaylandXdgToplevel>
 #include <QWaylandXdgSurface>
 #include <QWaylandXdgPopup>
+#include <QWaylandInputMethodControl>
 #include <QtMath>
 #include <QQuickItem>
 #include <QKeyEvent>
@@ -27,8 +28,15 @@ static bool envBool(const char *name, bool defaultValue) {
 }
 
 static bool wlVerbose() {
-    // Opt-in log verbosity for Wayland compositor bring-up/debugging.
     return envBool("MARATHON_WL_VERBOSE", false);
+}
+
+static bool appLogsEnabled() {
+    return envBool("MARATHON_APP_LOGS", false) || envBool("MARATHON_DEBUG", false);
+}
+
+static bool appLogsAllEnabled() {
+    return envBool("MARATHON_APP_LOGS_ALL", false);
 }
 
 #ifdef Q_OS_LINUX
@@ -43,24 +51,19 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     , m_output(nullptr)
     , m_hasIdleInhibitor(false) {
 
-    // Must be set before create().
     const QByteArray socketNameEnv = qgetenv("MARATHON_WL_SOCKET_NAME").trimmed();
     const QByteArray socketNameBytes =
         socketNameEnv.isEmpty() ? QByteArrayLiteral("marathon-wayland-0") : socketNameEnv;
     setSocketName(socketNameBytes);
 
-    // Ensure wl_shm is advertised (many toolkits rely on SHM buffers).
     QList<QWaylandCompositor::ShmFormat> shmFormats;
     shmFormats << QWaylandCompositor::ShmFormat_ARGB8888;
     shmFormats << QWaylandCompositor::ShmFormat_XRGB8888;
     setAdditionalShmFormats(shmFormats);
 
-    // Qt requirement: create() must be called before constructing QWaylandOutput.
     create();
 
-    // Shell extensions (safe after create()).
-    m_xdgShell = new QWaylandXdgShell(this);
-    // wl_shell is legacy/deprecated; keep it OFF by default and allow opting in for compatibility.
+    m_xdgShell               = new QWaylandXdgShell(this);
     const bool enableWlShell = envBool("MARATHON_WL_ENABLE_WL_SHELL", false);
     if (enableWlShell) {
         m_wlShell = new QWaylandWlShell(this);
@@ -71,13 +74,10 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] wl_shell disabled (legacy protocol)";
     }
 
-    // Protocol globals we intentionally expose. Enabled by default; can be disabled for debugging.
     const bool enableViewporter  = envBool("MARATHON_WL_ENABLE_VIEWPORTER", true);
     const bool enableTextInputV2 = envBool("MARATHON_WL_ENABLE_TEXT_INPUT_V2", true);
     const bool enableIdleInhibit = envBool("MARATHON_WL_ENABLE_IDLE_INHIBIT", true);
 
-    // wp_viewporter: Firefox/GTK use this to set destination size for surface buffers.
-    // Without this, some clients render at wrong size despite correct configure events.
     if (enableViewporter) {
         m_viewporter = new QWaylandViewporter(this);
         qInfo() << "[WaylandCompositor] wp_viewporter enabled";
@@ -85,7 +85,6 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] wp_viewporter disabled";
     }
 
-    // zwp_text_input_manager_v2: Needed for native Wayland apps + on-screen keyboard integration.
     if (enableTextInputV2) {
         m_textInputManager = new QWaylandTextInputManager(this);
         qInfo() << "[WaylandCompositor] zwp_text_input_manager_v2 enabled";
@@ -93,8 +92,6 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
         qInfo() << "[WaylandCompositor] zwp_text_input_manager_v2 disabled";
     }
 
-    // zwp_idle_inhibit_manager_v1: Used by media apps to prevent screen blanking during playback.
-    // When disabled, surface->inhibitsIdle() will remain false and we won't honor client inhibitors.
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
         qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 enabled";
@@ -118,11 +115,9 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     connect(m_xdgShell, &QWaylandXdgShell::popupCreated, this,
             &WaylandCompositor::handleXdgPopupCreated);
 
-    // Create output after compositor is initialized.
     m_output = new QWaylandQuickOutput(this, window);
     m_output->setSizeFollowsWindow(true);
 
-    // Required by Qt's XdgToplevelIntegration.
     setDefaultOutput(m_output);
 
     calculateAndSetPhysicalSize();
@@ -130,10 +125,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     qInfo() << "[WaylandCompositor] Initialized on socket:" << socketName()
             << "output:" << window->size() << "(scale=" << m_output->scaleFactor() << ")";
 
-    // Set RT priority for compositor rendering thread (Priority 75 per spec)
     setCompositorRealtimePriority();
 
-    // Intercept global keys before Wayland clients to avoid double-handling (press/release split).
     m_window->installEventFilter(this);
 }
 
@@ -147,8 +140,6 @@ WaylandCompositor::~WaylandCompositor() {
         }
         process->deleteLater();
     }
-
-    // NOTE: No custom D-Bus session to stop
 }
 
 QQmlListProperty<QObject> WaylandCompositor::surfaces() {
@@ -162,18 +153,13 @@ void WaylandCompositor::launchApp(const QString &command) {
         qDebug() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << qgetenv("XDG_RUNTIME_DIR");
     }
 
-    // Handle Flatpak and Snap apps
-    QString    actualCommand = command;
-    const bool isFlatpak     = command.startsWith("FLATPAK:");
-    const bool isSnap        = command.startsWith("SNAP:");
-    // If we can represent a command as an argv vector, prefer that to preserve correctness.
+    QString     actualCommand = command;
+    const bool  isFlatpak     = command.startsWith("FLATPAK:");
+    const bool  isSnap        = command.startsWith("SNAP:");
     QStringList execPartsOverride;
 
     if (isFlatpak) {
-        // IMPORTANT (correctness): flatpak syntax is:
-        //   flatpak run [OPTION...] REF [ARG...]
-        // Options must come BEFORE REF. Appending options at the end turns them into app args.
-        actualCommand           = command.mid(8); // Remove "FLATPAK:" prefix
+        actualCommand           = command.mid(8);
         const QStringList parts = QProcess::splitCommand(actualCommand);
         if (parts.size() >= 2 && parts.at(0) == "flatpak" && parts.at(1) == "run") {
             QStringList newParts;
@@ -182,12 +168,10 @@ void WaylandCompositor::launchApp(const QString &command) {
                      << "--socket=wayland"
                      << QStringLiteral("--filesystem=xdg-run/%1").arg(socketName())
                      << QStringLiteral("--env=WAYLAND_DISPLAY=%1").arg(socketName());
-            // Keep the rest of the user's args intact (including any existing options and REF).
             newParts << parts.mid(2);
             execPartsOverride = newParts;
             actualCommand     = newParts.join(' ');
         } else {
-            // Best-effort fallback: don't mutate unknown flatpak command shapes.
             qWarning()
                 << "[WaylandCompositor] FLATPAK: command did not look like 'flatpak run ...':"
                 << actualCommand;
@@ -197,14 +181,13 @@ void WaylandCompositor::launchApp(const QString &command) {
     }
 
     if (isSnap) {
-        actualCommand = command.mid(5); // Remove "SNAP:" prefix
+        actualCommand = command.mid(5);
         qInfo() << "[WaylandCompositor] Snap app - wayland interface should be connected";
         qInfo() << "[WaylandCompositor] Run 'snap connections APP' to verify wayland interface";
     }
 
-    QProcess *process = new QProcess(this);
+    QProcess           *process = new QProcess(this);
 
-    // Set up Wayland environment
     QProcessEnvironment env        = QProcessEnvironment::systemEnvironment();
     QString             runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
 
@@ -213,62 +196,37 @@ void WaylandCompositor::launchApp(const QString &command) {
         runtimeDir = "/tmp";
     }
 
-    // CRITICAL: Remove parent compositor's WAYLAND_DISPLAY to force apps to use OUR compositor
-    env.remove("WAYLAND_DISPLAY"); // Remove parent Wayland compositor
-    env.remove("DISPLAY");         // Remove X11 display (force Wayland)
+    env.remove("WAYLAND_DISPLAY");
+    env.remove("DISPLAY");
 
-    // CRITICAL FIX: Prevent GTK/GApplication apps from connecting to host/previous instances
-    // Apps like Nautilus/Clocks use GApplication's single-instance D-Bus mechanism
-    // They check D-Bus for existing instances and send "open window" commands to them
-    // This causes windows to open in host compositor OR connect to stale D-Bus names
-    //
-    // Solution: Generate UNIQUE GApplication ID per app launch (not just per Marathon instance!)
-    // This isolates each launch from host AND previous Marathon launches
+    qint64     timestamp   = QDateTime::currentMSecsSinceEpoch();
+    uint       commandHash = qHash(actualCommand);
 
-    // CRITICAL: Force new instances of GApplication apps
-    // GApplication apps check D-Bus for existing instances and send commands to them instead
-    // of launching new windows. This causes apps to open in the host compositor.
-    //
-    // Solution: Create a temporary unique desktop file for each launch
-    // GApplication extracts the app ID from the desktop file basename and uses it for D-Bus registration.
-    // A unique desktop file path forces a unique D-Bus name, preventing detection of host instances.
-    qint64 timestamp   = QDateTime::currentMSecsSinceEpoch();
-    uint   commandHash = qHash(actualCommand);
-
-    // For sandboxed Flatpak apps, forcing a synthetic desktop file is unnecessary and can be
-    // counter-productive. Keep this behavior for non-Flatpak apps where we observed host instance
-    // interference via GApplication single-instance activation.
-    //
-    // Also skip this for marathon-app-runner launches: runner instances are isolated and do not
-    // participate in GApplication single-instance activation.
     const bool isRunner = actualCommand.contains("marathon-app-runner");
     if (!isFlatpak && !isRunner) {
-        // Create /tmp/marathon-apps directory if it doesn't exist
         QDir tmpDir("/tmp/marathon-apps");
         if (!tmpDir.exists()) {
             tmpDir.mkpath(".");
         }
 
-        // Create unique desktop file path
         QString uniqueDesktopFile =
             QString("/tmp/marathon-apps/marathon-%1-%2.desktop").arg(timestamp).arg(commandHash);
 
-        // Create a properly formatted desktop file for GApplication
         QFile desktopFile(uniqueDesktopFile);
         if (desktopFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&desktopFile);
             out << "[Desktop Entry]\n";
-            out << "Version=1.0\n"; // Desktop Entry Spec version
+            out << "Version=1.0\n";
             out << "Type=Application\n";
             out << "Name=Marathon Embedded App\n";
             out << "GenericName=Application\n";
             out << "Comment=Application running in Marathon OS\n";
             out << "Exec=" << actualCommand << "\n";
-            out << "Terminal=false\n";                  // Not a terminal app
-            out << "Categories=Utility;\n";             // FreeDesktop category
-            out << "StartupNotify=true\n";              // Supports startup notification
-            out << "X-GNOME-UsesNotifications=false\n"; // Prevent notification parsing
-            out << "X-Marathon-Embedded=true\n";        // Custom field for identification
+            out << "Terminal=false\n";
+            out << "Categories=Utility;\n";
+            out << "StartupNotify=true\n";
+            out << "X-GNOME-UsesNotifications=false\n";
+            out << "X-Marathon-Embedded=true\n";
             desktopFile.close();
 
             qDebug()
@@ -280,68 +238,46 @@ void WaylandCompositor::launchApp(const QString &command) {
         env.insert("GIO_LAUNCHED_DESKTOP_FILE", uniqueDesktopFile);
         env.insert("GIO_LAUNCHED_DESKTOP_FILE_PID",
                    QString::number(QCoreApplication::applicationPid()));
-        // Remember it so we can clean it up when the process exits.
         process->setProperty("marathonDesktopFile", uniqueDesktopFile);
 
         qDebug() << "[WaylandCompositor] Created unique desktop file:" << uniqueDesktopFile;
     }
 
-    // Set OUR compositor variables
     env.insert("WAYLAND_DISPLAY", socketName());
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
 
-    // In this dev setup, Qt logging may go to journald instead of the captured stderr.
-    // Force stderr logging in debug mode so runner logs show up in the shell log stream.
     {
         const QByteArray debugEnv = qgetenv("MARATHON_DEBUG").trimmed().toLower();
         const bool       debug    = (debugEnv == "1" || debugEnv == "true");
         if (debug)
             env.insert("QT_FORCE_STDERR_LOGGING", "1");
     }
-    // Client buffer integration:
-    // Prefer GPU/EGL for smooth animations and high FPS.
-    //
-    // If you need to debug on systems where EGL is flaky, you can force SHM/software via env:
-    //   - MARATHON_FORCE_WAYLAND_SHM=1
-    //   - QT_QUICK_BACKEND=software   (or QSG_RHI_BACKEND=software)
     const bool forceShm = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
     if (!env.contains("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION")) {
+        // wayland-egl for hardware accelerated rendering
         env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", forceShm ? "shm" : "wayland-egl");
     }
+
     env.insert("GDK_BACKEND", "wayland");
     env.insert("CLUTTER_BACKEND", "wayland");
     env.insert("SDL_VIDEODRIVER", "wayland");
-    env.insert("MOZ_ENABLE_WAYLAND", "1"); // Force Firefox/Mozilla to use Wayland
-    // Don't force EGL platform for clients; let the chosen backend decide.
+    env.insert("MOZ_ENABLE_WAYLAND", "1");
 
-    // Mobile form factor environment variables
-    // These tell GTK4/libadwaita and Qt apps to use mobile/adaptive layouts
-    env.insert("LIBADWAITA_MOBILE", "1");        // Force libadwaita mobile mode
-    env.insert("PURISM_FORM_FACTOR", "phone");   // Phosh compatibility (used by Phosh/Purism apps)
-    env.insert("QT_QUICK_CONTROLS_MOBILE", "1"); // Qt Quick Controls mobile mode
-    // Qt6 Quick Controls does not ship a "Mobile" style plugin. Forcing it causes QML to fail
-    // with errors like: module "Mobile" is not installed (seen in Clock's AlarmEditorDialog).
-    // Keep the mobile/adaptive *hints* above, but use a real style.
+    env.insert("LIBADWAITA_MOBILE", "1");
+    env.insert("PURISM_FORM_FACTOR", "phone");
+    env.insert("QT_QUICK_CONTROLS_MOBILE", "1");
     env.insert("QT_QUICK_CONTROLS_STYLE", "Basic");
-    env.insert("GTK_CSD", "1"); // Force client-side decorations for GTK apps
-    // Portals:
-    // - For Flatpak apps, portals are the standard integration mechanism (file chooser, etc.).
-    // - For non-Flatpak nested compositor usage, portals can pop dialogs outside the shell.
-    // Keep non-Flatpak default OFF for backwards-compat, but allow opting in for "first-class"
-    // desktop integration via MARATHON_ENABLE_PORTALS=1.
+    env.insert("GTK_CSD", "1");
     if (!env.contains("GTK_USE_PORTAL")) {
         const bool enablePortals = isFlatpak || envBool("MARATHON_ENABLE_PORTALS", false);
         env.insert("GTK_USE_PORTAL", enablePortals ? "1" : "0");
     }
 
-    // Scaling:
-    // Let clients follow Wayland's output scale (wl_output::scaleFactor). Do not force toolkit
-    // scaling env vars here, as that double-scales buffers and is a common cause of blur.
-    env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1"); // No client-side decorations for Qt
+    env.insert("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1");
 
-    // For Marathon app runner IPC: allow the runner to verify lifecycle calls come from the shell.
-    // Only set this for marathon-app-runner launches.
+    env.insert("QT_MEDIA_BACKEND", "ffmpeg");
+
     if (actualCommand.contains("marathon-app-runner")) {
         env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
     }
@@ -355,25 +291,77 @@ void WaylandCompositor::launchApp(const QString &command) {
             &WaylandCompositor::handleProcessFinished);
     connect(process, &QProcess::errorOccurred, this, &WaylandCompositor::handleProcessError);
 
-    // Use separate channels to properly capture stderr on errors
     process->setProcessChannelMode(QProcess::SeparateChannels);
+    process->setProperty("marathonStdoutTail", QString());
+    process->setProperty("marathonStderrTail", QString());
 
-    // Capture stdout/stderr for debugging (opt-in).
     QPointer<QProcess> safeProcess(process);
     connect(process, &QProcess::readyReadStandardOutput, this, [safeProcess, command]() {
         if (!safeProcess)
             return;
         QString output = QString::fromLocal8Bit(safeProcess->readAllStandardOutput());
-        if (wlVerbose() && !output.trimmed().isEmpty())
-            qDebug() << "[WaylandCompositor] stdout:" << command << "->" << output.trimmed();
+        if (!output.isEmpty()) {
+            QString tail = safeProcess->property("marathonStdoutTail").toString();
+            tail += output;
+            if (tail.size() > 64 * 1024)
+                tail = tail.right(64 * 1024);
+            safeProcess->setProperty("marathonStdoutTail", tail);
+
+            if (wlVerbose() && !output.trimmed().isEmpty())
+                qDebug() << "[WaylandCompositor] stdout:" << command << "->" << output.trimmed();
+
+            if (appLogsEnabled() && command.contains("marathon-app-runner") &&
+                !output.trimmed().isEmpty()) {
+                const QStringList lines = output.split('\n');
+                int               shown = 0;
+                for (const QString &l : lines) {
+                    const QString line = l.trimmed();
+                    if (line.isEmpty())
+                        continue;
+                    if (!appLogsAllEnabled()) {
+                        if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
+                            continue;
+                    }
+                    qWarning().noquote() << "[AppRunner stdout]" << command << "->" << line;
+                    if (++shown >= 25)
+                        break;
+                }
+            }
+        }
     });
 
     connect(process, &QProcess::readyReadStandardError, this, [safeProcess, command]() {
         if (!safeProcess)
             return;
         QString error = QString::fromLocal8Bit(safeProcess->readAllStandardError());
-        if (wlVerbose() && !error.trimmed().isEmpty())
-            qDebug() << "[WaylandCompositor] stderr:" << command << "->" << error.trimmed();
+        if (!error.isEmpty()) {
+            QString tail = safeProcess->property("marathonStderrTail").toString();
+            tail += error;
+            if (tail.size() > 64 * 1024)
+                tail = tail.right(64 * 1024);
+            safeProcess->setProperty("marathonStderrTail", tail);
+
+            if (wlVerbose() && !error.trimmed().isEmpty())
+                qDebug() << "[WaylandCompositor] stderr:" << command << "->" << error.trimmed();
+
+            if (appLogsEnabled() && command.contains("marathon-app-runner") &&
+                !error.trimmed().isEmpty()) {
+                const QStringList lines = error.split('\n');
+                int               shown = 0;
+                for (const QString &l : lines) {
+                    const QString line = l.trimmed();
+                    if (line.isEmpty())
+                        continue;
+                    if (!appLogsAllEnabled()) {
+                        if (line.startsWith("libEGL warning") || line.startsWith("MESA-LOADER:"))
+                            continue;
+                    }
+                    qWarning().noquote() << "[AppRunner stderr]" << command << "->" << line;
+                    if (++shown >= 25)
+                        break;
+                }
+            }
+        }
     });
 
     m_processes[process] = actualCommand;
@@ -381,22 +369,17 @@ void WaylandCompositor::launchApp(const QString &command) {
     if (wlVerbose())
         qDebug() << "[WaylandCompositor] Starting process:" << actualCommand;
 
-    // Prefer direct exec (so the PID we emit matches the real client PID for strict PID↔surface mapping).
-    // Only fall back to /bin/sh when the command needs shell features.
     const QStringList parts =
         execPartsOverride.isEmpty() ? QProcess::splitCommand(actualCommand) : execPartsOverride;
     const bool        hasParts = !parts.isEmpty();
     const QString     program  = hasParts ? parts.first() : QString();
     const QStringList args     = hasParts ? parts.mid(1) : QStringList();
 
-    // Heuristic: if splitCommand can't parse, or the string contains obvious shell metacharacters,
-    // fall back to /bin/sh -c.
-    const bool needsShell = !hasParts || actualCommand.contains('|') ||
+    const bool        needsShell = !hasParts || actualCommand.contains('|') ||
         actualCommand.contains('&') || actualCommand.contains(';') ||
         actualCommand.contains("&&") || actualCommand.contains("||") ||
         actualCommand.contains('>') || actualCommand.contains('<');
 
-    // Emit appLaunched once the process actually starts (avoid blocking waitForStarted on the UI thread).
     connect(process, &QProcess::started, this, [this, command, process]() {
         const qint64 pid = process ? process->processId() : -1;
         if (pid > 0) {
@@ -426,11 +409,6 @@ void WaylandCompositor::closeWindow(int surfaceId) {
         return;
     }
 
-    // CRITICAL FIX: Use XDG shell protocol's sendClose() for graceful shutdown
-    // This sends WM_DELETE_WINDOW equivalent, allowing app to save state
-    // DO NOT use client->close() - that forcefully kills the connection!
-
-    // Get XDG surface from our map (stored in handleXdgToplevelCreated)
     QWaylandXdgSurface *xdgSurface = m_xdgSurfaceMap.value(surfaceId, nullptr);
     if (xdgSurface && xdgSurface->toplevel()) {
         qInfo()
@@ -438,7 +416,6 @@ void WaylandCompositor::closeWindow(int surfaceId) {
             << surfaceId;
         xdgSurface->toplevel()->sendClose();
     } else {
-        // Fallback: If not XDG shell, close client connection
         QWaylandClient *client = surface->client();
         if (client) {
             qWarning() << "[WaylandCompositor] No XDG toplevel found, falling back to client close "
@@ -448,14 +425,12 @@ void WaylandCompositor::closeWindow(int surfaceId) {
         }
     }
 
-    // Find the specific process for this surface (by PID mapping)
     qint64 pid = m_surfaceIdToPid.value(surfaceId, -1);
     if (pid <= 0) {
         qDebug() << "[WaylandCompositor] No PID mapping for surface ID:" << surfaceId;
-        return; // Let the surface close naturally
+        return;
     }
 
-    // Find the process for this PID
     QProcess *targetProcess = nullptr;
     for (auto it = m_processes.begin(); it != m_processes.end(); ++it) {
         QProcess *process = it.key();
@@ -467,16 +442,16 @@ void WaylandCompositor::closeWindow(int surfaceId) {
 
     if (!targetProcess) {
         qDebug() << "[WaylandCompositor] No process found for PID:" << pid;
-        return; // Process already exited or doesn't exist
+        return;
     }
 
-    // Give the app time to close gracefully (most apps will close within 3-5 seconds)
-    // Use QPointer for safe pointer checking (process might be deleted if it exits)
+    // Mark this process as being closed by the shell (avoid mislabeling signal-based termination as a crash).
+    targetProcess->setProperty("marathonCloseRequested", true);
+
     QPointer<QProcess> safeProcessPtr(targetProcess);
 
     qDebug() << "[WaylandCompositor] Waiting for PID" << pid << "to exit gracefully...";
     QTimer::singleShot(5000, this, [this, safeProcessPtr, surfaceId, pid]() {
-        // Check if process object still exists and is still running
         if (!safeProcessPtr) {
             qInfo() << "[WaylandCompositor] Process" << pid
                     << "exited gracefully (object deleted) for surface ID:" << surfaceId;
@@ -486,12 +461,13 @@ void WaylandCompositor::closeWindow(int surfaceId) {
         if (safeProcessPtr->state() != QProcess::NotRunning) {
             qWarning() << "[WaylandCompositor] Process" << pid
                        << "didn't exit after 5s, sending SIGTERM";
+            safeProcessPtr->setProperty("marathonForceTerminated", true);
             safeProcessPtr->terminate();
 
-            // Last resort: kill after 3 more seconds
             QTimer::singleShot(3000, this, [safeProcessPtr, pid]() {
                 if (safeProcessPtr && safeProcessPtr->state() != QProcess::NotRunning) {
                     qWarning() << "[WaylandCompositor] Force killing process" << pid;
+                    safeProcessPtr->setProperty("marathonForceKilled", true);
                     safeProcessPtr->kill();
                 }
             });
@@ -513,6 +489,11 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
     connect(surface, &QWaylandSurface::surfaceDestroyed, this,
             &WaylandCompositor::handleSurfaceDestroyed);
 
+    if (auto *inputControl = surface->inputMethodControl()) {
+        connect(inputControl, SIGNAL(enabledChanged(bool)), this,
+                SLOT(handleTextInputEnabled(bool)));
+    }
+
     int surfaceId           = m_nextSurfaceId++;
     m_surfaceMap[surfaceId] = surface;
     surface->setProperty("surfaceId", surfaceId);
@@ -528,7 +509,6 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
     m_surfaces.append(surface);
     emit surfacesChanged();
-    // DON'T emit surfaceCreated yet - wait for XDG toplevel to be created first
 }
 
 void WaylandCompositor::activateSurface(int surfaceId) {
@@ -540,6 +520,12 @@ void WaylandCompositor::activateSurface(int surfaceId) {
     } else {
         qWarning() << "[WaylandCompositor] Failed to activate surface:" << surfaceId;
     }
+}
+
+void WaylandCompositor::handleTextInputEnabled(bool enabled) {
+    if (wlVerbose())
+        qDebug() << "[WaylandCompositor] Native text input enabled changed:" << enabled;
+    emit nativeTextInputPanelRequested(enabled);
 }
 
 void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
@@ -562,23 +548,19 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
         return;
     }
 
-    // Store BOTH the xdgSurface (for ShellSurfaceItem) and toplevel (for configuration)
     surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
     surface->setProperty("xdgToplevel", QVariant::fromValue(toplevel));
     surface->setProperty("title", toplevel->title());
     surface->setProperty("appId", toplevel->appId());
 
-    int surfaceId = surface->property("surfaceId").toInt();
-    // CRITICAL: Store xdgSurface for graceful close via sendClose()
+    int surfaceId              = surface->property("surfaceId").toInt();
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
 
     qInfo() << "[WaylandCompositor] New toplevel:" << surfaceId << toplevel->appId() << "-"
             << toplevel->title();
 
-    // NOW emit surfaceCreated with surfaceId, xdgSurface AND toplevel
-    emit surfaceCreated(surface, surfaceId, xdgSurface);
+    emit                          surfaceCreated(surface, surfaceId, xdgSurface);
 
-    // Connect signals with QPointer for safe access to toplevel and surface
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);
     QPointer<QWaylandSurface>     safeSurface(surface);
 
@@ -596,12 +578,6 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                 }
             });
 
-    // NOTE (correctness): a surface becoming "unmapped"/hasContent=false is not an authoritative
-    // app exit. Many apps intentionally hide/minimize or reconfigure surfaces. Treating this as a
-    // close can wrongly delete tasks.
-    //
-    // If you need legacy behavior for specific environments, enable it explicitly:
-    //   MARATHON_TREAT_UNMAP_AS_CLOSE=1
     const bool treatUnmapAsClose = envBool("MARATHON_TREAT_UNMAP_AS_CLOSE", false);
     if (treatUnmapAsClose) {
         connect(
@@ -612,7 +588,6 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
                             << surfaceId;
                     qInfo() << "[WaylandCompositor] Treating as app close (legacy mode)";
 
-                    // Emit surfaceDestroyed signal BEFORE cleaning up internal state so QML can react.
                     emit surfaceDestroyed(safeSurface.data(), surfaceId);
 
                     if (m_surfaceIdToPid.contains(surfaceId)) {
@@ -633,8 +608,6 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
 
 void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
                                               QWaylandXdgSurface *xdgSurface) {
-    // Qt's ShellSurfaceItem.autoCreatePopupItems handles most popup management
-    // We just track the surface and emit a signal for debugging/logging
 
     if (!popup || !xdgSurface) {
         qWarning() << "[WaylandCompositor] XDG popup creation with null objects - ignoring";
@@ -647,7 +620,6 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
         return;
     }
 
-    // Assign surfaceId if not already assigned
     int surfaceId = surface->property("surfaceId").toInt();
     if (surfaceId == 0) {
         surfaceId               = m_nextSurfaceId++;
@@ -656,7 +628,6 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
     }
 
     if (qEnvironmentVariableIsSet("MARATHON_DEBUG")) {
-        // Parent surface info is useful for debugging popup routing.
         QWaylandXdgSurface *parentXdgSurface = popup->parentXdgSurface();
         qWarning() << "[WaylandCompositor] Popup created:" << surfaceId << "parent:"
                    << (parentXdgSurface && parentXdgSurface->surface() ?
@@ -664,12 +635,10 @@ void WaylandCompositor::handleXdgPopupCreated(QWaylandXdgPopup   *popup,
                            -1);
     }
 
-    // Store popup data
     surface->setProperty("isPopup", true);
     surface->setProperty("xdgPopup", QVariant::fromValue(popup));
     surface->setProperty("xdgSurface", QVariant::fromValue(xdgSurface));
 
-    // Track in surfaces list
     m_surfaces.append(surface);
     m_xdgSurfaceMap[surfaceId] = xdgSurface;
     emit surfacesChanged();
@@ -684,7 +653,6 @@ void WaylandCompositor::handleWlShellSurfaceCreated(QWaylandWlShellSurface *wlSh
         surface->setProperty("wlShellSurface", QVariant::fromValue(wlShellSurface));
         surface->setProperty("title", wlShellSurface->title());
 
-        // Connect signal with QPointer for safe access
         QPointer<QWaylandWlShellSurface> safeWlShell(wlShellSurface);
         QPointer<QWaylandSurface>        safeSurface(surface);
         connect(wlShellSurface, &QWaylandWlShellSurface::titleChanged, this,
@@ -712,7 +680,7 @@ void WaylandCompositor::handleSurfaceDestroyed() {
     }
 
     m_surfaceMap.remove(surfaceId);
-    m_xdgSurfaceMap.remove(surfaceId); // Clean up XDG surface mapping too
+    m_xdgSurfaceMap.remove(surfaceId);
     m_surfaces.removeAll(surface);
 
     emit surfacesChanged();
@@ -724,10 +692,9 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
     if (!process)
         return;
 
-    QString command = m_processes.value(process, "unknown");
-    qint64  pid     = process->processId();
+    QString       command = m_processes.value(process, "unknown");
+    qint64        pid     = process->processId();
 
-    // Clean up any per-launch synthetic desktop file we created.
     const QString desktopFile = process->property("marathonDesktopFile").toString();
     if (!desktopFile.isEmpty()) {
         if (QFile::exists(desktopFile)) {
@@ -738,31 +705,44 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
         }
     }
 
-    // gapplication launch spawns a subprocess and exits immediately, so PID tracking doesn't work
-    bool isGApplication = command.contains("gapplication launch");
+    bool       isGApplication = command.contains("gapplication launch");
+    const bool closeRequested = process->property("marathonCloseRequested").toBool();
 
     if (isGApplication) {
-        // For gapplication commands, we rely on surface-based tracking, not PID
         qInfo() << "[WaylandCompositor] gapplication process finished:" << command
                 << "exitCode:" << exitCode << "(surface tracking active, not PID-based)";
     } else {
+        const QString statusStr =
+            (exitStatus == QProcess::NormalExit ? "normal" :
+                                                  (closeRequested ? "terminated" : "crashed"));
         qInfo() << "[WaylandCompositor] Process finished:" << command << "PID:" << pid
-                << "exitCode:" << exitCode
-                << "status:" << (exitStatus == QProcess::NormalExit ? "normal" : "crashed");
+                << "exitCode:" << exitCode << "status:" << statusStr;
 
-        // Only emit and track PID for non-gapplication commands
+        const bool abnormal = (exitStatus != QProcess::NormalExit) || (exitCode != 0);
+        if (abnormal && !closeRequested) {
+            const QString outputTail = process->property("marathonStdoutTail").toString();
+            const QString errTail    = process->property("marathonStderrTail").toString();
+            const QString output =
+                outputTail + QString::fromLocal8Bit(process->readAllStandardOutput());
+            const QString err = errTail + QString::fromLocal8Bit(process->readAllStandardError());
+            if (!output.trimmed().isEmpty())
+                qWarning() << "[WaylandCompositor] stdout tail for" << command << ":\n"
+                           << output.trimmed();
+            if (!err.trimmed().isEmpty())
+                qWarning() << "[WaylandCompositor] stderr tail for" << command << ":\n"
+                           << err.trimmed();
+        }
+
         if (pid > 0) {
             emit appClosed(pid);
         }
     }
 
-    // Find and close the associated surface/window (only for PID-tracked apps)
     if (pid > 0 && m_pidToSurfaceId.contains(pid)) {
         int surfaceId = m_pidToSurfaceId[pid];
         qInfo() << "[WaylandCompositor] Closing surface for PID" << pid
                 << "surfaceId:" << surfaceId;
 
-        // Clean up the surface if it still exists
         if (m_surfaceMap.contains(surfaceId)) {
             QWaylandSurface *surface = m_surfaceMap[surfaceId];
             if (surface && surface->client()) {
@@ -781,11 +761,6 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
         return;
     }
 
-    // --- Scale factor (wl_output::scale) ---
-    //
-    // Proper Wayland behavior: the compositor advertises an integer output scale, and clients
-    // render higher-resolution buffers when scale > 1. Hardcoding scale=1 makes all apps blurry
-    // on HiDPI displays because their buffers are upscaled.
     QScreen *screen = m_window->screen();
     if (!screen)
         screen = QGuiApplication::primaryScreen();
@@ -794,23 +769,17 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
     if (screen)
         dpr = screen->devicePixelRatio();
 
-    // Wayland core protocol uses an integer scale. Choose the nearest sensible integer.
     const int scale = qMax(1, qRound(dpr));
     if (m_output->scaleFactor() != scale)
         m_output->setScaleFactor(scale);
 
-    // --- Available geometry ---
-    // Required for Qt's XdgToplevelIntegration; keep in logical coords (window size).
     const QSize windowSize = m_window->size();
     m_output->setAvailableGeometry(QRect(QPoint(0, 0), windowSize));
 
-    // --- Physical size (wl_output::physical_size) ---
-    // Compute proportionally from the host screen's physical size, so DPI remains consistent
-    // without inventing a fake "target DPI".
     QSize physicalSizeMm(0, 0);
     if (screen) {
-        const QSizeF hostMm = screen->physicalSize();    // millimeters (Qt6 uses QSizeF)
-        const QSize  hostPx = screen->geometry().size(); // logical px in Qt coordinate space
+        const QSizeF hostMm = screen->physicalSize();
+        const QSize  hostPx = screen->geometry().size();
 
         if (hostMm.isValid() && hostMm.width() > 0.0 && hostMm.height() > 0.0 && hostPx.isValid() &&
             hostPx.width() > 0 && hostPx.height() > 0) {
@@ -823,7 +792,6 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
         }
     }
 
-    // Fallback: if host physical size is unknown, derive mm from DPI.
     if (!physicalSizeMm.isValid() || physicalSizeMm.width() <= 0 || physicalSizeMm.height() <= 0) {
         const qreal mmPerInch = 25.4;
         qreal       dpi       = 0.0;
@@ -833,7 +801,7 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
                 dpi = screen->logicalDotsPerInch();
         }
         if (dpi <= 0.0)
-            dpi = 96.0; // last-resort fallback when the platform reports nothing useful
+            dpi = 96.0;
 
         physicalSizeMm = QSize(qMax(1, qRound((windowSize.width() / dpi) * mmPerInch)),
                                qMax(1, qRound((windowSize.height() / dpi) * mmPerInch)));
@@ -848,7 +816,6 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
 
 void WaylandCompositor::setCompositorRealtimePriority() {
 #ifdef Q_OS_LINUX
-    // Set RT priority 75 for compositor render thread (per Marathon OS spec section 3)
     struct sched_param param;
     param.sched_priority = 75;
 
@@ -868,8 +835,9 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
     if (!process)
         return;
 
-    QString command = m_processes.value(process, "unknown");
-    QString errorString;
+    QString    command        = m_processes.value(process, "unknown");
+    const bool closeRequested = process->property("marathonCloseRequested").toBool();
+    QString    errorString;
 
     switch (error) {
         case QProcess::FailedToStart:
@@ -882,27 +850,30 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
         default: errorString = "Unknown error"; break;
     }
 
+    if (error == QProcess::Crashed && closeRequested) {
+        qInfo() << "[WaylandCompositor] Process exited after close request for" << command;
+        return;
+    }
+
     qWarning() << "[WaylandCompositor] Process error for" << command << ":" << errorString;
     qWarning() << "[WaylandCompositor] Error details:" << process->errorString();
 
-    // If we created a synthetic desktop file for this launch, remove it on failure too.
     const QString desktopFile = process->property("marathonDesktopFile").toString();
     if (!desktopFile.isEmpty() && QFile::exists(desktopFile)) {
         QFile::remove(desktopFile);
     }
 
-    // Read any error output
-    QString output      = QString::fromLocal8Bit(process->readAllStandardOutput());
-    QString errorOutput = QString::fromLocal8Bit(process->readAllStandardError());
-    if (!output.isEmpty()) {
-        qDebug() << "[WaylandCompositor] stdout:" << output;
-    }
-    if (!errorOutput.isEmpty()) {
-        qDebug() << "[WaylandCompositor] stderr:" << errorOutput;
-    }
+    const QString outputTail = process->property("marathonStdoutTail").toString();
+    const QString errTail    = process->property("marathonStderrTail").toString();
+    const QString output = outputTail + QString::fromLocal8Bit(process->readAllStandardOutput());
+    const QString err    = errTail + QString::fromLocal8Bit(process->readAllStandardError());
 
-    // Maintain lifecycle/task-model correctness: if a process never started, ensure we don't
-    // keep a stale QProcess entry around.
+    // Always dump recent output on errors (even if MARATHON_WL_VERBOSE=0).
+    if (!output.trimmed().isEmpty())
+        qWarning() << "[WaylandCompositor] stdout tail for" << command << ":\n" << output.trimmed();
+    if (!err.trimmed().isEmpty())
+        qWarning() << "[WaylandCompositor] stderr tail for" << command << ":\n" << err.trimmed();
+
     if (error == QProcess::FailedToStart) {
         m_processes.remove(process);
         process->deleteLater();
@@ -1014,8 +985,6 @@ void WaylandCompositor::injectKey(int key, int modifiers, bool pressed) {
 }
 
 bool WaylandCompositor::checkIdleInhibitors() {
-    // Scan all surfaces to check if any inhibit idle behavior
-    // This is used by the lock screen timer to prevent blanking during video playback
     bool hasInhibitor = false;
 
     for (auto it = m_surfaceMap.constBegin(); it != m_surfaceMap.constEnd(); ++it) {
@@ -1042,28 +1011,22 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
         int        key      = keyEvent->key();
 
-        // Trap Back (ESC) and Home (Super_L/Meta)
-        // We intercept these globally to ensure consistent behavior across all apps (Native & Marathon)
         if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
 
-            // On Press: Simply consume to prevent Client from receiving it (avoids internal navigation)
             if (event->type() == QEvent::KeyPress) {
                 return true;
             }
 
-            // On Release: Trigger Shell Logic via signals
             if (event->type() == QEvent::KeyRelease) {
-                // Determine which signal to emit
                 if (key == Qt::Key_Escape) {
                     emit systemBackTriggered();
                 } else {
                     emit systemHomeTriggered();
                 }
-                return true; // Consume release too
+                return true;
             }
         }
     }
 
-    // Pass everything else through
     return QObject::eventFilter(watched, event);
 }

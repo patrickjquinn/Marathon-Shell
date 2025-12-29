@@ -1,34 +1,59 @@
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 MApp {
     id: galleryApp
-    appId: "gallery"
-    appName: "Gallery"
-    appIcon: "assets/icon.svg"
 
     property var albums: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager.albums : []
     property var photos: []
     property string selectedAlbum: ""
     property int currentView: 0
+    property alias photoViewerLoader: photoViewerLoader
 
+    function refreshAllPhotos() {
+        if (typeof MediaLibraryManager === 'undefined')
+            return;
+
+        Qt.callLater(function () {
+            photos = MediaLibraryManager.getAllPhotos();
+        });
+    }
+
+    appId: "gallery"
+    appName: "Gallery"
+    appIcon: "assets/icon.svg"
     Component.onCompleted: {
         if (typeof MediaLibraryManager !== 'undefined') {
-            MediaLibraryManager.scanLibrary();
+            if (MediaLibraryManager.scanLibraryAsync)
+                MediaLibraryManager.scanLibraryAsync();
+            else
+                MediaLibraryManager.scanLibrary();
         }
     }
 
     Connections {
-        target: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager : null
         function onScanComplete(photoCount, videoCount) {
             Logger.info("Gallery", "Library scan complete: " + photoCount + " photos, " + videoCount + " videos");
+            if (galleryApp.currentView === 1)
+                galleryApp.refreshAllPhotos();
         }
+
+        target: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager : null
+    }
+
+    Loader {
+        id: photoViewerLoader
+
+        anchors.fill: parent
+        active: false
+
+        sourceComponent: PhotoViewerPage {}
     }
 
     content: Rectangle {
@@ -46,10 +71,10 @@ MApp {
 
                 StackView {
                     id: albumsStackView
+
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-
                     // Update parent's navigationDepth when stack changes
                     onDepthChanged: {
                         galleryApp.navigationDepth = depth - 1;
@@ -57,12 +82,12 @@ MApp {
 
                     // Handle back button
                     Connections {
-                        target: galleryApp
                         function onBackPressed() {
-                            if (albumsStackView.depth > 1) {
+                            if (albumsStackView.depth > 1)
                                 albumsStackView.pop();
-                            }
                         }
+
+                        target: galleryApp
                     }
 
                     // Transitions
@@ -74,10 +99,11 @@ MApp {
                             duration: Constants.animationDurationNormal
                             easing.type: Easing.OutCubic
                         }
+
                         NumberAnimation {
                             property: "opacity"
                             from: 0.7
-                            to: 1.0
+                            to: 1
                             duration: Constants.animationDurationNormal
                         }
                     }
@@ -90,9 +116,10 @@ MApp {
                             duration: Constants.animationDurationNormal
                             easing.type: Easing.OutCubic
                         }
+
                         NumberAnimation {
                             property: "opacity"
-                            from: 1.0
+                            from: 1
                             to: 0.7
                             duration: Constants.animationDurationNormal
                         }
@@ -106,10 +133,11 @@ MApp {
                             duration: Constants.animationDurationNormal
                             easing.type: Easing.OutCubic
                         }
+
                         NumberAnimation {
                             property: "opacity"
                             from: 0.7
-                            to: 1.0
+                            to: 1
                             duration: Constants.animationDurationNormal
                         }
                     }
@@ -122,9 +150,10 @@ MApp {
                             duration: Constants.animationDurationNormal
                             easing.type: Easing.OutCubic
                         }
+
                         NumberAnimation {
                             property: "opacity"
-                            from: 1.0
+                            from: 1
                             to: 0.7
                             duration: Constants.animationDurationNormal
                         }
@@ -146,12 +175,11 @@ MApp {
                                     height: Constants.touchTargetLarge * 1.5
                                     elevation: 1
                                     interactive: true
-
                                     onClicked: {
                                         Logger.info("Gallery", "Open album: " + modelData.name);
                                         albumsStackView.push("pages/AlbumDetailPage.qml", {
-                                            albumId: modelData.id,
-                                            albumName: modelData.name
+                                            "albumId": modelData.id,
+                                            "albumName": modelData.name
                                         });
                                     }
 
@@ -229,15 +257,14 @@ MApp {
                         cellWidth: width / 3
                         cellHeight: cellWidth
                         clip: true
-
                         model: photos
+                        cacheBuffer: cellHeight * 2
 
                         delegate: MCard {
                             width: GridView.view.cellWidth - MSpacing.xs
                             height: GridView.view.cellHeight - MSpacing.xs
                             elevation: 1
                             interactive: true
-
                             onClicked: {
                                 Logger.info("Gallery", "View photo: " + modelData.id);
                                 photoViewerLoader.active = true;
@@ -252,6 +279,8 @@ MApp {
                                 asynchronous: true
                                 cache: true
                                 clip: true
+                                sourceSize.width: Math.round(width)
+                                sourceSize.height: Math.round(height)
 
                                 Rectangle {
                                     anchors.fill: parent
@@ -278,41 +307,33 @@ MApp {
                         iconName: "image"
                         iconSize: 96
                         title: "No Photos"
-                        message: selectedAlbum ? "This album is empty" : "Select an album to view photos"
+                        message: "No photos found"
                     }
                 }
             }
 
             MTabBar {
                 id: tabBar
+
                 width: parent.width
                 activeTab: galleryApp.currentView
-
                 tabs: [
                     {
-                        label: "Albums",
-                        icon: "folder"
+                        "label": "Albums",
+                        "icon": "folder"
                     },
                     {
-                        label: "Photos",
-                        icon: "grid"
+                        "label": "Photos",
+                        "icon": "images"
                     }
                 ]
-
                 onTabSelected: index => {
                     HapticService.light();
                     galleryApp.currentView = index;
+                    if (index === 1 && galleryApp.photos.length === 0)
+                        galleryApp.refreshAllPhotos();
                 }
             }
         }
-    }
-
-    property alias photoViewerLoader: photoViewerLoader
-
-    Loader {
-        id: photoViewerLoader
-        anchors.fill: parent
-        active: false
-        sourceComponent: PhotoViewerPage {}
     }
 }

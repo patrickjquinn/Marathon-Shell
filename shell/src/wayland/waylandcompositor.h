@@ -67,29 +67,29 @@ class WaylandCompositor : public QWaylandCompositor {
     void handleSurfaceDestroyed();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
     void handleProcessError(QProcess::ProcessError error);
+    void handleTextInputEnabled(bool enabled);
 
   private:
-    void                                 setCompositorRealtimePriority();
-    void                                 calculateAndSetPhysicalSize();
+    void                                    setCompositorRealtimePriority();
+    void                                    calculateAndSetPhysicalSize();
 
-    QWaylandXdgShell                    *m_xdgShell   = nullptr;
-    QWaylandWlShell                     *m_wlShell    = nullptr; // optional (legacy compatibility)
-    QWaylandViewporter                  *m_viewporter = nullptr;
-    QWaylandTextInputManager            *m_textInputManager   = nullptr;
-    QWaylandIdleInhibitManagerV1        *m_idleInhibitManager = nullptr;
-    QWaylandQuickOutput                 *m_output             = nullptr;
-    QQuickWindow                        *m_window             = nullptr;
+    QWaylandXdgShell                       *m_xdgShell           = nullptr;
+    QWaylandWlShell                        *m_wlShell            = nullptr;
+    QWaylandViewporter                     *m_viewporter         = nullptr;
+    QWaylandTextInputManager               *m_textInputManager   = nullptr;
+    QWaylandIdleInhibitManagerV1           *m_idleInhibitManager = nullptr;
+    QWaylandQuickOutput                    *m_output             = nullptr;
+    QQuickWindow                           *m_window             = nullptr;
 
-    QList<QObject *>                     m_surfaces;
-    QMap<int, QPointer<QWaylandSurface>> m_surfaceMap; // surfaceId -> surface
-    QMap<int, QPointer<QWaylandXdgSurface>>
-                              m_xdgSurfaceMap;  // surfaceId -> xdgSurface (for graceful close)
-    QMap<QProcess *, QString> m_processes;      // process -> command
-    QMap<qint64, int>         m_pidToSurfaceId; // PID -> surfaceId
-    QMap<int, qint64>         m_surfaceIdToPid; // surfaceId -> PID
+    QList<QObject *>                        m_surfaces;
+    QMap<int, QPointer<QWaylandSurface>>    m_surfaceMap;
+    QMap<int, QPointer<QWaylandXdgSurface>> m_xdgSurfaceMap;
+    QMap<QProcess *, QString>               m_processes;
+    QMap<qint64, int>                       m_pidToSurfaceId;
+    QMap<int, qint64>                       m_surfaceIdToPid;
 
-    int                       m_nextSurfaceId;
-    bool                      m_hasIdleInhibitor;
+    int                                     m_nextSurfaceId;
+    bool                                    m_hasIdleInhibitor;
 };
 
-#endif // WAYLANDCOMPOSITOR_H
+#endif

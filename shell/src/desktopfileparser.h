@@ -5,6 +5,7 @@
 #include <QString>
 #include <QVariantMap>
 #include <QVariantList>
+#include <QHash>
 
 class DesktopFileParser : public QObject {
     Q_OBJECT
@@ -19,9 +20,11 @@ class DesktopFileParser : public QObject {
     Q_INVOKABLE QString      resolveIconPath(const QString &iconName);
 
   private:
-    QString     cleanExecLine(const QString &exec);
-    QStringList findIconPaths(const QString &iconName);
-    bool        isMobileFriendly(const QVariantMap &app);
+    QString                 cleanExecLine(const QString &exec);
+    QStringList             findIconPaths(const QString &iconName);
+    bool                    isMobileFriendly(const QVariantMap &app);
+
+    QHash<QString, QString> m_iconCache;
 };
 
 #endif // DESKTOPFILEPARSER_H

@@ -1,4 +1,4 @@
-# Camera App - Photo and video capture
+
 
 set(APP_NAME camera)
 
@@ -6,9 +6,12 @@ file(GLOB_RECURSE QML_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
 )
 
+
 set(SOURCES
-    # Future: src/cameraengine.cpp
-    # Future: src/mediaprocessor.cpp
+    src/SoftwareVideoOutput.cpp
+    src/SoftwareVideoOutput.h
+    src/CameraController.cpp
+    src/CameraController.h
 )
 
 add_marathon_app(${APP_NAME}
@@ -18,3 +21,5 @@ add_marathon_app(${APP_NAME}
     SOURCES ${SOURCES}
 )
 
+
+target_link_libraries(${APP_NAME} PRIVATE Qt6::Multimedia)

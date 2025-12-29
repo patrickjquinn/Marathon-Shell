@@ -36,6 +36,7 @@ class AudioPolicyController;
  *  - /org/marathonos/Shell/Power        (org.marathonos.Shell.Power1)
  *  - /org/marathonos/Shell/Audio        (org.marathonos.Shell.Audio1)
  *  - /org/marathonos/Shell/Network      (org.marathonos.Shell.Network1)
+ *  - /org/marathonos/Shell/Navigation   (org.marathonos.Shell.Navigation1)
  */
 class ShellIpcServer : public QObject {
     Q_OBJECT

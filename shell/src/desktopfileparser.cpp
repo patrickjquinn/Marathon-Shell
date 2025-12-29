@@ -145,16 +145,25 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
 }
 
 QString DesktopFileParser::resolveIconPath(const QString &iconName) {
+    const auto it = m_iconCache.constFind(iconName);
+    if (it != m_iconCache.constEnd())
+        return it.value();
+
     if (iconName.isEmpty()) {
-        return "grid";
+        const QString fallback = "grid";
+        m_iconCache.insert(iconName, fallback);
+        return fallback;
     }
 
     // If it's already an absolute path, use it
     if (iconName.startsWith('/')) {
         if (QFile::exists(iconName)) {
+            m_iconCache.insert(iconName, iconName);
             return iconName;
         }
-        return "grid";
+        const QString fallback = "grid";
+        m_iconCache.insert(iconName, fallback);
+        return fallback;
     }
 
     // If it already has an extension, check if it exists (relative to what? usually implies absolute if extension present)
@@ -162,6 +171,7 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     if (iconName.endsWith(".svg") || iconName.endsWith(".png") || iconName.endsWith(".xpm") ||
         iconName.endsWith(".jpg")) {
         if (QFile::exists(iconName)) {
+            m_iconCache.insert(iconName, iconName);
             return iconName;
         }
     }
@@ -246,13 +256,16 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
                 qDebug() << "[DesktopFileParser] Found icon:" << fullPath;
                 // Return raw path - QML Image handles absolute paths directly
                 // Using file:// prefix can interfere with Qt's SVG format detection
+                m_iconCache.insert(iconName, fullPath);
                 return fullPath;
             }
         }
     }
 
     qDebug() << "[DesktopFileParser] Icon not found:" << iconName << ", using fallback";
-    return "layout-grid";
+    const QString fallback = "layout-grid";
+    m_iconCache.insert(iconName, fallback);
+    return fallback;
 }
 
 QString DesktopFileParser::cleanExecLine(const QString &exec) {

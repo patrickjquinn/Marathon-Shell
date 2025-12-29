@@ -459,6 +459,8 @@ int main(int argc, char *argv[]) {
     if (hasPerm("network"))
         ctx->setContextProperty("NetworkManagerCpp", new NetworkClient(appId, &app));
 
+    ctx->setContextProperty("NavigationService", new NavigationClient(&app));
+
     const QString entryAbs      = QDir(info->absolutePath).filePath(info->entryPoint);
     const QUrl    entryUrl      = QUrl::fromLocalFile(entryAbs);
     const QString componentName = QFileInfo(info->entryPoint).completeBaseName();
@@ -582,6 +584,10 @@ int main(int argc, char *argv[]) {
                 rootItem->setParentItem(view.contentItem());
                 rootItem->setWidth(view.width());
                 rootItem->setHeight(view.height());
+
+                // Ensure QML focus is given to the root item so forceActiveFocus() on
+                // child items (e.g. browser address bar) properly routes keyboard input.
+                rootItem->forceActiveFocus();
 
                 QObject::connect(&view, &QQuickView::widthChanged, rootItem,
                                  [&view, rootItem](int) { rootItem->setWidth(view.width()); });

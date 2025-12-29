@@ -2132,3 +2132,62 @@ QString SmsClient::generateConversationId(const QString &number) {
     }
     return r.value();
 }
+
+NavigationClient::NavigationClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Navigation",
+              "org.marathonos.Shell.Navigation1", QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[NavigationClient] DBus interface invalid:" << m_iface.lastError().message();
+
+    QDBusConnection::sessionBus().connect(
+        "org.marathonos.Shell", "/org/marathonos/Shell/Navigation",
+        "org.marathonos.Shell.Navigation1", "AppLaunched", this, SIGNAL(appLaunched(QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell",
+                                          "/org/marathonos/Shell/Navigation",
+                                          "org.marathonos.Shell.Navigation1", "NavigationFailed",
+                                          this, SIGNAL(navigationFailed(QString, QString)));
+}
+
+bool NavigationClient::launchApp(const QString &appId) {
+    if (appId.isEmpty()) {
+        qWarning() << "[NavigationClient] launchApp: appId cannot be empty";
+        return false;
+    }
+
+    QDBusReply<bool> r = m_iface.call("LaunchApp", appId);
+    if (!r.isValid()) {
+        qWarning() << "[NavigationClient] LaunchApp failed:" << r.error().message();
+        return false;
+    }
+    return r.value();
+}
+
+bool NavigationClient::navigate(const QString &uri) {
+    if (!uri.startsWith("marathon://")) {
+        qWarning() << "[NavigationClient] navigate: URI must start with marathon://";
+        return false;
+    }
+
+    QDBusReply<bool> r = m_iface.call("Navigate", uri);
+    if (!r.isValid()) {
+        qWarning() << "[NavigationClient] Navigate failed:" << r.error().message();
+        return false;
+    }
+    return r.value();
+}
+
+bool NavigationClient::launchAppWithRoute(const QString &appId, const QString &route,
+                                          const QString &paramsJson) {
+    if (appId.isEmpty()) {
+        qWarning() << "[NavigationClient] launchAppWithRoute: appId cannot be empty";
+        return false;
+    }
+
+    QDBusReply<bool> r = m_iface.call("LaunchAppWithRoute", appId, route, paramsJson);
+    if (!r.isValid()) {
+        qWarning() << "[NavigationClient] LaunchAppWithRoute failed:" << r.error().message();
+        return false;
+    }
+    return r.value();
+}

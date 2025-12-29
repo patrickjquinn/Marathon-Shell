@@ -1570,3 +1570,93 @@ QString SmsObject::GenerateConversationId(const QString &number) {
         return {};
     return m_sms->generateConversationId(number);
 }
+
+NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_launchService(launchService) {
+    Q_ASSERT(m_launchService);
+}
+
+QString NavigationObject::callerAppIdOrEmpty() const {
+    return dbusCallerAppIdOrEmpty(*this, m_launchService);
+}
+
+bool NavigationObject::LaunchApp(const QString &appId) {
+    const QString caller = callerAppIdOrEmpty();
+    if (caller.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return false;
+    }
+
+    if (appId.isEmpty()) {
+        sendErrorReply(QDBusError::InvalidArgs, "appId cannot be empty");
+        return false;
+    }
+
+    qInfo() << "[NavigationObject] LaunchApp requested by" << caller << "for" << appId;
+
+    const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
+    if (ok) {
+        emit AppLaunched(appId);
+    } else {
+        emit NavigationFailed(appId, "Failed to launch app");
+    }
+    return ok;
+}
+
+bool NavigationObject::Navigate(const QString &uri) {
+    const QString caller = callerAppIdOrEmpty();
+    if (caller.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return false;
+    }
+
+    if (!uri.startsWith("marathon://")) {
+        sendErrorReply(QDBusError::InvalidArgs, "URI must start with marathon://");
+        return false;
+    }
+
+    qInfo() << "[NavigationObject] Navigate requested by" << caller << "to" << uri;
+
+    QString     path  = uri.mid(QString("marathon://").length());
+    QStringList parts = path.split('/');
+    QString     appId = parts.isEmpty() ? QString() : parts.first();
+
+    if (appId.isEmpty()) {
+        sendErrorReply(QDBusError::InvalidArgs, "Could not parse appId from URI");
+        return false;
+    }
+
+    const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
+    if (ok) {
+        emit AppLaunched(appId);
+    } else {
+        emit NavigationFailed(uri, "Failed to launch app");
+    }
+    return ok;
+}
+
+bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &route,
+                                          const QString &paramsJson) {
+    const QString caller = callerAppIdOrEmpty();
+    if (caller.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return false;
+    }
+
+    if (appId.isEmpty()) {
+        sendErrorReply(QDBusError::InvalidArgs, "appId cannot be empty");
+        return false;
+    }
+
+    qInfo() << "[NavigationObject] LaunchAppWithRoute requested by" << caller << "for" << appId
+            << "route:" << route << "params:" << paramsJson;
+
+    const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
+    if (ok) {
+        emit AppLaunched(appId);
+    } else {
+        emit NavigationFailed(appId, "Failed to launch app");
+    }
+    return ok;
+}

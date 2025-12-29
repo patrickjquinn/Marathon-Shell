@@ -1,5 +1,4 @@
-# Marathon Apps Build System Each app is built as a separate QML module with
-# optional C++ plugins
+
 
 cmake_minimum_required(VERSION 3.21)
 
@@ -15,15 +14,14 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# If you're building on macOS with Homebrew Qt, prefer it when available. Never
-# hard-require it (this project also builds on Linux).
+
 if(APPLE AND EXISTS "/opt/homebrew/opt/qt@6")
   list(PREPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6")
 endif()
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Qml Quick)
 
-# Optional WebEngine for browser
+
 find_package(Qt6 6.4 COMPONENTS WebEngineQuick)
 if(TARGET Qt6::WebEngineQuick)
   set(HAVE_WEBENGINE TRUE)
@@ -31,30 +29,28 @@ else()
   set(HAVE_WEBENGINE FALSE)
 endif()
 
-# Installation directory - defaults to user-local for better DX
-#
-# Development (default): Apps install to: ~/.local/share/marathon-apps No sudo
-# required, works out of the box
-#
-# System-wide production install: Override with:
-# -DMARATHON_APPS_DIR=/usr/share/marathon-apps Or set:
-# -DCMAKE_INSTALL_PREFIX=/usr
-#
-# This prevents permission errors for new developers using raw CMake commands
-# while still supporting system-wide deployment for production environments.
-#
+
+find_package(Qt6 6.4 COMPONENTS Multimedia)
+if(TARGET Qt6::Multimedia)
+  set(HAVE_MULTIMEDIA TRUE)
+else()
+  set(HAVE_MULTIMEDIA FALSE)
+  message(WARNING "Qt6::Multimedia not found - Camera app will not be built")
+endif()
+
+
 if(NOT DEFINED MARATHON_APPS_DIR)
   set(MARATHON_APPS_DIR
       "$ENV{HOME}/.local/share/marathon-apps"
       CACHE PATH "Marathon apps installation directory")
 endif()
 
-# Include QML linting module
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake")
   include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake)
 endif()
 
-# Function to create a Marathon app module
+
 function(add_marathon_app APP_NAME)
   set(options "")
   set(oneValueArgs URI VERSION)
@@ -86,7 +82,7 @@ function(add_marathon_app APP_NAME)
     list(APPEND RELATIVE_QML_FILES "${REL_FILE}")
   endforeach()
 
-  if(ARG_SOURCES) # HAS_CPP equiv
+  if(ARG_SOURCES)
     qt6_add_library(${APP_NAME} SHARED ${ARG_SOURCES})
 
     target_include_directories(
@@ -157,7 +153,7 @@ function(add_marathon_app APP_NAME)
   endif()
 endfunction()
 
-# Add apps subdirectories
+
 add_subdirectory(browser)
 add_subdirectory(settings)
 add_subdirectory(clock)

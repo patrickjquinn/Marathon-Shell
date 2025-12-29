@@ -1,6 +1,3 @@
-// Task card component - extracted from MarathonTaskSwitcher.qml
-// Displays a single task in the task switcher grid
-
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -9,7 +6,6 @@ import QtQuick
 Item {
     id: taskCard
 
-    // Required properties - MUST match TaskModel role names exactly for Qt6 auto-injection
     required property int index
     required property string id
     required property string appId
@@ -18,23 +14,17 @@ Item {
     required property string type
     required property int surfaceId
     required property var waylandSurface
-    // Properties from parent context (set by MarathonTaskSwitcher)
     property bool haveWayland: false
     property var compositor: null
     property bool taskSwitcherVisible: true
     property bool gridMoving: false
     property bool gridDragging: false
-    // Prevent "tap to open" from firing when the user is actually hitting the close button.
     property bool suppressTapOpen: false
 
-    // Signals
     signal closed
     signal taskClosed(string appId)
 
     Rectangle {
-        // Simplified transform - removed handleDragArea references (swipe-to-close removed)
-        // Now just a simple idle state
-
         id: cardRoot
 
         property bool closing: false
@@ -44,7 +34,7 @@ Item {
         color: MColors.glassTitlebar
         radius: Constants.borderRadiusSharp
         border.width: Constants.borderWidthThin
-        border.color: MColors.borderSubtle // Simplified - no pressed state with TapHandler
+        border.color: MColors.borderSubtle
         antialiasing: Constants.enableAntialiasing
         scale: closing ? 0.7 : 1
         opacity: closing ? 0 : 1
@@ -78,9 +68,6 @@ Item {
             }
         }
 
-        // TAP AREA
-        // Accept the press so the parent horizontal PageView doesn't treat taps as page flicks.
-        // We still allow the GridView/Flickable to steal on real drags (preventStealing: false).
         MouseArea {
             id: previewTapArea
 
@@ -92,7 +79,7 @@ Item {
             anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
             z: 50
             preventStealing: false
-            propagateComposedEvents: true // Still receive events even if not accepting
+            propagateComposedEvents: true
             onPressed: mouse => {
                 pressX = mouse.x;
                 pressY = mouse.y;
@@ -103,7 +90,6 @@ Item {
                 var deltaTime = Date.now() - pressTime;
                 var deltaX = Math.abs(mouse.x - pressX);
                 var deltaY = Math.abs(mouse.y - pressY);
-                // Only trigger tap if quick press without movement (not stolen by GridView)
                 if (!taskCard.suppressTapOpen && deltaTime < 300 && deltaX < 15 && deltaY < 15) {
                     mouse.accepted = true;
                     Logger.info("TaskCard", "TAP on preview - Opening: " + taskCard.appId);
@@ -154,7 +140,6 @@ Item {
                     sourceComponent: Item {
                         anchors.fill: parent
                         clip: true
-                        // CRITICAL: Disable input on entire preview to allow GridView scrolling
                         enabled: false
 
                         Item {
@@ -185,6 +170,8 @@ Item {
                                     }
                                     var instance = AppLifecycleManager.getAppInstance(taskCard.appId);
                                     liveApp = instance;
+                                    if (liveApp)
+                                        snapshotUpdateDebounce.restart();
                                 }
 
                                 anchors.fill: parent
@@ -192,26 +179,60 @@ Item {
                                 clip: true
                                 onWatchedAppIdChanged: updateLiveApp()
                                 Component.onCompleted: updateLiveApp()
+                                onLiveAppChanged: snapshotUpdateDebounce.restart()
 
+                                // Debounced snapshot refresh (avoid spamming scheduleUpdate)
                                 Timer {
-                                    id: lateRegistrationTimer
+                                    id: snapshotUpdateDebounce
 
-                                    property int attempts: 0
-                                    readonly property int maxAttempts: 50
-
-                                    interval: 100
-                                    repeat: true
-                                    running: previewContainer.liveApp === null && taskCard.type !== "native"
+                                    interval: 16
+                                    repeat: false
                                     onTriggered: {
-                                        previewContainer.updateLiveApp();
-                                        attempts++;
-                                        if (attempts >= maxAttempts)
-                                            stop();
+                                        if (liveSnapshot.visible)
+                                            liveSnapshot.scheduleUpdate();
                                     }
-                                    onRunningChanged: {
-                                        if (running)
-                                            attempts = 0;
+                                }
+
+                                // Prefer signal-based registration over polling.
+                                Connections {
+                                    function onAppRegistered(appId, instance) {
+                                        if (taskCard.type === "native")
+                                            return;
+
+                                        if (appId !== taskCard.appId)
+                                            return;
+
+                                        previewContainer.liveApp = instance;
+                                        snapshotUpdateDebounce.restart();
                                     }
+
+                                    function onAppUnregistered(appId) {
+                                        if (appId !== taskCard.appId)
+                                            return;
+
+                                        previewContainer.liveApp = null;
+                                    }
+
+                                    target: typeof AppLifecycleManager !== "undefined" ? AppLifecycleManager : null
+                                }
+
+                                Connections {
+                                    function onTaskSwitcherVisibleChanged() {
+                                        if (taskCard.taskSwitcherVisible)
+                                            snapshotUpdateDebounce.restart();
+                                    }
+
+                                    function onGridMovingChanged() {
+                                        if (!taskCard.gridMoving)
+                                            snapshotUpdateDebounce.restart();
+                                    }
+
+                                    function onGridDraggingChanged() {
+                                        if (!taskCard.gridDragging)
+                                            snapshotUpdateDebounce.restart();
+                                    }
+
+                                    target: taskCard
                                 }
 
                                 ShaderEffectSource {
@@ -222,7 +243,8 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     sourceItem: previewContainer.liveApp
-                                    live: previewContainer.liveApp !== null && !taskCard.gridMoving && !taskCard.gridDragging
+                                    // Snapshot-based preview: avoid live recursive rendering per-card.
+                                    live: false
                                     recursive: true
                                     visible: previewContainer.liveApp !== null
                                     hideSource: false
@@ -234,24 +256,18 @@ Item {
                                         if (visible)
                                             liveSnapshot.scheduleUpdate();
                                     }
-
-                                    Timer {
-                                        interval: 100
-                                        repeat: true
-                                        running: liveSnapshot.live && liveSnapshot.visible
-                                        onTriggered: liveSnapshot.scheduleUpdate()
-                                    }
-
-                                    Connections {
-                                        function onChildrenChanged() {
-                                            liveSnapshot.scheduleUpdate();
-                                        }
-
-                                        target: previewContainer.liveApp
-                                    }
                                 }
 
-                                // Native app surface rendering
+                                // Throttled live updates: keep previews feeling alive without per-frame cost.
+                                Timer {
+                                    id: livePreviewRefreshTimer
+
+                                    interval: 200
+                                    repeat: true
+                                    running: taskCard.taskSwitcherVisible && previewContainer.liveApp !== null && !taskCard.gridMoving && !taskCard.gridDragging
+                                    onTriggered: liveSnapshot.scheduleUpdate()
+                                }
+
                                 Loader {
                                     id: nativeSurfaceLoader
 
@@ -267,7 +283,6 @@ Item {
                                             item.anchors.fill = nativeSurfaceLoader;
                                             item.autoResize = false;
                                             item.hasSentInitialSize = true;
-                                            // Keep the last committed frame for the task switcher preview.
                                             item.isMinimized = true;
                                         }
                                     }
@@ -279,8 +294,6 @@ Item {
                                         when: nativeSurfaceLoader.item !== null
                                     }
 
-                                    // CRITICAL: Disable touch/input on the surface in task switcher
-                                    // This allows scroll gestures to propagate to GridView instead of the app
                                     Binding {
                                         target: nativeSurfaceLoader.item
                                         property: "touchEventsEnabled"
@@ -296,7 +309,6 @@ Item {
                                     }
                                 }
 
-                                // Fallback for native apps when Wayland is not available
                                 Rectangle {
                                     anchors.top: parent.top
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -333,7 +345,6 @@ Item {
                                     }
                                 }
 
-                                // Fallback: Show app icon when live preview unavailable
                                 Rectangle {
                                     anchors.top: parent.top
                                     anchors.horizontalCenter: parent.horizontalCenter
@@ -376,7 +387,6 @@ Item {
             }
         }
 
-        // BANNER/HANDLE AREA
         Rectangle {
             id: bannerRect
 
@@ -387,9 +397,6 @@ Item {
             color: MColors.surface
             radius: 0
 
-            // Handle tap area
-            // NOTE: This MouseArea covers the whole banner, so it must NOT steal clicks on the
-            // close button. If it does, you get "maximize" (tap-to-open) instead of close.
             MouseArea {
                 id: handleTapArea
 
@@ -400,12 +407,8 @@ Item {
                 anchors.fill: parent
                 z: 50
                 preventStealing: false
-                // Don't receive composed events from the close button's MouseArea.
-                // Otherwise a close click also triggers this handler's tap-to-open logic.
                 propagateComposedEvents: false
                 onPressed: mouse => {
-                    // If the press is on the close button, don't accept it so closeButtonArea
-                    // receives the click.
                     var p = closeButtonRect.mapToItem(handleTapArea, 0, 0);
                     if (mouse.x >= p.x && mouse.x <= p.x + closeButtonRect.width && mouse.y >= p.y && mouse.y <= p.y + closeButtonRect.height) {
                         mouse.accepted = false;
@@ -420,7 +423,6 @@ Item {
                     var deltaTime = Date.now() - pressTime;
                     var deltaX = Math.abs(mouse.x - pressX);
                     var deltaY = Math.abs(mouse.y - pressY);
-                    // Only trigger tap if quick press without movement
                     if (!taskCard.suppressTapOpen && deltaTime < 300 && deltaX < 15 && deltaY < 15) {
                         mouse.accepted = true;
                         Logger.info("TaskCard", "TAP on handle - Opening: " + taskCard.appId);
@@ -510,7 +512,6 @@ Item {
                             z: 1000
                             preventStealing: true
                             onPressed: mouse => {
-                                // Ensure this interaction doesn't also open/restore the app.
                                 taskCard.suppressTapOpen = true;
                                 mouse.accepted = true;
                             }
@@ -520,7 +521,6 @@ Item {
                                 closeAnimation.start();
                             }
                             onReleased: mouse => {
-                                // Clear after the click sequence completes.
                                 taskCard.suppressTapOpen = false;
                                 mouse.accepted = true;
                             }

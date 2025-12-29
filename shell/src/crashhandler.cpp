@@ -1,15 +1,23 @@
 #include "crashhandler.h"
-#include <QDebug>
 #include <QCoreApplication>
+#include <QDebug>
 #include <csignal>
 #include <cstdlib>
 #ifdef __GLIBC__
 #include <execinfo.h>
 #endif
+#include <cstring>
+#include <unistd.h>
 #include <unistd.h>
 
 CrashHandler *CrashHandler::s_instance       = nullptr;
 bool          CrashHandler::s_inCrashHandler = false;
+
+static void   writeStr(int fd, const char *s) {
+    if (!s)
+        return;
+    ::write(fd, s, static_cast<size_t>(std::strlen(s)));
+}
 
 CrashHandler *CrashHandler::instance() {
     if (!s_instance) {
@@ -41,16 +49,11 @@ void CrashHandler::install() {
         }
 
         // Try to print backtrace
-        // Try to print backtrace
 #ifdef __GLIBC__
         void  *array[50];
         size_t size = backtrace(array, 50);
         qCritical() << "[CrashHandler] Backtrace:";
-        char **messages = backtrace_symbols(array, size);
-        for (size_t i = 0; i < size; i++) {
-            qCritical() << "  " << messages[i];
-        }
-        free(messages);
+        backtrace_symbols_fd(array, static_cast<int>(size), STDERR_FILENO);
 #else
         qCritical() << "[CrashHandler] Backtrace not available (musl libc)";
 #endif
@@ -76,8 +79,9 @@ bool CrashHandler::isInCrashHandler() {
 void CrashHandler::signalHandler(int signum) {
     // Prevent recursive crash handling
     if (s_inCrashHandler) {
-        qCritical() << "[CrashHandler] Recursive crash detected - aborting";
-        std::abort();
+        const char *msg = "[CrashHandler] Recursive crash detected - aborting\n";
+        ::write(STDERR_FILENO, msg, std::strlen(msg));
+        std::_Exit(127);
     }
 
     s_inCrashHandler = true;
@@ -108,51 +112,30 @@ void CrashHandler::signalHandler(int signum) {
             break;
     }
 
-    qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-    qCritical() << "[CrashHandler] CRASH DETECTED!";
-    qCritical() << "[CrashHandler] Signal:" << signame << "(" << signum << ")";
-    qCritical() << "[CrashHandler] Description:" << description;
-    qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+    // IMPORTANT: This is a signal handler. Avoid Qt/QString allocations here.
+    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    writeStr(STDERR_FILENO, "[CrashHandler] CRASH DETECTED!\n");
+    writeStr(STDERR_FILENO, "[CrashHandler] Signal: ");
+    writeStr(STDERR_FILENO, signame);
+    writeStr(STDERR_FILENO, "\n");
+    writeStr(STDERR_FILENO, "[CrashHandler] Description: ");
+    writeStr(STDERR_FILENO, description);
+    writeStr(STDERR_FILENO, "\n");
+    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
-    // Print backtrace
-    // Print backtrace
+    // Print backtrace (best-effort). Use symbols_fd to avoid heap allocations.
 #ifdef __GLIBC__
     void  *array[50];
     size_t size = backtrace(array, 50);
-    qCritical() << "[CrashHandler] Backtrace:";
-    char **messages = backtrace_symbols(array, size);
-    for (size_t i = 0; i < size; i++) {
-        qCritical() << "  " << messages[i];
-    }
-    free(messages);
+    writeStr(STDERR_FILENO, "[CrashHandler] Backtrace:\n");
+    backtrace_symbols_fd(array, static_cast<int>(size), STDERR_FILENO);
 #else
-    qCritical() << "[CrashHandler] Backtrace not available (musl libc)";
+    writeStr(STDERR_FILENO, "[CrashHandler] Backtrace not available (musl libc)\n");
 #endif
 
-    qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-    qCritical() << "[CrashHandler] CRITICAL ARCHITECTURAL ISSUE:";
-    qCritical() << "[CrashHandler] Apps are running in the same process as the shell!";
-    qCritical() << "[CrashHandler] This crash likely came from an app, but it's taking down";
-    qCritical() << "[CrashHandler] the entire shell because of poor isolation.";
-    qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-    qCritical() << "[CrashHandler] RECOMMENDED FIX:";
-    qCritical() << "[CrashHandler] 1. Implement multi-process architecture";
-    qCritical() << "[CrashHandler] 2. Run each app in its own QProcess";
-    qCritical() << "[CrashHandler] 3. Use Qt Application Manager's multi-process mode";
-    qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-
-    // Notify instance
-    if (s_instance) {
-        QString msg = QString("%1: %2").arg(signame).arg(description);
-        emit    s_instance->crashDetected(signame, msg);
-
-        if (s_instance->m_crashCallback) {
-            s_instance->m_crashCallback(msg);
-        }
-    }
-
-    qCritical() << "[CrashHandler] Shell will now exit (cannot safely continue)";
-    qCritical() << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    writeStr(STDERR_FILENO, "[CrashHandler] Shell will now exit (cannot safely continue)\n");
+    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     // Restore default handler and re-raise to get core dump
     signal(signum, SIG_DFL);
