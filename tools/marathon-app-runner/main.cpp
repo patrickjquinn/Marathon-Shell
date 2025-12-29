@@ -459,6 +459,8 @@ int main(int argc, char *argv[]) {
     if (hasPerm("network"))
         ctx->setContextProperty("NetworkManagerCpp", new NetworkClient(appId, &app));
 
+    ctx->setContextProperty("NavigationService", new NavigationClient(&app));
+
     const QString entryAbs      = QDir(info->absolutePath).filePath(info->entryPoint);
     const QUrl    entryUrl      = QUrl::fromLocalFile(entryAbs);
     const QString componentName = QFileInfo(info->entryPoint).completeBaseName();

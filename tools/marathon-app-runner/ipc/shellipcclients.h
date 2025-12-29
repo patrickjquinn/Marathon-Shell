@@ -820,3 +820,22 @@ class NetworkClient : public QObject {
     bool           m_refreshInFlight     = false;
     bool           m_permissionRequested = false;
 };
+
+class NavigationClient : public QObject {
+    Q_OBJECT
+
+  public:
+    explicit NavigationClient(QObject *parent = nullptr);
+
+    Q_INVOKABLE bool launchApp(const QString &appId);
+    Q_INVOKABLE bool navigate(const QString &uri);
+    Q_INVOKABLE bool launchAppWithRoute(const QString &appId, const QString &route,
+                                        const QString &paramsJson = QString());
+
+  signals:
+    void appLaunched(const QString &appId);
+    void navigationFailed(const QString &uri, const QString &error);
+
+  private:
+    QDBusInterface m_iface;
+};

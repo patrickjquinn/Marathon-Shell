@@ -4,6 +4,7 @@ import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
+import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Controls
 
@@ -21,6 +22,10 @@ MApp {
     appId: "camera"
     appName: "Camera"
     appIcon: "assets/icon.svg"
+    onAppResumed: cameraController.start()
+    onAppPaused: cameraController.stop()
+    onAppRestored: cameraController.start()
+    onAppMinimized: cameraController.stop()
 
     CameraController {
         id: cameraController
@@ -422,38 +427,63 @@ MApp {
                 anchors.verticalCenter: parent.verticalCenter
 
                 Rectangle {
+                    id: galleryThumbnailBorder
+
                     anchors.fill: parent
-                    radius: 30
-                    color: cameraController.latestPhotoPath !== "" ? "black" : "#2a2a3a"
+                    radius: width / 2
+                    color: "transparent"
                     border.width: 2
                     border.color: "white"
-                    clip: true
+                }
+
+                Item {
+                    id: thumbnailContent
+
+                    anchors.fill: parent
+                    anchors.margins: 3
+                    visible: false
 
                     Image {
                         anchors.fill: parent
-                        anchors.margins: 2
                         source: cameraController.latestPhotoPath
-                        visible: cameraController.latestPhotoPath !== ""
                         fillMode: Image.PreserveAspectCrop
+                        sourceSize: Qt.size(120, 120)
+                        visible: cameraController.latestPhotoPath !== ""
                     }
 
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "image"
-                        size: 24
-                        color: MColors.textSecondary
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#2a2a3a"
                         visible: cameraController.latestPhotoPath === ""
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "image"
+                            size: 24
+                            color: MColors.textSecondary
+                        }
                     }
+                }
+
+                Rectangle {
+                    id: thumbnailMask
+
+                    anchors.fill: thumbnailContent
+                    radius: width / 2
+                    visible: false
+                }
+
+                OpacityMask {
+                    anchors.fill: thumbnailContent
+                    source: thumbnailContent
+                    maskSource: thumbnailMask
                 }
 
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
                         HapticService.light();
-                        if (cameraController.latestPhotoPath !== "")
-                            Qt.openUrlExternally(cameraController.latestPhotoPath);
-                        else
-                            Qt.openUrlExternally("file://" + cameraController.savePath);
+                        NavigationService.launchApp("gallery");
                     }
                 }
             }

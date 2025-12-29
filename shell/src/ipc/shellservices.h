@@ -436,3 +436,24 @@ class NetworkObject : public QObject, protected QDBusContext {
     MarathonPermissionManager *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
 };
+
+class NavigationObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Navigation1")
+
+  public:
+    NavigationObject(AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    bool LaunchApp(const QString &appId);
+    bool Navigate(const QString &uri);
+    bool LaunchAppWithRoute(const QString &appId, const QString &route, const QString &paramsJson);
+
+  signals:
+    void AppLaunched(const QString &appId);
+    void NavigationFailed(const QString &uri, const QString &error);
+
+  private:
+    QString           callerAppIdOrEmpty() const;
+    AppLaunchService *m_launchService = nullptr;
+};

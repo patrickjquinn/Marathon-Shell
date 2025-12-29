@@ -78,6 +78,7 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *audioObj =
         new AudioObject(m_audioManager, m_audioPolicy, m_permissions, m_appLaunchService, this);
     auto *networkObj = new NetworkObject(m_networkManager, m_permissions, m_appLaunchService, this);
+    auto *navObj     = new NavigationObject(m_appLaunchService, this);
 
     bool  ok = true;
     ok &= bus.registerObject("/org/marathonos/Shell/Permissions", permObj,
@@ -103,6 +104,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject("/org/marathonos/Shell/Audio", audioObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Network", networkObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/Navigation", navObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
 
     if (!ok) {
