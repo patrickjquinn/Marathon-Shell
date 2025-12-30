@@ -1,4 +1,5 @@
 #include "securitymanager.h"
+#include "securitylogger.h"
 #include <QDebug>
 #include <QDBusReply>
 #include <QDBusConnectionInterface>
@@ -26,6 +27,9 @@ SecurityManager::SecurityManager(QObject *parent)
     , m_fprintdAuthInProgress(false)
     , m_passwordAuthWatcher(new QFutureWatcher<bool>(this))
     , m_quickPINAuthWatcher(new QFutureWatcher<bool>(this)) {
+    // Initialize security event logging
+    SecurityLogger::initialize();
+
     qDebug() << "[SecurityManager] Initializing authentication system";
 
     // Initialize fprintd
@@ -198,21 +202,25 @@ void SecurityManager::authenticatePassword(const QString &password) {
 }
 
 void SecurityManager::onPasswordAuthFinished() {
-    bool success = m_passwordAuthWatcher->result();
+    bool    success  = m_passwordAuthWatcher->result();
+    QString username = getCurrentUsername();
     m_currentPassword.clear();
 
     qDebug() << "[SecurityManager] Async PAM authentication completed, success:" << success;
 
     if (success) {
         resetFailedAttempts();
+        SecurityLogger::logAuthSuccess(username, "password");
         emit authenticationSuccess();
     } else {
         recordFailedAttempt();
+        SecurityLogger::logAuthFailure(username, "Invalid password", "PAM");
 
         QString message = "Incorrect password";
         if (m_isLockedOut) {
             int remaining = lockoutSecondsRemaining();
             message = QString("Too many failed attempts. Locked for %1 seconds.").arg(remaining);
+            SecurityLogger::logAuthLockout(username, remaining);
         } else if (m_failedAttempts > 0) {
             int remaining = 5 - m_failedAttempts;
             message += QString(" (%1 attempts remaining)").arg(remaining);
@@ -223,11 +231,27 @@ void SecurityManager::onPasswordAuthFinished() {
 }
 
 // ============================================================================
-// Quick PIN (Optional Convenience Feature)
+// Quick PIN
 // ============================================================================
 
+QByteArray SecurityManager::generateSalt(int length) {
+    QByteArray salt;
+    salt.resize(length);
+    for (int i = 0; i < length; ++i) {
+        salt[i] = static_cast<char>(QRandomGenerator::securelySeeded().bounded(256));
+    }
+    return salt;
+}
+
+QByteArray SecurityManager::hashWithIterations(const QByteArray &data, int iterations) {
+    QByteArray result = data;
+    for (int i = 0; i < iterations; ++i) {
+        result = QCryptographicHash::hash(result, QCryptographicHash::Sha256);
+    }
+    return result;
+}
+
 QString SecurityManager::retrieveQuickPIN() {
-    // For now, store in a simple config file (in production, use libsecret)
     QString configPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
         "/marathon/quickpin.conf";
     QFile file(configPath);
@@ -241,18 +265,24 @@ QString SecurityManager::retrieveQuickPIN() {
         return QString();
     }
 
-    QString hashedPIN = QString::fromUtf8(file.readAll());
+    QString contents = QString::fromUtf8(file.readAll()).trimmed();
     file.close();
 
-    return hashedPIN.trimmed();
+    return contents;
 }
 
 bool SecurityManager::storeQuickPIN(const QString &pin) {
-    // Hash the PIN with SHA-256
-    QByteArray hash      = QCryptographicHash::hash(pin.toUtf8(), QCryptographicHash::Sha256);
-    QString    hashedPIN = QString::fromLatin1(hash.toHex());
+    static constexpr int SALT_LENGTH = 32;
+    static constexpr int ITERATIONS  = 10000;
 
-    QString    configPath =
+    QByteArray           salt      = generateSalt(SALT_LENGTH);
+    QByteArray           saltedPin = salt + pin.toUtf8();
+    QByteArray           hash      = hashWithIterations(saltedPin, ITERATIONS);
+
+    QString              storedValue =
+        QString::fromLatin1(salt.toHex()) + ":" + QString::fromLatin1(hash.toHex());
+
+    QString configPath =
         QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/marathon";
     QDir().mkpath(configPath);
 
@@ -264,10 +294,8 @@ bool SecurityManager::storeQuickPIN(const QString &pin) {
         return false;
     }
 
-    file.write(hashedPIN.toUtf8());
+    file.write(storedValue.toUtf8());
     file.close();
-
-    // Set restrictive permissions (owner read/write only)
     file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 
     qDebug() << "[SecurityManager] Quick PIN stored successfully";
@@ -281,15 +309,34 @@ void SecurityManager::clearQuickPIN() {
 }
 
 bool SecurityManager::verifyQuickPIN(const QString &pin) {
-    QString storedHash = retrieveQuickPIN();
-    if (storedHash.isEmpty()) {
+    static constexpr int ITERATIONS = 10000;
+
+    QString              storedData = retrieveQuickPIN();
+    if (storedData.isEmpty()) {
         return false;
     }
 
-    QByteArray hash      = QCryptographicHash::hash(pin.toUtf8(), QCryptographicHash::Sha256);
-    QString    hashedPIN = QString::fromLatin1(hash.toHex());
+    QStringList parts = storedData.split(':');
+    if (parts.size() != 2) {
+        qWarning() << "[SecurityManager] Legacy PIN format detected";
+        QByteArray hash = QCryptographicHash::hash(pin.toUtf8(), QCryptographicHash::Sha256);
+        return QString::fromLatin1(hash.toHex()) == storedData;
+    }
 
-    return hashedPIN == storedHash;
+    QByteArray salt         = QByteArray::fromHex(parts[0].toLatin1());
+    QByteArray storedHash   = QByteArray::fromHex(parts[1].toLatin1());
+    QByteArray saltedPin    = salt + pin.toUtf8();
+    QByteArray computedHash = hashWithIterations(saltedPin, ITERATIONS);
+
+    if (computedHash.size() != storedHash.size()) {
+        return false;
+    }
+
+    volatile int result = 0;
+    for (int i = 0; i < computedHash.size(); ++i) {
+        result |= (computedHash[i] ^ storedHash[i]);
+    }
+    return result == 0;
 }
 
 void SecurityManager::authenticateQuickPIN(const QString &pin) {
@@ -316,20 +363,24 @@ void SecurityManager::authenticateQuickPIN(const QString &pin) {
 }
 
 void SecurityManager::onQuickPINAuthFinished() {
-    bool success = m_quickPINAuthWatcher->result();
+    bool    success  = m_quickPINAuthWatcher->result();
+    QString username = getCurrentUsername();
 
     qDebug() << "[SecurityManager] Async Quick PIN verification completed, success:" << success;
 
     if (success) {
         resetFailedAttempts();
+        SecurityLogger::logAuthSuccess(username, "quick_pin");
         emit authenticationSuccess();
     } else {
         recordFailedAttempt();
+        SecurityLogger::logAuthFailure(username, "Invalid PIN", "QuickPIN");
 
         QString message = "Incorrect PIN";
         if (m_isLockedOut) {
             int remaining = lockoutSecondsRemaining();
             message = QString("Too many failed attempts. Locked for %1 seconds.").arg(remaining);
+            SecurityLogger::logAuthLockout(username, remaining);
         } else if (m_failedAttempts > 0) {
             int remaining = 5 - m_failedAttempts;
             message += QString(" (%1 attempts remaining)").arg(remaining);

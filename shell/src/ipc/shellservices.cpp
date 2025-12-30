@@ -9,6 +9,8 @@
 #include "../powermanagercpp.h"
 #include "../audiomanagercpp.h"
 #include "../audiopolicycontroller.h"
+#include "../ratelimiter.h"
+#include "../securitylogger.h"
 
 #include "callhistorymanager.h"
 #include "contactsmanager.h"
@@ -23,8 +25,12 @@
 #include <QCoreApplication>
 #include <QFile>
 
-static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
-                             const QStringList &perms) {
+static RateLimiter   g_ipcRateLimiter;
+static constexpr int RATE_LIMIT_MAX_CALLS = 30;
+static constexpr int RATE_LIMIT_WINDOW_MS = 1000;
+
+static bool          hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
+                                      const QStringList &perms) {
     if (!pm)
         return false;
     for (const auto &p : perms) {
@@ -32,6 +38,19 @@ static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId
             return true;
     }
     return false;
+}
+
+static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
+    if (!ctx.calledFromDBus())
+        return true;
+
+    const QString sender = ctx.message().service();
+    if (!g_ipcRateLimiter.tryAcquire(sender, method, RATE_LIMIT_MAX_CALLS, RATE_LIMIT_WINDOW_MS)) {
+        double rate = g_ipcRateLimiter.getRate(sender, method);
+        SecurityLogger::logRateLimitExceeded(sender, method, static_cast<int>(rate));
+        return false;
+    }
+    return true;
 }
 
 static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als) {
@@ -171,12 +190,18 @@ QString SettingsObject::callerAppIdOrEmpty() const {
 }
 
 bool SettingsObject::requireSystem() {
+    if (!checkRateLimit(*this, "Settings")) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+        return false;
+    }
+
     const QString caller = callerAppIdOrEmpty();
     if (caller.isEmpty()) {
         sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
         return false;
     }
     if (!hasAnyPermission(m_permissions, caller, {"system"})) {
+        SecurityLogger::logPermissionDenied(caller, "system");
         sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
         return false;
     }
@@ -184,12 +209,18 @@ bool SettingsObject::requireSystem() {
 }
 
 bool SettingsObject::requireStorage() {
+    if (!checkRateLimit(*this, "Settings.Storage")) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+        return false;
+    }
+
     const QString caller = callerAppIdOrEmpty();
     if (caller.isEmpty()) {
         sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
         return false;
     }
     if (!hasAnyPermission(m_permissions, caller, {"storage"})) {
+        SecurityLogger::logPermissionDenied(caller, "storage");
         sendErrorReply(QDBusError::AccessDenied, "Missing permission: storage");
         return false;
     }

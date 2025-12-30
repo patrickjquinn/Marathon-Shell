@@ -9,6 +9,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QDebug>
+#include <syslog.h>
 
 MarathonAppInstaller::MarathonAppInstaller(MarathonAppRegistry *registry,
                                            MarathonAppScanner *scanner, QObject *parent)
@@ -141,21 +142,52 @@ bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
     QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
     file.close();
 
-    QString appId   = doc.object().value("id").toString();
-    QString appName = doc.object().value("name").toString();
+    QString appId      = doc.object().value("id").toString();
+    QString appName    = doc.object().value("name").toString();
+    QString entryPoint = doc.object().value("entryPoint").toString();
 
-    emit    installStarted(appId);
+    if (appId.isEmpty() || appId.contains("..") || appId.contains('/') || appId.contains('\\') ||
+        appId.startsWith('.')) {
+        qWarning() << "[MarathonAppInstaller] SECURITY: Invalid appId detected:" << appId;
+        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Path traversal blocked: appId=%s",
+               appId.toUtf8().constData());
+        emit installFailed("unknown", "Invalid app ID");
+        return false;
+    }
 
-    // Check if already installed
+    if (!entryPoint.isEmpty()) {
+        if (entryPoint.contains("..") || entryPoint.startsWith('/') ||
+            entryPoint.startsWith('\\')) {
+            qWarning() << "[MarathonAppInstaller] SECURITY: Invalid entryPoint detected:"
+                       << entryPoint;
+            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Path traversal blocked: app=%s entryPoint=%s",
+                   appId.toUtf8().constData(), entryPoint.toUtf8().constData());
+            emit installFailed(appId, "Invalid entry point");
+            return false;
+        }
+    }
+
+    emit installStarted(appId);
+
     if (m_registry->hasApp(appId)) {
         qDebug() << "[MarathonAppInstaller] App already installed, updating:" << appId;
     }
 
-    // Determine destination
-    QString installBase = getTargetInstallPath();
-    QString destPath    = installBase + "/" + appId;
+    QString   installBase = getTargetInstallPath();
+    QString   destPath    = installBase + "/" + appId;
 
-    // Remove existing installation
+    QFileInfo destInfo(destPath);
+    QString   canonicalDest = destInfo.absoluteFilePath();
+    QFileInfo baseInfo(installBase);
+    QString   canonicalBase = baseInfo.canonicalFilePath();
+
+    if (!canonicalBase.isEmpty() && !canonicalDest.startsWith(canonicalBase + "/")) {
+        qWarning() << "[MarathonAppInstaller] SECURITY: Path escape attempt detected:"
+                   << "dest=" << canonicalDest << "base=" << canonicalBase;
+        emit installFailed(appId, "Security violation: installation path escape");
+        return false;
+    }
+
     if (QDir(destPath).exists()) {
         if (!removeDirectory(destPath)) {
             emit installFailed(appId, "Failed to remove existing installation");
@@ -165,7 +197,6 @@ bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
 
     emit installProgress(appId, 50);
 
-    // Copy directory
     if (!copyDirectory(sourcePath, destPath)) {
         emit installFailed(appId, "Failed to copy app files");
         return false;

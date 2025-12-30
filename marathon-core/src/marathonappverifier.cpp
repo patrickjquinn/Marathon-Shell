@@ -6,6 +6,7 @@
 #include <QProcess>
 #include <QStandardPaths>
 #include <QCryptographicHash>
+#include <syslog.h>
 
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
     : QObject(parent) {
@@ -91,6 +92,8 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
     // Check for "Good signature"
     if (output.contains("Good signature", Qt::CaseInsensitive)) {
         qDebug() << "[MarathonAppVerifier] Signature verification successful";
+        syslog(LOG_AUTH | LOG_INFO, "[SECURITY] App signature verified: manifest=%s",
+               manifestPath.toUtf8().constData());
         return true;
     }
 
@@ -98,6 +101,8 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
     if (output.contains("BAD signature", Qt::CaseInsensitive)) {
         m_lastError = "Invalid GPG signature detected";
         qWarning() << "[MarathonAppVerifier] BAD signature detected";
+        syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Invalid app signature: manifest=%s",
+               manifestPath.toUtf8().constData());
         return false;
     }
 
@@ -105,11 +110,16 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
     if (keyFiles.isEmpty() && gpgVerify.exitCode() == 0) {
         qDebug() << "[MarathonAppVerifier] No trusted keys configured, accepting valid signature "
                     "(DEV MODE)";
+        syslog(LOG_AUTH | LOG_WARNING,
+               "[SECURITY] App accepted without trusted key (dev mode): manifest=%s",
+               manifestPath.toUtf8().constData());
         return true;
     }
 
     m_lastError = "GPG verification failed: " + output;
     qWarning() << "[MarathonAppVerifier] Verification failed:" << output;
+    syslog(LOG_AUTH | LOG_WARNING, "[SECURITY] App signature verification failed: manifest=%s",
+           manifestPath.toUtf8().constData());
     return false;
 }
 
