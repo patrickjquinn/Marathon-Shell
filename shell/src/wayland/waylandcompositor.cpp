@@ -388,12 +388,25 @@ void WaylandCompositor::launchApp(const QString &command) {
         }
     });
 
+    const bool useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", true);
+
     if (!needsShell) {
-        process->setProgram(program);
-        process->setArguments(args);
+        if (useSandbox) {
+            QStringList sandboxArgs;
+            sandboxArgs << program << args;
+            process->setProgram("marathon-sandbox");
+            process->setArguments(sandboxArgs);
+        } else {
+            process->setProgram(program);
+            process->setArguments(args);
+        }
         process->start();
     } else {
-        process->start("/bin/sh", {"-c", actualCommand});
+        if (useSandbox) {
+            process->start("marathon-sandbox", {"/bin/sh", "-c", actualCommand});
+        } else {
+            process->start("/bin/sh", {"-c", actualCommand});
+        }
     }
 }
 
