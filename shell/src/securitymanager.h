@@ -9,6 +9,7 @@
 #include <QDBusConnection>
 #include <QFuture>
 #include <QFutureWatcher>
+#include <QRandomGenerator>
 #include <security/pam_appl.h>
 
 class SecurityManager : public QObject {
@@ -96,28 +97,27 @@ class SecurityManager : public QObject {
     void onQuickPINAuthFinished();
 
   private:
-    // PAM authentication backend
-    bool       authenticateViaPAM(const QString &password);
-    static int pamConversationCallback(int num_msg, const struct pam_message **msg,
-                                       struct pam_response **resp, void *appdata_ptr);
+    bool              authenticateViaPAM(const QString &password);
+    static int        pamConversationCallback(int num_msg, const struct pam_message **msg,
+                                              struct pam_response **resp, void *appdata_ptr);
 
-    // Quick PIN (encrypted in libsecret)
-    bool    verifyQuickPIN(const QString &pin);
-    bool    storeQuickPIN(const QString &pin);
-    QString retrieveQuickPIN();
-    void    clearQuickPIN();
+    bool              verifyQuickPIN(const QString &pin);
+    bool              storeQuickPIN(const QString &pin);
+    QString           retrieveQuickPIN();
+    void              clearQuickPIN();
 
-    // fprintd D-Bus integration
-    void initFingerprintDevice();
-    void startFingerprintAuth();
-    void stopFingerprintAuth();
-    void checkFingerprintEnrollment();
+    static QByteArray generateSalt(int length);
+    static QByteArray hashWithIterations(const QByteArray &data, int iterations);
 
-    // Rate limiting and lockout (query pam_faillock)
-    void updateLockoutStatus();
-    void recordFailedAttempt();
-    void resetFailedAttempts();
-    int  queryFaillockAttempts();
+    void              initFingerprintDevice();
+    void              startFingerprintAuth();
+    void              stopFingerprintAuth();
+    void              checkFingerprintEnrollment();
+
+    void              updateLockoutStatus();
+    void              recordFailedAttempt();
+    void              resetFailedAttempts();
+    int               queryFaillockAttempts();
 
     // Members
     AuthMode  m_authMode;

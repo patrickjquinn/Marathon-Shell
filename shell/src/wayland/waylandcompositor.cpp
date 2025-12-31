@@ -17,13 +17,18 @@
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
-    if (raw.isEmpty())
+    if (raw.isEmpty()) {
         return defaultValue;
-    const QByteArray v = raw.trimmed().toLower();
-    if (v == "1" || v == "true" || v == "yes" || v == "on")
+    }
+    const QByteArray valueString = raw.trimmed().toLower();
+    if (valueString == "1" || valueString == "true" || valueString == "yes" ||
+        valueString == "on") {
         return true;
-    if (v == "0" || v == "false" || v == "no" || v == "off")
+    }
+    if (valueString == "0" || valueString == "false" || valueString == "no" ||
+        valueString == "off") {
         return false;
+    }
     return defaultValue;
 }
 
@@ -146,20 +151,31 @@ QQmlListProperty<QObject> WaylandCompositor::surfaces() {
     return QQmlListProperty<QObject>(this, &m_surfaces);
 }
 
-void WaylandCompositor::launchApp(const QString &command) {
-    if (wlVerbose()) {
+void WaylandCompositor::launchApp(const QString &command, const QVariantMap &extraEnv) {
+    if (command.isEmpty()) {
         qDebug() << "[WaylandCompositor] Launching app:" << command;
         qDebug() << "[WaylandCompositor] Socket name:" << socketName();
         qDebug() << "[WaylandCompositor] XDG_RUNTIME_DIR:" << qgetenv("XDG_RUNTIME_DIR");
     }
 
     QString     actualCommand = command;
-    const bool  isFlatpak     = command.startsWith("FLATPAK:");
-    const bool  isSnap        = command.startsWith("SNAP:");
+    bool        isFlatpak     = command.startsWith("FLATPAK:");
+    bool        isSnap        = command.startsWith("SNAP:");
     QStringList execPartsOverride;
 
     if (isFlatpak) {
-        actualCommand           = command.mid(8);
+        actualCommand = command.mid(8);
+    } else if (command.startsWith("flatpak run")) {
+        isFlatpak = true;
+    }
+
+    if (isSnap) {
+        actualCommand = command.mid(5);
+    } else if (command.startsWith("snap run")) {
+        isSnap = true;
+    }
+
+    if (isFlatpak) {
         const QStringList parts = QProcess::splitCommand(actualCommand);
         if (parts.size() >= 2 && parts.at(0) == "flatpak" && parts.at(1) == "run") {
             QStringList newParts;
@@ -181,15 +197,17 @@ void WaylandCompositor::launchApp(const QString &command) {
     }
 
     if (isSnap) {
-        actualCommand = command.mid(5);
         qInfo() << "[WaylandCompositor] Snap app - wayland interface should be connected";
         qInfo() << "[WaylandCompositor] Run 'snap connections APP' to verify wayland interface";
     }
 
     QProcess           *process = new QProcess(this);
 
-    QProcessEnvironment env        = QProcessEnvironment::systemEnvironment();
-    QString             runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    for (auto it = extraEnv.constBegin(); it != extraEnv.constEnd(); ++it) {
+        env.insert(it.key(), it.value().toString());
+    }
+    QString runtimeDir = QString::fromLocal8Bit(qgetenv("XDG_RUNTIME_DIR"));
 
     if (runtimeDir.isEmpty()) {
         qWarning() << "[WaylandCompositor] XDG_RUNTIME_DIR not set! Apps may fail to connect.";
@@ -199,10 +217,11 @@ void WaylandCompositor::launchApp(const QString &command) {
     env.remove("WAYLAND_DISPLAY");
     env.remove("DISPLAY");
 
+    const bool isRunner = actualCommand.contains("marathon-app-runner");
+
     qint64     timestamp   = QDateTime::currentMSecsSinceEpoch();
     uint       commandHash = qHash(actualCommand);
 
-    const bool isRunner = actualCommand.contains("marathon-app-runner");
     if (!isFlatpak && !isRunner) {
         QDir tmpDir("/tmp/marathon-apps");
         if (!tmpDir.exists()) {
@@ -250,12 +269,12 @@ void WaylandCompositor::launchApp(const QString &command) {
     {
         const QByteArray debugEnv = qgetenv("MARATHON_DEBUG").trimmed().toLower();
         const bool       debug    = (debugEnv == "1" || debugEnv == "true");
-        if (debug)
+        if (debug) {
             env.insert("QT_FORCE_STDERR_LOGGING", "1");
+        }
     }
     const bool forceShm = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
     if (!env.contains("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION")) {
-        // wayland-egl for hardware accelerated rendering
         env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", forceShm ? "shm" : "wayland-egl");
     }
 
@@ -366,8 +385,9 @@ void WaylandCompositor::launchApp(const QString &command) {
 
     m_processes[process] = actualCommand;
 
-    if (wlVerbose())
+    if (wlVerbose()) {
         qDebug() << "[WaylandCompositor] Starting process:" << actualCommand;
+    }
 
     const QStringList parts =
         execPartsOverride.isEmpty() ? QProcess::splitCommand(actualCommand) : execPartsOverride;
@@ -388,12 +408,57 @@ void WaylandCompositor::launchApp(const QString &command) {
         }
     });
 
+    const bool    useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", true);
+
+    const QString dbusConfigPath = runtimeDir + "/marathon-dbus-restricted.conf";
+    if (useSandbox && !isRunner) {
+        QFile f(dbusConfigPath);
+        if (f.open(QIODevice::WriteOnly)) {
+            QTextStream out(&f);
+            out << "<busconfig>\n";
+            out << "  <type>session</type>\n";
+            out << "  <listen>unix:tmpdir=/tmp</listen>\n";
+            out << "  <policy context=\"default\">\n";
+            out << "    <allow send_destination=\"*\" eavesdrop=\"true\"/>\n";
+            out << "    <allow receive_sender=\"*\" eavesdrop=\"true\"/>\n";
+            out << "    <allow own=\"*\"/>\n";
+            out << "  </policy>\n";
+            out << "</busconfig>\n";
+            f.close();
+        }
+    }
+
     if (!needsShell) {
-        process->setProgram(program);
-        process->setArguments(args);
+        if (useSandbox) {
+            QStringList finalArgs;
+            QString     finalProgram;
+            if (!isRunner) {
+                finalProgram = "dbus-run-session";
+                finalArgs << "--config-file" << dbusConfigPath << "--" << "marathon-sandbox"
+                          << program << args;
+            } else {
+                finalProgram = "marathon-sandbox";
+                finalArgs << program << args;
+            }
+            process->setProgram(finalProgram);
+            process->setArguments(finalArgs);
+        } else {
+            process->setProgram(program);
+            process->setArguments(args);
+        }
         process->start();
     } else {
-        process->start("/bin/sh", {"-c", actualCommand});
+        if (useSandbox) {
+            if (!isRunner) {
+                process->start("dbus-run-session",
+                               {"--config-file", dbusConfigPath, "--", "marathon-sandbox",
+                                "/bin/sh", "-c", actualCommand});
+            } else {
+                process->start("marathon-sandbox", {"/bin/sh", "-c", actualCommand});
+            }
+        } else {
+            process->start("/bin/sh", {"-c", actualCommand});
+        }
     }
 }
 
@@ -445,7 +510,6 @@ void WaylandCompositor::closeWindow(int surfaceId) {
         return;
     }
 
-    // Mark this process as being closed by the shell (avoid mislabeling signal-based termination as a crash).
     targetProcess->setProperty("marathonCloseRequested", true);
 
     QPointer<QProcess> safeProcessPtr(targetProcess);
@@ -868,7 +932,6 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
     const QString output = outputTail + QString::fromLocal8Bit(process->readAllStandardOutput());
     const QString err    = errTail + QString::fromLocal8Bit(process->readAllStandardError());
 
-    // Always dump recent output on errors (even if MARATHON_WL_VERBOSE=0).
     if (!output.trimmed().isEmpty())
         qWarning() << "[WaylandCompositor] stdout tail for" << command << ":\n" << output.trimmed();
     if (!err.trimmed().isEmpty())

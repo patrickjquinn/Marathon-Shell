@@ -1,5 +1,7 @@
 #include "audioroutingmanager.h"
-#include <QRegularExpression>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 AudioRoutingManager::AudioRoutingManager(QObject *parent)
     : QObject(parent)
@@ -199,125 +201,76 @@ void AudioRoutingManager::onWpctlFinished(int exitCode, QProcess::ExitStatus exi
 }
 
 void AudioRoutingManager::detectAudioDevices() {
-    // Run wpctl status to discover audio devices
-    QProcess wpctl;
-    wpctl.start("wpctl", QStringList() << "status");
+    QProcess pwDump;
+    pwDump.start("pw-dump", QStringList());
 
-    if (!wpctl.waitForFinished(5000)) {
-        qWarning() << "[AudioRoutingManager] wpctl command timed out or failed";
-        QString error = wpctl.readAllStandardError();
-        qWarning() << "[AudioRoutingManager] wpctl error:" << error;
-        m_deviceDetectionTimer->stop();
+    if (!pwDump.waitForFinished(5000)) {
+        qWarning() << "[AudioRoutingManager] pw-dump command timed out or failed";
         return;
     }
 
-    QString output = wpctl.readAllStandardOutput();
-    QString error  = wpctl.readAllStandardError();
-
-    if (!error.isEmpty()) {
-        qWarning() << "[AudioRoutingManager] wpctl stderr:" << error;
-    }
+    QByteArray output = pwDump.readAllStandardOutput();
     if (output.isEmpty()) {
-        qWarning() << "[AudioRoutingManager] wpctl returned empty output!";
+        qWarning() << "[AudioRoutingManager] pw-dump returned empty output!";
         return;
     }
-    parseWpctlStatus(output);
-}
 
-void AudioRoutingManager::parseWpctlStatus(const QString &output) {
-    // Parse wpctl status output to find:
-    // - Audio card ID
-    // - Earpiece sink ID
-    // - Speaker sink ID
-    // - Bluetooth sink ID (if available)
-    // - Microphone source ID
+    QJsonParseError parseError;
+    QJsonDocument   doc = QJsonDocument::fromJson(output, &parseError);
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "[AudioRoutingManager] Failed to parse pw-dump JSON:"
+                   << parseError.errorString();
+        return;
+    }
 
-    // Example output format:
-    // Audio
-    //  ├─ Devices:
-    //  │      53. Built-in Audio                   [alsa]
-    //  │
-    //  ├─ Sinks:
-    //  │      54. Built-in Audio Analog Stereo    [vol: 0.65]
-    //  │
-    //  ├─ Sources:
-    //  │      55. Built-in Audio Analog Stereo    [vol: 0.80]
+    if (!doc.isArray()) {
+        qWarning() << "[AudioRoutingManager] pw-dump output is not a JSON array";
+        return;
+    }
 
-    QStringList lines     = output.split('\n');
-    bool        inDevices = false;
-    bool        inSinks   = false;
-    bool        inSources = false;
+    QJsonArray objects = doc.array();
+    for (const QJsonValue &val : objects) {
+        QJsonObject obj   = val.toObject();
+        QString     type  = obj["type"].toString();
+        int         id    = obj["id"].toInt();
+        QJsonObject info  = obj["info"].toObject();
+        QJsonObject props = info["props"].toObject();
 
-    for (const QString &line : lines) {
-        // Section detection
-        if (line.contains("Devices:")) {
-            inDevices = true;
-            inSinks   = false;
-            inSources = false;
-            continue;
-        } else if (line.contains("Sinks:")) {
-            inDevices = false;
-            inSinks   = true;
-            inSources = false;
-            continue;
-        } else if (line.contains("Sources:")) {
-            inDevices = false;
-            inSinks   = false;
-            inSources = true;
-            continue;
+        if (type.contains("PipeWire:Interface:Device")) {
+            QString deviceName = props["device.name"].toString();
+            if (deviceName.contains("alsa_card") && m_audioCardId.isEmpty()) {
+                m_audioCardId = QString::number(id);
+                qInfo() << "[AudioRoutingManager] Found audio card:" << id << deviceName;
+            }
         }
 
-        // Extract device/sink/source IDs
-        // Match lines like: " │      42. Virtio 1.0 sound                    [alsa]"
-        // or: " *   51. Virtio 1.0 sound Stereo             [vol: 0.47]"
-        // Note: wpctl uses box-drawing characters, so match any non-digit chars before the number
-        QRegularExpression      idRegex(R"((\d+)\.\s+(.+?)(?:\s+\[|$))");
-        QRegularExpressionMatch match = idRegex.match(line);
+        if (type.contains("PipeWire:Interface:Node")) {
+            QString mediaClass = props["media.class"].toString();
+            QString nodeName   = props["node.name"].toString();
 
-        if (match.hasMatch()) {
-            QString id   = match.captured(1);
-            QString name = match.captured(2).trimmed();
-
-            if (inDevices) {
-                if (name.contains("Built-in", Qt::CaseInsensitive) ||
-                    name.contains("Audio", Qt::CaseInsensitive) ||
-                    name.contains("sound", Qt::CaseInsensitive) ||
-                    name.contains("Sound", Qt::CaseInsensitive)) {
-                    // Use first matching audio device as card ID
-                    if (m_audioCardId.isEmpty()) {
-                        m_audioCardId = id;
-                        qInfo() << "[AudioRoutingManager] ✓ Found audio card:" << id << name;
-                    }
+            if (mediaClass == "Audio/Sink") {
+                if (nodeName.contains("earpiece", Qt::CaseInsensitive) &&
+                    m_earpieceSinkId.isEmpty()) {
+                    m_earpieceSinkId = QString::number(id);
+                    qDebug() << "[AudioRoutingManager] Found earpiece:" << id << nodeName;
+                } else if ((nodeName.contains("speaker", Qt::CaseInsensitive) ||
+                            nodeName.contains("stereo", Qt::CaseInsensitive)) &&
+                           m_speakerSinkId.isEmpty()) {
+                    m_speakerSinkId = QString::number(id);
+                    qDebug() << "[AudioRoutingManager] Found speaker:" << id << nodeName;
+                } else if ((nodeName.contains("bluetooth", Qt::CaseInsensitive) ||
+                            nodeName.contains("bluez", Qt::CaseInsensitive)) &&
+                           m_bluetoothSinkId.isEmpty()) {
+                    m_bluetoothSinkId = QString::number(id);
+                    qDebug() << "[AudioRoutingManager] Found Bluetooth:" << id << nodeName;
+                } else if (m_speakerSinkId.isEmpty()) {
+                    m_speakerSinkId = QString::number(id);
                 }
-            } else if (inSinks) {
-                // Heuristic: detect earpiece vs speaker by name
-                if (name.contains("Earpiece", Qt::CaseInsensitive)) {
-                    if (m_earpieceSinkId.isEmpty()) {
-                        m_earpieceSinkId = id;
-                        qDebug() << "[AudioRoutingManager] Found earpiece:" << id << name;
-                    }
-                } else if (name.contains("Speaker", Qt::CaseInsensitive) ||
-                           name.contains("Stereo", Qt::CaseInsensitive)) {
-                    if (m_speakerSinkId.isEmpty()) {
-                        m_speakerSinkId = id;
-                        qDebug() << "[AudioRoutingManager] Found speaker:" << id << name;
-                    }
-                } else if (name.contains("Bluetooth", Qt::CaseInsensitive) ||
-                           name.contains("bluez", Qt::CaseInsensitive)) {
-                    if (m_bluetoothSinkId.isEmpty()) {
-                        m_bluetoothSinkId = id;
-                        qDebug() << "[AudioRoutingManager] Found Bluetooth:" << id << name;
-                    }
-                }
-
-                // Fallback: use first sink as default
-                if (m_earpieceSinkId.isEmpty() && m_speakerSinkId.isEmpty()) {
-                    m_earpieceSinkId = id; // Assume first sink is earpiece
-                }
-            } else if (inSources) {
-                if (m_microphoneSourceId.isEmpty()) {
-                    m_microphoneSourceId = id;
-                    qDebug() << "[AudioRoutingManager] Found microphone:" << id << name;
+            } else if (mediaClass == "Audio/Source") {
+                if (!nodeName.contains("monitor", Qt::CaseInsensitive) &&
+                    m_microphoneSourceId.isEmpty()) {
+                    m_microphoneSourceId = QString::number(id);
+                    qDebug() << "[AudioRoutingManager] Found microphone:" << id << nodeName;
                 }
             }
         }
@@ -329,43 +282,15 @@ void AudioRoutingManager::parseWpctlStatus(const QString &output) {
 }
 
 QString AudioRoutingManager::findAudioCard() {
-    QProcess wpctl;
-    wpctl.start("wpctl", QStringList() << "status");
-
-    if (!wpctl.waitForFinished(5000)) {
-        return QString();
-    }
-
-    QString output = wpctl.readAllStandardOutput();
-
-    // Find first audio device
-    QRegularExpression      regex(R"((\d+)\.\s+.*Built-in.*Audio)");
-    QRegularExpressionMatch match = regex.match(output);
-
-    if (match.hasMatch()) {
-        return match.captured(1);
-    }
-
-    return QString();
+    return m_audioCardId;
 }
 
 QString AudioRoutingManager::findSinkByName(const QString &name) {
-    QProcess wpctl;
-    wpctl.start("wpctl", QStringList() << "status");
-
-    if (!wpctl.waitForFinished(5000)) {
-        return QString();
-    }
-
-    QString output = wpctl.readAllStandardOutput();
-
-    // Find sink matching name
-    QRegularExpression regex(QString(R"((\d+)\.\s+.*%1)").arg(QRegularExpression::escape(name)));
-    QRegularExpressionMatch match = regex.match(output);
-
-    if (match.hasMatch()) {
-        return match.captured(1);
-    }
-
-    return QString();
+    if (name.contains("earpiece", Qt::CaseInsensitive))
+        return m_earpieceSinkId;
+    if (name.contains("speaker", Qt::CaseInsensitive))
+        return m_speakerSinkId;
+    if (name.contains("bluetooth", Qt::CaseInsensitive))
+        return m_bluetoothSinkId;
+    return m_speakerSinkId;
 }

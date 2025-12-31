@@ -474,7 +474,7 @@ void NetworkManagerCpp::scanAccessPoints() {
         }
     }
 
-    qWarning() << "[NetworkManagerCpp] Found" << accessPoints.size() << "access points";
+    qDebug() << "[NetworkManagerCpp] Found" << accessPoints.size() << "access points";
 
     m_availableNetworks.clear();
 
@@ -494,7 +494,7 @@ void NetworkManagerCpp::scanAccessPoints() {
                   return am.value("strength").toInt() > bm.value("strength").toInt();
               });
 
-    qWarning() << "[NetworkManagerCpp] Processed" << m_availableNetworks.size() << "networks";
+    qDebug() << "[NetworkManagerCpp] Processed" << m_availableNetworks.size() << "networks";
     emit availableNetworksChanged();
 }
 

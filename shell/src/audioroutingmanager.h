@@ -92,7 +92,6 @@ class AudioRoutingManager : public QObject {
     void    runWpctlCommand(const QString &command, const QStringList &args);
     QString findAudioCard();
     QString findSinkByName(const QString &name);
-    void    parseWpctlStatus(const QString &output);
 
     bool    m_isInCall;
     bool    m_isSpeakerphoneEnabled;

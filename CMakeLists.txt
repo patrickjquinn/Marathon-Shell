@@ -172,6 +172,7 @@ add_subdirectory(marathon-ui)
 add_subdirectory(shell)
 add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
+add_subdirectory(tools/marathon-sandbox)
 
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")
