@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QProcess>
 #include <QTemporaryDir>
+#include <syslog.h>
 
 static bool copyDirRecursively(const QString &sourceDir, const QString &destDir) {
     QDir src(sourceDir);
@@ -31,7 +32,6 @@ static bool copyDirRecursively(const QString &sourceDir, const QString &destDir)
                 return false;
             }
         } else {
-            // Overwrite if it exists
             if (QFile::exists(dstPath)) {
                 QFile::remove(dstPath);
             }
@@ -46,6 +46,42 @@ static bool copyDirRecursively(const QString &sourceDir, const QString &destDir)
 MarathonAppPackager::MarathonAppPackager(QObject *parent)
     : QObject(parent) {}
 
+bool MarathonAppPackager::verifyNoSymlinkEscape(const QString &dir, const QString &baseDir) {
+    QDir                directory(dir);
+    QString             canonicalBase = QFileInfo(baseDir).canonicalFilePath();
+
+    const QFileInfoList entries =
+        directory.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries | QDir::System);
+
+    for (const QFileInfo &entry : entries) {
+        if (entry.isSymLink()) {
+            QString   target = entry.symLinkTarget();
+            QFileInfo targetInfo(target);
+            QString   canonicalTarget = targetInfo.canonicalFilePath();
+
+            if (canonicalTarget.isEmpty()) {
+                canonicalTarget =
+                    QFileInfo(entry.absolutePath() + "/" + target).canonicalFilePath();
+            }
+
+            if (!canonicalTarget.startsWith(canonicalBase + "/") &&
+                canonicalTarget != canonicalBase) {
+                m_lastError = QString("Symlink escape detected: %1 -> %2")
+                                  .arg(entry.absoluteFilePath(), target);
+                qWarning() << "[MarathonAppPackager] SECURITY:" << m_lastError;
+                syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Symlink escape in package: %s -> %s",
+                       entry.absoluteFilePath().toUtf8().constData(), target.toUtf8().constData());
+                return false;
+            }
+        } else if (entry.isDir()) {
+            if (!verifyNoSymlinkEscape(entry.absoluteFilePath(), baseDir)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool MarathonAppPackager::validateAppDirectory(const QString &appDir) {
     QDir dir(appDir);
     if (!dir.exists()) {
@@ -53,14 +89,12 @@ bool MarathonAppPackager::validateAppDirectory(const QString &appDir) {
         return false;
     }
 
-    // Check for manifest.json
     QString manifestPath = appDir + "/manifest.json";
     if (!QFile::exists(manifestPath)) {
         m_lastError = "manifest.json not found in app directory";
         return false;
     }
 
-    // Validate manifest
     QFile manifestFile(manifestPath);
     if (!manifestFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         m_lastError = "Failed to open manifest.json";
@@ -81,10 +115,9 @@ bool MarathonAppPackager::validateAppDirectory(const QString &appDir) {
         return false;
     }
 
-    QJsonObject obj = doc.object();
-
-    // Check required fields
+    QJsonObject obj            = doc.object();
     QStringList requiredFields = {"id", "name", "version", "entryPoint", "icon"};
+
     for (const QString &field : requiredFields) {
         if (!obj.contains(field) || obj.value(field).toString().isEmpty()) {
             m_lastError = "manifest.json missing required field: " + field;
@@ -92,7 +125,6 @@ bool MarathonAppPackager::validateAppDirectory(const QString &appDir) {
         }
     }
 
-    // Check if entryPoint exists
     QString entryPoint = obj.value("entryPoint").toString();
     if (!QFile::exists(appDir + "/" + entryPoint)) {
         m_lastError = "Entry point file not found: " + entryPoint;
@@ -103,10 +135,7 @@ bool MarathonAppPackager::validateAppDirectory(const QString &appDir) {
 }
 
 bool MarathonAppPackager::createZipArchive(const QString &sourceDir, const QString &zipPath) {
-    // Use zip command for creating archive
-    QProcess zipProcess;
-
-    // Change to source directory and create zip
+    QProcess    zipProcess;
     QStringList args;
     args << "-r" << zipPath << ".";
 
@@ -118,7 +147,7 @@ bool MarathonAppPackager::createZipArchive(const QString &sourceDir, const QStri
         return false;
     }
 
-    if (!zipProcess.waitForFinished(30000)) { // 30 second timeout
+    if (!zipProcess.waitForFinished(30000)) {
         m_lastError = "Zip process timed out";
         return false;
     }
@@ -132,16 +161,13 @@ bool MarathonAppPackager::createZipArchive(const QString &sourceDir, const QStri
 }
 
 bool MarathonAppPackager::extractZipArchive(const QString &zipPath, const QString &destDir) {
-    // Ensure destination exists
     QDir dir;
     if (!dir.mkpath(destDir)) {
         m_lastError = "Failed to create destination directory: " + destDir;
         return false;
     }
 
-    // Use unzip command for extraction
     QProcess    unzipProcess;
-
     QStringList args;
     args << "-o" << zipPath << "-d" << destDir;
 
@@ -152,32 +178,27 @@ bool MarathonAppPackager::extractZipArchive(const QString &zipPath, const QStrin
         return false;
     }
 
-    if (!unzipProcess.waitForFinished(30000)) { // 30 second timeout
+    if (!unzipProcess.waitForFinished(30000)) {
         m_lastError = "Unzip process timed out";
         return false;
     }
 
-    if (unzipProcess.exitCode() != 0) {
-        QString errorMsg = QString::fromUtf8(unzipProcess.readAllStandardError());
-        // unzip returns 1 for warnings, which is often ok
-        if (unzipProcess.exitCode() > 1) {
-            m_lastError = "Unzip process failed: " + errorMsg;
-            return false;
-        }
+    if (unzipProcess.exitCode() > 1) {
+        m_lastError =
+            "Unzip process failed: " + QString::fromUtf8(unzipProcess.readAllStandardError());
+        return false;
     }
 
     return true;
 }
 
 bool MarathonAppPackager::verifyPackageStructure(const QString &extractedDir) {
-    // Verify manifest.json exists
     QString manifestPath = extractedDir + "/manifest.json";
     if (!QFile::exists(manifestPath)) {
         m_lastError = "Extracted package missing manifest.json";
         return false;
     }
 
-    // Validate manifest
     QFile manifestFile(manifestPath);
     if (!manifestFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         m_lastError = "Failed to read manifest.json from package";
@@ -193,6 +214,10 @@ bool MarathonAppPackager::verifyPackageStructure(const QString &extractedDir) {
         return false;
     }
 
+    if (!verifyNoSymlinkEscape(extractedDir, extractedDir)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -202,7 +227,6 @@ bool MarathonAppPackager::createPackage(const QString &appDir, const QString &ou
 
     emit packagingProgress(10);
 
-    // Validate app directory
     if (!validateAppDirectory(appDir)) {
         qWarning() << "[MarathonAppPackager] Validation failed:" << m_lastError;
         emit error(m_lastError);
@@ -211,7 +235,6 @@ bool MarathonAppPackager::createPackage(const QString &appDir, const QString &ou
 
     emit packagingProgress(30);
 
-    // Remove output file if it exists
     if (QFile::exists(outputPath)) {
         if (!QFile::remove(outputPath)) {
             m_lastError = "Failed to remove existing output file: " + outputPath;
@@ -222,7 +245,6 @@ bool MarathonAppPackager::createPackage(const QString &appDir, const QString &ou
 
     emit packagingProgress(50);
 
-    // Create zip archive
     if (!createZipArchive(appDir, outputPath)) {
         qWarning() << "[MarathonAppPackager] Failed to create zip:" << m_lastError;
         emit error(m_lastError);
@@ -231,7 +253,6 @@ bool MarathonAppPackager::createPackage(const QString &appDir, const QString &ou
 
     emit packagingProgress(90);
 
-    // Verify the created package
     if (!QFile::exists(outputPath)) {
         m_lastError = "Package file was not created: " + outputPath;
         emit error(m_lastError);
@@ -250,16 +271,14 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
 
     emit extractionProgress(10);
 
-    // Check if package exists
     if (!QFile::exists(packagePath)) {
         m_lastError = "Package file does not exist: " + packagePath;
         emit error(m_lastError);
         return false;
     }
 
-    emit extractionProgress(30);
+    emit          extractionProgress(30);
 
-    // Create temporary directory for extraction
     QTemporaryDir tempDir;
     if (!tempDir.isValid()) {
         m_lastError = "Failed to create temporary directory";
@@ -267,9 +286,8 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
         return false;
     }
 
-    emit extractionProgress(50);
+    emit    extractionProgress(50);
 
-    // Extract to temp directory first
     QString tempExtractPath = tempDir.path();
     if (!extractZipArchive(packagePath, tempExtractPath)) {
         qWarning() << "[MarathonAppPackager] Extraction failed:" << m_lastError;
@@ -279,7 +297,6 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
 
     emit extractionProgress(70);
 
-    // Verify package structure
     if (!verifyPackageStructure(tempExtractPath)) {
         qWarning() << "[MarathonAppPackager] Package structure invalid:" << m_lastError;
         emit error(m_lastError);
@@ -288,7 +305,6 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
 
     emit extractionProgress(85);
 
-    // Move to final destination
     QDir destDirObj(destDir);
     if (destDirObj.exists()) {
         if (!destDirObj.removeRecursively()) {
@@ -298,7 +314,6 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
         }
     }
 
-    // Ensure parent directory exists (but DO NOT create destDir itself; rename needs it absent)
     QDir parentDir = QFileInfo(destDir).dir();
     if (!parentDir.exists() && !parentDir.mkpath(".")) {
         m_lastError = "Failed to create destination parent directory";
@@ -306,9 +321,7 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
         return false;
     }
 
-    // Prefer atomic-ish move (fast) when possible.
     if (!QDir().rename(tempExtractPath, destDir)) {
-        // Cross-filesystem or permissions can cause rename to fail. Fall back to recursive copy.
         if (!copyDirRecursively(tempExtractPath, destDir)) {
             m_lastError = "Failed to move extracted files to destination";
             emit error(m_lastError);

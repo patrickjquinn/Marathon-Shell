@@ -15,64 +15,50 @@
 #include <syslog.h>
 
 #ifndef landlock_create_ruleset
-static inline int landlock_create_ruleset(
-    const struct landlock_ruleset_attr *attr, size_t size, __u32 flags)
-{
+static inline int landlock_create_ruleset(const struct landlock_ruleset_attr *attr, size_t size,
+                                          __u32 flags) {
     return syscall(__NR_landlock_create_ruleset, attr, size, flags);
 }
 #endif
 
 #ifndef landlock_add_rule
 static inline int landlock_add_rule(int ruleset_fd, enum landlock_rule_type rule_type,
-    const void *rule_attr, __u32 flags)
-{
+                                    const void *rule_attr, __u32 flags) {
     return syscall(__NR_landlock_add_rule, ruleset_fd, rule_type, rule_attr, flags);
 }
 #endif
 
 #ifndef landlock_restrict_self
-static inline int landlock_restrict_self(int ruleset_fd, __u32 flags)
-{
+static inline int landlock_restrict_self(int ruleset_fd, __u32 flags) {
     return syscall(__NR_landlock_restrict_self, ruleset_fd, flags);
 }
 #endif
 
-#define ACCESS_FS_ROUGHLY_READ ( \
-    LANDLOCK_ACCESS_FS_EXECUTE | \
-    LANDLOCK_ACCESS_FS_READ_FILE | \
-    LANDLOCK_ACCESS_FS_READ_DIR)
+#define ACCESS_FS_ROUGHLY_READ                                                                     \
+    (LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE | LANDLOCK_ACCESS_FS_READ_DIR)
 
-#define ACCESS_FS_ROUGHLY_WRITE ( \
-    LANDLOCK_ACCESS_FS_WRITE_FILE | \
-    LANDLOCK_ACCESS_FS_REMOVE_DIR | \
-    LANDLOCK_ACCESS_FS_REMOVE_FILE | \
-    LANDLOCK_ACCESS_FS_MAKE_CHAR | \
-    LANDLOCK_ACCESS_FS_MAKE_DIR | \
-    LANDLOCK_ACCESS_FS_MAKE_REG | \
-    LANDLOCK_ACCESS_FS_MAKE_SOCK | \
-    LANDLOCK_ACCESS_FS_MAKE_FIFO | \
-    LANDLOCK_ACCESS_FS_MAKE_BLOCK | \
-    LANDLOCK_ACCESS_FS_MAKE_SYM | \
-    LANDLOCK_ACCESS_FS_TRUNCATE)
+#define ACCESS_FS_ROUGHLY_WRITE                                                                    \
+    (LANDLOCK_ACCESS_FS_WRITE_FILE | LANDLOCK_ACCESS_FS_REMOVE_DIR |                               \
+     LANDLOCK_ACCESS_FS_REMOVE_FILE | LANDLOCK_ACCESS_FS_MAKE_CHAR | LANDLOCK_ACCESS_FS_MAKE_DIR | \
+     LANDLOCK_ACCESS_FS_MAKE_REG | LANDLOCK_ACCESS_FS_MAKE_SOCK | LANDLOCK_ACCESS_FS_MAKE_FIFO |   \
+     LANDLOCK_ACCESS_FS_MAKE_BLOCK | LANDLOCK_ACCESS_FS_MAKE_SYM | LANDLOCK_ACCESS_FS_TRUNCATE)
 
-static int add_path_rule(int ruleset_fd, const char *path, __u64 allowed_access)
-{
+static int add_path_rule(int ruleset_fd, const char *path, __u64 allowed_access) {
     struct landlock_path_beneath_attr path_beneath = {
         .allowed_access = allowed_access,
     };
-    
+
     path_beneath.parent_fd = open(path, O_PATH | O_CLOEXEC);
     if (path_beneath.parent_fd < 0) {
         return -1;
     }
-    
+
     int ret = landlock_add_rule(ruleset_fd, LANDLOCK_RULE_PATH_BENEATH, &path_beneath, 0);
     close(path_beneath.parent_fd);
     return ret;
 }
 
-static int setup_seccomp(void)
-{
+static int setup_seccomp(void) {
     if (prctl(PR_GET_SECCOMP) == -1 && errno == EINVAL) {
         fprintf(stderr, "[marathon-sandbox] Seccomp not available\n");
         return 0;
@@ -149,53 +135,52 @@ static int setup_seccomp(void)
         __NR_open_by_handle_at,
 #endif
     };
-    
-    const size_t num_blocked = sizeof(blocked_syscalls) / sizeof(blocked_syscalls[0]);
-    const size_t filter_size = 2 + (2 * num_blocked) + 1;
-    struct sock_filter *filter = calloc(filter_size, sizeof(struct sock_filter));
+
+    const size_t        num_blocked = sizeof(blocked_syscalls) / sizeof(blocked_syscalls[0]);
+    const size_t        filter_size = 2 + (2 * num_blocked) + 1;
+    struct sock_filter *filter      = calloc(filter_size, sizeof(struct sock_filter));
     if (!filter) {
         perror("[marathon-sandbox] Failed to allocate seccomp filter");
         return -1;
     }
-    
+
     size_t idx = 0;
-    
-    filter[idx++] = (struct sock_filter)BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
-        offsetof(struct seccomp_data, nr));
-    
+
+    filter[idx++] =
+        (struct sock_filter)BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+
 #if defined(__x86_64__)
-    filter[idx++] = (struct sock_filter)BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
-        offsetof(struct seccomp_data, arch));
-    filter[idx-1] = (struct sock_filter)BPF_STMT(BPF_LD | BPF_W | BPF_ABS,
-        offsetof(struct seccomp_data, nr));
+    filter[idx++] =
+        (struct sock_filter)BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch));
+    filter[idx - 1] =
+        (struct sock_filter)BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
 #endif
-    
+
     for (size_t i = 0; i < num_blocked; i++) {
-        filter[idx++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-            blocked_syscalls[i], 0, 1);
-        filter[idx++] = (struct sock_filter)BPF_STMT(BPF_RET | BPF_K,
-            SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+        filter[idx++] =
+            (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, blocked_syscalls[i], 0, 1);
+        filter[idx++] = (struct sock_filter)BPF_STMT(
+            BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
     }
-    
+
     filter[idx++] = (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW);
-    
+
     struct sock_fprog prog = {
-        .len = (unsigned short)idx,
+        .len    = (unsigned short)idx,
         .filter = filter,
     };
-    
+
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) == -1) {
         perror("[marathon-sandbox] Failed to apply seccomp filter");
         free(filter);
         return -1;
     }
-    
+
     free(filter);
     return 0;
 }
 
-static int setup_landlock(void)
-{
+static int setup_landlock(void) {
     int abi = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
     if (abi < 0) {
         if (errno == ENOSYS || errno == EOPNOTSUPP) {
@@ -231,28 +216,28 @@ static int setup_landlock(void)
     add_path_rule(ruleset_fd, "/opt", ACCESS_FS_ROUGHLY_READ);
     add_path_rule(ruleset_fd, "/proc", ACCESS_FS_ROUGHLY_READ);
     add_path_rule(ruleset_fd, "/sys", ACCESS_FS_ROUGHLY_READ);
-    
+
     add_path_rule(ruleset_fd, "/dev", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
     add_path_rule(ruleset_fd, "/dev/dri", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
     add_path_rule(ruleset_fd, "/dev/shm", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
-    
+
     add_path_rule(ruleset_fd, "/run/dbus", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
     add_path_rule(ruleset_fd, "/run/user", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
-    
+
     const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
     if (xdg_runtime) {
         add_path_rule(ruleset_fd, xdg_runtime, ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
     }
-    
+
     add_path_rule(ruleset_fd, "/var", ACCESS_FS_ROUGHLY_READ);
     add_path_rule(ruleset_fd, "/var/cache", ACCESS_FS_ROUGHLY_READ);
     add_path_rule(ruleset_fd, "/var/lib", ACCESS_FS_ROUGHLY_READ);
-    
+
     const char *home = getenv("HOME");
     if (home) {
         add_path_rule(ruleset_fd, home, ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
     }
-    
+
     add_path_rule(ruleset_fd, "/tmp", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
     add_path_rule(ruleset_fd, "/var/tmp", ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE);
 
@@ -261,19 +246,18 @@ static int setup_landlock(void)
         close(ruleset_fd);
         return -1;
     }
-    
+
     if (landlock_restrict_self(ruleset_fd, 0)) {
         perror("[marathon-sandbox] Failed to enforce ruleset");
         close(ruleset_fd);
         return -1;
     }
-    
+
     close(ruleset_fd);
     return 0;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <command> [args...]\n", argv[0]);
         return 1;

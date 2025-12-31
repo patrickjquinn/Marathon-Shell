@@ -11,7 +11,6 @@
 MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     : QObject(parent)
     , m_promptActive(false) {
-    // Initialize permission descriptions
     m_permissionDescriptions = {
         {"network", "Access the internet and make network connections"},
         {"location", "Access your device's location"},
@@ -24,7 +23,8 @@ MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
         {"telephony", "Make and receive phone calls"},
         {"sms", "Send and receive SMS messages"},
         {"bluetooth", "Connect to Bluetooth devices"},
-        {"system", "Access system-level features (restricted to system apps)"}};
+        {"system", "Access system-level features (restricted to system apps)"},
+        {"terminal", "Run shell commands with full system access (DANGEROUS)"}};
 
     loadPermissions();
 

@@ -1,11 +1,11 @@
 #include "marathonappverifier.h"
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
-#include <QCryptographicHash>
 #include <syslog.h>
 
 MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
@@ -14,13 +14,8 @@ MarathonAppVerifier::MarathonAppVerifier(QObject *parent)
 }
 
 QString MarathonAppVerifier::getTrustedKeysDir() {
-    // User-specific trusted keys
-    QString userDir =
-        QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/marathon/trusted-keys";
-
-    // Also check system-wide trusted keys in /usr/share/marathon-shell/trusted-keys/
-    // but for now, we'll use user directory
-    return userDir;
+    return QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
+        "/marathon/trusted-keys";
 }
 
 bool MarathonAppVerifier::initializeTrustedKeysDir() {
@@ -57,19 +52,14 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
         return false;
     }
 
-    // Import trusted keys to a temporary keyring
     QString     trustedKeysDir = getTrustedKeysDir();
     QDir        keysDir(trustedKeysDir);
     QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
 
     if (keyFiles.isEmpty()) {
-        qDebug() << "[MarathonAppVerifier] No trusted keys found, accepting any valid signature "
-                    "(DEV MODE)";
-        // In development mode, accept any valid signature
-        // In production, this should return false
+        qDebug() << "[MarathonAppVerifier] No trusted keys found, accepting any valid signature";
     }
 
-    // Verify signature
     QProcess    gpgVerify;
     QStringList args;
     args << "--verify" << signaturePath << manifestPath;
@@ -86,10 +76,8 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
         return false;
     }
 
-    // GPG writes verification output to stderr
     QString output = QString::fromUtf8(gpgVerify.readAllStandardError());
 
-    // Check for "Good signature"
     if (output.contains("Good signature", Qt::CaseInsensitive)) {
         qDebug() << "[MarathonAppVerifier] Signature verification successful";
         syslog(LOG_AUTH | LOG_INFO, "[SECURITY] App signature verified: manifest=%s",
@@ -97,7 +85,6 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
         return true;
     }
 
-    // Check for "BAD signature"
     if (output.contains("BAD signature", Qt::CaseInsensitive)) {
         m_lastError = "Invalid GPG signature detected";
         qWarning() << "[MarathonAppVerifier] BAD signature detected";
@@ -106,10 +93,17 @@ bool MarathonAppVerifier::verifySignatureFile(const QString &manifestPath,
         return false;
     }
 
-    // If no trusted keys and signature is valid, allow in dev mode
+    bool strictMode = qEnvironmentVariableIsSet("MARATHON_REQUIRE_SIGNATURES");
+
     if (keyFiles.isEmpty() && gpgVerify.exitCode() == 0) {
-        qDebug() << "[MarathonAppVerifier] No trusted keys configured, accepting valid signature "
-                    "(DEV MODE)";
+        if (strictMode) {
+            m_lastError = "No trusted keys configured (strict mode requires trusted keys)";
+            qWarning() << "[MarathonAppVerifier] Rejected: no trusted keys in strict mode";
+            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] App rejected - no trusted keys: manifest=%s",
+                   manifestPath.toUtf8().constData());
+            return false;
+        }
+        qWarning() << "[MarathonAppVerifier] No trusted keys configured, accepting valid signature";
         syslog(LOG_AUTH | LOG_WARNING,
                "[SECURITY] App accepted without trusted key (dev mode): manifest=%s",
                manifestPath.toUtf8().constData());
@@ -129,7 +123,6 @@ MarathonAppVerifier::verifyDirectory(const QString &appDir) {
 
     emit verificationStarted();
 
-    // Check if directory exists
     QDir dir(appDir);
     if (!dir.exists()) {
         m_lastError = "Directory does not exist: " + appDir;
@@ -138,7 +131,6 @@ MarathonAppVerifier::verifyDirectory(const QString &appDir) {
         return VerificationFailed;
     }
 
-    // Check for manifest.json
     QString manifestPath = appDir + "/manifest.json";
     if (!QFile::exists(manifestPath)) {
         m_lastError = "manifest.json not found in directory";
@@ -147,23 +139,25 @@ MarathonAppVerifier::verifyDirectory(const QString &appDir) {
         return ManifestMissing;
     }
 
-    // Check for SIGNATURE.txt
     QString signaturePath = appDir + "/SIGNATURE.txt";
     if (!QFile::exists(signaturePath)) {
-        // In development mode, allow unsigned packages
-        qWarning() << "[MarathonAppVerifier] SIGNATURE.txt not found (development mode - allowing "
-                      "unsigned)";
+        bool strictMode = qEnvironmentVariableIsSet("MARATHON_REQUIRE_SIGNATURES");
+        if (strictMode) {
+            m_lastError = "SIGNATURE.txt not found (strict mode requires signatures)";
+            qWarning() << "[MarathonAppVerifier] Rejected: no signature in strict mode";
+            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Unsigned app rejected (strict mode): dir=%s",
+                   appDir.toUtf8().constData());
+            emit error(m_lastError);
+            emit verificationComplete(SignatureFileMissing);
+            return SignatureFileMissing;
+        }
+        qWarning() << "[MarathonAppVerifier] SIGNATURE.txt not found (allowing in dev mode)";
+        syslog(LOG_AUTH | LOG_WARNING, "[SECURITY] Unsigned app allowed (dev mode): dir=%s",
+               appDir.toUtf8().constData());
         emit verificationComplete(Valid);
-        return Valid; // For now, allow unsigned in development
-
-        // In production, uncomment this:
-        // m_lastError = "SIGNATURE.txt not found in directory";
-        // emit error(m_lastError);
-        // emit verificationComplete(SignatureFileMissing);
-        // return SignatureFileMissing;
+        return Valid;
     }
 
-    // Verify signature
     if (!verifySignatureFile(manifestPath, signaturePath)) {
         emit error(m_lastError);
         emit verificationComplete(InvalidSignature);
@@ -181,16 +175,12 @@ MarathonAppVerifier::verifyPackage(const QString &packagePath) {
 
     emit verificationStarted();
 
-    // Check if package exists
     if (!QFile::exists(packagePath)) {
         m_lastError = "Package file does not exist: " + packagePath;
         emit error(m_lastError);
         emit verificationComplete(VerificationFailed);
         return VerificationFailed;
     }
-
-    // For .marathon packages, we need to extract and verify
-    // This will be called by the installer after extraction
 
     m_lastError =
         "Direct package verification not yet implemented. Extract first, then verify directory.";
@@ -212,7 +202,6 @@ bool MarathonAppVerifier::signManifest(const QString &manifestPath, const QStrin
         return false;
     }
 
-    // Create detached signature
     QProcess    gpgSign;
     QStringList args;
     args << "--detach-sign" << "--armor" << "--output" << signaturePath;
@@ -242,7 +231,6 @@ bool MarathonAppVerifier::signManifest(const QString &manifestPath, const QStrin
         return false;
     }
 
-    // Verify the signature was created
     if (!QFile::exists(signaturePath)) {
         m_lastError = "Signature file was not created";
         return false;
@@ -253,10 +241,8 @@ bool MarathonAppVerifier::signManifest(const QString &manifestPath, const QStrin
 }
 
 bool MarathonAppVerifier::isTrustedKey(const QString &keyFingerprint) {
-    QString trustedKeysDir = getTrustedKeysDir();
-    QDir    keysDir(trustedKeysDir);
-
-    // Check if any key file matches this fingerprint
+    QString     trustedKeysDir = getTrustedKeysDir();
+    QDir        keysDir(trustedKeysDir);
     QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
 
     for (const QString &keyFile : keyFiles) {
@@ -278,7 +264,6 @@ bool MarathonAppVerifier::addTrustedKey(const QString &keyPath) {
     QString fileName       = QFileInfo(keyPath).fileName();
     QString destPath       = trustedKeysDir + "/" + fileName;
 
-    // Copy key to trusted keys directory
     if (QFile::exists(destPath)) {
         if (!QFile::remove(destPath)) {
             m_lastError = "Failed to remove existing key file";
@@ -298,7 +283,6 @@ bool MarathonAppVerifier::addTrustedKey(const QString &keyPath) {
 bool MarathonAppVerifier::removeTrustedKey(const QString &keyFingerprint) {
     QString     trustedKeysDir = getTrustedKeysDir();
     QDir        keysDir(trustedKeysDir);
-
     QStringList keyFiles = keysDir.entryList(QStringList() << "*.asc" << "*.gpg", QDir::Files);
 
     for (const QString &keyFile : keyFiles) {

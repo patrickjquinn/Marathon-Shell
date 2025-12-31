@@ -30,6 +30,7 @@ class MarathonAppPackager : public QObject {
     bool    createZipArchive(const QString &sourceDir, const QString &zipPath);
     bool    extractZipArchive(const QString &zipPath, const QString &destDir);
     bool    verifyPackageStructure(const QString &extractedDir);
+    bool    verifyNoSymlinkEscape(const QString &dir, const QString &baseDir);
 
     QString m_lastError;
 };
