@@ -33,7 +33,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandQuickOutput      *output() const {
         return m_output;
     }
-    Q_INVOKABLE void     launchApp(const QString &command);
+    Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
     Q_INVOKABLE QObject *getSurfaceById(int surfaceId);
