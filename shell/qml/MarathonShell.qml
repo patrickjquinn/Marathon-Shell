@@ -1808,18 +1808,15 @@ Item {
         anchors.bottom: parent.bottom
     }
 
-    // Auto-show keyboard when text input is focused (if no hardware keyboard)
     Connections {
         function onVisibleChanged() {
-            // Only auto-show if no hardware keyboard is detected
             if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
                 if (Qt.inputMethod.visible && !virtualKeyboard.active) {
                     Logger.info("Shell", "Text input focused - auto-showing virtual keyboard");
                     virtualKeyboard.active = true;
                 } else if (!Qt.inputMethod.visible && virtualKeyboard.active) {
-                    // Don't auto-hide - let user dismiss manually or by clicking outside
-                    // This prevents keyboard from hiding when cycling between inputs
-                    Logger.debug("Shell", "Text input unfocused - keeping keyboard visible");
+                    Logger.info("Shell", "Text input unfocused - auto-hiding virtual keyboard");
+                    virtualKeyboard.active = false;
                 }
             }
         }
@@ -1827,18 +1824,14 @@ Item {
         target: Qt.inputMethod
     }
 
-    // Native Wayland app text input integration
-    // When native apps (Firefox, Chromium, GTK) request text input via zwp_text_input protocol,
-    // the compositor emits this signal and we show/hide the virtual keyboard accordingly
     Connections {
-        // Note: We don't auto-hide when show=false to match Qt.inputMethod behavior
-        // This prevents keyboard flickering between input fields
-
         function onNativeTextInputPanelRequested(show) {
             if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
                 Logger.info("Shell", "Native app text input panel requested: " + show);
                 if (show && !virtualKeyboard.active)
                     virtualKeyboard.active = true;
+                else if (!show && virtualKeyboard.active)
+                    virtualKeyboard.active = false;
             }
         }
 
