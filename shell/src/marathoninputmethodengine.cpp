@@ -1,8 +1,8 @@
-// Marathon Input Method Engine - Implementation
 #include "marathoninputmethodengine.h"
+#include <QDebug>
 #include <QGuiApplication>
 #include <QInputMethod>
-#include <QDebug>
+#include <QInputMethodQueryEvent>
 #include <QKeyEvent>
 
 MarathonInputMethodEngine::MarathonInputMethodEngine(QObject *parent)
@@ -10,14 +10,9 @@ MarathonInputMethodEngine::MarathonInputMethodEngine(QObject *parent)
     , m_active(false)
     , m_preeditText("")
     , m_inputMethod(nullptr) {
-    // Get Qt's input method instance
     m_inputMethod = QGuiApplication::inputMethod();
-
     if (m_inputMethod) {
         connectToInputMethod();
-        qDebug() << "[MarathonIME] Initialized with Qt InputMethod";
-    } else {
-        qWarning() << "[MarathonIME] Failed to get Qt InputMethod instance";
     }
 }
 
@@ -31,7 +26,6 @@ void MarathonInputMethodEngine::connectToInputMethod() {
     if (!m_inputMethod)
         return;
 
-    // Connect to input method signals
     connect(m_inputMethod, &QInputMethod::visibleChanged, this,
             &MarathonInputMethodEngine::onInputMethodVisibleChanged);
     connect(m_inputMethod, &QInputMethod::animatingChanged, this,
@@ -51,8 +45,6 @@ void MarathonInputMethodEngine::setActive(bool active) {
     if (m_active != active) {
         m_active = active;
         emit activeChanged();
-
-        qDebug() << "[MarathonIME] Active state changed:" << active;
     }
 }
 
@@ -66,45 +58,83 @@ void MarathonInputMethodEngine::setPreeditText(const QString &text) {
 bool MarathonInputMethodEngine::hasActiveFocus() const {
     if (!m_inputMethod)
         return false;
-
-    // Check if there's an active input item
     return m_inputMethod->isVisible() || m_inputMethod->inputDirection() != Qt::LayoutDirectionAuto;
 }
 
 int MarathonInputMethodEngine::cursorPosition() const {
     if (!m_inputMethod)
         return 0;
-
-    // Get cursor position from input method
-    // Note: This is a simplified implementation
-    // Real cursor position would need to be queried from the focused input item
     return m_inputMethod->cursorRectangle().x();
 }
 
 QRect MarathonInputMethodEngine::inputItemRect() const {
     if (!m_inputMethod)
         return QRect();
-
     return m_inputMethod->inputItemRectangle().toRect();
 }
 
-void MarathonInputMethodEngine::commitText(const QString &text) {
-    if (!m_inputMethod) {
-        qWarning() << "[MarathonIME] Cannot commit text - no input method";
-        return;
+static int charToKey(QChar ch) {
+    if (ch.isLetter()) {
+        return Qt::Key_A + (ch.toUpper().unicode() - 'A');
     }
+    if (ch.isDigit()) {
+        return Qt::Key_0 + (ch.unicode() - '0');
+    }
+    switch (ch.unicode()) {
+        case ' ': return Qt::Key_Space;
+        case '\n': return Qt::Key_Return;
+        case '\t': return Qt::Key_Tab;
+        case '.': return Qt::Key_Period;
+        case ',': return Qt::Key_Comma;
+        case ';': return Qt::Key_Semicolon;
+        case ':': return Qt::Key_Colon;
+        case '\'': return Qt::Key_Apostrophe;
+        case '"': return Qt::Key_QuoteDbl;
+        case '!': return Qt::Key_Exclam;
+        case '?': return Qt::Key_Question;
+        case '@': return Qt::Key_At;
+        case '#': return Qt::Key_NumberSign;
+        case '$': return Qt::Key_Dollar;
+        case '%': return Qt::Key_Percent;
+        case '^': return Qt::Key_AsciiCircum;
+        case '&': return Qt::Key_Ampersand;
+        case '*': return Qt::Key_Asterisk;
+        case '(': return Qt::Key_ParenLeft;
+        case ')': return Qt::Key_ParenRight;
+        case '-': return Qt::Key_Minus;
+        case '_': return Qt::Key_Underscore;
+        case '=': return Qt::Key_Equal;
+        case '+': return Qt::Key_Plus;
+        case '[': return Qt::Key_BracketLeft;
+        case ']': return Qt::Key_BracketRight;
+        case '{': return Qt::Key_BraceLeft;
+        case '}': return Qt::Key_BraceRight;
+        case '\\': return Qt::Key_Backslash;
+        case '|': return Qt::Key_Bar;
+        case '/': return Qt::Key_Slash;
+        case '`': return Qt::Key_QuoteLeft;
+        case '~': return Qt::Key_AsciiTilde;
+        case '<': return Qt::Key_Less;
+        case '>': return Qt::Key_Greater;
+        default: return 0;
+    }
+}
 
-    qDebug() << "[MarathonIME] Committing text:" << text;
+void MarathonInputMethodEngine::commitText(const QString &text) {
+    if (!m_inputMethod)
+        return;
 
-    // Qt 6 API: commit() takes no arguments
-    // We need to send key events or use Qt.inputMethod.commit() from QML
-    // For now, simulate typing by sending key events
     for (const QChar &ch : text) {
-        QKeyEvent *pressEvent = new QKeyEvent(QEvent::KeyPress,
-                                              0, // Key code (0 for text input)
-                                              Qt::NoModifier, QString(ch));
+        int                   key  = charToKey(ch);
+        Qt::KeyboardModifiers mods = Qt::NoModifier;
 
-        QKeyEvent *releaseEvent = new QKeyEvent(QEvent::KeyRelease, 0, Qt::NoModifier, QString(ch));
+        // Add shift modifier for uppercase letters
+        if (ch.isLetter() && ch.isUpper()) {
+            mods |= Qt::ShiftModifier;
+        }
+
+        QKeyEvent *pressEvent   = new QKeyEvent(QEvent::KeyPress, key, mods, QString(ch));
+        QKeyEvent *releaseEvent = new QKeyEvent(QEvent::KeyRelease, key, mods, QString(ch));
 
         if (QGuiApplication::focusObject()) {
             QGuiApplication::sendEvent(QGuiApplication::focusObject(), pressEvent);
@@ -115,7 +145,6 @@ void MarathonInputMethodEngine::commitText(const QString &text) {
         delete releaseEvent;
     }
 
-    // Clear preedit
     if (!m_preeditText.isEmpty()) {
         m_preeditText.clear();
         emit preeditTextChanged();
@@ -123,15 +152,10 @@ void MarathonInputMethodEngine::commitText(const QString &text) {
 }
 
 void MarathonInputMethodEngine::sendBackspace() {
-    qDebug() << "[MarathonIME] Sending backspace";
-
-    // Create and send a backspace key event
     QKeyEvent *pressEvent = new QKeyEvent(QEvent::KeyPress, Qt::Key_Backspace, Qt::NoModifier, "");
-
     QKeyEvent *releaseEvent =
         new QKeyEvent(QEvent::KeyRelease, Qt::Key_Backspace, Qt::NoModifier, "");
 
-    // Send to the application's focused widget
     if (QGuiApplication::focusObject()) {
         QGuiApplication::sendEvent(QGuiApplication::focusObject(), pressEvent);
         QGuiApplication::sendEvent(QGuiApplication::focusObject(), releaseEvent);
@@ -142,15 +166,10 @@ void MarathonInputMethodEngine::sendBackspace() {
 }
 
 void MarathonInputMethodEngine::sendEnter() {
-    qDebug() << "[MarathonIME] Sending enter";
-
-    // Create and send an enter key event
     QKeyEvent *pressEvent = new QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, "\n");
-
     QKeyEvent *releaseEvent =
         new QKeyEvent(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier, "\n");
 
-    // Send to the application's focused widget
     if (QGuiApplication::focusObject()) {
         QGuiApplication::sendEvent(QGuiApplication::focusObject(), pressEvent);
         QGuiApplication::sendEvent(QGuiApplication::focusObject(), releaseEvent);
@@ -161,42 +180,49 @@ void MarathonInputMethodEngine::sendEnter() {
 }
 
 void MarathonInputMethodEngine::replacePreedit(const QString &word) {
-    qDebug() << "[MarathonIME] Replacing preedit with:" << word;
-
-    // First, delete the current preedit text
     if (!m_preeditText.isEmpty()) {
         for (int i = 0; i < m_preeditText.length(); ++i) {
             sendBackspace();
         }
     }
-
-    // Then commit the new word
     commitText(word);
 }
 
 QString MarathonInputMethodEngine::getTextBeforeCursor(int length) {
-    // This would require querying the input item directly
-    // For now, return empty - real implementation would use QInputMethodQueryEvent
-    qDebug() << "[MarathonIME] getTextBeforeCursor requested (length:" << length << ")";
-    return "";
+    QObject *focusObject = QGuiApplication::focusObject();
+    if (!focusObject)
+        return QString();
+
+    QInputMethodQueryEvent query(Qt::ImSurroundingText | Qt::ImCursorPosition);
+    QGuiApplication::sendEvent(focusObject, &query);
+
+    QString text   = query.value(Qt::ImSurroundingText).toString();
+    int     cursor = query.value(Qt::ImCursorPosition).toInt();
+
+    return text.left(cursor).right(length);
 }
 
 QString MarathonInputMethodEngine::getTextAfterCursor(int length) {
-    // This would require querying the input item directly
-    qDebug() << "[MarathonIME] getTextAfterCursor requested (length:" << length << ")";
-    return "";
+    QObject *focusObject = QGuiApplication::focusObject();
+    if (!focusObject)
+        return QString();
+
+    QInputMethodQueryEvent query(Qt::ImSurroundingText | Qt::ImCursorPosition);
+    QGuiApplication::sendEvent(focusObject, &query);
+
+    QString text   = query.value(Qt::ImSurroundingText).toString();
+    int     cursor = query.value(Qt::ImCursorPosition).toInt();
+
+    return text.mid(cursor, length);
 }
 
 QString MarathonInputMethodEngine::getCurrentWord() {
-    // Return the current preedit text as the current word
     return m_preeditText;
 }
 
 void MarathonInputMethodEngine::showKeyboard(bool show) {
     if (!m_inputMethod)
         return;
-
-    qDebug() << "[MarathonIME] Keyboard visibility requested:" << show;
 
     if (show) {
         m_inputMethod->show();
@@ -209,7 +235,6 @@ void MarathonInputMethodEngine::showKeyboard(bool show) {
 
 void MarathonInputMethodEngine::onInputMethodVisibleChanged() {
     bool visible = m_inputMethod ? m_inputMethod->isVisible() : false;
-    qDebug() << "[MarathonIME] Input method visibility changed:" << visible;
 
     if (visible) {
         emit inputItemFocused();
@@ -220,9 +245,7 @@ void MarathonInputMethodEngine::onInputMethodVisibleChanged() {
     emit hasActiveFocusChanged();
 }
 
-void MarathonInputMethodEngine::onInputMethodAnimatingChanged() {
-    qDebug() << "[MarathonIME] Input method animating changed";
-}
+void MarathonInputMethodEngine::onInputMethodAnimatingChanged() {}
 
 void MarathonInputMethodEngine::onCursorRectangleChanged() {
     emit cursorPositionChanged();

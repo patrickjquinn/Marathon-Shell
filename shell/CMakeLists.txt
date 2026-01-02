@@ -145,16 +145,20 @@ set(QML_FILES
     qml/components/PermissionDialog.qml
     qml/keyboard/Core/MarathonKeyboard.qml
     qml/keyboard/Core/KeyboardPerformance.qml
+    qml/keyboard/Core/LanguageManager.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
     qml/keyboard/UI/LongPressPopup.qml
+    qml/keyboard/UI/LanguageSelector.qml
     qml/keyboard/Layouts/QwertyLayout.qml
+    qml/keyboard/Layouts/DynamicLayout.qml
     qml/keyboard/Layouts/SymbolLayout.qml
     qml/keyboard/Layouts/EmojiLayout.qml
     qml/keyboard/Layouts/EmailLayout.qml
     qml/keyboard/Layouts/UrlLayout.qml
     qml/keyboard/Layouts/NumberLayout.qml
     qml/keyboard/Layouts/PhoneLayout.qml
+    qml/keyboard/Layouts/TerminalLayout.qml
     qml/keyboard/Input/InputContext.qml
     qml/keyboard/Data/Dictionary.qml
     qml/keyboard/Data/AutoCorrect.qml
@@ -195,6 +199,19 @@ set(QML_FILES
     qml/services/StateManager.qml
 )
 
+set(JSON_FILES
+    qml/keyboard/Layouts/languages/en_US.json
+    qml/keyboard/Layouts/languages/fr_FR.json
+    qml/keyboard/Layouts/languages/de_DE.json
+    qml/keyboard/Layouts/languages/es_ES.json
+    qml/keyboard/Layouts/languages/pt_BR.json
+    qml/keyboard/Layouts/languages/it_IT.json
+    qml/keyboard/Layouts/languages/ru_RU.json
+    qml/keyboard/Layouts/languages/ar_SA.json
+    qml/keyboard/Layouts/languages/zh_CN.json
+    qml/keyboard/Layouts/languages/ja_JP.json
+)
+
 # Find PAM library for authentication
 find_library(PAM_LIBRARY pam)
 if(NOT PAM_LIBRARY)
@@ -233,6 +250,9 @@ set(SINGLETON_FILES
     qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
+    qml/keyboard/Core/LanguageManager.qml
+    qml/keyboard/Data/Dictionary.qml
+    qml/keyboard/Data/AutoCorrect.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -265,6 +285,7 @@ qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
+    RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 
@@ -336,6 +357,11 @@ if(HAVE_WEBENGINE)
 endif()
 
 # Link Hunspell for spell-checking
+pkg_check_modules(HUNSPELL hunspell)
+if(HUNSPELL_FOUND)
+    set(HAVE_HUNSPELL TRUE)
+endif()
+
 if(HAVE_HUNSPELL)
     target_link_libraries(marathon-shell PRIVATE ${HUNSPELL_LIBRARIES})
     target_include_directories(marathon-shell PRIVATE ${HUNSPELL_INCLUDE_DIRS})
