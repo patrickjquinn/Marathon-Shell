@@ -16,3 +16,4 @@ cmake/
 .cache/
 compile_commands.json
 build-tests/
+CMakeFiles/
