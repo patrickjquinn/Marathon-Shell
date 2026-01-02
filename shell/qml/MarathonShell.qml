@@ -5,51 +5,23 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Window
 
-// qmllint disable missing-property unqualified import
 Item {
-    // Handle physical keys from Q20 hardware
-    // Captured keycodes: Back = KEY_ESC (Qt.Key_Escape), BB = KEY_LEFTMETA (Qt.Key_Super_L)
-    // NOTE: EGLFS may filter Super_L as "system key" - using Meta modifier check as fallback
-    // Volume logic and others remain here
-    // ESC and Meta are handled via C++ Signals (handleBackKey/handleHomeKey)
-    // to prevent focus-stealing issues and double-actions.
-    // ===== AUTO-HIDE CURSOR =====
-    // Uses C++ CursorManager with QGuiApplication::setOverrideCursor
-    // QML MouseArea cursorShape doesn't work reliably with EGLFS
-    // Settings app now loaded dynamically like other Marathon apps
-    // Keyboard visibility managed by: 1) Auto-show on input focus (no hardware KB), 2) Manual nav bar toggle
-    // NOTE: Compositor signal connections are made manually in Component.onCompleted
-    // because the compositor property is null when this file is first loaded
-    // Power key
-    // ESC and Meta consumption removed here - handled by C++ filter
-    // Only after initialization
-    // Only after initialization
-    // Lucide Icon Font is now owned by MarathonUI.Core (see `marathon-ui/Core/Icon.qml`).
-    // Avoid loading it from the shell qrc so it also works for isolated apps.
-
     id: shell
 
     property var compositor: null
     property alias appWindowContainer: appWindowContainer
-    // State management moved to stores
     property bool showPinScreen: false
     property bool isTransitioningToActiveFrames: false
     property int currentPage: 0
     property int totalPages: 1
-    // Pending notification action after unlock
     property var pendingNotification: null
-    // Dynamic Quick Settings sizing (threshold from config)
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.quickSettingsDismissThreshold
-    // Pending app launch after unlock
     property var pendingLaunch: null
-    // Track volume up state for screenshot combo
     property bool volumeUpPressed: false
     property bool powerButtonPressed: false
 
-    // Input Handling Functions (Triggered by C++ Signals)
     function handleBackKey() {
-        // Priority 1: Close Shell Overlays
         var overlayClosed = false;
         if (showPinScreen) {
             showPinScreen = false;
@@ -79,7 +51,6 @@ Item {
             Logger.info("Shell", "Back Key closed overlay");
             return;
         }
-        // Priority 2: App Back or Close (System Back)
         Logger.info("Shell", "Back Key Triggered - Calling handleSystemBack");
         if (typeof AppLifecycleManager !== 'undefined') {
             var handled = AppLifecycleManager.handleSystemBack();
@@ -94,22 +65,17 @@ Item {
     }
 
     function handleHomeKey() {
-        // Dismiss keyboard if visible
         if (virtualKeyboard.active) {
             HapticService.light();
             virtualKeyboard.active = false;
             return;
         }
-        // If app is open, minimize to task switcher
         if (UIStore.appWindowOpen) {
             if (typeof AppLifecycleManager !== 'undefined')
                 AppLifecycleManager.minimizeForegroundApp();
 
             var appInstance = appWindow.detachCurrentApp();
             if (appInstance) {
-                // CRITICAL: Set isMinimized BEFORE moving to background
-                // This locks the buffer to retain the last frame for task switcher preview
-                // and prevents VK_ERROR_SURFACE_LOST errors when apps destroy their surface
                 if (appInstance.isMinimized !== undefined)
                     appInstance.isMinimized = true;
 
@@ -119,20 +85,17 @@ Item {
             appWindow.hide();
             UIStore.minimizeApp();
         }
-        // Navigate to task switcher (Active Frames)
         pageView.currentIndex = 1;
         Router.goToFrames();
     }
 
-    // Public function to show power menu (used by Quick Settings)
     function showPowerMenu() {
         Logger.info("Shell", "Showing power menu from quick settings");
         powerMenu.show();
     }
 
-    focus: true // Enable keyboard input
+    focus: true
     Keys.onReleased: event => {
-        // Volume keys
         if (event.key === Qt.Key_VolumeUp) {
             volumeUpPressed = false;
             event.accepted = true;
@@ -146,26 +109,18 @@ Item {
         }
     }
     Component.onCompleted: {
-        // Ensure shell has keyboard focus for Q20 hardware keys
         shell.forceActiveFocus();
         compositor = shellInitialization.initialize(shell, Window.window);
-        // Initialize global services
-        // Wire QML singletons + compositor handles into C++ launch service.
         AppLaunchService.compositor = compositor;
         AppLaunchService.appWindow = appWindow;
         AppLaunchService.uiStore = UIStore;
         AppLaunchService.appLifecycleManager = AppLifecycleManager;
-        // Initialize ScreenshotService with shell window reference
         ScreenshotService.shellWindow = shell;
-        // CRITICAL: Connect compositor signals AFTER compositor is created
-        // The Connections block above doesn't work because compositor is null when it's created
         if (compositor) {
-            // Connect Global Input Signals (from C++ Event Filter)
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
         }
     }
-    // Handle window resize (for desktop/tablet) - debounced to prevent layout thrashing
     onWidthChanged: {
         if (Constants.screenWidth > 0)
             resizeDebounceTimer.restart();
@@ -174,16 +129,10 @@ Item {
         if (Constants.screenHeight > 0)
             resizeDebounceTimer.restart();
     }
-    // State-based navigation using centralized stores
-    // Don't show lock screen until OOBE is complete
-    // Use showLockScreen (not isLocked) to determine if lock screen should be visible
-    // This allows lock screen to show with unlocked icon during grace period
     state: SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home"
     Keys.onPressed: event => {
-        // Volume Up button
         if (event.key === Qt.Key_VolumeUp) {
             volumeUpPressed = true;
-            // Check for Power + Volume Up combo (screenshot)
             if (powerButtonPressed) {
                 Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
                 screenshotFlash.trigger();
@@ -196,17 +145,14 @@ Item {
             event.accepted = true;
             return;
         }
-        // Volume Down button
         if (event.key === Qt.Key_VolumeDown) {
             SystemControlStore.setVolume(SystemControlStore.volume - 10);
             systemHUD.showVolume(AudioManagerCpp.volume);
             event.accepted = true;
             return;
         }
-        // Power button - start timer for long press
         if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             powerButtonPressed = true;
-            // Check for Power + Volume Up combo (screenshot)
             if (volumeUpPressed) {
                 Logger.info("Shell", "Power + Volume Up combo - Taking Screenshot");
                 screenshotFlash.trigger();
@@ -234,14 +180,12 @@ Item {
             HapticService.light();
             event.accepted = true;
         } else if (event.key === Qt.Key_Print || event.key === Qt.Key_SysReq) {
-            // Print Screen key (standard on Linux/Windows)
             Logger.debug("Shell", "Print Screen pressed - Taking Screenshot");
             screenshotFlash.trigger();
             ScreenshotService.captureScreen(shell);
             HapticService.medium();
             event.accepted = true;
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
-            // Ctrl+Shift+3 (Cmd+Shift+3 on macOS) - macOS-style shortcut
             Logger.debug("Shell", "Ctrl+Shift+3 pressed - Taking Screenshot");
             screenshotFlash.trigger();
             ScreenshotService.captureScreen(shell);
@@ -253,7 +197,6 @@ Item {
             HapticService.light();
             event.accepted = true;
         } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
-            // Alphanumeric keys trigger search with that character
             if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
                 Logger.info("Shell", "Global search triggered with: '" + event.text + "'");
                 UIStore.openSearch();
@@ -271,25 +214,21 @@ Item {
             PropertyChanges {
                 lockScreen.visible: true
                 lockScreen.enabled: true
-                lockScreen.expandedCategory: "" // Close expanded notifications
+                lockScreen.expandedCategory: ""
             }
 
             StateChangeScript {
                 script: {
-                    // Reset swipe progress when entering locked state
                     lockScreen.swipeProgress = 0;
                 }
             }
-            // PIN screen HIDDEN behind lock screen until swipe triggers pinEntry state
 
             PropertyChanges {
                 pinScreen.visible: false
                 pinScreen.enabled: false
                 pinScreen.opacity: 0
             }
-            // NEVER show mainContent when session invalid (security!)
 
-            // Only fade in when session IS valid
             PropertyChanges {
                 mainContent.visible: SessionStore.checkSession()
                 mainContent.enabled: false
@@ -317,7 +256,6 @@ Item {
                 pinScreen.enabled: true
                 pinScreen.opacity: 1
             }
-            // HIDE mainContent completely during PIN entry (security!)
 
             PropertyChanges {
                 mainContent.visible: false
@@ -330,8 +268,8 @@ Item {
             }
 
             PropertyChanges {
-                navBar.visible: true // Show nav bar for keyboard access
-                navBar.pinScreenMode: true // Hide pill and search, keep keyboard button
+                navBar.visible: true
+                navBar.pinScreenMode: true
             }
         },
         State {
@@ -366,7 +304,7 @@ Item {
 
             PropertyChanges {
                 navBar.visible: true
-                navBar.pinScreenMode: false // Normal mode with pill and search
+                navBar.pinScreenMode: false
             }
         },
         State {
@@ -399,7 +337,7 @@ Item {
             PropertyChanges {
                 navBar.visible: true
                 navBar.z: Constants.zIndexNavBarApp
-                navBar.pinScreenMode: false // Normal mode with pill and search
+                navBar.pinScreenMode: false
             }
         }
     ]
@@ -408,7 +346,6 @@ Item {
             from: "locked"
             to: "home"
 
-            // No animation needed - swipe gesture already animated swipeProgress to 1.0
             PropertyAction {
                 target: lockScreen
                 property: "visible"
@@ -477,7 +414,6 @@ Item {
         }
     ]
 
-    // Slate Font Family - bundled font resources
     FontLoader {
         id: slateLight
 
@@ -508,24 +444,20 @@ Item {
         source: "qrc:/fonts/Slate-Bold.ttf"
     }
 
-    // Global mouse area to track ALL mouse movement for cursor visibility
-    // Must be ON TOP but NOT steal keyboard focus
     MouseArea {
         id: cursorTracker
 
         anchors.fill: parent
-        z: 10000 // ON TOP of everything to receive mouse events first
-        acceptedButtons: Qt.NoButton // Don't consume any clicks
+        z: 10000
+        acceptedButtons: Qt.NoButton
         hoverEnabled: true
         enabled: true
-        // CRITICAL: Don't take focus from the shell - keys need to go to shell
         focus: false
         onPositionChanged: mouse => {
-            // Notify C++ CursorManager of mouse activity
             if (typeof CursorManager !== 'undefined')
                 CursorManager.onMouseActivity();
 
-            mouse.accepted = false; // Allow event to propagate to items below
+            mouse.accepted = false;
         }
         onPressed: mouse => {
             mouse.accepted = false;
@@ -538,7 +470,6 @@ Item {
         }
     }
 
-    // Debounce timer for window resize events (prevent layout thrashing)
     Timer {
         id: resizeDebounceTimer
 
@@ -548,15 +479,10 @@ Item {
         }
     }
 
-    // Handle deep link requests from NavigationRouter
     Connections {
         function onDeepLinkRequested(appId, route, params) {
-            // Inline deep-link handling to avoid an extra proxy service layer.
-            // NOTE: `NavigationRouter.navigateToDeepLink()` already calls `UIStore.openApp()` for us,
-            // but we also need to actually show the app window here.
             var appInfo = typeof MarathonAppRegistry !== "undefined" ? MarathonAppRegistry.getApp(appId) : null;
             if (appInfo && appInfo.id) {
-                // Ensure shell state is set to "app"
                 UIStore.openApp(appInfo.id, appInfo.name, appInfo.icon);
                 if (appWindow)
                     appWindow.show(appInfo.id, appInfo.name, appInfo.icon, appInfo.type);
@@ -571,7 +497,6 @@ Item {
         target: NavigationRouter
     }
 
-    // Handle notification clicks (deep linking)
     Connections {
         function onNotificationClicked(id) {
             NotificationHandler.handleNotificationClick(id);
@@ -595,14 +520,12 @@ Item {
         z: Constants.zIndexBackground
     }
 
-    // Main home screen content - controlled by State system
     Column {
         id: mainContent
 
         anchors.fill: parent
         z: Constants.zIndexMainContent
 
-        // Fade in as lock screen fades out during swipe (if session valid)
         Item {
             width: parent.width
             height: Constants.statusBarHeight
@@ -619,20 +542,17 @@ Item {
                 anchors.fill: parent
                 z: Constants.zIndexMainContent + 10
                 isGestureActive: navBar.isAppOpen && shell.isTransitioningToActiveFrames
-                compositor: shell.compositor // Pass compositor for native app management
+                compositor: shell.compositor
                 onCurrentPageChanged: {
                     Logger.nav("page" + shell.currentPage, "page" + currentPage, "navigation");
-                    // If we're on an app grid page (currentPage >= 0), use the internal page
                     if (currentPage >= 0) {
                         shell.currentPage = pageView.internalAppGridPage;
                         shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16));
                     } else {
-                        // For Hub (-2) and Task Switcher (-1), use the regular currentPage
                         shell.currentPage = currentPage;
                     }
                 }
                 onInternalAppGridPageChanged: {
-                    // Update shell's current page when internal app grid page changes
                     if (pageView.currentPage >= 0) {
                         shell.currentPage = pageView.internalAppGridPage;
                         Logger.debug("Shell", "Internal app grid page changed to: " + pageView.internalAppGridPage);
@@ -699,15 +619,11 @@ Item {
     }
 
     MarathonNavBar {
-        // Fast velocity for throw effect
-        // AppLifecycleManager.minimizeForegroundApp() called above handles the logic/state
-        // Detach happens in snapIntoGridAnimation.onFinished to keep app visible during scale
-
         id: navBar
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom // ALWAYS at bottom
+        anchors.bottom: parent.bottom
         z: Constants.zIndexNavBarApp
         isAppOpen: UIStore.appWindowOpen || UIStore.settingsOpen
         keyboardVisible: virtualKeyboard.active
@@ -723,7 +639,6 @@ Item {
             HapticService.light();
         }
         onSwipeLeft: {
-            // Never page-navigate while an app/settings is open.
             if (UIStore.appWindowOpen || UIStore.settingsOpen)
                 return;
 
@@ -733,17 +648,14 @@ Item {
             }
         }
         onSwipeRight: {
-            // Check if app can handle forward navigation first
             if (UIStore.appWindowOpen && typeof AppLifecycleManager !== 'undefined') {
                 var handled = AppLifecycleManager.handleSystemForward();
                 if (handled)
                     return;
             }
-            // Never page-navigate while an app/settings is open.
             if (UIStore.appWindowOpen || UIStore.settingsOpen)
                 return;
 
-            // Otherwise, navigate pages
             if (pageView.currentIndex > 0) {
                 pageView.decrementCurrentIndex();
                 Router.navigateRight();
@@ -765,7 +677,6 @@ Item {
             }
         }
         onShortSwipeUp: {
-            // Dismiss keyboard if visible, otherwise go home
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with short swipe up");
                 HapticService.light();
@@ -780,7 +691,6 @@ Item {
         }
         onLongSwipeUp: {
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
-            // Dismiss keyboard if visible, otherwise task switcher
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
                 HapticService.light();
@@ -794,7 +704,6 @@ Item {
                 Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                // Use AppLifecycleManager to create task and minimize properly
                 if (typeof AppLifecycleManager !== 'undefined') {
                     Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()");
                     var result = AppLifecycleManager.minimizeForegroundApp();
@@ -802,10 +711,8 @@ Item {
                 } else {
                     Logger.error("NavBar", "   AppLifecycleManager is undefined!");
                 }
-                // Trigger smooth animation instead of abrupt hide
                 Logger.info("NavBar", "   Triggering snapIntoGridAnimation for smooth transition");
                 shell.isTransitioningToActiveFrames = true;
-                // Start animation - it will handle minimizing UIStore and navigating to frames on finish
                 snapIntoGridAnimation.startWithVelocity(-1500);
             } else {
                 Logger.info("NavBar", "📍 No app open - just navigating to task switcher");
@@ -822,19 +729,15 @@ Item {
         }
         onMinimizeApp: velocity => {
             Logger.info("Shell", "NavBar minimize gesture detected (velocity: " + velocity + ")");
-            // Use AppLifecycleManager for proper snapshot capture and task management
             if (typeof AppLifecycleManager !== 'undefined')
                 AppLifecycleManager.minimizeForegroundApp();
 
             shell.isTransitioningToActiveFrames = true;
-            // Pass velocity to animation (ensure it's negative for upward movement)
-            // If velocity is 0 or positive (unlikely for swipe up), use a default
             var initialVelocity = velocity < 0 ? velocity : -1000;
             snapIntoGridAnimation.startWithVelocity(initialVelocity);
         }
     }
 
-    // Peek & Flow
     MarathonPeek {
         id: peekFlow
 
@@ -847,8 +750,6 @@ Item {
         }
     }
 
-    // Peek gesture capture area - must be above app window to work when app is open
-    // Narrow width to not block back button or other left-side content
     MouseArea {
         id: peekGestureCapture
 
@@ -879,20 +780,16 @@ Item {
         }
     }
 
-    // Background container for minimized apps (keeps them alive for previews)
     Item {
         id: backgroundAppsContainer
 
         anchors.fill: parent
-        visible: true // Must be visible for ShaderEffectSource
-        opacity: 0 // But fully transparent to user
-        z: -1 // And behind everything
+        visible: true
+        opacity: 0
+        z: -1
     }
 
-    // App Window
     Item {
-        // Removed Behaviors to allow manual animation control
-
         id: appWindowContainer
 
         property real finalScale: 0.65
@@ -904,35 +801,27 @@ Item {
         anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
-        // Use direct binding when NOT transitioning, otherwise controlled by animation
         scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)
         opacity: shell.isTransitioningToActiveFrames ? opacity : (navBar.gestureProgress > 0 ? currentGestureOpacity : 1)
 
-        // Watch for app switching (when restoring from task switcher)
         Connections {
             function onCurrentAppIdChanged() {
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
-                    // CRITICAL: If AppLaunchService is handling this launch, let IT call show() with the correct type.
-                    // Otherwise we race and might call show() with default "marathon" type (double launch).
                     if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
                         Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
                         return;
                     }
                     Logger.info("Shell", "🔄 App ID changed, showing: " + UIStore.currentAppId);
-                    // Check TaskModel for app type - if native, get surface
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
                     if (task && task.appType === "native") {
                         Logger.info("Shell", "Restoring native app from task switcher");
                         if (compositor) {
                             var surface = compositor.getSurfaceById(task.surfaceId);
                             if (surface) {
-                                // Pass surface so native app renders correctly
                                 appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
                                 return;
                             } else {
                                 Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
-                                // Surface was destroyed (e.g., Chromium with dialog) - look for detached instance
-                                // in backgroundAppsContainer and re-attach it
                                 for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
                                     var child = backgroundAppsContainer.children[i];
                                     if (child.appId === UIStore.currentAppId) {
@@ -945,33 +834,27 @@ Item {
                             }
                         }
                     }
-                    // Default: ask C++ to launch (out-of-process) if we don't have a native surface to show.
                     AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
 
             function onAppWindowOpenChanged() {
-                // Also trigger when appWindowOpen becomes true (covers case where appId hasn't changed)
                 if (UIStore.appWindowOpen && UIStore.currentAppId) {
-                    // CRITICAL: If AppLaunchService is handling this launch, let IT call show() with the correct type.
                     if (AppLaunchService.isAppLaunching(UIStore.currentAppId)) {
                         Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
                         return;
                     }
                     Logger.info("Shell", "App window opened, showing: " + UIStore.currentAppId);
-                    // Check TaskModel for app type - if native, get surface
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
                     if (task && task.appType === "native") {
                         Logger.info("Shell", "Restoring native app from app window open");
                         if (compositor) {
                             var surface = compositor.getSurfaceById(task.surfaceId);
                             if (surface) {
-                                // Pass surface so native app renders correctly
                                 appWindow.show(UIStore.currentAppId, UIStore.currentAppName, UIStore.currentAppIcon, "native", surface, task.surfaceId);
                                 return;
                             } else {
                                 Logger.warn("Shell", "Native app surface not found for surfaceId: " + task.surfaceId);
-                                // Surface was destroyed - look for detached instance
                                 for (var i = 0; i < backgroundAppsContainer.children.length; i++) {
                                     var child = backgroundAppsContainer.children[i];
                                     if (child.appId === UIStore.currentAppId) {
@@ -984,7 +867,6 @@ Item {
                             }
                         }
                     }
-                    // Default: ask C++ to launch (out-of-process) if we don't have a native surface to show.
                     AppLaunchService.launchApp(UIStore.currentAppId, compositor, appWindow);
                 }
             }
@@ -1172,14 +1054,10 @@ Item {
 
         function startWithVelocity(v) {
             velocity = v;
-            // Calculate duration based on velocity (faster swipe = faster animation)
-            // Base duration 300ms, reduced by velocity factor
             var velocityFactor = Math.min(2, Math.abs(v) / 1000);
             var duration = Math.max(150, 350 - (velocityFactor * 100));
             scaleAnim.duration = duration;
             opacityAnim.duration = duration;
-            // CRITICAL: Navigate to frames IMMEDIATELY so the background is ready
-            // and the app "shrinks" onto the task switcher grid
             if (typeof Router !== 'undefined')
                 Router.goToFrames();
 
@@ -1187,14 +1065,11 @@ Item {
         }
 
         onFinished: {
-            // Detach app instance explicitly after animation completes so it's captured correctly
-            // and moves to background for preview generation
             var appInstance = appWindow.detachCurrentApp();
             if (appInstance) {
                 appInstance.parent = backgroundAppsContainer;
                 appInstance.visible = true;
             }
-            // Minimize the app window LOGICALLY only after visual animation is done
             if (UIStore.settingsOpen)
                 UIStore.minimizeSettings();
             else if (UIStore.appWindowOpen)
@@ -1217,20 +1092,19 @@ Item {
 
             target: appWindowContainer
             property: "opacity"
-            to: 1 // Keep fully opaque so it "becomes" the card
+            to: 1
             duration: 300
             easing.type: Easing.OutCubic
         }
     }
 
-    // Quick Settings
     MarathonQuickSettings {
         id: quickSettings
 
         anchors.left: parent.left
         anchors.right: parent.right
-        y: Constants.statusBarHeight // Start below status bar
-        height: UIStore.quickSettingsHeight // Directly bind to drag height
+        y: Constants.statusBarHeight
+        height: UIStore.quickSettingsHeight
         visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
@@ -1242,7 +1116,7 @@ Item {
         }
 
         Behavior on height {
-            enabled: !UIStore.quickSettingsDragging // Disable animation during drag
+            enabled: !UIStore.quickSettingsDragging
 
             NumberAnimation {
                 duration: Constants.animationSlow
@@ -1251,7 +1125,6 @@ Item {
         }
     }
 
-    // Status Bar Drag Area
     MouseArea {
         id: statusBarDragArea
 
@@ -1281,7 +1154,6 @@ Item {
         }
         onPositionChanged: mouse => {
             var dragDistance = mouse.y - startY;
-            // Calculate velocity
             var now = Date.now();
             var dt = now - lastTime;
             if (dt > 0)
@@ -1302,7 +1174,6 @@ Item {
         onReleased: mouse => {
             if (isDraggingDown) {
                 UIStore.quickSettingsDragging = false;
-                // Check for fling gesture (velocity > 500 px/s)
                 var isFlingDown = velocityY > 500;
                 if (isFlingDown || UIStore.quickSettingsHeight > shell.quickSettingsThreshold)
                     UIStore.openQuickSettings();
@@ -1328,7 +1199,6 @@ Item {
         }
     }
 
-    // Quick Settings Overlay (dimmed background behind the shade)
     MouseArea {
         id: quickSettingsOverlay
 
@@ -1356,7 +1226,6 @@ Item {
             var dragDistance = mouse.y - startY;
             var newHeight = UIStore.quickSettingsHeight + dragDistance;
             UIStore.quickSettingsHeight = Math.max(0, Math.min(shell.maxQuickSettingsHeight, newHeight));
-            // Calculate velocity
             var now = Date.now();
             var dt = now - lastTime;
             if (dt > 0)
@@ -1368,7 +1237,6 @@ Item {
         }
         onReleased: mouse => {
             UIStore.quickSettingsDragging = false;
-            // Check for fling up gesture (velocity < -500 px/s = upward)
             var isFlingUp = velocityY < -500;
             if (isFlingUp || UIStore.quickSettingsHeight < shell.quickSettingsThreshold)
                 UIStore.closeQuickSettings();
@@ -1384,7 +1252,6 @@ Item {
             });
         }
         onCanceled: {
-            // Handle drag cancellation (e.g. touch/mouse leaves area)
             UIStore.quickSettingsDragging = false;
             if (UIStore.quickSettingsHeight > shell.quickSettingsThreshold)
                 UIStore.openQuickSettings();
@@ -1409,7 +1276,6 @@ Item {
         }
     }
 
-    // Lock Screen
     MarathonLockScreen {
         id: lockScreen
 
@@ -1417,17 +1283,14 @@ Item {
         z: Constants.zIndexLockScreen
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
-                // Session valid - just unlock, swipe animation already complete
                 Logger.state("Shell", "locked", "unlocked");
                 SessionStore.unlock();
-                // Handle pending launch if any
                 if (pendingLaunch) {
                     Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName);
                     UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "");
                     pendingLaunch = null;
                 }
             } else {
-                // Need authentication - show PIN screen
                 Logger.state("Shell", "locked", "pinEntry");
                 showPinScreen = true;
                 pinScreen.show();
@@ -1436,10 +1299,8 @@ Item {
         onNotificationTapped: function (notifId, appId, title) {
             Logger.info("Shell", "Lock screen notification tapped: " + title + " (id: " + notifId + ", app: " + appId + ")");
             if (SessionStore.checkSession()) {
-                // Session valid - unlock and deep link immediately
                 Logger.info("Shell", "Session valid, unlocking and navigating to notification");
                 SessionStore.unlock();
-                // Dismiss notification (clears from Marathon, NotificationModel, and DBus)
                 NotificationService.dismissNotification(notifId);
                 if (appId)
                     NavigationRouter.navigateToDeepLink(appId, "", {
@@ -1448,7 +1309,6 @@ Item {
                         "from": "lockscreen"
                     });
             } else {
-                // Need authentication - store pending action and show PIN
                 Logger.info("Shell", "Session expired, requesting PIN");
                 pendingNotification = {
                     "id": notifId,
@@ -1462,11 +1322,9 @@ Item {
         onCameraLaunched: {
             Logger.info("LockScreen", "Camera quick action tapped");
             if (SessionStore.checkSession()) {
-                // Session is valid, just unlock and launch
                 SessionStore.unlock();
                 UIStore.openApp("camera", "Camera", "");
             } else {
-                // Need PIN - enforce security!
                 Logger.info("LockScreen", "Session locked - requesting PIN for Camera");
                 pendingLaunch = {
                     "appId": "camera",
@@ -1480,11 +1338,9 @@ Item {
         onPhoneLaunched: {
             Logger.info("LockScreen", "Phone quick action tapped");
             if (SessionStore.checkSession()) {
-                // Session is valid, just unlock and launch
                 SessionStore.unlock();
                 UIStore.openApp("phone", "Phone", "");
             } else {
-                // Need PIN - enforce security!
                 Logger.info("LockScreen", "Session locked - requesting PIN for Phone");
                 pendingLaunch = {
                     "appId": "phone",
@@ -1497,7 +1353,6 @@ Item {
         }
     }
 
-    // PIN Entry Screen
     MarathonPinScreen {
         id: pinScreen
 
@@ -1507,14 +1362,12 @@ Item {
             Logger.state("Shell", "pinEntry", "unlocked");
             showPinScreen = false;
             pinScreen.reset();
-            SessionStore.unlock(); // This triggers state change to "home"
-            // Handle pending launch if any
+            SessionStore.unlock();
             if (pendingLaunch) {
                 Logger.info("Shell", "Executing pending launch: " + pendingLaunch.appName);
                 UIStore.openApp(pendingLaunch.appId, pendingLaunch.appName, "");
                 pendingLaunch = null;
             }
-            // Handle pending notification action
             if (pendingNotification) {
                 Logger.info("Shell", "Executing pending notification action: " + pendingNotification.title);
                 NotificationService.dismissNotification(pendingNotification.id);
@@ -1525,7 +1378,7 @@ Item {
                         "from": "lockscreen"
                     });
 
-                pendingNotification = null; // Clear pending action
+                pendingNotification = null;
             }
         }
         onCancelled: {
@@ -1533,12 +1386,10 @@ Item {
             showPinScreen = false;
             lockScreen.swipeProgress = 0;
             pinScreen.reset();
-            // Clear pending launch
             if (pendingLaunch) {
                 Logger.info("Shell", "Clearing pending launch");
                 pendingLaunch = null;
             }
-            // Clear pending notification action
             if (pendingNotification) {
                 Logger.info("Shell", "Clearing pending notification action");
                 pendingNotification = null;
@@ -1604,23 +1455,18 @@ Item {
     }
 
     MarathonSearch {
-        // Execute deep link navigation
-        // Execute setting navigation
-
         id: universalSearch
 
         anchors.fill: parent
         z: Constants.zIndexSearch
         active: UIStore.searchOpen
-        pullProgress: pageView.searchPullProgress // Bind to app grid's pull gesture
+        pullProgress: pageView.searchPullProgress
         onClosed: {
             UIStore.closeSearch();
             shell.forceActiveFocus();
         }
         onResultSelected: result => {
-            // Handle different result types
             if (result.type === "app") {
-                // Transform search result to app object format
                 var app = {
                     "id": result.data.id,
                     "name": result.data.name,
@@ -1640,10 +1486,7 @@ Item {
         id: screenshotPreview
     }
 
-    // Wire screenshot service to preview
     Connections {
-        // TODO: Show error toast
-
         function onScreenshotCaptured(filePath, thumbnailPath) {
             Logger.info("Shell", "Screenshot captured: " + filePath);
             screenshotPreview.show(filePath, thumbnailPath);
@@ -1673,19 +1516,16 @@ Item {
         id: connectionToast
     }
 
-    // Error toast for system-wide error notifications
     ErrorToast {
         id: errorToast
     }
 
-    // Permission dialog for app permission requests
     Comp.PermissionDialog {
         id: permissionDialog
 
         z: Constants.zIndexModalOverlay + 50
     }
 
-    // Wire network manager to connection toast
     Connections {
         function onWifiConnectedChanged() {
             if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected)
@@ -1704,7 +1544,6 @@ Item {
         target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
     }
 
-    // Battery policy comes from C++ (Deepak: keep orchestration out of QML).
     Connections {
         function onBatteryWarning(title, body, iconName, hapticLevel) {
             if (errorToast)
@@ -1721,7 +1560,6 @@ Item {
         }
 
         function onEmergencyShutdownArmed(secondsUntilShutdown) {
-            // Keep timer-based shutdown in QML so UI can show last-second UX if needed.
             criticalBatteryShutdownTimer.interval = Math.max(0, secondsUntilShutdown * 1000);
             criticalBatteryShutdownTimer.start();
         }
@@ -1734,8 +1572,6 @@ Item {
     }
 
     Timer {
-        // Conservative fallback if the policy controller isn't available.
-
         id: criticalBatteryShutdownTimer
 
         interval: 10000
@@ -1780,7 +1616,6 @@ Item {
         id: alarmOverlay
     }
 
-    // Out-of-Box Experience (OOBE) - First-run setup
     MarathonOOBE {
         id: oobeWizard
 
@@ -1789,7 +1624,6 @@ Item {
         }
     }
 
-    // Wire alarm manager to overlay
     Connections {
         function onAlarmTriggered(alarm) {
             Logger.info("Shell", "Alarm triggered: " + (alarm && alarm.label ? alarm.label : "(unknown)"));
@@ -1806,10 +1640,36 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+        Component.onCompleted: {
+            focusConnection.target = Window.window;
+        }
+
+        Connections {
+            id: focusConnection
+
+            function onActiveFocusItemChanged() {
+                var item = focusConnection.target ? focusConnection.target.activeFocusItem : null;
+                if (!item) {
+                    if (virtualKeyboard.active)
+                        virtualKeyboard.active = false;
+
+                    return;
+                }
+                var isInput = (item.toString().indexOf("TextInput") !== -1 || item.toString().indexOf("TextEdit") !== -1);
+                if (isInput && !Platform.hasHardwareKeyboard)
+                    virtualKeyboard.active = true;
+                else if (virtualKeyboard.active)
+                    virtualKeyboard.active = false;
+            }
+
+            target: null
+        }
     }
 
     Connections {
         function onVisibleChanged() {
+            Logger.debug("Shell", "Qt.inputMethod.visible changed to: " + Qt.inputMethod.visible);
+            Logger.debug("Shell", "Platform.hasHardwareKeyboard: " + (typeof Platform !== 'undefined' ? Platform.hasHardwareKeyboard : "undefined"));
             if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
                 if (Qt.inputMethod.visible && !virtualKeyboard.active) {
                     Logger.info("Shell", "Text input focused - auto-showing virtual keyboard");
@@ -1818,6 +1678,8 @@ Item {
                     Logger.info("Shell", "Text input unfocused - auto-hiding virtual keyboard");
                     virtualKeyboard.active = false;
                 }
+            } else {
+                Logger.debug("Shell", "Keyboard auto-show skipped: hasHardwareKeyboard=" + (typeof Platform !== 'undefined' ? Platform.hasHardwareKeyboard : true));
             }
         }
 
@@ -1839,7 +1701,6 @@ Item {
         enabled: typeof compositor !== 'undefined'
     }
 
-    // Auto-dismiss keyboard when clicking above it (user request)
     MouseArea {
         id: keyboardDismissArea
 
@@ -1853,15 +1714,13 @@ Item {
             HapticService.light();
             virtualKeyboard.active = false;
         }
-        // Don't propagate to items below
         propagateComposedEvents: false
     }
 
-    // Power button press timer for long-press detection
     Timer {
         id: powerButtonTimer
 
-        interval: 800 // 800ms for long press
+        interval: 800
         onTriggered: {
             Logger.info("Shell", "Power button LONG PRESS detected - showing power menu");
             powerMenu.show();
@@ -1881,7 +1740,6 @@ Item {
             } else if (!locked) {
                 SessionStore.lock();
             }
-            // Sleep is shell-level policy, so prefer the C++ controller when present.
             if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
                 PowerPolicyControllerCpp.sleep();
             else
@@ -1899,7 +1757,6 @@ Item {
         }
     }
 
-    // Screenshot flash overlay
     Rectangle {
         id: screenshotFlash
 
@@ -1910,7 +1767,7 @@ Item {
         anchors.fill: parent
         color: "white"
         opacity: 0
-        z: Constants.zIndexModalOverlay + 200 // Above everything
+        z: Constants.zIndexModalOverlay + 200
 
         SequentialAnimation {
             id: flashAnimation
@@ -1941,7 +1798,6 @@ Item {
         anchors.fill: parent
         z: Constants.zIndexModalOverlay + 100
         active: false
-        // Use a relative URL so this works regardless of the Qt6 resource prefix (:/qt/qml vs :/).
         source: Qt.resolvedUrl("components/IncomingCallOverlay.qml")
     }
 
