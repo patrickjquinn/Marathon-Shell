@@ -1,4 +1,5 @@
 #include "marathoninputmethodengine.h"
+#include "platform.h"
 #include <QDebug>
 #include <QGuiApplication>
 #include <QInputMethod>
@@ -14,6 +15,8 @@ MarathonInputMethodEngine::MarathonInputMethodEngine(QObject *parent)
     if (m_inputMethod) {
         connectToInputMethod();
     }
+
+    QCoreApplication::instance()->installEventFilter(this);
 }
 
 MarathonInputMethodEngine::~MarathonInputMethodEngine() {
@@ -250,4 +253,24 @@ void MarathonInputMethodEngine::onInputMethodAnimatingChanged() {}
 void MarathonInputMethodEngine::onCursorRectangleChanged() {
     emit cursorPositionChanged();
     emit inputItemRectChanged();
+}
+
+bool MarathonInputMethodEngine::eventFilter(QObject *obj, QEvent *event) {
+    if (event->type() == QEvent::FocusIn) {
+        // We only care if the object is enabled for input events
+        QInputMethodQueryEvent query(Qt::ImEnabled | Qt::ImHints);
+        QGuiApplication::sendEvent(obj, &query);
+
+        if (query.value(Qt::ImEnabled).toBool()) {
+            qDebug() << "[InputEngine] FocusIn detected on:" << obj
+                     << "HW Keyboard:" << Platform::hasHardwareKeyboard();
+
+            if (!Platform::hasHardwareKeyboard()) {
+                // Force show keyboard for internal QML apps
+                showKeyboard(true);
+                emit inputItemFocused();
+            }
+        }
+    }
+    return QObject::eventFilter(obj, event);
 }

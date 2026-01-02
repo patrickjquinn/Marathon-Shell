@@ -554,8 +554,11 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
             &WaylandCompositor::handleSurfaceDestroyed);
 
     if (auto *inputControl = surface->inputMethodControl()) {
+        qDebug() << "[WaylandCompositor] Connected to inputMethodControl for surface";
         connect(inputControl, SIGNAL(enabledChanged(bool)), this,
                 SLOT(handleTextInputEnabled(bool)));
+    } else {
+        qDebug() << "[WaylandCompositor] No inputMethodControl available for surface";
     }
 
     int surfaceId           = m_nextSurfaceId++;
@@ -587,8 +590,7 @@ void WaylandCompositor::activateSurface(int surfaceId) {
 }
 
 void WaylandCompositor::handleTextInputEnabled(bool enabled) {
-    if (wlVerbose())
-        qDebug() << "[WaylandCompositor] Native text input enabled changed:" << enabled;
+    qDebug() << "[WaylandCompositor] handleTextInputEnabled called with:" << enabled;
     emit nativeTextInputPanelRequested(enabled);
 }
 

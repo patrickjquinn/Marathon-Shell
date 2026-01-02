@@ -57,6 +57,9 @@ class MarathonInputMethodEngine : public QObject {
     void onInputMethodAnimatingChanged();
     void onCursorRectangleChanged();
 
+  protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
   private:
     void          connectToInputMethod();
     void          disconnectFromInputMethod();
