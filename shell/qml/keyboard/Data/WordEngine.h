@@ -1,30 +1,16 @@
-/*
- * Marathon Virtual Keyboard - Word Engine (Hunspell-based)
- * Adapted from Maliit Plugins spellchecker
- * 
- * Original Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
- * Marathon adaptation Copyright (C) 2025 Marathon OS
- */
-
 #ifndef MARATHON_WORDENGINE_H
 #define MARATHON_WORDENGINE_H
 
+#include <QMutex>
 #include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QThread>
-#include <QMutex>
 
 class Hunspell;
 class QTextCodec;
 class WordEngineWorker;
 
-/**
- * @brief Main word engine for spell-checking and predictions
- * 
- * Thread-safe wrapper around Hunspell for the Marathon keyboard.
- * Predictions run on a background thread to avoid blocking the UI.
- */
 class WordEngine : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
@@ -34,22 +20,16 @@ class WordEngine : public QObject {
     explicit WordEngine(QObject *parent = nullptr);
     ~WordEngine() override;
 
-    // Properties
-    bool    enabled() const;
-    void    setEnabled(bool on);
-    QString language() const;
-    void    setLanguage(const QString &lang);
+    bool                enabled() const;
+    Q_INVOKABLE void    setEnabled(bool on);
+    Q_INVOKABLE QString language() const;
+    Q_INVOKABLE void    setLanguage(const QString &lang);
 
-    // Synchronous spell-checking (fast enough for UI thread)
-    Q_INVOKABLE bool hasWord(const QString &word);
-    Q_INVOKABLE bool spell(const QString &word);
-
-    // Asynchronous prediction (runs on worker thread)
-    Q_INVOKABLE void requestPredictions(const QString &prefix, int maxResults = 3);
-
-    // User dictionary management
-    Q_INVOKABLE void learnWord(const QString &word);
-    Q_INVOKABLE void ignoreWord(const QString &word);
+    Q_INVOKABLE bool    hasWord(const QString &word);
+    Q_INVOKABLE bool    spell(const QString &word);
+    Q_INVOKABLE void    requestPredictions(const QString &prefix, int maxResults = 3);
+    Q_INVOKABLE void    learnWord(const QString &word);
+    Q_INVOKABLE void    ignoreWord(const QString &word);
 
   signals:
     void enabledChanged();
@@ -68,9 +48,6 @@ class WordEngine : public QObject {
     void              initializeWorker();
 };
 
-/**
- * @brief Background worker for async predictions
- */
 class WordEngineWorker : public QObject {
     Q_OBJECT
 
@@ -89,7 +66,7 @@ class WordEngineWorker : public QObject {
 
   private:
     Hunspell *m_hunspell;
-    QString   m_encoding; // Dictionary encoding (usually "UTF-8")
+    QString   m_encoding;
     QString   m_userDictionaryPath;
     QString   m_language;
     QMutex    m_mutex;
@@ -99,4 +76,4 @@ class WordEngineWorker : public QObject {
     QString   findDictionaryPath(const QString &language);
 };
 
-#endif // MARATHON_WORDENGINE_H
+#endif
