@@ -177,11 +177,8 @@ if [ $? -eq 0 ]; then
     # Set QML import path for MarathonUI modules
     export QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$QML_IMPORT_PATH"
 
-    # Shared assets (Option C): use on-disk resources in dev.
-    # System installs use /usr/share/marathon-shell via the session script.
     export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-$PROJECT_DIR/shell/resources}"
     
-    # Force Qt Multimedia to use GStreamer backend (better PulseAudio/PipeWire support)
     export QT_MEDIA_BACKEND=gstreamer
     echo "🔊 Audio backend: $QT_MEDIA_BACKEND (GStreamer has native PulseAudio support)"
     echo ""
