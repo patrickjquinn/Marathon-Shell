@@ -47,9 +47,8 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_keyboardPredictiveText(true)
     , m_keyboardWordFling(true)
     , m_keyboardPredictiveSpacing(false)
-    , m_keyboardHapticStrength("medium") {
-    qDebug() << "[SettingsManager] Initialized";
-    qDebug() << "[SettingsManager] Settings file:" << m_settings.fileName();
+    , m_keyboardHapticStrength("medium")
+    , m_keyboardLanguage("en_US") {
     load();
 }
 
@@ -236,6 +235,7 @@ void SettingsManager::load() {
     m_keyboardWordFling         = m_settings.value("keyboard/wordFling", true).toBool();
     m_keyboardPredictiveSpacing = m_settings.value("keyboard/predictiveSpacing", false).toBool();
     m_keyboardHapticStrength    = m_settings.value("keyboard/hapticStrength", "medium").toString();
+    m_keyboardLanguage          = m_settings.value("keyboard/language", "en_US").toString();
 
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
@@ -313,6 +313,7 @@ void SettingsManager::save() {
     m_settings.setValue("keyboard/wordFling", m_keyboardWordFling);
     m_settings.setValue("keyboard/predictiveSpacing", m_keyboardPredictiveSpacing);
     m_settings.setValue("keyboard/hapticStrength", m_keyboardHapticStrength);
+    m_settings.setValue("keyboard/language", m_keyboardLanguage);
 
     m_settings.sync();
     qDebug() << "[SettingsManager] Saved settings";
@@ -604,7 +605,14 @@ void SettingsManager::setKeyboardHapticStrength(const QString &strength) {
     m_keyboardHapticStrength = strength;
     save();
     emit keyboardHapticStrengthChanged();
-    qDebug() << "[SettingsManager] Keyboard haptic strength:" << strength;
+}
+
+void SettingsManager::setKeyboardLanguage(const QString &language) {
+    if (m_keyboardLanguage == language)
+        return;
+    m_keyboardLanguage = language;
+    save();
+    emit keyboardLanguageChanged();
 }
 
 // Sound scanning methods

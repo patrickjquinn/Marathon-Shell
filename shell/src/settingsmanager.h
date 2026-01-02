@@ -93,6 +93,8 @@ class SettingsManager : public QObject {
                    setKeyboardPredictiveSpacing NOTIFY keyboardPredictiveSpacingChanged)
     Q_PROPERTY(QString keyboardHapticStrength READ keyboardHapticStrength WRITE
                    setKeyboardHapticStrength NOTIFY keyboardHapticStrengthChanged)
+    Q_PROPERTY(QString keyboardLanguage READ keyboardLanguage WRITE setKeyboardLanguage NOTIFY
+                   keyboardLanguageChanged)
 
   public:
     explicit SettingsManager(QObject *parent = nullptr);
@@ -232,6 +234,9 @@ class SettingsManager : public QObject {
     QString keyboardHapticStrength() const {
         return m_keyboardHapticStrength;
     }
+    QString keyboardLanguage() const {
+        return m_keyboardLanguage;
+    }
 
     // Existing setters
     void setUserScaleFactor(qreal factor);
@@ -289,6 +294,7 @@ class SettingsManager : public QObject {
     void setKeyboardWordFling(bool enabled);
     void setKeyboardPredictiveSpacing(bool enabled);
     void setKeyboardHapticStrength(const QString &strength);
+    void setKeyboardLanguage(const QString &language);
 
     // Invokable methods for sound lists
     Q_INVOKABLE QStringList availableRingtones();
@@ -363,6 +369,7 @@ class SettingsManager : public QObject {
     void keyboardWordFlingChanged();
     void keyboardPredictiveSpacingChanged();
     void keyboardHapticStrengthChanged();
+    void keyboardLanguageChanged();
 
   private:
     void      load();
@@ -426,4 +433,5 @@ class SettingsManager : public QObject {
     bool    m_keyboardWordFling;
     bool    m_keyboardPredictiveSpacing;
     QString m_keyboardHapticStrength;
+    QString m_keyboardLanguage;
 };

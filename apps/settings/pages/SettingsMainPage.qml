@@ -1,10 +1,10 @@
-import QtQuick
 import MarathonApp.Settings
-import QtQuick.Controls
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Page {
     id: mainPage
@@ -14,12 +14,13 @@ Page {
     signal navigateToPage(string page)
     signal requestClose
 
-    background: Rectangle {
-        color: MColors.background
+    Component.onCompleted: {
+        Logger.info("SettingsMainPage", "Initialized");
     }
 
     Flickable {
         id: scrollView
+
         anchors.fill: parent
         contentHeight: settingsContent.height + 40
         clip: true
@@ -29,6 +30,7 @@ Page {
 
         Column {
             id: settingsContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -175,7 +177,6 @@ Page {
                 }
             }
 
-            // System
             MSection {
                 title: "System"
                 subtitle: "Device information and preferences"
@@ -188,6 +189,16 @@ Page {
                     showChevron: true
                     onSettingClicked: {
                         mainPage.navigateToPage("appmanager");
+                    }
+                }
+
+                MSettingsListItem {
+                    title: "Keyboard"
+                    subtitle: "Language, auto-correct, and input options"
+                    iconName: "keyboard"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("keyboard");
                     }
                 }
 
@@ -332,26 +343,23 @@ Page {
 
     // Swipe down to close gesture (BB10 style)
     MouseArea {
-        anchors.fill: parent
-        propagateComposedEvents: true
-        z: -1
-
         property real startY: 0
         property bool isDragging: false
 
+        anchors.fill: parent
+        propagateComposedEvents: true
+        z: -1
         onPressed: mouse => {
             if (scrollView.contentY <= 0) {
                 startY = mouse.y;
                 isDragging = false;
             }
         }
-
         onPositionChanged: mouse => {
             if (scrollView.contentY <= 0) {
                 var deltaY = mouse.y - startY;
-                if (deltaY > 10) {
+                if (deltaY > 10)
                     isDragging = true;
-                }
 
                 if (isDragging && deltaY > 100) {
                     mainPage.requestClose();
@@ -359,13 +367,12 @@ Page {
                 }
             }
         }
-
         onReleased: {
             isDragging = false;
         }
     }
 
-    Component.onCompleted: {
-        Logger.info("SettingsMainPage", "Initialized");
+    background: Rectangle {
+        color: MColors.background
     }
 }
