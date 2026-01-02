@@ -1,68 +1,82 @@
-import QtQuick
-import QtQuick.Layouts
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import "stores"
 
 MApp {
     id: calendarApp
-    appId: "calendar"
-    appName: "Calendar"
-    appIcon: "assets/icon.svg"
 
     property date currentDate: new Date()
     property var selectedDate: null
     property int currentView: 0
-
-    Component.onCompleted: {
-        CalendarStorage.init();
-    }
+    property Item navStack: null
 
     function createEvent(title, date, time, allDay, recurring) {
         var event = {
-            title: title || "Untitled Event",
-            date: date,
-            time: time || "12:00",
-            allDay: allDay || false,
-            recurring: recurring || "none"
+            "title": title || "Untitled Event",
+            "date": date,
+            "time": time || "12:00",
+            "allDay": allDay || false,
+            "recurring": recurring || "none"
         };
-        CalendarStorage.addEvent(event);
+        calendarStorage.addEvent(event);
         return event;
     }
 
     function getEventsForDate(date) {
-        return CalendarStorage.getEventsForDate(date);
+        return calendarStorage.getEventsForDate(date);
     }
 
     function deleteEvent(id) {
-        return CalendarStorage.deleteEvent(id);
+        return calendarStorage.deleteEvent(id);
     }
 
-    property Item navStack: null
+    // Helper to open detail page
+    function openEventDetail(event) {
+        if (navStack)
+            navStack.push("pages/EventDetailPage.qml", {
+                "event": event,
+                "onDelete": eventId => {
+                    calendarApp.deleteEvent(eventId);
+                }
+            });
+    }
 
+    appId: "calendar"
+    appName: "Calendar"
+    appIcon: "assets/icon.svg"
+    Component.onCompleted: {
+        calendarStorage.init();
+    }
     navigationDepth: navStack ? navStack.depth : 0
     onBackPressed: {
-        if (navStack && navStack.depth > 1) {
+        // If filtering by date, clear filter
+        // If in list view (without filter), go back to month view
+        // Let the shell handle closing the app if at root
+
+        if (navStack && navStack.depth > 1)
             navStack.pop();
-        } else if (calendarApp.selectedDate !== null) {
-            // If filtering by date, clear filter
+        else if (calendarApp.selectedDate !== null)
             calendarApp.selectedDate = null;
-        } else if (calendarApp.currentView === 1) {
-            // If in list view (without filter), go back to month view
+        else if (calendarApp.currentView === 1)
             calendarApp.currentView = 0;
-        } else {
-            // Let the shell handle closing the app if at root
+        else
             navigationDepth = 0;
-        }
+    }
+
+    CalendarStorage {
+        id: calendarStorage
     }
 
     content: StackView {
         id: stackView
-        anchors.fill: parent
 
+        anchors.fill: parent
         Component.onCompleted: calendarApp.navStack = stackView
 
         initialItem: Rectangle {
@@ -88,20 +102,19 @@ MApp {
 
                 MTabBar {
                     id: tabBar
+
                     width: parent.width
                     activeTab: calendarApp.currentView
-
                     tabs: [
                         {
-                            label: "Month",
-                            icon: "calendar"
+                            "label": "Month",
+                            "icon": "calendar"
                         },
                         {
-                            label: "List",
-                            icon: "list"
+                            "label": "List",
+                            "icon": "list"
                         }
                     ]
-
                     onTabSelected: index => {
                         HapticService.light();
                         calendarApp.currentView = index;
@@ -137,6 +150,7 @@ MApp {
                 easing.type: Easing.OutCubic
             }
         }
+
         pushExit: Transition {
             PropertyAnimation {
                 property: "x"
@@ -146,6 +160,7 @@ MApp {
                 easing.type: Easing.OutCubic
             }
         }
+
         popEnter: Transition {
             PropertyAnimation {
                 property: "x"
@@ -155,6 +170,7 @@ MApp {
                 easing.type: Easing.OutCubic
             }
         }
+
         popExit: Transition {
             PropertyAnimation {
                 property: "x"
@@ -163,18 +179,6 @@ MApp {
                 duration: MMotion.md
                 easing.type: Easing.OutCubic
             }
-        }
-    }
-
-    // Helper to open detail page
-    function openEventDetail(event) {
-        if (navStack) {
-            navStack.push("pages/EventDetailPage.qml", {
-                "event": event,
-                "onDelete": eventId => {
-                    calendarApp.deleteEvent(eventId);
-                }
-            });
         }
     }
 }

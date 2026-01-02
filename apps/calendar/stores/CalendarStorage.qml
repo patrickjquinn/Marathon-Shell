@@ -1,12 +1,37 @@
-pragma Singleton
-import QtQuick
 import MarathonOS.Shell
+import QtQuick
 
 QtObject {
     id: root
 
     property var events: []
     property int nextEventId: 1
+    property Connections calendarConnection
+
+    calendarConnection: Connections {
+        function onEventsLoaded() {
+            root.events = CalendarManager.events;
+            root.dataChanged();
+        }
+
+        function onEventCreated(event) {
+            root.events = CalendarManager.events;
+            root.dataChanged();
+        }
+
+        function onEventUpdated(event) {
+            root.events = CalendarManager.events;
+            root.dataChanged();
+        }
+
+        function onEventDeleted(eventId) {
+            root.events = CalendarManager.events;
+            root.dataChanged();
+        }
+
+        target: typeof CalendarManager !== 'undefined' ? CalendarManager : null
+        enabled: typeof CalendarManager !== 'undefined'
+    }
 
     // Signal to notify listeners of changes
     signal dataChanged
@@ -21,8 +46,12 @@ QtObject {
                 events = JSON.parse(savedEvents);
                 if (events.length > 0) {
                     // Ensure IDs are numbers
-                    events.forEach(e => e.id = Number(e.id));
-                    nextEventId = Math.max(...events.map(e => e.id)) + 1;
+                    events.forEach(e => {
+                        return e.id = Number(e.id);
+                    });
+                    nextEventId = Math.max(events.map(e => {
+                        return e.id;
+                    })) + 1;
                 }
             } catch (e) {
                 Logger.error("CalendarStorage", "Failed to load events: " + e);
@@ -93,33 +122,27 @@ QtObject {
     }
 
     function getEventsForDate(date) {
-        if (typeof CalendarManager !== 'undefined') {
+        if (typeof CalendarManager !== 'undefined')
             return CalendarManager.getEventsForDate(date);
-        }
 
         var dateStr = Qt.formatDate(date, "yyyy-MM-dd");
         var result = [];
-
         for (var i = 0; i < events.length; i++) {
             var event = events[i];
-
             if (event.date === dateStr) {
                 result.push(event);
             } else if (event.recurring !== "none") {
                 var eventDate = new Date(event.date);
                 var checkDate = new Date(date);
-
                 if (event.recurring === "daily" && checkDate >= eventDate) {
                     result.push(event);
                 } else if (event.recurring === "weekly" && checkDate >= eventDate) {
                     var daysDiff = Math.floor((checkDate - eventDate) / (1000 * 60 * 60 * 24));
-                    if (daysDiff % 7 === 0) {
+                    if (daysDiff % 7 === 0)
                         result.push(event);
-                    }
                 } else if (event.recurring === "monthly" && checkDate >= eventDate) {
-                    if (checkDate.getDate() === eventDate.getDate()) {
+                    if (checkDate.getDate() === eventDate.getDate())
                         result.push(event);
-                    }
                 }
             }
         }
@@ -128,30 +151,5 @@ QtObject {
 
     function getAllEvents() {
         return events;
-    }
-
-    property Connections calendarConnection: Connections {
-        target: typeof CalendarManager !== 'undefined' ? CalendarManager : null
-        enabled: typeof CalendarManager !== 'undefined'
-
-        function onEventsLoaded() {
-            root.events = CalendarManager.events;
-            root.dataChanged();
-        }
-
-        function onEventCreated(event) {
-            root.events = CalendarManager.events;
-            root.dataChanged();
-        }
-
-        function onEventUpdated(event) {
-            root.events = CalendarManager.events;
-            root.dataChanged();
-        }
-
-        function onEventDeleted(eventId) {
-            root.events = CalendarManager.events;
-            root.dataChanged();
-        }
     }
 }
