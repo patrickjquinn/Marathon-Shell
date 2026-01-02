@@ -1,17 +1,13 @@
 import "../Data"
 import "../UI"
 import MarathonOS.Shell
-// Marathon Virtual Keyboard - QWERTY Layout
-// BlackBerry 10-style QWERTY keyboard layout
 import QtQuick
 
 Item {
     id: layout
 
-    // Properties
     property bool shifted: false
     property bool capsLock: false
-    // Key definitions with alternates
     readonly property var row1Keys: [
         {
             "char": "q",
@@ -123,7 +119,6 @@ Item {
         }
     ]
 
-    // Signals
     signal keyClicked(string text)
     signal backspaceClicked
     signal enterClicked
@@ -132,7 +127,6 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
-    // Expose Column's implicit height
     implicitHeight: layoutColumn.implicitHeight
 
     Column {
@@ -141,7 +135,6 @@ Item {
         width: parent.width
         spacing: 0
 
-        // Row 1: Q W E R T Y U I O P
         Row {
             readonly property real keyWidth: (width - spacing * 9) / 10
 
@@ -166,15 +159,12 @@ Item {
             }
         }
 
-        // Separator line between Row 1 and Row 2
         Rectangle {
             width: parent.width
             height: Math.round(2 * Constants.scaleFactor)
-            color: "#666666" // BRIGHT grey line - very visible
-            opacity: 1
+            color: "#666666"
         }
 
-        // Row 2: A S D F G H J K L
         Row {
             readonly property real keyWidth: (width - spacing * 8) / 9
 
@@ -199,15 +189,12 @@ Item {
             }
         }
 
-        // Separator line between Row 2 and Row 3
         Rectangle {
             width: parent.width
             height: Math.round(2 * Constants.scaleFactor)
             color: "#666666"
-            opacity: 1
         }
 
-        // Row 3: Shift Z X C V B N M Backspace
         Row {
             id: row3
 
@@ -216,7 +203,6 @@ Item {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
-            // Shift key (wider)
             Key {
                 width: row3.availableWidth * 0.15
                 text: "shift"
@@ -228,7 +214,6 @@ Item {
                 }
             }
 
-            // Letter keys (equal width)
             Repeater {
                 model: row3Keys
 
@@ -246,7 +231,6 @@ Item {
                 }
             }
 
-            // Backspace key (wider)
             Key {
                 id: backspaceKey
 
@@ -255,25 +239,21 @@ Item {
                 iconName: "delete"
                 isSpecial: true
                 onClicked: {
-                    // Only fire on short tap (not long press)
                     if (!backspaceRepeatTimer.running)
                         layout.backspaceClicked();
                 }
                 onPressAndHold: {
-                    // Start repeat timer on long press
                     backspaceRepeatTimer.start();
                 }
                 onReleased: {
-                    // Stop repeat when released
                     backspaceRepeatTimer.stop();
                 }
             }
 
-            // Backspace repeat timer (managed at layout level)
             Timer {
                 id: backspaceRepeatTimer
 
-                interval: 50 // Delete every 50ms when holding
+                interval: 50
                 repeat: true
                 onTriggered: {
                     layout.backspaceClicked();
@@ -281,15 +261,12 @@ Item {
             }
         }
 
-        // Separator line between Row 3 and Row 4
         Rectangle {
             width: parent.width
             height: Math.round(2 * Constants.scaleFactor)
             color: "#666666"
-            opacity: 1
         }
 
-        // Row 4: 123, Comma, Space, Dismiss, Period, Enter (BlackBerry 10 exact style)
         Row {
             id: row4
 
@@ -298,7 +275,6 @@ Item {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
-            // 123 key (switch to numbers)
             Key {
                 width: row4.availableWidth * 0.12
                 text: "123"
@@ -309,20 +285,17 @@ Item {
                 }
             }
 
-            // Emoji key (replaces comma)
             Key {
                 width: row4.availableWidth * 0.08
                 text: "emoji"
                 displayText: "😀"
                 isSpecial: true
-                // Ensure the emoji icon renders correctly
                 fontFamily: "Noto Color Emoji"
                 onClicked: {
                     layout.layoutSwitchClicked("emoji");
                 }
             }
 
-            // Space bar (MASSIVE - 50% of row)
             Key {
                 width: row4.availableWidth * 0.5
                 text: " "
@@ -333,7 +306,6 @@ Item {
                 }
             }
 
-            // Dismiss key (keyboard down icon) - LEFT OF ENTER
             Key {
                 width: row4.availableWidth * 0.08
                 text: "dismiss"
@@ -344,7 +316,6 @@ Item {
                 }
             }
 
-            // Period key
             Key {
                 width: row4.availableWidth * 0.08
                 text: "."
@@ -354,7 +325,6 @@ Item {
                 }
             }
 
-            // Enter key (rightmost)
             Key {
                 width: row4.availableWidth * 0.14
                 text: "enter"
