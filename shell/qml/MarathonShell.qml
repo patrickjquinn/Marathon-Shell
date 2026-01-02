@@ -1650,7 +1650,8 @@ Item {
             function onActiveFocusItemChanged() {
                 var item = focusConnection.target ? focusConnection.target.activeFocusItem : null;
                 if (!item) {
-                    if (virtualKeyboard.active)
+                    // Internal focus lost. If InputMethodEngine is also not active, hide.
+                    if (!InputMethodEngine.active)
                         virtualKeyboard.active = false;
 
                     return;
@@ -1658,32 +1659,43 @@ Item {
                 var isInput = (item.toString().indexOf("TextInput") !== -1 || item.toString().indexOf("TextEdit") !== -1);
                 if (isInput && !Platform.hasHardwareKeyboard)
                     virtualKeyboard.active = true;
-                else if (virtualKeyboard.active)
+                else if (virtualKeyboard.active && !InputMethodEngine.active)
                     virtualKeyboard.active = false;
             }
 
             target: null
         }
-    }
 
-    Connections {
-        function onVisibleChanged() {
-            Logger.debug("Shell", "Qt.inputMethod.visible changed to: " + Qt.inputMethod.visible);
-            Logger.debug("Shell", "Platform.hasHardwareKeyboard: " + (typeof Platform !== 'undefined' ? Platform.hasHardwareKeyboard : "undefined"));
-            if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
-                if (Qt.inputMethod.visible && !virtualKeyboard.active) {
-                    Logger.info("Shell", "Text input focused - auto-showing virtual keyboard");
+        Connections {
+            function onKeyboardRequested() {
+                Logger.info("Shell", "InputMethodEngine: Keyboard requested");
+                if (!Platform.hasHardwareKeyboard)
                     virtualKeyboard.active = true;
-                } else if (!Qt.inputMethod.visible && virtualKeyboard.active) {
-                    Logger.info("Shell", "Text input unfocused - auto-hiding virtual keyboard");
+            }
+
+            function onKeyboardHideRequested() {
+                Logger.info("Shell", "InputMethodEngine: Keyboard hide requested");
+                virtualKeyboard.active = false;
+            }
+
+            function onInputItemFocused() {
+                Logger.info("Shell", "InputMethodEngine: Input item focused");
+                if (!Platform.hasHardwareKeyboard)
+                    virtualKeyboard.active = true;
+            }
+
+            function onInputItemUnfocused() {
+                // If internal focus is NOT on an input, hide.
+                var item = Window.window ? Window.window.activeFocusItem : null;
+                var isInternalInput = item && (item.toString().indexOf("TextInput") !== -1 || item.toString().indexOf("TextEdit") !== -1);
+                if (!isInternalInput) {
+                    Logger.info("Shell", "InputMethodEngine: Input item unfocused");
                     virtualKeyboard.active = false;
                 }
-            } else {
-                Logger.debug("Shell", "Keyboard auto-show skipped: hasHardwareKeyboard=" + (typeof Platform !== 'undefined' ? Platform.hasHardwareKeyboard : true));
             }
-        }
 
-        target: Qt.inputMethod
+            target: InputMethodEngine
+        }
     }
 
     Connections {
