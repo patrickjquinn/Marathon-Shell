@@ -1,0 +1,159 @@
+{
+    "id": "es_ES",
+    "name": "Español",
+    "dictionary": "es_ES",
+    "rtl": false,
+    "rows": [
+        {
+            "keys": [
+                {
+                    "char": "q",
+                    "alts": []
+                },
+                {
+                    "char": "w",
+                    "alts": []
+                },
+                {
+                    "char": "e",
+                    "alts": [
+                        "é",
+                        "è",
+                        "ê",
+                        "ë"
+                    ]
+                },
+                {
+                    "char": "r",
+                    "alts": []
+                },
+                {
+                    "char": "t",
+                    "alts": []
+                },
+                {
+                    "char": "y",
+                    "alts": []
+                },
+                {
+                    "char": "u",
+                    "alts": [
+                        "ú",
+                        "ü",
+                        "ù",
+                        "û"
+                    ]
+                },
+                {
+                    "char": "i",
+                    "alts": [
+                        "í",
+                        "ì",
+                        "î",
+                        "ï"
+                    ]
+                },
+                {
+                    "char": "o",
+                    "alts": [
+                        "ó",
+                        "ò",
+                        "ô",
+                        "õ",
+                        "ö"
+                    ]
+                },
+                {
+                    "char": "p",
+                    "alts": []
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "char": "a",
+                    "alts": [
+                        "á",
+                        "à",
+                        "â",
+                        "ã",
+                        "ä"
+                    ]
+                },
+                {
+                    "char": "s",
+                    "alts": []
+                },
+                {
+                    "char": "d",
+                    "alts": []
+                },
+                {
+                    "char": "f",
+                    "alts": []
+                },
+                {
+                    "char": "g",
+                    "alts": []
+                },
+                {
+                    "char": "h",
+                    "alts": []
+                },
+                {
+                    "char": "j",
+                    "alts": []
+                },
+                {
+                    "char": "k",
+                    "alts": []
+                },
+                {
+                    "char": "l",
+                    "alts": []
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "char": "z",
+                    "alts": []
+                },
+                {
+                    "char": "x",
+                    "alts": []
+                },
+                {
+                    "char": "c",
+                    "alts": []
+                },
+                {
+                    "char": "v",
+                    "alts": []
+                },
+                {
+                    "char": "b",
+                    "alts": []
+                },
+                {
+                    "char": "n",
+                    "alts": [
+                        "ñ"
+                    ]
+                },
+                {
+                    "char": "m",
+                    "alts": []
+                }
+            ]
+        }
+    ],
+    "specialKeys": {
+        "punctuation": [
+            "¿",
+            "¡"
+        ]
+    }
+}

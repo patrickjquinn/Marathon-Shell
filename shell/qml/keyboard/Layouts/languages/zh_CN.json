@@ -1,0 +1,127 @@
+{
+    "id": "zh_CN",
+    "name": "中文 (拼音)",
+    "dictionary": "en_US",
+    "rtl": false,
+    "inputMethod": "pinyin",
+    "rows": [
+        {
+            "keys": [
+                {
+                    "char": "q",
+                    "alts": []
+                },
+                {
+                    "char": "w",
+                    "alts": []
+                },
+                {
+                    "char": "e",
+                    "alts": []
+                },
+                {
+                    "char": "r",
+                    "alts": []
+                },
+                {
+                    "char": "t",
+                    "alts": []
+                },
+                {
+                    "char": "y",
+                    "alts": []
+                },
+                {
+                    "char": "u",
+                    "alts": [
+                        "ü"
+                    ]
+                },
+                {
+                    "char": "i",
+                    "alts": []
+                },
+                {
+                    "char": "o",
+                    "alts": []
+                },
+                {
+                    "char": "p",
+                    "alts": []
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "char": "a",
+                    "alts": []
+                },
+                {
+                    "char": "s",
+                    "alts": []
+                },
+                {
+                    "char": "d",
+                    "alts": []
+                },
+                {
+                    "char": "f",
+                    "alts": []
+                },
+                {
+                    "char": "g",
+                    "alts": []
+                },
+                {
+                    "char": "h",
+                    "alts": []
+                },
+                {
+                    "char": "j",
+                    "alts": []
+                },
+                {
+                    "char": "k",
+                    "alts": []
+                },
+                {
+                    "char": "l",
+                    "alts": []
+                }
+            ]
+        },
+        {
+            "keys": [
+                {
+                    "char": "z",
+                    "alts": []
+                },
+                {
+                    "char": "x",
+                    "alts": []
+                },
+                {
+                    "char": "c",
+                    "alts": []
+                },
+                {
+                    "char": "v",
+                    "alts": []
+                },
+                {
+                    "char": "b",
+                    "alts": []
+                },
+                {
+                    "char": "n",
+                    "alts": []
+                },
+                {
+                    "char": "m",
+                    "alts": []
+                }
+            ]
+        }
+    ]
+}
