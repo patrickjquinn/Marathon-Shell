@@ -183,6 +183,8 @@ if [ $? -eq 0 ]; then
     echo "🔊 Audio backend: $QT_MEDIA_BACKEND (GStreamer has native PulseAudio support)"
     echo ""
     
+    unset WAYLAND_DEBUG
+    
     # Run the app (detect OS)
     if [[ "$OSTYPE" == "darwin"* ]]; then
         # macOS .app# Set Chromium Flags for embedded stability
