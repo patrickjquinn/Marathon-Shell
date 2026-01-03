@@ -94,6 +94,9 @@ Item {
     }
 
     function getCurrentWord() {
+        if (parent && parent.keyboard && parent.keyboard.currentWord)
+            return parent.keyboard.currentWord;
+
         return "";
     }
 
