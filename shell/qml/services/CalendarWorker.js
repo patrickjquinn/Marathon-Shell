@@ -1,4 +1,3 @@
-.pragma library
 
 WorkerScript.onMessage = function (message) {
     if (message.action === 'processEvents') {
