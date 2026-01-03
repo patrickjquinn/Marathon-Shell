@@ -16,6 +16,9 @@ Rectangle {
     readonly property string wordSeparators: ",.!?:;"
     property InputContext inputContext
     property bool showLanguageSelector: false
+    property string lastCorrectedWord: ""
+    property string lastOriginalWord: ""
+    property bool canUndoAutoCorrect: false
 
     signal keyPressed(string text)
     signal backspace
@@ -36,16 +39,30 @@ Rectangle {
                 keyboard.shifted = true;
                 keyboard.currentWord = "";
             }
+            return;
         }
-        if (text === ",") {
-            commitTimer.pendingText = text + " ";
+        if (text === ",")
             keyboard.currentWord = "";
-        }
+
         if (keyboard.shifted && !keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
             keyboard.shifted = false;
     }
 
     function handleBackspace() {
+        if (keyboard.canUndoAutoCorrect && keyboard.currentWord.length === 0) {
+            var correctedLen = keyboard.lastCorrectedWord.length + 1;
+            for (var i = 0; i < correctedLen; i++) {
+                inputContextInstance.handleBackspace();
+                keyboard.backspace();
+            }
+            inputContextInstance.insertText(keyboard.lastOriginalWord + " ");
+            keyboard.keyPressed(keyboard.lastOriginalWord + " ");
+            keyboard.canUndoAutoCorrect = false;
+            keyboard.lastOriginalWord = "";
+            keyboard.lastCorrectedWord = "";
+            return;
+        }
+        keyboard.canUndoAutoCorrect = false;
         inputContextInstance.handleBackspace();
         if (keyboard.currentWord.length > 0) {
             keyboard.currentWord = keyboard.currentWord.slice(0, -1);
@@ -75,9 +92,15 @@ Rectangle {
                 if (correctedWord !== originalWord) {
                     inputContextInstance.replaceCurrentWord(correctedWord);
                     Dictionary.learnWord(correctedWord);
+                    keyboard.lastOriginalWord = originalWord;
+                    keyboard.lastCorrectedWord = correctedWord;
+                    keyboard.canUndoAutoCorrect = true;
                 } else {
                     Dictionary.learnWord(originalWord);
+                    keyboard.canUndoAutoCorrect = false;
                 }
+            } else {
+                keyboard.canUndoAutoCorrect = false;
             }
             keyboard.currentWord = "";
         }
