@@ -1,26 +1,11 @@
 import MarathonOS.Shell
-// Marathon Virtual Keyboard - Input Context
-// Manages input field focus and provides proper key event handling
-// OPTIMIZED for low-latency text input
 import QtQuick
 
 Item {
-    // text, email, url, number, phone
-    // NOTE: This is a simplified version - in reality we'd need to query
-    // the actual input field's text. For now, we track it in MarathonKeyboard.
-    // This function is kept for API compatibility but may return empty string.
-    // Check for URL - also detect if NoAutoUppercase is set with UrlCharactersOnly
-    // Check for numbers only
-    // Check for phone number
-    // Default to text
-
     id: inputContext
 
-    // Track if we're in an input field using Qt.inputMethod
     readonly property bool hasActiveFocus: Qt.inputMethod && Qt.inputMethod.visible
-    // Input mode (for context-aware predictions and layout switching)
     property string inputMode: "text"
-    // Recommended keyboard layout based on input type
     readonly property string recommendedLayout: {
         switch (inputMode) {
         case "email":
@@ -31,34 +16,31 @@ Item {
             return "number";
         case "phone":
             return "phone";
+        case "terminal":
+            return "terminal";
         default:
-            return "qwerty";
+            return "dynamic";
         }
     }
-    // Context-aware keyboard behavior flags (based on input type)
     readonly property bool shouldAutoCapitalize: {
         switch (inputMode) {
         case "email":
-            return false;
         case "url":
-            return false;
         case "number":
-            return false;
         case "phone":
+        case "terminal":
             return false;
         default:
-            return true; // text, search
+            return true;
         }
     }
     readonly property bool shouldAutoCorrect: {
         switch (inputMode) {
         case "email":
-            return false; // Don't correct email addresses
         case "url":
-            return false; // Don't correct URLs
         case "number":
-            return false;
         case "phone":
+        case "terminal":
             return false;
         default:
             return true;
@@ -67,83 +49,67 @@ Item {
     readonly property bool shouldShowPredictions: {
         switch (inputMode) {
         case "url":
-            return true; // ISSUE D FIX: Show domain suggestions in URL mode
         case "email":
-            return true; // Show email domain suggestions
+            return true;
         case "number":
-            return false;
         case "phone":
+        case "terminal":
             return false;
         default:
-            return true; // Show for text, search
+            return true;
         }
     }
 
     signal textInserted(string text)
     signal backspacePressed
     signal enterPressed
+    signal cursorKeyPressed(int key)
 
-    // Insert text at cursor position
     function insertText(text) {
-        // Qt.inputMethod.commit() in Qt6 doesn't take arguments
-        // Text input is handled by C++ IME backend (InputMethodEngine)
-        // This function is kept for API compatibility
         textInserted(text);
-        Logger.info("InputContext", "Text input signaled: " + text);
     }
 
-    // Handle backspace
     function handleBackspace() {
-        // Send backspace through the C++ IME backend (already wired in VirtualKeyboard.qml)
         backspacePressed();
     }
 
-    // Handle enter/return
     function handleEnter() {
-        // Send enter through the C++ IME backend
         enterPressed();
     }
 
-    // Replace current word with suggestion
+    function sendCursorKey(key) {
+        cursorKeyPressed(key);
+    }
+
     function replaceCurrentWord(newWord) {
         var currentWord = getCurrentWord();
         if (currentWord.length === 0) {
-            // No current word, just insert the new word
             insertText(newWord);
             return;
         }
-        // Delete the current word (send backspace for each character)
         for (var i = 0; i < currentWord.length; i++) {
             handleBackspace();
         }
-        // Insert the new word
         insertText(newWord);
-        Logger.info("InputContext", "Replaced '" + currentWord + "' with: " + newWord);
     }
 
-    // Get current word being typed
     function getCurrentWord() {
-        Logger.warn("InputContext", "getCurrentWord() called - should use keyboard.currentWord instead");
+        if (parent && parent.keyboard && parent.keyboard.currentWord)
+            return parent.keyboard.currentWord;
+
         return "";
     }
 
-    // Detect input mode from focused input
     function detectInputMode() {
         if (!Qt.inputMethod) {
             inputMode = "text";
-            Logger.warn("InputContext", "Qt.inputMethod not available, defaulting to text mode");
             return;
         }
-        // Read Qt.inputMethod hints
         var hints = Qt.inputMethod.inputItemHints;
-        // Handle undefined hints (happens when keyboard is manually invoked without input focus)
         if (typeof hints === 'undefined' || hints === null) {
             inputMode = "text";
-            Logger.warn("InputContext", "Input hints undefined (no focused input field), defaulting to text mode");
             return;
         }
-        // ISSUE C FIX: More robust hint detection
-        // Check for email
         if (hints & Qt.ImhEmailCharactersOnly)
             inputMode = "email";
         else if (hints & Qt.ImhUrlCharactersOnly || ((hints & Qt.ImhNoAutoUppercase) && (hints & Qt.ImhNoPredictiveText)))
@@ -154,23 +120,16 @@ Item {
             inputMode = "phone";
         else
             inputMode = "text";
-        Logger.info("InputContext", "Detected input mode: " + inputMode + " (hints: " + hints + ", recommended layout: " + recommendedLayout + ")");
     }
 
-    // PERFORMANCE: visible false reduces overhead when not managing focus
     visible: false
     width: 0
     height: 0
 
-    // Monitor Qt.inputMethod visible state
     Connections {
         function onVisibleChanged() {
-            if (Qt.inputMethod.visible) {
-                Logger.info("InputContext", "Input field focused");
+            if (Qt.inputMethod.visible)
                 detectInputMode();
-            } else {
-                Logger.info("InputContext", "Input field unfocused");
-            }
         }
 
         target: Qt.inputMethod

@@ -15,25 +15,21 @@ Item {
         anchors.centerIn: parent
         spacing: Math.round(24 * Constants.scaleFactor)
 
-        // Clipboard
         ToolButton {
-            iconName: "file-text" // Available icon
+            iconName: "file-text"
             onClicked: toolBar.clipboardClicked()
         }
 
-        // Emoji Search (Quick Access)
         ToolButton {
-            iconName: "star" // Available icon
+            iconName: "star"
             onClicked: toolBar.emojiClicked()
         }
 
-        // Settings
         ToolButton {
             iconName: "settings"
             onClicked: toolBar.settingsClicked()
         }
 
-        // Dismiss Keyboard
         ToolButton {
             iconName: "chevron-down"
             onClicked: toolBar.dismissClicked()
@@ -45,9 +41,7 @@ Item {
 
         width: Math.round(40 * Constants.scaleFactor)
         height: Math.round(30 * Constants.scaleFactor)
-        onClicked: {
-            HapticService.light();
-        }
+        onClicked: HapticService.light()
 
         background: Rectangle {
             color: parent.pressed ? "#33ffffff" : "transparent"
@@ -56,29 +50,11 @@ Item {
 
         contentItem: Item {
             Icon {
-                // Use QtQuick.Controls.IconLabel or similar?
-                // Actually, let's just use a ShaderEffect to colorize it white.
-
                 anchors.centerIn: parent
                 name: parent.parent.iconName
                 size: Math.round(20 * Constants.scaleFactor)
                 color: "white"
                 opacity: 0.9
-                layer.enabled: true
-
-                layer.effect: ShaderEffect {
-                    property color color: "white"
-
-                    fragmentShader: "
-                        uniform lowp sampler2D source;
-                        uniform lowp vec4 color;
-                        varying highp vec2 qt_TexCoord0;
-                        void main() {
-                            lowp vec4 tex = texture2D(source, qt_TexCoord0);
-                            gl_FragColor = vec4(color.rgb, tex.a * color.a);
-                        }
-                    "
-                }
             }
         }
     }

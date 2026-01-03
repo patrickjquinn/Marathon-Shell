@@ -14,6 +14,7 @@
 #include <QtMath>
 #include <QQuickItem>
 #include <QKeyEvent>
+#include "textinputv3.h"
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
@@ -96,6 +97,12 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     } else {
         qInfo() << "[WaylandCompositor] zwp_text_input_manager_v2 disabled";
     }
+
+    m_textInputManagerV3Custom = new TextInputManagerV3(this);
+    connect(m_textInputManagerV3Custom, &TextInputManagerV3::textInputEnabled, this,
+            [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(true); });
+    connect(m_textInputManagerV3Custom, &TextInputManagerV3::textInputDisabled, this,
+            [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(false); });
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
@@ -282,6 +289,9 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("CLUTTER_BACKEND", "wayland");
     env.insert("SDL_VIDEODRIVER", "wayland");
     env.insert("MOZ_ENABLE_WAYLAND", "1");
+
+    env.insert("QT_IM_MODULE", "wayland");
+    env.insert("ELECTRON_OZONE_PLATFORM_HINT", "wayland");
 
     env.insert("LIBADWAITA_MOBILE", "1");
     env.insert("PURISM_FORM_FACTOR", "phone");
@@ -554,8 +564,11 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
             &WaylandCompositor::handleSurfaceDestroyed);
 
     if (auto *inputControl = surface->inputMethodControl()) {
+        qDebug() << "[WaylandCompositor] Connected to inputMethodControl for surface";
         connect(inputControl, SIGNAL(enabledChanged(bool)), this,
                 SLOT(handleTextInputEnabled(bool)));
+    } else {
+        qDebug() << "[WaylandCompositor] No inputMethodControl available for surface";
     }
 
     int surfaceId           = m_nextSurfaceId++;
@@ -587,8 +600,6 @@ void WaylandCompositor::activateSurface(int surfaceId) {
 }
 
 void WaylandCompositor::handleTextInputEnabled(bool enabled) {
-    if (wlVerbose())
-        qDebug() << "[WaylandCompositor] Native text input enabled changed:" << enabled;
     emit nativeTextInputPanelRequested(enabled);
 }
 

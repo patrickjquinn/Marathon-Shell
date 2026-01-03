@@ -1,125 +1,19 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 MApp {
+    // End Rectangle (content)
+
     id: settingsApp
+
     appId: "settings"
     appName: "Settings"
     appIcon: "assets/icon.svg"
 
     content: Rectangle {
-        anchors.fill: parent
-        color: MColors.background
-
-        // Navigation stack
-        StackView {
-            id: navigationStack
-            anchors.fill: parent
-            initialItem: settingsMainPage
-
-            // Update parent's navigationDepth when stack changes
-            onDepthChanged: {
-                var newDepth = depth - 1;
-                Logger.info("SettingsApp", "StackView depth changed: " + depth + " → navigationDepth: " + newDepth);
-                settingsApp.navigationDepth = newDepth;
-            }
-
-            // Use Connections for proper lifetime management
-            Connections {
-                target: settingsApp
-                function onBackPressed() {
-                    if (navigationStack.depth > 1) {
-                        navigationStack.pop();
-                    }
-                }
-            }
-
-            Component.onCompleted: {
-                settingsApp.navigationDepth = depth - 1;
-            }
-
-            // BB10-inspired slide transitions
-            pushEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: navigationStack.width
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0.7
-                    to: 1.0
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            pushExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: -navigationStack.width * 0.3
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1.0
-                    to: 0.7
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popEnter: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: -navigationStack.width * 0.3
-                    to: 0
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    property: "opacity"
-                    from: 0.7
-                    to: 1.0
-                    duration: Constants.animationDurationNormal
-                }
-            }
-
-            popExit: Transition {
-                NumberAnimation {
-                    property: "x"
-                    from: 0
-                    to: navigationStack.width
-                    duration: Constants.animationDurationNormal
-                    easing.type: Easing.OutCubic
-                }
-                NumberAnimation {
-                    property: "opacity"
-                    from: 1.0
-                    to: 0.7
-                    duration: Constants.animationDurationNormal
-                }
-            }
-        }
-
-        // Main settings page component
-        Component {
-            id: settingsMainPage
-            SettingsMainPage {
-                onNavigateToPage: page => {
-                    navigateToSettingsPage(page);
-                }
-                onRequestClose: {
-                    settingsApp.closed();
-                }
-            }
-        }
-
         /**
      * Navigate to a specific settings page
      * @param pageName {string} - Page identifier (wifi, bluetooth, etc)
@@ -127,10 +21,8 @@ MApp {
      */
         function navigateToSettingsPage(pageName, params) {
             Logger.info("SettingsApp", "Navigate to page: " + pageName);
-
             var component = null;
             var pageParams = params || {};
-
             switch (pageName) {
             case "wifi":
                 component = wifiPageComponent;
@@ -177,14 +69,15 @@ MApp {
             case "security":
                 component = securityPageComponent;
                 break;
+            case "keyboard":
+                component = keyboardPageComponent;
+                break;
             default:
                 Logger.error("SettingsApp", "Unknown page: " + pageName);
                 return;
             }
-
-            if (component) {
+            if (component)
                 navigationStack.push(component, pageParams);
-            }
         }
 
         /**
@@ -202,15 +95,129 @@ MApp {
      * Get current page name
      */
         function getCurrentPage() {
-            if (navigationStack.currentItem) {
+            if (navigationStack.currentItem)
                 return navigationStack.currentItem.pageName || "main";
-            }
+
             return "main";
+        }
+
+        anchors.fill: parent
+        color: MColors.background
+
+        // Navigation stack
+        StackView {
+            id: navigationStack
+
+            anchors.fill: parent
+            initialItem: settingsMainPage
+            // Update parent's navigationDepth when stack changes
+            onDepthChanged: {
+                var newDepth = depth - 1;
+                Logger.info("SettingsApp", "StackView depth changed: " + depth + " → navigationDepth: " + newDepth);
+                settingsApp.navigationDepth = newDepth;
+            }
+            Component.onCompleted: {
+                settingsApp.navigationDepth = depth - 1;
+            }
+
+            // Use Connections for proper lifetime management
+            Connections {
+                function onBackPressed() {
+                    if (navigationStack.depth > 1)
+                        navigationStack.pop();
+                }
+
+                target: settingsApp
+            }
+
+            // BB10-inspired slide transitions
+            pushEnter: Transition {
+                NumberAnimation {
+                    property: "x"
+                    from: navigationStack.width
+                    to: 0
+                    duration: Constants.animationDurationNormal
+                    easing.type: Easing.OutCubic
+                }
+
+                NumberAnimation {
+                    property: "opacity"
+                    from: 0.7
+                    to: 1
+                    duration: Constants.animationDurationNormal
+                }
+            }
+
+            pushExit: Transition {
+                NumberAnimation {
+                    property: "x"
+                    from: 0
+                    to: -navigationStack.width * 0.3
+                    duration: Constants.animationDurationNormal
+                    easing.type: Easing.OutCubic
+                }
+
+                NumberAnimation {
+                    property: "opacity"
+                    from: 1
+                    to: 0.7
+                    duration: Constants.animationDurationNormal
+                }
+            }
+
+            popEnter: Transition {
+                NumberAnimation {
+                    property: "x"
+                    from: -navigationStack.width * 0.3
+                    to: 0
+                    duration: Constants.animationDurationNormal
+                    easing.type: Easing.OutCubic
+                }
+
+                NumberAnimation {
+                    property: "opacity"
+                    from: 0.7
+                    to: 1
+                    duration: Constants.animationDurationNormal
+                }
+            }
+
+            popExit: Transition {
+                NumberAnimation {
+                    property: "x"
+                    from: 0
+                    to: navigationStack.width
+                    duration: Constants.animationDurationNormal
+                    easing.type: Easing.OutCubic
+                }
+
+                NumberAnimation {
+                    property: "opacity"
+                    from: 1
+                    to: 0.7
+                    duration: Constants.animationDurationNormal
+                }
+            }
+        }
+
+        // Main settings page component
+        Component {
+            id: settingsMainPage
+
+            SettingsMainPage {
+                onNavigateToPage: page => {
+                    navigateToSettingsPage(page);
+                }
+                onRequestClose: {
+                    settingsApp.closed();
+                }
+            }
         }
 
         // Page components
         Component {
             id: wifiPageComponent
+
             WiFiPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -218,6 +225,7 @@ MApp {
 
         Component {
             id: bluetoothPageComponent
+
             BluetoothPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -225,6 +233,7 @@ MApp {
 
         Component {
             id: cellularPageComponent
+
             CellularPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -232,6 +241,7 @@ MApp {
 
         Component {
             id: displayPageComponent
+
             DisplayPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -239,6 +249,7 @@ MApp {
 
         Component {
             id: soundPageComponent
+
             SoundPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -246,6 +257,7 @@ MApp {
 
         Component {
             id: notificationsPageComponent
+
             NotificationsPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -253,6 +265,7 @@ MApp {
 
         Component {
             id: storagePageComponent
+
             StoragePage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -260,6 +273,7 @@ MApp {
 
         Component {
             id: batteryPageComponent
+
             BatteryPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -267,6 +281,7 @@ MApp {
 
         Component {
             id: aboutPageComponent
+
             AboutPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -274,6 +289,7 @@ MApp {
 
         Component {
             id: appManagerPageComponent
+
             AppManagerPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -281,6 +297,7 @@ MApp {
 
         Component {
             id: hiddenAppsPageComponent
+
             HiddenAppsPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -288,6 +305,7 @@ MApp {
 
         Component {
             id: defaultAppsPageComponent
+
             DefaultAppsPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -295,6 +313,7 @@ MApp {
 
         Component {
             id: appSortPageComponent
+
             AppSortPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -302,6 +321,7 @@ MApp {
 
         Component {
             id: quickSettingsPageComponent
+
             QuickSettingsPage {
                 onNavigateBack: navigationStack.pop()
             }
@@ -309,15 +329,22 @@ MApp {
 
         Component {
             id: securityPageComponent
+
             SecurityPage {
+                onNavigateBack: navigationStack.pop()
+            }
+        }
+
+        Component {
+            id: keyboardPageComponent
+
+            KeyboardPage {
                 onNavigateBack: navigationStack.pop()
             }
         }
 
         // Listen for deep link navigation
         Connections {
-            target: NavigationRouter
-
             // Modern deep link handler
             function onDeepLinkRequested(appId, route, params) {
                 if (appId === "settings") {
@@ -331,6 +358,8 @@ MApp {
                 Logger.info("SettingsApp", "Legacy navigation: " + page);
                 navigateToSettingsPage(page, params);
             }
+
+            target: NavigationRouter
         }
-    }  // End Rectangle (content)
+    }
 }

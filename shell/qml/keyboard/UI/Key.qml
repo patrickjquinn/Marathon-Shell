@@ -1,40 +1,31 @@
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
-// Marathon Virtual Keyboard - Key Component
-// Optimized for zero-latency input
 import QtQuick
 import QtQuick.Effects
 
 Rectangle {
-    // Pure black for letter keys
-
     id: key
 
-    // Key properties
     property string text: ""
     property string displayText: text
-    property string alternateText: "" // For long-press (e.g., "1" shows "!")
-    property var alternateChars: [] // Array of alternate characters
-    property bool isSpecial: false // Shift, Enter, Backspace
-    property string iconName: "" // Lucide icon for special keys
+    property string alternateText: ""
+    property var alternateChars: []
+    property bool isSpecial: false
+    property string iconName: ""
     property int keyCode: Qt.Key_unknown
     property alias fontFamily: keyText.font.family
-    // State
     property bool pressed: false
     property bool highlighted: false
     property bool showingAlternates: false
-    // PERFORMANCE: Cache text metrics to avoid re-layout
     property real cachedTextWidth: 0
     property real cachedTextHeight: 0
 
-    // Signals
     signal clicked
     signal pressAndHold
     signal released
     signal alternateSelected(string character)
 
-    // Styling - BlackBerry style: BLACK keys, dark grey special keys
     width: Math.round(60 * Constants.scaleFactor)
     height: Math.round(45 * Constants.scaleFactor)
     radius: Constants.borderRadiusSharp
@@ -45,73 +36,62 @@ Rectangle {
         if (isSpecial)
             return "#1a1a1a";
 
-        // Dark grey for special keys
         return "#000000";
     }
-    // Physical button styling - DARK borders, partial (bottom/right only)
     border.width: 0
-    // No full border
     antialiasing: Constants.enableAntialiasing
-    // PERFORMANCE: Enable layer for GPU-accelerated scale/transform animations
-    // This moves rendering to GPU, preventing CPU-bound repaints on every frame
     layer.enabled: true
     layer.smooth: true
     scale: pressed ? 0.95 : 1
 
-    // Bottom border (darker, creates depth)
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: Math.round(2 * Constants.scaleFactor)
-        color: "#0a0a0a" // Very dark, almost black
+        color: "#0a0a0a"
         radius: 0
     }
 
-    // Right border (darker, creates depth)
     Rectangle {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         width: Math.round(2 * Constants.scaleFactor)
-        color: "#0a0a0a" // Very dark, almost black
+        color: "#0a0a0a"
         radius: 0
     }
 
-    // Inner border for physical button depth (shine effect)
     Rectangle {
         anchors.fill: parent
         anchors.margins: Math.round(2 * Constants.scaleFactor)
         radius: parent.radius > 0 ? parent.radius - 2 : 0
         color: "transparent"
         border.width: Math.round(1 * Constants.scaleFactor)
-        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555" // Lighter grey for depth
+        border.color: key.pressed ? MColors.marathonTealHoverGradient : "#555555"
         antialiasing: parent.antialiasing
     }
 
-    // Content: Either icon or text
     Item {
         anchors.centerIn: parent
         width: parent.width - Math.round(12 * Constants.scaleFactor)
         height: parent.height - Math.round(8 * Constants.scaleFactor)
 
-        // Icon for special keys
         Icon {
             visible: key.iconName !== ""
             name: key.iconName
             size: Math.round(20 * Constants.scaleFactor)
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary // Dark text on bright teal, matching primary button style
+            color: key.pressed ? MColors.bb10Black : MColors.textPrimary
             anchors.centerIn: parent
             opacity: key.pressed ? 1 : 0.9
         }
 
-        // Text for regular keys
         Text {
             id: keyText
 
             visible: key.iconName === ""
             text: key.displayText
-            color: key.pressed ? MColors.bb10Black : MColors.textPrimary // Dark text on bright teal, matching primary button style
+            color: key.pressed ? MColors.bb10Black : MColors.textPrimary
             font.pixelSize: key.isSpecial ? Math.round(14 * Constants.scaleFactor) : Math.round(18 * Constants.scaleFactor)
             font.weight: key.isSpecial ? Font.Medium : Font.Normal
             horizontalAlignment: Text.AlignHCenter
@@ -120,7 +100,6 @@ Rectangle {
             opacity: key.pressed ? 1 : 0.9
         }
 
-        // Alternate text (top-right corner for long-press hint)
         Text {
             visible: key.alternateText !== "" && !key.pressed
             text: key.alternateText
@@ -133,7 +112,6 @@ Rectangle {
         }
     }
 
-    // Character preview popup (BB10 style) - HIDDEN when showing alternates
     Rectangle {
         id: preview
 
@@ -148,10 +126,8 @@ Rectangle {
         border.width: Constants.borderWidthMedium
         border.color: MColors.border
         antialiasing: true
-        // Shadow effect
         layer.enabled: true
 
-        // Inner border
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
@@ -162,7 +138,6 @@ Rectangle {
             antialiasing: true
         }
 
-        // Preview text (larger)
         Text {
             text: key.displayText
             color: MColors.textPrimary
@@ -179,22 +154,15 @@ Rectangle {
         }
     }
 
-    // Long-press alternate popup - DYNAMIC positioning to prevent off-screen
     Loader {
-        // Too far left, shift right
-        // Too far right, shift left
-        // Centered is fine
-
         id: alternatePopup
 
-        // Dynamic positioning based on key location
         property real popupWidth: Math.round((60 * key.alternateChars.length + 4 * (key.alternateChars.length - 1)) * Constants.scaleFactor)
         property real keyGlobalX: key.mapToItem(null, 0, 0).x
         property real screenWidth: Constants.screenWidth
 
         active: key.showingAlternates && key.alternateChars.length > 0
         z: 2000
-        // Center by default, but shift if too close to edge
         x: {
             var centerX = (key.width - popupWidth) / 2;
             var leftEdge = keyGlobalX + centerX;
@@ -262,26 +230,19 @@ Rectangle {
         }
     }
 
-    // Touch handling - OPTIMIZED FOR ZERO LATENCY
     MouseArea {
-        // Emit clicked immediately
-
         id: mouseArea
 
         property bool longPressTriggered: false
 
         anchors.fill: parent
-        // CRITICAL: onPressed fires IMMEDIATELY (synchronous)
-        // This gives instant visual feedback before event propagation
         onPressed: function (mouse) {
-            key.pressed = true; // INSTANT visual change
+            key.pressed = true;
             longPressTriggered = false;
             HapticService.light();
-            // Start long-press timer if alternates exist
             if (key.alternateChars.length > 0)
                 longPressTimer.restart();
 
-            // Accept event to prevent propagation delay
             mouse.accepted = true;
         }
         onReleased: function (mouse) {
@@ -302,7 +263,6 @@ Rectangle {
         }
     }
 
-    // Long-press timer
     Timer {
         id: longPressTimer
 
@@ -318,11 +278,10 @@ Rectangle {
         }
     }
 
-    // PERFORMANCE: Use fast color animation instead of general Behavior
     Behavior on color {
         ColorAnimation {
-            duration: 50 // Fixed duration for predictability
-            easing.type: Easing.Linear // Linear is fastest
+            duration: 50
+            easing.type: Easing.Linear
         }
     }
 
@@ -333,8 +292,6 @@ Rectangle {
         }
     }
 
-    // PERFORMANCE: Use NumberAnimation instead of SpringAnimation for scale
-    // SpringAnimation is expensive - only use for special effects
     Behavior on scale {
         NumberAnimation {
             duration: 50

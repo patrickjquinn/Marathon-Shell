@@ -44,14 +44,6 @@ QtObject {
     property bool enabled: (typeof HapticManager !== "undefined" && HapticManager) ? HapticManager.enabled : false
     property Binding enabledBinding
 
-    enabledBinding: Binding {
-        target: typeof HapticManager !== "undefined" ? HapticManager : null
-        property: "enabled"
-        value: hapticService.enabled
-        when: typeof HapticManager !== "undefined" && HapticManager
-        restoreMode: Binding.RestoreBinding
-    }
-
     /**
      * @brief Provides light haptic feedback (10ms)
      *
@@ -139,4 +131,12 @@ QtObject {
     }
 
     Component.onCompleted: {}
+
+    enabledBinding: Binding {
+        target: typeof HapticManager !== "undefined" ? HapticManager : null
+        property: "enabled"
+        value: hapticService.enabled
+        when: typeof HapticManager !== "undefined" && HapticManager
+        restoreMode: Binding.RestoreBinding
+    }
 }

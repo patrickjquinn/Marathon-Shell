@@ -18,6 +18,8 @@
 #include <QProcess>
 #include <QPointer>
 
+class TextInputManagerV3;
+
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
     Q_PROPERTY(QQmlListProperty<QObject> surfaces READ surfaces NOTIFY surfacesChanged)
@@ -33,6 +35,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandQuickOutput      *output() const {
         return m_output;
     }
+
     Q_INVOKABLE void     launchApp(const QString &command, const QVariantMap &env = {});
     Q_INVOKABLE void     closeWindow(int surfaceId);
     Q_INVOKABLE void     activateSurface(int surfaceId);
@@ -41,6 +44,7 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     setOutputOrientation(const QString &orientation);
     Q_INVOKABLE void     injectKey(int key, int modifiers, bool pressed);
     Q_INVOKABLE bool     checkIdleInhibitors();
+
     bool                 hasIdleInhibitingSurface() const {
         return m_hasIdleInhibitor;
     }
@@ -73,13 +77,14 @@ class WaylandCompositor : public QWaylandCompositor {
     void                                    setCompositorRealtimePriority();
     void                                    calculateAndSetPhysicalSize();
 
-    QWaylandXdgShell                       *m_xdgShell           = nullptr;
-    QWaylandWlShell                        *m_wlShell            = nullptr;
-    QWaylandViewporter                     *m_viewporter         = nullptr;
-    QWaylandTextInputManager               *m_textInputManager   = nullptr;
-    QWaylandIdleInhibitManagerV1           *m_idleInhibitManager = nullptr;
-    QWaylandQuickOutput                    *m_output             = nullptr;
-    QQuickWindow                           *m_window             = nullptr;
+    QWaylandXdgShell                       *m_xdgShell                 = nullptr;
+    QWaylandWlShell                        *m_wlShell                  = nullptr;
+    QWaylandViewporter                     *m_viewporter               = nullptr;
+    QWaylandTextInputManager               *m_textInputManager         = nullptr;
+    TextInputManagerV3                     *m_textInputManagerV3Custom = nullptr;
+    QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
+    QWaylandQuickOutput                    *m_output                   = nullptr;
+    QQuickWindow                           *m_window                   = nullptr;
 
     QList<QObject *>                        m_surfaces;
     QMap<int, QPointer<QWaylandSurface>>    m_surfaceMap;

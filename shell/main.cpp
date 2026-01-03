@@ -162,6 +162,9 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 #include "src/mpris_types.h"
 
 int main(int argc, char *argv[]) {
+    // Enable local file reading for QML XMLHttpRequest (required for keyboard layouts)
+    qputenv("QML_XHR_ALLOW_FILE_READ", "1");
+
     // Register D-Bus types needed for MPRIS2 metadata (a{sv} -> QVariantMap)
     registerMprisTypes();
 

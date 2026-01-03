@@ -1,14 +1,8 @@
-/*
- * Marathon Virtual Keyboard - Word Engine Implementation
- * Adapted from Maliit Plugins spellchecker
- */
-
 #include "WordEngine.h"
 
 #ifdef HAVE_HUNSPELL
 #include <hunspell/hunspell.hxx>
 #else
-// Stub implementation if Hunspell is not available
 class Hunspell {
   public:
     Hunspell(const char *, const char *, const char * = nullptr)
@@ -37,41 +31,31 @@ class Hunspell {
 #include <QDebug>
 #include <QDir>
 #include <QFile>
-#include <QTextStream>
-#include <QStringConverter>
-#include <QStandardPaths>
 #include <QMutexLocker>
-
-// ======================
-// WordEngine::Private
-// ======================
+#include <QStandardPaths>
+#include <QStringConverter>
+#include <QTextStream>
+#include "WordTrie.h"
 
 class WordEngine::Private {
   public:
-    bool          enabled  = false;
+    bool          enabled  = true;
     QString       language = "en_US";
     QSet<QString> ignoredWords;
 };
-
-// ======================
-// WordEngine
-// ======================
 
 WordEngine::WordEngine(QObject *parent)
     : QObject(parent)
     , d(new Private)
     , m_workerThread(new QThread(this))
     , m_worker(nullptr) {
-    qDebug() << "[WordEngine] Initializing...";
     initializeWorker();
 }
 
 WordEngine::~WordEngine() {
-    qDebug() << "[WordEngine] Shutting down worker thread...";
     if (m_workerThread && m_workerThread->isRunning()) {
         m_workerThread->quit();
         if (!m_workerThread->wait(3000)) {
-            qWarning() << "[WordEngine] Worker thread did not finish in time, terminating...";
             m_workerThread->terminate();
             m_workerThread->wait();
         }
@@ -83,13 +67,15 @@ void WordEngine::initializeWorker() {
     m_worker = new WordEngineWorker();
     m_worker->moveToThread(m_workerThread);
 
-    // Connect signals
     connect(m_worker, &WordEngineWorker::predictionsReady, this, &WordEngine::predictionsReady);
     connect(m_worker, &WordEngineWorker::errorOccurred, this, &WordEngine::errorOccurred);
 
-    // Start worker thread
     m_workerThread->start();
-    qDebug() << "[WordEngine] Worker thread started";
+
+    if (d->enabled) {
+        QMetaObject::invokeMethod(m_worker, "setLanguage", Qt::QueuedConnection,
+                                  Q_ARG(QString, d->language));
+    }
 }
 
 bool WordEngine::enabled() const {
@@ -103,12 +89,10 @@ void WordEngine::setEnabled(bool on) {
     d->enabled = on;
 
     if (on) {
-        // Initialize Hunspell on worker thread
         QMetaObject::invokeMethod(m_worker, "setLanguage", Qt::QueuedConnection,
                                   Q_ARG(QString, d->language));
     }
 
-    qDebug() << "[WordEngine] Enabled:" << on;
     emit enabledChanged();
 }
 
@@ -121,7 +105,6 @@ void WordEngine::setLanguage(const QString &lang) {
         return;
 
     d->language = lang;
-    qDebug() << "[WordEngine] Language set to:" << lang;
 
     if (d->enabled) {
         QMetaObject::invokeMethod(m_worker, "setLanguage", Qt::QueuedConnection,
@@ -142,8 +125,6 @@ bool WordEngine::spell(const QString &word) {
     if (d->ignoredWords.contains(word))
         return true;
 
-    // For now, use simple dictionary check
-    // TODO: Add sync Hunspell check if needed
     return word.length() > 0;
 }
 
@@ -153,7 +134,6 @@ void WordEngine::requestPredictions(const QString &prefix, int maxResults) {
         return;
     }
 
-    // Invoke worker asynchronously
     QMetaObject::invokeMethod(m_worker, "computePredictions", Qt::QueuedConnection,
                               Q_ARG(QString, prefix), Q_ARG(int, maxResults));
 }
@@ -162,58 +142,53 @@ void WordEngine::learnWord(const QString &word) {
     if (!d->enabled || word.length() < 2)
         return;
 
-    qDebug() << "[WordEngine] Learning word:" << word;
     QMetaObject::invokeMethod(m_worker, "addWord", Qt::QueuedConnection, Q_ARG(QString, word));
 }
 
 void WordEngine::ignoreWord(const QString &word) {
     d->ignoredWords.insert(word);
-    qDebug() << "[WordEngine] Ignoring word:" << word;
 }
 
 QString WordEngine::dictionaryPath() {
     QStringList paths;
 
-    // Check common Hunspell dictionary locations
     paths << "/usr/share/hunspell"
           << "/usr/share/myspell/dicts"
           << "/usr/local/share/hunspell" << QDir::homePath() + "/.local/share/hunspell";
 
     for (const QString &path : paths) {
         if (QFile::exists(path)) {
-            qDebug() << "[WordEngine] Found dictionary path:" << path;
             return path;
         }
     }
 
-    qWarning() << "[WordEngine] No Hunspell dictionaries found!";
     return QString();
 }
-
-// ======================
-// WordEngineWorker
-// ======================
 
 WordEngineWorker::WordEngineWorker(QObject *parent)
     : QObject(parent)
     , m_hunspell(nullptr)
+    , m_trie(new WordTrie())
     , m_encoding("UTF-8")
     , m_language("en_US") {
-    m_userDictionaryPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
-        "/marathon-os/keyboard_user_dictionary.txt";
-    qDebug() << "[WordEngineWorker] User dictionary:" << m_userDictionaryPath;
+    QString configPath =
+        QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/marathon-os";
+    m_userDictionaryPath = configPath + "/keyboard_user_dictionary.txt";
+    m_frequencyFilePath  = configPath + "/keyboard_word_frequencies.txt";
+    loadWordFrequencies();
 }
 
 WordEngineWorker::~WordEngineWorker() {
     QMutexLocker locker(&m_mutex);
     delete m_hunspell;
+    delete m_trie;
     m_hunspell = nullptr;
+    m_trie     = nullptr;
 }
 
 void WordEngineWorker::setLanguage(const QString &language) {
     QMutexLocker locker(&m_mutex);
 
-    qDebug() << "[WordEngineWorker] Setting language to:" << language;
     m_language = language;
 
     if (!loadDictionary(language)) {
@@ -224,7 +199,6 @@ void WordEngineWorker::setLanguage(const QString &language) {
 }
 
 bool WordEngineWorker::loadDictionary(const QString &language) {
-    // Clean up existing
     if (m_hunspell) {
         delete m_hunspell;
         m_hunspell = nullptr;
@@ -232,7 +206,6 @@ bool WordEngineWorker::loadDictionary(const QString &language) {
 
     QString dictPath = findDictionaryPath(language);
     if (dictPath.isEmpty()) {
-        qWarning() << "[WordEngineWorker] No dictionary found for" << language;
         return false;
     }
 
@@ -240,19 +213,14 @@ bool WordEngineWorker::loadDictionary(const QString &language) {
     QString dicFile = dictPath + ".dic";
 
     if (!QFile::exists(affFile) || !QFile::exists(dicFile)) {
-        qWarning() << "[WordEngineWorker] Dictionary files not found:" << affFile << dicFile;
         return false;
     }
 
-    qDebug() << "[WordEngineWorker] Loading dictionary:" << affFile << dicFile;
-
     m_hunspell = new Hunspell(affFile.toUtf8().constData(), dicFile.toUtf8().constData());
-
-    // Get dictionary encoding (usually UTF-8)
     m_encoding = QString::fromLatin1(m_hunspell->get_dic_encoding());
-    qDebug() << "[WordEngineWorker] Dictionary encoding:" << m_encoding;
 
-    qDebug() << "[WordEngineWorker] Dictionary loaded successfully";
+    loadTrieFromDictionary(dicFile);
+
     return true;
 }
 
@@ -262,7 +230,6 @@ QString WordEngineWorker::findDictionaryPath(const QString &language) {
                 << "/usr/share/myspell/dicts"
                 << "/usr/local/share/hunspell";
 
-    // Try exact match first (e.g., "en_US")
     for (const QString &basePath : searchPaths) {
         QDir dir(basePath);
         if (dir.exists(language + ".dic")) {
@@ -270,14 +237,13 @@ QString WordEngineWorker::findDictionaryPath(const QString &language) {
         }
     }
 
-    // Try language code only (e.g., "en" from "en_US")
     QString langCode = language.left(2);
     for (const QString &basePath : searchPaths) {
         QDir        dir(basePath);
         QStringList dicFiles = dir.entryList(QStringList(langCode + "*.dic"));
         if (!dicFiles.isEmpty()) {
             QString dicName = dicFiles.first();
-            dicName.chop(4); // Remove ".dic"
+            dicName.chop(4);
             return dir.filePath(dicName);
         }
     }
@@ -295,61 +261,97 @@ void WordEngineWorker::loadUserDictionary() {
     }
 
     QTextStream stream(&file);
-    int         count = 0;
     while (!stream.atEnd()) {
         QString word = stream.readLine().trimmed();
         if (!word.isEmpty()) {
             m_hunspell->add(word.toStdString());
-            count++;
         }
     }
-
-    qDebug() << "[WordEngineWorker] Loaded" << count << "words from user dictionary";
 }
 
 void WordEngineWorker::computePredictions(const QString &prefix, int maxResults) {
     QMutexLocker locker(&m_mutex);
 
-    if (!m_hunspell || prefix.isEmpty()) {
+    if (prefix.isEmpty()) {
         emit predictionsReady(prefix, QStringList());
         return;
     }
 
-    // Get suggestions from Hunspell
-    auto suggestions = m_hunspell->suggest(prefix.toStdString());
-
-    // Determine if prefix is lowercase for case normalization
-    bool        isLowercase = prefix[0].isLower();
-
     QStringList results;
-    for (const auto &s : suggestions) {
-        if (results.size() >= maxResults)
-            break;
 
-        QString word = QString::fromStdString(s);
-        // Only include words that start with the prefix
-        if (word.toLower().startsWith(prefix.toLower())) {
-            // Normalize case to match user input (Maliit behavior)
-            if (isLowercase) {
-                word = word.toLower();
+    if (m_trie && m_trie->size() > 0) {
+        results = m_trie->getCompletions(prefix, maxResults);
+    }
+
+    if (results.size() < maxResults && m_hunspell) {
+        QString lowerPrefix = prefix.toLower();
+        auto    suggestions = m_hunspell->suggest(prefix.toStdString());
+
+        for (const auto &s : suggestions) {
+            if (results.size() >= maxResults)
+                break;
+
+            QString word = QString::fromStdString(s);
+            if (word.toLower().startsWith(lowerPrefix) &&
+                !results.contains(word, Qt::CaseInsensitive)) {
+                results.append(word);
             }
-            results.append(word);
         }
     }
 
+    results = sortByFrequency(results);
     emit predictionsReady(prefix, results);
+}
+
+bool WordEngineWorker::loadTrieFromDictionary(const QString &dicPath) {
+    if (!m_trie) {
+        m_trie = new WordTrie();
+    }
+
+    m_trie->clear();
+
+    QFile file(dicPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream stream(&file);
+    QString     firstLine = stream.readLine();
+
+    int         loadedCount = 0;
+    const int   MAX_WORDS   = 50000;
+
+    while (!stream.atEnd() && loadedCount < MAX_WORDS) {
+        QString line = stream.readLine().trimmed();
+        if (line.isEmpty())
+            continue;
+
+        int     slashPos = line.indexOf('/');
+        QString baseWord = (slashPos >= 0) ? line.left(slashPos) : line;
+
+        if (baseWord.length() >= 3 && baseWord.length() <= 20) {
+            m_trie->insert(baseWord);
+            loadedCount++;
+        }
+    }
+
+    return loadedCount > 0;
 }
 
 void WordEngineWorker::addWord(const QString &word) {
     QMutexLocker locker(&m_mutex);
 
-    if (!m_hunspell || word.length() < 2)
+    if (word.length() < 2)
         return;
 
-    // Add to Hunspell
-    m_hunspell->add(word.toStdString());
+    if (m_trie) {
+        m_trie->insert(word);
+    }
 
-    // Save to user dictionary
+    if (m_hunspell) {
+        m_hunspell->add(word.toStdString());
+    }
+
     QFile file(m_userDictionaryPath);
     QDir().mkpath(QFileInfo(file).absolutePath());
 
@@ -357,6 +359,64 @@ void WordEngineWorker::addWord(const QString &word) {
         QTextStream stream(&file);
         stream << word << '\n';
         stream.flush();
-        qDebug() << "[WordEngineWorker] Added word to user dictionary:" << word;
     }
+
+    incrementFrequency(word);
+}
+
+void WordEngineWorker::loadWordFrequencies() {
+    QFile file(m_frequencyFilePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    QTextStream stream(&file);
+    while (!stream.atEnd()) {
+        QString     line  = stream.readLine();
+        QStringList parts = line.split('\t');
+        if (parts.size() == 2) {
+            m_wordFrequencies[parts[0]] = parts[1].toInt();
+        }
+    }
+}
+
+void WordEngineWorker::saveWordFrequencies() {
+    QFile file(m_frequencyFilePath);
+    QDir().mkpath(QFileInfo(file).absolutePath());
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    QTextStream stream(&file);
+    for (auto it = m_wordFrequencies.constBegin(); it != m_wordFrequencies.constEnd(); ++it) {
+        stream << it.key() << '\t' << it.value() << '\n';
+    }
+}
+
+void WordEngineWorker::incrementFrequency(const QString &word) {
+    QString lowerWord = word.toLower();
+    m_wordFrequencies[lowerWord]++;
+
+    static int saveCounter = 0;
+    if (++saveCounter % 10 == 0) {
+        saveWordFrequencies();
+    }
+}
+
+QStringList WordEngineWorker::sortByFrequency(const QStringList &words) {
+    QList<QPair<QString, int>> wordsWithFreq;
+    for (const QString &word : words) {
+        int freq = m_wordFrequencies.value(word.toLower(), 0);
+        wordsWithFreq.append({word, freq});
+    }
+
+    std::sort(wordsWithFreq.begin(), wordsWithFreq.end(),
+              [](const QPair<QString, int> &a, const QPair<QString, int> &b) {
+                  return a.second > b.second;
+              });
+
+    QStringList result;
+    for (const auto &pair : wordsWithFreq) {
+        result.append(pair.first);
+    }
+    return result;
 }

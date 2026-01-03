@@ -22,6 +22,8 @@ set(SOURCES
     src/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
     qml/keyboard/Data/WordEngine.cpp
+    qml/keyboard/Data/WordTrie.h
+    qml/keyboard/Data/WordTrie.cpp
     src/networkmanagercpp.h
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
@@ -94,7 +96,32 @@ if(TARGET Qt6::WaylandCompositor)
     list(APPEND SOURCES
         src/wayland/waylandcompositor.h
         src/wayland/waylandcompositor.cpp
+        src/wayland/textinputv3.h
+        src/wayland/textinputv3.cpp
     )
+
+    find_program(WAYLAND_SCANNER wayland-scanner)
+    if(WAYLAND_SCANNER)
+        set(TEXT_INPUT_V3_XML ${CMAKE_CURRENT_SOURCE_DIR}/protocols/text-input-unstable-v3.xml)
+        set(TEXT_INPUT_V3_SERVER_H ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-server.h)
+        set(TEXT_INPUT_V3_CODE ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3.c)
+
+        add_custom_command(
+            OUTPUT ${TEXT_INPUT_V3_SERVER_H}
+            COMMAND ${WAYLAND_SCANNER} server-header ${TEXT_INPUT_V3_XML} ${TEXT_INPUT_V3_SERVER_H}
+            DEPENDS ${TEXT_INPUT_V3_XML}
+        )
+        add_custom_command(
+            OUTPUT ${TEXT_INPUT_V3_CODE}
+            COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_V3_XML} ${TEXT_INPUT_V3_CODE}
+            DEPENDS ${TEXT_INPUT_V3_XML}
+        )
+
+        list(APPEND SOURCES ${TEXT_INPUT_V3_CODE} ${TEXT_INPUT_V3_SERVER_H})
+        message(STATUS "Wayland scanner found - enabling text-input-v3 protocol")
+    else()
+        message(WARNING "wayland-scanner not found - custom protocols disabled")
+    endif()
 endif()
 
 set(QML_FILES
@@ -145,16 +172,20 @@ set(QML_FILES
     qml/components/PermissionDialog.qml
     qml/keyboard/Core/MarathonKeyboard.qml
     qml/keyboard/Core/KeyboardPerformance.qml
+    qml/keyboard/Core/LanguageManager.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
     qml/keyboard/UI/LongPressPopup.qml
+    qml/keyboard/UI/LanguageSelector.qml
     qml/keyboard/Layouts/QwertyLayout.qml
+    qml/keyboard/Layouts/DynamicLayout.qml
     qml/keyboard/Layouts/SymbolLayout.qml
     qml/keyboard/Layouts/EmojiLayout.qml
     qml/keyboard/Layouts/EmailLayout.qml
     qml/keyboard/Layouts/UrlLayout.qml
     qml/keyboard/Layouts/NumberLayout.qml
     qml/keyboard/Layouts/PhoneLayout.qml
+    qml/keyboard/Layouts/TerminalLayout.qml
     qml/keyboard/Input/InputContext.qml
     qml/keyboard/Data/Dictionary.qml
     qml/keyboard/Data/AutoCorrect.qml
@@ -190,9 +221,23 @@ set(QML_FILES
     qml/services/PowerBatteryHandler.qml
     qml/services/AlarmManager.qml
     qml/services/CalendarManager.qml
+    qml/services/CalendarWorker.js
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
     qml/services/StateManager.qml
+)
+
+set(JSON_FILES
+    qml/keyboard/Layouts/languages/en_US.json
+    qml/keyboard/Layouts/languages/fr_FR.json
+    qml/keyboard/Layouts/languages/de_DE.json
+    qml/keyboard/Layouts/languages/es_ES.json
+    qml/keyboard/Layouts/languages/pt_BR.json
+    qml/keyboard/Layouts/languages/it_IT.json
+    qml/keyboard/Layouts/languages/ru_RU.json
+    qml/keyboard/Layouts/languages/ar_SA.json
+    qml/keyboard/Layouts/languages/zh_CN.json
+    qml/keyboard/Layouts/languages/ja_JP.json
 )
 
 # Find PAM library for authentication
@@ -233,6 +278,9 @@ set(SINGLETON_FILES
     qml/services/CalendarManager.qml
     qml/services/AmbientLightSensor.qml
     qml/services/ProximitySensor.qml
+    qml/keyboard/Core/LanguageManager.qml
+    qml/keyboard/Data/Dictionary.qml
+    qml/keyboard/Data/AutoCorrect.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -265,6 +313,7 @@ qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
+    RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
 
@@ -280,6 +329,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
 target_include_directories(marathon-shell PRIVATE
     ${PULSEAUDIO_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Gui)
@@ -325,6 +375,12 @@ target_link_libraries(marathon-shell PRIVATE
 if(TARGET Qt6::WaylandCompositor)
     target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositor)
     target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND)
+
+    # Link private module for text-input-v3 access
+    if(TARGET Qt6::WaylandCompositorPrivate)
+        target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositorPrivate)
+        target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND_PRIVATE)
+    endif()
 endif()
 
 # Link QtDBus and QtSql for telephony and media services
@@ -336,6 +392,11 @@ if(HAVE_WEBENGINE)
 endif()
 
 # Link Hunspell for spell-checking
+pkg_check_modules(HUNSPELL hunspell)
+if(HUNSPELL_FOUND)
+    set(HAVE_HUNSPELL TRUE)
+endif()
+
 if(HAVE_HUNSPELL)
     target_link_libraries(marathon-shell PRIVATE ${HUNSPELL_LIBRARIES})
     target_include_directories(marathon-shell PRIVATE ${HUNSPELL_INCLUDE_DIRS})

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MarathonOS VERSION 1.0.0 LANGUAGES CXX)
+project(MarathonOS VERSION 1.0.0 LANGUAGES C CXX)
+
+enable_testing()
+
 
 if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
@@ -156,6 +159,16 @@ find_package(Qt6 6.4 COMPONENTS WaylandCompositor)
 if(TARGET Qt6::WaylandCompositor)
     message(STATUS "Qt WaylandCompositor found - enabling Wayland support")
     set(HAVE_WAYLAND TRUE)
+
+    # Also find the private module for text-input-v3 support
+    find_package(Qt6 6.4 COMPONENTS WaylandCompositorPrivate QUIET)
+    if(TARGET Qt6::WaylandCompositorPrivate)
+        message(STATUS "Qt WaylandCompositorPrivate found - enabling text-input-v3 for native apps")
+        set(HAVE_WAYLAND_PRIVATE TRUE)
+    else()
+        message(STATUS "Qt WaylandCompositorPrivate not found - text-input-v3 disabled")
+        set(HAVE_WAYLAND_PRIVATE FALSE)
+    endif()
 else()
         message(STATUS "Qt WaylandCompositor not found - Wayland support disabled")
     set(HAVE_WAYLAND FALSE)
@@ -253,3 +266,7 @@ install(DIRECTORY docs/
     FILES_MATCHING PATTERN "*.md"
 )
 
+# Tests
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

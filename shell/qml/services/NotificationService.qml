@@ -35,6 +35,14 @@ QtObject {
     // Following freedesktop.org spec: ALL apps (internal or external) call the DBus interface
     // The notification daemon (shell) handles everything in _handleExternalNotification()
     // This prevents duplicate handling and follows the standard architecture
+    // app_name
+    // replaces_id (0 = new, >0 = replace existing)
+    // app_icon
+    // summary
+    // body
+    // actions
+    // hints
+    // expire_timeout (0 = never, else milliseconds)
 
     id: notificationService
 
@@ -269,15 +277,6 @@ QtObject {
     }
 
     function _platformNotify(notification) {
-        // app_name
-        // replaces_id (0 = new, >0 = replace existing)
-        // app_icon
-        // summary
-        // body
-        // actions
-        // hints
-        // expire_timeout (0 = never, else milliseconds)
-
         if (Platform.isLinux) {
             // Emit via org.freedesktop.Notifications DBus interface
             if (typeof FreedesktopNotifications !== 'undefined') {
