@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 
 project(MarathonOS VERSION 1.0.0 LANGUAGES C CXX)
 
+enable_testing()
+
+
 if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
@@ -263,3 +266,7 @@ install(DIRECTORY docs/
     FILES_MATCHING PATTERN "*.md"
 )
 
+# Tests
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
