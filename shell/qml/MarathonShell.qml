@@ -1721,12 +1721,12 @@ Item {
         z: Constants.zIndexKeyboard - 1
         visible: virtualKeyboard.active
         enabled: virtualKeyboard.active
-        onClicked: {
-            Logger.info("Shell", "Click outside keyboard - auto-dismissing");
-            HapticService.light();
+        propagateComposedEvents: true
+        onPressed: function (mouse) {
+            Logger.info("Shell", "Tap outside keyboard - dismissing and forwarding tap");
             virtualKeyboard.active = false;
+            mouse.accepted = false;
         }
-        propagateComposedEvents: false
     }
 
     Timer {
