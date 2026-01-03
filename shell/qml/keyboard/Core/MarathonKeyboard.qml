@@ -119,9 +119,10 @@ Rectangle {
     function acceptPrediction(word) {
         var charsToDelete = keyboard.currentWord.length;
         for (var i = 0; i < charsToDelete; i++) {
-            inputContextInstance.handleBackspace();
+            keyboard.backspace();
         }
         inputContextInstance.insertText(word + " ");
+        keyboard.keyPressed(word + " ");
         Dictionary.learnWord(word);
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
@@ -145,10 +146,12 @@ Rectangle {
                 }
             }
         }
-        if (inputContextInstance.shouldShowPredictions)
-            keyboard.currentPredictions = Dictionary.predict(keyboard.currentWord);
-        else
+        if (inputContextInstance.shouldShowPredictions) {
+            Dictionary.predict(keyboard.currentWord);
+            keyboard.currentPredictions = Dictionary.cachedPredictions;
+        } else {
             keyboard.currentPredictions = [];
+        }
     }
 
     function updateCurrentWord() {
@@ -200,12 +203,12 @@ Rectangle {
     }
 
     Connections {
-        function onPredictionsReady(prefix, predictions) {
-            if (prefix === keyboard.currentWord)
-                keyboard.currentPredictions = predictions;
+        function onCachedPredictionsChanged() {
+            if (inputContextInstance.shouldShowPredictions && keyboard.currentWord === Dictionary.lastPredictionPrefix)
+                keyboard.currentPredictions = Dictionary.cachedPredictions;
         }
 
-        target: typeof WordEngine !== 'undefined' ? WordEngine : null
+        target: Dictionary
     }
 
     Column {
