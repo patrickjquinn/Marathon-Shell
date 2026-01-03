@@ -6,6 +6,7 @@
 #include <QString>
 #include <QStringList>
 #include <QThread>
+#include <QHash>
 
 class Hunspell;
 class QTextCodec;
@@ -66,17 +67,24 @@ class WordEngineWorker : public QObject {
     void errorOccurred(QString message);
 
   private:
-    Hunspell *m_hunspell;
-    WordTrie *m_trie;
-    QString   m_encoding;
-    QString   m_userDictionaryPath;
-    QString   m_language;
-    QMutex    m_mutex;
+    Hunspell           *m_hunspell;
+    WordTrie           *m_trie;
+    QString             m_encoding;
+    QString             m_userDictionaryPath;
+    QString             m_language;
+    QMutex              m_mutex;
 
-    bool      loadDictionary(const QString &language);
-    bool      loadTrieFromDictionary(const QString &dicPath);
-    void      loadUserDictionary();
-    QString   findDictionaryPath(const QString &language);
+    bool                loadDictionary(const QString &language);
+    bool                loadTrieFromDictionary(const QString &dicPath);
+    void                loadUserDictionary();
+    void                loadWordFrequencies();
+    void                saveWordFrequencies();
+    void                incrementFrequency(const QString &word);
+    QStringList         sortByFrequency(const QStringList &words);
+    QString             findDictionaryPath(const QString &language);
+
+    QHash<QString, int> m_wordFrequencies;
+    QString             m_frequencyFilePath;
 };
 
 #endif

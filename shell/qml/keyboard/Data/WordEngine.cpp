@@ -171,8 +171,11 @@ WordEngineWorker::WordEngineWorker(QObject *parent)
     , m_trie(new WordTrie())
     , m_encoding("UTF-8")
     , m_language("en_US") {
-    m_userDictionaryPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
-        "/marathon-os/keyboard_user_dictionary.txt";
+    QString configPath =
+        QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/marathon-os";
+    m_userDictionaryPath = configPath + "/keyboard_user_dictionary.txt";
+    m_frequencyFilePath  = configPath + "/keyboard_word_frequencies.txt";
+    loadWordFrequencies();
 }
 
 WordEngineWorker::~WordEngineWorker() {
@@ -296,6 +299,7 @@ void WordEngineWorker::computePredictions(const QString &prefix, int maxResults)
         }
     }
 
+    results = sortByFrequency(results);
     emit predictionsReady(prefix, results);
 }
 
@@ -356,4 +360,63 @@ void WordEngineWorker::addWord(const QString &word) {
         stream << word << '\n';
         stream.flush();
     }
+
+    incrementFrequency(word);
+}
+
+void WordEngineWorker::loadWordFrequencies() {
+    QFile file(m_frequencyFilePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+
+    QTextStream stream(&file);
+    while (!stream.atEnd()) {
+        QString     line  = stream.readLine();
+        QStringList parts = line.split('\t');
+        if (parts.size() == 2) {
+            m_wordFrequencies[parts[0]] = parts[1].toInt();
+        }
+    }
+}
+
+void WordEngineWorker::saveWordFrequencies() {
+    QFile file(m_frequencyFilePath);
+    QDir().mkpath(QFileInfo(file).absolutePath());
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    QTextStream stream(&file);
+    for (auto it = m_wordFrequencies.constBegin(); it != m_wordFrequencies.constEnd(); ++it) {
+        stream << it.key() << '\t' << it.value() << '\n';
+    }
+}
+
+void WordEngineWorker::incrementFrequency(const QString &word) {
+    QString lowerWord = word.toLower();
+    m_wordFrequencies[lowerWord]++;
+
+    static int saveCounter = 0;
+    if (++saveCounter % 10 == 0) {
+        saveWordFrequencies();
+    }
+}
+
+QStringList WordEngineWorker::sortByFrequency(const QStringList &words) {
+    QList<QPair<QString, int>> wordsWithFreq;
+    for (const QString &word : words) {
+        int freq = m_wordFrequencies.value(word.toLower(), 0);
+        wordsWithFreq.append({word, freq});
+    }
+
+    std::sort(wordsWithFreq.begin(), wordsWithFreq.end(),
+              [](const QPair<QString, int> &a, const QPair<QString, int> &b) {
+                  return a.second > b.second;
+              });
+
+    QStringList result;
+    for (const auto &pair : wordsWithFreq) {
+        result.append(pair.first);
+    }
+    return result;
 }
