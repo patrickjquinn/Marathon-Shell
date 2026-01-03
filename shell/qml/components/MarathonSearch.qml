@@ -245,13 +245,10 @@ Item {
                         color: MColors.elevated
                         antialiasing: true
 
-                        Image {
+                        MAppIcon {
                             anchors.centerIn: parent
-                            width: modelData.type === "app" ? 40 : 24
-                            height: modelData.type === "app" ? 40 : 24
                             source: modelData.icon
-                            smooth: true
-                            antialiasing: true
+                            size: modelData.type === "app" ? 40 : 24
                         }
                     }
 
