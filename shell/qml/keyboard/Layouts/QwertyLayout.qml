@@ -126,6 +126,7 @@ Item {
     signal spaceClicked
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
+    signal languageSwitchClicked
 
     implicitHeight: layoutColumn.implicitHeight
 
@@ -293,6 +294,9 @@ Item {
                 fontFamily: "Noto Color Emoji"
                 onClicked: {
                     layout.layoutSwitchClicked("emoji");
+                }
+                onPressAndHold: {
+                    layout.languageSwitchClicked();
                 }
             }
 

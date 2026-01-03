@@ -160,11 +160,14 @@ Item {
 
             Key {
                 width: row4.availableWidth * 0.08
-                text: "globe"
-                displayText: LanguageManager.getFlag(LanguageManager.currentLanguage)
+                text: "emoji"
+                displayText: "😀"
                 isSpecial: true
                 fontFamily: "Noto Color Emoji"
                 onClicked: {
+                    dynamicLayout.layoutSwitchClicked("emoji");
+                }
+                onPressAndHold: {
                     dynamicLayout.languageSwitchClicked();
                 }
             }

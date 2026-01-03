@@ -348,6 +348,9 @@ Rectangle {
                 onDismissClicked: {
                     keyboard.dismissRequested();
                 }
+                onLanguageSwitchClicked: {
+                    keyboard.showLanguageSelector = true;
+                }
             }
 
             SymbolLayout {
