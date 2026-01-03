@@ -18,7 +18,7 @@ Item {
         if (dictionary.lastPredictionPrefix !== prefix) {
             dictionary.lastPredictionPrefix = prefix;
             dictionary.cachedPredictions = [];
-            WordEngine.requestPredictions(prefix, 3);
+            WordEngine.requestPredictions(prefix, 5);
         }
         return cachedPredictions;
     }

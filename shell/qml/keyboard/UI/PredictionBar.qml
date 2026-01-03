@@ -9,7 +9,7 @@ Rectangle {
 
     signal predictionSelected(string word)
 
-    implicitHeight: Math.round(40 * Constants.scaleFactor)
+    implicitHeight: Math.round(48 * Constants.scaleFactor)
     visible: predictions.length > 0
     height: visible ? implicitHeight : 0
     color: typeof MColors !== 'undefined' ? MColors.surface : "#0d0d0e"
@@ -26,7 +26,7 @@ Rectangle {
 
             Rectangle {
                 width: Math.round(100 * Constants.scaleFactor)
-                height: Math.round(32 * Constants.scaleFactor)
+                height: Math.round(44 * Constants.scaleFactor)
                 radius: Constants.borderRadiusSmall
                 color: predictionMouseArea.pressed ? (typeof MColors !== 'undefined' ? MColors.accent : "#00bfa5") : (typeof MColors !== 'undefined' ? MColors.elevated : "#161718")
                 border.width: Constants.borderWidthMedium
