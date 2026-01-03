@@ -103,6 +103,31 @@ sudo apt install cmake ninja-build g++ pkg-config \
     libpulse-dev
 ```
 
+**Alpine Linux / postmarketOS:**
+```bash
+apk add cmake samurai g++ pkgconf git \
+    qt6-qtbase-dev \
+    qt6-qtbase-private-dev \
+    qt6-qtdeclarative-dev \
+    qt6-qtwayland-dev \
+    qt6-qtmultimedia-dev \
+    qt6-qtsvg-dev \
+    qt6-qtlocation-dev \
+    qt6-qtpositioning-dev \
+    qt6-qtsensors-dev \
+    qt6-qtwebengine-dev \
+    linux-pam-dev \
+    hunspell-dev \
+    hunspell-en \
+    wayland-dev \
+    wayland-protocols \
+    mesa-dev \
+    dbus-dev \
+    eudev-dev \
+    libinput-dev \
+    pulseaudio-dev
+```
+
 ### Runtime Requirements
 
 - Qt 6.5 or later (tested with Qt 6.9.x)

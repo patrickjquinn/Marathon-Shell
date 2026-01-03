@@ -15,6 +15,7 @@ depends="
 	qt6-qtmultimedia
 	qt6-qtsvg
 	qt6-qtsql
+	qt6-qtsensors
 	wayland
 	wayland-protocols
 	mesa
@@ -36,6 +37,7 @@ depends="
 	geoclue
 	xdg-desktop-portal
 	hunspell
+	hunspell-en
 	"
 makedepends="
 	cmake
@@ -49,6 +51,7 @@ makedepends="
 	qt6-qtsvg-dev
 	qt6-qtlocation-dev
 	qt6-qtpositioning-dev
+	qt6-qtsensors-dev
 	wayland-dev
 	wayland-protocols
 	mesa-dev
