@@ -7,13 +7,11 @@ QtObject {
     // Haptic feedback intensity levels (0.0 - 1.0)
     readonly property real lightIntensity: 0.3
     readonly property real mediumIntensity: 0.6
-    readonly property real heavyIntensity: 1.0
-
+    readonly property real heavyIntensity: 1
     // Haptic feedback durations (ms)
     readonly property int shortDuration: 10
     readonly property int mediumDuration: 20
     readonly property int longDuration: 40
-
     // Enable/disable haptics globally
     property bool enabled: true
 
@@ -24,6 +22,7 @@ QtObject {
     function light() {
         if (!enabled)
             return;
+
         console.log("[Haptics] Light tap");
     }
 
@@ -42,7 +41,12 @@ QtObject {
     function medium() {
         if (!enabled)
             return;
+
         console.log("[Haptics] Medium tap");
+    }
+
+    function mediumImpact() {
+        medium();
     }
 
     /**
@@ -52,6 +56,7 @@ QtObject {
     function heavy() {
         if (!enabled)
             return;
+
         console.log("[Haptics] Heavy tap");
     }
 
@@ -62,6 +67,7 @@ QtObject {
     function selection() {
         if (!enabled)
             return;
+
         console.log("[Haptics] Selection");
     }
 
@@ -73,6 +79,7 @@ QtObject {
     function impact(intensity, duration) {
         if (!enabled)
             return;
+
         console.log("[Haptics] Impact - intensity:", intensity, "duration:", duration);
     }
 
@@ -83,6 +90,7 @@ QtObject {
     function success() {
         if (!enabled)
             return;
+
         light();
         Qt.callLater(function () {
             Qt.callLater(light);
@@ -96,6 +104,7 @@ QtObject {
     function error() {
         if (!enabled)
             return;
+
         impact(heavyIntensity, longDuration);
     }
 
@@ -106,6 +115,7 @@ QtObject {
     function warning() {
         if (!enabled)
             return;
+
         medium();
         Qt.callLater(function () {
             Qt.callLater(medium);
