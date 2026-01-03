@@ -35,6 +35,7 @@ class Hunspell {
 #include <QStandardPaths>
 #include <QStringConverter>
 #include <QTextStream>
+#include "WordTrie.h"
 
 class WordEngine::Private {
   public:
@@ -167,6 +168,7 @@ QString WordEngine::dictionaryPath() {
 WordEngineWorker::WordEngineWorker(QObject *parent)
     : QObject(parent)
     , m_hunspell(nullptr)
+    , m_trie(new WordTrie())
     , m_encoding("UTF-8")
     , m_language("en_US") {
     m_userDictionaryPath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) +
@@ -176,7 +178,9 @@ WordEngineWorker::WordEngineWorker(QObject *parent)
 WordEngineWorker::~WordEngineWorker() {
     QMutexLocker locker(&m_mutex);
     delete m_hunspell;
+    delete m_trie;
     m_hunspell = nullptr;
+    m_trie     = nullptr;
 }
 
 void WordEngineWorker::setLanguage(const QString &language) {
@@ -211,6 +215,8 @@ bool WordEngineWorker::loadDictionary(const QString &language) {
 
     m_hunspell = new Hunspell(affFile.toUtf8().constData(), dicFile.toUtf8().constData());
     m_encoding = QString::fromLatin1(m_hunspell->get_dic_encoding());
+
+    loadTrieFromDictionary(dicFile);
 
     return true;
 }
@@ -263,52 +269,84 @@ void WordEngineWorker::loadUserDictionary() {
 void WordEngineWorker::computePredictions(const QString &prefix, int maxResults) {
     QMutexLocker locker(&m_mutex);
 
-    if (!m_hunspell || prefix.isEmpty()) {
+    if (prefix.isEmpty()) {
         emit predictionsReady(prefix, QStringList());
         return;
     }
 
     QStringList results;
-    QString     lowerPrefix = prefix.toLower();
-    bool        isLowercase = prefix[0].isLower();
-    auto        suggestions = m_hunspell->suggest(prefix.toStdString());
 
-    for (const auto &s : suggestions) {
-        if (results.size() >= maxResults)
-            break;
-
-        QString word = QString::fromStdString(s);
-        if (word.toLower().startsWith(lowerPrefix)) {
-            if (isLowercase)
-                word = word.toLower();
-            if (!results.contains(word, Qt::CaseInsensitive))
-                results.append(word);
-        }
+    if (m_trie && m_trie->size() > 0) {
+        results = m_trie->getCompletions(prefix, maxResults);
     }
 
-    if (results.size() < maxResults) {
+    if (results.size() < maxResults && m_hunspell) {
+        QString lowerPrefix = prefix.toLower();
+        auto    suggestions = m_hunspell->suggest(prefix.toStdString());
+
         for (const auto &s : suggestions) {
             if (results.size() >= maxResults)
                 break;
 
             QString word = QString::fromStdString(s);
-            if (isLowercase)
-                word = word.toLower();
-            if (!results.contains(word, Qt::CaseInsensitive))
+            if (word.toLower().startsWith(lowerPrefix) &&
+                !results.contains(word, Qt::CaseInsensitive)) {
                 results.append(word);
+            }
         }
     }
 
     emit predictionsReady(prefix, results);
 }
 
+bool WordEngineWorker::loadTrieFromDictionary(const QString &dicPath) {
+    if (!m_trie) {
+        m_trie = new WordTrie();
+    }
+
+    m_trie->clear();
+
+    QFile file(dicPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
+
+    QTextStream stream(&file);
+    QString     firstLine = stream.readLine();
+
+    int         loadedCount = 0;
+    const int   MAX_WORDS   = 50000;
+
+    while (!stream.atEnd() && loadedCount < MAX_WORDS) {
+        QString line = stream.readLine().trimmed();
+        if (line.isEmpty())
+            continue;
+
+        int     slashPos = line.indexOf('/');
+        QString baseWord = (slashPos >= 0) ? line.left(slashPos) : line;
+
+        if (baseWord.length() >= 3 && baseWord.length() <= 20) {
+            m_trie->insert(baseWord);
+            loadedCount++;
+        }
+    }
+
+    return loadedCount > 0;
+}
+
 void WordEngineWorker::addWord(const QString &word) {
     QMutexLocker locker(&m_mutex);
 
-    if (!m_hunspell || word.length() < 2)
+    if (word.length() < 2)
         return;
 
-    m_hunspell->add(word.toStdString());
+    if (m_trie) {
+        m_trie->insert(word);
+    }
+
+    if (m_hunspell) {
+        m_hunspell->add(word.toStdString());
+    }
 
     QFile file(m_userDictionaryPath);
     QDir().mkpath(QFileInfo(file).absolutePath());

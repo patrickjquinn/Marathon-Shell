@@ -10,6 +10,7 @@
 class Hunspell;
 class QTextCodec;
 class WordEngineWorker;
+class WordTrie;
 
 class WordEngine : public QObject {
     Q_OBJECT
@@ -66,12 +67,14 @@ class WordEngineWorker : public QObject {
 
   private:
     Hunspell *m_hunspell;
+    WordTrie *m_trie;
     QString   m_encoding;
     QString   m_userDictionaryPath;
     QString   m_language;
     QMutex    m_mutex;
 
     bool      loadDictionary(const QString &language);
+    bool      loadTrieFromDictionary(const QString &dicPath);
     void      loadUserDictionary();
     QString   findDictionaryPath(const QString &language);
 };

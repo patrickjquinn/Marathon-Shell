@@ -22,6 +22,8 @@ set(SOURCES
     src/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
     qml/keyboard/Data/WordEngine.cpp
+    qml/keyboard/Data/WordTrie.h
+    qml/keyboard/Data/WordTrie.cpp
     src/networkmanagercpp.h
     src/networkmanagercpp.cpp
     src/powermanagercpp.h
