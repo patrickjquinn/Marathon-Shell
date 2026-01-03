@@ -216,6 +216,13 @@ Rectangle {
         keyboard.active = false;
         keyboard.currentWord = "";
         keyboard.currentPredictions = [];
+        keyboard.recentContext = "";
+        keyboard.shifted = false;
+        keyboard.capsLock = false;
+        keyboard.canUndoAutoCorrect = false;
+        keyboard.lastOriginalWord = "";
+        keyboard.lastCorrectedWord = "";
+        keyboard.lastSpaceTime = 0;
     }
 
     function clear() {
@@ -231,8 +238,19 @@ Rectangle {
     layer.enabled: true
     layer.smooth: true
     onActiveChanged: {
-        if (active)
+        if (active) {
             show();
+        } else {
+            keyboard.currentWord = "";
+            keyboard.currentPredictions = [];
+            keyboard.recentContext = "";
+            keyboard.shifted = false;
+            keyboard.capsLock = false;
+            keyboard.canUndoAutoCorrect = false;
+            keyboard.lastOriginalWord = "";
+            keyboard.lastCorrectedWord = "";
+            keyboard.lastSpaceTime = 0;
+        }
     }
     onCurrentLayoutChanged: {
         if (!capsLock)
