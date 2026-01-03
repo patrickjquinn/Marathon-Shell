@@ -19,6 +19,7 @@ Rectangle {
     property string lastCorrectedWord: ""
     property string lastOriginalWord: ""
     property bool canUndoAutoCorrect: false
+    property string recentContext: ""
 
     signal keyPressed(string text)
     signal backspace
@@ -83,8 +84,10 @@ Rectangle {
             keyboard.keyPressed(". ");
             keyboard.shifted = true;
             keyboard.lastSpaceTime = 0;
+            keyboard.recentContext = "";
             return;
         }
+        var wordToAdd = "";
         if (keyboard.currentWord.length > 0) {
             var originalWord = keyboard.currentWord;
             if (inputContextInstance.shouldAutoCorrect) {
@@ -95,14 +98,27 @@ Rectangle {
                     keyboard.lastOriginalWord = originalWord;
                     keyboard.lastCorrectedWord = correctedWord;
                     keyboard.canUndoAutoCorrect = true;
+                    wordToAdd = correctedWord;
                 } else {
                     Dictionary.learnWord(originalWord);
                     keyboard.canUndoAutoCorrect = false;
+                    wordToAdd = originalWord;
                 }
             } else {
                 keyboard.canUndoAutoCorrect = false;
+                wordToAdd = originalWord;
             }
             keyboard.currentWord = "";
+        }
+        if (wordToAdd.length > 0) {
+            var contextWords = keyboard.recentContext.trim().split(" ").filter(function (w) {
+                return w.length > 0;
+            });
+            contextWords.push(wordToAdd.toLowerCase());
+            if (contextWords.length > 2)
+                contextWords = contextWords.slice(-2);
+
+            keyboard.recentContext = contextWords.join(" ");
         }
         if (!keyboard.capsLock && inputContextInstance.shouldAutoCapitalize)
             keyboard.shifted = true;
@@ -110,6 +126,7 @@ Rectangle {
         inputContextInstance.insertText(" ");
         keyboard.keyPressed(" ");
         keyboard.lastSpaceTime = now;
+        updatePredictions();
     }
 
     function handleEnter() {
@@ -155,6 +172,11 @@ Rectangle {
 
     function updatePredictions() {
         if (keyboard.currentWord.length === 0) {
+            var phrasePreds = Dictionary.getPhraseCompletions(keyboard.recentContext);
+            if (phrasePreds.length > 0) {
+                keyboard.currentPredictions = phrasePreds.slice(0, 5);
+                return;
+            }
             keyboard.currentPredictions = [];
             return;
         }
