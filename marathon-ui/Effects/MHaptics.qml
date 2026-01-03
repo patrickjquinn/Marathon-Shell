@@ -13,7 +13,7 @@ QtObject {
     readonly property int mediumDuration: 20
     readonly property int longDuration: 40
     // Enable/disable haptics globally
-    property bool enabled: true
+    property bool enabled: false
 
     /**
      * Light haptic feedback
