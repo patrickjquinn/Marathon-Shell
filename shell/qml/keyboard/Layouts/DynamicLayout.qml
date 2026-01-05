@@ -6,8 +6,9 @@ Item {
 
     property bool shifted: false
     property bool capsLock: false
-    property var layoutData: LanguageManager.currentLayout
+    property var layoutData: null // Set via Connections.onLayoutLoaded only
     property bool rtl: dynamicLayout.layoutData ? dynamicLayout.layoutData.rtl : false
+    property bool isLoading: dynamicLayout.layoutData === null
 
     signal keyClicked(string text)
     signal backspaceClicked
@@ -19,8 +20,10 @@ Item {
     signal languageSwitchClicked
 
     implicitHeight: layoutColumn.implicitHeight
-    onLayoutDataChanged: {
-        console.error("[DynamicLayout] layoutData changed. Rows: " + (layoutData ? layoutData.rows.length : "null"));
+    // Initialize from LanguageManager if already loaded (for hot reloading)
+    Component.onCompleted: {
+        if (LanguageManager.currentLayout)
+            dynamicLayout.layoutData = LanguageManager.currentLayout;
     }
 
     Column {
@@ -215,7 +218,6 @@ Item {
 
     Connections {
         function onLayoutLoaded(layout) {
-            console.log("[DynamicLayout] Received new layout via signal");
             dynamicLayout.layoutData = layout;
         }
 
