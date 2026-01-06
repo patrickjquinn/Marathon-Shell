@@ -1,5 +1,4 @@
 import "../UI"
-import MarathonOS.Shell
 // Marathon Virtual Keyboard - URL Layout
 // Optimized for URLs with /, :, and domain shortcuts
 import QtQuick

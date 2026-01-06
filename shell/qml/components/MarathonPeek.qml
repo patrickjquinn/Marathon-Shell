@@ -1,5 +1,3 @@
-import "."
-import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick

@@ -1,5 +1,4 @@
 import "../UI"
-import MarathonOS.Shell
 // Marathon Virtual Keyboard - Email Layout
 // Optimized for email addresses with @ and domain shortcuts
 import QtQuick

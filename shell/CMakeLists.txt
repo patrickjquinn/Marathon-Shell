@@ -289,6 +289,10 @@ foreach(singleton_file ${SINGLETON_FILES})
     )
 endforeach()
 
+set_source_files_properties(qml/services/CalendarWorker.js PROPERTIES
+    QT_QML_SKIP_QMLDIR_ENTRY TRUE
+)
+
 if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
@@ -421,4 +425,18 @@ install(TARGETS marathon-shell
 
 # Install QML modules (libraries and plugins)
 # MarathonUI modules are installed by marathon-ui/CMakeLists.txt
-# No need to install them here
+
+# Install MarathonOS.Shell module for marathon-app-runner to find it
+if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
+    set(SHELL_QML_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/qt6/qml")
+    
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/qml/MarathonOS/
+        DESTINATION ${SHELL_QML_INSTALL_DIR}/MarathonOS
+        FILES_MATCHING
+        PATTERN "qmldir"
+        PATTERN "*.qmltypes"
+        PATTERN "*.qml"
+        PATTERN "*.js"
+        PATTERN "*.so"
+    )
+endif()

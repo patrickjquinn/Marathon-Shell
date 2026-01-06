@@ -1,4 +1,3 @@
-import MarathonOS.Shell
 import QtQuick
 import QtQuick.Window
 

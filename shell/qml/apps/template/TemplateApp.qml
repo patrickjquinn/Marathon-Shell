@@ -1,4 +1,3 @@
-import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme

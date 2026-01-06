@@ -1,6 +1,5 @@
 import "../Data"
 import "../UI"
-import MarathonOS.Shell
 import QtQuick
 
 Item {

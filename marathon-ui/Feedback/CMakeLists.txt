@@ -25,6 +25,19 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-feedback
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Feedback
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Feedback
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Feedback/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Feedback/marathon-ui-feedback.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Feedback
+)
+
+install(FILES
+    MBadge.qml
+    MActivityIndicator.qml
+    MProgressBar.qml
+    DESTINATION ${MARATHON_UI_DIR}/Feedback
 )

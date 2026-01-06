@@ -1,5 +1,4 @@
 pragma Singleton
-import MarathonOS.Shell
 import QtQuick
 
 QtObject {
@@ -38,13 +37,10 @@ QtObject {
         var xhr = new XMLHttpRequest();
         activeRequest = xhr;
         var url = Qt.resolvedUrl("../Layouts/languages/" + languageId + ".json");
-        console.error("[LanguageManager] Requesting layout from: " + url);
         xhr.onreadystatechange = function () {
             if (xhr.readyState === XMLHttpRequest.DONE) {
-                console.error("[LanguageManager] XHR Done. Status: " + xhr.status);
                 if (xhr.status === 200 || xhr.status === 0) {
                     try {
-                        console.error("[LanguageManager] Layout loaded successfully for " + languageId);
                         var response = xhr.responseText;
                         if (!response)
                             throw "Empty response text";
@@ -75,7 +71,6 @@ QtObject {
         try {
             xhr.open("GET", url);
             xhr.send();
-            console.error("[LanguageManager] XHR sent");
         } catch (e) {
             console.error("[LanguageManager] XHR Exception: " + e);
             loadFallback();

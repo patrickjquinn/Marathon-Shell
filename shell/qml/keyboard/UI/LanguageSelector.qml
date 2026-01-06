@@ -1,5 +1,4 @@
 pragma ComponentBehavior: Bound
-import MarathonOS.Shell
 import QtQuick
 
 Rectangle {

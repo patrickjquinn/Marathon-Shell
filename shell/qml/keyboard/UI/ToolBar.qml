@@ -1,4 +1,3 @@
-import MarathonOS.Shell
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls

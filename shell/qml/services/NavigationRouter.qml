@@ -1,5 +1,4 @@
 pragma Singleton
-import MarathonOS.Shell
 import QtQuick
 
 /**

@@ -33,6 +33,23 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-controls
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Controls
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Controls
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Controls/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Controls/marathon-ui-controls.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Controls
+)
+
+install(FILES
+    MSlider.qml
+    MToggle.qml
+    MCheckbox.qml
+    MRadioButton.qml
+    MRadioGroup.qml
+    MDropdown.qml
+    MComboBox.qml
+    DESTINATION ${MARATHON_UI_DIR}/Controls
 )

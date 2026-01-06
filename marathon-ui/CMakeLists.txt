@@ -9,16 +9,16 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-    qt_policy(SET QTP0004 NEW)
-endif()
-
 find_package(Qt6 6.4 REQUIRED COMPONENTS
     Core
     Qml
     Quick
 )
+
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+endif()
 
 # Installation directory - system-wide for production, user-local for dev
 if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")

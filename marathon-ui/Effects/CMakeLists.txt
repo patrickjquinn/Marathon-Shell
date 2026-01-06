@@ -27,6 +27,16 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-effects
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Effects
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Effects
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Effects/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Effects/marathon-ui-effects.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Effects
+)
+
+install(FILES ${EFFECTS_QML_FILES}
+    DESTINATION ${MARATHON_UI_DIR}/Effects
 )

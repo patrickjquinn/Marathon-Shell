@@ -1,5 +1,4 @@
 import "../UI"
-import MarathonOS.Shell
 // Marathon Virtual Keyboard - Phone Layout
 // Phone number pad with common symbols
 import QtQuick

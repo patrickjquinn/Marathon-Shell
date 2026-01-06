@@ -1,5 +1,4 @@
 import "../keyboard/Core"
-import MarathonOS.Shell
 import QtQuick
 
 // Virtual Keyboard Container - Marathon Custom Keyboard
