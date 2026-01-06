@@ -43,6 +43,20 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-core
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Core
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Core
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Core/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Core/marathon-ui-core.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Core
+)
+
+install(FILES ${CORE_QML_FILES}
+    DESTINATION ${MARATHON_UI_DIR}/Core
+)
+
+install(FILES fonts/lucide.ttf
+    DESTINATION ${MARATHON_UI_DIR}/Core/fonts
 )

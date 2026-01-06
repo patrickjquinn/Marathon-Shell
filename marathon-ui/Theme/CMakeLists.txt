@@ -27,6 +27,16 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-theme
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Theme
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Theme
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Theme/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Theme/marathon-ui-theme.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Theme
+)
+
+install(FILES ${THEME_QML_FILES}
+    DESTINATION ${MARATHON_UI_DIR}/Theme
 )

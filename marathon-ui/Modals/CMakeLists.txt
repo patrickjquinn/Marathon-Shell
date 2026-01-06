@@ -25,6 +25,19 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-modals
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Modals
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Modals
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Modals/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Modals/marathon-ui-modals.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Modals
+)
+
+install(FILES
+    MModal.qml
+    MConfirmDialog.qml
+    MSheet.qml
+    DESTINATION ${MARATHON_UI_DIR}/Modals
 )

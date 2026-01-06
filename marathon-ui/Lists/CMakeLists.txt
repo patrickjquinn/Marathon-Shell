@@ -18,6 +18,16 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-lists
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Lists
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Lists
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Lists/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Lists/marathon-ui-lists.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Lists
+)
+
+install(FILES MDivider.qml
+    DESTINATION ${MARATHON_UI_DIR}/Lists
 )

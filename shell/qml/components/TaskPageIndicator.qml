@@ -1,7 +1,6 @@
 // Vertical page indicator for task switcher
 // Shows modern iOS-style pills/dots on the right when more than 4 tasks
 
-import MarathonOS.Shell
 import MarathonUI.Theme
 import QtQuick
 

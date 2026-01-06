@@ -1,7 +1,6 @@
 // DEPRECATED: Use MarathonUI.Core.MButton instead
 // This component is kept for backward compatibility only
 
-import MarathonOS.Shell
 import MarathonUI.Theme
 import QtQuick
 

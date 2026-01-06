@@ -631,9 +631,10 @@ int main(int argc, char *argv[]) {
     // Load any already-registered Marathon apps immediately (fast).
     appModel->loadFromRegistry(appRegistry);
 
-    // Add QML import paths for modules
+    // Add QML import path for embedded Qt resources
+    // NOTE: Only use one form - "qrc:/" and ":/" are equivalent and using both
+    // causes QML modules to be found twice, triggering "module is ambiguous" errors
     engine.addImportPath("qrc:/");
-    engine.addImportPath(":/");
 
     // ============================================================================
     // CRITICAL: MarathonUI QML Module Import Paths

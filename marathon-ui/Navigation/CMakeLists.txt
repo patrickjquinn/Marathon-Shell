@@ -33,6 +33,23 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-navigation
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Navigation
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Navigation
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Navigation/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Navigation/marathon-ui-navigation.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Navigation
+)
+
+install(FILES
+    MTopBar.qml
+    MBottomBar.qml
+    MActionBar.qml
+    MNavigationPane.qml
+    MTabBar.qml
+    MSwipeView.qml
+    MPageIndicator.qml
+    DESTINATION ${MARATHON_UI_DIR}/Navigation
 )

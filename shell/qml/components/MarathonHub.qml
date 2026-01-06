@@ -1,5 +1,3 @@
-import "."
-import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core

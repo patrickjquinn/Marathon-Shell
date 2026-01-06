@@ -51,6 +51,31 @@ if(QMLLINT_AVAILABLE)
 endif()
 
 install(TARGETS marathon-ui-containers
-    LIBRARY DESTINATION ${MARATHON_UI_DIR}
-    RUNTIME DESTINATION ${MARATHON_UI_DIR}
+    LIBRARY DESTINATION ${MARATHON_UI_DIR}/Containers
+    RUNTIME DESTINATION ${MARATHON_UI_DIR}/Containers
+)
+
+install(FILES
+    ${CMAKE_BINARY_DIR}/MarathonUI/Containers/qmldir
+    ${CMAKE_BINARY_DIR}/MarathonUI/Containers/marathon-ui-containers.qmltypes
+    DESTINATION ${MARATHON_UI_DIR}/Containers
+)
+
+install(FILES
+    MCard.qml
+    MPage.qml
+    MSection.qml
+    MListItem.qml
+    MApp.qml
+    MLayer.qml
+    MScrollView.qml
+    MSectionHeader.qml
+    MSwipeDelegate.qml
+    MPullToRefresh.qml
+    MFormCard.qml
+    MFormField.qml
+    MListTile.qml
+    MPanel.qml
+    MSettingsListItem.qml
+    DESTINATION ${MARATHON_UI_DIR}/Containers
 )

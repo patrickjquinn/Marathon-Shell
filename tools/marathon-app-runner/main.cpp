@@ -398,10 +398,14 @@ int main(int argc, char *argv[]) {
         // Common layouts:
         // - build/tools/marathon-app-runner/  -> build/shell/qml  (../../shell/qml)
         // - build/                           -> build/shell/qml  (shell/qml)
+        // - /usr/local/bin/                  -> /usr/local/lib/qt6/qml (system install)
         const QString     p1         = binDir.filePath("../../shell/qml");
         const QString     p2         = binDir.filePath("../shell/qml");
         const QString     p3         = binDir.filePath("shell/qml");
-        const QStringList candidates = {p1, p2, p3};
+        const QString     p4         = "/usr/local/lib/qt6/qml";
+        const QString     p5         = "/usr/lib/qt6/qml";
+        const QString     p6         = "/usr/lib64/qt6/qml";
+        const QStringList candidates = {p1, p2, p3, p4, p5, p6};
         for (const QString &cand : candidates) {
             if (!QDir(cand).exists())
                 continue;
