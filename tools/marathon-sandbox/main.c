@@ -223,7 +223,7 @@ static int setup_landlock(int has_network_permission, int has_storage_permission
 
     __u64 access_fs_rw  = ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE;
     __u64 access_net    = LANDLOCK_ACCESS_NET_BIND_TCP | LANDLOCK_ACCESS_NET_CONNECT_TCP;
-    __u64 scoped        = LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | LANDLOCK_SCOPE_SIGNAL;
+    __u64 scoped        = LANDLOCK_SCOPE_SIGNAL;
     int   has_net_rules = 0;
     int   has_scoping   = 0;
 
