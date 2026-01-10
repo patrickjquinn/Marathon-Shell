@@ -223,7 +223,17 @@ static int setup_landlock(int has_network_permission, int has_storage_permission
 
     __u64 access_fs_rw  = ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_WRITE;
     __u64 access_net    = LANDLOCK_ACCESS_NET_BIND_TCP | LANDLOCK_ACCESS_NET_CONNECT_TCP;
-    __u64 scoped        = LANDLOCK_SCOPE_SIGNAL;
+    
+    // Determine scoping based on context:
+    // - If running under Marathon compositor, don't scope abstract sockets (need parent IPC)
+    // - Signal scoping is always safe when available (ABI 6+)
+    __u64 scoped = LANDLOCK_SCOPE_ABSTRACT_UNIX_SOCKET | LANDLOCK_SCOPE_SIGNAL;
+    const char *wayland_display = getenv("WAYLAND_DISPLAY");
+    if (wayland_display && strstr(wayland_display, "marathon-wayland") != NULL) {
+        // Running as Marathon app - need to connect to parent compositor's abstract socket
+        scoped = LANDLOCK_SCOPE_SIGNAL;  // Keep signal scoping, skip abstract socket scoping
+    }
+    
     int   has_net_rules = 0;
     int   has_scoping   = 0;
 
@@ -232,7 +242,7 @@ static int setup_landlock(int has_network_permission, int has_storage_permission
         case 2: access_fs_rw &= ~LANDLOCK_ACCESS_FS_TRUNCATE; __attribute__((fallthrough));
         case 3: access_net = 0; __attribute__((fallthrough));
         case 4: access_fs_rw &= ~LANDLOCK_ACCESS_FS_IOCTL_DEV; __attribute__((fallthrough));
-        case 5: scoped = 0; __attribute__((fallthrough));
+        case 5: scoped = 0; __attribute__((fallthrough));  // Scoping not available before ABI 6
         default: break;
     }
 

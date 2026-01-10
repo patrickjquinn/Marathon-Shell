@@ -165,8 +165,8 @@ cd Marathon-Shell
 ### Build All Components (Recommended)
 
 ```bash
-# Build shell, UI library, and apps
-./scripts/build-all.sh
+# Build shell, UI library, and apps (first time or after pulling updates)
+./scripts/build-all.sh install
 ```
 
 This builds:
@@ -176,7 +176,11 @@ This builds:
 - All bundled applications
 - Developer tools
 
-**And installs** MarathonUI to `~/.local/share/marathon-ui` (required for shell to run).
+**And installs:**
+- MarathonUI to `~/.local/share/marathon-ui` (required for shell to run)
+- Marathon apps to `~/.local/share/marathon-apps` (required for bundled apps to appear)
+
+> **⚠️ IMPORTANT**: The `install` argument is **required** on first build. Without it, bundled apps (Settings, Browser, Calculator, etc.) won't appear in the shell. After the initial install, you can use `./run.sh` for incremental builds.
 
 ### Incremental Builds
 
@@ -258,7 +262,7 @@ This configures:
 ./run.sh
 
 # Or directly from build directory
-./build/shell/marathon-shell
+./build/shell/marathon-shell-bin
 
 # With debug logging
 MARATHON_DEBUG=1 ./run.sh
@@ -588,10 +592,10 @@ export QT_LOGGING_RULES="marathon.*.debug=true"
 ./run.sh
 
 # GDB debugging
-gdb --args ./build/shell/marathon-shell
+gdb --args ./build/shell/marathon-shell-bin
 
 # Valgrind memory check
-valgrind --leak-check=full ./build/shell/marathon-shell
+valgrind --leak-check=full ./build/shell/marathon-shell-bin
 ```
 
 ### QML Validation
