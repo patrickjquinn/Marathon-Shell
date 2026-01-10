@@ -1,5 +1,6 @@
 import MarathonOS.Shell
 import MarathonUI.Containers
+import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
@@ -41,7 +42,7 @@ Page {
 
                 MIconButton {
                     iconName: "chevron-left"
-                    size: 24
+                    iconSize: 24
                     onClicked: keyboardPage.navigateBack()
                 }
 
