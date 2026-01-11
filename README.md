@@ -675,6 +675,10 @@ Marathon Shell implements a Wayland compositor that embeds native Linux applicat
 - Some Flatpak applications need additional permission configuration
 - Snap applications require manual Wayland interface connection
 
+### Sandbox (Landlock)
+
+Marathon Shell uses Landlock for application sandboxing on Linux kernel 5.13+. On kernel 6.12+ (Landlock ABI 6), abstract UNIX socket scoping is **intentionally disabled** to allow sandboxed apps to communicate with the parent Wayland compositor. Signal scoping remains enabled for security.
+
 ## Documentation
 
 - [App Development Guide](docs/APP_DEVELOPMENT.md) - Creating Marathon apps
