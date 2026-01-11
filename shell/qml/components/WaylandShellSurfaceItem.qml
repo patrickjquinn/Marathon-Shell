@@ -111,8 +111,15 @@ ShellSurfaceItem {
         }
         lastSentSize = newSize;
         hasSentInitialSize = true;
-        Logger.info("WaylandShellSurfaceItem", "Configuring app as maximized: " + newSize.width + "x" + newSize.height);
-        toplevel.sendMaximized(newSize);
+        Logger.info("WaylandShellSurfaceItem", "Configuring app size: " + newSize.width + "x" + newSize.height);
+        // WORKAROUND: Use sendConfigure instead of sendMaximized to avoid
+        // Qt6WaylandCompositor + eglfs crash. sendMaximized causes SIGSEGV on
+        // embedded platforms due to OpenGL context issues in xdg-toplevel handling.
+        // sendConfigure with explicit size and states is more stable.
+        var states = [];
+        states.push(1); // activated (XdgToplevel.State.Activated)
+        // Note: Don't push maximized state (3) - causes same crash on some platforms
+        toplevel.sendConfigure(newSize, states);
         if (AppLaunchService.compositor) {
             AppLaunchService.compositor.activateSurface(surfaceId);
             // Take QML focus so keyboard events flow to the WaylandQuickItem
