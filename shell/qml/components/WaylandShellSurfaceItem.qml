@@ -84,6 +84,26 @@ ShellSurfaceItem {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: no toplevel (surfaceObj: " + (surfaceObj ? "exists" : "null") + ")");
             return;
         }
+        // CRITICAL: Validate the entire xdgSurface chain before calling sendMaximized
+        // This prevents SIGSEGV when toplevel exists but internal structures are not yet initialized
+        // (race condition on Alpine/aarch64 with Qt6WaylandCompositor)
+        var xdgSurface = toplevel.xdgSurface;
+        if (!xdgSurface) {
+            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: toplevel.xdgSurface not ready yet");
+            Qt.callLater(scheduleSizeUpdate);
+            return;
+        }
+        if (!xdgSurface.surface) {
+            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: xdgSurface.surface not ready yet");
+            Qt.callLater(scheduleSizeUpdate);
+            return;
+        }
+        // Also verify surface has valid dimensions (sanity check)
+        if (xdgSurface.surface.size.width <= 0 && xdgSurface.surface.size.height <= 0) {
+            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: surface has no size yet (client not ready)");
+            Qt.callLater(scheduleSizeUpdate);
+            return;
+        }
         var newSize = Qt.size(Math.round(width), Math.round(height));
         if (hasSentInitialSize && Math.abs(newSize.width - lastSentSize.width) < 2 && Math.abs(newSize.height - lastSentSize.height) < 2) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: size unchanged (" + newSize.width + "x" + newSize.height + " vs " + lastSentSize.width + "x" + lastSentSize.height + ")");
