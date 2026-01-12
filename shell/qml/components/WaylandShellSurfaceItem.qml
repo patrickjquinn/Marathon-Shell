@@ -65,6 +65,10 @@ ShellSurfaceItem {
     }
 
     function sendSizeToApp() {
+        // Also verify surface has valid dimensions (sanity check)
+        // Note: xdgSurface.surface.size is not reliable/exposed in all Qt versions,
+        // so we trust the Item's width/height checked at the start.
+
         if (!autoResize) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: autoResize is false");
             return;
@@ -95,12 +99,6 @@ ShellSurfaceItem {
         }
         if (!xdgSurface.surface) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: xdgSurface.surface not ready yet");
-            Qt.callLater(scheduleSizeUpdate);
-            return;
-        }
-        // Also verify surface has valid dimensions (sanity check)
-        if (xdgSurface.surface.size.width <= 0 && xdgSurface.surface.size.height <= 0) {
-            Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: surface has no size yet (client not ready)");
             Qt.callLater(scheduleSizeUpdate);
             return;
         }
