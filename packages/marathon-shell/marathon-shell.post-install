@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# marathon-shell post-install script
+# Run ldconfig to update the dynamic linker cache with MarathonUI library paths
+
+# Update ldconfig cache
+if command -v ldconfig >/dev/null 2>&1; then
+    ldconfig
+fi
+
+exit 0

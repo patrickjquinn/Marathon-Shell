@@ -1,0 +1,12 @@
+[terminal]
+vt = 7
+
+[default_session]
+command = "/usr/bin/marathon-shell-session"
+user = "user"
+
+# Auto-login: Skip greeter and directly start marathon-shell for the user
+# This is what makes the shell boot automatically at startup
+[initial_session]
+command = "/usr/bin/marathon-shell-session"
+user = "user"

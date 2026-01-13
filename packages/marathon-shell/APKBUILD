@@ -123,7 +123,7 @@ build() {
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
 	
-	cmake --build build -j1
+	cmake --build build
 	
 	# Build apps with single core
 	cmake -B build-apps -S apps -G Ninja \
@@ -134,7 +134,7 @@ build() {
 		-DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE \
 		-DCMAKE_INSTALL_RPATH=\$ORIGIN \
 		-DQt6_DIR=/usr/lib/cmake/Qt6
-	cmake --build build-apps -j1
+	cmake --build build-apps
 }
 
 package() {
@@ -146,6 +146,31 @@ package() {
 	# Install apps
 	DESTDIR="$pkgdir" cmake --install build-apps
 	
+	# cmake doesn't install app shared libs
+	for lib in build-apps/*/lib*.so; do
+		if [ -f "$lib" ]; then
+			appname=$(basename "$lib")
+			install -Dm755 "$lib" "$pkgdir/usr/lib/$appname"
+		fi
+	done
+	
+	for plugindir in build-apps/apps/*/MarathonApp/*; do
+		if [ -d "$plugindir" ]; then
+			appname=$(basename "$plugindir")
+			appname_lower=$(echo "$appname" | tr '[:upper:]' '[:lower:]')
+			plugin="$plugindir/lib${appname_lower}plugin.so"
+			if [ -f "$plugin" ]; then
+				install -Dm755 "$plugin" \
+					"$pkgdir/usr/share/marathon-apps/MarathonApp/$appname/$(basename $plugin)"
+			fi
+			qmldir="$plugindir/qmldir"
+			if [ -f "$qmldir" ]; then
+				install -Dm644 "$qmldir" \
+					"$pkgdir/usr/share/marathon-apps/MarathonApp/$appname/qmldir"
+			fi
+		fi
+	done
+	
 	# marathon-config.json was removed upstream; install it only if present
 	if [ -f "$builddir/marathon-config.json" ]; then
 		install -Dm644 "$builddir/marathon-config.json" \
@@ -156,6 +181,13 @@ package() {
 	# rather than whatever upstream might install (often /usr/local).
 	install -Dm755 "$startdir/marathon-shell-session" \
 		"$pkgdir/usr/bin/marathon-shell-session"
+	
+	# Qt6 auto-generates invalid plugin refs for pure-QML modules
+	for qmldir in "$pkgdir"/usr/lib/qt6/qml/MarathonUI/*/qmldir; do
+		if [ -f "$qmldir" ]; then
+			sed -i '/^linktarget /d; /^optional plugin /d; /^prefer /d' "$qmldir"
+		fi
+	done
 }
 
 sha512sums="

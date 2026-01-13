@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=1
+pkgrel=12
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -10,6 +10,7 @@ license="MIT"
 depends="
 	systemd
 	dbus
+	dbus-systemd
 	eudev
 	mesa-gbm
 	mesa-egl
@@ -46,6 +47,8 @@ source="
 	50-modemmanager-priority.conf
 	50-gpu-acceleration.conf
 	20-modesetting.conf
+	marathon-shell.service
+	greetd-marathon.toml
 "
 package() {
 	install -Dm644 "$srcdir/99-marathon.conf" \
@@ -72,6 +75,20 @@ package() {
 	install -d "$pkgdir"/etc/X11/xorg.conf.d
 	install -Dm644 "$srcdir/20-modesetting.conf" \
 		"$pkgdir/etc/X11/xorg.conf.d/20-modesetting.conf"
+
+	install -Dm644 "$srcdir/marathon-shell.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-shell.service"
+	install -Dm644 "$srcdir/greetd-marathon.toml" \
+		"$pkgdir/etc/greetd/config.toml"
+	
+	# Symlinks in package() because post-install runs before service file exists
+	install -d "$pkgdir/etc/systemd/system/graphical.target.wants"
+	ln -sf /usr/lib/systemd/system/marathon-shell.service \
+		"$pkgdir/etc/systemd/system/graphical.target.wants/marathon-shell.service"
+	ln -sf /usr/lib/systemd/system/marathon-shell.service \
+		"$pkgdir/etc/systemd/system/display-manager.service"
+	ln -sf /usr/lib/systemd/system/graphical.target \
+		"$pkgdir/etc/systemd/system/default.target"
 }
 sha512sums="
 8b1a65e8a7fc5a638c3462062da4f4d19ad60ca1c754dfc0346d724df69742e8e38de66472548b06507ec712d462f6a6da0415a5d616bf577b15109c9d04675f  99-marathon.conf
@@ -84,4 +101,6 @@ c749d2bc17b8330d9461a94b2b7ca8103c58f5f5130a8c50d67093c6f8fad461c6a3b6971f08d9fc
 eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339aaf6d34ec664b0d41b0f2e823ba37a5bdc3d8e2f8285fcdf  50-modemmanager-priority.conf
 b07a1172c593dc76244d796ff3c2a856cd07b0ef24fe4fb227520883b05e885120d256e4f23724f81527b8bdbf097efa61e1356c27ef93b563ba00a89b0898a0  50-gpu-acceleration.conf
 9d767358913c14aa3746f1b3fc174a4620cc71840e081e74ca582d6d544d33fd7447ed8f8af8ab7976e3d02d423407b67068ff469c1d8a63804399d0f5a5c61d  20-modesetting.conf
+4595a32032c32dcd99fa1c28ad3f7fb08d521eed125c38c36ad61b3aaeb110c3bae359927a309255803218902490748ee69f2a50844ed4e89b1b58cadd5740c9  marathon-shell.service
+9a1ca35e94bf594f8ed79a9a6e4b0edbf9445baf49583e69ac3ed8fae95583bcf99ef2e7397bdeaf423855b7357c01fbd437ee3355be13889603ed7f2bf4caef  greetd-marathon.toml
 "

@@ -558,6 +558,6 @@ If issues persist:
 
 ---
 
-**Last updated:** October 2025
+**Last updated:** January 2026
 
 

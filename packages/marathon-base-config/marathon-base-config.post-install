@@ -15,6 +15,8 @@ if [ -x /bin/systemctl ]; then
 	
 	echo "Enabling zram..."
 	systemctl enable systemd-zram-setup@zram0.service || true
+	
+	# shell.service enablement handled via symlinks in APKBUILD
 fi
 
 if [ -x /bin/udevadm ]; then
@@ -27,7 +29,18 @@ if [ -x /sbin/sysctl ]; then
 	sysctl --system || true
 fi
 
+if id user >/dev/null 2>&1; then
+	echo "Adding user to required groups..."
+	for group in audio video input plugdev netdev wheel; do
+		if getent group "$group" >/dev/null 2>&1; then
+			adduser user "$group" 2>/dev/null || true
+		fi
+	done
+	
+	# Enable linger (loginctl doesn't work during package install)
+	mkdir -p /var/lib/systemd/linger
+	touch /var/lib/systemd/linger/user
+fi
+
 echo "Marathon OS base configuration complete."
 exit 0
-
-

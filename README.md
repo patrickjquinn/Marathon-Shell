@@ -82,7 +82,7 @@ Marathon-Image/
 
 ## Documentation
 
-- [Build Instructions](BUILD_INSTRUCTIONS.md) - Detailed build guide
+- [Deployment Guide](docs/MARATHON_SHELL_DEPLOYMENT.md) - Detailed deployment guide
 - [Device Support](docs/DEVICE_SUPPORT.md) - Supported devices
 - [Kernel Configuration](docs/KERNEL_CONFIG.md) - Kernel build details
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and fixes
