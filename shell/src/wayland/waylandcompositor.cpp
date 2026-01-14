@@ -438,16 +438,25 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         }
     }
 
+    // Resolve marathon-sandbox path to support local development builds
+    QString       sandboxPath = QStringLiteral("marathon-sandbox");
+    const QDir    shellBinDir(QCoreApplication::applicationDirPath());
+    const QString devSandboxPath =
+        shellBinDir.filePath("../tools/marathon-sandbox/marathon-sandbox");
+    if (QFile::exists(devSandboxPath)) {
+        sandboxPath = devSandboxPath;
+    }
+
     if (!needsShell) {
         if (useSandbox) {
             QStringList finalArgs;
             QString     finalProgram;
             if (!isRunner) {
                 finalProgram = "dbus-run-session";
-                finalArgs << "--config-file" << dbusConfigPath << "--" << "marathon-sandbox"
-                          << program << args;
+                finalArgs << "--config-file" << dbusConfigPath << "--" << sandboxPath << program
+                          << args;
             } else {
-                finalProgram = "marathon-sandbox";
+                finalProgram = sandboxPath;
                 finalArgs << program << args;
             }
             process->setProgram(finalProgram);
@@ -461,10 +470,10 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         if (useSandbox) {
             if (!isRunner) {
                 process->start("dbus-run-session",
-                               {"--config-file", dbusConfigPath, "--", "marathon-sandbox",
-                                "/bin/sh", "-c", actualCommand});
+                               {"--config-file", dbusConfigPath, "--", sandboxPath, "/bin/sh", "-c",
+                                actualCommand});
             } else {
-                process->start("marathon-sandbox", {"/bin/sh", "-c", actualCommand});
+                process->start(sandboxPath, {"/bin/sh", "-c", actualCommand});
             }
         } else {
             process->start("/bin/sh", {"-c", actualCommand});
