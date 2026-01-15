@@ -71,7 +71,10 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                AmbientLightSensor.enable();
+                                if (typeof AmbientLightSensor !== 'undefined' && typeof AmbientLightSensor.enable === 'function')
+                                    AmbientLightSensor.enable();
+                                else if (typeof AmbientLightSensor !== 'undefined')
+                                    AmbientLightSensor.active = true;
                                 Logger.info("TestApp", "Enabled ambient light sensor");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -85,7 +88,10 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                AmbientLightSensor.disable();
+                                if (typeof AmbientLightSensor !== 'undefined' && typeof AmbientLightSensor.disable === 'function')
+                                    AmbientLightSensor.disable();
+                                else if (typeof AmbientLightSensor !== 'undefined')
+                                    AmbientLightSensor.active = false;
                                 Logger.info("TestApp", "Disabled ambient light sensor");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -133,7 +139,10 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                ProximitySensor.enable();
+                                if (typeof ProximitySensor !== 'undefined' && typeof ProximitySensor.enable === 'function')
+                                    ProximitySensor.enable();
+                                else if (typeof ProximitySensor !== 'undefined')
+                                    ProximitySensor.active = true;
                                 Logger.info("TestApp", "Enabled proximity sensor");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -147,7 +156,10 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                ProximitySensor.disable();
+                                if (typeof ProximitySensor !== 'undefined' && typeof ProximitySensor.disable === 'function')
+                                    ProximitySensor.disable();
+                                else if (typeof ProximitySensor !== 'undefined')
+                                    ProximitySensor.active = false;
                                 Logger.info("TestApp", "Disabled proximity sensor");
                                 if (testApp) {
                                     testApp.passedTests++;

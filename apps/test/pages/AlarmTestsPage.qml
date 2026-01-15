@@ -130,11 +130,19 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                WakeManager.wake("alarm");
-                                Logger.info("TestApp", "Wake: alarm");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (typeof WakeManager !== 'undefined' && typeof WakeManager.wake === 'function') {
+                                    WakeManager.wake("alarm");
+                                    Logger.info("TestApp", "Wake: alarm");
+                                    if (testApp) {
+                                        testApp.passedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else {
+                                    Logger.warn("TestApp", "WakeManager not available (shell-only)");
+                                    if (testApp) {
+                                        testApp.failedTests++;
+                                        testApp.totalTests++;
+                                    }
                                 }
                             }
                         }
@@ -144,11 +152,19 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                WakeManager.wake("call");
-                                Logger.info("TestApp", "Wake: call");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (typeof WakeManager !== 'undefined' && typeof WakeManager.wake === 'function') {
+                                    WakeManager.wake("call");
+                                    Logger.info("TestApp", "Wake: call");
+                                    if (testApp) {
+                                        testApp.passedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else {
+                                    Logger.warn("TestApp", "WakeManager not available (shell-only)");
+                                    if (testApp) {
+                                        testApp.failedTests++;
+                                        testApp.totalTests++;
+                                    }
                                 }
                             }
                         }
@@ -158,11 +174,19 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                WakeManager.wake("notification");
-                                Logger.info("TestApp", "Wake: notification");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (typeof WakeManager !== 'undefined' && typeof WakeManager.wake === 'function') {
+                                    WakeManager.wake("notification");
+                                    Logger.info("TestApp", "Wake: notification");
+                                    if (testApp) {
+                                        testApp.passedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else {
+                                    Logger.warn("TestApp", "WakeManager not available (shell-only)");
+                                    if (testApp) {
+                                        testApp.failedTests++;
+                                        testApp.totalTests++;
+                                    }
                                 }
                             }
                         }
@@ -172,13 +196,21 @@ Item {
                             variant: "accent"
                             onClicked: {
                                 HapticService.light();
-                                var wakeTime = new Date();
-                                wakeTime.setMinutes(wakeTime.getMinutes() + 1);
-                                WakeManager.scheduleWake(wakeTime, "test");
-                                Logger.info("TestApp", "Scheduled wake in 1 minute");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
+                                if (typeof WakeManager !== 'undefined' && typeof WakeManager.scheduleWake === 'function') {
+                                    var wakeTime = new Date();
+                                    wakeTime.setMinutes(wakeTime.getMinutes() + 1);
+                                    WakeManager.scheduleWake(wakeTime, "test");
+                                    Logger.info("TestApp", "Scheduled wake in 1 minute");
+                                    if (testApp) {
+                                        testApp.passedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else {
+                                    Logger.warn("TestApp", "WakeManager.scheduleWake not available (shell-only)");
+                                    if (testApp) {
+                                        testApp.failedTests++;
+                                        testApp.totalTests++;
+                                    }
                                 }
                             }
                         }

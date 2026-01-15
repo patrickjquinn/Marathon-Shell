@@ -130,7 +130,16 @@ ShellSurfaceItem {
     autoCreatePopupItems: true
     opacity: hasSentInitialSize && hasFirstFrame ? 1 : 0
     bufferLocked: isMinimized
-    shellSurface: _xdgSurfaceFromObj(surfaceObj)
+    // CRITICAL: Only assign shellSurface when the underlying surface is fully initialized.
+    // Qt's QWaylandQuickShellSurfaceItem::setShellSurface connects signals to the surface,
+    // and will SIGSEGV if xdgSurface.surface is null during the handoff.
+    shellSurface: {
+        var xdg = _xdgSurfaceFromObj(surfaceObj);
+        if (xdg && xdg.surface)
+            return xdg;
+
+        return null;
+    }
     touchEventsEnabled: true
     focusOnClick: true // Ensure keyboard focus on click
     output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
