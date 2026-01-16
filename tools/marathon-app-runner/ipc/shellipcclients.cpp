@@ -9,6 +9,8 @@
 #include <QDBusVariant>
 #include <QDebug>
 #include <QTimer>
+#include <algorithm>
+#include <cmath>
 
 static bool isAccessDenied(const QDBusError &e) {
     return e.type() == QDBusError::AccessDenied;
@@ -2232,6 +2234,257 @@ NavigationClient::NavigationClient(QObject *parent)
                                           "/org/marathonos/Shell/Navigation",
                                           "org.marathonos.Shell.Navigation1", "NavigationFailed",
                                           this, SIGNAL(navigationFailed(QString, QString)));
+}
+
+SystemStatusStoreClient::SystemStatusStoreClient(PowerClient   *powerClient,
+                                                 NetworkClient *networkClient, QObject *parent)
+    : QObject(parent)
+    , m_powerClient(powerClient)
+    , m_networkClient(networkClient) {
+    refreshPower();
+    refreshNetwork();
+    if (m_powerClient) {
+        connect(m_powerClient, &PowerClient::stateChanged, this, [this]() { refreshPower(); });
+    }
+    if (m_networkClient) {
+        connect(m_networkClient, &NetworkClient::wifiConnectedChanged, this,
+                [this]() { refreshNetwork(); });
+        connect(m_networkClient, &NetworkClient::wifiSsidChanged, this,
+                [this]() { refreshNetwork(); });
+    }
+}
+
+void SystemStatusStoreClient::refreshPower() {
+    if (!m_powerClient) {
+        setBatteryLevel(0);
+        return;
+    }
+    setBatteryLevel(m_powerClient->batteryLevel());
+}
+
+void SystemStatusStoreClient::refreshNetwork() {
+    if (!m_networkClient) {
+        setWifiConnected(false);
+        setWifiNetwork(QString());
+        return;
+    }
+    setWifiConnected(m_networkClient->wifiConnected());
+    setWifiNetwork(m_networkClient->wifiSsid());
+}
+
+void SystemStatusStoreClient::setBatteryLevel(int level) {
+    if (m_batteryLevel == level) {
+        return;
+    }
+    m_batteryLevel = level;
+    emit batteryLevelChanged();
+}
+
+void SystemStatusStoreClient::setWifiConnected(bool connected) {
+    if (m_wifiConnected == connected) {
+        return;
+    }
+    m_wifiConnected = connected;
+    emit wifiConnectedChanged();
+}
+
+void SystemStatusStoreClient::setWifiNetwork(const QString &network) {
+    if (m_wifiNetwork == network) {
+        return;
+    }
+    m_wifiNetwork = network;
+    emit wifiNetworkChanged();
+}
+
+SystemControlStoreClient::SystemControlStoreClient(NetworkClient   *networkClient,
+                                                   BluetoothClient *bluetoothClient,
+                                                   DisplayClient   *displayClient,
+                                                   SettingsClient  *settingsClient,
+                                                   AudioClient *audioClient, QObject *parent)
+    : QObject(parent)
+    , m_networkClient(networkClient)
+    , m_bluetoothClient(bluetoothClient)
+    , m_displayClient(displayClient)
+    , m_settingsClient(settingsClient)
+    , m_audioClient(audioClient) {
+    refreshNetwork();
+    refreshBluetooth();
+    refreshDisplay();
+    refreshSettings();
+    refreshAudio();
+
+    if (m_networkClient) {
+        connect(m_networkClient, &NetworkClient::wifiEnabledChanged, this,
+                [this]() { refreshNetwork(); });
+        connect(m_networkClient, &NetworkClient::airplaneModeEnabledChanged, this,
+                [this]() { refreshNetwork(); });
+    }
+    if (m_bluetoothClient) {
+        connect(m_bluetoothClient, &BluetoothClient::stateChanged, this,
+                [this]() { refreshBluetooth(); });
+    }
+    if (m_displayClient) {
+        connect(m_displayClient, &DisplayClient::stateChanged, this,
+                [this]() { refreshDisplay(); });
+    }
+    if (m_settingsClient) {
+        connect(m_settingsClient, &SettingsClient::dndEnabledChanged, this,
+                [this]() { refreshSettings(); });
+    }
+    if (m_audioClient) {
+        connect(m_audioClient, &AudioClient::stateChanged, this, [this]() { refreshAudio(); });
+    }
+}
+
+void SystemControlStoreClient::toggleWifi() {
+    if (m_networkClient) {
+        m_networkClient->toggleWifi();
+    }
+}
+
+void SystemControlStoreClient::toggleBluetooth() {
+    if (m_bluetoothClient) {
+        m_bluetoothClient->setEnabled(!m_bluetoothClient->enabled());
+    }
+}
+
+void SystemControlStoreClient::toggleAirplaneMode() {
+    if (m_networkClient) {
+        m_networkClient->setAirplaneMode(!m_isAirplaneModeOn);
+    }
+}
+
+void SystemControlStoreClient::toggleRotationLock() {
+    if (m_displayClient) {
+        m_displayClient->setRotationLocked(!m_isRotationLocked);
+    }
+}
+
+void SystemControlStoreClient::toggleDndMode() {
+    if (m_settingsClient) {
+        m_settingsClient->setDndEnabled(!m_isDndMode);
+    }
+    if (m_audioClient) {
+        m_audioClient->setDoNotDisturb(!m_isDndMode);
+    }
+}
+
+void SystemControlStoreClient::setBrightness(int value) {
+    const int clamped = std::max(0, std::min(100, value));
+    if (m_displayClient) {
+        m_displayClient->setBrightness(static_cast<double>(clamped) / 100.0);
+    }
+    setBrightnessValue(clamped);
+}
+
+void SystemControlStoreClient::setVolume(int value) {
+    const int clamped = std::max(0, std::min(100, value));
+    if (m_audioClient) {
+        m_audioClient->setVolume(static_cast<double>(clamped) / 100.0);
+    }
+    setVolumeValue(clamped);
+}
+
+void SystemControlStoreClient::refreshNetwork() {
+    if (!m_networkClient) {
+        setIsWifiOn(true);
+        setIsAirplaneModeOn(false);
+        return;
+    }
+    setIsWifiOn(m_networkClient->wifiEnabled());
+    setIsAirplaneModeOn(m_networkClient->airplaneModeEnabled());
+}
+
+void SystemControlStoreClient::refreshBluetooth() {
+    if (!m_bluetoothClient) {
+        setIsBluetoothOn(false);
+        return;
+    }
+    setIsBluetoothOn(m_bluetoothClient->enabled());
+}
+
+void SystemControlStoreClient::refreshDisplay() {
+    if (!m_displayClient) {
+        setIsRotationLocked(false);
+        setBrightnessValue(50);
+        return;
+    }
+    setIsRotationLocked(m_displayClient->rotationLocked());
+    setBrightnessValue(
+        static_cast<int>(std::round(std::clamp(m_displayClient->brightness(), 0.0, 1.0) * 100.0)));
+}
+
+void SystemControlStoreClient::refreshSettings() {
+    if (!m_settingsClient) {
+        setIsDndMode(false);
+        return;
+    }
+    setIsDndMode(m_settingsClient->dndEnabled());
+}
+
+void SystemControlStoreClient::refreshAudio() {
+    if (!m_audioClient) {
+        setVolumeValue(50);
+        return;
+    }
+    setVolumeValue(
+        static_cast<int>(std::round(std::clamp(m_audioClient->volume(), 0.0, 1.0) * 100.0)));
+}
+
+void SystemControlStoreClient::setIsWifiOn(bool enabled) {
+    if (m_isWifiOn == enabled) {
+        return;
+    }
+    m_isWifiOn = enabled;
+    emit isWifiOnChanged();
+}
+
+void SystemControlStoreClient::setIsBluetoothOn(bool enabled) {
+    if (m_isBluetoothOn == enabled) {
+        return;
+    }
+    m_isBluetoothOn = enabled;
+    emit isBluetoothOnChanged();
+}
+
+void SystemControlStoreClient::setIsAirplaneModeOn(bool enabled) {
+    if (m_isAirplaneModeOn == enabled) {
+        return;
+    }
+    m_isAirplaneModeOn = enabled;
+    emit isAirplaneModeOnChanged();
+}
+
+void SystemControlStoreClient::setIsRotationLocked(bool locked) {
+    if (m_isRotationLocked == locked) {
+        return;
+    }
+    m_isRotationLocked = locked;
+    emit isRotationLockedChanged();
+}
+
+void SystemControlStoreClient::setIsDndMode(bool enabled) {
+    if (m_isDndMode == enabled) {
+        return;
+    }
+    m_isDndMode = enabled;
+    emit isDndModeChanged();
+}
+
+void SystemControlStoreClient::setBrightnessValue(int value) {
+    if (m_brightness == value) {
+        return;
+    }
+    m_brightness = value;
+    emit brightnessChanged();
+}
+
+void SystemControlStoreClient::setVolumeValue(int value) {
+    if (m_volume == value) {
+        return;
+    }
+    m_volume = value;
+    emit volumeChanged();
 }
 
 bool NavigationClient::launchApp(const QString &appId) {

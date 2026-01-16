@@ -16,6 +16,7 @@
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QColor>
+#include <QtQml/qqml.h>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusContext>
@@ -432,13 +433,32 @@ int main(int argc, char *argv[]) {
     if (hasPerm("network"))
         ctx->setContextProperty("NetworkManagerCpp", new NetworkClient(appId, &app));
 
-    ctx->setContextProperty("NavigationService", new NavigationClient(&app));
+    auto *navigationClient = new NavigationClient(&app);
+    ctx->setContextProperty("NavigationService", navigationClient);
+    ctx->setContextProperty("NavigationRouter", navigationClient);
     ctx->setContextProperty("HapticService", new HapticClient(&app));
     auto *notificationClient = new NotificationClient(appId, &app);
     ctx->setContextProperty("NativeNotificationService", notificationClient);
     ctx->setContextProperty("SensorService", new SensorClient(&app));
     ctx->setContextProperty("LocationService", new LocationClient(&app));
     ctx->setContextProperty("AlarmService", new AlarmClient(&app));
+
+    auto *systemStatusStore = new SystemStatusStoreClient(
+        qobject_cast<PowerClient *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),
+        qobject_cast<NetworkClient *>(ctx->contextProperty("NetworkManagerCpp").value<QObject *>()),
+        &app);
+    qmlRegisterSingletonInstance<SystemStatusStoreClient>("MarathonOS.Shell", 1, 0,
+                                                          "SystemStatusStore", systemStatusStore);
+    auto *systemControlStore = new SystemControlStoreClient(
+        qobject_cast<NetworkClient *>(ctx->contextProperty("NetworkManagerCpp").value<QObject *>()),
+        qobject_cast<BluetoothClient *>(
+            ctx->contextProperty("BluetoothManagerCpp").value<QObject *>()),
+        qobject_cast<DisplayClient *>(ctx->contextProperty("DisplayManagerCpp").value<QObject *>()),
+        settingsClient,
+        qobject_cast<AudioClient *>(ctx->contextProperty("AudioManagerCpp").value<QObject *>()),
+        &app);
+    qmlRegisterSingletonInstance<SystemControlStoreClient>(
+        "MarathonOS.Shell", 1, 0, "SystemControlStore", systemControlStore);
 
     if (appId == "calendar") {
         ctx->setContextProperty("CalendarManager",

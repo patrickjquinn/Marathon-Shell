@@ -852,9 +852,135 @@ class NavigationClient : public QObject {
   signals:
     void appLaunched(const QString &appId);
     void navigationFailed(const QString &uri, const QString &error);
+    void deepLinkRequested(const QString &appId, const QString &route, const QVariantMap &params);
+    void settingsNavigationRequested(const QString &page, const QString &subpage,
+                                     const QVariantMap &params);
 
   private:
     QDBusInterface m_iface;
+};
+
+class SystemStatusStoreClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
+    Q_PROPERTY(bool wifiConnected READ wifiConnected NOTIFY wifiConnectedChanged)
+    Q_PROPERTY(QString wifiNetwork READ wifiNetwork NOTIFY wifiNetworkChanged)
+
+  public:
+    explicit SystemStatusStoreClient(PowerClient *powerClient, NetworkClient *networkClient,
+                                     QObject *parent = nullptr);
+
+    int batteryLevel() const {
+        return m_batteryLevel;
+    }
+    bool wifiConnected() const {
+        return m_wifiConnected;
+    }
+    QString wifiNetwork() const {
+        return m_wifiNetwork;
+    }
+
+  signals:
+    void batteryLevelChanged();
+    void wifiConnectedChanged();
+    void wifiNetworkChanged();
+
+  private:
+    void           refreshPower();
+    void           refreshNetwork();
+    void           setBatteryLevel(int level);
+    void           setWifiConnected(bool connected);
+    void           setWifiNetwork(const QString &network);
+
+    PowerClient   *m_powerClient;
+    NetworkClient *m_networkClient;
+    int            m_batteryLevel  = 0;
+    bool           m_wifiConnected = false;
+    QString        m_wifiNetwork;
+};
+
+class SystemControlStoreClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool isWifiOn READ isWifiOn NOTIFY isWifiOnChanged)
+    Q_PROPERTY(bool isBluetoothOn READ isBluetoothOn NOTIFY isBluetoothOnChanged)
+    Q_PROPERTY(bool isAirplaneModeOn READ isAirplaneModeOn NOTIFY isAirplaneModeOnChanged)
+    Q_PROPERTY(bool isRotationLocked READ isRotationLocked NOTIFY isRotationLockedChanged)
+    Q_PROPERTY(bool isDndMode READ isDndMode NOTIFY isDndModeChanged)
+    Q_PROPERTY(int brightness READ brightness NOTIFY brightnessChanged)
+    Q_PROPERTY(int volume READ volume NOTIFY volumeChanged)
+
+  public:
+    explicit SystemControlStoreClient(NetworkClient   *networkClient,
+                                      BluetoothClient *bluetoothClient,
+                                      DisplayClient *displayClient, SettingsClient *settingsClient,
+                                      AudioClient *audioClient, QObject *parent = nullptr);
+
+    bool isWifiOn() const {
+        return m_isWifiOn;
+    }
+    bool isBluetoothOn() const {
+        return m_isBluetoothOn;
+    }
+    bool isAirplaneModeOn() const {
+        return m_isAirplaneModeOn;
+    }
+    bool isRotationLocked() const {
+        return m_isRotationLocked;
+    }
+    bool isDndMode() const {
+        return m_isDndMode;
+    }
+    int brightness() const {
+        return m_brightness;
+    }
+    int volume() const {
+        return m_volume;
+    }
+
+    Q_INVOKABLE void toggleWifi();
+    Q_INVOKABLE void toggleBluetooth();
+    Q_INVOKABLE void toggleAirplaneMode();
+    Q_INVOKABLE void toggleRotationLock();
+    Q_INVOKABLE void toggleDndMode();
+    Q_INVOKABLE void setBrightness(int value);
+    Q_INVOKABLE void setVolume(int value);
+
+  signals:
+    void isWifiOnChanged();
+    void isBluetoothOnChanged();
+    void isAirplaneModeOnChanged();
+    void isRotationLockedChanged();
+    void isDndModeChanged();
+    void brightnessChanged();
+    void volumeChanged();
+
+  private:
+    void             refreshNetwork();
+    void             refreshBluetooth();
+    void             refreshDisplay();
+    void             refreshSettings();
+    void             refreshAudio();
+
+    void             setIsWifiOn(bool enabled);
+    void             setIsBluetoothOn(bool enabled);
+    void             setIsAirplaneModeOn(bool enabled);
+    void             setIsRotationLocked(bool locked);
+    void             setIsDndMode(bool enabled);
+    void             setBrightnessValue(int value);
+    void             setVolumeValue(int value);
+
+    NetworkClient   *m_networkClient;
+    BluetoothClient *m_bluetoothClient;
+    DisplayClient   *m_displayClient;
+    SettingsClient  *m_settingsClient;
+    AudioClient     *m_audioClient;
+    bool             m_isWifiOn         = true;
+    bool             m_isBluetoothOn    = false;
+    bool             m_isAirplaneModeOn = false;
+    bool             m_isRotationLocked = false;
+    bool             m_isDndMode        = false;
+    int              m_brightness       = 50;
+    int              m_volume           = 50;
 };
 
 class HapticClient : public QObject {
