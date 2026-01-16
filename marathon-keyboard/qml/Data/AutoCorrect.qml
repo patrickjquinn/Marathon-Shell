@@ -1,12 +1,9 @@
-// Marathon Virtual Keyboard - Auto Correct Engine
-// Handles typo detection and auto-correction
 pragma Singleton
 import QtQuick
 
 QtObject {
     id: autoCorrect
 
-    // Common typo mappings
     property var commonTypos: ({
             "teh": "the",
             "adn": "and",
@@ -46,10 +43,8 @@ QtObject {
             "alot": "a lot"
         })
 
-    // Auto-correction enabled
     property bool enabled: true
 
-    // Auto-correct a word
     function correct(word) {
         if (!enabled || !word || word.length === 0) {
             return word;
@@ -57,21 +52,17 @@ QtObject {
 
         var lowerWord = word.toLowerCase();
 
-        // Check common typos first
         if (commonTypos.hasOwnProperty(lowerWord)) {
             var correction = commonTypos[lowerWord];
             keyboard.logMessage("AutoCorrect", "Correcting '" + word + "' to '" + correction + "'");
             return correction;
         }
 
-        // Check if word exists in dictionary
         if (!Dictionary.hasWord(lowerWord)) {
-            // Try to find close matches using edit distance
             var suggestions = Dictionary.predict(lowerWord);
             if (suggestions.length > 0) {
                 var bestMatch = suggestions[0];
 
-                // Only auto-correct if edit distance is 1 or 2
                 var distance = levenshteinDistance(lowerWord, bestMatch.toLowerCase());
                 if (distance <= 2) {
                     keyboard.logMessage("AutoCorrect", "Correcting '" + word + "' to '" + bestMatch + "' (distance: " + distance + ")");
@@ -83,7 +74,6 @@ QtObject {
         return word;
     }
 
-    // Calculate Levenshtein distance between two strings
     function levenshteinDistance(a, b) {
         if (a.length === 0)
             return b.length;
@@ -92,7 +82,6 @@ QtObject {
 
         var matrix = [];
 
-        // Initialize matrix
         for (var i = 0; i <= b.length; i++) {
             matrix[i] = [i];
         }
@@ -101,16 +90,12 @@ QtObject {
             matrix[0][j] = j;
         }
 
-        // Fill matrix
         for (var i = 1; i <= b.length; i++) {
             for (var j = 1; j <= a.length; j++) {
                 if (b.charAt(i - 1) === a.charAt(j - 1)) {
                     matrix[i][j] = matrix[i - 1][j - 1];
                 } else {
-                    matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1 // substitution
-                    , matrix[i][j - 1] + 1     // insertion
-                    , matrix[i - 1][j] + 1      // deletion
-                    );
+                    matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
                 }
             }
         }
@@ -118,7 +103,6 @@ QtObject {
         return matrix[b.length][a.length];
     }
 
-    // Check if a correction should be suggested
     function shouldCorrect(word) {
         if (!enabled || !word || word.length < 3) {
             return null;
@@ -132,7 +116,6 @@ QtObject {
         return null;
     }
 
-    // Learn a typo correction from user
     function learnCorrection(typo, correction) {
         commonTypos[typo.toLowerCase()] = correction;
         keyboard.logMessage("AutoCorrect", "Learned: '" + typo + "' -> '" + correction + "'");

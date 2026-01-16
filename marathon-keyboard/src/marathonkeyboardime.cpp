@@ -1,12 +1,10 @@
-// Marathon Keyboard Input Method Engine - Implementation
+
 #include "marathonkeyboardime.h"
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
 #include <QStandardPaths>
 #include <algorithm>
-
-// ========== MarathonKeyboardIME Implementation ==========
 
 MarathonKeyboardIME::MarathonKeyboardIME(QObject *parent)
     : QObject(parent)
@@ -15,18 +13,15 @@ MarathonKeyboardIME::MarathonKeyboardIME(QObject *parent)
     , m_predictionThread(new QThread(this))
     , m_predictionEngine(new PredictionEngine())
     , m_dictionaryLoader(new DictionaryLoader()) {
-    // Move prediction engine to background thread
+
     m_predictionEngine->moveToThread(m_predictionThread);
     m_dictionaryLoader->moveToThread(m_predictionThread);
 
-    // Connect signals
     connect(m_predictionEngine, &PredictionEngine::predictionsReady, this,
             &MarathonKeyboardIME::onPredictionsReady);
 
-    // Start background thread
     m_predictionThread->start();
 
-    // Load dictionary asynchronously
     QMetaObject::invokeMethod(m_dictionaryLoader, "loadDictionary", Qt::QueuedConnection);
 
     qDebug() << "[MarathonKeyboardIME] Initialized with background prediction engine";
@@ -48,20 +43,16 @@ void MarathonKeyboardIME::setAutoCorrectEnabled(bool enabled) {
 }
 
 bool MarathonKeyboardIME::processKeyPress(const QString &character) {
-    // Start latency timer
+
     m_latencyTimer.start();
 
-    // Update current word immediately (< 0.1ms)
     m_currentWord.append(character);
     emit currentWordChanged();
 
-    // Commit text immediately for zero perceived latency
     emit commitText(character);
 
-    // Trigger async prediction update
     updatePredictionsAsync();
 
-    // Record latency
     qint64 latency = m_latencyTimer.elapsed();
     updateLatencyMetrics(latency);
 
@@ -75,7 +66,6 @@ void MarathonKeyboardIME::processBackspace() {
         m_currentWord.chop(1);
         emit currentWordChanged();
 
-        // Update predictions if word still exists
         if (!m_currentWord.isEmpty()) {
             updatePredictionsAsync();
         } else {
@@ -94,21 +84,19 @@ void MarathonKeyboardIME::processSpace() {
     m_latencyTimer.start();
 
     if (!m_currentWord.isEmpty()) {
-        // Apply auto-correct if enabled
+
         QString finalWord = m_currentWord;
         if (m_autoCorrectEnabled) {
             QString corrected = applyAutoCorrect(m_currentWord);
             if (corrected != m_currentWord) {
-                // Replace current word with corrected version
+
                 emit replaceWord(m_currentWord, corrected);
                 finalWord = corrected;
             }
         }
 
-        // Learn the word
         learnWord(finalWord);
 
-        // Clear current word
         m_currentWord.clear();
         m_predictions.clear();
         emit currentWordChanged();
@@ -138,13 +126,10 @@ void MarathonKeyboardIME::acceptPrediction(const QString &word) {
         return;
     }
 
-    // Replace current word with prediction
     emit replaceWord(m_currentWord, word);
 
-    // Learn the accepted word
     learnWord(word);
 
-    // Clear state
     m_currentWord.clear();
     m_predictions.clear();
     emit currentWordChanged();
@@ -156,7 +141,6 @@ QStringList MarathonKeyboardIME::getAlternates(const QString &character) const {
         return QStringList();
     }
 
-    // Check cache first
     QChar   ch  = character.at(0).toLower();
     QString key = QString(ch);
 
@@ -164,7 +148,6 @@ QStringList MarathonKeyboardIME::getAlternates(const QString &character) const {
         return m_alternatesCache.value(key);
     }
 
-    // Return empty list if not found (alternates defined in QML for now)
     return QStringList();
 }
 
@@ -173,7 +156,6 @@ void MarathonKeyboardIME::learnWord(const QString &word) {
         return;
     }
 
-    // Update frequency asynchronously
     QMetaObject::invokeMethod(
         m_dictionaryLoader, [this, word]() { m_dictionaryLoader->updateFrequency(word, 10); },
         Qt::QueuedConnection);
@@ -204,7 +186,6 @@ void MarathonKeyboardIME::updatePredictionsAsync() {
         return;
     }
 
-    // Trigger prediction generation on background thread
     QMetaObject::invokeMethod(m_predictionEngine, "generatePredictions", Qt::QueuedConnection,
                               Q_ARG(QString, m_currentWord));
 }
@@ -212,12 +193,10 @@ void MarathonKeyboardIME::updatePredictionsAsync() {
 void MarathonKeyboardIME::updateLatencyMetrics(qint64 latencyMs) {
     m_latencySamples.append(latencyMs);
 
-    // Keep only last 100 samples
     if (m_latencySamples.size() > 100) {
         m_latencySamples.removeFirst();
     }
 
-    // Calculate average
     qint64 sum = 0;
     for (qint64 sample : m_latencySamples) {
         sum += sample;
@@ -236,17 +215,13 @@ void MarathonKeyboardIME::updateLatencyMetrics(qint64 latencyMs) {
 }
 
 QString MarathonKeyboardIME::applyAutoCorrect(const QString &word) {
-    // Check cache first
+
     if (m_autoCorrectCache.contains(word.toLower())) {
         return m_autoCorrectCache.value(word.toLower());
     }
 
-    // Common typos (defined in QML AutoCorrect for now)
-    // Return word unchanged - QML layer handles this
     return word;
 }
-
-// ========== PredictionEngine Implementation ==========
 
 PredictionEngine::PredictionEngine(QObject *parent)
     : QObject(parent)
@@ -260,15 +235,13 @@ void PredictionEngine::generatePredictions(const QString &prefix) {
         return;
     }
 
-    // Search trie for predictions
     QStringList predictions = searchTrie(prefix.toLower(), 3);
 
     emit        predictionsReady(predictions);
 }
 
 void PredictionEngine::buildTrie() {
-    // Build trie from common words
-    // This is a placeholder - real implementation would load from file
+
     QStringList commonWords = {"the", "be", "to",   "of",  "and", "a",    "in",   "that", "have",
                                "I",   "it", "for",  "not", "on",  "with", "he",   "as",   "you",
                                "do",  "at", "this", "but", "his", "by",   "from", "they"};
@@ -283,24 +256,21 @@ void PredictionEngine::buildTrie() {
             current = current->children[ch];
         }
         current->isWord    = true;
-        current->frequency = 100; // Default frequency
+        current->frequency = 100;
     }
 }
 
 QStringList PredictionEngine::searchTrie(const QString &prefix, int maxResults) {
     QStringList results;
 
-    // Navigate to prefix node
-    TrieNode *current = m_root;
+    TrieNode   *current = m_root;
     for (const QChar &ch : prefix) {
         if (!current->children.contains(ch)) {
-            return results; // Prefix not found
+            return results;
         }
         current = current->children[ch];
     }
 
-    // DFS to find words (simplified - real implementation would use priority queue)
-    // For now, just return if current is a word
     if (current->isWord) {
         results.append(prefix);
     }
@@ -308,16 +278,12 @@ QStringList PredictionEngine::searchTrie(const QString &prefix, int maxResults) 
     return results;
 }
 
-// ========== DictionaryLoader Implementation ==========
-
 DictionaryLoader::DictionaryLoader(QObject *parent)
     : QObject(parent) {}
 
 void DictionaryLoader::loadDictionary() {
     qDebug() << "[DictionaryLoader] Loading dictionary...";
 
-    // Load common words with frequencies
-    // This is a placeholder - real implementation would load from file
     QStringList  commonWords = {"the", "be", "to",  "of",  "and", "a",    "in", "that", "have",
                                 "I",   "it", "for", "not", "on",  "with", "he", "as",   "you"};
 

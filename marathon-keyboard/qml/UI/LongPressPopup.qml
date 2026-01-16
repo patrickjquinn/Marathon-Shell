@@ -1,11 +1,8 @@
-// Marathon Virtual Keyboard - Long Press Handler
-// Handles long-press for alternate characters
 import QtQuick
 
 Item {
     id: longPressHandler
 
-    // Alternate character mappings
     readonly property var alternates: ({
             "a": ["à", "á", "â", "ã", "ä", "å", "æ", "ā"],
             "e": ["è", "é", "ê", "ë", "ē", "ė", "ę"],
@@ -39,7 +36,6 @@ Item {
 
     signal alternateSelected(string character)
 
-    // Get alternates for a character
     function getAlternates(character) {
         var lowerChar = character.toLowerCase();
         if (alternates.hasOwnProperty(lowerChar)) {
@@ -48,7 +44,6 @@ Item {
         return [];
     }
 
-    // Check if character has alternates
     function hasAlternates(character) {
         var lowerChar = character.toLowerCase();
         return alternates.hasOwnProperty(lowerChar);

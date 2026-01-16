@@ -1,13 +1,9 @@
-// Marathon Virtual Keyboard - Dictionary
-// Simple dictionary with frequency-based word suggestions
 pragma Singleton
 import QtQuick
 
 QtObject {
     id: dictionary
 
-    // Top 1000 most common English words with frequencies
-    // Format: {word: "the", freq: 10000}
     property var words: [
         {
             word: "the",
@@ -503,10 +499,8 @@ QtObject {
         }
     ]
 
-    // User's personal dictionary (learned words)
     property var userWords: []
 
-    // Get predictions for a given prefix
     function predict(prefix) {
         if (!prefix || prefix.length === 0) {
             return [];
@@ -514,41 +508,33 @@ QtObject {
 
         const lowerPrefix = prefix.toLowerCase();
 
-        // Combine system and user dictionaries
         const allWords = words.concat(userWords);
 
-        // Filter words that start with prefix
         const matches = allWords.filter(function (entry) {
             return entry.word.toLowerCase().startsWith(lowerPrefix);
         });
 
-        // Sort by frequency (higher first)
         matches.sort(function (a, b) {
             return b.freq - a.freq;
         });
 
-        // Return top 3 matches
         return matches.slice(0, 3).map(function (entry) {
             return entry.word;
         });
     }
 
-    // Learn a new word from user input
     function learnWord(word) {
         if (!word || word.length < 2) {
             return;
         }
 
-        // Check if word already exists in user dictionary
         const existing = userWords.findIndex(function (entry) {
             return entry.word.toLowerCase() === word.toLowerCase();
         });
 
         if (existing >= 0) {
-            // Increase frequency
             userWords[existing].freq += 10;
         } else {
-            // Add new word with medium frequency
             userWords.push({
                 word: word,
                 freq: 100
@@ -558,7 +544,6 @@ QtObject {
         keyboard.logMessage("Dictionary", "Learned word: " + word);
     }
 
-    // Check if a word exists in dictionary
     function hasWord(word) {
         const lowerWord = word.toLowerCase();
 
@@ -574,7 +559,6 @@ QtObject {
         });
     }
 
-    // Get word frequency (for auto-correction scoring)
     function getFrequency(word) {
         const lowerWord = word.toLowerCase();
 
