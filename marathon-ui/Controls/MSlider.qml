@@ -75,7 +75,6 @@ Item {
             }
         }
 
-        // Inner highlight
         Rectangle {
             anchors.fill: parent
             anchors.margins: handleInnerMargin
@@ -86,14 +85,13 @@ Item {
         }
     }
 
-    // Extended touch target for easier grabbing
     Rectangle {
         id: touchTarget
         x: handle.x - touchTargetOffset
         anchors.verticalCenter: parent.verticalCenter
         width: touchTargetSize
         height: touchTargetSize
-        color: "transparent"  // Invisible
+        color: "transparent"
     }
 
     MouseArea {

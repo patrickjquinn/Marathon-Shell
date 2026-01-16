@@ -28,9 +28,8 @@ Rectangle {
     border.width: borderWidth
     border.color: MElevation.getBorderOuter(elevation)
 
-    scale: pressed && interactive ? 0.96 : 1.0  // Press only, no hover
+    scale: pressed && interactive ? 0.96 : 1.0
 
-    // Performant shadow using layered rectangles
     Rectangle {
         id: shadowLayer
         anchors.fill: parent
@@ -39,7 +38,7 @@ Rectangle {
         anchors.rightMargin: -shadowMargin1
         anchors.bottomMargin: -shadowMargin4
         z: -1
-        radius: parent.radius
+        radius: root.radius
         opacity: 0.4
         gradient: Gradient {
             GradientStop {
@@ -57,13 +56,12 @@ Rectangle {
         }
     }
 
-    // Additional crisp shadow layer for more depth
     Rectangle {
         anchors.fill: parent
         anchors.topMargin: shadowMargin1
         anchors.bottomMargin: -shadowMargin1
         z: -2
-        radius: parent.radius
+        radius: root.radius
         color: Qt.rgba(0, 0, 0, 0.8)
         opacity: 0.3
     }
@@ -82,21 +80,19 @@ Rectangle {
         }
     }
 
-    // Inner highlight border
     Rectangle {
         anchors.fill: parent
         anchors.margins: shadowMargin1
-        radius: parent.radius > shadowMargin1 ? parent.radius - shadowMargin1 : 0
+        radius: root.radius > shadowMargin1 ? root.radius - shadowMargin1 : 0
         color: "transparent"
         border.width: borderWidth
         border.color: MElevation.getBorderInner(elevation)
     }
 
-    // Secondary inner border for extra depth
     Rectangle {
         anchors.fill: parent
         anchors.margins: shadowMargin2
-        radius: parent.radius > shadowMargin2 ? parent.radius - shadowMargin2 : 0
+        radius: root.radius > shadowMargin2 ? root.radius - shadowMargin2 : 0
         color: "transparent"
         border.width: borderWidth
         border.color: Qt.rgba(1, 1, 1, 0.02)

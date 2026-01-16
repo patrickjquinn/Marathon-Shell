@@ -25,10 +25,9 @@ Item {
             name: "active"
             when: root.active
             PropertyChanges {
-                target: rippleCircle
-                width: Math.max(root.width, root.height) * MMotion.rippleMaxRadius
-                height: width
-                opacity: 0
+                rippleCircle.width: Math.max(root.width, root.height) * MMotion.rippleMaxRadius
+                rippleCircle.height: Math.max(root.width, root.height) * MMotion.rippleMaxRadius
+                rippleCircle.opacity: 0
             }
         }
 

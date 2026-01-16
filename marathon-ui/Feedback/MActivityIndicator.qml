@@ -12,14 +12,12 @@ Item {
     implicitWidth: size
     implicitHeight: size
 
-    // Modern arc-based spinner with gradient trail
     Shape {
         id: spinner
         anchors.centerIn: parent
         width: root.size
         height: root.size
 
-        // Main spinning arc with gradient
         ShapePath {
             strokeColor: "transparent"
             fillColor: "transparent"
@@ -36,7 +34,6 @@ Item {
             }
         }
 
-        // Gradient overlay using multiple arcs with decreasing opacity
         Repeater {
             model: 8
 

@@ -2,27 +2,26 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // More dramatic elevation steps for better depth perception
+
     function getSurface(level) {
         switch (level) {
         case 0:
-            return "#040404";  // Base/background
+            return "#040404";
         case 1:
-            return "#0a0a0b";  // Very subtle lift
+            return "#0a0a0b";
         case 2:
-            return "#121213";  // Standard surface
+            return "#121213";
         case 3:
-            return "#1c1c1d";  // Elevated surface
+            return "#1c1c1d";
         case 4:
-            return "#282829";  // Higher elevation
+            return "#282829";
         case 5:
-            return "#353536";  // Highest elevation
+            return "#353536";
         default:
             return "#121213";
         }
     }
 
-    // Sharper, more defined outer borders
     function getBorderOuter(level) {
         switch (level) {
         case 0:
@@ -42,7 +41,6 @@ QtObject {
         }
     }
 
-    // More visible inner borders for layered effect
     function getBorderInner(level) {
         switch (level) {
         case 0:

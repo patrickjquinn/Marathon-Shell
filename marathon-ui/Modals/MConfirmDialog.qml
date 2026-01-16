@@ -53,7 +53,6 @@ Rectangle {
         border.width: 1
         border.color: MColors.borderGlass
 
-        // Performant shadow for dialogs
         Rectangle {
             anchors.fill: parent
             anchors.topMargin: 8

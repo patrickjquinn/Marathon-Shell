@@ -58,7 +58,6 @@ Rectangle {
         border.width: borderWidth
         border.color: MColors.borderGlass
 
-        // Performant shadow for modals (looks great, runs smooth on PinePhone)
         Rectangle {
             anchors.fill: parent
             anchors.topMargin: shadowTopMargin

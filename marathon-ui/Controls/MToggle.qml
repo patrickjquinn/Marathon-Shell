@@ -4,8 +4,6 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
-    // Thumb (handle) with proper MUIstyling
-
     id: root
 
     property bool checked: false
@@ -56,7 +54,6 @@ Item {
             toggle();
     }
 
-    // Track background with proper MUIstyling
     Rectangle {
         id: track
 
@@ -67,7 +64,6 @@ Item {
         border.color: root.checked ? MColors.marathonTealBright : MColors.borderGlass
         layer.enabled: false
 
-        // Performant subtle shadow (no GPU blur needed)
         Rectangle {
             anchors.fill: parent
             anchors.topMargin: shadowMargin
@@ -80,7 +76,6 @@ Item {
             opacity: 0.3
         }
 
-        // Inner border for dual-border depth
         Rectangle {
             anchors.fill: parent
             anchors.margins: innerMargin
@@ -96,7 +91,6 @@ Item {
             }
         }
 
-        // Subtle inner glow when checked
         Rectangle {
             visible: root.checked
             anchors.fill: parent
@@ -130,9 +124,6 @@ Item {
         }
     }
 
-    // IMPORTANT:
-    // Avoid `layer.effect` (MultiEffect) here. On some platforms/backends it can fail and
-    // the thumb disappears entirely, leaving only the track (what you reported).
     Rectangle {
         id: thumbOuter
 
@@ -142,11 +133,10 @@ Item {
         height: thumbHeight
         radius: MRadius.md
         color: "transparent"
-        // Teal border ring for consistency
+
         border.width: borderWidthThick
         border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
 
-        // Simple shadow under the thumb (no shader/effect dependency)
         Rectangle {
             anchors.centerIn: parent
             width: thumbInnerWidth
@@ -165,11 +155,10 @@ Item {
             width: thumbInnerWidth
             height: thumbInnerHeight
             radius: MRadius.md > innerMargin ? MRadius.md - innerMargin : 0
-            // Outer border
+
             border.width: borderWidth
             border.color: Qt.rgba(0, 0, 0, 0.15)
 
-            // Inner highlight for polish
             Rectangle {
                 anchors.fill: parent
                 anchors.margins: innerMargin

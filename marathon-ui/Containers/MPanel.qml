@@ -32,7 +32,6 @@ Rectangle {
         }
     }
 
-    // Performant shadow using simple rectangle (60fps on PinePhone!)
     Rectangle {
         anchors.fill: parent
         anchors.topMargin: 1

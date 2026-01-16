@@ -13,20 +13,17 @@ Flickable {
     maximumFlickVelocity: 2500
     boundsBehavior: Flickable.DragAndOvershootBounds
 
-    // API for Global Input Handler
     readonly property bool isScrollable: true
     function scrollBy(pixels) {
-        flick(0, pixels * 5); // Multiply for better feel
+        flick(0, pixels * 5);
     }
 
-    // Enable mouse wheel scrolling
     WheelHandler {
         onWheel: event => {
             root.flick(0, -event.angleDelta.y * 5);
         }
     }
 
-    // Enable Keyboard Scrolling (Arrow Keys, Page Up/Down)
     focus: true
     Keys.onUpPressed: root.flick(0, 500)
     Keys.onDownPressed: root.flick(0, -500)
@@ -47,30 +44,26 @@ Flickable {
         active: root.moving || root.flicking || edgeScrollArea.containsMouse
     }
 
-    // Software Edge Scrolling for Q20 Trackpad
-    // Allows scrolling by moving cursor along the right edge
     MouseArea {
         id: edgeScrollArea
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 20 // Active zone width
+        width: 20
         hoverEnabled: true
         preventStealing: true
-        z: 100 // Ensure it's on top
+        z: 100
 
         property real lastY: 0
 
         onEntered: {
             lastY = mouseY;
-            vbar.active = true; // Show scrollbar when entering edge
+            vbar.active = true;
         }
 
         onPositionChanged: {
             var delta = mouseY - lastY;
             if (Math.abs(delta) > 2) {
-                // Threshold to prevent jitter
-                // Multiply delta for faster scrolling
                 root.flick(0, -delta * 100);
                 lastY = mouseY;
             }

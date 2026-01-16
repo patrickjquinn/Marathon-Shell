@@ -49,15 +49,16 @@ QtObject {
     readonly property color infoDim: "#2563EB"
 
     readonly property color background: bb10Black
+    readonly property color backgroundLight: bb10Elevated
     readonly property color surface: bb10Surface
     readonly property color elevated: bb10Elevated
     readonly property color text: textPrimary
+    readonly property color textInverse: bb10Black
     readonly property color accent: marathonTeal
     readonly property color accentBright: marathonTealBright
     readonly property color accentDark: marathonTealDark
     readonly property color border: borderGlass
 
-    // Pre-computed colors for gradients and effects (used frequently in UI)
     readonly property color marathonTealHoverGradient: Qt.rgba(0, 191 / 255, 165 / 255, 0.03)
     readonly property color marathonTealPressGradient: Qt.rgba(0, 191 / 255, 165 / 255, 0.12)
     readonly property color marathonTealGlowTop: Qt.rgba(0, 191 / 255, 165 / 255, 0.18)
@@ -66,12 +67,10 @@ QtObject {
     readonly property color marathonTealBorder: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
     readonly property color marathonTealBorderHover: Qt.rgba(0, 191 / 255, 165 / 255, 0.4)
 
-    // Shadow colors (precomputed for performance)
     readonly property color shadowDefault: Qt.rgba(0, 0, 0, 0.4)
     readonly property color shadowStrong: Qt.rgba(0, 0, 0, 0.6)
     readonly property color shadowHeavy: Qt.rgba(0, 0, 0, 0.7)
 
-    // White overlays (used in gradients)
     readonly property color whiteOverlay02: Qt.rgba(1, 1, 1, 0.02)
     readonly property color whiteOverlay03: Qt.rgba(1, 1, 1, 0.03)
     readonly property color whiteOverlay04: Qt.rgba(1, 1, 1, 0.04)
@@ -84,7 +83,6 @@ QtObject {
     readonly property color whiteOverlay30: Qt.rgba(1, 1, 1, 0.30)
     readonly property color whiteOverlay40: Qt.rgba(1, 1, 1, 0.40)
 
-    // Black overlays (used in shadows)
     readonly property color blackOverlay15: Qt.rgba(0, 0, 0, 0.15)
     readonly property color blackOverlay40: Qt.rgba(0, 0, 0, 0.4)
 }

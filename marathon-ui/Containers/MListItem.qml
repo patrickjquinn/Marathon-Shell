@@ -9,7 +9,7 @@ Rectangle {
     required property string title
     property string subtitle: ""
     property string time: ""
-    property int animationIndex: 0  // For staggered entrance animation
+    property int animationIndex: 0
     property bool enableEntrance: true
 
     signal clicked
@@ -21,7 +21,6 @@ Rectangle {
     property bool pressed: false
     property real entranceProgress: enableEntrance ? 0 : 1
 
-    // Staggered entrance animation using transform instead of y position
     opacity: entranceProgress
     transform: Translate {
         y: (1 - entranceProgress) * 20

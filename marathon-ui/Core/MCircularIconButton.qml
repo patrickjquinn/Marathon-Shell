@@ -13,7 +13,7 @@ Item {
     property color iconColor: variant === "primary" ? "#000000" : MColors.textOnAccent
     property color textColor: MColors.textPrimary
     property bool disabled: false
-    property string variant: "primary"  // "primary" or "secondary"
+    property string variant: "primary"
     property int buttonSize: 62
 
     signal clicked
@@ -27,7 +27,6 @@ Item {
     implicitWidth: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
     implicitHeight: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
 
-    // Outer glow border (like action bar)
     Rectangle {
         anchors.centerIn: parent
         width: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
@@ -39,7 +38,6 @@ Item {
         opacity: variant === "primary" ? 1.0 : 0.6
     }
 
-    // Main button
     Rectangle {
         id: mainButton
         anchors.centerIn: parent
@@ -94,7 +92,6 @@ Item {
             }
         }
 
-        // Inner highlight border (for primary)
         Rectangle {
             visible: variant === "primary"
             anchors.fill: parent
@@ -105,7 +102,6 @@ Item {
             border.color: Qt.rgba(1, 1, 1, 0.1)
         }
 
-        // Top highlight gradient (for primary)
         Rectangle {
             visible: variant === "primary"
             anchors.fill: parent

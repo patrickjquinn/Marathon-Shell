@@ -9,7 +9,6 @@ Rectangle {
     height: 44
     color: MColors.glassHeader
 
-    // No blur - clean and crisp
     border.width: 1
     border.color: MColors.borderGlass
 
