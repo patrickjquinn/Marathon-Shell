@@ -1,5 +1,4 @@
 import MarathonApp.Settings
-import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -12,11 +11,12 @@ SettingsPageTemplate {
     id: wifiPage
 
     property string pageName: "wifi"
+    property WiFiPasswordDialog activePasswordDialog: null
+    property var pendingPasswordRequest: null
 
     pageTitle: "WiFi"
     Component.onCompleted: {
         Logger.info("WiFiPage", "Initialized");
-        // Scan for networks on page load if WiFi is on
         if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled)
             NetworkManagerCpp.scanWifi();
     }
@@ -70,26 +70,44 @@ SettingsPageTemplate {
         }
     }
 
-    // WiFi password dialog loader (using shell component)
     Loader {
         id: wifiPasswordDialogLoader
 
         function show(ssid, strength, security, secured) {
             active = true;
-            if (item)
-                item.show(ssid, strength, security, secured);
+            wifiPage.pendingPasswordRequest = {
+                "ssid": ssid,
+                "strength": strength,
+                "security": security,
+                "secured": secured
+            };
+            if (wifiPage.activePasswordDialog) {
+                wifiPage.activePasswordDialog.show(ssid, strength, security, secured);
+                wifiPage.pendingPasswordRequest = null;
+            }
         }
 
         anchors.fill: parent
         active: false
         z: 1000
+        onLoaded: {
+            wifiPage.activePasswordDialog = item;
+            if (wifiPage.pendingPasswordRequest) {
+                var request = wifiPage.pendingPasswordRequest;
+                wifiPage.pendingPasswordRequest = null;
+                wifiPage.activePasswordDialog.show(request.ssid, request.strength, request.security, request.secured);
+            }
+        }
+        onActiveChanged: {
+            if (!active)
+                wifiPage.activePasswordDialog = null;
+        }
 
         sourceComponent: Component {
             WiFiPasswordDialog {
                 id: passwordDialog
 
                 anchors.fill: parent
-                // Use direct signal handlers instead of .connect()
                 onConnectRequested: (ssid, password) => {
                     Logger.info("WiFiPage", "Attempting WiFi connection to:", ssid);
                     if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
@@ -102,21 +120,19 @@ SettingsPageTemplate {
         }
     }
 
-    // Wire NetworkManagerCpp signals to password dialog
     Connections {
         function onConnectionSuccess() {
             Logger.info("WiFiPage", "WiFi connection successful!");
-            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item) {
-                wifiPasswordDialogLoader.item.hide();
-                wifiPasswordDialogLoader.active = false;
-            }
+            if (wifiPage.activePasswordDialog)
+                wifiPage.activePasswordDialog.hide();
+            wifiPasswordDialogLoader.active = false;
             HapticService.medium();
         }
 
         function onConnectionFailed(message) {
             Logger.warn("WiFiPage", "WiFi connection failed: " + message);
-            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item)
-                wifiPasswordDialogLoader.item.showError(message);
+            if (wifiPage.activePasswordDialog)
+                wifiPage.activePasswordDialog.showError(message);
         }
 
         target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
@@ -136,7 +152,6 @@ SettingsPageTemplate {
             rightPadding: 24
             topPadding: 24
 
-            // WiFi toggle
             MSettingsListItem {
                 width: parent.width - 48
                 title: "WiFi"
@@ -145,8 +160,6 @@ SettingsPageTemplate {
                 showToggle: true
                 toggleValue: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiEnabled : false
                 onToggleChanged: {
-                    // Start scanning when WiFi is turned on
-
                     if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
                         NetworkManagerCpp.toggleWifi();
 
@@ -158,7 +171,6 @@ SettingsPageTemplate {
                 }
             }
 
-            // Current network (if connected)
             MSection {
                 title: "Current Network"
                 width: parent.width - 48
@@ -173,16 +185,11 @@ SettingsPageTemplate {
                     border.color: Qt.rgba(20, 184, 166, 0.3)
 
                     Row {
-                        // Spacer
-
                         anchors.fill: parent
                         anchors.margins: 16
                         spacing: MSpacing.md
 
                         Icon {
-                            // 3-4 bars (excellent)
-
-                            // Use proper signal bar icons based on current connection strength
                             name: {
                                 var strength = (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0;
                                 if (strength === 0)
@@ -191,11 +198,9 @@ SettingsPageTemplate {
                                 if (strength <= 33)
                                     return "wifi-low";
 
-                                // 1-2 bars (weak)
                                 if (strength <= 66)
                                     return "wifi";
 
-                                // 2-3 bars (good)
                                 return "wifi-high";
                             }
                             size: 28
@@ -250,18 +255,16 @@ SettingsPageTemplate {
                 }
             }
 
-            // Available networks
             MSection {
                 title: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled) ? "Available Networks" : "Turn on WiFi to see networks"
                 width: parent.width - 48
                 visible: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiEnabled : false
 
-                // Scanning indicator
                 Row {
                     width: parent.width
                     height: 48
                     spacing: MSpacing.md
-                    visible: false // NetworkManagerCpp doesn't currently expose scanning state
+                    visible: false
 
                     BusyIndicator {
                         running: parent.visible
@@ -279,7 +282,6 @@ SettingsPageTemplate {
                     }
                 }
 
-                // Network list
                 Column {
                     width: parent.width
                     spacing: MSpacing.sm
@@ -289,12 +291,9 @@ SettingsPageTemplate {
                         model: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.availableNetworks : []
 
                         MSettingsListItem {
-                            // 3-4 bars (excellent)
-
                             width: parent.width
                             title: modelData.ssid
                             subtitle: (modelData.security || "Open") + " • " + modelData.strength + "% signal" + (modelData.frequency ? (" • " + modelData.frequency + " GHz") : "")
-                            // Use proper signal bar icons based on strength, not opacity
                             iconName: {
                                 if (modelData.strength === 0)
                                     return "wifi-zero";
@@ -302,23 +301,19 @@ SettingsPageTemplate {
                                 if (modelData.strength <= 33)
                                     return "wifi-low";
 
-                                // 1-2 bars (weak)
                                 if (modelData.strength <= 66)
                                     return "wifi";
 
-                                // 2-3 bars (good)
                                 return "wifi-high";
                             }
                             showChevron: true
                             onSettingClicked: {
                                 HapticService.light();
-                                // If this is the currently connected network, show disconnect dialog
                                 if ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) && NetworkManagerCpp.wifiConnected && modelData.ssid === NetworkManagerCpp.wifiSsid) {
                                     Logger.info("WiFiPage", "Show disconnect dialog for: " + modelData.ssid);
                                     disconnectSheet.show();
                                 } else {
                                     Logger.info("WiFiPage", "Connect to: " + modelData.ssid);
-                                    // Show password dialog (works for both secured and open networks)
                                     wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security || "Open", modelData.secured);
                                 }
                             }
@@ -326,7 +321,6 @@ SettingsPageTemplate {
                     }
                 }
 
-                // No networks found
                 Text {
                     width: parent.width
                     text: "No networks found"
@@ -339,7 +333,6 @@ SettingsPageTemplate {
                     visible: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.availableNetworks.length === 0) : true
                 }
 
-                // Rescan button
                 MButton {
                     width: parent.width
                     text: "Scan for networks"

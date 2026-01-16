@@ -1,16 +1,15 @@
-import QtQuick
 import MarathonApp.Messages
-import QtQuick.Controls
 import MarathonApp.Messages
 import MarathonOS.Shell
-import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Core
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: chatPage
-    color: MColors.background
 
     property var conversation
     property var messages: []
@@ -18,20 +17,78 @@ Rectangle {
 
     signal navigateBack
 
+    function loadMessages() {
+        if (!conversation)
+            return;
+
+        if (typeof SMSService !== 'undefined')
+            messages = SMSService.getMessages(conversation.id);
+        else
+            messages = [];
+        groupMessages();
+    }
+
+    function groupMessages() {
+        var groups = [];
+        var currentGroup = null;
+        var currentDate = null;
+        var lastSender = null;
+        var lastTime = 0;
+        var sortedMessages = messages.slice().reverse();
+        for (var i = 0; i < sortedMessages.length; i++) {
+            var msg = sortedMessages[i];
+            var msgDate = new Date(msg.timestamp);
+            var msgDateStr = msgDate.toDateString();
+            if (msgDateStr !== currentDate) {
+                if (currentGroup)
+                    groups.push(currentGroup);
+
+                currentGroup = {
+                    "date": msgDate,
+                    "showDate": true,
+                    "messages": []
+                };
+                currentDate = msgDateStr;
+                lastSender = null;
+                lastTime = 0;
+            }
+            var timeDiff = msg.timestamp - lastTime;
+            var isNewGroup = (msg.isOutgoing !== (lastSender === "me")) || (timeDiff > 5 * 60 * 1000);
+            if (isNewGroup && currentGroup.messages.length > 0) {
+                currentGroup.messages[currentGroup.messages.length - 1].isLast = true;
+                currentGroup.messages[currentGroup.messages.length - 1].showTime = true;
+            }
+            var msgCopy = Object.assign({}, msg);
+            msgCopy.isFirst = isNewGroup;
+            msgCopy.isLast = false;
+            msgCopy.showTime = false;
+            currentGroup.messages.push(msgCopy);
+            lastSender = msg.isOutgoing ? "me" : msg.sender;
+            lastTime = msg.timestamp;
+        }
+        if (currentGroup && currentGroup.messages.length > 0) {
+            currentGroup.messages[currentGroup.messages.length - 1].isLast = true;
+            currentGroup.messages[currentGroup.messages.length - 1].showTime = true;
+            groups.push(currentGroup);
+        }
+        groupedMessages = groups;
+    }
+
+    function scrollToBottom() {
+        messagesList.positionViewAtBeginning();
+    }
+
+    color: MColors.background
     Component.onCompleted: {
         loadMessages();
-        if (typeof SMSService !== 'undefined' && conversation) {
+        if (typeof SMSService !== 'undefined' && conversation)
             SMSService.markAsRead(conversation.id);
-        }
     }
 
     Connections {
-        target: typeof SMSService !== 'undefined' ? SMSService : null
-
         function onMessageSent(recipient, timestamp) {
-            if (conversation) {
+            if (conversation)
                 loadMessages();
-            }
         }
 
         function onMessageReceived(sender, text, timestamp) {
@@ -40,6 +97,8 @@ Rectangle {
                 scrollToBottom();
             }
         }
+
+        target: typeof SMSService !== 'undefined' ? SMSService : null
     }
 
     Column {
@@ -48,9 +107,9 @@ Rectangle {
 
         MActionBar {
             id: header
+
             width: parent.width
             showBack: true
-
             onBackClicked: {
                 HapticService.light();
                 chatPage.navigateBack();
@@ -71,7 +130,7 @@ Rectangle {
 
                     MLabel {
                         anchors.centerIn: parent
-                        text: conversation?.contactName ? conversation.contactName.charAt(0).toUpperCase() : "?"
+                        text: (conversation && conversation.contactName) ? conversation.contactName.charAt(0).toUpperCase() : "?"
                         color: MColors.textInverse
                         font.pixelSize: MTypography.sizeBody
                         font.weight: MTypography.weightBold
@@ -83,14 +142,14 @@ Rectangle {
                     spacing: 2
 
                     MLabel {
-                        text: conversation?.contactName || conversation?.contactNumber || ""
+                        text: (conversation && conversation.contactName) || (conversation && conversation.contactNumber) || ""
                         variant: "primary"
                         font.pixelSize: MTypography.sizeBody
                         font.weight: MTypography.weightBold
                     }
 
                     MLabel {
-                        text: conversation?.contactNumber || ""
+                        text: (conversation && conversation.contactNumber) || ""
                         variant: "tertiary"
                         font.pixelSize: MTypography.sizeXSmall
                     }
@@ -100,6 +159,11 @@ Rectangle {
 
         ListView {
             id: messagesList
+
+            function scrollToBottom() {
+                messagesList.positionViewAtBeginning();
+            }
+
             width: parent.width
             height: parent.height - header.height - messageInputBar.height
             clip: true
@@ -107,8 +171,16 @@ Rectangle {
             spacing: 0
             topMargin: MSpacing.md
             bottomMargin: MSpacing.md
-
             model: groupedMessages
+
+            MEmptyState {
+                visible: messagesList.count === 0
+                anchors.centerIn: parent
+                width: parent.width - MSpacing.xl * 2
+                iconName: "message-circle"
+                title: "No messages yet"
+                message: "Send a message to start the conversation"
+            }
 
             delegate: Column {
                 width: messagesList.width
@@ -132,110 +204,23 @@ Rectangle {
                     }
                 }
             }
-
-            MEmptyState {
-                visible: messagesList.count === 0
-                anchors.centerIn: parent
-                width: parent.width - MSpacing.xl * 2
-                iconName: "message-circle"
-                title: "No messages yet"
-                message: "Send a message to start the conversation"
-            }
-
-            function scrollToBottom() {
-                messagesList.positionViewAtBeginning();
-            }
         }
 
         MessageInputBar {
             id: messageInputBar
-            width: parent.width
 
+            width: parent.width
             onSendMessage: text => {
                 if (text.trim().length > 0 && conversation) {
                     Logger.info("Messages", "Sending message to: " + conversation.contactName);
                     var recipientNumber = conversation.contactNumber || conversation.id.replace("conv_", "");
-                    if (typeof SMSService !== 'undefined') {
+                    if (typeof SMSService !== 'undefined')
                         SMSService.sendMessage(recipientNumber, text.trim());
-                    }
                 }
             }
-
             onAttachPressed: {
                 Logger.info("Messages", "Attach pressed");
             }
         }
-    }
-
-    function loadMessages() {
-        if (!conversation)
-            return;
-        if (typeof SMSService !== 'undefined') {
-            messages = SMSService.getMessages(conversation.id);
-        } else {
-            messages = [];
-        }
-
-        groupMessages();
-    }
-
-    function groupMessages() {
-        var groups = [];
-        var currentGroup = null;
-        var currentDate = null;
-        var lastSender = null;
-        var lastTime = 0;
-
-        var sortedMessages = messages.slice().reverse();
-
-        for (var i = 0; i < sortedMessages.length; i++) {
-            var msg = sortedMessages[i];
-            var msgDate = new Date(msg.timestamp);
-            var msgDateStr = msgDate.toDateString();
-
-            if (msgDateStr !== currentDate) {
-                if (currentGroup) {
-                    groups.push(currentGroup);
-                }
-
-                currentGroup = {
-                    date: msgDate,
-                    showDate: true,
-                    messages: []
-                };
-                currentDate = msgDateStr;
-                lastSender = null;
-                lastTime = 0;
-            }
-
-            var timeDiff = msg.timestamp - lastTime;
-            var isNewGroup = (msg.isOutgoing !== (lastSender === "me")) || (timeDiff > 5 * 60 * 1000);
-
-            if (isNewGroup && currentGroup.messages.length > 0) {
-                currentGroup.messages[currentGroup.messages.length - 1].isLast = true;
-                currentGroup.messages[currentGroup.messages.length - 1].showTime = true;
-            }
-
-            var msgCopy = Object.assign({}, msg);
-            msgCopy.isFirst = isNewGroup;
-            msgCopy.isLast = false;
-            msgCopy.showTime = false;
-
-            currentGroup.messages.push(msgCopy);
-            lastSender = msg.isOutgoing ? "me" : msg.sender;
-            lastTime = msg.timestamp;
-        }
-
-        if (currentGroup && currentGroup.messages.length > 0) {
-            currentGroup.messages[currentGroup.messages.length - 1].isLast = true;
-            currentGroup.messages[currentGroup.messages.length - 1].showTime = true;
-            groups.push(currentGroup);
-        }
-
-        groupedMessages = groups;
-    }
-
-    function scrollToBottom() {
-        messagesList.positionViewAtBeginning();
     }
 }

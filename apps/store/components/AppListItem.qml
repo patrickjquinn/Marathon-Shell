@@ -1,51 +1,51 @@
-import QtQuick
-import QtQuick.Controls
+import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Controls
-import MarathonUI.Lists
+import MarathonUI.Theme
+import QtQuick
 
-MListItem {
+MListTile {
     id: root
 
     property var appData: ({})
+
+    title: appData.name || "Unknown"
+    subtitle: appData.description || "No description"
 
     leading: Rectangle {
         width: 48
         height: 48
         radius: 12
-        color: MTheme.surfaceVariant
+        color: MColors.elevated
 
-        MIcon {
+        Icon {
             anchors.centerIn: parent
-            source: appData.icon || "apps"
+            name: appData.icon || "apps"
             size: 28
-            color: MTheme.primary
+            color: MColors.accent
         }
     }
-
-    title: appData.name || "Unknown"
-    subtitle: appData.description || "No description"
 
     trailing: Row {
         spacing: 8
 
-        MIcon {
-            source: "star"
+        Icon {
+            name: "star"
             size: 16
             color: "#FFC107"
             anchors.verticalCenter: parent.verticalCenter
         }
 
-        MText {
+        MLabel {
             text: (appData.rating || 0).toFixed(1)
-            type: MText.Caption
+            variant: "xsmall"
+            color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
         }
 
-        MIcon {
-            source: "chevron_right"
+        Icon {
+            name: "chevron-right"
             size: 20
-            color: MTheme.onSurfaceVariant
+            color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
         }
     }

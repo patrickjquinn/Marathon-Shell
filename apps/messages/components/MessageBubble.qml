@@ -1,24 +1,49 @@
-import QtQuick
 import MarathonApp.Messages
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 Item {
     id: root
 
     property var message
-    property bool isOutgoing: message?.isOutgoing || false
+    property bool isOutgoing: (message && message.isOutgoing) || false
     property bool showTimestamp: true
     property bool isFirstInGroup: false
     property bool isLastInGroup: false
+
+    function formatMessageTime(timestamp) {
+        if (!timestamp)
+            return "";
+
+        var date = new Date(timestamp);
+        return date.toLocaleTimeString(Qt.locale(), "h:mm AP");
+    }
+
+    function getStatusIcon() {
+        if (!message)
+            return "check";
+
+        if (message.isFailed)
+            return "x";
+
+        if (message.isRead)
+            return "check-check";
+
+        if (message.isDelivered)
+            return "check-check";
+
+        return "check";
+    }
 
     width: parent.width
     height: bubbleContainer.height + MSpacing.xs
 
     Column {
         id: bubbleContainer
+
         anchors.left: isOutgoing ? undefined : parent.left
         anchors.right: isOutgoing ? parent.right : undefined
         anchors.leftMargin: MSpacing.md
@@ -27,6 +52,7 @@ Item {
 
         Rectangle {
             id: bubble
+
             width: Math.min(bubbleText.contentWidth + MSpacing.md * 2, root.width * 0.75)
             height: bubbleText.contentHeight + MSpacing.md * 2
             radius: MRadius.lg
@@ -36,9 +62,10 @@ Item {
 
             MLabel {
                 id: bubbleText
+
                 anchors.fill: parent
                 anchors.margins: MSpacing.md
-                text: message?.text || ""
+                text: (message && message.text) || ""
                 variant: "primary"
                 font.pixelSize: MTypography.sizeBody
                 color: isOutgoing ? MColors.textPrimary : MColors.textPrimary
@@ -64,32 +91,13 @@ Item {
 
         MLabel {
             id: timestampLabel
+
             visible: showTimestamp
-            text: formatMessageTime(message?.timestamp)
+            text: formatMessageTime(message && message.timestamp)
             variant: "tertiary"
             font.pixelSize: MTypography.sizeXSmall
             anchors.left: isOutgoing ? undefined : parent.left
             anchors.right: isOutgoing ? parent.right : undefined
         }
-    }
-
-    function formatMessageTime(timestamp) {
-        if (!timestamp)
-            return "";
-        var date = new Date(timestamp);
-        return date.toLocaleTimeString(Qt.locale(), "h:mm AP");
-    }
-
-    function getStatusIcon() {
-        if (!message)
-            return "check";
-
-        if (message.isFailed)
-            return "x";
-        if (message.isRead)
-            return "check-check";
-        if (message.isDelivered)
-            return "check-check";
-        return "check";
     }
 }

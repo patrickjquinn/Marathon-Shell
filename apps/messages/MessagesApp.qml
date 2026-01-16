@@ -1,24 +1,62 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 MApp {
     id: messagesApp
+
+    property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
+    property int selectedConversationId: -1
+
+    function getConversation(id) {
+        if (!id)
+            return null;
+
+        for (var i = 0; i < conversations.length; i++) {
+            if (conversations[i].id === id)
+                return conversations[i];
+        }
+        Logger.warn("Messages", "Conversation not found: " + id);
+        return null;
+    }
+
+    function refreshConversations() {
+        if (typeof SMSService !== 'undefined')
+            conversations = SMSService.conversations;
+    }
+
+    function formatTimestamp(timestamp) {
+        var now = Date.now();
+        var diff = now - timestamp;
+        if (diff < 1000 * 60 * 60)
+            return Math.floor(diff / (1000 * 60)) + "m";
+        else if (diff < 1000 * 60 * 60 * 24)
+            return Math.floor(diff / (1000 * 60 * 60)) + "h";
+        else
+            return Math.floor(diff / (1000 * 60 * 60 * 24)) + "d";
+    }
+
     appId: "messages"
     appName: "Messages"
     appIcon: "assets/icon.svg"
 
-    property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
-
-    property int selectedConversationId: -1
-
     Connections {
-        target: typeof SMSService !== 'undefined' ? SMSService : null
         function onMessageReceived(sender, text, timestamp) {
             Logger.info("Messages", "New message from: " + sender);
         }
+
+        target: typeof SMSService !== 'undefined' ? SMSService : null
+    }
+
+    Connections {
+        function onConversationsChanged() {
+            Logger.info("Messages", "Conversations updated");
+            refreshConversations();
+        }
+
+        target: typeof SMSService !== 'undefined' ? SMSService : null
     }
 
     content: Rectangle {
@@ -27,29 +65,24 @@ MApp {
 
         StackView {
             id: navigationStack
-            anchors.fill: parent
-            initialItem: conversationsListPage
 
             property var backConnection: null
 
+            anchors.fill: parent
+            initialItem: conversationsListPage
             onDepthChanged: {
                 messagesApp.navigationDepth = depth - 1;
             }
-
             Component.onCompleted: {
                 messagesApp.navigationDepth = depth - 1;
-
                 backConnection = messagesApp.backPressed.connect(function () {
-                    if (depth > 1) {
+                    if (depth > 1)
                         pop();
-                    }
                 });
             }
-
             Component.onDestruction: {
-                if (backConnection) {
+                if (backConnection)
                     messagesApp.backPressed.disconnect(backConnection);
-                }
             }
 
             pushEnter: Transition {
@@ -70,10 +103,11 @@ MApp {
                     duration: Constants.animationDurationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     property: "opacity"
-                    from: 1.0
-                    to: 0.0
+                    from: 1
+                    to: 0
                     duration: Constants.animationDurationNormal
                 }
             }
@@ -86,10 +120,11 @@ MApp {
                     duration: Constants.animationDurationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     property: "opacity"
-                    from: 0.0
-                    to: 1.0
+                    from: 0
+                    to: 1
                     duration: Constants.animationDurationNormal
                 }
             }
@@ -107,17 +142,17 @@ MApp {
 
         Component {
             id: conversationsListPage
+
             ConversationsListPage {
                 onOpenConversation: function (conversationId) {
                     selectedConversationId = conversationId;
                     var conversation = getConversation(conversationId);
-                    if (conversation) {
+                    if (conversation)
                         navigationStack.push(chatPage, {
-                            conversation: conversation
+                            "conversation": conversation
                         });
-                    } else {
+                    else
                         Logger.warn("Messages", "Conversation not found: " + conversationId);
-                    }
                 }
                 onNewMessage: function () {
                     navigationStack.push(newConversationPage);
@@ -127,6 +162,7 @@ MApp {
 
         Component {
             id: chatPage
+
             ChatPage {
                 onNavigateBack: {
                     navigationStack.pop();
@@ -136,11 +172,11 @@ MApp {
 
         Component {
             id: newConversationPage
+
             NewConversationPage {
                 onConversationStarted: function (recipient, recipientName) {
                     Logger.info("Messages", "Starting conversation with: " + recipient);
                     var conversationId = typeof SMSService !== 'undefined' ? SMSService.generateConversationId(recipient) : "conv_" + recipient;
-
                     var conversation = {
                         "id": conversationId,
                         "contactName": recipientName,
@@ -149,57 +185,15 @@ MApp {
                         "timestamp": Date.now(),
                         "unread": false
                     };
-
                     navigationStack.pop();
                     navigationStack.push(chatPage, {
-                        conversation: conversation
+                        "conversation": conversation
                     });
                 }
                 onCancelled: function () {
                     navigationStack.pop();
                 }
             }
-        }
-    }
-
-    function getConversation(id) {
-        if (!id)
-            return null;
-
-        for (var i = 0; i < conversations.length; i++) {
-            if (conversations[i].id === id) {
-                return conversations[i];
-            }
-        }
-
-        Logger.warn("Messages", "Conversation not found: " + id);
-        return null;
-    }
-
-    function refreshConversations() {
-        if (typeof SMSService !== 'undefined') {
-            conversations = SMSService.conversations;
-        }
-    }
-
-    Connections {
-        target: typeof SMSService !== 'undefined' ? SMSService : null
-        function onConversationsChanged() {
-            Logger.info("Messages", "Conversations updated");
-            refreshConversations();
-        }
-    }
-
-    function formatTimestamp(timestamp) {
-        var now = Date.now();
-        var diff = now - timestamp;
-
-        if (diff < 1000 * 60 * 60) {
-            return Math.floor(diff / (1000 * 60)) + "m";
-        } else if (diff < 1000 * 60 * 60 * 24) {
-            return Math.floor(diff / (1000 * 60 * 60)) + "h";
-        } else {
-            return Math.floor(diff / (1000 * 60 * 60 * 24)) + "d";
         }
     }
 }

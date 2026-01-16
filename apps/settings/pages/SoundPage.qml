@@ -1,16 +1,59 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Core
 import MarathonUI.Containers
 import MarathonUI.Controls
+import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: soundPage
-    pageTitle: "Sound"
 
     property string pageName: "sound"
+
+    pageTitle: "Sound"
+
+    Component {
+        id: ringtonePickerComponent
+
+        SoundPickerPage {
+            soundType: "ringtone"
+            currentSound: AudioManager.currentRingtone
+            availableSounds: AudioManager.availableRingtones
+            onSoundSelected: path => {
+                AudioManager.setRingtone(path);
+            }
+            onNavigateBack: soundPage.parent.pop()
+        }
+    }
+
+    Component {
+        id: notificationSoundPickerComponent
+
+        SoundPickerPage {
+            soundType: "notification"
+            currentSound: AudioManager.currentNotificationSound
+            availableSounds: AudioManager.availableNotificationSounds
+            onSoundSelected: path => {
+                AudioManager.setNotificationSound(path);
+            }
+            onNavigateBack: soundPage.parent.pop()
+        }
+    }
+
+    Component {
+        id: alarmSoundPickerComponent
+
+        SoundPickerPage {
+            soundType: "alarm"
+            currentSound: AudioManager.currentAlarmSound
+            availableSounds: AudioManager.availableAlarmSounds
+            onSoundSelected: path => {
+                AudioManager.setAlarmSound(path);
+            }
+            onNavigateBack: soundPage.parent.pop()
+        }
+    }
 
     content: Flickable {
         contentHeight: soundContent.height + 40
@@ -18,6 +61,7 @@ SettingsPageTemplate {
 
         Column {
             id: soundContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -140,45 +184,6 @@ SettingsPageTemplate {
             Item {
                 height: Constants.navBarHeight
             }
-        }
-    }
-
-    Component {
-        id: ringtonePickerComponent
-        SoundPickerPage {
-            soundType: "ringtone"
-            currentSound: AudioManager.currentRingtone
-            availableSounds: AudioManager.availableRingtones
-            onSoundSelected: path => {
-                AudioManager.setRingtone(path);
-            }
-            onNavigateBack: soundPage.parent.pop()
-        }
-    }
-
-    Component {
-        id: notificationSoundPickerComponent
-        SoundPickerPage {
-            soundType: "notification"
-            currentSound: AudioManager.currentNotificationSound
-            availableSounds: AudioManager.availableNotificationSounds
-            onSoundSelected: path => {
-                AudioManager.setNotificationSound(path);
-            }
-            onNavigateBack: soundPage.parent.pop()
-        }
-    }
-
-    Component {
-        id: alarmSoundPickerComponent
-        SoundPickerPage {
-            soundType: "alarm"
-            currentSound: AudioManager.currentAlarmSound
-            availableSounds: AudioManager.availableAlarmSounds
-            onSoundSelected: path => {
-                AudioManager.setAlarmSound(path);
-            }
-            onNavigateBack: soundPage.parent.pop()
         }
     }
 }

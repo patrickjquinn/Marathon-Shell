@@ -1,26 +1,23 @@
-import QtQuick
 import MarathonApp.Calendar
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Theme
 import MarathonUI.Core
-import "../stores"
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Page {
-    background: Rectangle {
-        color: MColors.background
-    }
-
     property int updateTrigger: 0
 
     MScrollView {
         id: scrollView
+
         anchors.fill: parent
         contentHeight: calendarContent.height + 40
 
         Column {
             id: calendarContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -42,11 +39,11 @@ Page {
                     var count = eventListRepeater.count;
                     if (count === 0)
                         return "No events scheduled.";
+
                     return count + " event" + (count === 1 ? "" : "s");
                 }
                 width: parent.width - 48
 
-                // Clear selection button
                 MButton {
                     visible: calendarApp.selectedDate !== null
                     text: "Show All Events"
@@ -57,14 +54,13 @@ Page {
 
                 Repeater {
                     id: eventListRepeater
-                    model: {
-                        // Dependency on dataChanged signal
-                        var _ = updateTrigger;
 
-                        if (calendarApp.selectedDate) {
-                            return CalendarStorage.getEventsForDate(calendarApp.selectedDate);
-                        }
-                        return CalendarStorage.events;
+                    model: {
+                        var _ = updateTrigger;
+                        if (calendarApp.selectedDate)
+                            return calendarApp.getEventsForDate(calendarApp.selectedDate);
+
+                        return calendarApp.getAllEvents();
                     }
 
                     EventListItem {
@@ -80,15 +76,20 @@ Page {
             }
 
             Connections {
-                target: CalendarStorage
                 function onDataChanged() {
                     updateTrigger++;
                 }
+
+                target: calendarApp
             }
 
             Item {
                 height: 80
             }
         }
+    }
+
+    background: Rectangle {
+        color: MColors.background
     }
 }

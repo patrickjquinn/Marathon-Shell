@@ -1,14 +1,14 @@
-import QtQuick
 import MarathonApp.Phone
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 Rectangle {
-    color: MColors.background
-
     property string dialedNumber: ""
+
+    color: MColors.background
 
     ColumnLayout {
         anchors.fill: parent
@@ -51,77 +51,75 @@ Rectangle {
             Repeater {
                 model: [
                     {
-                        digit: "1",
-                        letters: ""
+                        "digit": "1",
+                        "letters": ""
                     },
                     {
-                        digit: "2",
-                        letters: "ABC"
+                        "digit": "2",
+                        "letters": "ABC"
                     },
                     {
-                        digit: "3",
-                        letters: "DEF"
+                        "digit": "3",
+                        "letters": "DEF"
                     },
                     {
-                        digit: "4",
-                        letters: "GHI"
+                        "digit": "4",
+                        "letters": "GHI"
                     },
                     {
-                        digit: "5",
-                        letters: "JKL"
+                        "digit": "5",
+                        "letters": "JKL"
                     },
                     {
-                        digit: "6",
-                        letters: "MNO"
+                        "digit": "6",
+                        "letters": "MNO"
                     },
                     {
-                        digit: "7",
-                        letters: "PQRS"
+                        "digit": "7",
+                        "letters": "PQRS"
                     },
                     {
-                        digit: "8",
-                        letters: "TUV"
+                        "digit": "8",
+                        "letters": "TUV"
                     },
                     {
-                        digit: "9",
-                        letters: "WXYZ"
+                        "digit": "9",
+                        "letters": "WXYZ"
                     },
                     {
-                        digit: "*",
-                        letters: ""
+                        "digit": "*",
+                        "letters": ""
                     },
                     {
-                        digit: "0",
-                        letters: "+"
+                        "digit": "0",
+                        "letters": "+"
                     },
                     {
-                        digit: "#",
-                        letters: ""
+                        "digit": "#",
+                        "letters": ""
                     }
                 ]
 
                 Item {
                     required property var modelData
+
                     width: (parent.width - MSpacing.md * 2) / 3
                     height: Constants.touchTargetLarge
 
                     MCircularIconButton {
+                        property string subtitle: modelData.letters
+
                         anchors.centerIn: parent
                         text: modelData.digit
                         buttonSize: Math.min(parent.width, parent.height) - 10
                         iconSize: 24
                         variant: "secondary"
-
-                        // Show letters as subtitle if present
-                        property string subtitle: modelData.letters
-
                         onClicked: {
                             HapticService.light();
-                            if (modelData.digit === "0" && dialedNumber.length === 0) {
+                            if (modelData.digit === "0" && dialedNumber.length === 0)
                                 dialedNumber = "+";
-                            } else {
+                            else
                                 dialedNumber += modelData.digit;
-                            }
                         }
                     }
                 }
@@ -143,9 +141,8 @@ Rectangle {
                 variant: "secondary"
                 disabled: dialedNumber.length === 0
                 onClicked: {
-                    if (dialedNumber.length > 0) {
+                    if (dialedNumber.length > 0)
                         dialedNumber = dialedNumber.slice(0, -1);
-                    }
                 }
             }
 
@@ -154,7 +151,6 @@ Rectangle {
                 iconName: "phone"
                 iconLeft: true
                 variant: "primary"
-                size: "large"
                 disabled: dialedNumber.length === 0
                 implicitWidth: Constants.touchTargetLarge * 2
                 onClicked: {

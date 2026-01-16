@@ -68,8 +68,6 @@ SettingsPageTemplate {
                     title: "Data Roaming"
                     subtitle: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.roaming) ? "Currently roaming" : "Use data when traveling"
                     showToggle: true
-                    // ModemManagerCpp exposes roaming state but doesn't currently provide a setter.
-                    // Keep as read-only indicator for now.
                     toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.roaming : false
                     enabled: false
                     visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
@@ -83,13 +81,11 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "SIM Operator"
-                    // ModemManagerCpp doesn't currently expose a SIM operator string; fall back to network operator name.
                     value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.operatorName) || "Unknown"
                 }
 
                 MSettingsListItem {
                     title: "Phone Number"
-                    // Not exposed yet by ModemManagerCpp
                     value: "Not available"
                 }
             }

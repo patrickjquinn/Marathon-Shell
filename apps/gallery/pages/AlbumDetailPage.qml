@@ -39,7 +39,6 @@ Rectangle {
         anchors.fill: parent
         spacing: 0
 
-        // Custom Header matching MPage style
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 56

@@ -1,19 +1,16 @@
-import QtQuick
 import MarathonApp.Clock
-import QtQml.Models
 import MarathonOS.Shell
-import MarathonUI.Core
 import MarathonUI.Containers
+import MarathonUI.Core
 import MarathonUI.Theme
+import QtQml.Models
+import QtQuick
 
 Item {
     id: worldClockPage
 
     property var cities: []
-
-    Component.onCompleted: {
-        loadCities();
-    }
+    property AddCityDialog addCityDialog: null
 
     function loadCities() {
         var saved = SettingsManagerCpp.get("clock/worldCities", "");
@@ -39,33 +36,33 @@ Item {
     function getDefaultCities() {
         return [
             {
-                name: "New York",
-                offset: -5,
-                dst: true
+                "name": "New York",
+                "offset": -5,
+                "dst": true
             },
             {
-                name: "London",
-                offset: 0,
-                dst: false
+                "name": "London",
+                "offset": 0,
+                "dst": false
             },
             {
-                name: "Tokyo",
-                offset: 9,
-                dst: false
+                "name": "Tokyo",
+                "offset": 9,
+                "dst": false
             },
             {
-                name: "Sydney",
-                offset: 10,
-                dst: false
+                "name": "Sydney",
+                "offset": 10,
+                "dst": false
             }
         ];
     }
 
     function addCity(name, offset, dst) {
         cities.push({
-            name: name,
-            offset: offset,
-            dst: dst
+            "name": name,
+            "offset": offset,
+            "dst": dst
         });
         citiesChanged();
         saveCities();
@@ -82,6 +79,7 @@ Item {
     function moveCity(from, to) {
         if (from === to || from < 0 || to < 0 || from >= cities.length || to >= cities.length)
             return;
+
         var item = cities.splice(from, 1)[0];
         cities.splice(to, 0, item);
         citiesChanged();
@@ -93,22 +91,26 @@ Item {
         var now = new Date();
         for (var i = 0; i < cities.length; i++) {
             var city = cities[i];
-            var cityTime = new Date(now.getTime() + (city.offset * 3600000));
+            var cityTime = new Date(now.getTime() + (city.offset * 3.6e+06));
             var hours = cityTime.getUTCHours();
             var minutes = cityTime.getUTCMinutes();
             var ampm = hours >= 12 ? "PM" : "AM";
             hours = hours % 12;
             if (hours === 0)
                 hours = 12;
-            var timeStr = hours + ":" + (minutes < 10 ? "0" : "") + minutes + " " + ampm;
 
+            var timeStr = hours + ":" + (minutes < 10 ? "0" : "") + minutes + " " + ampm;
             visualModel.model.append({
-                cityName: city.name,
-                cityTime: timeStr,
-                timeDiff: (city.offset >= 0 ? "+" : "") + city.offset + "h",
-                cityIndex: i
+                "cityName": city.name,
+                "cityTime": timeStr,
+                "timeDiff": (city.offset >= 0 ? "+" : "") + city.offset + "h",
+                "cityIndex": i
             });
         }
+    }
+
+    Component.onCompleted: {
+        loadCities();
     }
 
     Timer {
@@ -123,53 +125,34 @@ Item {
 
     DelegateModel {
         id: visualModel
+
         model: ListModel {
             id: timeModel
         }
 
         delegate: Item {
             id: delegateRoot
-            width: cityList.width
-            height: Constants.touchTargetLarge
 
             property int heldIndex: -1
             property int dropIndex: -1
 
+            width: cityList.width
+            height: Constants.touchTargetLarge
+
             Rectangle {
                 id: content
-                anchors {
-                    horizontalCenter: parent.horizontalCenter
-                    verticalCenter: parent.verticalCenter
-                }
+
                 width: delegateRoot.width
                 height: delegateRoot.height
                 color: dragArea.drag.active ? MColors.elevated : "transparent"
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 200
-                    }
-                }
-
                 Drag.active: dragArea.drag.active
                 Drag.source: delegateRoot
                 Drag.hotSpot.x: width / 2
                 Drag.hotSpot.y: height / 2
 
-                states: State {
-                    when: dragArea.drag.active
-
-                    ParentChange {
-                        target: content
-                        parent: cityList
-                    }
-                    AnchorChanges {
-                        target: content
-                        anchors {
-                            horizontalCenter: undefined
-                            verticalCenter: undefined
-                        }
-                    }
+                anchors {
+                    horizontalCenter: parent.horizontalCenter
+                    verticalCenter: parent.verticalCenter
                 }
 
                 Row {
@@ -199,6 +182,7 @@ Item {
 
                     Text {
                         id: timeText
+
                         anchors.verticalCenter: parent.verticalCenter
                         text: model.cityTime
                         color: MColors.marathonTeal
@@ -208,6 +192,7 @@ Item {
 
                     MIconButton {
                         id: deleteButton
+
                         width: Constants.touchTargetMedium
                         height: Constants.touchTargetMedium
                         anchors.verticalCenter: parent.verticalCenter
@@ -233,14 +218,13 @@ Item {
 
                 MouseArea {
                     id: dragArea
+
                     anchors.fill: parent
                     drag.target: content
                     drag.axis: Drag.YAxis
-
                     onPressed: {
                         delegateRoot.heldIndex = delegateRoot.DelegateModel.itemsIndex;
                     }
-
                     onReleased: {
                         if (delegateRoot.dropIndex !== -1 && delegateRoot.heldIndex !== -1) {
                             var from = delegateRoot.heldIndex;
@@ -254,21 +238,43 @@ Item {
                         delegateRoot.dropIndex = -1;
                     }
                 }
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 200
+                    }
+                }
+
+                states: State {
+                    when: dragArea.drag.active
+
+                    ParentChange {
+                        target: content
+                        parent: cityList
+                    }
+
+                    AnchorChanges {
+                        target: content
+
+                        anchors {
+                            horizontalCenter: undefined
+                            verticalCenter: undefined
+                        }
+                    }
+                }
             }
 
             DropArea {
                 anchors.fill: parent
-
                 onEntered: function (drag) {
-                    if (drag && drag.source && drag.source !== delegateRoot && drag.source.heldIndex !== -1) {
-                        drag.source.dropIndex = delegateRoot.DelegateModel.itemsIndex;
-                    }
+                    var sourceItem = drag ? drag.source : null;
+                    if (sourceItem && sourceItem !== delegateRoot)
+                        sourceItem.dropIndex = delegateRoot.DelegateModel.itemsIndex;
                 }
-
-                onExited: function (drag) {
-                    if (drag && drag.source && drag.source !== delegateRoot) {
-                        drag.source.dropIndex = -1;
-                    }
+                onExited: {
+                    var sourceItem = drag ? drag.source : null;
+                    if (sourceItem && sourceItem !== delegateRoot)
+                        sourceItem.dropIndex = -1;
                 }
             }
         }
@@ -276,6 +282,7 @@ Item {
 
     ListView {
         id: cityList
+
         anchors.fill: parent
         anchors.topMargin: MSpacing.md
         clip: true
@@ -300,6 +307,7 @@ Item {
 
         Column {
             id: emptyColumn
+
             anchors.centerIn: parent
             spacing: MSpacing.lg
 
@@ -340,22 +348,26 @@ Item {
         shape: "circular"
         onClicked: {
             HapticService.light();
-            addCityDialogLoader.item.open();
+            if (worldClockPage.addCityDialog)
+                worldClockPage.addCityDialog.open();
         }
     }
 
     Loader {
         id: addCityDialogLoader
+
         anchors.fill: parent
         active: true
         asynchronous: true
         source: "../components/AddCityDialog.qml"
+        onLoaded: worldClockPage.addCityDialog = item
 
         Connections {
-            target: addCityDialogLoader.item
             function onCityAdded(name, offset) {
                 worldClockPage.addCity(name, offset, false);
             }
+
+            target: addCityDialogLoader.item
         }
     }
 }

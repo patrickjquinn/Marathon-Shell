@@ -5,7 +5,7 @@
   "entryPoint": "SettingsApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["system"],
+  "permissions": ["system", "network"],
   "minShellVersion": "1.0.0",
   "protected": true,
   "categories": ["System"],

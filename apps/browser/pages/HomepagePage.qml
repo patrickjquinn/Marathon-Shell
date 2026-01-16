@@ -1,17 +1,18 @@
-import QtQuick
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: homepagePage
-    color: MColors.background
+
+    property string currentHomepage: "https://www.google.com"
 
     signal homepageChanged(string url)
     signal backRequested
 
-    property string currentHomepage: "https://www.google.com"
+    color: MColors.background
 
     Column {
         anchors.fill: parent
@@ -51,6 +52,7 @@ Rectangle {
 
                     MouseArea {
                         id: backMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
@@ -84,14 +86,17 @@ Rectangle {
                         name: "Google"
                         url: "https://www.google.com"
                     }
+
                     ListElement {
                         name: "DuckDuckGo"
                         url: "https://duckduckgo.com"
                     }
+
                     ListElement {
                         name: "Bing"
                         url: "https://www.bing.com"
                     }
+
                     ListElement {
                         name: "Blank Page"
                         url: "about:blank"
@@ -156,6 +161,7 @@ Rectangle {
 
                     MouseArea {
                         id: delegateMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.medium();
@@ -199,6 +205,7 @@ Rectangle {
 
                         TextInput {
                             id: customUrlInput
+
                             anchors.fill: parent
                             anchors.leftMargin: MSpacing.md
                             anchors.rightMargin: MSpacing.md
@@ -211,12 +218,11 @@ Rectangle {
                             selectionColor: MColors.accent
                             inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
                             text: homepagePage.currentHomepage
-
                             onAccepted: {
                                 HapticService.medium();
-                                if (text.length > 0) {
+                                if (text.length > 0)
                                     homepagePage.homepageChanged(text);
-                                }
+
                                 focus = false;
                             }
 

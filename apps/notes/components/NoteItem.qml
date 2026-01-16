@@ -1,11 +1,10 @@
-import QtQuick
 import MarathonApp.Notes
 import MarathonOS.Shell
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: noteItem
-    height: Constants.touchTargetLarge + MSpacing.lg
 
     property int noteId: -1
     property string noteTitle: ""
@@ -18,22 +17,23 @@ Item {
         var date = new Date(timestamp);
         var now = new Date();
         var diff = now - date;
-
         if (diff < 60000) {
             return "Just now";
-        } else if (diff < 3600000) {
+        } else if (diff < 3.6e+06) {
             var mins = Math.floor(diff / 60000);
             return mins + (mins === 1 ? " min ago" : " mins ago");
-        } else if (diff < 86400000) {
-            var hours = Math.floor(diff / 3600000);
+        } else if (diff < 8.64e+07) {
+            var hours = Math.floor(diff / 3.6e+06);
             return hours + (hours === 1 ? " hour ago" : " hours ago");
-        } else if (diff < 604800000) {
-            var days = Math.floor(diff / 86400000);
+        } else if (diff < 6.048e+08) {
+            var days = Math.floor(diff / 8.64e+07);
             return days + (days === 1 ? " day ago" : " days ago");
         } else {
             return Qt.formatDate(date, "MMM d, yyyy");
         }
     }
+
+    height: Constants.touchTargetLarge + MSpacing.lg
 
     Rectangle {
         anchors.fill: parent
@@ -73,6 +73,7 @@ Item {
 
                 Text {
                     id: timestampText
+
                     text: formatTimestamp(noteTimestamp)
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
@@ -103,6 +104,7 @@ Item {
 
         MouseArea {
             id: mouseArea
+
             anchors.fill: parent
             onClicked: {
                 noteItem.clicked();

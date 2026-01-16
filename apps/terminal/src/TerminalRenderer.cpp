@@ -14,7 +14,6 @@ TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     setFlag(ItemHasContents, true);
     setAntialiasing(true);
 
-    // Default font - try to find a good monospace font
     QStringList fonts = {"Cascadia Code", "Fira Code", "Roboto Mono", "Courier New", "Monospace"};
     for (const QString &family : fonts) {
         QFont f(family);
@@ -26,10 +25,9 @@ TerminalRenderer::TerminalRenderer(QQuickItem *parent)
     m_font.setPixelSize(14);
     m_font.setStyleHint(QFont::Monospace);
 
-    // Default colors (can be overridden by QML)
     m_textColor       = QColor(Qt::white);
     m_backgroundColor = QColor(Qt::black);
-    m_selectionColor  = QColor(255, 255, 255, 64); // Semi-transparent white
+    m_selectionColor  = QColor(255, 255, 255, 64);
 
     updateCharSize();
 }
@@ -49,8 +47,7 @@ void TerminalRenderer::setTerminal(TerminalEngine *terminal) {
     m_screen   = m_terminal ? m_terminal->screen() : nullptr;
 
     if (m_terminal && m_screen) {
-        // Connect screen updates to QQuickItem::update()
-        // This schedules a repaint for the next VSync
+
         connect(m_screen, &TerminalScreen::screenChanged, this, &QQuickItem::update);
         connect(m_screen, &TerminalScreen::cursorChanged, this, &QQuickItem::update);
     }
@@ -134,11 +131,6 @@ QPoint TerminalRenderer::positionToGrid(qreal x, qreal y) {
     int col = static_cast<int>(x / m_charWidth);
     int row = static_cast<int>(y / m_charHeight);
 
-    // Clamp? Or let caller handle?
-    // Let's clamp to screen bounds if possible, but we don't know max cols/rows easily without locking
-    // Caller (QML) usually handles bounds or passes raw coords.
-    // We'll just return raw grid coords.
-
     return QPoint(col, row);
 }
 
@@ -148,21 +140,18 @@ void TerminalRenderer::paint(QPainter *painter) {
 
     painter->setFont(m_font);
 
-    // Lock the screen while we read from it
     QMutexLocker locker(m_screen->mutex());
 
     int          cols = m_screen->cols();
     int          rows = m_screen->rows();
 
-    // Draw background
     painter->fillRect(boundingRect(), m_backgroundColor);
 
-    // Batch drawing variables
     QString lineBuffer;
     lineBuffer.reserve(cols);
 
     for (int y = 0; y < rows; ++y) {
-        // Optimization: Skip rows outside view
+
         if (y * m_charHeight > height())
             break;
 
@@ -170,10 +159,7 @@ void TerminalRenderer::paint(QPainter *painter) {
         while (x < cols) {
             const TerminalCell &startCell = m_screen->cell(x, y);
 
-            // 1. Draw Background (if not default)
-            // We can batch background too, but for now let's do per-cell or small runs
-            // Actually, let's find a run of identical styles
-            int runEnd = x + 1;
+            int                 runEnd = x + 1;
             while (runEnd < cols) {
                 const TerminalCell &next = m_screen->cell(runEnd, y);
                 if (next != startCell)
@@ -181,15 +167,14 @@ void TerminalRenderer::paint(QPainter *painter) {
                 runEnd++;
             }
 
-            // Draw BG for the run
             if (startCell.bgColor != 0xFF000000 || startCell.inverse) {
                 QColor bg;
                 if (startCell.inverse) {
-                    // Inverse: Use FG as BG
+
                     bg =
                         (startCell.fgColor == 0xFFFFFFFF) ? m_textColor : QColor(startCell.fgColor);
                 } else {
-                    // Normal: Use BG
+
                     bg = QColor(startCell.bgColor);
                 }
 
@@ -198,11 +183,6 @@ void TerminalRenderer::paint(QPainter *painter) {
                 painter->fillRect(bgRect, bg);
             }
 
-            // Draw Selection Overlay
-            // We need to check each cell in the run for selection
-            // Optimization: Check if the whole run is selected or not
-            // But selection boundaries might be in the middle of a style run.
-            // So we iterate.
             if (m_screen->hasSelection()) {
                 int selStart = x;
                 while (selStart < runEnd) {
@@ -211,7 +191,7 @@ void TerminalRenderer::paint(QPainter *painter) {
                         while (selEnd < runEnd && m_screen->isSelected(selEnd, y)) {
                             selEnd++;
                         }
-                        // Draw selection rect
+
                         QRectF selRect(selStart * m_charWidth, y * m_charHeight,
                                        (selEnd - selStart) * m_charWidth, m_charHeight);
                         painter->fillRect(selRect, m_selectionColor);
@@ -222,21 +202,17 @@ void TerminalRenderer::paint(QPainter *painter) {
                 }
             }
 
-            // Draw Cursor (if in this run)
             if (y == m_screen->cursorY() && m_screen->cursorX() >= x &&
                 m_screen->cursorX() < runEnd) {
                 QRectF cursorRect(m_screen->cursorX() * m_charWidth, y * m_charHeight, m_charWidth,
                                   m_charHeight);
-                // Cursor color is inverse of text color or a specific cursor color
-                // For now, let's use semi-transparent inverse of background
+
                 QColor cursorColor = (m_backgroundColor.lightness() > 128) ?
                     QColor(0, 0, 0, 128) :
                     QColor(255, 255, 255, 128);
                 painter->fillRect(cursorRect, cursorColor);
             }
 
-            // 2. Draw Text Batch
-            // Collect characters for this run
             lineBuffer.clear();
             bool hasText = false;
             for (int i = x; i < runEnd; ++i) {
@@ -252,11 +228,11 @@ void TerminalRenderer::paint(QPainter *painter) {
             if (hasText) {
                 QColor fg;
                 if (startCell.inverse) {
-                    // Inverse: Use BG as FG
+
                     fg = (startCell.bgColor == 0xFF000000) ? m_backgroundColor :
                                                              QColor(startCell.bgColor);
                 } else {
-                    // Normal: Use FG
+
                     fg =
                         (startCell.fgColor == 0xFFFFFFFF) ? m_textColor : QColor(startCell.fgColor);
                 }

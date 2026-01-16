@@ -1,18 +1,19 @@
-import QtQuick
 import MarathonApp.Browser
-import QtQuick.Layouts
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 Rectangle {
     id: searchEnginePage
-    color: MColors.background
+
+    property string currentSearchEngine: "Google"
 
     signal searchEngineSelected(string name, string url)
     signal backRequested
 
-    property string currentSearchEngine: "Google"
+    color: MColors.background
 
     Column {
         anchors.fill: parent
@@ -52,6 +53,7 @@ Rectangle {
 
                     MouseArea {
                         id: backMouseArea
+
                         anchors.fill: parent
                         onClicked: {
                             HapticService.light();
@@ -81,18 +83,22 @@ Rectangle {
                     name: "Google"
                     url: "https://www.google.com/search?q="
                 }
+
                 ListElement {
                     name: "DuckDuckGo"
                     url: "https://duckduckgo.com/?q="
                 }
+
                 ListElement {
                     name: "Bing"
                     url: "https://www.bing.com/search?q="
                 }
+
                 ListElement {
                     name: "Brave Search"
                     url: "https://search.brave.com/search?q="
                 }
+
                 ListElement {
                     name: "Ecosia"
                     url: "https://www.ecosia.org/search?q="
@@ -147,6 +153,7 @@ Rectangle {
 
                 MouseArea {
                     id: delegateMouseArea
+
                     anchors.fill: parent
                     onClicked: {
                         HapticService.medium();

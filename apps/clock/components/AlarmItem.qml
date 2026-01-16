@@ -1,15 +1,14 @@
-import QtQuick
 import MarathonApp.Clock
 import MarathonOS.Shell
-import MarathonUI.Controls
 import MarathonUI.Containers
+import MarathonUI.Controls
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: alarmItem
-    height: card.height + MSpacing.md
 
-    property int alarmId: -1
+    property string alarmId: ""
     property int alarmHour: 0
     property int alarmMinute: 0
     property string alarmLabel: "Alarm"
@@ -29,18 +28,21 @@ Item {
         }
         if (h === 0)
             h = 12;
+
         return h + ":" + (minute < 10 ? "0" : "") + minute + " " + suffix;
     }
 
+    height: card.height + MSpacing.md
+
     MCard {
         id: card
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: MSpacing.lg
         anchors.rightMargin: MSpacing.lg
         elevation: 1
         interactive: true
-
         onClicked: alarmItem.clicked()
 
         Row {
@@ -71,6 +73,7 @@ Item {
 
             MToggle {
                 id: toggleSwitch
+
                 anchors.verticalCenter: parent.verticalCenter
                 checked: alarmEnabled
                 onToggled: {

@@ -75,12 +75,10 @@ MApp {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    // Update parent's navigationDepth when stack changes
                     onDepthChanged: {
                         galleryApp.navigationDepth = depth - 1;
                     }
 
-                    // Handle back button
                     Connections {
                         function onBackPressed() {
                             if (albumsStackView.depth > 1)
@@ -90,7 +88,6 @@ MApp {
                         target: galleryApp
                     }
 
-                    // Transitions
                     pushEnter: Transition {
                         NumberAnimation {
                             property: "x"
@@ -163,15 +160,15 @@ MApp {
                         contentWidth: width
 
                         Column {
-                            width: parent.width
-                            padding: MSpacing.md
+                            width: parent.width - (MSpacing.md * 2)
+                            anchors.horizontalCenter: parent.horizontalCenter
                             spacing: MSpacing.md
 
                             Repeater {
                                 model: albums
 
                                 MCard {
-                                    width: parent.width - parent.padding * 2
+                                    width: parent.width
                                     height: Constants.touchTargetLarge * 1.5
                                     elevation: 1
                                     interactive: true

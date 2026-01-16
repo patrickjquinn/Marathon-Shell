@@ -1,14 +1,15 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: notificationsPage
-    pageTitle: "Notifications"
 
     property string pageName: "notifications"
+
+    pageTitle: "Notifications"
 
     content: Flickable {
         contentHeight: notificationsContent.height + 40
@@ -16,6 +17,7 @@ SettingsPageTemplate {
 
         Column {
             id: notificationsContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24

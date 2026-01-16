@@ -15,7 +15,5 @@ class BrowserData : public QObject {
 
     static BrowserData *create(QQmlEngine *qmlEngine, QJSEngine *jsEngine);
 
-    // Clears cookies + HTTP cache for the given QML WebEngineProfile (QtWebEngine Quick).
-    // Returns false if the passed object is not a WebEngineProfile.
-    Q_INVOKABLE bool clearCookiesAndCache(QObject *webEngineProfileObject);
+    Q_INVOKABLE bool    clearCookiesAndCache(QObject *webEngineProfileObject);
 };

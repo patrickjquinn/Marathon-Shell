@@ -1,14 +1,15 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: scalePage
-    pageTitle: "UI Scale"
 
     property string pageName: "scale"
+
+    pageTitle: "UI Scale"
 
     content: Flickable {
         contentHeight: scaleContent.height + 40
@@ -17,6 +18,7 @@ SettingsPageTemplate {
 
         Column {
             id: scaleContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: MSpacing.lg
@@ -106,8 +108,8 @@ SettingsPageTemplate {
                         width: parent.width
                         height: Constants.touchTargetMedium
                         radius: Constants.borderRadiusSmall
-                        color: Constants.userScaleFactor === 1.0 ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
-                        border.width: Constants.userScaleFactor === 1.0 ? 1 : 0
+                        color: Constants.userScaleFactor === 1 ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
+                        border.width: Constants.userScaleFactor === 1 ? 1 : 0
                         border.color: Qt.rgba(20, 184, 166, 0.3)
 
                         Row {
@@ -119,13 +121,13 @@ SettingsPageTemplate {
                                 width: Math.round(28 * Constants.userScaleFactor)
                                 height: Math.round(28 * Constants.userScaleFactor)
                                 radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1.0 ? MColors.marathonTeal : "transparent"
+                                color: Constants.userScaleFactor === 1 ? MColors.marathonTeal : "transparent"
                                 border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1.0 ? MColors.marathonTeal : MColors.textSecondary
+                                border.color: Constants.userScaleFactor === 1 ? MColors.marathonTeal : MColors.textSecondary
                                 anchors.verticalCenter: parent.verticalCenter
 
                                 Rectangle {
-                                    visible: Constants.userScaleFactor === 1.0
+                                    visible: Constants.userScaleFactor === 1
                                     width: Math.round(12 * Constants.userScaleFactor)
                                     height: Math.round(12 * Constants.userScaleFactor)
                                     radius: Math.round(6 * Constants.userScaleFactor)
@@ -158,8 +160,8 @@ SettingsPageTemplate {
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {
-                                Constants.userScaleFactor = 1.0;
-                                SettingsManagerCpp.userScaleFactor = 1.0;
+                                Constants.userScaleFactor = 1;
+                                SettingsManagerCpp.userScaleFactor = 1;
                             }
                         }
                     }

@@ -50,6 +50,19 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake")
   include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/QMLLint.cmake)
 endif()
 
+get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+set(QML_IMPORT_PATH
+  "${REPO_ROOT}/build/qmllint"
+  "${REPO_ROOT}/build"
+  "${REPO_ROOT}/build/shell/qml"
+  CACHE STRING "" FORCE
+)
+set(MARATHON_QML_IMPORT_PATH
+  "${REPO_ROOT}/build/qmllint"
+  "${REPO_ROOT}/build"
+  "${REPO_ROOT}/build/shell/qml"
+)
+
 
 function(add_marathon_app APP_NAME)
   set(options "")
@@ -118,6 +131,10 @@ function(add_marathon_app APP_NAME)
     OUTPUT_DIRECTORY
     "${MODULE_OUTPUT_DIR}"
     NO_PLUGIN_OPTIONAL)
+
+  set_property(TARGET ${APP_NAME} APPEND PROPERTY QT_QML_IMPORT_PATH
+    "${MARATHON_QML_IMPORT_PATH}"
+  )
 
   if(APPLE)
     install(

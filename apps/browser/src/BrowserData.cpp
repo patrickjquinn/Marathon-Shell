@@ -22,7 +22,6 @@ bool BrowserData::clearCookiesAndCache(QObject *webEngineProfileObject) {
         store->deleteAllCookies();
     }
 
-    // Async; QML can listen to clearHttpCacheCompleted if it cares.
     profile->clearHttpCache();
     return true;
 }

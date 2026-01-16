@@ -1,8 +1,8 @@
-import QtQuick
 import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: stopwatchPage
@@ -11,22 +11,23 @@ Item {
     property bool isRunning: false
     property var laps: []
 
-    Timer {
-        id: stopwatchTimer
-        interval: 10
-        running: isRunning
-        repeat: true
-        onTriggered: {
-            elapsedMs += 10;
-        }
-    }
-
     function formatTime(ms) {
         var totalSeconds = Math.floor(ms / 1000);
         var minutes = Math.floor(totalSeconds / 60);
         var seconds = totalSeconds % 60;
         var centiseconds = Math.floor((ms % 1000) / 10);
         return (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds + "." + (centiseconds < 10 ? "0" : "") + centiseconds;
+    }
+
+    Timer {
+        id: stopwatchTimer
+
+        interval: 10
+        running: isRunning
+        repeat: true
+        onTriggered: {
+            elapsedMs += 10;
+        }
     }
 
     Column {

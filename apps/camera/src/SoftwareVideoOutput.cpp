@@ -12,7 +12,7 @@ SoftwareVideoOutput::SoftwareVideoOutput(QQuickItem *parent)
 
 SoftwareVideoOutput::~SoftwareVideoOutput() {}
 
-QVideoSink *SoftwareVideoOutput::videoSink() const {
+QObject *SoftwareVideoOutput::videoSink() const {
     return m_videoSink;
 }
 

@@ -1,15 +1,16 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: batteryPage
-    pageTitle: "Battery"
 
     property string pageName: "battery"
+
+    pageTitle: "Battery"
 
     content: Flickable {
         contentHeight: batteryContent.height + 40
@@ -17,13 +18,13 @@ SettingsPageTemplate {
 
         Column {
             id: batteryContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
             rightPadding: 24
             topPadding: 24
 
-            // Battery Status Header
             Column {
                 width: parent.width
                 spacing: MSpacing.sm
@@ -41,6 +42,7 @@ SettingsPageTemplate {
                     text: {
                         if (PowerManagerService.isCharging)
                             return "Charging";
+
                         if (PowerManagerService.isPluggedIn)
                             return "Plugged In, Not Charging";
 
@@ -50,6 +52,7 @@ SettingsPageTemplate {
                             var minutes = Math.floor((time % 3600) / 60);
                             if (hours > 0)
                                 return hours + "h " + minutes + "m remaining";
+
                             return minutes + "m remaining";
                         }
                         return "Discharging";

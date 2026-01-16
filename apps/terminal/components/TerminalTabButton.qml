@@ -1,11 +1,11 @@
-import QtQuick
 import MarathonApp.Terminal
-import QtQuick.Layouts
 import MarathonApp.Terminal
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 Rectangle {
     id: root

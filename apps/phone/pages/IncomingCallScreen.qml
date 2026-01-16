@@ -1,15 +1,11 @@
-import QtQuick
 import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: incomingCallScreen
-    anchors.fill: parent
-    color: MColors.background
-    z: 1000
-    visible: false
 
     property string callerNumber: ""
     property string callerName: "Unknown"
@@ -23,6 +19,11 @@ Rectangle {
     function hide() {
         visible = false;
     }
+
+    anchors.fill: parent
+    color: MColors.background
+    z: 1000
+    visible: false
 
     Column {
         anchors.centerIn: parent
@@ -53,15 +54,17 @@ Rectangle {
                 SequentialAnimation on scale {
                     running: incomingCallScreen.visible
                     loops: Animation.Infinite
+
                     NumberAnimation {
-                        from: 1.0
+                        from: 1
                         to: 1.1
                         duration: 800
                         easing.type: Easing.InOutQuad
                     }
+
                     NumberAnimation {
                         from: 1.1
-                        to: 1.0
+                        to: 1
                         duration: 800
                         easing.type: Easing.InOutQuad
                     }
@@ -120,9 +123,9 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        if (typeof TelephonyService !== 'undefined') {
+                        if (typeof TelephonyService !== 'undefined')
                             TelephonyService.hangup();
-                        }
+
                         hide();
                     }
                 }
@@ -146,9 +149,9 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        if (typeof TelephonyService !== 'undefined') {
+                        if (typeof TelephonyService !== 'undefined')
                             TelephonyService.answer();
-                        }
+
                         hide();
                     }
                 }

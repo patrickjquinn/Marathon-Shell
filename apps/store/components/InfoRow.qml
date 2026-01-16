@@ -1,5 +1,6 @@
-import QtQuick
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Row {
     property string label: ""
@@ -8,14 +9,17 @@ Row {
     width: parent.width
     spacing: 12
 
-    MText {
+    MLabel {
         text: label + ":"
         width: 100
-        color: MTheme.onSurfaceVariant
+        variant: "small"
+        color: MColors.textSecondary
     }
 
-    MText {
+    MLabel {
         text: value
         width: parent.width - 112
+        variant: "small"
+        color: MColors.textPrimary
     }
 }

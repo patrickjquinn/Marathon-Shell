@@ -1,32 +1,30 @@
-import QtQuick
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 MCard {
     id: tabCard
-    height: Constants.cardHeight
-    elevation: isCurrentTab ? 2 : 1
-    interactive: false // Disable built-in MouseArea to allow custom z-ordering
-
-    signal tabClicked
-    signal closeRequested
 
     property var tabData: null
     property bool isCurrentTab: false
 
-    border.color: isCurrentTab ? MColors.accentBright : MColors.border
+    signal tabClicked
+    signal closeRequested
 
+    height: Constants.cardHeight
+    elevation: isCurrentTab ? 2 : 1
+    interactive: false
+    border.color: isCurrentTab ? MColors.accentBright : MColors.border
     onClicked: {
         tabCard.tabClicked();
     }
 
-    // Manual MouseArea for tab clicking, placed behind content but filling card
     MouseArea {
         anchors.fill: parent
-        z: 0 // Bottom layer
+        z: 0
         onClicked: {
             tabCard.tabClicked();
         }
@@ -35,7 +33,7 @@ MCard {
     Column {
         anchors.fill: parent
         anchors.margins: MSpacing.md
-        anchors.rightMargin: MSpacing.md + Constants.touchTargetSmall // Make room for close button
+        anchors.rightMargin: MSpacing.md + Constants.touchTargetSmall
         spacing: MSpacing.sm
 
         Item {
@@ -44,6 +42,7 @@ MCard {
 
             Icon {
                 id: globeIcon
+
                 anchors.left: parent.left
                 anchors.top: parent.top
                 name: "globe"
@@ -100,29 +99,27 @@ MCard {
 
     Item {
         id: closeButtonContainer
+
         anchors.right: parent.right
         anchors.top: parent.top
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
-        z: 1000 // High z-index to sit above card content
+        z: 1000
 
         MIconButton {
             anchors.centerIn: parent
             iconName: "x"
-            // Disable internal mouse handling to prevent conflicts, we handle it manually
             enabled: false
-            opacity: closeMouseArea.pressed ? 0.7 : 1.0 // Visual feedback
-            // color property removed as it caused a crash
+            opacity: closeMouseArea.pressed ? 0.7 : 1
         }
 
         MouseArea {
             id: closeMouseArea
+
             anchors.fill: parent
             hoverEnabled: true
             preventStealing: true
             propagateComposedEvents: false
-
-            // Explicitly accept all events to prevent propagation to MCard
             onPressed: mouse => {
                 mouse.accepted = true;
             }
@@ -135,7 +132,6 @@ MCard {
             onPressAndHold: mouse => {
                 mouse.accepted = true;
             }
-
             onClicked: mouse => {
                 mouse.accepted = true;
                 tabCard.closeRequested();

@@ -1,17 +1,18 @@
-import QtQuick
 import MarathonApp.Settings
-import QtQuick.Controls
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 SettingsPageTemplate {
     id: appSortPage
-    pageTitle: "App Sorting & Layout"
 
     property string pageName: "appsort"
+
+    pageTitle: "App Sorting & Layout"
 
     content: Flickable {
         contentHeight: contentColumn.height + 40
@@ -19,6 +20,7 @@ SettingsPageTemplate {
 
         Column {
             id: contentColumn
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24

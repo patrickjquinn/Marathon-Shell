@@ -38,7 +38,6 @@ Page {
             topPadding: 24
             bottomPadding: 24
 
-            // Page title
             Text {
                 text: "Settings"
                 color: MColors.textPrimary
@@ -47,7 +46,6 @@ Page {
                 font.family: MTypography.fontFamily
             }
 
-            // Network & Connectivity
             MSection {
                 title: "Network & Connectivity"
                 subtitle: "Manage your network connections"
@@ -95,7 +93,6 @@ Page {
                 }
             }
 
-            // Display & Brightness
             MSection {
                 title: "Display & Brightness"
                 subtitle: "Customize your screen settings"
@@ -112,7 +109,6 @@ Page {
                 }
             }
 
-            // Sound & Notifications
             MSection {
                 title: "Sound & Notifications"
                 subtitle: "Manage audio and notification settings"
@@ -150,7 +146,6 @@ Page {
                 }
             }
 
-            // Storage & Battery
             MSection {
                 title: "Storage & Battery"
                 subtitle: "Manage device resources"
@@ -213,7 +208,6 @@ Page {
                 }
             }
 
-            // Security & Privacy
             MSection {
                 title: "Security & Privacy"
                 subtitle: "Lock screen, authentication, and security"
@@ -230,7 +224,6 @@ Page {
                 }
             }
 
-            // Apps & Filters
             MSection {
                 title: "Customization"
                 subtitle: "Personalize your Marathon experience"
@@ -341,7 +334,6 @@ Page {
         }
     }
 
-    // Swipe down to close gesture (BB10 style)
     MouseArea {
         property real startY: 0
         property bool isDragging: false

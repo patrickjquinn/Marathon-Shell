@@ -1,10 +1,10 @@
-import QtQuick
 import MarathonApp.Settings
-import QtQuick.Controls
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Page {
     id: pageTemplate
@@ -15,13 +15,9 @@ Page {
 
     signal navigateBack
 
-    background: Rectangle {
-        color: MColors.background
-    }
-
-    // Header with back button (BB10 style)
     Rectangle {
         id: header
+
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
@@ -61,11 +57,11 @@ Page {
                 pageTemplate.navigateBack();
             }
 
-            // Press feedback
             Rectangle {
                 anchors.fill: parent
                 color: MColors.textPrimary
                 opacity: parent.pressed ? 0.1 : 0
+
                 Behavior on opacity {
                     NumberAnimation {
                         duration: 150
@@ -74,7 +70,6 @@ Page {
             }
         }
 
-        // Bottom border
         Rectangle {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
@@ -84,12 +79,16 @@ Page {
         }
     }
 
-    // Content area
     Loader {
         id: contentLoader
+
         anchors.top: showBackButton ? header.bottom : parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
+    }
+
+    background: Rectangle {
+        color: MColors.background
     }
 }

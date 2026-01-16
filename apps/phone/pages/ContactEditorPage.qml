@@ -1,12 +1,11 @@
-import QtQuick
 import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: contactEditorPage
-    color: MColors.background
 
     property int contactId: -1
     property string contactName: ""
@@ -16,6 +15,38 @@ Rectangle {
 
     signal contactSaved
     signal cancelled
+
+    function saveContact() {
+        if (nameInput.text.length === 0 || phoneInput.text.length === 0)
+            return;
+
+        if (typeof ContactsManager !== 'undefined') {
+            if (isNewContact) {
+                ContactsManager.addContact(nameInput.text, phoneInput.text, emailInput.text);
+                Logger.info("ContactEditor", "Created contact: " + nameInput.text);
+            } else {
+                ContactsManager.updateContact(contactId, {
+                    "name": nameInput.text,
+                    "phone": phoneInput.text,
+                    "email": emailInput.text
+                });
+                Logger.info("ContactEditor", "Updated contact: " + nameInput.text);
+            }
+        }
+        HapticService.medium();
+        contactSaved();
+    }
+
+    function deleteContact() {
+        if (typeof ContactsManager !== 'undefined' && contactId !== -1) {
+            ContactsManager.deleteContact(contactId);
+            Logger.info("ContactEditor", "Deleted contact ID: " + contactId);
+        }
+        HapticService.medium();
+        contactSaved();
+    }
+
+    color: MColors.background
 
     Column {
         anchors.fill: parent
@@ -76,6 +107,7 @@ Rectangle {
 
             Column {
                 id: contentColumn
+
                 width: parent.width
                 spacing: MSpacing.lg
                 padding: MSpacing.lg
@@ -111,6 +143,7 @@ Rectangle {
 
                     MTextInput {
                         id: nameInput
+
                         width: parent.width
                         placeholderText: "Enter name"
                         text: contactName
@@ -130,6 +163,7 @@ Rectangle {
 
                     MTextInput {
                         id: phoneInput
+
                         width: parent.width
                         placeholderText: "+1 (555) 123-4567"
                         text: contactPhone
@@ -152,6 +186,7 @@ Rectangle {
 
                     MTextInput {
                         id: emailInput
+
                         width: parent.width
                         placeholderText: "email@example.com"
                         text: contactEmail
@@ -196,37 +231,5 @@ Rectangle {
                 }
             }
         }
-    }
-
-    function saveContact() {
-        if (nameInput.text.length === 0 || phoneInput.text.length === 0) {
-            return;
-        }
-
-        if (typeof ContactsManager !== 'undefined') {
-            if (isNewContact) {
-                ContactsManager.addContact(nameInput.text, phoneInput.text, emailInput.text);
-                Logger.info("ContactEditor", "Created contact: " + nameInput.text);
-            } else {
-                ContactsManager.updateContact(contactId, {
-                    "name": nameInput.text,
-                    "phone": phoneInput.text,
-                    "email": emailInput.text
-                });
-                Logger.info("ContactEditor", "Updated contact: " + nameInput.text);
-            }
-        }
-
-        HapticService.medium();
-        contactSaved();
-    }
-
-    function deleteContact() {
-        if (typeof ContactsManager !== 'undefined' && contactId !== -1) {
-            ContactsManager.deleteContact(contactId);
-            Logger.info("ContactEditor", "Deleted contact ID: " + contactId);
-        }
-        HapticService.medium();
-        contactSaved();
     }
 }

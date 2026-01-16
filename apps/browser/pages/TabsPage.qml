@@ -8,7 +8,7 @@ import QtQuick
 Rectangle {
     id: tabsPage
 
-    property var tabs: null // ListModel
+    property var tabs: null
     property int currentTabId: -1
     property int maxTabs: 12
 

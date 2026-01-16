@@ -5,8 +5,6 @@ import QtQuick
 import QtQuick.Controls
 
 MApp {
-    // End Rectangle (content)
-
     id: settingsApp
 
     appId: "settings"
@@ -14,11 +12,6 @@ MApp {
     appIcon: "assets/icon.svg"
 
     content: Rectangle {
-        /**
-     * Navigate to a specific settings page
-     * @param pageName {string} - Page identifier (wifi, bluetooth, etc)
-     * @param params {object} - Optional parameters to pass to page
-     */
         function navigateToSettingsPage(pageName, params) {
             Logger.info("SettingsApp", "Navigate to page: " + pageName);
             var component = null;
@@ -80,9 +73,6 @@ MApp {
                 navigationStack.push(component, pageParams);
         }
 
-        /**
-     * Navigate back in stack
-     */
         function navigateBack() {
             if (navigationStack.depth > 1) {
                 navigationStack.pop();
@@ -91,26 +81,14 @@ MApp {
             return false;
         }
 
-        /**
-     * Get current page name
-     */
-        function getCurrentPage() {
-            if (navigationStack.currentItem)
-                return navigationStack.currentItem.pageName || "main";
-
-            return "main";
-        }
-
         anchors.fill: parent
         color: MColors.background
 
-        // Navigation stack
         StackView {
             id: navigationStack
 
             anchors.fill: parent
             initialItem: settingsMainPage
-            // Update parent's navigationDepth when stack changes
             onDepthChanged: {
                 var newDepth = depth - 1;
                 Logger.info("SettingsApp", "StackView depth changed: " + depth + " → navigationDepth: " + newDepth);
@@ -120,7 +98,6 @@ MApp {
                 settingsApp.navigationDepth = depth - 1;
             }
 
-            // Use Connections for proper lifetime management
             Connections {
                 function onBackPressed() {
                     if (navigationStack.depth > 1)
@@ -130,7 +107,6 @@ MApp {
                 target: settingsApp
             }
 
-            // BB10-inspired slide transitions
             pushEnter: Transition {
                 NumberAnimation {
                     property: "x"
@@ -200,7 +176,6 @@ MApp {
             }
         }
 
-        // Main settings page component
         Component {
             id: settingsMainPage
 
@@ -214,7 +189,6 @@ MApp {
             }
         }
 
-        // Page components
         Component {
             id: wifiPageComponent
 
@@ -343,9 +317,7 @@ MApp {
             }
         }
 
-        // Listen for deep link navigation
         Connections {
-            // Modern deep link handler
             function onDeepLinkRequested(appId, route, params) {
                 if (appId === "settings") {
                     Logger.info("SettingsApp", "Deep link requested: " + route);
@@ -353,7 +325,6 @@ MApp {
                 }
             }
 
-            // Legacy handler (deprecated but kept for compatibility)
             function onSettingsNavigationRequested(page, subpage, params) {
                 Logger.info("SettingsApp", "Legacy navigation: " + page);
                 navigateToSettingsPage(page, params);

@@ -1,18 +1,19 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: storagePage
+
+    property string pageName: "storage"
+
     pageTitle: "Storage"
 
     StorageInfo {
         id: storageInfo
     }
-
-    property string pageName: "storage"
 
     content: Flickable {
         contentHeight: storageContent.height + 40
@@ -20,6 +21,7 @@ SettingsPageTemplate {
 
         Column {
             id: storageContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -64,10 +66,12 @@ SettingsPageTemplate {
                                 radius: parent.radius
                                 color: {
                                     if (storageInfo.usedPercentage > 0.9)
-                                        return Qt.rgba(255, 59, 48, 0.8);      // Red when >90%
+                                        return Qt.rgba(255, 59, 48, 0.8);
+
                                     if (storageInfo.usedPercentage > 0.75)
-                                        return Qt.rgba(255, 149, 0, 0.8);    // Orange when >75%
-                                    return Qt.rgba(20, 184, 166, 0.8);  // Teal when <75%
+                                        return Qt.rgba(255, 149, 0, 0.8);
+
+                                    return Qt.rgba(20, 184, 166, 0.8);
                                 }
                             }
                         }

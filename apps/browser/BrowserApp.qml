@@ -25,33 +25,27 @@ MApp {
     property var history: []
     property bool isPrivateMode: false
     property bool isAppActive: true
-    property var tabViewsById: ({}) // tabId(string) -> WebView
+    property var tabViewsById: ({})
     property real drawerProgress: 0
     property bool isDrawerOpen: false
     property bool isDragging: false
-    // Reference to drawer component (set after drawer is created)
     property var drawerRef: null
     property var webView: null
     property bool updatingTabUrl: false
-    // content: Rectangle { ... } is its own component boundary in Qt6; keep refs for cross-scope access.
     property var urlInputRef: null
-    // Address bar UX state
     property bool isEditingAddress: false
     property string addressEditText: ""
-    // Search Engine Settings
     property string searchEngineName: "DuckDuckGo"
     property string searchEngineUrl: "https://duckduckgo.com/?q="
     property string homepageUrl: "https://duckduckgo.com"
     property string transientMessage: ""
-    // WebEngine can steal focus right after we highlight/select the address bar.
-    // Keep re-asserting focus briefly so typing always goes into the URL bar.
     property var _focusRetryItem: null
     property bool _focusRetrySelectAll: false
     property int _focusRetryAttempts: 0
     property bool _pendingAddressBarFocus: false
     property bool _pendingAddressBarSelectAll: false
     property int _pendingAddressBarAttempts: 0
-    property bool addressBarWantsFocus: false // Prevents WebView from stealing focus on startup
+    property bool addressBarWantsFocus: false
 
     function updateCurrentWebView() {
         var currentTab = getCurrentTab();
@@ -82,14 +76,10 @@ MApp {
             return;
 
         var wasPrivate = isPrivateMode;
-        // Preserve normal tabs on disk before entering private mode.
         if (!wasPrivate && enabled)
             saveTabs();
 
         closeDrawer();
-        // Keep “real tabs” behavior, but don’t mix profiles across a live session.
-        // Switching mode resets the in-memory tab set.
-        // Clear tabs BEFORE toggling isPrivateMode to avoid switching WebEngineProfile on live WebViews.
         tabs.clear();
         nextTabId = 1;
         currentTabIndex = 0;
@@ -114,7 +104,6 @@ MApp {
             view.goBack();
             return true;
         }
-        // Default behavior (minimize)
         minimizeRequested();
         return true;
     }
@@ -297,7 +286,6 @@ MApp {
                         var maxId = 0;
                         for (var i = 0; i < parsedTabs.length; i++) {
                             var tab = parsedTabs[i];
-                            // Ensure all required properties are present
                             tabs.append({
                                 "tabId": tab.id,
                                 "url": (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
@@ -375,11 +363,9 @@ MApp {
         for (var i = 0; i < tabs.count; i++) {
             if (tabs.get(i).tabId === tabId) {
                 var wasCurrent = (i === currentTabIndex);
-                // Safely stop the WebEngineView before removal to prevent crashes
                 var viewToRemove = browserApp.tabViewsById["" + tabId];
                 if (viewToRemove) {
                     try {
-                        // Encourage WebEngine to drop resources for this tab before we destroy the view.
                         try {
                             viewToRemove.lifecycleState = WebEngineView.LifecycleState.Discarded;
                         } catch (e) {}
@@ -388,7 +374,6 @@ MApp {
                         Logger.warn("BrowserApp", "Error stopping view: " + e);
                     }
                 }
-                // If closing the current tab, clear the webView reference first to avoid crashes
                 if (wasCurrent)
                     webView = null;
 
@@ -396,15 +381,12 @@ MApp {
                 if (tabs.count === 0) {
                     createNewTab();
                 } else {
-                    // Adjust index if we closed a tab before the current one
                     if (i < currentTabIndex)
                         currentTabIndex--;
 
-                    // Clamp index
                     if (currentTabIndex >= tabs.count)
                         currentTabIndex = tabs.count - 1;
 
-                    // Force update of webView if we closed the current tab
                     if (wasCurrent)
                         Qt.callLater(updateCurrentWebView);
                 }
@@ -444,16 +426,13 @@ MApp {
             return "";
 
         partialText = partialText.toLowerCase();
-        // Search Bookmarks first (higher priority)
         for (var i = 0; i < bookmarks.length; i++) {
             var url = bookmarks[i].url.toLowerCase();
-            // Strip protocol for matching
             var cleanUrl = url.replace("https://", "").replace("http://", "").replace("www.", "");
             var hostOnly = cleanUrl.split("/")[0];
             if (hostOnly.startsWith(partialText))
                 return hostOnly;
         }
-        // Search History
         for (var j = 0; j < history.length; j++) {
             var hUrl = history[j].url.toLowerCase();
             var hCleanUrl = hUrl.replace("https://", "").replace("http://", "").replace("www.", "");
@@ -492,7 +471,6 @@ MApp {
             _addSuggestion("go", "Go to " + goUrl, goUrl);
         }
         _addSuggestion("search", "Search " + searchEngineName + " for \"" + q + "\"", q);
-        // Simple ranked matches: bookmarks then history, host-prefix first.
         var seen = {};
         for (var i = 0; i < bookmarks.length; i++) {
             var bUrl = bookmarks[i].url || "";
@@ -537,7 +515,6 @@ MApp {
             else
                 finalUrl = searchEngineUrl + encodeURIComponent(url);
         }
-        // Only allow http/https/about at the point of navigation.
         var finalLower = finalUrl.toLowerCase();
         if (!(finalLower.startsWith("http://") || finalLower.startsWith("https://") || finalLower.startsWith("about:"))) {
             Logger.warn("BrowserApp", "Blocked unsupported URL: " + finalUrl);
@@ -600,7 +577,6 @@ MApp {
             if (browserApp._focusRetrySelectAll)
                 browserApp._focusRetryItem.selectAll();
 
-            // Explicitly request the virtual keyboard to show via Wayland text-input
             if (Qt.inputMethod)
                 Qt.inputMethod.show();
 
@@ -608,12 +584,10 @@ MApp {
         });
     }
 
-    focus: true // Ensure focus chain is established for keyboard input
+    focus: true
     appId: "browser"
     appName: "Browser"
     appIcon: "assets/icon.svg"
-    // Tell the shell whether “system back/forward” should be routed into the web history.
-    // This is what AppLifecycleManager.handleSystemBack/Forward consults via MApp.handleBack/Forward.
     canNavigateBack: {
         var t = getCurrentTab();
         return t ? (t.canGoBack === true) : false;
@@ -627,8 +601,6 @@ MApp {
     }
     onAppLaunched: {
         isAppActive = true;
-        // WebEngine takes ~800ms to initialize and will steal focus.
-        // Delay our focus claim until after it's likely done.
         launchFocusTimer.restart();
     }
     onAppResumed: {
@@ -636,7 +608,6 @@ MApp {
     }
     Component.onCompleted: {
         Logger.info("BrowserApp", "Initializing browser...");
-        // Prevent WebView from grabbing focus during startup
         addressBarWantsFocus = true;
         loadSettings();
         loadBookmarks();
@@ -646,7 +617,6 @@ MApp {
             Logger.info("BrowserApp", "No tabs found, creating default tab");
             createNewTab();
         }
-        // Defer to ensure children are created
         Qt.callLater(updateCurrentWebView);
         Qt.callLater(function () {
             browserApp._syncAddressBarFromCurrentTab();
@@ -660,7 +630,6 @@ MApp {
         saveHistory();
     }
     onAppMinimized: {
-        // Prevent OOM kills by discarding WebEngine renderers while backgrounded.
         isAppActive = false;
         try {
             var keys = Object.keys(tabViewsById);
@@ -675,7 +644,6 @@ MApp {
         _clearAddressSuggestions();
     }
     onAppRestored: {
-        // Reactivate; active binding will unfreeze the current tab.
         isAppActive = true;
         try {
             var keys = Object.keys(tabViewsById);
@@ -710,15 +678,10 @@ MApp {
         id: tabsModel
     }
 
-    // Explicit profiles so we can do “real tabs” but still manage resources sanely.
     WebEngineProfile {
         id: normalProfile
 
         httpUserAgent: "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-        // Qt 6.9: property initialization order during QML construction can momentarily leave
-        // storageName empty while disk-based options are applied, producing:
-        //   "Storage name is empty... Switching to disk-based behavior"
-        // Initialize in onCompleted to ensure storageName is set before disk-based behavior.
         Component.onCompleted: {
             storageName = "normal";
             offTheRecord = false;
@@ -770,7 +733,6 @@ MApp {
             }
             item.forceActiveFocus();
             browserApp._focusRetryAttempts++;
-            // WebEngine takes ~800ms to init and steals focus. Retry for 1.6s total.
             if (browserApp._focusRetryAttempts >= 100) {
                 if (browserApp._focusRetrySelectAll)
                     item.selectAll();
@@ -784,7 +746,7 @@ MApp {
     Timer {
         id: launchFocusTimer
 
-        interval: 900 // WebEngine init takes ~800ms, give it a moment to settle
+        interval: 900
         repeat: false
         onTriggered: {
             Logger.info("BrowserApp", "Post-launch focus: claiming address bar");
@@ -818,7 +780,6 @@ MApp {
         }
     }
 
-    // Match Settings behavior: consume nav-bar swipe back/forward for in-app history
     Connections {
         function onBackPressed() {
             browserApp.handleBack();
@@ -837,7 +798,6 @@ MApp {
         function onDeepLinkRequested(appId, route, params) {
             if (appId === "browser") {
                 Logger.info("BrowserApp", "Deep link requested with params: " + JSON.stringify(params));
-                // Handle URL parameter
                 if (params && params.url) {
                     Logger.info("BrowserApp", "Opening URL from deep link: " + params.url);
                     navigateTo(params.url);
@@ -876,8 +836,6 @@ MApp {
 
                         model: browserApp.tabs
 
-                        // Wrapper to avoid ListModel role name collisions with WebEngineView properties
-                        // (e.g. role 'url' vs WebEngineView.url).
                         Item {
                             id: tabDelegate
 
@@ -890,20 +848,12 @@ MApp {
                             Layout.fillHeight: true
 
                             WebView {
-                                // Create and switch to the new tab using requestedUrl.
-                                // Handle failure
-
                                 id: webView
 
                                 anchors.fill: parent
-                                // Prevent WebEngine from stealing focus when the URL bar is editing/highlighted
-                                // or when we want the address bar focused on startup.
                                 focus: !urlInput.activeFocus && !browserApp.addressBarWantsFocus
-                                // Bind URL to model role
                                 url: tabDelegate.url
                                 profile: isPrivateMode ? privateProfile : normalProfile
-                                // Only freeze *background* tabs. QtWebEngine refuses to freeze a visible page.
-                                // (We still render the current tab even when the drawer is open.)
                                 active: isAppActive && (tabDelegate.index === currentTabIndex)
                                 crashed: !!tabDelegate.isCrashed
                                 Component.onCompleted: {
@@ -922,7 +872,6 @@ MApp {
                                             browserApp.tabs.setProperty(tabDelegate.index, "isCrashed", crashed);
                                     }
                                 }
-                                // Handle render process crashes gracefully
                                 onRenderProcessTerminated: function (terminationStatus, exitCode) {
                                     var status = "";
                                     switch (terminationStatus) {
@@ -953,8 +902,6 @@ MApp {
                                     if (!request)
                                         return;
 
-                                    // Stability-first: treat new window as “open URL in new tab”.
-                                    // Avoid deferring request.openIn(...) across delegate lifetimes; it can destabilize tab close.
                                     var reqUrl = request.requestedUrl ? request.requestedUrl.toString() : "";
                                     if (reqUrl)
                                         createNewTab(reqUrl);
@@ -975,12 +922,10 @@ MApp {
                                     request.accept();
                                 }
                                 onCertificateError: error => {
-                                    // Security-first default: do not allow TLS bypass without an explicit UI.
                                     Logger.warn("BrowserApp", "TLS certificate error for " + error.url + " (" + error.type + "): " + error.description);
                                     error.rejectCertificate();
                                 }
                                 onFeaturePermissionRequested: (securityOrigin, feature) => {
-                                    // Security-first default: deny. (We can add a prompt UI later.)
                                     Logger.info("BrowserApp", "Feature permission requested (" + feature + ") for " + securityOrigin);
                                     webView.grantFeaturePermission(securityOrigin, feature, false);
                                 }
@@ -991,7 +936,6 @@ MApp {
                                     if (updatingTabUrl)
                                         return;
 
-                                    // Update model when URL changes (navigation)
                                     if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
                                         if (browserApp.tabs.get(tabDelegate.index).url !== url.toString())
                                             browserApp.tabs.setProperty(tabDelegate.index, "url", url.toString());
@@ -1003,7 +947,6 @@ MApp {
                                     if (tabDelegate.index >= 0 && tabDelegate.index < browserApp.tabs.count) {
                                         if (browserApp.tabs.get(tabDelegate.index).title !== title) {
                                             browserApp.tabs.setProperty(tabDelegate.index, "title", title);
-                                            // Keep history titles fresh without incrementing visits.
                                             if (!isPrivateMode)
                                                 updateHistoryTitle(url.toString(), title);
                                         }
@@ -1133,7 +1076,6 @@ MApp {
                         if (browserApp.updatingTabUrl)
                             return parent.width * 0.2;
 
-                        // Fake 20% progress during preparation
                         var currentTab = getCurrentTab();
                         if (currentTab && currentTab.isLoading && currentTab.loadProgress)
                             return parent.width * (currentTab.loadProgress / 100);
@@ -1159,7 +1101,6 @@ MApp {
                     anchors.rightMargin: MSpacing.sm
                     spacing: MSpacing.xs
 
-                    // Back Button
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall
                         Layout.preferredHeight: Constants.touchTargetSmall
@@ -1195,7 +1136,6 @@ MApp {
                         }
                     }
 
-                    // Forward Button
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall
                         Layout.preferredHeight: Constants.touchTargetSmall
@@ -1225,7 +1165,6 @@ MApp {
                         }
                     }
 
-                    // Address Bar
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.preferredHeight: parent.height - MSpacing.sm * 2
@@ -1236,7 +1175,6 @@ MApp {
                         border.color: urlInput.activeFocus ? MColors.accent : MColors.border
                         clip: true
 
-                        // Ensure tapping the address bar actually focuses it (selectByMouse can highlight without focus).
                         MouseArea {
                             anchors.fill: parent
                             propagateComposedEvents: true
@@ -1251,7 +1189,6 @@ MApp {
                         TextInput {
                             id: urlInput
 
-                            // Inline autocomplete state
                             property bool inlineCompletionActive: false
                             property string inlineTypedPrefix: ""
                             property bool suppressAutocompleteOnce: false
@@ -1277,7 +1214,7 @@ MApp {
                             onActiveFocusChanged: {
                                 if (activeFocus) {
                                     browserApp.isEditingAddress = true;
-                                    browserApp.addressBarWantsFocus = false; // Mission accomplished
+                                    browserApp.addressBarWantsFocus = false;
                                     urlInput.userTypedSinceFocus = false;
                                     var currentTab = getCurrentTab();
                                     urlInput.text = currentTab ? currentTab.url : "";
@@ -1302,10 +1239,8 @@ MApp {
                                     browserApp.urlInputRef = null;
                             }
                             Keys.onPressed: event => {
-                                // Track deletion so we don’t re-autocomplete while backspacing.
                                 if (event.key === Qt.Key_Backspace || event.key === Qt.Key_Delete) {
                                     urlInput.lastEditWasDeletion = true;
-                                    // If the suggested suffix is selected, backspace should remove *only* the suggestion.
                                     if (urlInput.inlineCompletionActive && urlInput.text.startsWith(urlInput.inlineTypedPrefix)) {
                                         var expectedStart = urlInput.inlineTypedPrefix.length;
                                         if (selectionStart === expectedStart && selectionEnd === urlInput.text.length) {
@@ -1324,7 +1259,6 @@ MApp {
                                     return;
                                 }
                                 urlInput.lastEditWasDeletion = false;
-                                // Accept completion (Right/Tab) or cancel (Left/Escape)
                                 if (urlInput.inlineCompletionActive) {
                                     if (event.key === Qt.Key_Right || event.key === Qt.Key_Tab) {
                                         event.accepted = true;
@@ -1359,10 +1293,6 @@ MApp {
                                     urlInput.suppressAutocompleteOnce = false;
                                     return;
                                 }
-                                // Inline completion rules (Chrome/Safari-like):
-                                // - only when inserting at end (caret at end, no selection)
-                                // - never while deleting
-                                // - never when empty/too short
                                 if (!activeFocus)
                                     return;
 
@@ -1404,7 +1334,6 @@ MApp {
                                     browserApp.ensureAddressBarFocus(true);
                                 }
 
-                                // Fix: Restore binding when tabs change (navigation)
                                 function onTabsChanged() {
                                     if (!urlInput.activeFocus) {
                                         var currentTab = getCurrentTab();
@@ -1437,7 +1366,6 @@ MApp {
                             }
                         }
 
-                        // Actions inside Address Bar
                         Row {
                             id: actionRow
 
@@ -1447,7 +1375,6 @@ MApp {
                             anchors.rightMargin: MSpacing.xs
                             spacing: 0
 
-                            // Clear Button
                             Rectangle {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
@@ -1481,7 +1408,6 @@ MApp {
                                 }
                             }
 
-                            // Star Button
                             Rectangle {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
@@ -1519,7 +1445,6 @@ MApp {
                                 }
                             }
 
-                            // Refresh/Stop Button
                             Rectangle {
                                 width: Constants.touchTargetSmall * 0.8
                                 height: parent.height
@@ -1551,7 +1476,6 @@ MApp {
                                         if (currentTab && currentTab.isLoading) {
                                             view.triggerWebAction(WebEngineView.Stop);
                                         } else {
-                                            // “Hard reload” (bypass cache). Also call reload() as a fallback.
                                             view.triggerWebAction(WebEngineView.ReloadAndBypassCache);
                                             view.reload();
                                         }
@@ -1561,7 +1485,6 @@ MApp {
                         }
                     }
 
-                    // Tabs Button
                     Rectangle {
                         Layout.preferredWidth: Constants.touchTargetSmall * 1.6
                         Layout.preferredHeight: Constants.touchTargetSmall
@@ -1606,7 +1529,6 @@ MApp {
             }
         }
 
-        // Address suggestions overlay (anchored above the URL bar)
         Rectangle {
             id: addressSuggestionsPopup
 
@@ -1622,14 +1544,11 @@ MApp {
             radius: MRadius.md
             clip: true
             opacity: 0.98
-            // urlBar is nested under Column (not a sibling), so anchors won't work.
-            // Position relative to the bottom of the app using urlBar.height.
             x: 0
             width: rootContent.width
             anchors.bottom: rootContent.bottom
             anchors.bottomMargin: urlBar.height
             height: Math.min(maxHeight, rowHeight * addressSuggestions.count)
-            // Match MarathonUI dropdown feel: subtle pop + shadow
             scale: visible ? 1 : 0.97
             layer.enabled: true
 
@@ -1684,7 +1603,7 @@ MApp {
                                 if (model.kind === "history")
                                     return "history";
 
-                                return "arrow-right"; // go/default
+                                return "arrow-right";
                             }
                         }
 
@@ -1736,7 +1655,6 @@ MApp {
                             urlInput.suppressAutocompleteOnce = true;
                             urlInput.inlineCompletionActive = false;
                             urlInput.inlineTypedPrefix = "";
-                            // ListModel roles are directly available in the delegate: kind / value / display
                             var selectedValue = value;
                             var selectedKind = kind;
                             urlInput.text = selectedValue;
@@ -1770,7 +1688,6 @@ MApp {
                 }
             }
 
-            // MultiEffect isn't available in all Qt builds; use a portable drop shadow.
             layer.effect: DropShadow {
                 horizontalOffset: 0
                 verticalOffset: 4
@@ -1809,7 +1726,6 @@ MApp {
 
                 anchors.fill: parent
                 Component.onCompleted: {
-                    // Store reference for safe access from other components
                     browserApp.drawerRef = drawer;
                     if (drawer.tabsPage) {
                         drawer.tabsPage.tabs = Qt.binding(function () {
@@ -1831,7 +1747,6 @@ MApp {
                         });
 
                     if (drawer.settingsPage) {
-                        // Bind settings page to app properties
                         drawer.settingsPage.searchEngine = Qt.binding(function () {
                             return browserApp.searchEngineName;
                         });
@@ -1848,7 +1763,6 @@ MApp {
                             browserApp.setPrivateMode(drawer.settingsPage.isPrivateMode);
                         });
                         drawer.settingsPage.searchEngineChanged.connect(function () {
-                            // Only update if changed from UI
                             if (browserApp.searchEngineName !== drawer.settingsPage.searchEngine) {
                                 browserApp.searchEngineName = drawer.settingsPage.searchEngine;
                                 saveSettings();

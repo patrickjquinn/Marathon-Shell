@@ -1,12 +1,13 @@
+import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
-import MarathonUI.Core
-import MarathonUI.Containers
-import MarathonUI.Theme
-import MarathonOS.Shell
 
 MApp {
     id: root
+
     appId: "store"
     appName: "App Store"
     appIcon: "assets/icon.svg"
@@ -17,50 +18,45 @@ MApp {
 
         StackView {
             id: navigationStack
+
             anchors.fill: parent
             initialItem: storeFrontPage
-
-            // Update parent's navigationDepth when stack changes
             onDepthChanged: {
                 root.navigationDepth = depth - 1;
             }
 
-            // Handle back button
             Connections {
-                target: root
                 function onBackPressed() {
-                    if (navigationStack.depth > 1) {
+                    if (navigationStack.depth > 1)
                         navigationStack.pop();
-                    }
                 }
+
+                target: root
             }
         }
 
         Component {
             id: storeFrontPage
+
             StoreFrontPage {}
         }
 
         Component {
             id: appDetailPage
+
             AppDetailPage {}
         }
 
         Component {
             id: installedAppsPage
+
             InstalledAppsPage {}
         }
 
         Component {
             id: updatesPage
+
             UpdatesPage {}
         }
-
-        // Refresh catalog on startup
-        // Component.onCompleted: {
-        //     if (!AppStoreService.catalogLoaded) {
-        //         AppStoreService.refreshCatalog();
-        //     }
-        // }
     }
 }

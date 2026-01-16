@@ -1,41 +1,45 @@
-import QtQuick
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: bookmarksPage
-    color: MColors.background
+
+    property var bookmarks: []
 
     signal bookmarkSelected(string url)
     signal deleteBookmark(string url)
 
-    property var bookmarks: []
+    color: MColors.background
 
     ListView {
         id: bookmarksList
+
         anchors.fill: parent
         clip: true
-
         model: bookmarksPage.bookmarks
 
+        Text {
+            visible: bookmarksPage.bookmarks.length === 0
+            anchors.centerIn: parent
+            text: "No bookmarks yet"
+            font.pixelSize: MTypography.sizeLarge
+            color: MColors.textTertiary
+        }
+
         delegate: MSettingsListItem {
+            property real swipeX: 0
+
             title: modelData.title || modelData.url
             subtitle: modelData.url
             iconName: "star"
             showChevron: true
-
             onSettingClicked: {
                 Logger.info("BookmarksPage", "Bookmark clicked: " + modelData.url);
                 bookmarksPage.bookmarkSelected(modelData.url);
-            }
-
-            property real swipeX: 0
-
-            transform: Translate {
-                x: swipeX
             }
 
             Rectangle {
@@ -56,40 +60,38 @@ Rectangle {
 
             MouseArea {
                 id: swipeArea
-                anchors.fill: parent
-                propagateComposedEvents: true
 
                 property real startX: 0
                 property real currentX: 0
 
+                anchors.fill: parent
+                propagateComposedEvents: true
                 onPressed: mouse => {
                     startX = mouse.x;
                     currentX = mouse.x;
                 }
-
                 onPositionChanged: mouse => {
                     currentX = mouse.x;
                     var deltaX = currentX - startX;
-
-                    if (deltaX < 0 && deltaX > -Constants.touchTargetLarge) {
+                    if (deltaX < 0 && deltaX > -Constants.touchTargetLarge)
                         parent.swipeX = deltaX;
-                    }
                 }
-
                 onReleased: {
-                    if (parent.swipeX < -Constants.touchTargetMedium) {
+                    if (parent.swipeX < -Constants.touchTargetMedium)
                         bookmarksPage.deleteBookmark(modelData.url);
-                    }
+
                     parent.swipeX = 0;
                 }
-
                 onClicked: mouse => {
-                    if (parent.swipeX === 0) {
+                    if (parent.swipeX === 0)
                         mouse.accepted = false;
-                    } else {
+                    else
                         parent.swipeX = 0;
-                    }
                 }
+            }
+
+            transform: Translate {
+                x: swipeX
             }
 
             Behavior on swipeX {
@@ -98,14 +100,6 @@ Rectangle {
                     easing.type: Easing.OutCubic
                 }
             }
-        }
-
-        Text {
-            visible: bookmarksPage.bookmarks.length === 0
-            anchors.centerIn: parent
-            text: "No bookmarks yet"
-            font.pixelSize: MTypography.sizeLarge
-            color: MColors.textTertiary
         }
     }
 }

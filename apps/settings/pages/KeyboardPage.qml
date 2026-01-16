@@ -1,3 +1,4 @@
+import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -9,8 +10,35 @@ Page {
     id: keyboardPage
 
     property string pageName: "keyboard"
+    property var languageNames: ({
+            "en_US": "English (US)",
+            "fr_FR": "Français",
+            "de_DE": "Deutsch",
+            "es_ES": "Español",
+            "pt_BR": "Português",
+            "it_IT": "Italiano",
+            "ru_RU": "Русский",
+            "ar_SA": "العربية",
+            "zh_CN": "中文",
+            "ja_JP": "日本語"
+        })
 
     signal navigateBack
+
+    function keyboardValue(key, fallbackValue) {
+        if (KeyboardSettingsStore && KeyboardSettingsStore[key] !== undefined)
+            return KeyboardSettingsStore[key];
+        return fallbackValue;
+    }
+
+    function setKeyboardValue(key, value) {
+        if (KeyboardSettingsStore && KeyboardSettingsStore[key] !== undefined)
+            KeyboardSettingsStore[key] = value;
+    }
+
+    function languageNameFor(languageId) {
+        return languageNames[languageId] || languageId;
+    }
 
     Component.onCompleted: {
         Logger.info("KeyboardPage", "Initialized");
@@ -62,15 +90,15 @@ Page {
                 width: parent.width - 48
 
                 Repeater {
-                    model: KeyboardSettingsStore.availableLanguages
+                    model: keyboardValue("availableLanguages", [])
 
                     MSettingsListItem {
-                        title: KeyboardSettingsStore.getLanguageName(modelData)
+                        title: languageNameFor(modelData)
                         subtitle: modelData
-                        iconName: KeyboardSettingsStore.currentLanguage === modelData ? "check" : ""
+                        iconName: keyboardValue("currentLanguage", "") === modelData ? "check" : ""
                         showChevron: false
                         onSettingClicked: {
-                            KeyboardSettingsStore.currentLanguage = modelData;
+                            setKeyboardValue("currentLanguage", modelData);
                         }
 
                         Rectangle {
@@ -80,8 +108,8 @@ Page {
                             width: 32
                             height: 32
                             radius: 16
-                            color: KeyboardSettingsStore.currentLanguage === modelData ? MColors.accentBright : "transparent"
-                            visible: KeyboardSettingsStore.currentLanguage === modelData
+                            color: keyboardValue("currentLanguage", "") === modelData ? MColors.accentBright : "transparent"
+                            visible: keyboardValue("currentLanguage", "") === modelData
 
                             Text {
                                 anchors.centerIn: parent
@@ -105,9 +133,9 @@ Page {
                     subtitle: "Automatically correct misspelled words"
                     iconName: "spell-check"
                     showToggle: true
-                    toggleValue: KeyboardSettingsStore.autoCorrectEnabled
+                    toggleValue: keyboardValue("autoCorrectEnabled", false)
                     onToggleChanged: value => {
-                        KeyboardSettingsStore.autoCorrectEnabled = value;
+                        setKeyboardValue("autoCorrectEnabled", value);
                     }
                 }
 
@@ -116,9 +144,9 @@ Page {
                     subtitle: "Capitalize first letter of sentences"
                     iconName: "arrow-up"
                     showToggle: true
-                    toggleValue: KeyboardSettingsStore.autoCapitalizeEnabled
+                    toggleValue: keyboardValue("autoCapitalizeEnabled", false)
                     onToggleChanged: value => {
-                        KeyboardSettingsStore.autoCapitalizeEnabled = value;
+                        setKeyboardValue("autoCapitalizeEnabled", value);
                     }
                 }
 
@@ -127,9 +155,9 @@ Page {
                     subtitle: "Vibrate on key press"
                     iconName: "vibrate"
                     showToggle: true
-                    toggleValue: KeyboardSettingsStore.hapticFeedbackEnabled
+                    toggleValue: keyboardValue("hapticFeedbackEnabled", false)
                     onToggleChanged: value => {
-                        KeyboardSettingsStore.hapticFeedbackEnabled = value;
+                        setKeyboardValue("hapticFeedbackEnabled", value);
                     }
                 }
 
@@ -138,9 +166,9 @@ Page {
                     subtitle: "Show word suggestions while typing"
                     iconName: "message-square"
                     showToggle: true
-                    toggleValue: KeyboardSettingsStore.predictionsEnabled
+                    toggleValue: keyboardValue("predictionsEnabled", false)
                     onToggleChanged: value => {
-                        KeyboardSettingsStore.predictionsEnabled = value;
+                        setKeyboardValue("predictionsEnabled", value);
                     }
                 }
             }

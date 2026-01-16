@@ -6,6 +6,9 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
+    property var alarmService: typeof AlarmService !== "undefined" ? AlarmService : null
+    property string lastAlarmId: ""
+
     Flickable {
         anchors.fill: parent
         contentHeight: alarmColumn.height
@@ -49,7 +52,7 @@ Item {
                     }
 
                     MLabel {
-                        text: "Current Alarms: " + AlarmManager.alarms.length
+                        text: "Current Alarms: " + (alarmService ? alarmService.alarms.length : 0)
                         variant: "secondary"
                     }
 
@@ -61,24 +64,31 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.medium();
-                                var testAlarm = {
-                                    "id": "test_" + Date.now(),
-                                    "time": Qt.formatTime(new Date(), "HH:mm"),
-                                    "enabled": true,
-                                    "label": "Test Alarm",
-                                    "repeat": [],
-                                    "sound": "default",
-                                    "vibrate": true,
-                                    "snoozeEnabled": true,
-                                    "snoozeDuration": 10
-                                };
-                                // Use AlarmManager's real trigger path (plays sound, wakes screen, emits alarmTriggered)
-                                if (typeof AlarmManager !== "undefined" && AlarmManager.triggerAlarmForTesting)
-                                    AlarmManager.triggerAlarmForTesting(testAlarm);
-
-                                Logger.info("TestApp", "Triggered test alarm");
-                                if (testApp) {
-                                    testApp.passedTests++;
+                                if (alarmService && alarmService.triggerAlarmNow) {
+                                    alarmService.triggerAlarmNow("Test Alarm");
+                                    Logger.info("TestApp", "Triggered alarm now");
+                                    if (testApp) {
+                                        testApp.passedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else if (alarmService && alarmService.createAlarm) {
+                                    var futureTime = new Date();
+                                    futureTime.setMinutes(futureTime.getMinutes() + 1);
+                                    lastAlarmId = alarmService.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (auto trigger)", [], {});
+                                    if (lastAlarmId) {
+                                        Logger.info("TestApp", "Created trigger alarm: " + lastAlarmId);
+                                        if (testApp) {
+                                            testApp.passedTests++;
+                                            testApp.totalTests++;
+                                        }
+                                    } else if (testApp) {
+                                        Logger.warn("TestApp", "Failed to create trigger alarm");
+                                        testApp.failedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else if (testApp) {
+                                    Logger.warn("TestApp", "AlarmService not available");
+                                    testApp.failedTests++;
                                     testApp.totalTests++;
                                 }
                             }
@@ -89,16 +99,40 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                var futureTime = new Date();
-                                futureTime.setMinutes(futureTime.getMinutes() + 1);
-                                var alarmId = AlarmManager.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (+1 min)", []);
-                                Logger.info("TestApp", "Created alarm: " + alarmId);
-                                if (testApp) {
-                                    testApp.passedTests++;
+                                if (alarmService && alarmService.createAlarm) {
+                                    var futureTime = new Date();
+                                    futureTime.setMinutes(futureTime.getMinutes() + 1);
+                                    var alarmId = alarmService.createAlarm(Qt.formatTime(futureTime, "HH:mm"), "Test Alarm (+1 min)", [], {});
+                                    if (alarmId) {
+                                        Logger.info("TestApp", "Created alarm: " + alarmId);
+                                        if (testApp) {
+                                            testApp.passedTests++;
+                                            testApp.totalTests++;
+                                        }
+                                    } else if (testApp) {
+                                        Logger.warn("TestApp", "Failed to create alarm");
+                                        testApp.failedTests++;
+                                        testApp.totalTests++;
+                                    }
+                                } else if (testApp) {
+                                    Logger.warn("TestApp", "AlarmService not available");
+                                    testApp.failedTests++;
                                     testApp.totalTests++;
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            Connections {
+                target: alarmService
+                enabled: alarmService !== null
+                function onAlarmTriggered(id, label) {
+                    Logger.info("TestApp", "Alarm triggered: " + label);
+                    if (testApp) {
+                        testApp.passedTests++;
+                        testApp.totalTests++;
                     }
                 }
             }

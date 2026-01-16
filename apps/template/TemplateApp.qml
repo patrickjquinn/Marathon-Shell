@@ -1,36 +1,15 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 MApp {
     id: templateApp
-    appId: "template"
-    appName: "Template App"
 
     property var appData: []
-
-    onAppLaunched: {
-        Logger.info("TemplateApp", "App launched");
-        loadAppData();
-    }
-
-    onAppResumed: {
-        Logger.info("TemplateApp", "App resumed");
-    }
-
-    onAppPaused: {
-        Logger.info("TemplateApp", "App paused");
-        saveAppData();
-    }
-
-    onAppWillTerminate: {
-        Logger.info("TemplateApp", "App terminating");
-        saveAppData();
-    }
 
     function loadAppData() {
         var savedData = SettingsManagerCpp.get("template/data", "[]");
@@ -48,19 +27,51 @@ MApp {
         SettingsManagerCpp.set("template/data", data);
     }
 
+    appId: "template"
+    appName: "Template App"
+    onAppLaunched: {
+        Logger.info("TemplateApp", "App launched");
+        loadAppData();
+    }
+    onAppResumed: {
+        Logger.info("TemplateApp", "App resumed");
+    }
+    onAppPaused: {
+        Logger.info("TemplateApp", "App paused");
+        saveAppData();
+    }
+    onAppWillTerminate: {
+        Logger.info("TemplateApp", "App terminating");
+        saveAppData();
+    }
+
+    Connections {
+        function onBackPressed() {
+            if (navigationStack.depth > 1)
+                navigationStack.pop();
+        }
+
+        target: templateApp
+    }
+
+    Component {
+        id: mainPage
+
+        MainPage {}
+    }
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
 
         StackView {
             id: navigationStack
+
             anchors.fill: parent
             initialItem: mainPage
-
             onDepthChanged: {
                 templateApp.navigationDepth = depth - 1;
             }
-
             Component.onCompleted: {
                 templateApp.navigationDepth = depth - 1;
             }
@@ -83,10 +94,11 @@ MApp {
                     duration: Constants.animationDurationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     property: "opacity"
-                    from: 1.0
-                    to: 0.0
+                    from: 1
+                    to: 0
                     duration: Constants.animationDurationNormal
                 }
             }
@@ -99,10 +111,11 @@ MApp {
                     duration: Constants.animationDurationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     property: "opacity"
-                    from: 0.0
-                    to: 1.0
+                    from: 0
+                    to: 1
                     duration: Constants.animationDurationNormal
                 }
             }
@@ -117,19 +130,5 @@ MApp {
                 }
             }
         }
-    }
-
-    Connections {
-        target: templateApp
-        function onBackPressed() {
-            if (navigationStack.depth > 1) {
-                navigationStack.pop();
-            }
-        }
-    }
-
-    Component {
-        id: mainPage
-        MainPage {}
     }
 }

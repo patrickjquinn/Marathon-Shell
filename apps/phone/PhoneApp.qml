@@ -18,6 +18,7 @@ MApp {
     property string editingContactName: ""
     property string editingContactPhone: ""
     property string editingContactEmail: ""
+    property var activeCallPageRef: null
 
     function resolveContactName(number) {
         for (var i = 0; i < contacts.length; i++) {
@@ -30,7 +31,6 @@ MApp {
     function formatTimestamp(timestamp) {
         var now = Date.now();
         var ts = Number(timestamp);
-        // Allow seconds-precision timestamps (convert to ms).
         if (Number.isFinite(ts) && ts > 0 && ts < 1e+11)
             ts = ts * 1000;
 
@@ -94,7 +94,8 @@ MApp {
             if (typeof TelephonyService !== 'undefined') {
                 TelephonyService.dial(dialedNumber);
                 var contactName = resolveContactName(dialedNumber);
-                activeCallPage.show(dialedNumber, contactName);
+                if (activeCallPageRef)
+                    activeCallPageRef.show(dialedNumber, contactName);
             }
             HapticService.medium();
         }
@@ -103,15 +104,14 @@ MApp {
     appId: "phone"
     appName: "Phone"
     appIcon: "assets/icon.svg"
-    // Check contacts permission on launch
     Component.onCompleted: {
         if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
             var number = TelephonyService.activeNumber;
             var contactName = resolveContactName(number);
-            activeCallPage.show(number, contactName);
+            if (activeCallPageRef)
+                activeCallPageRef.show(number, contactName);
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
-        // Check contacts permission
         if (typeof PermissionManager !== 'undefined') {
             if (PermissionManager.hasPermission(appId, "contacts")) {
                 Logger.info("Phone", "Contacts permission already granted");
@@ -126,7 +126,6 @@ MApp {
         }
     }
 
-    // Listen for permission responses
     Connections {
         function onPermissionGranted(grantedAppId, permission) {
             if (grantedAppId === appId && permission === "contacts") {
@@ -155,24 +154,24 @@ MApp {
         function onCallStateChanged(state) {
             Logger.info("Phone", "Call state changed: " + state);
             if (state === "idle") {
-                // Call ended
                 if (dialedNumber.length > 0)
                     dialedNumber = "";
 
                 if (activeCallPage.visible)
-                    activeCallPage.hide();
+                    if (activeCallPageRef)
+                        activeCallPageRef.hide();
 
                 if (incomingCallScreen.visible)
                     incomingCallScreen.hide();
             } else if (state === "active") {
-                // Call answered - hide incoming screen, show active call screen
                 if (incomingCallScreen.visible)
                     incomingCallScreen.hide();
 
                 if (!activeCallPage.visible && typeof TelephonyService !== 'undefined') {
                     var number = TelephonyService.activeNumber;
                     var contactName = resolveContactName(number);
-                    activeCallPage.show(number, contactName);
+                    if (activeCallPageRef)
+                        activeCallPageRef.show(number, contactName);
                 }
             }
         }
@@ -196,7 +195,6 @@ MApp {
                 height: parent.height - tabBar.height
                 currentIndex: parent.currentIndex
 
-                // Dialer Page
                 Rectangle {
                     color: MColors.background
 
@@ -205,7 +203,6 @@ MApp {
                         anchors.margins: MSpacing.lg
                         spacing: MSpacing.lg
 
-                        // Display
                         Rectangle {
                             width: parent.width
                             height: Constants.touchTargetLarge
@@ -225,8 +222,8 @@ MApp {
                             }
                         }
 
-                        // Keypad
                         Grid {
+                            id: dialPadGrid
                             width: parent.width
                             height: parent.height - Constants.touchTargetLarge - Constants.touchTargetLarge - MSpacing.lg * 3
                             columns: 3
@@ -286,8 +283,8 @@ MApp {
                                 ]
 
                                 Rectangle {
-                                    width: (parent.width - parent.spacing * 2) / 3
-                                    height: (parent.height - parent.spacing * 3) / 4
+                                    width: (dialPadGrid.width - dialPadGrid.spacing * 2) / 3
+                                    height: (dialPadGrid.height - dialPadGrid.spacing * 3) / 4
                                     color: "transparent"
                                     border.width: Constants.borderWidthThin
                                     border.color: MColors.border
@@ -334,7 +331,6 @@ MApp {
                             }
                         }
 
-                        // Call/Delete buttons
                         Row {
                             width: parent.width
                             spacing: MSpacing.lg
@@ -416,7 +412,6 @@ MApp {
                     }
                 }
 
-                // Call History Page
                 ListView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -509,7 +504,6 @@ MApp {
                     }
                 }
 
-                // Contacts Page
                 Rectangle {
                     color: MColors.background
 
@@ -667,6 +661,11 @@ MApp {
             id: activeCallPage
 
             anchors.fill: parent
+            Component.onCompleted: phoneApp.activeCallPageRef = activeCallPage
+            Component.onDestruction: {
+                if (phoneApp.activeCallPageRef === activeCallPage)
+                    phoneApp.activeCallPageRef = null;
+            }
         }
     }
 }

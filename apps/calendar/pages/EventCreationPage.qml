@@ -1,26 +1,26 @@
-import QtQuick
 import MarathonApp.Calendar
-import QtQuick.Layouts
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 MPage {
     id: root
+
+    property var onSave: null
+
     title: "New Event"
     showBackButton: true
     onBackClicked: root.StackView.view.pop()
-
-    property var onSave: null
 
     content: ColumnLayout {
         width: parent.width
         spacing: MSpacing.lg
 
-        // Title Field
         MFormField {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
@@ -29,22 +29,23 @@ MPage {
 
             content: TextField {
                 id: titleField
+
                 width: parent.width
                 placeholderText: "Enter event title"
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 color: MColors.text
+                padding: MSpacing.md
+
                 background: Rectangle {
                     color: MColors.surface
                     border.color: MColors.border
                     border.width: 1
                     radius: Constants.borderRadiusSmall
                 }
-                padding: MSpacing.md
             }
         }
 
-        // Date Field (Simplified for now, using text input)
         MFormField {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
@@ -53,23 +54,24 @@ MPage {
 
             content: TextField {
                 id: dateField
+
                 width: parent.width
                 text: Qt.formatDate(new Date(), "yyyy-MM-dd")
                 placeholderText: "YYYY-MM-DD"
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 color: MColors.text
+                padding: MSpacing.md
+
                 background: Rectangle {
                     color: MColors.surface
                     border.color: MColors.border
                     border.width: 1
                     radius: Constants.borderRadiusSmall
                 }
-                padding: MSpacing.md
             }
         }
 
-        // Time Field
         MFormField {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
@@ -77,23 +79,24 @@ MPage {
 
             content: TextField {
                 id: timeField
+
                 width: parent.width
                 text: Qt.formatTime(new Date(), "HH:mm")
                 placeholderText: "HH:MM"
                 font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 color: MColors.text
+                padding: MSpacing.md
+
                 background: Rectangle {
                     color: MColors.surface
                     border.color: MColors.border
                     border.width: 1
                     radius: Constants.borderRadiusSmall
                 }
-                padding: MSpacing.md
             }
         }
 
-        // All Day Toggle
         RowLayout {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
@@ -107,39 +110,36 @@ MPage {
 
             Switch {
                 id: allDaySwitch
+
                 checked: false
             }
         }
 
-        // Save Button
         MButton {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
             text: "Save Event"
             variant: "primary"
             onClicked: {
-                if (titleField.text === "") {
-                    // Show error (TODO: proper validation feedback)
+                if (titleField.text === "")
                     return;
-                }
 
                 var newEvent = {
-                    title: titleField.text,
-                    date: dateField.text,
-                    time: timeField.text,
-                    allDay: allDaySwitch.checked,
-                    recurring: "none" // Default for now
+                    "title": titleField.text,
+                    "date": dateField.text,
+                    "time": timeField.text,
+                    "allDay": allDaySwitch.checked,
+                    "recurring": "none"
                 };
-
-                if (root.onSave) {
+                if (root.onSave)
                     root.onSave(newEvent);
-                }
+
                 root.StackView.view.pop();
             }
         }
 
         Item {
             Layout.fillHeight: true
-        } // Spacer
+        }
     }
 }

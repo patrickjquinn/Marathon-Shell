@@ -1,16 +1,12 @@
-import QtQuick
 import MarathonApp.Clock
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: dialog
-    anchors.fill: parent
-    color: Qt.rgba(0, 0, 0, 0.85)
-    visible: false
-    z: Constants.zIndexModalOverlay
 
     property int editingAlarmId: -1
     property bool isEditMode: false
@@ -37,6 +33,11 @@ Rectangle {
     function close() {
         dialog.visible = false;
     }
+
+    anchors.fill: parent
+    color: Qt.rgba(0, 0, 0, 0.85)
+    visible: false
+    z: Constants.zIndexModalOverlay
 
     MouseArea {
         anchors.fill: parent
@@ -76,9 +77,11 @@ Rectangle {
 
                 Tumbler {
                     id: hourTumbler
+
                     width: 100
                     height: 200
                     model: 24
+
                     delegate: Text {
                         text: {
                             var str = modelData.toString();
@@ -86,7 +89,7 @@ Rectangle {
                         }
                         font.pixelSize: MTypography.sizeLarge
                         color: MColors.text
-                        opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                        opacity: 1 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -102,9 +105,11 @@ Rectangle {
 
                 Tumbler {
                     id: minuteTumbler
+
                     width: 100
                     height: 200
                     model: 60
+
                     delegate: Text {
                         text: {
                             var str = modelData.toString();
@@ -112,7 +117,7 @@ Rectangle {
                         }
                         font.pixelSize: MTypography.sizeLarge
                         color: MColors.text
-                        opacity: 1.0 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
+                        opacity: 1 - Math.abs(Tumbler.displacement) / (Tumbler.tumbler.visibleItemCount / 2)
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -141,11 +146,10 @@ Rectangle {
                     variant: "primary"
                     onClicked: {
                         HapticService.light();
-                        if (isEditMode) {
+                        if (isEditMode)
                             dialog.alarmUpdated(editingAlarmId, hourTumbler.currentIndex, minuteTumbler.currentIndex);
-                        } else {
+                        else
                             dialog.alarmCreated(hourTumbler.currentIndex, minuteTumbler.currentIndex);
-                        }
                         dialog.close();
                     }
                 }
