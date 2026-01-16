@@ -89,6 +89,16 @@ void SessionStore::showLock() {
     setShowLockScreen(true);
 }
 
+void SessionStore::reset() {
+    m_lockTimer.stop();
+    m_sessionValidUntil = 0;
+    setIsAnimatingLock(false);
+    setLockTransition(QString());
+    setShowLockScreen(true);
+    setIsLocked(true);
+    setIsOnLockScreen(false);
+}
+
 void SessionStore::startLockTimer(bool targetLocked) {
     m_targetLocked = targetLocked;
     m_lockTimer.setInterval(300);

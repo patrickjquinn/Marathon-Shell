@@ -28,8 +28,6 @@ set(SOURCES
     src/services/notificationservicecpp.cpp
     src/services/telephonyintegrationcpp.h
     src/services/telephonyintegrationcpp.cpp
-    src/services/sessionstore.h
-    src/services/sessionstore.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
@@ -222,6 +220,8 @@ set(QML_FILES
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
     qml/stores/SystemControlStore.qml
+    src/services/sessionstore.h
+    src/services/sessionstore.cpp
     qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
@@ -303,6 +303,9 @@ qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
+    SOURCES
+        src/services/sessionstore.cpp
+        src/services/sessionstore.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )

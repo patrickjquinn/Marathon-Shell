@@ -118,6 +118,10 @@ Item {
         AppLaunchService.uiStore = UIStore;
         AppLaunchService.appLifecycleManager = AppLifecycleManager;
         ScreenshotService.shellWindow = shell;
+        SessionStore.reset();
+        showPinScreen = false;
+        pinScreen.reset();
+        lockScreen.swipeProgress = 0;
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);

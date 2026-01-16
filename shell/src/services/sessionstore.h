@@ -54,6 +54,7 @@ class SessionStore : public QObject {
     Q_INVOKABLE void unlock();
     Q_INVOKABLE bool checkSession() const;
     Q_INVOKABLE void showLock();
+    Q_INVOKABLE void reset();
 
   signals:
     void isLockedChanged();

@@ -73,6 +73,7 @@
 #include "src/services/unifiedsearchservicecpp.h"
 #include "src/services/telephonyintegrationcpp.h"
 #include "src/services/screenshotservicecpp.h"
+#include "src/services/sessionstore.h"
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
@@ -297,6 +298,10 @@ int main(int argc, char *argv[]) {
 #endif
 
     QQmlApplicationEngine engine;
+
+    auto                 *sessionStore = new SessionStore(&app);
+    qmlRegisterSingletonInstance<SessionStore>("MarathonOS.Shell", 1, 0, "SessionStore",
+                                               sessionStore);
 
     engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
 
