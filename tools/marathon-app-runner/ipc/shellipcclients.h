@@ -104,7 +104,8 @@ class TelephonyClient : public QObject {
     Q_PROPERTY(QString activeNumber READ activeNumber NOTIFY activeNumberChanged)
 
   public:
-    explicit TelephonyClient(QObject *parent = nullptr);
+  public:
+    explicit TelephonyClient(const QString &appId, QObject *parent = nullptr);
 
     QString callState() const {
         return m_callState;
@@ -122,6 +123,9 @@ class TelephonyClient : public QObject {
     Q_INVOKABLE void hangup();
     Q_INVOKABLE void sendDTMF(const QString &digit);
 
+    Q_INVOKABLE void simulateIncomingCall(const QString &number);
+    Q_INVOKABLE void simulateCallStateChange(const QString &state);
+
   signals:
     void callStateChanged(const QString &state);
     void incomingCall(const QString &number);
@@ -135,10 +139,14 @@ class TelephonyClient : public QObject {
     void setActiveNumber(const QString &n);
 
   private:
+    bool           ensurePermission();
+    QString        m_appId;
     QDBusInterface m_iface;
+    QDBusInterface m_permIface;
     QString        m_callState;
     bool           m_hasModem = false;
     QString        m_activeNumber;
+    bool           m_permissionRequested = false;
 };
 
 class SmsClient : public QObject {
@@ -146,7 +154,8 @@ class SmsClient : public QObject {
     Q_PROPERTY(QVariantList conversations READ conversations NOTIFY conversationsChanged)
 
   public:
-    explicit SmsClient(QObject *parent = nullptr);
+  public:
+    explicit SmsClient(const QString &appId, QObject *parent = nullptr);
 
     QVariantList conversations() const {
         return m_conversations;
@@ -159,6 +168,8 @@ class SmsClient : public QObject {
     Q_INVOKABLE void         markAsRead(const QString &conversationId);
     Q_INVOKABLE QString      generateConversationId(const QString &number);
 
+    Q_INVOKABLE void         simulateIncomingSMS(const QString &sender, const QString &message);
+
   signals:
     void messageReceived(const QString &sender, const QString &text, qint64 timestamp);
     void messageSent(const QString &recipient, qint64 timestamp);
@@ -166,9 +177,13 @@ class SmsClient : public QObject {
     void conversationsChanged();
 
   private:
+    bool           ensurePermission();
     void           setConversations(const QVariantList &v);
+    QString        m_appId;
     QDBusInterface m_iface;
+    QDBusInterface m_permIface;
     QVariantList   m_conversations;
+    bool           m_permissionRequested = false;
 };
 
 class MediaLibraryClient : public QObject {
@@ -637,6 +652,7 @@ class AudioClient : public QObject {
     Q_PROPERTY(double volume READ volume NOTIFY stateChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY stateChanged)
     Q_PROPERTY(bool perAppVolumeSupported READ perAppVolumeSupported NOTIFY stateChanged)
+    Q_PROPERTY(QString audioProfile READ audioProfile NOTIFY stateChanged)
     Q_PROPERTY(RemoteAudioStreamModel *streams READ streams CONSTANT)
 
   public:
@@ -646,6 +662,7 @@ class AudioClient : public QObject {
     double                  volume() const;
     bool                    muted() const;
     bool                    perAppVolumeSupported() const;
+    QString                 audioProfile() const;
     RemoteAudioStreamModel *streams() {
         return m_streamModel;
     }
@@ -838,4 +855,200 @@ class NavigationClient : public QObject {
 
   private:
     QDBusInterface m_iface;
+};
+
+class HapticClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool available READ available NOTIFY availableChanged)
+
+  public:
+    explicit HapticClient(QObject *parent = nullptr);
+
+    bool available() const {
+        return m_available;
+    }
+
+    Q_INVOKABLE void light();
+    Q_INVOKABLE void medium();
+    Q_INVOKABLE void heavy();
+    Q_INVOKABLE void vibrate(int duration);
+    Q_INVOKABLE void vibratePattern(const QVariantList &pattern, int repeat = 1);
+    Q_INVOKABLE void stopVibration();
+
+  signals:
+    void availableChanged();
+
+  private:
+    void           refresh();
+    QDBusInterface m_iface;
+    bool           m_available = false;
+};
+
+class NotificationClient : public QObject {
+    Q_OBJECT
+
+  public:
+  public:
+    explicit NotificationClient(const QString &appId, QObject *parent = nullptr);
+
+    Q_INVOKABLE int  sendNotification(const QString &appId, const QString &title,
+                                      const QString     &body,
+                                      const QVariantMap &options = QVariantMap());
+    Q_INVOKABLE void dismissNotification(int id);
+    Q_INVOKABLE void dismissAllNotifications();
+
+  signals:
+    void notificationClosed(int id, int reason);
+    void actionInvoked(int id, const QString &action);
+
+  private:
+    bool           ensurePermission();
+    QString        m_appId;
+    QDBusInterface m_iface;
+    QDBusInterface m_permIface;
+    bool           m_permissionRequested = false;
+};
+
+class SensorClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool available READ available NOTIFY availableChanged)
+    Q_PROPERTY(bool proximityNear READ proximityNear NOTIFY proximityChanged)
+    Q_PROPERTY(int ambientLight READ ambientLight NOTIFY ambientLightChanged)
+
+  public:
+    explicit SensorClient(QObject *parent = nullptr);
+
+    bool available() const {
+        return m_available;
+    }
+    bool proximityNear() const {
+        return m_proximityNear;
+    }
+    int ambientLight() const {
+        return m_ambientLight;
+    }
+
+  signals:
+    void availableChanged();
+    void proximityChanged();
+    void ambientLightChanged();
+
+  private:
+    void           refresh();
+    QDBusInterface m_iface;
+    bool           m_available     = false;
+    bool           m_proximityNear = false;
+    int            m_ambientLight  = 0;
+};
+
+class LocationClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool available READ available NOTIFY availableChanged)
+    Q_PROPERTY(bool active READ active NOTIFY activeChanged)
+    Q_PROPERTY(double latitude READ latitude NOTIFY locationChanged)
+    Q_PROPERTY(double longitude READ longitude NOTIFY locationChanged)
+    Q_PROPERTY(double accuracy READ accuracy NOTIFY locationChanged)
+    Q_PROPERTY(double altitude READ altitude NOTIFY locationChanged)
+    Q_PROPERTY(double speed READ speed NOTIFY locationChanged)
+    Q_PROPERTY(double heading READ heading NOTIFY locationChanged)
+    Q_PROPERTY(qint64 timestamp READ timestamp NOTIFY locationChanged)
+
+  public:
+    explicit LocationClient(QObject *parent = nullptr);
+
+    bool available() const {
+        return m_available;
+    }
+    bool active() const {
+        return m_active;
+    }
+    double latitude() const {
+        return m_latitude;
+    }
+    double longitude() const {
+        return m_longitude;
+    }
+    double accuracy() const {
+        return m_accuracy;
+    }
+    double altitude() const {
+        return m_altitude;
+    }
+    double speed() const {
+        return m_speed;
+    }
+    double heading() const {
+        return m_heading;
+    }
+    qint64 timestamp() const {
+        return m_timestamp;
+    }
+
+    Q_INVOKABLE void start();
+    Q_INVOKABLE void stop();
+
+  signals:
+    void availableChanged();
+    void activeChanged();
+    void locationChanged();
+
+  private slots:
+    void updateLocation(const QVariantMap &loc);
+
+  private:
+    void           refresh();
+    QDBusInterface m_iface;
+    bool           m_available = false;
+    bool           m_active    = false;
+    double         m_latitude  = 0.0;
+    double         m_longitude = 0.0;
+    double         m_accuracy  = 0.0;
+    double         m_altitude  = 0.0;
+    double         m_speed     = 0.0;
+    double         m_heading   = 0.0;
+    qint64         m_timestamp = 0;
+};
+
+class AlarmClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QVariantList alarms READ alarms NOTIFY alarmsChanged)
+    Q_PROPERTY(QVariantList activeAlarms READ activeAlarms NOTIFY activeAlarmsChanged)
+
+  public:
+    explicit AlarmClient(QObject *parent = nullptr);
+
+    QVariantList alarms() const {
+        return m_alarms;
+    }
+    QVariantList activeAlarms() const {
+        return m_activeAlarms;
+    }
+
+    Q_INVOKABLE QString createAlarm(const QString &time, const QString &label,
+                                    const QList<int> &repeat, const QVariantMap &options);
+    Q_INVOKABLE bool    updateAlarm(const QString &id, const QVariantMap &updates);
+    Q_INVOKABLE bool    deleteAlarm(const QString &id);
+    Q_INVOKABLE bool    enableAlarm(const QString &id);
+    Q_INVOKABLE bool    disableAlarm(const QString &id);
+    Q_INVOKABLE bool    snoozeAlarm(const QString &id);
+    Q_INVOKABLE bool    dismissAlarm(const QString &id);
+    Q_INVOKABLE void    stopAll();
+    Q_INVOKABLE void    triggerAlarmNow(const QString &label);
+
+  signals:
+    void alarmsChanged();
+    void activeAlarmsChanged();
+    void alarmTriggered(const QString &id, const QString &label);
+    void alarmDismissed(const QString &id);
+    void alarmSnoozed(const QString &id, int minutes);
+
+  private slots:
+    void onAlarmsChanged();
+    void onActiveAlarmsChanged();
+
+  private:
+    void           refresh();
+    QDBusInterface m_iface;
+    QVariantList   m_alarms;
+    QVariantList   m_activeAlarms;
 };

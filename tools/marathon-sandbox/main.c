@@ -83,6 +83,18 @@ static int add_net_port_rule(int ruleset_fd, __u16 port, __u64 allowed_access) {
     return landlock_add_rule(ruleset_fd, LANDLOCK_RULE_NET_PORT, &net_port, 0);
 }
 
+static int join_home_path(char *out, size_t out_size, const char *home, const char *suffix) {
+    size_t home_len = strlen(home);
+    size_t suffix_len = strlen(suffix);
+    if (home_len + suffix_len + 1 > out_size)
+        return 0;
+    for (size_t i = 0; i < home_len; ++i)
+        out[i] = home[i];
+    for (size_t j = 0; j <= suffix_len; ++j)
+        out[home_len + j] = suffix[j];
+    return 1;
+}
+
 static void add_standard_net_rules(int ruleset_fd) {
     add_net_port_rule(ruleset_fd, 80, LANDLOCK_ACCESS_NET_CONNECT_TCP);
     add_net_port_rule(ruleset_fd, 443, LANDLOCK_ACCESS_NET_CONNECT_TCP);
@@ -91,7 +103,7 @@ static void add_standard_net_rules(int ruleset_fd) {
 
 static int setup_seccomp(void) {
     if (prctl(PR_GET_SECCOMP) == -1 && errno == EINVAL) {
-        fprintf(stderr, "[marathon-sandbox] Seccomp not available\n");
+        fputs("[marathon-sandbox] Seccomp not available\n", stderr);
         return 0;
     }
 
@@ -215,7 +227,7 @@ static int setup_landlock(int has_network_permission, int has_storage_permission
     int abi = landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
     if (abi < 0) {
         if (errno == ENOSYS || errno == EOPNOTSUPP) {
-            fprintf(stderr, "[marathon-sandbox] Landlock not available\n");
+            fputs("[marathon-sandbox] Landlock not available\n", stderr);
             return 0;
         }
         return -1;
@@ -295,16 +307,19 @@ static int setup_landlock(int has_network_permission, int has_storage_permission
             add_path_rule(ruleset_fd, home, access_ro);
 
             char config_path[PATH_MAX];
-            snprintf(config_path, sizeof(config_path), "%s/.config", home);
-            add_path_rule(ruleset_fd, config_path, access_rw);
+            if (join_home_path(config_path, sizeof(config_path), home, "/.config")) {
+                add_path_rule(ruleset_fd, config_path, access_rw);
+            }
 
             char cache_path[PATH_MAX];
-            snprintf(cache_path, sizeof(cache_path), "%s/.cache", home);
-            add_path_rule(ruleset_fd, cache_path, access_rw);
+            if (join_home_path(cache_path, sizeof(cache_path), home, "/.cache")) {
+                add_path_rule(ruleset_fd, cache_path, access_rw);
+            }
 
             char local_path[PATH_MAX];
-            snprintf(local_path, sizeof(local_path), "%s/.local/share", home);
-            add_path_rule(ruleset_fd, local_path, access_rw);
+            if (join_home_path(local_path, sizeof(local_path), home, "/.local/share")) {
+                add_path_rule(ruleset_fd, local_path, access_rw);
+            }
         }
     }
 
@@ -336,10 +351,12 @@ static int env_has_permission(const char *env_var) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <command> [args...]\n", argv[0]);
-        fprintf(stderr, "Environment variables:\n");
-        fprintf(stderr, "  MARATHON_PERM_NETWORK=1  - Allow unrestricted network access\n");
-        fprintf(stderr, "  MARATHON_PERM_STORAGE=1  - Allow full home directory write access\n");
+        fputs("Usage: ", stderr);
+        fputs(argv[0], stderr);
+        fputs(" <command> [args...]\n", stderr);
+        fputs("Environment variables:\n", stderr);
+        fputs("  MARATHON_PERM_NETWORK=1  - Allow unrestricted network access\n", stderr);
+        fputs("  MARATHON_PERM_STORAGE=1  - Allow full home directory write access\n", stderr);
         return 1;
     }
 
@@ -355,13 +372,13 @@ int main(int argc, char *argv[]) {
 
     if (setup_landlock(has_network, has_storage) < 0) {
         syslog(LOG_ERR, "[SECURITY] Landlock setup failed - Aborting");
-        fprintf(stderr, "[marathon-sandbox] Error: Landlock setup failed. Aborting.\n");
+        fputs("[marathon-sandbox] Error: Landlock setup failed. Aborting.\n", stderr);
         return 1;
     }
 
     if (setup_seccomp() < 0) {
         syslog(LOG_ERR, "[SECURITY] Seccomp setup failed - Aborting");
-        fprintf(stderr, "[marathon-sandbox] Error: Seccomp setup failed. Aborting.\n");
+        fputs("[marathon-sandbox] Error: Seccomp setup failed. Aborting.\n", stderr);
         return 1;
     }
 
