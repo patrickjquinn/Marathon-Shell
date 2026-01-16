@@ -38,17 +38,31 @@ class MarathonAppRegistry : public QAbstractListModel {
         QString     id;
         QString     name;
         QString     icon;
-        AppType     type;
+        AppType     type = Marathon;
         QString     absolutePath;
         QString     entryPoint;
         QString     version;
-        bool        isProtected;
+        bool        isProtected = false;
         QStringList permissions;
         QStringList searchKeywords;
-        QString     deepLinksJson; // JSON string for QML parsing
+        QString     deepLinksJson;
         QStringList categories;
         QStringList handlesUriSchemes;
         QStringList defaultFor;
+
+        AppInfo() = default;
+        AppInfo(const QString &id, const QString &name, const QString &icon, AppType type,
+                const QString &absolutePath, const QString &entryPoint, const QString &version,
+                bool isProtected, const QStringList &permissions)
+            : id(id)
+            , name(name)
+            , icon(icon)
+            , type(type)
+            , absolutePath(absolutePath)
+            , entryPoint(entryPoint)
+            , version(version)
+            , isProtected(isProtected)
+            , permissions(permissions) {}
     };
 
     explicit MarathonAppRegistry(QObject *parent = nullptr);

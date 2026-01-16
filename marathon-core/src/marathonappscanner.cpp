@@ -22,7 +22,7 @@ MarathonAppScanner::MarathonAppScanner(MarathonAppRegistry *registry, QObject *p
     qDebug() << "[MarathonAppScanner] Initialized";
 
 #ifdef HAVE_QT_CONCURRENT
-    // Connect async scan completion
+
     connect(m_scanWatcher, &QFutureWatcher<int>::finished, this, [this]() {
         int count = m_scanWatcher->result();
         qDebug() << "[MarathonAppScanner] Async scan complete. Discovered:" << count << "apps";
@@ -35,14 +35,13 @@ QStringList MarathonAppScanner::getSearchPaths() {
     QStringList paths;
 
 #ifdef Q_OS_MACOS
-    // macOS: use /usr/local/share (user-writable)
+
     paths << "/usr/local/share/marathon-apps";
 #else
-    // Linux: use /usr/share (system apps)
+
     paths << "/usr/share/marathon-apps";
 #endif
 
-    // User apps directory (works on both platforms)
     QString homeDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
     paths << homeDir + "/.local/share/marathon-apps";
 
@@ -51,7 +50,7 @@ QStringList MarathonAppScanner::getSearchPaths() {
 }
 
 void MarathonAppScanner::scanApplications() {
-    // Keep synchronous version for backwards compatibility
+
     emit scanStarted();
     int  count = performScan();
     emit scanComplete(count);
@@ -62,17 +61,17 @@ void MarathonAppScanner::scanApplicationsAsync() {
     emit scanStarted();
 
 #ifdef HAVE_QT_CONCURRENT
-    // Run scan in background thread using QtConcurrent
+
     if (m_scanWatcher) {
         QFuture<int> future = QtConcurrent::run([this]() { return this->performScan(); });
         m_scanWatcher->setFuture(future);
     } else {
-        // Fallback to synchronous if Concurrent not available
+
         int  count = performScan();
         emit scanComplete(count);
     }
 #else
-    // Fallback to synchronous if Concurrent not available
+
     int  count = performScan();
     emit scanComplete(count);
 #endif
@@ -95,7 +94,7 @@ int MarathonAppScanner::performScan() {
         qDebug() << "[MarathonAppScanner] Scanning directory:" << searchPath;
 
         QStringList appDirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-        appDirs.sort(); // Sort alphabetically for consistent ordering
+        appDirs.sort();
 
         for (const QString &appDir : appDirs) {
             QString appPath      = dir.absoluteFilePath(appDir);
@@ -111,9 +110,7 @@ int MarathonAppScanner::performScan() {
             MarathonAppRegistry::AppInfo appInfo = parseManifest(manifestPath, appPath);
 
             if (validateManifest(appInfo)) {
-                // absolutePath already set in parseManifest
 
-                // Register with registry
                 if (!m_registry->hasApp(appInfo.id)) {
                     m_registry->registerAppInfo(appInfo);
                     emit appDiscovered(appInfo.id);
@@ -168,14 +165,13 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     info.name       = obj.value("name").toString();
     info.entryPoint = obj.value("entryPoint").toString();
 
-    // Convert relative icon path to absolute with file:// prefix
     QString iconPath = obj.value("icon").toString();
     if (!iconPath.isEmpty() && !iconPath.startsWith("qrc:") && !iconPath.startsWith("file://")) {
         if (!iconPath.startsWith("/")) {
-            // Relative path - make it absolute
+
             iconPath = info.absolutePath + "/" + iconPath;
         }
-        // Add file:// prefix for QML Image component
+
         info.icon = "file://" + iconPath;
     } else {
         info.icon = iconPath;
@@ -184,35 +180,29 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     info.version     = obj.value("version").toString("1.0.0");
     info.isProtected = obj.value("protected").toBool(false);
 
-    // Parse permissions array
     QJsonArray permissionsArray = obj.value("permissions").toArray();
     for (const QJsonValue &value : permissionsArray) {
         info.permissions.append(value.toString());
     }
 
-    // Parse searchKeywords array
     QJsonArray keywordsArray = obj.value("searchKeywords").toArray();
     for (const QJsonValue &value : keywordsArray) {
         info.searchKeywords.append(value.toString());
     }
 
-    // Parse deepLinks object
     QJsonObject deepLinksObj = obj.value("deepLinks").toObject();
     info.deepLinksJson       = QJsonDocument(deepLinksObj).toJson(QJsonDocument::Compact);
 
-    // Parse categories array
     QJsonArray categoriesArray = obj.value("categories").toArray();
     for (const QJsonValue &value : categoriesArray) {
         info.categories.append(value.toString());
     }
 
-    // Parse handlesUriSchemes array
     QJsonArray uriSchemesArray = obj.value("handlesUriSchemes").toArray();
     for (const QJsonValue &value : uriSchemesArray) {
         info.handlesUriSchemes.append(value.toString());
     }
 
-    // Parse defaultFor array
     QJsonArray defaultForArray = obj.value("defaultFor").toArray();
     for (const QJsonValue &value : defaultForArray) {
         info.defaultFor.append(value.toString());

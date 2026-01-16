@@ -20,14 +20,11 @@ MarathonAppInstaller::MarathonAppInstaller(MarathonAppRegistry *registry,
     , m_verifier(new MarathonAppVerifier(this)) {
     qDebug() << "[MarathonAppInstaller] Initialized";
 
-    // Connect packager signals
     connect(m_packager, &MarathonAppPackager::packagingProgress, this, [this](int percent) {
-        // Forward packaging progress
         qDebug() << "[MarathonAppInstaller] Packaging progress:" << percent << "%";
     });
 
     connect(m_packager, &MarathonAppPackager::extractionProgress, this, [this](int percent) {
-        // Forward extraction progress
         qDebug() << "[MarathonAppInstaller] Extraction progress:" << percent << "%";
     });
 }
@@ -66,7 +63,6 @@ bool MarathonAppInstaller::validateManifest(const QString &manifestPath) {
 
     QJsonObject obj = doc.object();
 
-    // Validate required fields
     if (!obj.contains("id") || !obj.contains("name") || !obj.contains("entryPoint")) {
         qWarning() << "[MarathonAppInstaller] Manifest missing required fields";
         return false;
@@ -126,14 +122,12 @@ bool MarathonAppInstaller::removeDirectory(const QString &path) {
 bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
     qDebug() << "[MarathonAppInstaller] Installing from directory:" << sourcePath;
 
-    // Validate manifest
     QString manifestPath = sourcePath + "/manifest.json";
     if (!validateManifest(manifestPath)) {
         emit installFailed("unknown", "Invalid or missing manifest.json");
         return false;
     }
 
-    // Parse manifest to get app ID
     QFile file(manifestPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         emit installFailed("unknown", "Failed to open manifest.json");
@@ -204,7 +198,6 @@ bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
 
     emit installProgress(appId, 90);
 
-    // Rescan applications
     m_scanner->scanApplications();
 
     emit installProgress(appId, 100);
@@ -217,13 +210,11 @@ bool MarathonAppInstaller::installFromDirectory(const QString &sourcePath) {
 bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
     qDebug() << "[MarathonAppInstaller] Installing from package:" << packagePath;
 
-    // Check if package exists
     if (!QFile::exists(packagePath)) {
         emit installFailed("unknown", "Package file does not exist");
         return false;
     }
 
-    // Create temporary directory for extraction
     QTemporaryDir tempDir;
     if (!tempDir.isValid()) {
         emit installFailed("unknown", "Failed to create temporary directory");
@@ -234,7 +225,6 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
 
     qDebug() << "[MarathonAppInstaller] Extracting to temp:" << tempExtractPath;
 
-    // Extract package
     if (!m_packager->extractPackage(packagePath, tempExtractPath)) {
         QString error = "Failed to extract package: " + m_packager->lastError();
         emit    installFailed("unknown", error);
@@ -243,7 +233,6 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
 
     emit installProgress("extracting", 30);
 
-    // Verify package signature
     qDebug() << "[MarathonAppInstaller] Verifying package signature...";
     MarathonAppVerifier::VerificationResult verifyResult =
         m_verifier->verifyDirectory(tempExtractPath);
@@ -255,9 +244,8 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
         return false;
     }
 
-    emit installProgress("verifying", 50);
+    emit    installProgress("verifying", 50);
 
-    // Read manifest to get app ID
     QString manifestPath = tempExtractPath + "/manifest.json";
     QFile   manifestFile(manifestPath);
     if (!manifestFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -285,16 +273,13 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
     emit installStarted(appId);
     emit installProgress(appId, 60);
 
-    // Check if already installed
     if (m_registry->hasApp(appId)) {
         qDebug() << "[MarathonAppInstaller] App already installed, updating:" << appId;
     }
 
-    // Determine destination
     QString installBase = getTargetInstallPath();
     QString destPath    = installBase + "/" + appId;
 
-    // Remove existing installation
     if (QDir(destPath).exists()) {
         if (!removeDirectory(destPath)) {
             emit installFailed(appId, "Failed to remove existing installation");
@@ -304,9 +289,8 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
 
     emit installProgress(appId, 75);
 
-    // Move extracted files to destination
     if (!QDir().rename(tempExtractPath, destPath)) {
-        // If rename fails, try copy
+
         if (!copyDirectory(tempExtractPath, destPath)) {
             emit installFailed(appId, "Failed to copy app files to installation directory");
             return false;
@@ -315,7 +299,6 @@ bool MarathonAppInstaller::installFromPackage(const QString &packagePath) {
 
     emit installProgress(appId, 90);
 
-    // Rescan applications
     m_scanner->scanApplications();
 
     emit installProgress(appId, 100);
@@ -332,7 +315,6 @@ bool MarathonAppInstaller::canUninstall(const QString &appId) {
 bool MarathonAppInstaller::uninstallApp(const QString &appId) {
     qDebug() << "[MarathonAppInstaller] Uninstalling app:" << appId;
 
-    // Check if protected
     if (m_registry->isProtected(appId)) {
         QString error = "Cannot uninstall protected system app";
         qWarning() << "[MarathonAppInstaller]" << error << ":" << appId;
@@ -340,13 +322,11 @@ bool MarathonAppInstaller::uninstallApp(const QString &appId) {
         return false;
     }
 
-    // Check if installed
     if (!m_registry->hasApp(appId)) {
         emit uninstallFailed(appId, "App not found");
         return false;
     }
 
-    // Get app info
     QVariantMap appInfo = m_registry->getApp(appId);
     QString     appPath = appInfo.value("absolutePath").toString();
 
@@ -355,13 +335,11 @@ bool MarathonAppInstaller::uninstallApp(const QString &appId) {
         return false;
     }
 
-    // Remove directory
     if (!removeDirectory(appPath)) {
         emit uninstallFailed(appId, "Failed to remove app files");
         return false;
     }
 
-    // Rescan to update registry
     m_scanner->scanApplications();
 
     emit uninstallComplete(appId);

@@ -15,13 +15,13 @@ class MarathonAppScanner : public QObject {
     explicit MarathonAppScanner(MarathonAppRegistry *registry, QObject *parent = nullptr);
 
     Q_INVOKABLE void    scanApplications();
-    Q_INVOKABLE void    scanApplicationsAsync(); // New async method
+    Q_INVOKABLE void    scanApplicationsAsync();
     Q_INVOKABLE QString getManifestPath(const QString &appPath);
 
   signals:
     void scanStarted();
     void appDiscovered(const QString &appId);
-    void scanProgress(int current, int total); // New progress signal
+    void scanProgress(int current, int total);
     void scanComplete(int count);
     void scanError(const QString &error);
 
@@ -30,12 +30,12 @@ class MarathonAppScanner : public QObject {
     MarathonAppRegistry::AppInfo parseManifest(const QString &manifestPath,
                                                const QString &appDirPath);
     bool                         validateManifest(const MarathonAppRegistry::AppInfo &info);
-    int                          performScan(); // Actual scan logic (for thread), returns count
+    int                          performScan();
 
     MarathonAppRegistry         *m_registry;
 #ifdef HAVE_QT_CONCURRENT
-    QFutureWatcher<int> *m_scanWatcher; // For async scanning
+    QFutureWatcher<int> *m_scanWatcher;
 #else
-    void *m_scanWatcher; // Placeholder when Concurrent not available
+    void *m_scanWatcher;
 #endif
 };
