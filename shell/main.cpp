@@ -74,6 +74,11 @@
 #include "src/services/telephonyintegrationcpp.h"
 #include "src/services/screenshotservicecpp.h"
 #include "src/services/sessionstore.h"
+#include "src/services/systemstatusstore.h"
+#include "src/services/systemcontrolstore.h"
+#include "src/services/uistore.h"
+#include "src/services/appstore.h"
+#include "src/services/wallpaperstore.h"
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
@@ -316,6 +321,9 @@ int main(int argc, char *argv[]) {
     qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
 
     auto *settingsManager = createObject<SettingsManager>(ctx, "SettingsManagerCpp", &app);
+    auto *wallpaperStore  = new WallpaperStore(settingsManager, &app);
+    qmlRegisterSingletonInstance<WallpaperStore>("MarathonOS.Shell", 1, 0, "WallpaperStore",
+                                                 wallpaperStore);
 
     createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
     if (debugEnabled || profileMode) {
@@ -333,6 +341,8 @@ int main(int argc, char *argv[]) {
     createObject<DesktopFileParser>(ctx, "DesktopFileParserCpp", &app);
 
     auto *appRegistry = createObject<MarathonAppRegistry>(ctx, "MarathonAppRegistry", &app);
+    auto *appStore    = new AppStore(appRegistry, &app);
+    qmlRegisterSingletonInstance<AppStore>("MarathonOS.Shell", 1, 0, "AppStore", appStore);
     auto *appScanner =
         createObject<MarathonAppScanner>(ctx, "MarathonAppScanner", appRegistry, &app);
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
@@ -353,13 +363,13 @@ int main(int argc, char *argv[]) {
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
-    auto *networkManager  = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
-    auto *powerManager    = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
-    auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager  = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
-                                                            rotationManager, &app);
-    auto *audioManager    = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
-    createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *networkManager   = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
+    auto *powerManager     = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
+    auto *rotationManager  = createObject<RotationManager>(ctx, "RotationManager", &app);
+    auto *displayManager   = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
+                                                             rotationManager, &app);
+    auto *audioManager     = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
+    auto *modemManager     = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
     auto *sensorManager    = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
@@ -367,7 +377,7 @@ int main(int argc, char *argv[]) {
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
-    createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
+    auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
     createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
@@ -418,8 +428,21 @@ int main(int argc, char *argv[]) {
     auto *notificationService = createObject<NotificationServiceCpp>(
         ctx, "NotificationService", notificationModel, settingsManager, audioPolicyController,
         hapticsObj, &app);
-    createObject<ScreenshotServiceCpp>(ctx, "ScreenshotService", audioPolicyController, hapticsObj,
-                                       notificationService, &app);
+    auto *systemStatusStore =
+        new SystemStatusStore(powerManager, networkManager, bluetoothManager, modemManager,
+                              notificationService, settingsManager, &app);
+    qmlRegisterSingletonInstance<SystemStatusStore>("MarathonOS.Shell", 1, 0, "SystemStatusStore",
+                                                    systemStatusStore);
+    auto *screenshotService = createObject<ScreenshotServiceCpp>(
+        ctx, "ScreenshotService", audioPolicyController, hapticsObj, notificationService, &app);
+    auto *systemControlStore = new SystemControlStore(
+        networkManager, bluetoothManager, displayManager, flashlightManager, modemManager,
+        settingsManager, alarmManager, locationManager, hapticManager, powerManager, audioManager,
+        audioPolicyController, screenshotService, &app);
+    qmlRegisterSingletonInstance<SystemControlStore>("MarathonOS.Shell", 1, 0, "SystemControlStore",
+                                                     systemControlStore);
+    auto *uiStore = new UIStore(&app);
+    qmlRegisterSingletonInstance<UIStore>("MarathonOS.Shell", 1, 0, "UIStore", uiStore);
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {

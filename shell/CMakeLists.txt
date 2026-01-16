@@ -94,6 +94,16 @@ set(SOURCES
     src/managers/alarmmanagercpp.cpp
     src/services/statusbariconservicecpp.h
     src/services/statusbariconservicecpp.cpp
+    src/services/systemstatusstore.h
+    src/services/systemstatusstore.cpp
+    src/services/systemcontrolstore.h
+    src/services/systemcontrolstore.cpp
+    src/services/uistore.h
+    src/services/uistore.cpp
+    src/services/appstore.h
+    src/services/appstore.cpp
+    src/services/wallpaperstore.h
+    src/services/wallpaperstore.cpp
     src/managers/flashlightmanagercpp.h
     src/managers/flashlightmanagercpp.cpp
     src/controllers/audioroutingmanager.h
@@ -216,13 +226,6 @@ set(QML_FILES
     qml/components/MediaPlaybackManager.qml
     qml/apps/template/TemplateApp.qml
     qml/apps/native/NativeAppWindow.qml
-    qml/stores/AppStore.qml
-    qml/stores/WallpaperStore.qml
-    qml/stores/SystemStatusStore.qml
-    qml/stores/SystemControlStore.qml
-    src/services/sessionstore.h
-    src/services/sessionstore.cpp
-    qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/SurfaceRegistry.qml
@@ -255,11 +258,6 @@ qt6_add_executable(marathon-shell ${SOURCES})
 
 # Mark singleton files BEFORE adding QML module
 set(SINGLETON_FILES
-    qml/stores/AppStore.qml
-    qml/stores/WallpaperStore.qml
-    qml/stores/SystemStatusStore.qml
-    qml/stores/SystemControlStore.qml
-    qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/core/SurfaceRegistry.qml
@@ -306,6 +304,16 @@ qt6_add_qml_module(marathon-shell
     SOURCES
         src/services/sessionstore.cpp
         src/services/sessionstore.h
+        src/services/systemstatusstore.cpp
+        src/services/systemstatusstore.h
+        src/services/systemcontrolstore.cpp
+        src/services/systemcontrolstore.h
+        src/services/uistore.cpp
+        src/services/uistore.h
+        src/services/appstore.cpp
+        src/services/appstore.h
+        src/services/wallpaperstore.cpp
+        src/services/wallpaperstore.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
