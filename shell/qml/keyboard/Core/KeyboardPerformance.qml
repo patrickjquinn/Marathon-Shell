@@ -7,7 +7,7 @@ QtObject {
     readonly property bool useTextMetricsCache: true
     readonly property int keyPressAnimationDuration: 50
     readonly property bool lazyLoadPredictions: true
-    readonly property int touchEventPriority: Qt.HighEventPriority
+    readonly property int touchEventPriority: 1
     readonly property bool optimizeBindings: true
     property var frameTimings: []
     property real averageFrameTime: 16.67

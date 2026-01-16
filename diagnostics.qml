@@ -1,6 +1,3 @@
-// Marathon Shell Internal Diagnostics
-// Shows what all C++ services are reporting
-
 import MarathonOS.Shell
 import QtQuick
 import QtQuick.Controls
@@ -40,7 +37,6 @@ ApplicationWindow {
                 color: "#00ff00"
             }
 
-            // Bluetooth
             Rectangle {
                 width: parent.width
                 height: bluetoothCol.height + 20
@@ -104,7 +100,6 @@ ApplicationWindow {
                 }
             }
 
-            // Display/Brightness
             Rectangle {
                 width: parent.width
                 height: displayCol.height + 20
@@ -154,7 +149,6 @@ ApplicationWindow {
                 }
             }
 
-            // Audio
             Rectangle {
                 width: parent.width
                 height: audioCol.height + 20
@@ -197,7 +191,6 @@ ApplicationWindow {
                 }
             }
 
-            // Network
             Rectangle {
                 width: parent.width
                 height: networkCol.height + 20
@@ -261,7 +254,6 @@ ApplicationWindow {
                 }
             }
 
-            // Power
             Rectangle {
                 width: parent.width
                 height: powerCol.height + 20
@@ -311,7 +303,6 @@ ApplicationWindow {
                 }
             }
 
-            // QML Services Status
             Text {
                 text: "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
                 font.family: "monospace"

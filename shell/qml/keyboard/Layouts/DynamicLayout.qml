@@ -5,7 +5,7 @@ Item {
 
     property bool shifted: false
     property bool capsLock: false
-    property var layoutData: null // Set via Connections.onLayoutLoaded only
+    property var layoutData: null
     property bool rtl: dynamicLayout.layoutData ? dynamicLayout.layoutData.rtl : false
     property bool isLoading: dynamicLayout.layoutData === null
 
@@ -19,7 +19,6 @@ Item {
     signal languageSwitchClicked
 
     implicitHeight: layoutColumn.implicitHeight
-    // Initialize from LanguageManager if already loaded (for hot reloading)
     Component.onCompleted: {
         if (LanguageManager.currentLayout)
             dynamicLayout.layoutData = LanguageManager.currentLayout;

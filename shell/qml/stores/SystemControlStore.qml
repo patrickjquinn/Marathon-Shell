@@ -2,16 +2,6 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // Don't set brightness property here - let the binding update from DisplayManager
-    // Don't set volume property here - let the binding update from AudioManager
-    // Bindings automatically update from NetworkManagerCpp/BluetoothManagerCpp properties and Binding objects above
-    // No need for Connections - the Binding objects with restoreMode handle everything
-    // Binding automatically updates from PowerManager.isPowerSaveMode (line 32)
-    // Don't assign - let the binding update automatically
-    // Don't assign - let the binding update automatically
-    // Don't assign - let the binding update automatically
-    // Default hotspot config - can be customized later
-
     id: systemControl
 
     property bool isWifiOn: typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp ? NetworkManagerCpp.wifiEnabled : true
@@ -21,31 +11,19 @@ QtObject {
     property bool isFlashlightOn: (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp) ? FlashlightManagerCpp.enabled : false
     property bool isCellularOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.modemEnabled : false
     property bool isCellularDataOn: typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
-    property bool isDndMode: AudioManager.dndEnabled
-    property bool isAlarmOn: typeof AlarmManager !== 'undefined' ? (AlarmManager.hasActiveAlarm || _hasEnabledAlarm()) : false
+    property bool isDndMode: typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp ? SettingsManagerCpp.dndEnabled : false
+    property bool isAlarmOn: typeof AlarmManagerCpp !== 'undefined' && AlarmManagerCpp ? (AlarmManagerCpp.hasActiveAlarm || AlarmManagerCpp.hasEnabledAlarm) : false
     property bool isAutoBrightnessOn: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.autoBrightnessEnabled : false
     property bool isLocationOn: typeof LocationManager !== 'undefined' ? LocationManager.active : false
     property bool isHotspotOn: typeof NetworkManagerCpp !== 'undefined' ? NetworkManagerCpp.isHotspotActive() : false
     property bool isVibrationOn: typeof HapticManager !== 'undefined' ? HapticManager.enabled : true
     property bool isNightLightOn: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.nightLightEnabled : false
-    property int brightness: 50 // Managed by binding below
-    property int volume: 50 // Managed by binding below
-    // Two-way bindings with restore mode (as properties)
+    property int brightness: 50
+    property int volume: 50
     property Binding brightnessBinding
     property Binding volumeBinding
     property bool isLowPowerMode: (typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.isPowerSaveMode : false
-    // Two-way binding for rotation lock (as property)
     property Binding rotationLockBinding
-
-    function _hasEnabledAlarm() {
-        if (typeof AlarmManager !== 'undefined' && AlarmManager.alarms) {
-            for (var i = 0; i < AlarmManager.alarms.length; i++) {
-                if (AlarmManager.alarms[i].enabled)
-                    return true;
-            }
-        }
-        return false;
-    }
 
     function toggleWifi() {
         if (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp)
@@ -106,7 +84,10 @@ QtObject {
 
     function toggleDndMode() {
         var newMode = !isDndMode;
-        AudioManager.setDoNotDisturb(newMode);
+        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp)
+            SettingsManagerCpp.dndEnabled = newMode;
+        if (typeof AudioPolicyControllerCpp !== 'undefined' && AudioPolicyControllerCpp)
+            AudioPolicyControllerCpp.setDoNotDisturb(newMode);
         Logger.info("SystemControl", "DND mode toggled to: " + newMode);
     }
 
@@ -168,7 +149,6 @@ QtObject {
 
     function captureScreenshot() {
         Logger.info("SystemControl", "Screenshot captured");
-        // Screenshot logic will be handled by ScreenshotService
         if (typeof ScreenshotService !== 'undefined')
             ScreenshotService.captureScreen();
     }
@@ -183,7 +163,10 @@ QtObject {
 
     function setVolume(value) {
         var clamped = Math.max(0, Math.min(100, value));
-        AudioManager.setVolume(clamped / 100);
+        if (typeof AudioManagerCpp !== 'undefined' && AudioManagerCpp)
+            AudioManagerCpp.setVolume(clamped / 100);
+        else if (typeof AudioPolicyControllerCpp !== 'undefined' && AudioPolicyControllerCpp)
+            AudioPolicyControllerCpp.setMasterVolume(clamped / 100);
         Logger.debug("SystemControl", "Volume: " + clamped);
     }
 
@@ -219,7 +202,7 @@ QtObject {
     volumeBinding: Binding {
         target: systemControl
         property: "volume"
-        value: Math.round(AudioManager.volume * 100)
+        value: (typeof AudioManagerCpp !== 'undefined' && AudioManagerCpp) ? Math.round(AudioManagerCpp.volume * 100) : 50
         restoreMode: Binding.RestoreBinding
     }
 

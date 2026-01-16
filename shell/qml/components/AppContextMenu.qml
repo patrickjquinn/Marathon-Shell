@@ -99,7 +99,7 @@ Item {
                     anchors.fill: parent
                     onClicked: {
                         Logger.info("AppContextMenu", "App info for: " + appData.name);
-                        HapticService.light();
+                        HapticManager.light();
                         appInfo();
                         hide();
                     }
@@ -152,7 +152,7 @@ Item {
                     anchors.fill: parent
                     onClicked: {
                         Logger.info("AppContextMenu", "Uninstall: " + appData.name);
-                        HapticService.medium();
+                        HapticManager.medium();
                         uninstall();
                         hide();
                         UIStore.showConfirmDialog("Uninstall " + appData.name + "?", "This app will be removed from your device.", function () {

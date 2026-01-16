@@ -2,11 +2,6 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // batteryLevel and isCharging are already bound directly (line 8-9)
-    // No need to update them here - direct bindings are more efficient
-    // notificationCount is already bound to NotificationService.unreadCount at line 38
-    // Switch to 1s updates after first tick
-
     id: systemStatus
 
     property int batteryLevel: (typeof PowerManagerService !== "undefined" && PowerManagerService) ? PowerManagerService.batteryLevel : 0
@@ -40,20 +35,17 @@ QtObject {
     property real storageUsed: 45.2
     property real storageTotal: 128
     property date currentTime: new Date()
-    property string timeString // Updated by timer, initialized on first tick
-    property string dateString // Updated by timer, initialized on first tick
+    property string timeString
+    property string dateString
     property var notifications: []
     property int notificationCount: NotificationService.unreadCount
     property Timer updateTimer
-    // Listen for time format changes using Connections (proper lifetime management)
     property Connections timeFormatConnection
     property Connections powerManagerConnections
     property Connections notificationServiceConnections
 
     function updateTime() {
         systemStatus.currentTime = new Date();
-        // In strict app process isolation, apps may import MarathonOS.Shell QML but won't have
-        // shell-only context properties like SettingsManagerCpp. Guard to avoid ReferenceError spam.
         var tf = (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) ? SettingsManagerCpp.timeFormat : "24h";
         systemStatus.timeString = Qt.formatTime(systemStatus.currentTime, tf === "24h" ? "HH:mm" : "h:mm AP");
         systemStatus.dateString = Qt.formatDate(systemStatus.currentTime, "dddd, MMMM d");
@@ -85,7 +77,7 @@ QtObject {
     }
 
     updateTimer: Timer {
-        interval: 16 // 60fps for immediate first update
+        interval: 16
         running: true
         repeat: true
         triggeredOnStart: true

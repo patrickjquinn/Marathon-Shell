@@ -20,6 +20,7 @@ Item {
         spacing: 0
 
         Row {
+            id: row1
             readonly property real keyWidth: (width - spacing * 9) / 10
 
             width: parent.width
@@ -29,7 +30,7 @@ Item {
                 model: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
 
                 Key {
-                    width: parent.keyWidth
+                    width: row1.keyWidth
                     text: modelData
                     displayText: modelData
                     onClicked: layout.keyClicked(displayText)
@@ -44,6 +45,7 @@ Item {
         }
 
         Row {
+            id: row2
             readonly property real keyWidth: (width - spacing * 9) / 10
 
             width: parent.width
@@ -53,7 +55,7 @@ Item {
                 model: ["@", "#", "$", "%", "&", "*", "(", ")", "-", "+"]
 
                 Key {
-                    width: parent.keyWidth
+                    width: row2.keyWidth
                     text: modelData
                     displayText: modelData
                     onClicked: layout.keyClicked(displayText)

@@ -17,6 +17,7 @@ Rectangle {
     property string loadError: ""
     property bool hasError: false
     property bool suppressSplash: false
+    property var appContainer: null
     property var activeDialogs: []
     property bool isClosing: false
     property Component dialogOverlayComponent
@@ -24,7 +25,6 @@ Rectangle {
     signal closed
     signal minimized
 
-    // Helper function for finishing component creation (moved to top level to avoid hoisting issues)
     function _finishNativeCreation(component, id, name, icon, surface, sid) {
         if (!component)
             return;
@@ -71,7 +71,7 @@ Rectangle {
     }
 
     function show(id, name, icon, type, surface, sid) {
-        if (appWindow.appId === id && type === "native" && appContentLoader.item && appContentLoader.status === Loader.Ready && appContentLoader.item.appInstance && appContentLoader.item.appInstance.visible) {
+        if (appWindow.appId === id && type === "native" && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
             if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface && surface !== null) {
                 Logger.info("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " - creating overlay");
                 var dialog = dialogOverlayComponent.createObject(appWindow, {
@@ -87,8 +87,8 @@ Rectangle {
             Logger.info("AppWindow", "Seamlessly updating surface for active app: " + id);
             appWindow.waylandSurface = surface;
             appWindow.surfaceId = sid;
-            appContentLoader.item.appInstance.waylandSurface = surface;
-            appContentLoader.item.appInstance.surfaceId = sid;
+            appWindow.appContainer["appInstance"].waylandSurface = surface;
+            appWindow.appContainer["appInstance"].surfaceId = sid;
             appWindow.visible = true;
             appWindow.forceActiveFocus();
             if (appWindow.opacity < 1)
@@ -106,9 +106,9 @@ Rectangle {
         hasError = false;
         loadError = "";
         Logger.info("AppWindow", "Showing app window for: " + name + " (type: " + appType + ")");
-        if (appContentLoader.item) {
-            if (appContentLoader.item.children.length > 0) {
-                var currentChild = appContentLoader.item.children[0];
+        if (appWindow.appContainer) {
+            if (appWindow.appContainer["children"].length > 0) {
+                var currentChild = appWindow.appContainer["children"][0];
                 if (currentChild && currentChild.parent) {
                     Logger.info("AppWindow", "Unparenting previous app instance");
                     currentChild.parent = null;
@@ -125,8 +125,8 @@ Rectangle {
                 Logger.info("AppWindow", "Reusing existing native app instance: " + id);
                 existingNativeInstance.visible = true;
                 appWindow.pendingAppInstance = existingNativeInstance;
-                if (appContentLoader.status === Loader.Ready && appContentLoader.item) {
-                    appContentLoader.item.adoptPendingApp();
+                if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
+                    appWindow.appContainer["adoptPendingApp"]();
                 } else {
                     suppressSplash = true;
                     appContentLoader.sourceComponent = undefined;
@@ -140,7 +140,6 @@ Rectangle {
                 if (component.status === Component.Ready) {
                     _finishNativeCreation(component, id, name, icon, surface, sid);
                 } else {
-                    // Capture variables for the callback
                     var capturedComponent = component;
                     var capturedId = id;
                     var capturedName = name;
@@ -165,11 +164,11 @@ Rectangle {
 
     function detachCurrentApp() {
         Logger.info("AppWindow", "Detaching current app instance");
-        if (appContentLoader.item && appContentLoader.item.children.length > 0) {
-            var app = appContentLoader.item.children[0];
+        if (appWindow.appContainer && appWindow.appContainer["children"].length > 0) {
+            var app = appWindow.appContainer["children"][0];
             if (app) {
                 app.parent = null;
-                appContentLoader.item.appInstance = null;
+                appWindow.appContainer["appInstance"] = null;
                 return app;
             }
         }
@@ -227,9 +226,9 @@ Rectangle {
             appContentLoader.source = "appInstanceContainer";
             appContentLoader.sourceComponent = appInstanceContainer;
         } else {
-            instance.parent = appContentLoader.item;
-            instance.anchors.fill = appContentLoader.item;
-            appContentLoader.item.appInstance = instance;
+            instance.parent = appWindow.appContainer;
+            instance.anchors.fill = appWindow.appContainer;
+            appWindow.appContainer["appInstance"] = instance;
         }
         instance.visible = true;
         appWindow.visible = true;
@@ -254,7 +253,7 @@ Rectangle {
 
         anchors.fill: parent
         color: MColors.background
-        visible: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appContentLoader.item && appContentLoader.item.appInstance && appContentLoader.item.appInstance.revealReady === true)
+        visible: appWindow.isLoadingComponent && !appWindow.hasError && !(appContentLoader.status === Loader.Ready && appWindow.appContainer && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].revealReady === true)
         z: 1000
 
         Column {
@@ -457,6 +456,7 @@ Rectangle {
         asynchronous: true
         visible: status === Loader.Ready && item !== null
         opacity: status === Loader.Ready ? 1 : 0
+        onItemChanged: appWindow.appContainer = item
         onStatusChanged: {
             if (status === Loader.Error) {
                 Logger.error("AppWindow", "Failed to load app content for: " + appId);

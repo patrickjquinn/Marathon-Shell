@@ -49,11 +49,9 @@ Item {
         }
     }
 
-    // Center content: Clock OR Lock icon (animated transition)
     Item {
         id: centerContent
 
-        // Dynamic position based on setting
         property string position: (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.statusBarClockPosition) ? SettingsManagerCpp.statusBarClockPosition : "center"
 
         anchors.verticalCenter: parent.verticalCenter
@@ -72,8 +70,7 @@ Item {
                 }
 
                 PropertyChanges {
-                    target: centerContent
-                    anchors.leftMargin: leftIconGroup.x + leftIconGroup.width + Constants.spacingLarge
+                    centerContent.anchors.leftMargin: leftIconGroup.x + leftIconGroup.width + Constants.spacingLarge
                 }
             },
             State {
@@ -99,13 +96,11 @@ Item {
                 }
 
                 PropertyChanges {
-                    target: centerContent
-                    anchors.rightMargin: rightIconGroup.width + rightIconGroup.anchors.rightMargin + Constants.spacingLarge
+                    centerContent.anchors.rightMargin: rightIconGroup.width + rightIconGroup.anchors.rightMargin + Constants.spacingLarge
                 }
             }
         ]
 
-        // Clock text (shown when NOT on lock screen)
         Text {
             id: clockText
 
@@ -125,28 +120,23 @@ Item {
             }
         }
 
-        // Lock icon (shown when on lock screen, animates on lock state changes)
         Icon {
             id: lockIcon
 
-            // Property to control whether name behavior is enabled
             property bool enableNameBehavior: true
 
             anchors.centerIn: parent
             visible: opacity > 0.01
             opacity: SessionStore.isOnLockScreen ? 1 : 0
-            // Removed excessive opacity logging - fires constantly during animations
             name: SessionStore.isLocked ? "lock" : "lock-keyhole-open"
-            size: Constants.iconSizeSmall // Match other status bar icons
+            size: Constants.iconSizeSmall
             color: MColors.text
-            // Debug logging
             Component.onCompleted: {
                 console.log("[StatusBar] Lock icon initialized - isLocked:", SessionStore.isLocked, "name:", name);
             }
             onNameChanged: {
                 console.log("[StatusBar] Lock icon name changed to:", name, "(isLocked:", SessionStore.isLocked, ")");
             }
-            // Animated lock state transitions (300ms, bouncy feel)
             scale: SessionStore.isAnimatingLock ? 0.8 : 1
             rotation: {
                 if (SessionStore.lockTransition === "locking")
@@ -157,11 +147,9 @@ Item {
 
                 return 0;
             }
-            // GPU acceleration for smooth 60fps animations
             layer.enabled: true
             layer.smooth: true
 
-            // Shake animation for invalid PIN
             SequentialAnimation {
                 id: shakeAnimation
 
@@ -222,16 +210,9 @@ Item {
                 }
             }
 
-            // Unlock animation for valid PIN
             SequentialAnimation {
-                // Unlocking is session logic and should be triggered by the auth flow (PinScreen),
-                // not by a UI animation. This also avoids duplicate unlocks if multiple status bars
-                // exist in different shell states.
-                // Return to normal scale; the icon name will update via SessionStore.isLocked changes.
-
                 id: unlockAnimation
 
-                // Disable automatic name behavior during custom animation
                 PropertyAction {
                     target: lockIcon
                     property: "enableNameBehavior"
@@ -241,7 +222,6 @@ Item {
                 ScriptAction {
                     script: console.log("[StatusBar] Unlock animation started!")
                 }
-                // Pulse scale up
 
                 NumberAnimation {
                     target: lockIcon
@@ -250,7 +230,6 @@ Item {
                     duration: 200
                     easing.type: Easing.OutCubic
                 }
-                // IMPORTANT: Do not call SessionStore.unlock() from the status bar.
 
                 NumberAnimation {
                     target: lockIcon
@@ -259,7 +238,6 @@ Item {
                     duration: 150
                     easing.type: Easing.OutBack
                 }
-                // Re-enable automatic name behavior
 
                 PropertyAction {
                     target: lockIcon
@@ -272,7 +250,6 @@ Item {
                 }
             }
 
-            // Connect to SessionStore signals
             Connections {
                 function onTriggerShakeAnimation() {
                     console.log("[StatusBar] Received triggerShakeAnimation signal");
@@ -308,7 +285,6 @@ Item {
                 }
             }
 
-            // Smooth morph animation when icon name changes
             Behavior on name {
                 enabled: lockIcon.enableNameBehavior
 
@@ -360,7 +336,7 @@ Item {
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            visible: StatusBarIconService.shouldShowDND(SystemStatusStore.isDndMode)
+            visible: StatusBarIconService.shouldShowDnd(SystemStatusStore.isDndMode)
             opacity: 0.9
         }
 
@@ -373,7 +349,6 @@ Item {
             visible: (typeof BluetoothManagerCpp !== "undefined" && BluetoothManagerCpp ? BluetoothManagerCpp.available : false) && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
 
-        // Cellular - always show, signal-off (crossed antenna) when unavailable
         Icon {
             name: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength) : "smartphone"
             color: MColors.text
@@ -382,9 +357,8 @@ Item {
             opacity: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) ? StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength) : 0.3
         }
 
-        // Ethernet - only show when connected
         Icon {
-            name: "cable" // Using cable icon instead of plug-zap to avoid confusion with power
+            name: "cable"
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
@@ -392,7 +366,6 @@ Item {
             opacity: 1
         }
 
-        // WiFi - always show, wifi-off when unavailable
         Icon {
             name: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false) ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : false) : "wifi-off"
             color: MColors.text

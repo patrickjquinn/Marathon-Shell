@@ -4,6 +4,7 @@ import QtQuick
 import QtWayland.Compositor
 
 ShellSurfaceItem {
+    id: surfaceItem
     property var surfaceObj: null
     property int surfaceId: -1
     property size lastSentSize: Qt.size(0, 0)
@@ -84,9 +85,6 @@ ShellSurfaceItem {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp skipped: no toplevel (surfaceObj: " + (surfaceObj ? "exists" : "null") + ")");
             return;
         }
-        // CRITICAL: Validate the entire xdgSurface chain before calling sendMaximized
-        // This prevents SIGSEGV when toplevel exists but internal structures are not yet initialized
-        // (race condition on Alpine/aarch64 with Qt6WaylandCompositor)
         var xdgSurface = toplevel.xdgSurface;
         if (!xdgSurface) {
             Logger.debug("WaylandShellSurfaceItem", "sendSizeToApp deferred: toplevel.xdgSurface not ready yet");
@@ -106,22 +104,15 @@ ShellSurfaceItem {
         lastSentSize = newSize;
         hasSentInitialSize = true;
         Logger.info("WaylandShellSurfaceItem", "Configuring app size: " + newSize.width + "x" + newSize.height);
-        // WORKAROUND: Use sendConfigure instead of sendMaximized to avoid
-        // Qt6WaylandCompositor + eglfs crash. sendMaximized causes SIGSEGV on
-        // embedded platforms due to OpenGL context issues in xdg-toplevel handling.
-        // sendConfigure with explicit size and states is more stable.
         var states = [];
-        states.push(1); // activated (XdgToplevel.State.Activated)
-        // Note: Don't push maximized state (3) - causes same crash on some platforms
+        states.push(1);
         toplevel.sendConfigure(newSize, states);
         if (AppLaunchService.compositor) {
             AppLaunchService.compositor.activateSurface(surfaceId);
-            // Take QML focus so keyboard events flow to the WaylandQuickItem
             Qt.callLater(takeFocusForKeyboard);
         }
     }
 
-    // Take QML focus when the surface is activated so keyboard events flow to it
     function takeFocusForKeyboard() {
         if (!isMinimized && hasSentInitialSize)
             forceActiveFocus();
@@ -130,9 +121,6 @@ ShellSurfaceItem {
     autoCreatePopupItems: true
     opacity: hasSentInitialSize && hasFirstFrame ? 1 : 0
     bufferLocked: isMinimized
-    // CRITICAL: Only assign shellSurface when the underlying surface is fully initialized.
-    // Qt's QWaylandQuickShellSurfaceItem::setShellSurface connects signals to the surface,
-    // and will SIGSEGV if xdgSurface.surface is null during the handoff.
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
         if (xdg && xdg.surface)
@@ -141,7 +129,7 @@ ShellSurfaceItem {
         return null;
     }
     touchEventsEnabled: true
-    focusOnClick: true // Ensure keyboard focus on click
+    focusOnClick: true
     output: AppLaunchService.compositor ? AppLaunchService.compositor.output : null
     onShellSurfaceChanged: {
         if (shellSurface) {
@@ -183,7 +171,7 @@ ShellSurfaceItem {
         Rectangle {
             anchors.fill: parent
             color: MColors.elevated
-            visible: !parent.parent.shellSurface
+            visible: !surfaceItem.hasFirstFrame
 
             Text {
                 anchors.centerIn: parent

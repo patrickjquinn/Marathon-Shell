@@ -40,7 +40,7 @@ Item {
 
         width: Math.round(40 * Constants.scaleFactor)
         height: Math.round(30 * Constants.scaleFactor)
-        onClicked: HapticService.light()
+        onClicked: HapticManager.light()
 
         background: Rectangle {
             color: parent.pressed ? "#33ffffff" : "transparent"

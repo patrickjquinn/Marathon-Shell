@@ -107,7 +107,7 @@ Rectangle {
                     variant: "ghost"
                     iconName: "check"
                     onClicked: {
-                        HapticService.light();
+                        HapticManager.light();
                         NotificationService.markAllAsRead();
                         Logger.info("Hub", "Marked all notifications as read");
                     }
@@ -118,7 +118,7 @@ Rectangle {
                     variant: "ghost"
                     iconName: "trash-2"
                     onClicked: {
-                        HapticService.medium();
+                        HapticManager.medium();
                         NotificationService.clearAll();
                         Logger.info("Hub", "Cleared all notifications");
                     }
@@ -269,7 +269,7 @@ Rectangle {
                         anchors.fill: parent
                         onClicked: {
                             Logger.info("Hub", "Notification clicked: " + model.title);
-                            HapticService.light();
+                            HapticManager.light();
                             NotificationModel.markAsRead(model.id);
                             if (model.appId) {
                                 NavigationRouter.navigateToDeepLink(model.appId, "", {
@@ -277,13 +277,13 @@ Rectangle {
                                     "action": "view",
                                     "from": "hub"
                                 });
-                                Router.goHome();
+                                Router.goToHub();
                             }
                         }
                         onPressAndHold: {
                             Logger.info("Hub", "Long press on notification: " + model.id);
-                            HapticService.medium();
-                            contextMenu.open();
+                            HapticManager.medium();
+                            contextMenu.showing = true;
                         }
                     }
 
@@ -301,11 +301,11 @@ Rectangle {
                                 iconName: model.isRead ? "mail" : "mail-open"
                                 showChevron: false
                                 onSettingClicked: {
-                                    HapticService.light();
+                                    HapticManager.light();
                                     if (model.isRead) {} else {
                                         NotificationModel.markAsRead(model.id);
                                     }
-                                    contextMenu.close();
+                                    contextMenu.showing = false;
                                 }
                             }
 
@@ -315,12 +315,12 @@ Rectangle {
                                 showChevron: false
                                 visible: model.appId !== ""
                                 onSettingClicked: {
-                                    HapticService.light();
+                                    HapticManager.light();
                                     if (model.appId) {
                                         NavigationRouter.navigateToDeepLink(model.appId, "", {});
-                                        Router.goHome();
+                                        Router.goToHub();
                                     }
-                                    contextMenu.close();
+                                    contextMenu.showing = false;
                                 }
                             }
 
@@ -329,9 +329,9 @@ Rectangle {
                                 iconName: "trash-2"
                                 showChevron: false
                                 onSettingClicked: {
-                                    HapticService.medium();
+                                    HapticManager.medium();
                                     NotificationService.dismissNotification(model.id);
-                                    contextMenu.close();
+                                    contextMenu.showing = false;
                                 }
                             }
                         }

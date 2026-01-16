@@ -1,13 +1,9 @@
-// Vertical page indicator for task switcher
-// Shows modern iOS-style pills/dots on the right when more than 4 tasks
-
 import MarathonUI.Theme
 import QtQuick
 
 Column {
     id: pageIndicator
 
-    // Required properties
     required property int taskCount
     required property real gridContentY
     required property real gridHeight
@@ -17,7 +13,6 @@ Column {
         return Math.max(0, Math.min(page, pageCount - 1));
     }
 
-    // Positioned on right side (vertically centered) - matches vertical scrolling
     anchors.right: parent.right
     anchors.rightMargin: Constants.spacingMedium
     anchors.verticalCenter: parent.verticalCenter
@@ -33,12 +28,10 @@ Column {
 
             property bool isActive: index === pageIndicator.currentPage
 
-            // Pill shape for active, circle for inactive
             width: 6
             height: isActive ? 20 : 6
             radius: 3
             color: isActive ? MColors.accent : Qt.rgba(255, 255, 255, 0.4)
-            // Subtle shadow/glow
             layer.enabled: true
             layer.effect: null
 

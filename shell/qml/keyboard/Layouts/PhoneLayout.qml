@@ -1,6 +1,4 @@
 import "../UI"
-// Marathon Virtual Keyboard - Phone Layout
-// Phone number pad with common symbols
 import QtQuick
 
 Item {
@@ -21,8 +19,8 @@ Item {
         width: parent.width
         spacing: 0
 
-        // Row 1: 1 2 3 + - ( )
         Row {
+            id: row1
             readonly property real keyWidth: (width - spacing * 6) / 7
 
             width: parent.width
@@ -32,7 +30,7 @@ Item {
                 model: ["1", "2", "3", "+", "-", "(", ")"]
 
                 Key {
-                    width: parent.keyWidth
+                    width: row1.keyWidth
                     text: modelData
                     displayText: modelData
                     onClicked: {
@@ -48,7 +46,6 @@ Item {
             color: "#666666"
         }
 
-        // Row 2: 4 5 6 # * Backspace
         Row {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
@@ -66,7 +63,6 @@ Item {
                 }
             }
 
-            // Backspace
             Key {
                 width: Math.round(100 * Constants.scaleFactor)
                 iconName: "delete"
@@ -83,7 +79,6 @@ Item {
             color: "#666666"
         }
 
-        // Row 3: 7 8 9 , . Space
         Row {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
@@ -101,7 +96,6 @@ Item {
                 }
             }
 
-            // Space bar
             Key {
                 width: Math.round(100 * Constants.scaleFactor)
                 text: " "
@@ -118,12 +112,10 @@ Item {
             color: "#666666"
         }
 
-        // Row 4: ABC * 0 # Return
         Row {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
-            // ABC key
             Key {
                 width: Math.round(80 * Constants.scaleFactor)
                 text: "ABC"
@@ -147,7 +139,6 @@ Item {
                 }
             }
 
-            // Return key
             Key {
                 width: Math.round(120 * Constants.scaleFactor)
                 iconName: "corner-down-left"

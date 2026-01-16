@@ -6,17 +6,13 @@ import QtQuick
 MApp {
     id: templateApp
 
-    // App metadata (passed from launcher)
-    // Note: These shadow MApp's properties but are set before MApp's onCompleted
     property string _appId: ""
     property string _appName: ""
     property string _appIcon: ""
 
-    // Bind to MApp's properties
     appId: _appId
     appName: _appName
     appIcon: _appIcon
-    // Template apps have no navigation depth, so back gesture will close them automatically
     navigationDepth: 0
 
     content: Rectangle {
@@ -39,7 +35,6 @@ MApp {
                     Icon {
                         name: {
                             var iconPath = appIcon.replace("qrc:/images/", "").replace(".svg", "");
-                            // Map app icons to lucide icon names (all downloaded from lucide icon set)
                             if (iconPath === "phone")
                                 return "phone";
 
@@ -82,7 +77,6 @@ MApp {
                             if (iconPath === "settings")
                                 return "settings";
 
-                            // Generic fallback for unmapped apps
                             return "grid";
                         }
                         size: 128
@@ -109,7 +103,5 @@ MApp {
                 }
             }
         }
-        // End Rectangle (content)
-
     }
 }

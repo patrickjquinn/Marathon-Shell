@@ -68,10 +68,8 @@ QtObject {
     ]
     property var nativeApps: []
     property var apps: []
-    // Listen for native apps from DesktopEntryParser
     property Connections desktopEntryConnection
 
-    // Helper function to get app metadata by ID
     function getApp(appId) {
         for (var i = 0; i < apps.length; i++) {
             if (apps[i].id === appId)
@@ -80,31 +78,26 @@ QtObject {
         return null;
     }
 
-    // Get app name by ID
     function getAppName(appId) {
         var app = getApp(appId);
         return app ? app.name : appId;
     }
 
-    // Get app icon by ID
     function getAppIcon(appId) {
         var app = getApp(appId);
         return app ? app.icon : "";
     }
 
-    // Check if app is Marathon app
     function isInternalApp(appId) {
         var app = getApp(appId);
         return app ? (app.type === "marathon") : true;
     }
 
-    // Check if app is native Wayland app
     function isNativeApp(appId) {
         var app = getApp(appId);
         return app ? (app.type === "native") : false;
     }
 
-    // Merge Marathon apps and native apps
     function refreshAppList() {
         var merged = [];
         for (var i = 0; i < marathonApps.length; i++) {

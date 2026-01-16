@@ -6,15 +6,11 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-/**
- * Marathon OS - Out-of-Box Experience (OOBE)
- *
- * World-class first-run setup with Marathon design system
- */
 Item {
     id: oobeRoot
 
-    // State management
+    property WiFiPasswordDialog activePasswordDialog: null
+    property var pendingPasswordRequest: null
     property int currentPage: 0
     readonly property var pages: [
         {
@@ -45,12 +41,10 @@ Item {
     visible: !SettingsManagerCpp.firstRunComplete
     z: Constants.zIndexModalOverlay
 
-    // Background with subtle radial gradient pattern
     Rectangle {
         anchors.fill: parent
         color: MColors.background
 
-        // Subtle radial gradient overlay for depth
         Rectangle {
             anchors.fill: parent
             opacity: 0.08
@@ -76,9 +70,6 @@ Item {
         }
     }
 
-    // =========================================================================
-    // Use actual Marathon Status Bar component
-    // =========================================================================
     MarathonStatusBar {
         id: statusBar
 
@@ -88,7 +79,6 @@ Item {
         z: 100
     }
 
-    // Page container
     SwipeView {
         id: swipeView
 
@@ -101,7 +91,6 @@ Item {
         interactive: false
         clip: true
 
-        // Page 0: Welcome
         Item {
             Column {
                 anchors.centerIn: parent
@@ -113,15 +102,13 @@ Item {
                     height: Math.round(180 * Constants.scaleFactor)
 
                     Image {
-                        // Removed animations for better performance
-
                         anchors.centerIn: parent
                         width: Math.min(parent.width * 0.45, Math.round(180 * Constants.scaleFactor))
                         height: width
                         source: "qrc:/images/marathon.png"
                         fillMode: Image.PreserveAspectFit
-                        smooth: false // Better performance
-                        mipmap: false // Better performance
+                        smooth: false
+                        mipmap: false
                         asynchronous: true
                         cache: true
                     }
@@ -161,9 +148,7 @@ Item {
             }
         }
 
-        // Page 1: WiFi
         Item {
-            // Header row with title and skip button
             Row {
                 id: wifiHeader
 
@@ -208,7 +193,6 @@ Item {
                         width: parent.width
                     }
 
-                    // WiFi toggle - styled like settings app
                     MCard {
                         width: parent.width
                         height: MSpacing.touchTargetMedium
@@ -259,7 +243,6 @@ Item {
                         }
                     }
 
-                    // Available Networks Section
                     Column {
                         width: parent.width
                         spacing: MSpacing.md
@@ -274,7 +257,6 @@ Item {
                             color: MColors.text
                         }
 
-                        // Network List
                         Repeater {
                             model: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.availableNetworks : []
 
@@ -286,10 +268,9 @@ Item {
                                 onPressedChanged: {
                                     border.color = pressed ? MColors.accent : MColors.border;
                                 }
-                                // Use MCard's built-in onClicked signal instead of redundant MouseArea
                                 onClicked: {
                                     Logger.info("OOBE", "WiFi network selected:", modelData.ssid);
-                                    HapticService.light();
+                                    HapticManager.light();
                                     wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security, modelData.secured);
                                 }
 
@@ -298,23 +279,17 @@ Item {
                                     anchors.margins: MSpacing.md
                                     spacing: MSpacing.md
 
-                                    // Signal strength icon (proper signal bars, not opacity)
                                     Icon {
-                                        // 3-4 bars (excellent)
-
                                         name: {
-                                            // Use proper signal bar icons based on strength
                                             if (modelData.strength === 0)
                                                 return "wifi-zero";
 
                                             if (modelData.strength <= 33)
                                                 return "wifi-low";
 
-                                            // 1-2 bars (weak)
                                             if (modelData.strength <= 66)
                                                 return "wifi";
 
-                                            // 2-3 bars (good)
                                             return "wifi-high";
                                         }
                                         size: Math.round(24 * Constants.scaleFactor)
@@ -340,7 +315,6 @@ Item {
                                         Row {
                                             spacing: MSpacing.sm
 
-                                            // Show "Connected" for active network
                                             Text {
                                                 text: modelData.connected ? "Connected" : (modelData.security || "Open")
                                                 font.pixelSize: MTypography.sizeSmall
@@ -353,7 +327,7 @@ Item {
                                                 text: "•"
                                                 font.pixelSize: MTypography.sizeSmall
                                                 color: MColors.textSecondary
-                                                visible: !modelData.connected // Hide separator for connected networks
+                                                visible: !modelData.connected
                                             }
 
                                             Text {
@@ -361,20 +335,19 @@ Item {
                                                 font.pixelSize: MTypography.sizeSmall
                                                 font.family: MTypography.fontFamily
                                                 color: MColors.textSecondary
-                                                visible: !modelData.connected // Hide strength % for connected networks (icon is enough)
+                                                visible: !modelData.connected
                                             }
 
                                             Icon {
                                                 name: "lock"
                                                 size: Math.round(16 * Constants.scaleFactor)
                                                 color: MColors.textTertiary
-                                                visible: modelData.secured && !modelData.connected // Hide lock for connected networks
+                                                visible: modelData.secured && !modelData.connected
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
                                         }
                                     }
 
-                                    // Checkmark for connected network
                                     Icon {
                                         name: "check-circle"
                                         size: Math.round(24 * Constants.scaleFactor)
@@ -390,9 +363,7 @@ Item {
             }
         }
 
-        // Page 2: Time & Date
         Item {
-            // Header row with title
             Row {
                 id: timeHeader
 
@@ -514,7 +485,7 @@ Item {
                                     height: MSpacing.touchTargetSmall
                                     onClicked: {
                                         SettingsManagerCpp.timeFormat = "12h";
-                                        HapticService.light();
+                                        HapticManager.light();
                                     }
                                 }
 
@@ -524,7 +495,7 @@ Item {
                                     height: MSpacing.touchTargetSmall
                                     onClicked: {
                                         SettingsManagerCpp.timeFormat = "24h";
-                                        HapticService.light();
+                                        HapticManager.light();
                                     }
                                 }
                             }
@@ -544,9 +515,7 @@ Item {
             }
         }
 
-        // Page 3: Gestures
         Item {
-            // Header row with title
             Row {
                 id: gesturesHeader
 
@@ -673,7 +642,6 @@ Item {
             }
         }
 
-        // Page 4: Complete
         Item {
             Column {
                 anchors.centerIn: parent
@@ -719,9 +687,6 @@ Item {
         }
     }
 
-    // =========================================================================
-    // Navigation buttons
-    // =========================================================================
     Row {
         id: navigationRow
 
@@ -742,7 +707,7 @@ Item {
             visible: oobeRoot.currentPage > 0
             onClicked: {
                 if (oobeRoot.currentPage > 0) {
-                    HapticService.light();
+                    HapticManager.light();
                     oobeRoot.currentPage--;
                 }
             }
@@ -760,7 +725,7 @@ Item {
             text: oobeRoot.currentPage === oobeRoot.pages.length - 1 ? "Get Started" : "Next"
             variant: "primary"
             onClicked: {
-                HapticService.light();
+                HapticManager.light();
                 if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
                     oobeRoot.currentPage++;
                 } else {
@@ -771,9 +736,6 @@ Item {
         }
     }
 
-    // =========================================================================
-    // Page indicators - styled like shell
-    // =========================================================================
     Row {
         id: pageIndicatorRow
 
@@ -781,7 +743,7 @@ Item {
         anchors.bottom: navBar.top
         anchors.bottomMargin: MSpacing.xxl
         spacing: MSpacing.md
-        height: Math.round(20 * Constants.scaleFactor) // Fixed height for vertical alignment
+        height: Math.round(20 * Constants.scaleFactor)
 
         Repeater {
             model: oobeRoot.pages.length
@@ -792,12 +754,11 @@ Item {
                 radius: oobeRoot.currentPage === index ? Math.round(10 * Constants.scaleFactor) : Math.round(6 * Constants.scaleFactor)
                 color: oobeRoot.currentPage === index ? MColors.accent : MColors.textTertiary
                 opacity: oobeRoot.currentPage === index ? 1 : 0.5
-                anchors.verticalCenter: parent.verticalCenter // Vertically align all dots
+                anchors.verticalCenter: parent.verticalCenter
             }
         }
     }
 
-    // Skip button - positioned in top right of page content area
     MButton {
         anchors.top: swipeView.top
         anchors.topMargin: MSpacing.lg
@@ -809,14 +770,11 @@ Item {
         z: 200
         onClicked: {
             SettingsManagerCpp.firstRunComplete = true;
-            HapticService.light();
+            HapticManager.light();
             oobeRoot.setupComplete();
         }
     }
 
-    // =========================================================================
-    // Use actual Marathon Nav Bar component
-    // =========================================================================
     MarathonNavBar {
         id: navBar
 
@@ -824,33 +782,51 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         z: 100
-        // Hook up nav bar back gesture to OOBE navigation
         onSwipeLeft: {
             if (oobeRoot.currentPage > 0) {
-                HapticService.light();
+                HapticManager.light();
                 oobeRoot.currentPage--;
             }
         }
         onSwipeRight: {
             if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
-                HapticService.light();
+                HapticManager.light();
                 oobeRoot.currentPage++;
             }
         }
     }
 
-    // WiFi password dialog
     Loader {
         id: wifiPasswordDialogLoader
 
         function show(ssid, strength, security, secured) {
             active = true;
-            if (item)
-                item.show(ssid, strength, security, secured);
+            oobeRoot.pendingPasswordRequest = {
+                "ssid": ssid,
+                "strength": strength,
+                "security": security,
+                "secured": secured
+            };
+            if (oobeRoot.activePasswordDialog) {
+                oobeRoot.activePasswordDialog.show(ssid, strength, security, secured);
+                oobeRoot.pendingPasswordRequest = null;
+            }
         }
 
         anchors.fill: parent
         active: false
+        onLoaded: {
+            oobeRoot.activePasswordDialog = item;
+            if (oobeRoot.pendingPasswordRequest) {
+                var request = oobeRoot.pendingPasswordRequest;
+                oobeRoot.pendingPasswordRequest = null;
+                oobeRoot.activePasswordDialog.show(request.ssid, request.strength, request.security, request.secured);
+            }
+        }
+        onActiveChanged: {
+            if (!active)
+                oobeRoot.activePasswordDialog = null;
+        }
 
         sourceComponent: WiFiPasswordDialog {
             onConnectRequested: (ssid, password) => {
@@ -866,16 +842,15 @@ Item {
 
     Connections {
         function onConnectionSuccess() {
-            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item) {
-                wifiPasswordDialogLoader.item.hide();
-                wifiPasswordDialogLoader.active = false;
-            }
-            HapticService.medium();
+            if (oobeRoot.activePasswordDialog)
+                oobeRoot.activePasswordDialog.hide();
+            wifiPasswordDialogLoader.active = false;
+            HapticManager.medium();
         }
 
         function onConnectionFailed(message) {
-            if (wifiPasswordDialogLoader.active && wifiPasswordDialogLoader.item)
-                wifiPasswordDialogLoader.item.showError(message);
+            if (oobeRoot.activePasswordDialog)
+                oobeRoot.activePasswordDialog.showError(message);
         }
 
         target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null

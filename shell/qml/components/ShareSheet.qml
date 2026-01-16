@@ -174,7 +174,7 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             Logger.info("ShareSheet", "Share to: " + modelData.name);
-                            HapticService.light();
+                            HapticManager.light();
                             UIStore.closeShareSheet();
                         }
                     }

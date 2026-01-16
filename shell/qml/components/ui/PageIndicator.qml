@@ -1,3 +1,4 @@
+import MarathonUI.Core
 import QtQuick
 
 Row {

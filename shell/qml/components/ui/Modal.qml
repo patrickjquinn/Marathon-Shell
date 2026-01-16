@@ -77,7 +77,6 @@ Rectangle {
         border.width: 1
         border.color: MColors.border
 
-        // Inner glow
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1

@@ -6,7 +6,7 @@ Item {
     id: searchOverlay
 
     property bool active: false
-    property real pullProgress: 0 // 0.0 to 1.0, for pull-to-reveal animation
+    property real pullProgress: 0
     property string searchQuery: ""
     property var searchResults: []
 
@@ -41,24 +41,19 @@ Item {
     }
 
     function selectResult(result) {
-        // Prevent double execution
         if (searchOverlay.opacity < 1 || !active)
             return;
 
         Logger.info("Search", "Result selected: " + result.title + " (type: " + result.type + ")");
         UnifiedSearchService.addToRecentSearches(searchQuery);
-        // Close first to prevent double-tap through
         close();
-        // Execute after a brief delay to ensure search is closed
         Qt.callLater(function () {
-            // Emit signal to parent (MarathonShell) to handle launch
             resultSelected(result);
         });
     }
 
     visible: opacity > 0.01
-    enabled: opacity > 0.01 // Block interactions whenever visible
-    // Opacity: active = full opacity, OR follows pullProgress during gesture
+    enabled: opacity > 0.01
     opacity: active ? 1 : Math.max(0, pullProgress)
     onActiveChanged: {
         if (active) {
@@ -74,14 +69,11 @@ Item {
         }
     }
 
-    // Full-screen mouse blocker when visible at any opacity
-    // Excludes nav bar area to allow swipe-up-to-close gesture
     MouseArea {
         anchors.fill: parent
         anchors.bottomMargin: Constants.bottomBarHeight
         enabled: searchOverlay.opacity > 0.01 && !searchOverlay.active
         onClicked: {
-            // Clicking on overlay when partially visible dismisses it
             searchOverlay.pullProgress = 0;
         }
     }
@@ -343,7 +335,6 @@ Item {
         }
     }
 
-    // Smooth fade-out when search closes or progress resets
     Behavior on opacity {
         enabled: !active
 

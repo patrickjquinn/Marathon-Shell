@@ -60,8 +60,8 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        ClipboardService.clearHistory();
-                        HapticService.light();
+                        ClipboardManagerCpp.clearHistory();
+                        HapticManager.light();
                     }
                 }
             }
@@ -72,7 +72,7 @@ Rectangle {
             height: parent.height - 56
             clip: true
             spacing: Constants.spacingSmall
-            model: ClipboardService.getHistory()
+            model: ClipboardManagerCpp.history
 
             Text {
                 visible: parent.count === 0
@@ -152,8 +152,8 @@ Rectangle {
 
                             anchors.fill: parent
                             onClicked: {
-                                ClipboardService.deleteItem(index);
-                                HapticService.light();
+                                ClipboardManagerCpp.deleteItem(index);
+                                HapticManager.light();
                             }
                         }
 
@@ -172,8 +172,8 @@ Rectangle {
                     anchors.rightMargin: Math.round(52 * Constants.scaleFactor)
                     onClicked: {
                         Logger.info("ClipboardManager", "Selected item: " + modelData.text.substring(0, 30));
-                        ClipboardService.copyToClipboard(modelData.text);
-                        HapticService.light();
+                        ClipboardManagerCpp.copyToClipboard(modelData.text);
+                        HapticManager.light();
                         UIStore.closeClipboardManager();
                     }
                 }

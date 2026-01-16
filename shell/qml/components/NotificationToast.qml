@@ -51,7 +51,6 @@ Item {
         elevation: 0
         radius: 0
         visible: false
-        // Custom bottom shadow only
         layer.enabled: true
 
         Item {
@@ -109,7 +108,6 @@ Item {
                 }
             }
 
-            // Inline reply field (for messaging notifications)
             Row {
                 width: parent.width - MSpacing.xs * 2
                 height: 48
@@ -177,19 +175,15 @@ Item {
                 }
             }
             onClicked: {
-                // Check if this is a messaging notification that supports inline reply
                 var supportsInlineReply = currentToast && (currentToast.appId === "messages" || currentToast.appId === "org.telegram.desktop" || currentToast.appId === "signal-desktop" || (currentToast.category && currentToast.category.includes("message")));
                 if (supportsInlineReply && !showInlineReply) {
-                    // Show inline reply field
                     Logger.info("NotificationToast", "Showing inline reply for: " + currentToast.id);
                     showInlineReply = true;
                     autoHideTimer.stop();
-                    // Focus the reply field after a brief delay
                     Qt.callLater(function () {
                         replyField.forceActiveFocus();
                     });
                 } else if (!showInlineReply) {
-                    // Navigate to app
                     Logger.info("NotificationToast", "Toast tapped: " + currentToast.id);
                     NotificationService.clickNotification(currentToast.id);
                     NotificationModel.markAsRead(currentToast.id);

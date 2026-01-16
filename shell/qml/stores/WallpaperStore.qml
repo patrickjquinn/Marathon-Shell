@@ -4,9 +4,6 @@ import QtQuick
 QtObject {
     id: wallpaperStore
 
-    // NOTE: Do NOT bind directly to SettingsManagerCpp.wallpaperPath.
-    // We want SettingsManagerCpp to be the source of truth, but the store must remain writable
-    // (Settings app sets wallpapers). Direct bindings + writebacks create binding loops.
     property string currentWallpaper: "qrc:/wallpapers/wallpaper.jpg"
     property string path: currentWallpaper
     property bool isDark: true
@@ -62,7 +59,6 @@ QtObject {
 
     function setWallpaper(newPath, newIsDark) {
         if (!newPath || newPath === currentWallpaper) {
-            // Still update dark flag if the caller provided it (e.g., same wallpaper tapped).
             if (newIsDark !== undefined)
                 isDark = newIsDark;
 
@@ -72,7 +68,6 @@ QtObject {
         if (newIsDark !== undefined)
             isDark = newIsDark;
 
-        // Persist immediately via SettingsManager (in-shell or runner proxy).
         if (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp && SettingsManagerCpp.wallpaperPath !== newPath)
             SettingsManagerCpp.wallpaperPath = newPath;
     }
@@ -90,7 +85,6 @@ QtObject {
         if (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp && SettingsManagerCpp.wallpaperPath)
             currentWallpaper = SettingsManagerCpp.wallpaperPath;
 
-        // Keep store in sync with SettingsManager changes coming from elsewhere (e.g. runner → DBus).
         if (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp && SettingsManagerCpp.wallpaperPathChanged)
             SettingsManagerCpp.wallpaperPathChanged.connect(function () {
                 if (SettingsManagerCpp && SettingsManagerCpp.wallpaperPath && currentWallpaper !== SettingsManagerCpp.wallpaperPath)

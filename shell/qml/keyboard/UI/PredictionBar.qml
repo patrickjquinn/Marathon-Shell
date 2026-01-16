@@ -58,7 +58,7 @@ Rectangle {
 
                     anchors.fill: parent
                     onClicked: {
-                        HapticService.light();
+                        HapticManager.light();
                         predictionBar.predictionSelected(modelData);
                     }
                 }

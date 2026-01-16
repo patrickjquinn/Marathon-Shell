@@ -87,7 +87,6 @@ Item {
             onClicked: {
                 Logger.info("ScreenshotPreview", "Opening screenshot in gallery: " + filePath);
                 hide();
-                // Deep link to gallery app with the screenshot (shell handles showing the app window)
                 NavigationRouter.navigateToDeepLink("gallery", "/image", {
                     "path": filePath
                 });

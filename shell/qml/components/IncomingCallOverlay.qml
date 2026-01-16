@@ -3,15 +3,7 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 
-/**
- * Lock Screen Incoming Call Overlay
- *
- * Displays over lock screen and all other content when a call comes in.
- * Provides answer/decline buttons and shows caller information.
- */
 Rectangle {
-    // 1 second pulse
-
     id: callOverlay
 
     property string callerNumber: ""
@@ -26,13 +18,11 @@ Rectangle {
         callerName = name || "Unknown";
         isRinging = true;
         visible = true;
-        // Play ringtone
-        if (typeof AudioManager !== 'undefined')
-            AudioManager.playRingtone();
+        if (typeof AudioPolicyControllerCpp !== 'undefined')
+            AudioPolicyControllerCpp.playRingtone();
 
-        // Vibrate
-        if (typeof HapticService !== 'undefined')
-            HapticService.vibrate(1000);
+        if (typeof HapticManager !== 'undefined')
+            HapticManager.vibrate(1000);
 
         Logger.info("IncomingCallOverlay", "Showing call from: " + number);
     }
@@ -40,20 +30,18 @@ Rectangle {
     function hide() {
         isRinging = false;
         visible = false;
-        // Stop ringtone
-        if (typeof AudioManager !== 'undefined')
-            AudioManager.stopRingtone();
+        if (typeof AudioPolicyControllerCpp !== 'undefined')
+            AudioPolicyControllerCpp.stopRingtone();
 
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
 
     anchors.fill: parent
     color: MColors.background
-    z: Constants.zIndexModalOverlay + 100 // Above everything
+    z: Constants.zIndexModalOverlay + 100
     visible: false
     opacity: callOverlay.visible ? 1 : 0
 
-    // Background with blur effect
     Rectangle {
         anchors.fill: parent
         color: MColors.background
@@ -65,12 +53,10 @@ Rectangle {
         spacing: Constants.spacingXLarge * 3
         width: parent.width * 0.85
 
-        // Caller info section
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingXLarge
 
-            // Avatar/Icon with pulsing animation
             Rectangle {
                 width: Math.round(Constants.iconSizeXLarge * 3)
                 height: Math.round(Constants.iconSizeXLarge * 3)
@@ -87,7 +73,6 @@ Rectangle {
                     color: MColors.accent
                 }
 
-                // Ripple effect
                 Repeater {
                     model: 3
 
@@ -129,7 +114,6 @@ Rectangle {
                     }
                 }
 
-                // Pulsing animation
                 SequentialAnimation on scale {
                     running: callOverlay.isRinging
                     loops: Animation.Infinite
@@ -150,7 +134,6 @@ Rectangle {
                 }
             }
 
-            // Caller details
             Column {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Constants.spacingSmall
@@ -184,12 +167,10 @@ Rectangle {
             }
         }
 
-        // Action buttons
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingXLarge * 3
 
-            // Decline button
             Column {
                 spacing: Constants.spacingMedium
 
@@ -218,7 +199,7 @@ Rectangle {
                         anchors.margins: -Constants.spacingMedium
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call declined");
-                            HapticService.medium();
+                            HapticManager.medium();
                             if (typeof TelephonyService !== 'undefined')
                                 TelephonyService.hangup();
 
@@ -244,7 +225,6 @@ Rectangle {
                 }
             }
 
-            // Answer button
             Column {
                 spacing: Constants.spacingMedium
 
@@ -272,7 +252,7 @@ Rectangle {
                         anchors.margins: -Constants.spacingMedium
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call answered");
-                            HapticService.heavy();
+                            HapticManager.heavy();
                             if (typeof TelephonyService !== 'undefined')
                                 TelephonyService.answer();
 
@@ -301,7 +281,6 @@ Rectangle {
             }
         }
 
-        // Additional actions (swipe down hint on lock screen)
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: SessionStore.isLocked ? "Answering will unlock your device" : ""
@@ -313,7 +292,6 @@ Rectangle {
         }
     }
 
-    // Slide in animation
     transform: Translate {
         id: slideTransform
 

@@ -15,7 +15,7 @@ Rectangle {
     property real gestureProgress: 0
     property bool keyboardVisible: false
     property bool searchActive: false
-    property bool pinScreenMode: false // When true, hide pill and search button
+    property bool pinScreenMode: false
 
     signal swipeLeft
     signal swipeRight
@@ -49,7 +49,7 @@ Rectangle {
         height: Constants.spacingXSmall
         radius: Constants.borderRadiusSharp
         color: MColors.text
-        opacity: pinScreenMode ? 0 : 0.9 // Hide in PIN screen mode
+        opacity: pinScreenMode ? 0 : 0.9
         visible: !pinScreenMode
         antialiasing: Constants.enableAntialiasing
         x: targetX + dragX
@@ -76,7 +76,6 @@ Rectangle {
         }
     }
 
-    // Search button (small, bottom left of nav bar)
     Item {
         id: searchButton
 
@@ -86,7 +85,7 @@ Rectangle {
         width: 16
         height: 16
         z: 300
-        visible: !pinScreenMode // Hide in PIN screen mode
+        visible: !pinScreenMode
         opacity: pinScreenMode ? 0 : 1
 
         Rectangle {
@@ -126,13 +125,12 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: -4
             onClicked: {
-                HapticService.light();
+                HapticManager.light();
                 navBar.toggleSearch();
             }
         }
     }
 
-    // Keyboard button (small, bottom right of nav bar)
     Item {
         id: keyboardButton
 
@@ -180,17 +178,13 @@ Rectangle {
             anchors.fill: parent
             anchors.margins: -4
             onClicked: {
-                HapticService.light();
+                HapticManager.light();
                 navBar.toggleKeyboard();
             }
         }
     }
 
     MouseArea {
-        // Right zone (keyboard) always enabled
-        // When app is open, swipe left = back gesture
-        // Otherwise, navigate pages left
-
         id: navMouseArea
 
         property real velocityX: 0
@@ -214,13 +208,9 @@ Rectangle {
             velocityX = 0;
             velocityY = 0;
             isVerticalGesture = false;
-            // Detect if press is in left or right zone (narrower zones, more centered on buttons)
             var leftBoundary = parent.width * 0.15;
-            // Left 15% for search button
             var rightBoundary = parent.width * 0.85;
-            // Right 15% for keyboard button
             isLeftZone = !pinScreenMode && mouse.x < leftBoundary;
-            // Left zone disabled in PIN mode (no search)
             isRightZone = mouse.x > rightBoundary;
             if (isLeftZone)
                 Logger.info("NavBar", "🔵 Touch in LEFT ZONE (x=" + mouse.x + ")");
@@ -232,7 +222,7 @@ Rectangle {
             var dt = now - lastTime;
             if (dt > 0) {
                 velocityX = (mouse.x - lastX) / dt * 1000;
-                velocityY = (mouse.y - lastY) / dt * 1000; // Positive = downward, negative = upward (standard)
+                velocityY = (mouse.y - lastY) / dt * 1000;
             }
             lastX = mouse.x;
             lastY = mouse.y;
@@ -246,7 +236,6 @@ Rectangle {
             if (isVerticalGesture) {
                 currentY = Math.max(0, diffY);
                 currentX = 0;
-                // Drag Quick Settings up when open
                 if (UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) {
                     if (!UIStore.quickSettingsDragging)
                         UIStore.quickSettingsDragging = true;
@@ -254,10 +243,9 @@ Rectangle {
                     var newHeight = UIStore.quickSettingsHeight - diffY;
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000;
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
-                    startY = mouse.y; // Update startY for continuous tracking
+                    startY = mouse.y;
                 } else if (isAppOpen) {
                     var oldProgress = gestureProgress;
-                    // Density-aware progress: 25% of screen height = 100% progress
                     var progressThreshold = Constants.screenHeight * 0.25;
                     gestureProgress = Math.min(1, diffY / progressThreshold);
                     if (oldProgress <= 0.15 && gestureProgress > 0.15)
@@ -279,18 +267,16 @@ Rectangle {
                 "isAppOpen": isAppOpen,
                 "quickSettingsOpen": UIStore.quickSettingsOpen
             });
-            // Check for left/right zone swipe-up quick actions
             if ((isLeftZone || isRightZone) && diffY > 50) {
                 if (isLeftZone) {
                     Logger.info("NavBar", "🔵 LEFT ZONE SWIPE-UP → Toggle Search (diffY: " + diffY + ")");
-                    HapticService.medium();
+                    HapticManager.medium();
                     navBar.toggleSearch();
                 } else if (isRightZone) {
                     Logger.info("NavBar", "🔴 RIGHT ZONE SWIPE-UP → Toggle Keyboard (diffY: " + diffY + ")");
-                    HapticService.medium();
+                    HapticManager.medium();
                     navBar.toggleKeyboard();
                 }
-                // Reset state and return
                 startX = 0;
                 startY = 0;
                 currentX = 0;
@@ -303,12 +289,10 @@ Rectangle {
                 gestureProgress = 0;
                 return;
             }
-            // Snap Quick Settings open/closed based on threshold or velocity
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
                 var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400;
-                // Check for fling up gesture (velocity < -500 px/s = upward swipe, closing)
                 var isFlingUp = velocityY < -500;
                 if (isFlingUp || UIStore.quickSettingsHeight < threshold)
                     UIStore.closeQuickSettings();
@@ -319,7 +303,6 @@ Rectangle {
                     "velocityY": velocityY,
                     "flingUp": isFlingUp
                 });
-                // Reset gesture state
                 startX = 0;
                 startY = 0;
                 velocityX = 0;
@@ -331,11 +314,9 @@ Rectangle {
                 gestureProgress = 0;
                 return;
             }
-            // Close Search with upward gesture - ONLY close search, don't navigate
             if (UIStore.searchOpen && isVerticalGesture && diffY > 60) {
                 Logger.info("NavBar", "Closing Search with upward gesture");
                 UIStore.closeSearch();
-                // Reset all state and RETURN to prevent further navigation
                 startX = 0;
                 startY = 0;
                 velocityX = 0;
@@ -345,10 +326,8 @@ Rectangle {
                 gestureProgress = 0;
                 return;
             }
-            // Only process navigation gestures if search is NOT open
             if (isVerticalGesture && diffY > 30 && !UIStore.searchOpen) {
                 if (diffY > longSwipeThreshold) {
-                    // Long swipe up - Always go to task switcher
                     Logger.info("NavBar", " LONG SWIPE UP TRIGGERED ");
                     Logger.info("NavBar", "  diffY: " + diffY + ", longSwipeThreshold: " + longSwipeThreshold);
                     Logger.info("NavBar", "  isAppOpen: " + isAppOpen);
@@ -359,22 +338,16 @@ Rectangle {
                     currentY = 0;
                     gestureProgress = 0;
                 } else if (isAppOpen && (diffY > 100 || gestureProgress > 0.4)) {
-                    // Short swipe up while app is open - Minimize app
                     Logger.info("NavBar", "⬆⬆⬆ MINIMIZE GESTURE TRIGGERED ⬆⬆⬆");
                     Logger.info("NavBar", "  diffY: " + diffY + ", gestureProgress: " + gestureProgress);
                     Logger.info("NavBar", "  isAppOpen: " + isAppOpen);
                     Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                     Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                    // Pass negative velocityY (upward is negative in Qt coordinate system usually, but here diffY is positive up)
-                    // Wait, velocityY calculation: velocityY = (mouse.y - lastY) / dt * 1000;
-                    // If moving UP, mouse.y decreases, so velocityY is NEGATIVE.
                     minimizeApp(velocityY);
-                    // Reset immediately - Shell takes over animation via isTransitioningToActiveFrames
                     currentX = 0;
                     currentY = 0;
                     gestureProgress = 0;
                 } else if (diffY > shortSwipeThreshold) {
-                    // Short swipe up - Go home
                     Logger.info("NavBar", "Short swipe up - Go home");
                     shortSwipeUp();
                     currentX = 0;
@@ -397,14 +370,12 @@ Rectangle {
                         "isAppOpen": isAppOpen,
                         "diffX": diffX
                     });
-                    // When app is open, swipe right = forward gesture (Shell will try handleSystemForward()).
                     swipeRight();
                 }
                 currentX = 0;
                 currentY = 0;
                 gestureProgress = 0;
             } else {
-                // Cancelled gesture - reset immediately
                 Logger.info("NavBar", " GESTURE CANCELLED - diffX: " + diffX + ", diffY: " + diffY);
                 currentX = 0;
                 currentY = 0;

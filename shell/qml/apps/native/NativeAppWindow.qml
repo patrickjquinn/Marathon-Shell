@@ -46,8 +46,6 @@ MApp {
                     Logger.info("NativeAppWindow", "Surface destroyed while minimized - keeping app alive");
                 } else {
                     Logger.info("NativeAppWindow", "Surface destroyed (user closed app) - requesting close");
-                    // Defer: surface teardown can still be in-progress inside QtWayland.
-                    // Requesting close synchronously here can cause use-after-free in compositor view cleanup.
                     Qt.callLater(function () {
                         nativeAppWindow.requestClose(true);
                     });

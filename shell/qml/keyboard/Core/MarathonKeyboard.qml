@@ -594,6 +594,7 @@ Rectangle {
 
     inputContext: InputContext {
         id: inputContextInstance
+        keyboard: keyboard
 
         onTextInserted: function (text) {
             if (text === " " || text === "\n")

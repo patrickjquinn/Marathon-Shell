@@ -3,7 +3,9 @@ import QtQuick
 Item {
     id: inputContext
 
-    readonly property bool hasActiveFocus: Qt.inputMethod && Qt.inputMethod.visible
+    property var inputMethod: Qt.inputMethod
+    property var keyboard: null
+    readonly property bool hasActiveFocus: inputMethod && inputMethod["visible"]
     property string inputMode: "text"
     readonly property string recommendedLayout: {
         switch (inputMode) {
@@ -93,18 +95,18 @@ Item {
     }
 
     function getCurrentWord() {
-        if (parent && parent.keyboard && parent.keyboard.currentWord)
-            return parent.keyboard.currentWord;
+        if (keyboard && keyboard["currentWord"])
+            return keyboard["currentWord"];
 
         return "";
     }
 
     function detectInputMode() {
-        if (!Qt.inputMethod) {
+        if (!inputMethod) {
             inputMode = "text";
             return;
         }
-        var hints = Qt.inputMethod.inputItemHints;
+        var hints = inputMethod["inputItemHints"];
         if (typeof hints === 'undefined' || hints === null) {
             inputMode = "text";
             return;
@@ -127,7 +129,7 @@ Item {
 
     Connections {
         function onVisibleChanged() {
-            if (Qt.inputMethod.visible)
+            if (inputMethod["visible"])
                 detectInputMode();
         }
 

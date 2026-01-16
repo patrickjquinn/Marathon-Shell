@@ -3,16 +3,11 @@ import MarathonUI.Theme
 import QtQuick
 
 Item {
-    // Power is an action menu
-    // Alarm is a link to Clock app
-    // Screenshot is an action
-
     id: tile
 
     property var toggleData: ({})
     property real tileWidth: 160
     property bool isAvailable: toggleData.available !== undefined ? toggleData.available : true
-    // Determine if this is a toggleable tile (has on/off state) vs a link tile
     readonly property bool isToggleable: toggleData.id !== "settings" && toggleData.id !== "lock" && toggleData.id !== "power" && toggleData.id !== "monitor" && toggleData.id !== "alarm" && toggleData.id !== "screenshot"
     property bool isPressed: false
 
@@ -22,7 +17,6 @@ Item {
     width: tileWidth
     height: Constants.hubHeaderHeight
 
-    // TOGGLEABLE TILE: Split design - ALWAYS visible (structure consistent across states)
     Rectangle {
         id: toggleableTile
 
@@ -36,19 +30,16 @@ Item {
             anchors.fill: parent
             spacing: 0
 
-            // LEFT: Square icon box - ALWAYS VISIBLE
             Rectangle {
                 id: iconBox
 
                 width: Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSharp
-                // OFF state: elevated surface. ON state: bright teal
                 color: toggleData.active ? MColors.accentBright : MColors.bb10Elevated
                 antialiasing: Constants.enableAntialiasing
 
                 Icon {
-                    // For toggleable items with -off variants, show the -off icon when inactive
                     name: {
                         var iconName = toggleData.icon || "grid";
                         if (!toggleData.active && (toggleData.id === "wifi" || toggleData.id === "bluetooth"))
@@ -56,7 +47,6 @@ Item {
 
                         return iconName;
                     }
-                    // OFF: standard text color. ON: dark (readable on teal). Unavailable: dim via opacity
                     color: toggleData.active ? MColors.background : MColors.text
                     size: Constants.iconSizeMedium
                     anchors.centerIn: parent
@@ -76,19 +66,15 @@ Item {
                 }
             }
 
-            // RIGHT: Label box - ALWAYS VISIBLE
             Rectangle {
                 width: parent.width - Constants.hubHeaderHeight
                 height: Constants.hubHeaderHeight
                 radius: Constants.borderRadiusSharp
-                // OFF: standard surface. ON: slightly elevated for cohesion
                 color: isAvailable ? MColors.surface : Qt.rgba(MColors.surface.r, MColors.surface.g, MColors.surface.b, 0.5)
                 border.width: Constants.borderWidthThin
-                // OFF: subtle border. ON: teal border for cohesion
                 border.color: toggleData.active ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
 
-                // Inner border for depth
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1
@@ -129,7 +115,6 @@ Item {
                     }
                 }
 
-                // Teal bar active indicator (bottom of label box) - ONLY when ON
                 Rectangle {
                     anchors.bottom: parent.bottom
                     anchors.left: parent.left
@@ -158,7 +143,6 @@ Item {
             }
         }
 
-        // Press overlay
         Rectangle {
             anchors.fill: parent
             color: toggleData.active ? MColors.background : MColors.accentBright
@@ -184,7 +168,6 @@ Item {
         }
     }
 
-    // ACTION/LINK TILE: Solid card design (Settings, Lock, Monitor, Alarm)
     Rectangle {
         id: linkTile
 
@@ -193,13 +176,11 @@ Item {
         radius: Constants.borderRadiusSharp
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        // Action tiles use elevated surface for visual distinction from toggles
         color: isAvailable ? MColors.bb10Card : Qt.rgba(MColors.bb10Card.r, MColors.bb10Card.g, MColors.bb10Card.b, 0.5)
         antialiasing: Constants.enableAntialiasing
         scale: isPressed ? 0.98 : 1
         opacity: isAvailable ? 1 : 0.5
 
-        // Inner border for depth
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
@@ -219,7 +200,6 @@ Item {
                 width: parent.width
                 spacing: MSpacing.md
 
-                // Icon container - slightly different sizing for action tiles
                 Rectangle {
                     width: Constants.iconSizeMedium + MSpacing.md
                     height: Constants.iconSizeMedium + MSpacing.md
@@ -261,7 +241,6 @@ Item {
             }
         }
 
-        // Press overlay
         Rectangle {
             anchors.fill: parent
             color: MColors.text
@@ -294,7 +273,7 @@ Item {
         enabled: isAvailable
         onPressed: function (mouse) {
             isPressed = true;
-            HapticService.light();
+            HapticManager.light();
         }
         onReleased: {
             isPressed = false;
@@ -313,7 +292,7 @@ Item {
             if (!isAvailable)
                 return;
 
-            HapticService.medium();
+            HapticManager.medium();
             tile.longPressed();
         }
     }
