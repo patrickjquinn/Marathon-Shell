@@ -83,7 +83,7 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: (conversation && conversation.unreadCount > 9) ? "9+" : ((conversation && conversation.unreadCount.toString()) || "")
+                        text: (conversation && conversation.unreadCount > 9) ? "9+" : (conversation && conversation.unreadCount !== undefined ? String(conversation.unreadCount) : "")
                         font.pixelSize: MTypography.sizeXSmall
                         font.weight: MTypography.weightBold
                         font.family: MTypography.fontFamily
@@ -139,21 +139,16 @@ Item {
         }
     }
 
-    MouseArea {
-        anchors.fill: parent
-        onPressed: {
-            root.scale = 0.98;
-            HapticService.light();
+    TapHandler {
+        onPressedChanged: {
+            if (pressed) {
+                root.scale = 0.98;
+                HapticService.light();
+            } else {
+                root.scale = 1;
+            }
         }
-        onReleased: {
-            root.scale = 1;
-        }
-        onCanceled: {
-            root.scale = 1;
-        }
-        onClicked: {
-            root.conversationClicked();
-        }
+        onTapped: root.conversationClicked()
     }
 
     Behavior on scale {

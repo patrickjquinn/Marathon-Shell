@@ -232,7 +232,7 @@ Page {
                             conversation: modelData
                             onConversationClicked: {
                                 if (conversationItem.x === 0)
-                                    openConversation(modelData.id);
+                                    openConversation(modelData.id || modelData.contactNumber || "");
                                 else
                                     conversationItem.x = 0;
                             }

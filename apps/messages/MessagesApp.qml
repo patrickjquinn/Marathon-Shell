@@ -8,15 +8,16 @@ MApp {
     id: messagesApp
 
     property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
-    property int selectedConversationId: -1
+    property string selectedConversationId: ""
 
     function getConversation(id) {
-        if (!id)
+        if (id === undefined || id === null)
             return null;
 
         for (var i = 0; i < conversations.length; i++) {
-            if (conversations[i].id === id)
-                return conversations[i];
+            var conversation = conversations[i];
+            if (conversation.id === id || conversation.contactNumber === id)
+                return conversation;
         }
         Logger.warn("Messages", "Conversation not found: " + id);
         return null;
