@@ -48,8 +48,7 @@ class SMSService : public QObject {
     Q_INVOKABLE void         markAsRead(const QString &conversationId);
     Q_INVOKABLE QString      generateConversationId(const QString &number);
 
-    // Simulation method for testing
-    Q_INVOKABLE void simulateIncomingSMS(const QString &sender, const QString &text);
+    Q_INVOKABLE void         simulateIncomingSMS(const QString &sender, const QString &text);
 
   signals:
     void messageReceived(const QString &sender, const QString &text, qint64 timestamp);
@@ -80,4 +79,4 @@ class SMSService : public QObject {
 #endif
 };
 
-#endif // SMSSERVICE_H
+#endif

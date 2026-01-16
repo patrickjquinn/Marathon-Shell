@@ -9,7 +9,6 @@ ContactsManager::ContactsManager(QObject *parent)
     , m_nextId(1) {
     m_contactsDir = getContactsDir();
 
-    // Create contacts directory if it doesn't exist
     QDir dir;
     if (!dir.exists(m_contactsDir)) {
         dir.mkpath(m_contactsDir);
@@ -203,10 +202,8 @@ void ContactsManager::loadFromVCards() {
         QString     content = in.readAll();
         file.close();
 
-        // Simple vCard parsing (supports v3.0 and v4.0)
-        Contact contact;
+        Contact                 contact;
 
-        // Extract ID from filename
         QRegularExpression      idRegex("_(\\d+)\\.vcf$");
         QRegularExpressionMatch match = idRegex.match(fileName);
         if (match.hasMatch()) {
@@ -218,28 +215,24 @@ void ContactsManager::loadFromVCards() {
             contact.id = m_nextId++;
         }
 
-        // Parse FN (formatted name)
         QRegularExpression fnRegex("FN:(.*?)\\r?\\n");
         match = fnRegex.match(content);
         if (match.hasMatch()) {
             contact.name = match.captured(1).trimmed();
         }
 
-        // Parse TEL (phone)
         QRegularExpression telRegex("TEL[^:]*:(.*?)\\r?\\n");
         match = telRegex.match(content);
         if (match.hasMatch()) {
             contact.phone = match.captured(1).trimmed();
         }
 
-        // Parse EMAIL
         QRegularExpression emailRegex("EMAIL[^:]*:(.*?)\\r?\\n");
         match = emailRegex.match(content);
         if (match.hasMatch()) {
             contact.email = match.captured(1).trimmed();
         }
 
-        // Parse ORG (organization)
         QRegularExpression orgRegex("ORG:(.*?)\\r?\\n");
         match = orgRegex.match(content);
         if (match.hasMatch()) {
@@ -266,7 +259,6 @@ void ContactsManager::saveToVCard(const Contact &contact) {
 
     QTextStream out(&file);
 
-    // Write vCard v3.0 format
     out << "BEGIN:VCARD\n";
     out << "VERSION:3.0\n";
     out << "FN:" << contact.name << "\n";
@@ -307,7 +299,6 @@ void ContactsManager::importVCard(const QString &path) {
     const QString content = in.readAll();
     file.close();
 
-    // Very small parser: FN/TEL/EMAIL/ORG (vCard v3/v4)
     QString                 name;
     QString                 phone;
     QString                 email;
@@ -340,11 +331,10 @@ void ContactsManager::importVCard(const QString &path) {
         return;
     }
 
-    // Use existing addContact flow (persists to our contacts dir)
     addContact(name, phone, email);
 
     if (!organization.isEmpty()) {
-        // Update last-added contact's organization field
+
         const int   newId = m_nextId - 1;
         QVariantMap update;
         update["organization"] = organization;
@@ -397,7 +387,7 @@ void ContactsManager::exportVCard(int contactId, const QString &path) {
 
 QString ContactsManager::sanitizeFileName(const QString &name) {
     QString sanitized = name;
-    // Remove or replace characters that are invalid in filenames
+
     sanitized.replace(QRegularExpression("[/\\\\:*?\"<>|]"), "_");
     sanitized.replace(" ", "_");
     return sanitized;

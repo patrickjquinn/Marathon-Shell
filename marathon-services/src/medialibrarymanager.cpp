@@ -12,7 +12,6 @@
 #include <QCryptographicHash>
 #include <QUrl>
 
-// Static const for extensions
 const QStringList MediaScanWorker::IMAGE_EXTENSIONS = {"jpg", "jpeg", "png",  "gif",
                                                        "bmp", "webp", "heic", "heif"};
 
@@ -25,8 +24,6 @@ const QStringList MediaLibraryManager::IMAGE_EXTENSIONS = {"jpg", "jpeg", "png",
 const QStringList MediaLibraryManager::VIDEO_EXTENSIONS = {"mp4",  "mov", "avi", "mkv",
                                                            "webm", "m4v", "3gp"};
 
-// ===== MediaScanWorker Implementation =====
-
 MediaScanWorker::MediaScanWorker(const QStringList &paths, QObject *parent)
     : QObject(parent)
     , m_paths(paths) {}
@@ -38,7 +35,6 @@ void MediaScanWorker::process() {
     int              totalFiles  = 0;
     int              currentFile = 0;
 
-    // First pass: count files
     for (const QString &path : m_paths) {
         QDirIterator countIt(path, QDir::Files | QDir::NoDotAndDotDot,
                              QDirIterator::Subdirectories);
@@ -50,7 +46,6 @@ void MediaScanWorker::process() {
 
     qDebug() << "[MediaScanWorker] Found" << totalFiles << "total files to scan";
 
-    // Second pass: scan files
     for (const QString &path : m_paths) {
         QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
 
@@ -66,7 +61,7 @@ void MediaScanWorker::process() {
                 }
 
                 currentFile++;
-                if (currentFile % 50 == 0) { // Emit progress every 50 files
+                if (currentFile % 50 == 0) {
                     emit scanProgress(currentFile, totalFiles);
                 }
             }
@@ -74,13 +69,13 @@ void MediaScanWorker::process() {
     }
 
     qDebug() << "[MediaScanWorker] Scan complete. Found" << items.size() << "media items";
-    emit scanProgress(totalFiles, totalFiles); // 100%
+    emit scanProgress(totalFiles, totalFiles);
     emit scanFinished(items);
 }
 
 MediaItem MediaScanWorker::scanFile(const QString &filePath) {
     MediaItem item;
-    item.id   = -1; // Will be set by database
+    item.id   = -1;
     item.path = filePath;
 
     QFileInfo fileInfo(filePath);
@@ -91,7 +86,6 @@ MediaItem MediaScanWorker::scanFile(const QString &filePath) {
     item.width     = 0;
     item.height    = 0;
 
-    // Extract image dimensions if it's a photo
     if (item.type == "photo") {
         QImageReader reader(filePath);
         if (reader.canRead()) {
@@ -113,8 +107,6 @@ bool MediaScanWorker::isVideoFile(const QString &path) {
     QString extension = QFileInfo(path).suffix().toLower();
     return VIDEO_EXTENSIONS.contains(extension);
 }
-
-// ===== MediaLibraryManager Implementation =====
 
 MediaLibraryManager::MediaLibraryManager(QObject *parent)
     : QObject(parent)
@@ -196,7 +188,7 @@ QStringList MediaLibraryManager::getScanPaths() {
 }
 
 void MediaLibraryManager::scanLibrary() {
-    // Synchronous version for backwards compatibility
+
     if (m_isScanning) {
         qDebug() << "[MediaLibraryManager] Scan already in progress";
         return;
@@ -253,7 +245,6 @@ void MediaLibraryManager::scanLibraryAsync() {
         return;
     }
 
-    // Clean up previous thread if exists
     if (m_scanThread) {
         m_scanThread->quit();
         m_scanThread->wait();
@@ -263,16 +254,14 @@ void MediaLibraryManager::scanLibraryAsync() {
 
     m_isScanning   = true;
     m_scanProgress = 0;
-    emit scanningChanged(true);
-    emit scanProgressChanged(0);
+    emit        scanningChanged(true);
+    emit        scanProgressChanged(0);
 
-    // Create worker and thread
     QStringList paths = getScanPaths();
     m_scanWorker      = new MediaScanWorker(paths);
     m_scanThread      = new QThread();
     m_scanWorker->moveToThread(m_scanThread);
 
-    // Connect signals
     connect(m_scanThread, &QThread::started, m_scanWorker, &MediaScanWorker::process);
     connect(m_scanWorker, &MediaScanWorker::scanProgress, this,
             &MediaLibraryManager::onScanProgress);
@@ -284,12 +273,10 @@ void MediaLibraryManager::scanLibraryAsync() {
         emit scanningChanged(false);
     });
 
-    // Clean up thread when done
     connect(m_scanWorker, &MediaScanWorker::scanFinished, m_scanThread, &QThread::quit);
     connect(m_scanThread, &QThread::finished, m_scanWorker, &QObject::deleteLater);
     connect(m_scanThread, &QThread::finished, m_scanThread, &QObject::deleteLater);
 
-    // Start scanning
     m_scanThread->start();
 }
 
@@ -303,10 +290,8 @@ void MediaLibraryManager::onScanProgress(int current, int total) {
 void MediaLibraryManager::onScanFinished(QList<MediaItem> items) {
     qDebug() << "[MediaLibraryManager] Async scan finished. Processing" << items.size() << "items";
 
-    // Batch insert all items
     addMediaItemBatch(items);
 
-    // Update counts and albums
     loadAlbums();
 
     QSqlQuery countQuery(m_database);
@@ -618,8 +603,7 @@ QString MediaLibraryManager::createThumbnail(const QString &sourcePath) {
 
     QImageReader reader(sourcePath);
     reader.setAutoTransform(true);
-    // Decode at (roughly) thumbnail size while preserving aspect ratio.
-    // Avoid forcing a square scaledSize, which can distort and look "grainy" when rendered.
+
     const QSize origSize = reader.size();
     if (origSize.isValid() && origSize.width() > 0 && origSize.height() > 0) {
         const QSize scaled = origSize.scaled(QSize(targetSize, targetSize), Qt::KeepAspectRatio);
@@ -635,7 +619,7 @@ QString MediaLibraryManager::createThumbnail(const QString &sourcePath) {
             return thumbPath;
         }
     } else {
-        // Higher quality helps avoid "grainy" thumbnails, especially for UI screenshots.
+
         if (image.save(thumbPath, "JPG", 92)) {
             return thumbPath;
         }

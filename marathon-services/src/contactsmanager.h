@@ -60,4 +60,4 @@ class ContactsManager : public QObject {
     QString        m_contactsDir;
 };
 
-#endif // CONTACTSMANAGER_H
+#endif

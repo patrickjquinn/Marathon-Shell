@@ -23,7 +23,6 @@ SMSService::SMSService(QObject *parent)
     initDatabase();
     connectToModemManager();
 
-    // Poll for new messages every 5 seconds
     m_pollTimer->setInterval(5000);
     connect(m_pollTimer, &QTimer::timeout, this, &SMSService::checkForNewMessages);
     m_pollTimer->start();
@@ -73,7 +72,6 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
     if (!m_modemManager || !m_modemManager->isValid()) {
         qWarning() << "[SMSService] ModemManager not available";
 
-        // Store in database as pending
         Message msg;
         msg.conversationId = generateConversationId(recipient);
         msg.sender         = "me";
@@ -90,7 +88,6 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
         return;
     }
 
-    // Get list of modems
     QDBusReply<QVariantMap> reply = m_modemManager->call("GetManagedObjects");
     if (!reply.isValid()) {
         qWarning() << "[SMSService] Failed to get modems:" << reply.error().message();
@@ -101,7 +98,6 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
     QVariantMap objects = reply.value();
     QString     modemPath;
 
-    // Find first modem with Messaging capability
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
         QString     path       = it.key();
         QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
@@ -118,7 +114,6 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
         return;
     }
 
-    // Create SMS
     QVariantMap properties;
     properties["number"] = recipient;
     properties["text"]   = text;
@@ -145,7 +140,6 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
     QString smsPath = createReply.value().path();
     qDebug() << "[SMSService] SMS created:" << smsPath;
 
-    // Send SMS
     QDBusInterface smsInterface("org.freedesktop.ModemManager1", smsPath,
                                 "org.freedesktop.ModemManager1.Sms", QDBusConnection::systemBus());
 
@@ -162,7 +156,6 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
         return;
     }
 
-    // Store in database
     Message msg;
     msg.conversationId = generateConversationId(recipient);
     msg.sender         = "me";
@@ -237,7 +230,7 @@ void SMSService::markAsRead(const QString &conversationId) {
 }
 
 QString SMSService::generateConversationId(const QString &number) {
-    // Normalize phone number (remove spaces, dashes, etc.)
+
     QString normalized = number;
     normalized.remove(QRegularExpression("[^0-9+]"));
     return normalized;
@@ -247,9 +240,8 @@ void SMSService::simulateIncomingSMS(const QString &sender, const QString &text)
     qInfo() << "[SMSService] [SIMULATION] Simulating incoming SMS from:" << sender
             << "text:" << text;
 
-    qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
+    qint64  timestamp = QDateTime::currentMSecsSinceEpoch();
 
-    // Store message in database
     Message msg;
     msg.conversationId = generateConversationId(sender);
     msg.sender         = sender;
@@ -262,7 +254,6 @@ void SMSService::simulateIncomingSMS(const QString &sender, const QString &text)
     storeMessage(msg);
     loadConversations();
 
-    // Emit signal
     emit messageReceived(sender, text, timestamp);
 
     qInfo() << "[SMSService] [SIMULATION] ✓ Incoming SMS simulated and stored";
@@ -280,7 +271,6 @@ void SMSService::initDatabase() {
         return;
     }
 
-    // Create messages table
     QSqlQuery query(m_database);
     query.exec("CREATE TABLE IF NOT EXISTS messages ("
                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -302,7 +292,6 @@ void SMSService::initDatabase() {
 void SMSService::loadConversations() {
     m_conversations.clear();
 
-    // Get conversations with last message and unread count
     QSqlQuery query(m_database);
     query.exec("SELECT conversationId, "
                "MAX(timestamp) as lastTimestamp, "
@@ -312,11 +301,10 @@ void SMSService::loadConversations() {
                "ORDER BY lastTimestamp DESC");
 
     while (query.next()) {
-        QString convId        = query.value("conversationId").toString();
-        qint64  lastTimestamp = query.value("lastTimestamp").toLongLong();
-        int     unreadCount   = query.value("unreadCount").toInt();
+        QString   convId        = query.value("conversationId").toString();
+        qint64    lastTimestamp = query.value("lastTimestamp").toLongLong();
+        int       unreadCount   = query.value("unreadCount").toInt();
 
-        // Get last message text
         QSqlQuery msgQuery(m_database);
         msgQuery.prepare(
             "SELECT text, recipient FROM messages WHERE conversationId = ? AND timestamp = ?");
@@ -330,8 +318,6 @@ void SMSService::loadConversations() {
             lastMessage   = msgQuery.value("text").toString();
             contactNumber = msgQuery.value("recipient").toString();
 
-            // If message is outgoing, recipient is the contact
-            // If incoming, sender is the contact (which is convId)
             if (contactNumber == "me") {
                 contactNumber = convId;
             }
@@ -386,7 +372,6 @@ void SMSService::connectToModemManager() {
 
     qInfo() << "[SMSService] ✓ Connected to ModemManager";
 
-    // Monitor for new SMS messages
     QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", "",
                                          "org.freedesktop.ModemManager1.Modem.Messaging", "Added",
                                          this, SLOT(checkForNewMessages()));
@@ -397,7 +382,6 @@ void SMSService::checkForNewMessages() {
         return;
     }
 
-    // Get list of modems
     QDBusReply<QVariantMap> reply = m_modemManager->call("GetManagedObjects");
     if (!reply.isValid()) {
         return;
@@ -405,7 +389,6 @@ void SMSService::checkForNewMessages() {
 
     QVariantMap objects = reply.value();
 
-    // Check each modem for new messages
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
         QString     path       = it.key();
         QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
@@ -419,7 +402,6 @@ void SMSService::checkForNewMessages() {
                 continue;
             }
 
-            // List all messages
             QDBusReply<QList<QDBusObjectPath>> listReply = messagingInterface.call("List");
             if (!listReply.isValid()) {
                 continue;
@@ -442,7 +424,6 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
         return;
     }
 
-    // Get SMS properties
     QDBusReply<QVariant> numberReply =
         smsInterface.call("Get", "org.freedesktop.ModemManager1.Sms", "Number");
     QDBusReply<QVariant> textReply =
@@ -466,7 +447,6 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
         }
     }
 
-    // Check if we already have this message (by comparing timestamp and sender)
     QSqlQuery checkQuery(m_database);
     checkQuery.prepare(
         "SELECT COUNT(*) FROM messages WHERE sender = ? AND timestamp = ? AND text = ?");
@@ -476,12 +456,11 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
 
     if (checkQuery.exec() && checkQuery.next()) {
         if (checkQuery.value(0).toInt() > 0) {
-            // Message already exists
+
             return;
         }
     }
 
-    // Store new message
     Message msg;
     msg.conversationId = generateConversationId(sender);
     msg.sender         = sender;
@@ -498,7 +477,6 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
 
     qInfo() << "[SMSService] ✓ New SMS received from:" << sender;
 
-    // Delete from modem (to save SIM storage)
     QDBusInterface smsDeleteInterface("org.freedesktop.ModemManager1", smsPath,
                                       "org.freedesktop.ModemManager1.Sms",
                                       QDBusConnection::systemBus());
@@ -510,8 +488,7 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
 
 QString SMSService::resolveContactName(const QString &number) const {
     if (m_contactsManager) {
-        // Look up contact name from ContactsManager
-        // This would need to be implemented in ContactsManager
+
         return number;
     }
     return number;

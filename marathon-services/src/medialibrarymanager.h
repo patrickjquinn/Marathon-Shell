@@ -30,7 +30,6 @@ struct Album {
     qint64  lastModified;
 };
 
-// Worker thread for async scanning
 class MediaScanWorker : public QObject {
     Q_OBJECT
   public:
@@ -73,7 +72,7 @@ class MediaLibraryManager : public QObject {
     int                      scanProgress() const;
 
     Q_INVOKABLE void         scanLibrary();
-    Q_INVOKABLE void         scanLibraryAsync(); // New async method
+    Q_INVOKABLE void         scanLibraryAsync();
     Q_INVOKABLE QVariantList getPhotos(const QString &albumId);
     Q_INVOKABLE QVariantList getVideos();
     Q_INVOKABLE QVariantList getAllPhotos();
@@ -98,7 +97,7 @@ class MediaLibraryManager : public QObject {
     void                     initDatabase();
     void                     scanDirectory(const QString &path);
     void                     addMediaItem(const QString &filePath);
-    void                     addMediaItemBatch(const QList<MediaItem> &items); // Batch insert
+    void                     addMediaItemBatch(const QList<MediaItem> &items);
     void                     extractPhotoMetadata(const QString &path, MediaItem &item);
     QString                  createThumbnail(const QString &sourcePath);
     void                     loadAlbums();
@@ -125,4 +124,4 @@ class MediaLibraryManager : public QObject {
     static const QStringList VIDEO_EXTENSIONS;
 };
 
-#endif // MEDIALIBRARYMANAGER_H
+#endif

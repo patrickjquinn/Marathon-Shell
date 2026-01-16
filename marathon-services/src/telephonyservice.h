@@ -28,7 +28,6 @@ class TelephonyService : public QObject {
     Q_INVOKABLE void hangup();
     Q_INVOKABLE void sendDTMF(const QString &digit);
 
-    // Simulation methods for testing
     Q_INVOKABLE void simulateIncomingCall(const QString &number);
     Q_INVOKABLE void simulateCallStateChange(const QString &state);
 
@@ -63,4 +62,4 @@ class TelephonyService : public QObject {
     QTimer         *m_reconnectTimer;
 };
 
-#endif // TELEPHONYSERVICE_H
+#endif
