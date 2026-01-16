@@ -1,6 +1,7 @@
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Rectangle {
@@ -215,12 +216,8 @@ Rectangle {
         appWindow.appName = name;
         appWindow.appIcon = icon;
         appWindow.appType = type;
-        if (typeof UIStore !== 'undefined') {
-            UIStore.appWindowOpen = true;
-            UIStore.currentAppId = id;
-            UIStore.currentAppName = name;
-            UIStore.currentAppIcon = icon;
-        }
+        if (typeof UIStore !== 'undefined')
+            UIStore.restoreApp(id, name, icon);
         if (!appContentLoader.item) {
             appWindow.pendingAppInstance = instance;
             appContentLoader.source = "appInstanceContainer";
