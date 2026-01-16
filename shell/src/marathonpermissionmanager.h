@@ -11,46 +11,41 @@ class MarathonPermissionManager : public QObject {
     Q_PROPERTY(bool promptActive READ promptActive NOTIFY promptActiveChanged)
     Q_PROPERTY(QString currentAppId READ currentAppId NOTIFY currentRequestChanged)
     Q_PROPERTY(QString currentPermission READ currentPermission NOTIFY currentRequestChanged)
+    Q_PROPERTY(QStringList currentPermissions READ currentPermissions NOTIFY currentRequestChanged)
 
   public:
     enum PermissionStatus {
         NotRequested,
         Granted,
         Denied,
-        Prompt // User needs to decide
+        Prompt
     };
     Q_ENUM(PermissionStatus)
 
     explicit MarathonPermissionManager(QObject *parent = nullptr);
 
-    // Check if an app has a specific permission
     Q_INVOKABLE bool hasPermission(const QString &appId, const QString &permission);
 
-    // Request permission (shows prompt if not already granted/denied)
     Q_INVOKABLE void requestPermission(const QString &appId, const QString &permission);
+    Q_INVOKABLE void requestPermissions(const QString &appId, const QStringList &permissions);
 
-    // Set permission (called by UI when user responds)
     Q_INVOKABLE void setPermission(const QString &appId, const QString &permission, bool granted,
                                    bool remember = true);
+    Q_INVOKABLE void setPermissions(const QString &appId, const QStringList &permissions,
+                                    bool granted, bool remember = true);
 
-    // Get all permissions for an app
-    Q_INVOKABLE QStringList getAppPermissions(const QString &appId);
+    Q_INVOKABLE QStringList      getAppPermissions(const QString &appId);
 
-    // Revoke a specific permission
-    Q_INVOKABLE void revokePermission(const QString &appId, const QString &permission);
+    Q_INVOKABLE void             revokePermission(const QString &appId, const QString &permission);
 
-    // Get permission status
     Q_INVOKABLE PermissionStatus getPermissionStatus(const QString &appId,
                                                      const QString &permission);
 
-    // Get list of all available permissions
-    Q_INVOKABLE QStringList getAvailablePermissions();
+    Q_INVOKABLE QStringList      getAvailablePermissions();
 
-    // Get human-readable permission description
-    Q_INVOKABLE QString getPermissionDescription(const QString &permission);
+    Q_INVOKABLE QString          getPermissionDescription(const QString &permission);
 
-    // Properties
-    bool promptActive() const {
+    bool                         promptActive() const {
         return m_promptActive;
     }
     QString currentAppId() const {
@@ -59,30 +54,43 @@ class MarathonPermissionManager : public QObject {
     QString currentPermission() const {
         return m_currentPermission;
     }
+    QStringList currentPermissions() const {
+        return m_currentPermissions;
+    }
 
   signals:
     void permissionGranted(const QString &appId, const QString &permission);
     void permissionDenied(const QString &appId, const QString &permission);
     void permissionRevoked(const QString &appId, const QString &permission);
     void permissionRequested(const QString &appId, const QString &permission);
+    void permissionsRequested(const QString &appId, const QStringList &permissions);
     void promptActiveChanged();
     void currentRequestChanged();
 
-  private:
-    void    loadPermissions();
-    void    savePermissions();
-    QString getPermissionsFilePath();
+  private slots:
+    void processPendingRequests();
 
-    // Stored permissions: appId -> permission -> granted
+  private:
+    void                               loadPermissions();
+    void                               savePermissions();
+    QString                            getPermissionsFilePath();
+    void                               checkQueue();
+
     QMap<QString, QMap<QString, bool>> m_permissions;
 
-    // Current permission request
-    bool    m_promptActive;
-    QString m_currentAppId;
-    QString m_currentPermission;
+    bool                               m_promptActive;
+    QString                            m_currentAppId;
+    QString                            m_currentPermission;
+    QStringList                        m_currentPermissions;
 
-    // Permission descriptions
-    QMap<QString, QString> m_permissionDescriptions;
+    QMap<QString, QString>             m_permissionDescriptions;
 
-    class PortalManager   *m_portalManager;
+    class PortalManager               *m_portalManager;
+    class QTimer                      *m_batchTimer;
+
+    struct PendingRequest {
+        QString appId;
+        QString permission;
+    };
+    QList<PendingRequest> m_pendingRequests;
 };

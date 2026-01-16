@@ -1,6 +1,6 @@
 #include "freedesktopnotifications.h"
-#include "../notificationmodel.h"
-#include "../powermanagercpp.h"
+#include "notificationmodel.h"
+#include "powermanagercpp.h"
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QDBusMessage>
@@ -26,12 +26,10 @@ bool FreedesktopNotifications::registerService() {
         qDebug() << "[FreedesktopNotifications] org.freedesktop.Notifications already registered "
                     "(desktop environment)";
 
-        // Fallback for nested testing: Register org.marathon.Notifications
         if (bus.registerService("org.marathon.Notifications")) {
             qInfo() << "[FreedesktopNotifications] ✓ Registered fallback service: "
                        "org.marathon.Notifications";
 
-            // Register the object path for the fallback service too
             if (!bus.registerObject("/org/freedesktop/Notifications", this,
                                     QDBusConnection::ExportAllSlots |
                                         QDBusConnection::ExportAllSignals)) {
@@ -93,14 +91,11 @@ uint FreedesktopNotifications::Notify(const QString &app_name, uint replaces_id,
 
     record.priority = mapUrgencyToPriority(hints);
 
-    // Acquire temporary wakelock for high-priority notifications
-    // Urgency: 0 = low, 1 = normal, 2 = critical
     int urgency = hints.value("urgency", 1).toInt();
     if (urgency >= 2 && m_powerManager) {
         m_powerManager->acquireWakelock("notification");
         qInfo() << "[FreedesktopNotifications] Acquired wakelock for critical notification";
 
-        // Release after 5 seconds
         QTimer::singleShot(5000, this, [this]() {
             if (m_powerManager) {
                 m_powerManager->releaseWakelock("notification");
@@ -143,29 +138,20 @@ void FreedesktopNotifications::CloseNotification(uint id) {
     qDebug() << "[FreedesktopNotifications] CloseNotification:" << id;
 
     if (m_database->dismiss(id)) {
-        emit NotificationClosed(id, 3); // Reason: closed by CloseNotification call
+        emit NotificationClosed(id, 3);
     }
 }
 
 QStringList FreedesktopNotifications::GetCapabilities() {
-    // Return list of supported capabilities
-    // See: https://specifications.freedesktop.org/notification-spec/latest/ar01s08.html
-    return QStringList{
-        "actions",      // Supports notification actions
-        "body",         // Supports body text
-        "body-markup",  // Supports markup in body (we strip it but declare support)
-        "icon-static",  // Supports icon
-        "persistence",  // Notifications persist
-        "action-icons", // Action icons supported
-        "inline-reply"  // Inline reply support for quick responses
-    };
+
+    return QStringList{"actions",     "body",         "body-markup", "icon-static",
+                       "persistence", "action-icons", "inline-reply"};
 }
 
 void FreedesktopNotifications::InvokeReply(uint id, const QString &text) {
     qInfo() << "[FreedesktopNotifications] InvokeReply:" << id << "text:" << text;
     emit NotificationReplied(id, text);
 
-    // Emit ActionInvoked for compatibility with apps expecting "default" action
     emit ActionInvoked(id, "inline-reply");
 }
 
@@ -177,14 +163,14 @@ void FreedesktopNotifications::GetServerInformation(QString &name, QString &vend
     if (version.isEmpty()) {
         version = "1.0.0";
     }
-    spec_version = "1.2"; // freedesktop.org notification spec version
+    spec_version = "1.2";
 
     qDebug() << "[FreedesktopNotifications] GetServerInformation called";
 }
 
 QString FreedesktopNotifications::extractAppName(const QString     &provided,
                                                  const QVariantMap &hints) {
-    // Prefer desktop-entry from hints for proper app identification
+
     if (hints.contains("desktop-entry")) {
         QString desktopEntry = hints.value("desktop-entry").toString();
         if (!desktopEntry.isEmpty()) {
@@ -192,12 +178,10 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
         }
     }
 
-    // Fallback to provided app_name
     if (!provided.isEmpty()) {
         return provided;
     }
 
-    // Last resort: try sender from DBus context
     if (calledFromDBus()) {
         return message().service();
     }
@@ -206,18 +190,16 @@ QString FreedesktopNotifications::extractAppName(const QString     &provided,
 }
 
 int FreedesktopNotifications::mapUrgencyToPriority(const QVariantMap &hints) {
-    // freedesktop urgency: 0=low, 1=normal, 2=critical
-    // Marathon priority: 0=low, 1=normal, 2=high, 3=urgent
 
     if (hints.contains("urgency")) {
         int urgency = hints.value("urgency").toInt();
         switch (urgency) {
-            case 0: return 0; // low -> low
-            case 1: return 1; // normal -> normal
-            case 2: return 3; // critical -> urgent
+            case 0: return 0;
+            case 1: return 1;
+            case 2: return 3;
             default: return 1;
         }
     }
 
-    return 1; // default: normal
+    return 1;
 }

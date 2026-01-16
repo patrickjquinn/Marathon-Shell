@@ -1,16 +1,20 @@
 #include "shellservices.h"
 
-#include "../applaunchservice.h"
-#include "../marathonpermissionmanager.h"
-#include "../settingsmanager.h"
-#include "../bluetoothmanager.h"
-#include "../displaymanagercpp.h"
-#include "../networkmanagercpp.h"
-#include "../powermanagercpp.h"
-#include "../audiomanagercpp.h"
-#include "../audiopolicycontroller.h"
-#include "../ratelimiter.h"
-#include "../securitylogger.h"
+#include "applaunchservice.h"
+#include "marathonpermissionmanager.h"
+#include "settingsmanager.h"
+#include "bluetoothmanager.h"
+#include "displaymanagercpp.h"
+#include "networkmanagercpp.h"
+#include "powermanagercpp.h"
+#include "audiomanagercpp.h"
+#include "audiopolicycontroller.h"
+#include "hapticmanager.h"
+#include "sensormanagercpp.h"
+#include "locationmanager.h"
+#include "alarmmanagercpp.h"
+#include "ratelimiter.h"
+#include "securitylogger.h"
 
 #include "callhistorymanager.h"
 #include "contactsmanager.h"
@@ -1492,6 +1496,18 @@ void TelephonyObject::SendDTMF(const QString &digit) {
     m_telephony->sendDTMF(digit);
 }
 
+void TelephonyObject::SimulateIncomingCall(const QString &number) {
+    if (!requirePhone())
+        return;
+    m_telephony->simulateIncomingCall(number);
+}
+
+void TelephonyObject::SimulateCallStateChange(const QString &state) {
+    if (!requirePhone())
+        return;
+    m_telephony->simulateCallStateChange(state);
+}
+
 SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
                      AppLaunchService *launchService, QObject *parent)
     : QObject(parent)
@@ -1559,6 +1575,12 @@ QString SmsObject::GenerateConversationId(const QString &number) {
     if (!requireSms())
         return {};
     return m_sms->generateConversationId(number);
+}
+
+void SmsObject::SimulateIncomingSMS(const QString &sender, const QString &message) {
+    if (!requireSms())
+        return;
+    m_sms->simulateIncomingSMS(sender, message);
 }
 
 NavigationObject::NavigationObject(AppLaunchService *launchService, QObject *parent)
@@ -1649,4 +1671,173 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
         emit NavigationFailed(appId, "Failed to launch app");
     }
     return ok;
+}
+
+HapticObject::HapticObject(HapticManager *haptic, AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_haptic(haptic)
+    , m_launchService(launchService) {
+    Q_ASSERT(m_haptic);
+}
+
+bool HapticObject::IsAvailable() const {
+    return m_haptic ? m_haptic->available() : false;
+}
+
+void HapticObject::Light() {
+    if (m_haptic && m_haptic->available())
+        m_haptic->vibrate(10);
+}
+
+void HapticObject::Medium() {
+    if (m_haptic && m_haptic->available())
+        m_haptic->vibrate(25);
+}
+
+void HapticObject::Heavy() {
+    if (m_haptic && m_haptic->available())
+        m_haptic->vibrate(50);
+}
+
+void HapticObject::Vibrate(int duration) {
+    if (m_haptic && m_haptic->available())
+        m_haptic->vibrate(duration);
+}
+
+void HapticObject::VibratePattern(const QVariantList &pattern) {
+    if (m_haptic && m_haptic->available())
+        m_haptic->vibratePatternVariant(pattern);
+}
+
+void HapticObject::Stop() {
+    if (m_haptic)
+        m_haptic->cancelVibration();
+}
+
+SensorObject::SensorObject(SensorManagerCpp *sensors, AppLaunchService *launchService,
+                           QObject *parent)
+    : QObject(parent)
+    , m_sensors(sensors)
+    , m_launchService(launchService) {
+    Q_ASSERT(m_sensors);
+    QObject::connect(m_sensors, &SensorManagerCpp::proximityNearChanged, this,
+                     [this]() { emit ProximityChanged(m_sensors->proximityNear()); });
+    QObject::connect(m_sensors, &SensorManagerCpp::ambientLightChanged, this,
+                     [this]() { emit AmbientLightChanged(m_sensors->ambientLight()); });
+}
+
+bool SensorObject::IsAvailable() const {
+    return m_sensors ? m_sensors->available() : false;
+}
+
+bool SensorObject::ProximityNear() const {
+    return m_sensors ? m_sensors->proximityNear() : false;
+}
+
+int SensorObject::AmbientLight() const {
+    return m_sensors ? m_sensors->ambientLight() : 0;
+}
+
+LocationObject::LocationObject(LocationManager *location, AppLaunchService *launchService,
+                               QObject *parent)
+    : QObject(parent)
+    , m_location(location)
+    , m_launchService(launchService) {
+    Q_ASSERT(m_location);
+    QObject::connect(m_location, &LocationManager::locationChanged, this,
+                     [this]() { emit LocationChanged(GetLocation()); });
+    QObject::connect(m_location, &LocationManager::activeChanged, this,
+                     [this]() { emit activeChanged(m_location->active()); });
+}
+
+bool LocationObject::IsAvailable() const {
+    return m_location ? m_location->available() : false;
+}
+
+bool LocationObject::IsActive() const {
+    return m_location ? m_location->active() : false;
+}
+
+void LocationObject::Start() {
+    if (m_location)
+        m_location->start();
+}
+
+void LocationObject::Stop() {
+    if (m_location)
+        m_location->stop();
+}
+
+QVariantMap LocationObject::GetLocation() const {
+    QVariantMap loc;
+    if (m_location) {
+        loc["latitude"]  = m_location->latitude();
+        loc["longitude"] = m_location->longitude();
+        loc["accuracy"]  = m_location->accuracy();
+        loc["altitude"]  = m_location->altitude();
+        loc["speed"]     = m_location->speed();
+        loc["heading"]   = m_location->heading();
+        loc["timestamp"] = m_location->timestamp();
+    }
+    return loc;
+}
+
+AlarmObject::AlarmObject(AlarmManagerCpp *alarms, AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_alarms(alarms)
+    , m_launchService(launchService) {
+    Q_ASSERT(m_alarms);
+    connect(m_alarms, &AlarmManagerCpp::alarmsChanged, this, &AlarmObject::AlarmsChanged);
+    connect(m_alarms, &AlarmManagerCpp::activeAlarmsChanged, this,
+            &AlarmObject::ActiveAlarmsChanged);
+    connect(m_alarms, &AlarmManagerCpp::alarmTriggered, this, &AlarmObject::AlarmTriggered);
+    connect(m_alarms, &AlarmManagerCpp::alarmDismissed, this, &AlarmObject::AlarmDismissed);
+    connect(m_alarms, &AlarmManagerCpp::alarmSnoozed, this, &AlarmObject::AlarmSnoozed);
+}
+
+QVariantList AlarmObject::GetAlarms() const {
+    return m_alarms ? m_alarms->alarms() : QVariantList();
+}
+
+QVariantList AlarmObject::GetActiveAlarms() const {
+    return m_alarms ? m_alarms->activeAlarms() : QVariantList();
+}
+
+QString AlarmObject::CreateAlarm(const QString &time, const QString &label,
+                                 const QList<int> &repeat, const QVariantMap &options) {
+    return m_alarms ? m_alarms->createAlarm(time, label, repeat, options) : QString();
+}
+
+bool AlarmObject::UpdateAlarm(const QString &id, const QVariantMap &updates) {
+    return m_alarms ? m_alarms->updateAlarm(id, updates) : false;
+}
+
+bool AlarmObject::DeleteAlarm(const QString &id) {
+    return m_alarms ? m_alarms->deleteAlarm(id) : false;
+}
+
+bool AlarmObject::EnableAlarm(const QString &id) {
+    return m_alarms ? m_alarms->enableAlarm(id) : false;
+}
+
+bool AlarmObject::DisableAlarm(const QString &id) {
+    return m_alarms ? m_alarms->disableAlarm(id) : false;
+}
+
+bool AlarmObject::SnoozeAlarm(const QString &id) {
+    return m_alarms ? m_alarms->snoozeAlarm(id) : false;
+}
+
+bool AlarmObject::DismissAlarm(const QString &id) {
+    return m_alarms ? m_alarms->dismissAlarm(id) : false;
+}
+
+void AlarmObject::StopAll() {
+    if (m_alarms)
+        m_alarms->stopAll();
+}
+
+void AlarmObject::TriggerAlarmNow(const QString &label) {
+    if (m_alarms)
+        m_alarms->triggerAlarmNow(label);
 }

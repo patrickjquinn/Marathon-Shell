@@ -54,4 +54,4 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
     int                   mapUrgencyToPriority(const QVariantMap &hints);
 };
 
-#endif // FREEDESKTOPNOTIFICATIONS_H
+#endif

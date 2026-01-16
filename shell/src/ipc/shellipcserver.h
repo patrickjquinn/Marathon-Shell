@@ -18,26 +18,11 @@ class NetworkManagerCpp;
 class PowerManagerCpp;
 class AudioManagerCpp;
 class AudioPolicyController;
+class HapticManager;
+class SensorManagerCpp;
+class LocationManager;
+class AlarmManagerCpp;
 
-/**
- * Registers the shell-side DBus API used by isolated Marathon app processes.
- *
- * Service: org.marathonos.Shell
- * Objects:
- *  - /org/marathonos/Shell/Permissions   (org.marathonos.Shell.Permissions1)
- *  - /org/marathonos/Shell/Contacts     (org.marathonos.Shell.Contacts1)
- *  - /org/marathonos/Shell/CallHistory  (org.marathonos.Shell.CallHistory1)
- *  - /org/marathonos/Shell/Telephony    (org.marathonos.Shell.Telephony1)
- *  - /org/marathonos/Shell/Sms          (org.marathonos.Shell.Sms1)
- *  - /org/marathonos/Shell/MediaLibrary (org.marathonos.Shell.MediaLibrary1)
- *  - /org/marathonos/Shell/Settings     (org.marathonos.Shell.Settings1)
- *  - /org/marathonos/Shell/Bluetooth    (org.marathonos.Shell.Bluetooth1)
- *  - /org/marathonos/Shell/Display      (org.marathonos.Shell.Display1)
- *  - /org/marathonos/Shell/Power        (org.marathonos.Shell.Power1)
- *  - /org/marathonos/Shell/Audio        (org.marathonos.Shell.Audio1)
- *  - /org/marathonos/Shell/Network      (org.marathonos.Shell.Network1)
- *  - /org/marathonos/Shell/Navigation   (org.marathonos.Shell.Navigation1)
- */
 class ShellIpcServer : public QObject {
     Q_OBJECT
 
@@ -48,7 +33,9 @@ class ShellIpcServer : public QObject {
                             SettingsManager *settingsManager, BluetoothManager *bluetoothManager,
                             DisplayManagerCpp *displayManager, PowerManagerCpp *powerManager,
                             AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
-                            NetworkManagerCpp *networkManager, AppLaunchService *appLaunchService,
+                            NetworkManagerCpp *networkManager, HapticManager *hapticManager,
+                            SensorManagerCpp *sensorManager, LocationManager *locationManager,
+                            AlarmManagerCpp *alarmManager, AppLaunchService *appLaunchService,
                             QObject *parent = nullptr);
 
     bool registerOnSessionBus();
@@ -67,5 +54,9 @@ class ShellIpcServer : public QObject {
     AudioManagerCpp           *m_audioManager     = nullptr;
     AudioPolicyController     *m_audioPolicy      = nullptr;
     NetworkManagerCpp         *m_networkManager   = nullptr;
+    HapticManager             *m_hapticManager    = nullptr;
+    SensorManagerCpp          *m_sensorManager    = nullptr;
+    LocationManager           *m_locationManager  = nullptr;
+    AlarmManagerCpp           *m_alarmManager     = nullptr;
     AppLaunchService          *m_appLaunchService = nullptr;
 };
