@@ -176,6 +176,7 @@ if [ $? -eq 0 ]; then
     
     # Set QML import path for MarathonUI modules
     export QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$QML_IMPORT_PATH"
+    export MARATHON_SHELL_QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml"
 
     export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-$PROJECT_DIR/shell/resources}"
     

@@ -52,6 +52,18 @@ function(add_qmllint_target target_name)
     endif()
     
     # Find MarathonUI build directory (multiple possible locations)
+    if(EXISTS "${CMAKE_BINARY_DIR}/qmllint")
+        list(APPEND import_paths "${CMAKE_BINARY_DIR}/qmllint")
+    endif()
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/build/qmllint")
+        list(APPEND import_paths "${CMAKE_SOURCE_DIR}/build/qmllint")
+    endif()
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/../build/qmllint")
+        list(APPEND import_paths "${CMAKE_SOURCE_DIR}/../build/qmllint")
+    endif()
+
     # 1. If we're building marathon-ui, use current binary dir
     if(CMAKE_CURRENT_BINARY_DIR MATCHES "marathon-ui")
         list(APPEND import_paths "${CMAKE_BINARY_DIR}/MarathonUI")
@@ -71,6 +83,10 @@ function(add_qmllint_target target_name)
     # 3. Check for build/MarathonUI (if built in same directory)
     if(EXISTS "${CMAKE_BINARY_DIR}/MarathonUI")
         list(APPEND import_paths "${CMAKE_BINARY_DIR}/MarathonUI")
+    endif()
+
+    if(EXISTS "${CMAKE_BINARY_DIR}/shell/qml")
+        list(APPEND import_paths "${CMAKE_BINARY_DIR}/shell/qml")
     endif()
     
     # 4. Check for installed MarathonUI (user-local)
@@ -134,6 +150,12 @@ function(add_qmllint_target target_name)
         endif()
         if(TARGET marathon-ui-core)
             list(APPEND qmllint_dependencies marathon-ui-core)
+        endif()
+        if(TARGET marathon-shell)
+            list(APPEND qmllint_dependencies marathon-shell)
+        endif()
+        if(TARGET marathon-ui-qmllint-modules)
+            list(APPEND qmllint_dependencies marathon-ui-qmllint-modules)
         endif()
         
         add_custom_target(${target_name}_qmllint
