@@ -1,6 +1,7 @@
 import MarathonUI.Core
 import MarathonUI.Feedback
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Effects
 

@@ -2,6 +2,7 @@ import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Controls
 

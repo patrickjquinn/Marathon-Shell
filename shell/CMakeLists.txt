@@ -28,6 +28,8 @@ set(SOURCES
     src/services/notificationservicecpp.cpp
     src/services/telephonyintegrationcpp.h
     src/services/telephonyintegrationcpp.cpp
+    src/services/sessionstore.h
+    src/services/sessionstore.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
@@ -220,7 +222,6 @@ set(QML_FILES
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
     qml/stores/SystemControlStore.qml
-    qml/stores/SessionStore.qml
     qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
@@ -258,7 +259,6 @@ set(SINGLETON_FILES
     qml/stores/WallpaperStore.qml
     qml/stores/SystemStatusStore.qml
     qml/stores/SystemControlStore.qml
-    qml/stores/SessionStore.qml
     qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
