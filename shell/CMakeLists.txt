@@ -120,6 +120,8 @@ set(SOURCES
     src/services/dictionary.cpp
     src/services/autocorrect.h
     src/services/autocorrect.cpp
+    src/services/inputcontext.h
+    src/services/inputcontext.cpp
     src/managers/flashlightmanagercpp.h
     src/managers/flashlightmanagercpp.cpp
     src/controllers/audioroutingmanager.h
@@ -218,7 +220,6 @@ set(QML_FILES
     qml/components/VirtualKeyboard.qml
     qml/components/PermissionDialog.qml
     qml/keyboard/Core/MarathonKeyboard.qml
-    qml/keyboard/Core/KeyboardPerformance.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
     qml/keyboard/UI/LongPressPopup.qml
@@ -232,7 +233,6 @@ set(QML_FILES
     qml/keyboard/Layouts/NumberLayout.qml
     qml/keyboard/Layouts/PhoneLayout.qml
     qml/keyboard/Layouts/TerminalLayout.qml
-    qml/keyboard/Input/InputContext.qml
     qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
@@ -335,6 +335,8 @@ qt6_add_qml_module(marathon-shell
         src/services/dictionary.h
         src/services/autocorrect.cpp
         src/services/autocorrect.h
+        src/services/inputcontext.cpp
+        src/services/inputcontext.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
