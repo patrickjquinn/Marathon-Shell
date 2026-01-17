@@ -1,5 +1,6 @@
 #include "inputcontext.h"
 
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QInputMethod>
 
@@ -13,8 +14,12 @@ InputContext::InputContext(QObject *parent)
                 detectInputMode();
             }
         });
-        connect(m_inputMethod, &QInputMethod::inputItemHintsChanged, this,
-                &InputContext::detectInputMode);
+    }
+
+    auto *app = qobject_cast<QGuiApplication *>(QCoreApplication::instance());
+    if (app) {
+        connect(app, &QGuiApplication::focusObjectChanged, this,
+                [this](QObject *) { detectInputMode(); });
     }
 }
 
@@ -112,7 +117,8 @@ void InputContext::detectInputMode() {
         return;
     }
 
-    const Qt::InputMethodHints hints = m_inputMethod->inputItemHints();
+    const QVariant             hintValue = QInputMethod::queryFocusObject(Qt::ImHints, QVariant());
+    const Qt::InputMethodHints hints     = static_cast<Qt::InputMethodHints>(hintValue.toInt());
     if (hints & Qt::ImhEmailCharactersOnly) {
         setInputModeInternal("email");
     } else if ((hints & Qt::ImhUrlCharactersOnly) ||

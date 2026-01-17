@@ -86,6 +86,7 @@
 #include "src/services/autocorrect.h"
 #include "src/services/emojipredictor.h"
 #include "src/services/phrasepredictor.h"
+#include "src/services/inputcontext.h"
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
@@ -311,7 +312,9 @@ int main(int argc, char *argv[]) {
 
     QQmlApplicationEngine engine;
 
-    auto                 *sessionStore = new SessionStore(&app);
+    qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
+
+    auto *sessionStore = new SessionStore(&app);
     qmlRegisterSingletonInstance<SessionStore>("MarathonOS.Shell", 1, 0, "SessionStore",
                                                sessionStore);
 
