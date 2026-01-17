@@ -1,4 +1,3 @@
-import "../Data"
 import "../UI"
 import QtQuick
 

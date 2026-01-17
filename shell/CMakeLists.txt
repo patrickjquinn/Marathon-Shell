@@ -104,6 +104,22 @@ set(SOURCES
     src/services/appstore.cpp
     src/services/wallpaperstore.h
     src/services/wallpaperstore.cpp
+    src/services/router.h
+    src/services/router.cpp
+    src/services/surfaceregistry.h
+    src/services/surfaceregistry.cpp
+    src/services/domainsuggestions.h
+    src/services/domainsuggestions.cpp
+    src/services/emojipredictor.h
+    src/services/emojipredictor.cpp
+    src/services/phrasepredictor.h
+    src/services/phrasepredictor.cpp
+    src/services/languagemanager.h
+    src/services/languagemanager.cpp
+    src/services/dictionary.h
+    src/services/dictionary.cpp
+    src/services/autocorrect.h
+    src/services/autocorrect.cpp
     src/managers/flashlightmanagercpp.h
     src/managers/flashlightmanagercpp.cpp
     src/controllers/audioroutingmanager.h
@@ -203,7 +219,6 @@ set(QML_FILES
     qml/components/PermissionDialog.qml
     qml/keyboard/Core/MarathonKeyboard.qml
     qml/keyboard/Core/KeyboardPerformance.qml
-    qml/keyboard/Core/LanguageManager.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
     qml/keyboard/UI/LongPressPopup.qml
@@ -218,9 +233,6 @@ set(QML_FILES
     qml/keyboard/Layouts/PhoneLayout.qml
     qml/keyboard/Layouts/TerminalLayout.qml
     qml/keyboard/Input/InputContext.qml
-    qml/keyboard/Data/Dictionary.qml
-    qml/keyboard/Data/AutoCorrect.qml
-    qml/keyboard/Data/DomainSuggestions.qml
     qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
@@ -228,8 +240,6 @@ set(QML_FILES
     qml/apps/native/NativeAppWindow.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
-    qml/core/SurfaceRegistry.qml
-    qml/core/Router.qml
     qml/models/FilteredAppModel.qml
     qml/services/CalendarWorker.js
 )
@@ -260,11 +270,6 @@ qt6_add_executable(marathon-shell ${SOURCES})
 set(SINGLETON_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
-    qml/core/SurfaceRegistry.qml
-    qml/core/Router.qml
-    qml/keyboard/Core/LanguageManager.qml
-    qml/keyboard/Data/Dictionary.qml
-    qml/keyboard/Data/AutoCorrect.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -314,6 +319,22 @@ qt6_add_qml_module(marathon-shell
         src/services/appstore.h
         src/services/wallpaperstore.cpp
         src/services/wallpaperstore.h
+        src/services/router.cpp
+        src/services/router.h
+        src/services/surfaceregistry.cpp
+        src/services/surfaceregistry.h
+        src/services/domainsuggestions.cpp
+        src/services/domainsuggestions.h
+        src/services/emojipredictor.cpp
+        src/services/emojipredictor.h
+        src/services/phrasepredictor.cpp
+        src/services/phrasepredictor.h
+        src/services/languagemanager.cpp
+        src/services/languagemanager.h
+        src/services/dictionary.cpp
+        src/services/dictionary.h
+        src/services/autocorrect.cpp
+        src/services/autocorrect.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )

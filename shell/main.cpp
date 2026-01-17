@@ -79,6 +79,13 @@
 #include "src/services/uistore.h"
 #include "src/services/appstore.h"
 #include "src/services/wallpaperstore.h"
+#include "src/services/router.h"
+#include "src/services/surfaceregistry.h"
+#include "src/services/languagemanager.h"
+#include "src/services/dictionary.h"
+#include "src/services/autocorrect.h"
+#include "src/services/emojipredictor.h"
+#include "src/services/phrasepredictor.h"
 #include "qml/keyboard/Data/WordEngine.h"
 #include "src/dbus/freedesktopnotifications.h"
 #include "src/dbus/notificationdatabase.h"
@@ -443,6 +450,11 @@ int main(int argc, char *argv[]) {
                                                      systemControlStore);
     auto *uiStore = new UIStore(&app);
     qmlRegisterSingletonInstance<UIStore>("MarathonOS.Shell", 1, 0, "UIStore", uiStore);
+    auto *router = new Router(&app);
+    qmlRegisterSingletonInstance<Router>("MarathonOS.Shell", 1, 0, "Router", router);
+    auto *surfaceRegistry = new SurfaceRegistry(&app);
+    qmlRegisterSingletonInstance<SurfaceRegistry>("MarathonOS.Shell", 1, 0, "SurfaceRegistry",
+                                                  surfaceRegistry);
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {
@@ -472,6 +484,19 @@ int main(int argc, char *argv[]) {
     wordEngine->setLanguage("en_US");
     wordEngine->setEnabled(true);
     qInfo() << "[MarathonShell] ✓ Word Engine initialized";
+    auto *emojiPredictor = new EmojiPredictor(&app);
+    qmlRegisterSingletonInstance<EmojiPredictor>("MarathonOS.Shell", 1, 0, "EmojiPredictor",
+                                                 emojiPredictor);
+    auto *phrasePredictor = new PhrasePredictor(&app);
+    qmlRegisterSingletonInstance<PhrasePredictor>("MarathonOS.Shell", 1, 0, "PhrasePredictor",
+                                                  phrasePredictor);
+    auto *dictionary = new Dictionary(wordEngine, emojiPredictor, phrasePredictor, &app);
+    qmlRegisterSingletonInstance<Dictionary>("MarathonOS.Shell", 1, 0, "Dictionary", dictionary);
+    auto *autoCorrect = new AutoCorrect(dictionary, &app);
+    qmlRegisterSingletonInstance<AutoCorrect>("MarathonOS.Shell", 1, 0, "AutoCorrect", autoCorrect);
+    auto *languageManager = new LanguageManager(settingsManager, wordEngine, &app);
+    qmlRegisterSingletonInstance<LanguageManager>("MarathonOS.Shell", 1, 0, "LanguageManager",
+                                                  languageManager);
 
     auto *rtScheduler = createObject<RTScheduler>(ctx, "RTScheduler", &app);
     if (rtScheduler->isRealtimeKernel()) {
