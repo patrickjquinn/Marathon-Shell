@@ -241,7 +241,6 @@ set(QML_FILES
     qml/core/Constants.qml
     qml/core/Logger.qml
     qml/models/FilteredAppModel.qml
-    qml/services/CalendarWorker.js
 )
 
 set(JSON_FILES
@@ -277,10 +276,6 @@ foreach(singleton_file ${SINGLETON_FILES})
         QT_QML_SINGLETON_TYPE TRUE
     )
 endforeach()
-
-set_source_files_properties(qml/services/CalendarWorker.js PROPERTIES
-    QT_QML_SKIP_QMLDIR_ENTRY TRUE
-)
 
 if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
