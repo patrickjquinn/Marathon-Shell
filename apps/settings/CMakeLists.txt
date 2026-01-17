@@ -9,6 +9,8 @@ file(GLOB_RECURSE QML_FILES
 set(SOURCES
     src/StorageInfo.cpp
     src/StorageInfo.h
+    src/KeyboardSettingsStore.cpp
+    src/KeyboardSettingsStore.h
 )
 
 add_marathon_app(${APP_NAME}
