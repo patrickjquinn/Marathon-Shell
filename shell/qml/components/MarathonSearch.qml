@@ -25,6 +25,22 @@ Item {
         Logger.info("Search", "Search overlay closed");
     }
 
+    function setKeyboardVisible(show) {
+        if (typeof InputMethodEngine !== "undefined" && (!Platform || !Platform.hasHardwareKeyboard)) {
+            InputMethodEngine.showKeyboard(show);
+        }
+    }
+
+    function ensureInputFocus() {
+        if (searchInput.activeFocus)
+            return;
+
+        Qt.callLater(function () {
+            searchInput.forceActiveFocus();
+            setKeyboardVisible(true);
+        });
+    }
+
     function appendToSearch(text) {
         searchInput.text += text;
         searchInput.forceActiveFocus();
@@ -58,15 +74,19 @@ Item {
     onActiveChanged: {
         if (active) {
             Logger.info("Search", "Search became active - focusing input");
-            Qt.callLater(function () {
-                searchInput.forceActiveFocus();
-            });
+            ensureInputFocus();
         } else {
             searchInput.text = "";
             searchResults = [];
+            setKeyboardVisible(false);
             Logger.info("Search", "Search became inactive - emitting closed signal");
             closed();
         }
+    }
+
+    onPullProgressChanged: {
+        if (pullProgress > 0 && !active)
+            ensureInputFocus();
     }
 
     MouseArea {
