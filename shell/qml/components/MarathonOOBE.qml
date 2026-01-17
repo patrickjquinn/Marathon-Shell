@@ -42,6 +42,18 @@ Item {
     visible: !SettingsManagerCpp.firstRunComplete
     z: Constants.zIndexModalOverlay
 
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        preventStealing: true
+        onPressed: function (mouse) {
+            mouse.accepted = true;
+        }
+        onWheel: function (wheel) {
+            wheel.accepted = true;
+        }
+    }
+
     Rectangle {
         anchors.fill: parent
         color: MColors.background
@@ -350,7 +362,7 @@ Item {
                                     }
 
                                     Icon {
-                                        name: "check-circle"
+                                        name: "circle-check"
                                         size: Math.round(24 * Constants.scaleFactor)
                                         color: MColors.accent
                                         visible: modelData.connected
@@ -658,9 +670,9 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
 
                     Icon {
-                        name: "check-circle"
-                        size: MTypography.sizeXLarge
-                        color: MColors.text
+                        name: "circle-check"
+                        size: Math.round(48 * Constants.scaleFactor)
+                        color: MColors.accent
                         anchors.centerIn: parent
                     }
                 }
