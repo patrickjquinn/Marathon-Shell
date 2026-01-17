@@ -6,7 +6,6 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "stores"
 
 MApp {
     id: calendarApp
