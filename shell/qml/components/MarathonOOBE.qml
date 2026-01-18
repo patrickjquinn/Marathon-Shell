@@ -19,6 +19,10 @@ Item {
             "title": "Welcome"
         },
         {
+            "id": "scale",
+            "title": "Display"
+        },
+        {
             "id": "wifi",
             "title": "WiFi"
         },
@@ -157,6 +161,141 @@ Item {
                     width: parent.width
                     wrapMode: Text.WordWrap
                     topPadding: MSpacing.lg
+                }
+            }
+        }
+
+        Item {
+            id: scalePage
+
+            property var scaleOptions: [
+                {
+                    "factor": 0.75,
+                    "title": "75% - Compact",
+                    "description": "More content, smaller text"
+                },
+                {
+                    "factor": 1,
+                    "title": "100% - Default",
+                    "description": "Recommended for most users"
+                },
+                {
+                    "factor": 1.25,
+                    "title": "125% - Comfortable",
+                    "description": "Larger text, easier to read"
+                },
+                {
+                    "factor": 1.5,
+                    "title": "150% - Large",
+                    "description": "Maximum readability"
+                }
+            ]
+
+            Column {
+                anchors.centerIn: parent
+                width: parent.width
+                spacing: MSpacing.xl
+
+                Text {
+                    text: "Choose Display Size"
+                    font.pixelSize: MTypography.sizeXXLarge
+                    font.weight: Font.Bold
+                    font.family: MTypography.fontFamily
+                    color: MColors.text
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    text: "Adjust the size of text and UI elements. You can change this later in Settings."
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
+                    color: MColors.textSecondary
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: MSpacing.sm
+
+                    Repeater {
+                        model: scalePage.scaleOptions
+
+                        Rectangle {
+                            width: parent.width
+                            height: Constants.touchTargetMedium
+                            radius: Constants.borderRadiusSmall
+                            color: Constants.userScaleFactor === modelData.factor ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
+                            border.width: Constants.userScaleFactor === modelData.factor ? 1 : 0
+                            border.color: Qt.rgba(20, 184, 166, 0.3)
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: MSpacing.md
+                                spacing: MSpacing.md
+
+                                Rectangle {
+                                    width: Math.round(28 * Constants.userScaleFactor)
+                                    height: Math.round(28 * Constants.userScaleFactor)
+                                    radius: Math.round(14 * Constants.userScaleFactor)
+                                    color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : "transparent"
+                                    border.width: Math.round(2 * Constants.userScaleFactor)
+                                    border.color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : MColors.textSecondary
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Rectangle {
+                                        visible: Constants.userScaleFactor === modelData.factor
+                                        width: Math.round(12 * Constants.userScaleFactor)
+                                        height: Math.round(12 * Constants.userScaleFactor)
+                                        radius: Math.round(6 * Constants.userScaleFactor)
+                                        color: MColors.background
+                                        anchors.centerIn: parent
+                                    }
+                                }
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 4
+
+                                    Text {
+                                        text: modelData.title
+                                        color: MColors.textPrimary
+                                        font.pixelSize: MTypography.sizeBody
+                                        font.weight: Font.DemiBold
+                                        font.family: MTypography.fontFamily
+                                    }
+
+                                    Text {
+                                        text: modelData.description
+                                        color: MColors.textSecondary
+                                        font.pixelSize: MTypography.sizeSmall
+                                        font.family: MTypography.fontFamily
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    Constants.userScaleFactor = modelData.factor;
+                                    SettingsManagerCpp.userScaleFactor = modelData.factor;
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Current: " + Math.round(Constants.scaleFactor * 100) + "% (Base: " + Math.round((Constants.screenHeight / Constants.baseHeight) * 100) + "% × User: " + Math.round(Constants.userScaleFactor * 100) + "%)"
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
+                        color: MColors.textSecondary
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                    }
                 }
             }
         }
