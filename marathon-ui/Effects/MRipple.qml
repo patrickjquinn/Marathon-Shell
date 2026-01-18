@@ -7,6 +7,7 @@ Item {
     property point origin: Qt.point(width / 2, height / 2)
     property bool active: false
     property color rippleColor: MColors.ripple
+    readonly property real rippleDiameter: Math.max(width, height) * MMotion.rippleMaxRadius
 
     anchors.fill: parent
     clip: true
@@ -25,8 +26,8 @@ Item {
             name: "active"
             when: root.active
             PropertyChanges {
-                rippleCircle.width: Math.max(root.width, root.height) * MMotion.rippleMaxRadius
-                rippleCircle.height: Math.max(root.width, root.height) * MMotion.rippleMaxRadius
+                rippleCircle.width: root.rippleDiameter
+                rippleCircle.height: root.rippleDiameter
                 rippleCircle.opacity: 0
             }
         }

@@ -48,7 +48,8 @@ MApp {
     onCurrentTabIndexChanged: {
         Qt.callLater(() => {
             var tab = tabs[currentTabIndex];
-            if (tab && tab.session && terminalApp.Window.window && terminalApp.Window.window.active)
+            var appWindow = terminalApp.Window.window;
+            if (tab && tab.session && appWindow && appWindow.active)
                 tab.session.forceFocus();
         });
     }

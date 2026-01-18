@@ -12,14 +12,12 @@ Row {
     MLabel {
         text: label + ":"
         width: 100
-        variant: "small"
-        color: MColors.textSecondary
+        variant: "secondary"
     }
 
     MLabel {
         text: value
         width: parent.width - 112
-        variant: "small"
-        color: MColors.textPrimary
+        variant: "primary"
     }
 }

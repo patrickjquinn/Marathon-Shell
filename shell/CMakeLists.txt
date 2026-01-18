@@ -56,7 +56,6 @@ set(SOURCES
     src/managers/sensormanagercpp.cpp
     src/managers/settingsmanager.h
     src/managers/settingsmanager.cpp
-    src/managers/platform.h
     src/managers/platformcpp.h
     src/services/navigationroutercpp.h
     src/services/navigationroutercpp.cpp
