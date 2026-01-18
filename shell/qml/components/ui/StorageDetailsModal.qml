@@ -13,7 +13,6 @@ Modal {
         width: parent.width
         spacing: Constants.spacingXLarge
 
-        // Total Storage Bar
         Column {
             width: parent.width
             spacing: Constants.spacingSmall
@@ -46,7 +45,7 @@ Modal {
                 color: MColors.background
 
                 Rectangle {
-                    width: parent.width * 0.71 // 45.2/64
+                    width: parent.width * 0.71
                     height: parent.height
                     radius: parent.radius
                     color: MColors.marathonTeal
@@ -54,7 +53,6 @@ Modal {
             }
         }
 
-        // Storage Breakdown
         Column {
             width: parent.width
             spacing: 0

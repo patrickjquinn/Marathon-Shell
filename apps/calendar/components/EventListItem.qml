@@ -1,15 +1,12 @@
-import QtQuick
 import MarathonApp.Calendar
-import QtQuick.Layouts
-import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonOS.Shell
+import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 Rectangle {
     id: root
-    width: parent.width
-    height: 72
-    color: "transparent"
 
     property string title: ""
     property string time: ""
@@ -18,19 +15,21 @@ Rectangle {
 
     signal clicked
 
+    width: parent.width
+    height: 72
+    color: "transparent"
+
     Rectangle {
         anchors.fill: parent
         anchors.leftMargin: MSpacing.md
         anchors.rightMargin: MSpacing.md
         anchors.topMargin: MSpacing.xs
         anchors.bottomMargin: MSpacing.xs
-
         color: MColors.surface
         radius: Constants.borderRadiusSmall
         border.color: MColors.border
         border.width: 1
 
-        // Color strip
         Rectangle {
             width: 4
             height: parent.height - 16
@@ -43,7 +42,7 @@ Rectangle {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.leftMargin: MSpacing.xl // Make room for strip
+            anchors.leftMargin: MSpacing.xl
             anchors.rightMargin: MSpacing.md
             anchors.topMargin: MSpacing.sm
             anchors.bottomMargin: MSpacing.sm

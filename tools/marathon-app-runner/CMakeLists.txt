@@ -17,6 +17,7 @@ find_package(Qt6 REQUIRED COMPONENTS
 set(SOURCES
     main.cpp
     ipc/shellipcclients.cpp
+    calendarmanagercpp.cpp
 )
 
 qt6_add_executable(marathon-app-runner ${SOURCES})

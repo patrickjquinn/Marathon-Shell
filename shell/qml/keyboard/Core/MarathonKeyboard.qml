@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Rectangle {
@@ -182,8 +183,8 @@ Rectangle {
         var isEmail = inputContextInstance.inputMode === "email";
         var isUrl = inputContextInstance.inputMode === "url";
         if (isEmail || isUrl) {
-            if (domainSuggestions.shouldShowDomainSuggestions(keyboard.currentWord, isEmail, isUrl)) {
-                var domainSugs = domainSuggestions.getSuggestions(keyboard.currentWord, isEmail);
+            if (DomainSuggestions.shouldShowDomainSuggestions(keyboard.currentWord, isEmail, isUrl)) {
+                var domainSugs = DomainSuggestions.getSuggestions(keyboard.currentWord, isEmail);
                 if (domainSugs.length > 0) {
                     keyboard.currentPredictions = domainSugs;
                     return;
@@ -258,10 +259,6 @@ Rectangle {
     onCurrentWordChanged: {
         if (currentWord.length === 0)
             currentPredictions = [];
-    }
-
-    DomainSuggestions {
-        id: domainSuggestions
     }
 
     Connections {
@@ -582,10 +579,6 @@ Rectangle {
 
             width: parent.width
             visible: keyboard.showLanguageSelector
-            onLanguageSelected: function (languageId) {
-                if (typeof WordEngine !== 'undefined' && WordEngine !== null)
-                    WordEngine.setLanguage(LanguageManager.currentLayout.dictionary);
-            }
             onDismissed: {
                 keyboard.showLanguageSelector = false;
             }
@@ -594,6 +587,7 @@ Rectangle {
 
     inputContext: InputContext {
         id: inputContextInstance
+        keyboard: keyboard
 
         onTextInserted: function (text) {
             if (text === " " || text === "\n")

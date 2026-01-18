@@ -26,6 +26,7 @@ Item {
         spacing: 0
 
         Row {
+            id: row1
             readonly property real keyWidth: (width - spacing * 9) / 10
 
             width: parent.width
@@ -35,7 +36,7 @@ Item {
                 model: row1Keys
 
                 Key {
-                    width: parent.keyWidth
+                    width: row1.keyWidth
                     text: modelData
                     displayText: modelData
                     onClicked: layout.keyClicked(displayText)
@@ -50,6 +51,7 @@ Item {
         }
 
         Row {
+            id: row2
             readonly property real keyWidth: (width - spacing * 9) / 10
 
             width: parent.width
@@ -59,7 +61,7 @@ Item {
                 model: row2Keys
 
                 Key {
-                    width: parent.keyWidth
+                    width: row2.keyWidth
                     text: modelData
                     displayText: modelData
                     onClicked: layout.keyClicked(displayText)

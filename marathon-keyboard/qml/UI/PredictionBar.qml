@@ -1,26 +1,21 @@
-// Marathon Virtual Keyboard - Prediction Bar
-// Word suggestions bar above keyboard (BlackBerry style)
 import QtQuick
 
 Rectangle {
     id: predictionBar
 
-    property var predictions: []  // Array of suggested words
+    property var predictions: []
     property string currentWord: ""
 
     signal predictionSelected(string word)
 
-    // Always expose a stable height via implicitHeight
     implicitHeight: Math.round(40 * scaleFactor)
 
-    // HIDE when no predictions (user request)
     visible: predictions.length > 0
     height: visible ? implicitHeight : 0
     color: MColors.surface
     border.width: 0
     border.color: "transparent"
 
-    // Predictions display
     Row {
         anchors.centerIn: parent
         spacing: Math.round(12 * scaleFactor)
@@ -29,7 +24,6 @@ Rectangle {
         Repeater {
             model: predictionBar.predictions
 
-            // Prediction button
             Rectangle {
                 width: Math.round(100 * scaleFactor)
                 height: Math.round(32 * scaleFactor)
@@ -56,7 +50,6 @@ Rectangle {
 
                 scale: predictionMouseArea.pressed ? 0.95 : 1.0
 
-                // Inner border
                 Rectangle {
                     anchors.fill: parent
                     anchors.margins: 1
@@ -67,7 +60,6 @@ Rectangle {
                     antialiasing: parent.antialiasing
                 }
 
-                // Prediction text
                 Text {
                     anchors.centerIn: parent
                     text: modelData
@@ -89,7 +81,6 @@ Rectangle {
         }
     }
 
-    // Placeholder when no predictions
     Text {
         anchors.centerIn: parent
         text: predictionBar.currentWord ? "..." : ""

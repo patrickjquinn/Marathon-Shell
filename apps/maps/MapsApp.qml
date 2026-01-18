@@ -14,9 +14,7 @@ MApp {
     property bool isSearching: false
     property bool mapLoaded: false
     property bool hasLocationPermission: false
-    // The Map object is created inside the content Loader, so store a reference here
-    // for access from non-content scopes (e.g. PositionSource).
-    property var mapObject: null
+    property Map mapObject: null
 
     function searchLocation(query) {
         if (query.length === 0) {
@@ -70,7 +68,6 @@ MApp {
     appIcon: "assets/icon.svg"
     onAppLaunched: {
         loadTimer.start();
-        // Check location permission
         if (typeof PermissionManager !== 'undefined') {
             if (PermissionManager.hasPermission(appId, "location")) {
                 Logger.info("Maps", "Location permission already granted");
@@ -85,7 +82,6 @@ MApp {
         }
     }
 
-    // Listen for permission responses
     Connections {
         function onPermissionGranted(grantedAppId, permission) {
             if (grantedAppId === appId && permission === "location") {
@@ -136,9 +132,6 @@ MApp {
         color: MColors.background
 
         Loader {
-            // Gestures are enabled by default in Qt 6
-            // gesture.enabled: true removed - not a valid property
-
             id: mapLoader
 
             anchors.fill: parent
@@ -378,8 +371,8 @@ MApp {
                 variant: "secondary"
                 onClicked: {
                     HapticService.light();
-                    if (mapLoader.item)
-                        mapLoader.item.zoomLevel = Math.min(mapLoader.item.zoomLevel + 1, mapLoader.item.maximumZoomLevel);
+                    if (mapsApp.mapObject)
+                        mapsApp.mapObject.zoomLevel = Math.min(mapsApp.mapObject.zoomLevel + 1, mapsApp.mapObject.maximumZoomLevel);
                 }
             }
 
@@ -390,8 +383,8 @@ MApp {
                 variant: "secondary"
                 onClicked: {
                     HapticService.light();
-                    if (mapLoader.item)
-                        mapLoader.item.zoomLevel = Math.max(mapLoader.item.zoomLevel - 1, mapLoader.item.minimumZoomLevel);
+                    if (mapsApp.mapObject)
+                        mapsApp.mapObject.zoomLevel = Math.max(mapsApp.mapObject.zoomLevel - 1, mapsApp.mapObject.minimumZoomLevel);
                 }
             }
         }
@@ -408,9 +401,9 @@ MApp {
             variant: "primary"
             onClicked: {
                 HapticService.medium();
-                if (positionSource.position.valid && mapLoader.item) {
-                    mapLoader.item.center = positionSource.position.coordinate;
-                    mapLoader.item.zoomLevel = 15;
+                if (positionSource.position.valid && mapsApp.mapObject) {
+                    mapsApp.mapObject.center = positionSource.position.coordinate;
+                    mapsApp.mapObject.zoomLevel = 15;
                     Logger.info("Maps", "Centered on current location");
                 } else {
                     Logger.warn("Maps", "Position not available");

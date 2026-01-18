@@ -2,37 +2,26 @@ import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Controls
 
 Rectangle {
-    // ...
-    // Note: "monitor" is info-only, no deep link
-
     id: quickSettings
 
-    // RESPONSIVE GRID CALCULATIONS (like CSS Grid)
-    // 2 cols: < 800px (phones including 720x720)
-    // 3 cols: 800-1200px (tablets)
-    // 4 cols: > 1200px (large tablets, desktop)
     readonly property int gridColumns: Constants.screenWidth < 800 ? 2 : (Constants.screenWidth < 1200 ? 3 : 4)
     readonly property real tileHeight: Constants.hubHeaderHeight
-    // Calculate how many rows fit: subtract date (50) + sliders (160) + spacing
     readonly property real reservedHeight: 50 + 160 + Constants.spacingMedium * 4 + Constants.spacingLarge * 2 + 80
     readonly property real availableGridHeight: Math.max(tileHeight * 3, height - reservedHeight)
     readonly property int maxGridRows: Math.max(3, Math.min(5, Math.floor(availableGridHeight / (tileHeight + Constants.spacingSmall))))
     readonly property int tilesPerPage: gridColumns * maxGridRows
     readonly property real calculatedGridHeight: (tileHeight * maxGridRows) + (Constants.spacingSmall * (maxGridRows - 1))
-    // Reactive properties for tile updates
     property string networkSubtitle: SystemStatusStore.ethernetConnected ? ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.ethernetConnectionName || "Wired") : "Wired") : (SystemStatusStore.wifiNetwork || "Not connected")
-    property string networkIcon: SystemStatusStore.ethernetConnected ? "plug-zap" : "wifi" // Using "plug-zap" for ethernet (Lucide icon)
+    property string networkIcon: SystemStatusStore.ethernetConnected ? "plug-zap" : "wifi"
     property string networkLabel: SystemStatusStore.ethernetConnected ? "Ethernet" : "Wi-Fi"
     property string cellularSubtitle: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.operatorName : "") || "No service"
     property string batterySubtitle: "Battery " + SystemStatusStore.batteryLevel + "%"
-    // Force model updates when key properties change
     property int updateTrigger: 0
-    // ALL TILES MODEL (accessible from anywhere in quickSettings)
-    // This is the master list of all possible tiles
     property var allTiles: [
         {
             "id": "settings",
@@ -167,19 +156,14 @@ Rectangle {
             "trigger": updateTrigger
         }
     ]
-    // FILTERED TILES based on user preferences from SettingsManager
-    // Force recomputation when any tile state changes
     property var visibleTiles: {
-        updateTrigger; // Force dependency on updateTrigger for reactivity
+        updateTrigger;
         var enabled = SettingsManagerCpp.enabledQuickSettingsTiles;
         var order = SettingsManagerCpp.quickSettingsTileOrder;
         var result = [];
-        // Build tiles in custom order
         for (var i = 0; i < order.length; i++) {
             var tileId = order[i];
-            // Only include if enabled
             if (enabled.indexOf(tileId) !== -1) {
-                // Find tile in allTiles
                 var tile = null;
                 for (var j = 0; j < allTiles.length; j++) {
                     if (allTiles[j].id === tileId) {
@@ -187,13 +171,10 @@ Rectangle {
                         break;
                     }
                 }
-                // Add all enabled tiles, regardless of availability
-                // Tiles will show as disabled/grayed when not available
                 if (tile)
                     result.push(tile);
             }
         }
-        // Add any new tiles not in order list (for backwards compat)
         for (var k = 0; k < allTiles.length; k++) {
             if (order.indexOf(allTiles[k].id) === -1 && enabled.indexOf(allTiles[k].id) !== -1)
                 result.push(allTiles[k]);
@@ -204,7 +185,6 @@ Rectangle {
     signal closed
     signal launchApp(var app)
 
-    // Handle toggle tap
     function handleToggleTap(toggleId) {
         Logger.info("QuickSettings", "Toggle tapped: " + toggleId);
         if (toggleId === "wifi") {
@@ -273,10 +253,8 @@ Rectangle {
             Logger.info("QuickSettings", "Device monitor - info only, no action");
     }
 
-    // Handle long press (deep link to settings)
     function handleLongPress(toggleId) {
         Logger.info("QuickSettings", "Toggle long-pressed: " + toggleId);
-        // Ignore long press for settings, lock, power, and monitor (info-only/action tiles)
         if (toggleId === "settings" || toggleId === "lock" || toggleId === "power" || toggleId === "monitor")
             return;
 
@@ -304,7 +282,6 @@ Rectangle {
     opacity: 0.98
     Component.onCompleted: {
         Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)");
-        // Don't log raw enabledQuickSettingsTiles length; it can contain legacy/unknown IDs.
         var enabled = SettingsManagerCpp.enabledQuickSettingsTiles || [];
         var knownCount = 0;
         var unknownCount = 0;
@@ -386,7 +363,6 @@ Rectangle {
         target: SettingsManagerCpp
     }
 
-    // Center container for responsive layout
     Item {
         anchors.fill: parent
 
@@ -394,7 +370,6 @@ Rectangle {
             id: contentContainer
 
             anchors.centerIn: parent
-            // Use full width on mobile (<= 1080px), max 800px on tablets/desktop
             width: Constants.screenWidth <= 1080 ? parent.width : Math.min(parent.width, 800)
             height: parent.height
 
@@ -423,7 +398,6 @@ Rectangle {
                         anchors.left: parent.left
                     }
 
-                    // Paginated Quick Settings Toggles
                     Column {
                         width: parent.width
                         spacing: MSpacing.md
@@ -436,7 +410,6 @@ Rectangle {
                             clip: true
                             interactive: count > 1
 
-                            // Dynamically create pages based on tilesPerPage
                             Repeater {
                                 model: Math.ceil(visibleTiles.length / tilesPerPage)
 
@@ -476,14 +449,12 @@ Rectangle {
                         }
                     }
 
-                    // Media Playback Manager
                     MediaPlaybackManager {
                         id: mediaPlayer
 
                         width: parent.width
                     }
 
-                    // Brightness Slider
                     Column {
                         width: parent.width
                         spacing: MSpacing.sm
@@ -500,7 +471,6 @@ Rectangle {
                             width: parent.width
                             from: 0
                             to: 100
-                            // Don't bind value - causes double-click issue
                             Component.onCompleted: value = SystemControlStore.brightness
                             onMoved: {
                                 brightnessDebounce.restart();
@@ -510,7 +480,6 @@ Rectangle {
                                 SystemControlStore.setBrightness(brightnessSlider.value);
                             }
 
-                            // Debounce timer to prevent UI freezing during drag
                             Timer {
                                 id: brightnessDebounce
 
@@ -518,7 +487,6 @@ Rectangle {
                                 onTriggered: SystemControlStore.setBrightness(brightnessSlider.value)
                             }
 
-                            // Update from external changes
                             Connections {
                                 function onBrightnessChanged() {
                                     if (!brightnessSlider.pressed)
@@ -530,7 +498,6 @@ Rectangle {
                         }
                     }
 
-                    // Volume Slider
                     Column {
                         width: parent.width
                         spacing: MSpacing.sm
@@ -547,7 +514,6 @@ Rectangle {
                             width: parent.width
                             from: 0
                             to: 100
-                            // Don't bind value - causes double-click issue
                             Component.onCompleted: value = SystemControlStore.volume
                             onMoved: {
                                 volumeDebounce.restart();
@@ -557,7 +523,6 @@ Rectangle {
                                 SystemControlStore.setVolume(volumeSlider.value);
                             }
 
-                            // Debounce timer to prevent UI freezing during drag
                             Timer {
                                 id: volumeDebounce
 
@@ -565,7 +530,6 @@ Rectangle {
                                 onTriggered: SystemControlStore.setVolume(volumeSlider.value)
                             }
 
-                            // Update from external changes
                             Connections {
                                 function onVolumeChanged() {
                                     if (!volumeSlider.pressed)

@@ -1,41 +1,28 @@
-import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 MApp {
     id: terminalApp
-    appId: "terminal"
-    appName: "Terminal"
-    appIcon: "assets/icon.svg"
 
     property int currentTabIndex: 0
     property var tabs: []
     property int nextTabId: 1
 
-    onCurrentTabIndexChanged: {
-        Qt.callLater(() => {
-            var tab = tabs[currentTabIndex];
-            if (tab && tab.session && terminalApp.Window.window?.active) {
-                tab.session.forceFocus();
-            }
-        });
-    }
-
     function createNewTab() {
         var tabId = nextTabId++;
         var tab = {
-            id: tabId,
-            title: "Terminal " + tabId,
-            session: null
+            "id": tabId,
+            "title": "Terminal " + tabId,
+            "session": null
         };
         tabs.push(tab);
         currentTabIndex = tabs.length - 1;
         tabsChanged();
-
         Logger.info("Terminal", "Created new tab: " + currentTabIndex);
     }
 
@@ -44,28 +31,35 @@ MApp {
             Logger.info("Terminal", "Cannot close last tab");
             return;
         }
-
         if (index >= 0 && index < tabs.length) {
             var tab = tabs[index];
-            // Session cleanup is handled by the Item destruction
-
             tabs.splice(index, 1);
-
-            if (currentTabIndex >= tabs.length) {
+            if (currentTabIndex >= tabs.length)
                 currentTabIndex = tabs.length - 1;
-            }
 
             tabsChanged();
             Logger.info("Terminal", "Closed tab: " + index);
         }
     }
 
+    appId: "terminal"
+    appName: "Terminal"
+    appIcon: "assets/icon.svg"
+    onCurrentTabIndexChanged: {
+        Qt.callLater(() => {
+            var tab = tabs[currentTabIndex];
+            var appWindow = terminalApp.Window.window;
+            if (tab && tab.session && appWindow && appWindow.active)
+                tab.session.forceFocus();
+        });
+    }
     Component.onCompleted: {
         createNewTab();
     }
 
     content: Rectangle {
         id: contentRoot
+
         anchors.fill: parent
         color: MColors.background
 
@@ -73,7 +67,6 @@ MApp {
             anchors.fill: parent
             spacing: 0
 
-            // Terminal Content Area
             Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -84,28 +77,24 @@ MApp {
                     TerminalSession {
                         anchors.fill: parent
                         visible: index === currentTabIndex
-
                         Component.onCompleted: {
                             var tab = terminalApp.tabs[index];
-                            if (tab) {
+                            if (tab)
                                 tab.session = this;
-                            }
+
                             start();
                         }
-
                         onSessionFinished: {
                             Logger.info("Terminal", "Session finished for tab " + index);
-                            if (terminalApp.tabs.length > 1) {
+                            if (terminalApp.tabs.length > 1)
                                 terminalApp.closeTab(index);
-                            } else {
-                                start(); // Restart if last tab
-                            }
+                            else
+                                start();
                         }
                     }
                 }
             }
 
-            // Tab Bar (Bottom)
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 56
@@ -123,7 +112,6 @@ MApp {
                     anchors.margins: MSpacing.sm
                     spacing: MSpacing.sm
 
-                    // Scrollable tab area
                     ScrollView {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
@@ -143,14 +131,13 @@ MApp {
                                     anchors.verticalCenter: parent.verticalCenter
                                     title: {
                                         var tab = terminalApp.tabs[index];
-                                        if (tab && tab.session) {
+                                        if (tab && tab.session)
                                             return tab.session.title || tab.title;
-                                        }
+
                                         return tab ? tab.title : "";
                                     }
                                     active: index === currentTabIndex
                                     canClose: terminalApp.tabs.length > 1
-
                                     onClicked: currentTabIndex = index
                                     onCloseClicked: terminalApp.closeTab(index)
                                 }
@@ -158,7 +145,6 @@ MApp {
                         }
                     }
 
-                    // New Tab Button Wrapper for Centering
                     Item {
                         Layout.preferredWidth: 48
                         Layout.fillHeight: true
@@ -175,16 +161,13 @@ MApp {
                 }
             }
 
-            // Virtual Key Row (Bottom)
             VirtualKeyRow {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
-
                 onKeyTriggered: (key, modifiers) => {
                     var tab = terminalApp.tabs[currentTabIndex];
-                    if (tab && tab.session) {
+                    if (tab && tab.session)
                         tab.session.sendKey(key, "", modifiers);
-                    }
                 }
             }
         }

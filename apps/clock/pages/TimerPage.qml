@@ -36,7 +36,7 @@ Item {
                 remainingSeconds--;
             } else {
                 isRunning = false;
-                HapticService.strong();
+                HapticService.heavy();
             }
         }
     }

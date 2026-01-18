@@ -9,7 +9,7 @@ TerminalScreen::TerminalScreen(QObject *parent)
     , m_cursorX(0)
     , m_cursorY(0)
     , m_topRow(0)
-    , m_historySize(1000) // 1000 lines of history
+    , m_historySize(1000)
     , m_currentFg(0xFFFFFFFF)
     , m_currentBg(0xFF000000)
     , m_currentBold(false)
@@ -19,7 +19,7 @@ TerminalScreen::TerminalScreen(QObject *parent)
     , m_selStartY(0)
     , m_selEndX(0)
     , m_selEndY(0) {
-    // Initialize grid with history capacity
+
     m_grid.resize(m_historySize);
     for (int i = 0; i < m_historySize; ++i) {
         m_grid[i].resize(m_cols);
@@ -27,8 +27,7 @@ TerminalScreen::TerminalScreen(QObject *parent)
 }
 
 TerminalCell &TerminalScreen::cellAt(int x, int y) {
-    // y is visual row (0..m_rows-1)
-    // map to buffer row
+
     int bufferRow = (m_topRow + y) % m_historySize;
     return m_grid[bufferRow][x];
 }
@@ -44,16 +43,11 @@ void TerminalScreen::resize(int cols, int rows) {
     if (cols == m_cols && rows == m_rows)
         return;
 
-    // Resizing a ring buffer is complex.
-    // For simplicity in this version, we'll clear history on resize or do a naive copy.
-    // Let's do a naive copy to a new grid to keep it clean.
-
     QVector<QVector<TerminalCell>> newGrid(m_historySize);
     for (int i = 0; i < m_historySize; ++i) {
         newGrid[i].resize(cols);
     }
 
-    // Copy visible portion
     int copyRows = std::min(rows, m_rows);
     int copyCols = std::min(cols, m_cols);
 
@@ -67,9 +61,8 @@ void TerminalScreen::resize(int cols, int rows) {
     m_grid   = newGrid;
     m_cols   = cols;
     m_rows   = rows;
-    m_topRow = 0; // Reset top to 0 after resize
+    m_topRow = 0;
 
-    // Clamp cursor
     if (m_cursorX >= m_cols)
         m_cursorX = m_cols - 1;
     if (m_cursorY >= m_rows)
@@ -159,9 +152,9 @@ void TerminalScreen::clearLine(int mode) {
     int          start = 0;
     int          end   = m_cols;
 
-    if (mode == 0) { // Cursor to end
+    if (mode == 0) {
         start = m_cursorX;
-    } else if (mode == 1) { // Start to cursor
+    } else if (mode == 1) {
         end = m_cursorX + 1;
     }
 
@@ -178,13 +171,13 @@ void TerminalScreen::clearScreen(int mode) {
     int          startRow = 0;
     int          endRow   = m_rows;
 
-    if (mode == 0) { // Cursor to end
+    if (mode == 0) {
         clearLine(0);
         startRow = m_cursorY + 1;
-    } else if (mode == 1) { // Start to cursor
+    } else if (mode == 1) {
         clearLine(1);
         endRow = m_cursorY;
-    } else if (mode == 2) { // All
+    } else if (mode == 2) {
         startRow  = 0;
         endRow    = m_rows;
         m_cursorX = 0;
@@ -258,18 +251,16 @@ void TerminalScreen::resetStyle() {
 const TerminalCell &TerminalScreen::cell(int x, int y) const {
     static TerminalCell empty;
     if (y >= 0 && y < m_rows && x >= 0 && x < m_cols) {
-        // Const cast to call helper, but we know we are reading
+
         return const_cast<TerminalScreen *>(this)->cellAt(x, y);
     }
     return empty;
 }
 
 void TerminalScreen::scrollUp() {
-    // Ring buffer scroll: just increment top pointer
+
     m_topRow = (m_topRow + 1) % m_historySize;
 
-    // Clear the new bottom row (which was the old top row)
-    // The bottom row is at visual index m_rows - 1
     int bottomRowIndex = (m_topRow + m_rows - 1) % m_historySize;
 
     for (int x = 0; x < m_cols; ++x) {
@@ -284,7 +275,6 @@ void TerminalScreen::setSelection(int startX, int startY, int endX, int endY) {
     QMutexLocker locker(&m_mutex);
     m_hasSelection = true;
 
-    // Normalize coordinates (start should be before end)
     if (startY > endY || (startY == endY && startX > endX)) {
         std::swap(startX, endX);
         std::swap(startY, endY);
@@ -322,15 +312,12 @@ bool TerminalScreen::isSelected(int x, int y) const {
     if (y == m_selEndY)
         return x <= m_selEndX;
 
-    return true; // In between rows
+    return true;
 }
 
 QString TerminalScreen::getSelectedText() const {
     if (!m_hasSelection)
         return QString();
-
-    // Note: We can't easily lock here if this is called from GUI thread while worker is writing
-    // Ideally, caller locks mutex()
 
     QString text;
     for (int y = m_selStartY; y <= m_selEndY; ++y) {
@@ -342,7 +329,7 @@ QString TerminalScreen::getSelectedText() const {
             if (c.codePoint) {
                 text.append(QChar(c.codePoint));
             } else {
-                text.append(' '); // Empty cells are spaces
+                text.append(' ');
             }
         }
 

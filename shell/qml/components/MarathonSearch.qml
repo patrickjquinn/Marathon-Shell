@@ -6,7 +6,7 @@ Item {
     id: searchOverlay
 
     property bool active: false
-    property real pullProgress: 0 // 0.0 to 1.0, for pull-to-reveal animation
+    property real pullProgress: 0
     property string searchQuery: ""
     property var searchResults: []
 
@@ -25,6 +25,22 @@ Item {
         Logger.info("Search", "Search overlay closed");
     }
 
+    function setKeyboardVisible(show) {
+        if (typeof InputMethodEngine !== "undefined" && (!Platform || !Platform.hasHardwareKeyboard)) {
+            InputMethodEngine.showKeyboard(show);
+        }
+    }
+
+    function ensureInputFocus() {
+        if (searchInput.activeFocus)
+            return;
+
+        Qt.callLater(function () {
+            searchInput.forceActiveFocus();
+            setKeyboardVisible(true);
+        });
+    }
+
     function appendToSearch(text) {
         searchInput.text += text;
         searchInput.forceActiveFocus();
@@ -41,47 +57,43 @@ Item {
     }
 
     function selectResult(result) {
-        // Prevent double execution
         if (searchOverlay.opacity < 1 || !active)
             return;
 
         Logger.info("Search", "Result selected: " + result.title + " (type: " + result.type + ")");
         UnifiedSearchService.addToRecentSearches(searchQuery);
-        // Close first to prevent double-tap through
         close();
-        // Execute after a brief delay to ensure search is closed
         Qt.callLater(function () {
-            // Emit signal to parent (MarathonShell) to handle launch
             resultSelected(result);
         });
     }
 
     visible: opacity > 0.01
-    enabled: opacity > 0.01 // Block interactions whenever visible
-    // Opacity: active = full opacity, OR follows pullProgress during gesture
+    enabled: opacity > 0.01
     opacity: active ? 1 : Math.max(0, pullProgress)
     onActiveChanged: {
         if (active) {
             Logger.info("Search", "Search became active - focusing input");
-            Qt.callLater(function () {
-                searchInput.forceActiveFocus();
-            });
+            ensureInputFocus();
         } else {
             searchInput.text = "";
             searchResults = [];
+            setKeyboardVisible(false);
             Logger.info("Search", "Search became inactive - emitting closed signal");
             closed();
         }
     }
 
-    // Full-screen mouse blocker when visible at any opacity
-    // Excludes nav bar area to allow swipe-up-to-close gesture
+    onPullProgressChanged: {
+        if (pullProgress > 0 && !active)
+            ensureInputFocus();
+    }
+
     MouseArea {
         anchors.fill: parent
         anchors.bottomMargin: Constants.bottomBarHeight
         enabled: searchOverlay.opacity > 0.01 && !searchOverlay.active
         onClicked: {
-            // Clicking on overlay when partially visible dismisses it
             searchOverlay.pullProgress = 0;
         }
     }
@@ -343,7 +355,6 @@ Item {
         }
     }
 
-    // Smooth fade-out when search closes or progress resets
     Behavior on opacity {
         enabled: !active
 

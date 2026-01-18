@@ -101,12 +101,12 @@ void TerminalEngine::processOutput(const QByteArray &data) {
             } else if (ch == '\b') {
                 m_screen->backspace();
             } else if (ch == '\t') {
-                // Simple tab handling (every 8 chars)
+
                 int x       = m_screen->cursorX();
                 int nextTab = (x / 8 + 1) * 8;
                 m_screen->setCursorX(nextTab);
             } else if (ch == '\a') {
-                // Bell - ignore
+
             } else if (static_cast<unsigned char>(ch) >= 32) {
                 m_screen->putChar(ch);
             }
@@ -128,7 +128,7 @@ void TerminalEngine::parseEscapeSequence(char ch) {
         } else if (ch == '(' || ch == ')') {
             m_state = Charset;
         } else {
-            // Unknown escape sequence, reset
+
             m_state = Normal;
         }
     } else if (m_state == CSI) {
@@ -138,20 +138,20 @@ void TerminalEngine::parseEscapeSequence(char ch) {
             m_params.append(m_sequenceBuffer.toInt());
             m_sequenceBuffer.clear();
         } else if (ch >= 0x40 && ch <= 0x7E) {
-            // Final byte
+
             m_params.append(m_sequenceBuffer.toInt());
             handleCSI(QString(ch));
             m_state = Normal;
         }
     } else if (m_state == OSC) {
-        if (ch == '\a' || ch == '\x9c') { // BEL or ST
+        if (ch == '\a' || ch == '\x9c') {
             handleOSC(m_sequenceBuffer);
             m_state = Normal;
         } else {
             m_sequenceBuffer.append(ch);
         }
     } else if (m_state == Charset) {
-        // Ignore charset selection
+
         m_state = Normal;
     }
 }
@@ -160,7 +160,7 @@ void TerminalEngine::handleCSI(const QString &seq) {
     int p1 = m_params.value(0, 0);
     int p2 = m_params.value(1, 0);
 
-    if (seq == "m") { // SGR - Select Graphic Rendition
+    if (seq == "m") {
         if (m_params.isEmpty()) {
             m_screen->resetStyle();
         } else {
@@ -176,46 +176,46 @@ void TerminalEngine::handleCSI(const QString &seq) {
                 else if (param == 27)
                     m_screen->setInverse(false);
                 else if (param >= 30 && param <= 37) {
-                    // Standard FG
+
                     const uint32_t colors[] = {0xFF000000, 0xFFCC0000, 0xFF4E9A06, 0xFFC4A000,
                                                0xFF3465A4, 0xFF75507B, 0xFF06989A, 0xFFD3D7CF};
                     m_screen->setFgColor(colors[param - 30]);
                 } else if (param >= 40 && param <= 47) {
-                    // Standard BG
+
                     const uint32_t colors[] = {0xFF000000, 0xFFCC0000, 0xFF4E9A06, 0xFFC4A000,
                                                0xFF3465A4, 0xFF75507B, 0xFF06989A, 0xFFD3D7CF};
                     m_screen->setBgColor(colors[param - 40]);
                 } else if (param == 39)
-                    m_screen->setFgColor(0xFFFFFFFF); // Default FG
+                    m_screen->setFgColor(0xFFFFFFFF);
                 else if (param == 49)
-                    m_screen->setBgColor(0xFF000000); // Default BG
+                    m_screen->setBgColor(0xFF000000);
                 else if (param >= 90 && param <= 97) {
-                    // Bright FG
+
                     const uint32_t colors[] = {0xFF555753, 0xFFEF2929, 0xFF8AE234, 0xFFFCE94F,
                                                0xFF729FCF, 0xFFAD7FA8, 0xFF34E2E2, 0xFFEEEEEC};
                     m_screen->setFgColor(colors[param - 90]);
                 }
             }
         }
-    } else if (seq == "A") { // Cursor Up
+    } else if (seq == "A") {
         m_screen->moveCursorRelative(0, -std::max(1, p1));
-    } else if (seq == "B") { // Cursor Down
+    } else if (seq == "B") {
         m_screen->moveCursorRelative(0, std::max(1, p1));
-    } else if (seq == "C") { // Cursor Forward
+    } else if (seq == "C") {
         m_screen->moveCursorRelative(std::max(1, p1), 0);
-    } else if (seq == "D") { // Cursor Back
+    } else if (seq == "D") {
         m_screen->moveCursorRelative(-std::max(1, p1), 0);
-    } else if (seq == "H" || seq == "f") { // Cursor Position
+    } else if (seq == "H" || seq == "f") {
         int row = std::max(1, p1) - 1;
         int col = std::max(1, p2) - 1;
         m_screen->moveCursor(col, row);
-    } else if (seq == "J") { // Erase in Display
+    } else if (seq == "J") {
         m_screen->clearScreen(p1);
-    } else if (seq == "K") { // Erase in Line
+    } else if (seq == "K") {
         m_screen->clearLine(p1);
-    } else if (seq == "P") { // Delete Characters
+    } else if (seq == "P") {
         m_screen->deleteChars(std::max(1, p1));
-    } else if (seq == "@") { // Insert Characters
+    } else if (seq == "@") {
         m_screen->insertChars(std::max(1, p1));
     }
 }
@@ -323,6 +323,6 @@ void TerminalEngine::sendSignal(int signal) {
         kill(m_pid, signal);
 }
 
-void TerminalEngine::sendMousePress(int x, int y, int button) { /* TODO */ }
-void TerminalEngine::sendMouseRelease(int x, int y, int button) { /* TODO */ }
-void TerminalEngine::sendMouseMove(int x, int y, int buttons) { /* TODO */ }
+void TerminalEngine::sendMousePress(int x, int y, int button) {}
+void TerminalEngine::sendMouseRelease(int x, int y, int button) {}
+void TerminalEngine::sendMouseMove(int x, int y, int buttons) {}

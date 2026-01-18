@@ -6,7 +6,6 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "stores"
 
 MApp {
     id: calendarApp
@@ -14,7 +13,9 @@ MApp {
     property date currentDate: new Date()
     property var selectedDate: null
     property int currentView: 0
-    property Item navStack: null
+    property StackView navStack: null
+
+    signal eventsChanged
 
     function createEvent(title, date, time, allDay, recurring) {
         var event = {
@@ -32,11 +33,14 @@ MApp {
         return calendarStorage.getEventsForDate(date);
     }
 
+    function getAllEvents() {
+        return calendarStorage.events;
+    }
+
     function deleteEvent(id) {
         return calendarStorage.deleteEvent(id);
     }
 
-    // Helper to open detail page
     function openEventDetail(event) {
         if (navStack)
             navStack.push("pages/EventDetailPage.qml", {
@@ -55,10 +59,6 @@ MApp {
     }
     navigationDepth: navStack ? navStack.depth : 0
     onBackPressed: {
-        // If filtering by date, clear filter
-        // If in list view (without filter), go back to month view
-        // Let the shell handle closing the app if at root
-
         if (navStack && navStack.depth > 1)
             navStack.pop();
         else if (calendarApp.selectedDate !== null)
@@ -71,6 +71,8 @@ MApp {
 
     CalendarStorage {
         id: calendarStorage
+
+        onDataChanged: calendarApp.eventsChanged()
     }
 
     content: StackView {
@@ -140,7 +142,6 @@ MApp {
             }
         }
 
-        // Transitions
         pushEnter: Transition {
             PropertyAnimation {
                 property: "x"

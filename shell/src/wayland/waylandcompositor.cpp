@@ -438,7 +438,6 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         }
     }
 
-    // Resolve marathon-sandbox path to support local development builds
     QString       sandboxPath = QStringLiteral("marathon-sandbox");
     const QDir    shellBinDir(QCoreApplication::applicationDirPath());
     const QString devSandboxPath =

@@ -8,18 +8,17 @@
   "author": "Marathon OS",
   "category": "development",
   "permissions": [
-    "system.telephony",
-    "system.notifications",
-    "system.audio",
-    "system.network",
-    "system.power",
-    "system.display",
-    "system.location",
-    "system.contacts"
+    "system",
+    "storage",
+    "network",
+    "telephony",
+    "sms",
+    "notifications",
+    "contacts",
+    "location"
   ],
   "capabilities": {
     "backgroundExecution": false,
     "systemIntegration": true
   }
 }
-

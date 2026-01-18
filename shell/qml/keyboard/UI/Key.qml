@@ -211,7 +211,7 @@ Rectangle {
 
                             anchors.fill: parent
                             onClicked: {
-                                HapticService.light();
+                                HapticManager.light();
                                 key.alternateSelected(modelData);
                                 key.showingAlternates = false;
                             }
@@ -238,7 +238,7 @@ Rectangle {
         onPressed: function (mouse) {
             key.pressed = true;
             longPressTriggered = false;
-            HapticService.light();
+            HapticManager.light();
             if (key.alternateChars.length > 0)
                 longPressTimer.restart();
 
@@ -269,7 +269,7 @@ Rectangle {
         repeat: false
         onTriggered: {
             if (key.alternateChars.length > 0) {
-                HapticService.medium();
+                HapticManager.medium();
                 key.showingAlternates = true;
                 mouseArea.longPressTriggered = true;
                 key.pressAndHold();

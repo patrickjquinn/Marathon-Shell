@@ -50,7 +50,7 @@ Item {
                 mouse.accepted = true;
             } else if (activeGesture === "left") {
                 var dragX = mouse.x - startX;
-                var progress = Math.max(0, Math.min(1, dragX / 300)); // Hub width approximation
+                var progress = Math.max(0, Math.min(1, dragX / 300));
                 leftSwipeProgress(progress);
                 mouse.accepted = true;
             } else if (activeGesture === "right") {
@@ -67,7 +67,7 @@ Item {
                 bottomSwipeReleased(committed);
             } else if (activeGesture === "left") {
                 var dragX = mouse.x - startX;
-                var committed = dragX > 150; // Hub width half
+                var committed = dragX > 150;
                 leftSwipeReleased(committed);
             } else if (activeGesture === "right") {
                 var dragX = startX - mouse.x;

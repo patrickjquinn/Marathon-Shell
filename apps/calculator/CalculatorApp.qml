@@ -54,7 +54,7 @@ MApp {
             result = value !== 0 ? currentValue / value : 0;
             break;
         }
-        display = result.toString();
+        display = String(result);
         currentOperator = "";
         newNumber = true;
     }
@@ -68,7 +68,6 @@ MApp {
 
     appId: "calculator"
     appName: "Calculator"
-    // Prefer app-local asset path so the icon works both in-process and in marathon-app-runner.
     appIcon: "assets/icon.svg"
 
     content: Rectangle {

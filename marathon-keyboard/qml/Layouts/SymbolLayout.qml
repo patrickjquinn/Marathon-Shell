@@ -1,5 +1,3 @@
-// Marathon Virtual Keyboard - Symbol Layout
-// Special characters and symbols
 import QtQuick
 import "../UI"
 
@@ -8,7 +6,6 @@ Item {
 
     property bool shifted: false
 
-    // Expose Column's implicit height
     implicitHeight: layoutColumn.implicitHeight
 
     signal keyClicked(string text)
@@ -18,7 +15,6 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
-    // Symbol key definitions
     readonly property var row1Keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
     readonly property var row2Keys: ["@", "#", "$", "_", "&", "-", "+", "(", ")", "/"]
     readonly property var row3Keys: ["*", "\"", "'", ":", ";", "!", "?", "~", "`"]
@@ -28,7 +24,6 @@ Item {
         width: parent.width
         spacing: 0
 
-        // Row 1: 1 2 3 4 5 6 7 8 9 0
         Row {
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
@@ -49,15 +44,13 @@ Item {
             }
         }
 
-        // Separator line between Row 1 and Row 2
         Rectangle {
             width: parent.width
             height: Math.round(2 * scaleFactor)
-            color: "#666666"  // BRIGHT grey line - very visible
+            color: "#666666"
             opacity: 1.0
         }
 
-        // Row 2: @ # $ _ & - + ( ) /
         Row {
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
@@ -78,7 +71,6 @@ Item {
             }
         }
 
-        // Separator line between Row 2 and Row 3
         Rectangle {
             width: parent.width
             height: 1
@@ -86,14 +78,12 @@ Item {
             opacity: 0.3
         }
 
-        // Row 3: =\< * " ' : ; ! ? ~ ` Backspace
         Row {
             id: row3
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
             property real availableWidth: width - spacing * 10
 
-            // Shift key (switches to alternate symbols)
             Key {
                 width: row3.availableWidth * 0.15
                 text: "=\\<"
@@ -105,7 +95,6 @@ Item {
                 }
             }
 
-            // Symbol keys
             Repeater {
                 model: row3Keys
 
@@ -120,7 +109,6 @@ Item {
                 }
             }
 
-            // Backspace key
             Key {
                 width: row3.availableWidth * 0.15
                 text: "backspace"
@@ -133,7 +121,6 @@ Item {
             }
         }
 
-        // Separator line between Row 3 and Row 4
         Rectangle {
             width: parent.width
             height: 1
@@ -141,14 +128,12 @@ Item {
             opacity: 0.3
         }
 
-        // Row 4: ABC, Comma, Space, Dismiss, Period, Enter (matching QWERTY layout)
         Row {
             id: row4
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
             property real availableWidth: width - spacing * 5
 
-            // ABC key (back to letters)
             Key {
                 width: row4.availableWidth * 0.12
                 text: "ABC"
@@ -160,7 +145,6 @@ Item {
                 }
             }
 
-            // Comma key
             Key {
                 width: row4.availableWidth * 0.08
                 text: ","
@@ -171,7 +155,6 @@ Item {
                 }
             }
 
-            // Space bar (MASSIVE - 50% of row)
             Key {
                 width: row4.availableWidth * 0.50
                 text: " "
@@ -183,7 +166,6 @@ Item {
                 }
             }
 
-            // Dismiss key (keyboard down icon) - LEFT OF ENTER
             Key {
                 width: row4.availableWidth * 0.08
                 text: "dismiss"
@@ -195,7 +177,6 @@ Item {
                 }
             }
 
-            // Period key
             Key {
                 width: row4.availableWidth * 0.08
                 text: "."
@@ -206,7 +187,6 @@ Item {
                 }
             }
 
-            // Enter key (rightmost)
             Key {
                 width: row4.availableWidth * 0.14
                 text: "enter"

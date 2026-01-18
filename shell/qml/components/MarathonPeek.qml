@@ -2,16 +2,11 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
-// Peek & Flow - THE signature BlackBerry 10 feature
-// Swipe from left edge to peek at Hub, continue to open fully
 Item {
-    // BackGestureIndicator removed - was visually distracting
-    // The peek animation itself provides enough visual feedback
-
     id: peekComponent
 
-    property real peekProgress: 0 // 0 = closed, 1 = fully open
-    property real peekThreshold: 0.4 // 40% of screen width triggers full open
+    property real peekProgress: 0
+    property real peekThreshold: 0.4
     property bool isPeeking: false
     property bool isFullyOpen: false
     property real gestureStartX: 0
@@ -23,7 +18,6 @@ Item {
     signal fullyOpened
     signal notificationTapped(var notification)
 
-    // Public API for external gesture capture
     function startPeekGesture(x) {
         gestureStartX = x;
         gestureLastX = x;
@@ -43,7 +37,6 @@ Item {
 
         gestureLastX = gestureStartX + deltaX;
         gestureLastTime = now;
-        // Update peek progress (0 to 1)
         peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)));
         Logger.info("Peek", "Progress: " + (peekProgress * 100).toFixed(1) + "%, notif visible: " + (peekProgress < 0.35) + ", hub visible: " + (peekProgress >= 0.3));
     }
@@ -53,7 +46,6 @@ Item {
             return;
 
         isPeeking = false;
-        // Velocity-based or threshold-based decision
         var shouldOpen = (gestureVelocity > 300) || (peekProgress > peekThreshold);
         if (shouldOpen)
             openPeek();
@@ -62,7 +54,6 @@ Item {
         Logger.info("Peek", "Gesture ended - " + (shouldOpen ? "opening" : "closing") + " (velocity: " + gestureVelocity.toFixed(0) + "px/s, progress: " + (peekProgress * 100).toFixed(0) + "%)");
     }
 
-    // Functions
     function openPeek() {
         peekProgress = 1;
         isFullyOpen = true;
@@ -81,7 +72,6 @@ Item {
 
     anchors.fill: parent
     clip: true
-    // Escape key to close
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape && peekProgress > 0) {
             closePeek();
@@ -96,7 +86,6 @@ Item {
         Logger.debug("Peek", "Visibility changed: " + visible);
     }
 
-    // Main content area (dims as peek opens)
     Rectangle {
         anchors.fill: parent
         color: "#000000"
@@ -112,7 +101,6 @@ Item {
         }
     }
 
-    // Hub content (slides in from left)
     Item {
         id: hubPanelContainer
 
@@ -130,7 +118,6 @@ Item {
             Logger.info("Peek", "hubPanelContainer initialized, width: " + width);
         }
 
-        // Notification Preview (0-35% peek) - shows icons vertically stacked
         Item {
             id: notificationPreview
 
@@ -210,7 +197,7 @@ Item {
 
                                 anchors.fill: parent
                                 onClicked: {
-                                    HapticService.light();
+                                    HapticManager.light();
                                     Logger.info("Peek", "Notification tapped: " + model.title);
                                     peekComponent.notificationTapped({
                                         "id": model.id,
@@ -242,7 +229,6 @@ Item {
             }
         }
 
-        // Full Hub (30%+ peek) - fades in as preview fades out
         MarathonHub {
             id: hubPanel
 
@@ -264,8 +250,6 @@ Item {
             }
         }
 
-        // Drag-to-close gesture when peek is fully open
-        // Right-side close area (avoid blocking hub tabs on left)
         MouseArea {
             id: closeGestureArea
 
@@ -278,9 +262,9 @@ Item {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            width: parent.width * 0.3 // Right 30% of screen
+            width: parent.width * 0.3
             enabled: isFullyOpen
-            z: 100 // Above hub content
+            z: 100
             onPressed: mouse => {
                 startX = mouse.x;
                 lastX = mouse.x;
@@ -291,11 +275,10 @@ Item {
             onPositionChanged: mouse => {
                 if (!isDragging) {
                     var deltaX = mouse.x - startX;
-                    // Detect left swipe (closing gesture)
                     if (deltaX < -15) {
                         isDragging = true;
                         isPeeking = true;
-                        startX = mouse.x; // Reset for tracking
+                        startX = mouse.x;
                         lastX = mouse.x;
                         lastTime = Date.now();
                         Logger.info("Peek", "Close drag started");
@@ -308,7 +291,6 @@ Item {
 
                     lastX = mouse.x;
                     lastTime = now;
-                    // Update progress: deltaX from reset startX
                     var deltaX = mouse.x - startX;
                     var maxDrag = hubPanelContainer.width;
                     peekProgress = Math.max(0, Math.min(1, 1 + (deltaX / maxDrag)));
@@ -318,12 +300,10 @@ Item {
                 if (isDragging) {
                     isDragging = false;
                     isPeeking = false;
-                    // Close if dragged left past threshold or velocity is high
                     if (peekProgress < 0.65 || velocity < -500) {
                         Logger.info("Peek", "Closing from drag (progress: " + peekProgress + ", velocity: " + velocity + ")");
                         closePeek();
                     } else {
-                        // Snap back to open
                         Logger.info("Peek", "Snapping back open");
                         peekProgress = 1;
                     }
@@ -348,7 +328,6 @@ Item {
         }
     }
 
-    // Gesture area for peek - ONLY on left edge to not block other interactions!
     MouseArea {
         id: gestureArea
 
@@ -360,10 +339,9 @@ Item {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: Constants.spacingSmall // Narrow to not block back button
+        width: Constants.spacingSmall
         enabled: !isFullyOpen
         onPressed: mouse => {
-            // Always start peek since we're already in left edge area
             startX = mouse.x;
             lastX = mouse.x;
             lastTime = Date.now();
@@ -374,7 +352,6 @@ Item {
             if (!isPeeking)
                 return;
 
-            // Calculate absolute X position (since we're in a 50px wide area)
             var absoluteX = gestureArea.x + mouse.x;
             var deltaX = absoluteX - startX;
             var now = Date.now();
@@ -382,10 +359,8 @@ Item {
             if (deltaTime > 0)
                 velocity = (absoluteX - lastX) / deltaTime * 1000;
 
-            // pixels per second
             lastX = absoluteX;
             lastTime = now;
-            // Update peek progress (0 to 1) based on parent width, not gestureArea width
             peekProgress = Math.max(0, Math.min(1, deltaX / (peekComponent.width * 0.85)));
         }
         onReleased: {
@@ -393,14 +368,11 @@ Item {
                 return;
 
             isPeeking = false;
-            // Decision logic: open fully or close
             if (peekProgress > peekThreshold || velocity > 500) {
-                // Open fully
                 peekProgress = 1;
                 isFullyOpen = true;
                 fullyOpened();
             } else {
-                // Close
                 closePeek();
             }
         }

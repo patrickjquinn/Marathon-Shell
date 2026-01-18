@@ -190,15 +190,16 @@ void CameraController::focusOnPoint(qreal x, qreal y) {
     }
 }
 
-QVideoSink *CameraController::videoSink() const {
+QObject *CameraController::videoSink() const {
     return m_videoSink;
 }
 
-void CameraController::setVideoSink(QVideoSink *sink) {
-    if (m_videoSink == sink)
+void CameraController::setVideoSink(QObject *sink) {
+    auto *videoSink = qobject_cast<QVideoSink *>(sink);
+    if (m_videoSink == videoSink)
         return;
 
-    m_videoSink = sink;
+    m_videoSink = videoSink;
     m_captureSession->setVideoOutput(m_videoSink);
     emit videoSinkChanged();
 }

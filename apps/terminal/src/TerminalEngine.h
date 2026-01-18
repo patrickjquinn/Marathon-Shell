@@ -37,7 +37,6 @@ class TerminalEngine : public QObject {
     Q_INVOKABLE void resize(int cols, int rows);
     Q_INVOKABLE void sendSignal(int signal);
 
-    // Mouse handling
     Q_INVOKABLE void sendMousePress(int x, int y, int button);
     Q_INVOKABLE void sendMouseRelease(int x, int y, int button);
     Q_INVOKABLE void sendMouseMove(int x, int y, int buttons);
@@ -62,13 +61,12 @@ class TerminalEngine : public QObject {
     QString          m_title;
     TerminalScreen  *m_screen;
 
-    // ANSI parser state
     enum State {
         Normal,
         Escape,
-        CSI,    // Control Sequence Introducer [
-        OSC,    // Operating System Command ]
-        Charset // ( or )
+        CSI,
+        OSC,
+        Charset
     };
 
     State        m_state;

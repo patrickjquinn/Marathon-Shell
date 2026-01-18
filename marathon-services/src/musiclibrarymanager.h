@@ -28,7 +28,6 @@ struct Artist {
     int     trackCount;
 };
 
-// Worker thread for async music scanning
 class MusicScanWorker : public QObject {
     Q_OBJECT
   public:
@@ -67,7 +66,7 @@ class MusicLibraryManager : public QObject {
     int                      scanProgress() const;
 
     Q_INVOKABLE void         scanLibrary();
-    Q_INVOKABLE void         scanLibraryAsync(); // New async method
+    Q_INVOKABLE void         scanLibraryAsync();
     Q_INVOKABLE QVariantList getAlbums(const QString &artistName);
     Q_INVOKABLE QVariantList getTracks(const QString &albumName);
     Q_INVOKABLE QVariantList getAllTracks();
@@ -89,7 +88,7 @@ class MusicLibraryManager : public QObject {
     void                     initDatabase();
     void                     scanDirectory(const QString &path);
     void                     addTrack(const QString &filePath);
-    void                     addTrackBatch(const QList<Track> &tracks); // Batch insert
+    void                     addTrackBatch(const QList<Track> &tracks);
     void                     extractMetadata(const QString &path, Track &track);
     void                     loadArtists();
     bool                     isAudioFile(const QString &path);
@@ -109,4 +108,4 @@ class MusicLibraryManager : public QObject {
     static const QStringList AUDIO_EXTENSIONS;
 };
 
-#endif // MUSICLIBRARYMANAGER_H
+#endif

@@ -1,27 +1,27 @@
-import QtQuick
 import MarathonApp.Calendar
-import QtQuick.Layouts
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 
 MPage {
     id: root
-    title: "Event Details"
-    showBackButton: true
-    onBackClicked: root.StackView.view.pop()
 
     property var event: ({})
     property var onDelete: null
+
+    title: "Event Details"
+    showBackButton: true
+    onBackClicked: root.StackView.view.pop()
 
     content: ColumnLayout {
         width: parent.width
         spacing: MSpacing.lg
 
-        // Title
         Text {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
@@ -32,7 +32,6 @@ MPage {
             wrapMode: Text.WordWrap
         }
 
-        // Date & Time
         RowLayout {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
@@ -60,25 +59,22 @@ MPage {
             }
         }
 
-        // Delete Button
         MButton {
             Layout.fillWidth: true
             Layout.margins: MSpacing.lg
             Layout.topMargin: MSpacing.xl
             text: "Delete Event"
-            variant: "secondary" // Or danger if available, using secondary for now
-            // TODO: Add danger variant support or style manually
-
+            variant: "secondary"
             onClicked: {
-                if (root.onDelete) {
+                if (root.onDelete)
                     root.onDelete(root.event.id);
-                }
+
                 root.StackView.view.pop();
             }
         }
 
         Item {
             Layout.fillHeight: true
-        } // Spacer
+        }
     }
 }

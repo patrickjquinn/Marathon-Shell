@@ -3,10 +3,11 @@
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
 #include <QStandardPaths>
+#include <QTimer>
 
 MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     : QObject(parent)
@@ -28,10 +29,14 @@ MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
 
     loadPermissions();
 
-    // Initialize Portal Manager
     m_portalManager = new PortalManager(this);
+    m_batchTimer    = new QTimer(this);
+    m_batchTimer->setSingleShot(true);
+    m_batchTimer->setInterval(150); // 150ms debounce window
 
-    // Connect Portal signals
+    connect(m_batchTimer, &QTimer::timeout, this,
+            &MarathonPermissionManager::processPendingRequests);
+
     connect(m_portalManager, &PortalManager::cameraAccessGranted, this,
             [this](const QString &appId) { setPermission(appId, "camera", true, true); });
     connect(m_portalManager, &PortalManager::cameraAccessDenied, this,
@@ -85,7 +90,6 @@ void MarathonPermissionManager::loadPermissions() {
 
     QJsonObject root = doc.object();
 
-    // Load permissions for each app
     for (const QString &appId : root.keys()) {
         QJsonObject         appPerms = root.value(appId).toObject();
         QMap<QString, bool> permissions;
@@ -105,7 +109,6 @@ void MarathonPermissionManager::savePermissions() {
     QString     filePath = getPermissionsFilePath();
     QJsonObject root;
 
-    // Save permissions for each app
     for (auto it = m_permissions.constBegin(); it != m_permissions.constEnd(); ++it) {
         QString                    appId = it.key();
         QJsonObject                appPerms;
@@ -143,10 +146,16 @@ bool MarathonPermissionManager::hasPermission(const QString &appId, const QStrin
     return appPerms[permission];
 }
 
+void MarathonPermissionManager::requestPermissions(const QString     &appId,
+                                                   const QStringList &permissions) {
+    for (const QString &perm : permissions) {
+        requestPermission(appId, perm);
+    }
+}
+
 void MarathonPermissionManager::requestPermission(const QString &appId, const QString &permission) {
     qDebug() << "[MarathonPermissionManager] Permission requested:" << appId << permission;
 
-    // Check if already granted or denied
     PermissionStatus status = getPermissionStatus(appId, permission);
 
     if (status == Granted) {
@@ -161,7 +170,6 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
         return;
     }
 
-    // Try to use XDG Portal if available
     if (m_portalManager->isPortalAvailable(permission)) {
         qInfo() << "[MarathonPermissionManager] Delegating request to XDG Portal for" << permission;
 
@@ -172,49 +180,109 @@ void MarathonPermissionManager::requestPermission(const QString &appId, const QS
             m_portalManager->requestLocationAccess(appId);
             return;
         }
-        // Fall through for other permissions not yet supported by our PortalManager wrapper
     }
 
-    // Fallback to custom dialog
-    m_promptActive      = true;
-    m_currentAppId      = appId;
-    m_currentPermission = permission;
+    // Buffer the request
+    m_pendingRequests.append({appId, permission});
+
+    // Reset debounce timer
+    m_batchTimer->start();
+}
+
+void MarathonPermissionManager::processPendingRequests() {
+    if (m_pendingRequests.isEmpty())
+        return;
+
+    // If a prompt is already active, do nothing (wait for it to close)
+    if (m_promptActive)
+        return;
+
+    // Process requests for the FIRST app in the queue
+    QString                              appId = m_pendingRequests.first().appId;
+
+    QStringList                          batch;
+    QMutableListIterator<PendingRequest> i(m_pendingRequests);
+    while (i.hasNext()) {
+        const PendingRequest &req = i.next();
+        if (req.appId == appId) {
+            if (!batch.contains(req.permission)) {
+                batch.append(req.permission);
+            }
+            i.remove();
+        }
+    }
+
+    if (batch.isEmpty()) {
+        checkQueue(); // Should normally not happen
+        return;
+    }
+
+    qDebug() << "[MarathonPermissionManager] Batching" << batch.size() << "permissions for"
+             << appId;
+
+    m_promptActive       = true;
+    m_currentAppId       = appId;
+    m_currentPermissions = batch;
+    m_currentPermission  = batch.first(); // Legacy compatibility, though UI should switch to list
 
     emit promptActiveChanged();
     emit currentRequestChanged();
-    emit permissionRequested(appId, permission);
 
-    qDebug() << "[MarathonPermissionManager] Showing custom permission prompt";
+    // Still emit individual signals for compatibility if needed, but primarily the batch
+    // signal
+    emit permissionsRequested(appId, batch);
+
+    qDebug() << "[MarathonPermissionManager] Showing custom permission batch prompt";
+}
+
+void MarathonPermissionManager::checkQueue() {
+    if (!m_pendingRequests.isEmpty() && !m_promptActive) {
+        // Schedule next processing
+        QTimer::singleShot(50, this, &MarathonPermissionManager::processPendingRequests);
+    }
 }
 
 void MarathonPermissionManager::setPermission(const QString &appId, const QString &permission,
                                               bool granted, bool remember) {
-    qDebug() << "[MarathonPermissionManager] Setting permission:" << appId << permission << granted
-             << remember;
+    setPermissions(appId, {permission}, granted, remember);
+}
+
+void MarathonPermissionManager::setPermissions(const QString &appId, const QStringList &permissions,
+                                               bool granted, bool remember) {
+    qDebug() << "[MarathonPermissionManager] Setting permissions:" << appId << permissions
+             << granted << remember;
 
     if (remember) {
-        // Store permanently
         if (!m_permissions.contains(appId)) {
             m_permissions[appId] = QMap<QString, bool>();
         }
 
-        m_permissions[appId][permission] = granted;
+        for (const QString &perm : permissions) {
+            m_permissions[appId][perm] = granted;
+        }
         savePermissions();
     }
 
-    // Hide prompt
+    // Close prompt
     m_promptActive = false;
     m_currentAppId.clear();
+    m_currentPermissions.clear();
     m_currentPermission.clear();
+
     emit promptActiveChanged();
     emit currentRequestChanged();
 
-    // Emit appropriate signal
-    if (granted) {
-        emit permissionGranted(appId, permission);
-    } else {
-        emit permissionDenied(appId, permission);
+    // Emit results for each permission
+    for (const QString &perm : permissions) {
+        if (granted) {
+            emit permissionGranted(appId, perm);
+        } else {
+            emit permissionDenied(appId, perm);
+        }
     }
+
+    // Check if there are more pending requests
+    checkQueue();
 }
 
 void MarathonPermissionManager::revokePermission(const QString &appId, const QString &permission) {
@@ -236,7 +304,7 @@ QStringList MarathonPermissionManager::getAppPermissions(const QString &appId) {
     const QMap<QString, bool> &appPerms = m_permissions[appId];
 
     for (auto it = appPerms.constBegin(); it != appPerms.constEnd(); ++it) {
-        if (it.value()) { // Only include granted permissions
+        if (it.value()) {
             permissions.append(it.key());
         }
     }

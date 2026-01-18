@@ -1,10 +1,10 @@
-import QtQuick
 import MarathonApp.Messages
-import QtQuick.Controls
 import MarathonOS.Shell
+import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Controls
+import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: root
@@ -30,6 +30,7 @@ Rectangle {
 
     Column {
         id: contentColumn
+
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
@@ -42,6 +43,7 @@ Rectangle {
 
             MIconButton {
                 id: attachButton
+
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "paperclip"
                 iconSize: 20
@@ -54,10 +56,10 @@ Rectangle {
 
             MTextInput {
                 id: messageInput
+
                 width: parent.width - attachButton.width - sendButton.width - parent.spacing * 2
                 anchors.verticalCenter: parent.verticalCenter
                 placeholderText: "Type a message..."
-
                 Keys.onReturnPressed: {
                     if (event.modifiers & Qt.ShiftModifier) {
                         event.accepted = false;
@@ -71,6 +73,7 @@ Rectangle {
 
             MIconButton {
                 id: sendButton
+
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "send"
                 iconSize: 20

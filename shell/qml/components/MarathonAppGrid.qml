@@ -1,24 +1,20 @@
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Effects
 
 Item {
     id: appGrid
 
-    // Properties passed from parent (MarathonPageView)
     property var appModel: null
     property int pageIndex: 0
-    // Grid configuration
     property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6))
     property int rows: Constants.screenWidth < 700 ? 5 : 4
     property int itemsPerPage: columns * rows
-    // Search gesture properties
     property real searchPullProgress: 0
     property bool searchGestureActive: false
-    // Calculate start index for this page
     readonly property int startIndex: pageIndex * itemsPerPage
-    // Calculate how many items to show on this page
     readonly property int pageItemCount: {
         if (!appModel)
             return 0;
@@ -27,11 +23,9 @@ Item {
         return Math.max(0, Math.min(remaining, itemsPerPage));
     }
 
-    // Signals
     signal appLaunched(var app)
     signal longPress
 
-    // Auto-dismiss if gesture ends and search not fully open
     Timer {
         id: autoDismissTimer
 
@@ -43,7 +37,6 @@ Item {
         }
     }
 
-    // Reset to 0 if search closes while gesture active
     Connections {
         function onSearchOpenChanged() {
             if (!UIStore.searchOpen && !searchGestureActive)
@@ -53,7 +46,6 @@ Item {
         target: UIStore
     }
 
-    // Main Grid Layout
     Grid {
         id: iconGrid
 
@@ -68,12 +60,10 @@ Item {
             model: appGrid.pageItemCount
 
             Item {
-                // Get app data from shared model using offset
                 readonly property var appData: appGrid.appModel ? appGrid.appModel.getAppAtIndex(appGrid.startIndex + index) : null
 
                 width: (iconGrid.width - (appGrid.columns - 1) * iconGrid.spacing) / appGrid.columns
                 height: (iconGrid.height - (appGrid.rows - 1) * iconGrid.spacing) / appGrid.rows
-                // Icon Transform Animation
                 transform: [
                     Scale {
                         origin.x: width / 2
@@ -122,7 +112,6 @@ Item {
                         width: Constants.appIconSize
                         height: Constants.appIconSize
 
-                        // Press glow
                         Rectangle {
                             anchors.centerIn: parent
                             width: parent.width * 1.2
@@ -140,18 +129,16 @@ Item {
                             }
                         }
 
-                        // Shadow
                         MAppIcon {
                             anchors.centerIn: parent
                             anchors.verticalCenterOffset: 2
                             source: appData ? appData.icon : ""
                             size: parent.width
                             opacity: 0.3
-                            color: "black" // Shadow color for font icons
+                            color: "black"
                             z: 1
                         }
 
-                        // Icon
                         MAppIcon {
                             id: appIcon
 
@@ -161,7 +148,6 @@ Item {
                             z: 2
                         }
 
-                        // Notification Badge
                         Rectangle {
                             anchors.top: parent.top
                             anchors.right: parent.right
@@ -198,7 +184,6 @@ Item {
                     }
 
                     Text {
-                        // Constrain width to parent cell to prevent overflow into neighbors
                         width: parent.parent.width
                         horizontalAlignment: Text.AlignHCenter
                         text: appData ? appData.name : ""
@@ -206,9 +191,8 @@ Item {
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         font.weight: Font.DemiBold
-                        elide: Text.ElideRight // Truncate with ... if too long
-                        maximumLineCount: 1 // Single line only
-                        // Text Shadow
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
                         style: Text.Outline
                         styleColor: Qt.rgba(0, 0, 0, 0.6)
                     }
@@ -262,7 +246,7 @@ Item {
                         if (!isSearchGesture && Math.abs(dragDistance) < 15 && deltaTime < 500) {
                             if (appData) {
                                 appGrid.appLaunched(appData);
-                                HapticService.medium();
+                                HapticManager.medium();
                             }
                         }
                         isSearchGesture = false;
@@ -270,8 +254,7 @@ Item {
                     onPressAndHold: {
                         if (appData) {
                             var globalPos = mapToItem(appGrid.parent, mouseX, mouseY);
-                            HapticService.heavy();
-                            // Context menu logic would go here
+                            HapticManager.heavy();
                             appGrid.longPress();
                         }
                     }
@@ -280,7 +263,6 @@ Item {
         }
     }
 
-    // GESTURE MASK (for gaps between icons)
     MouseArea {
         id: gestureMask
 
@@ -331,7 +313,6 @@ Item {
         }
     }
 
-    // Smooth animation when resetting progress
     Behavior on searchPullProgress {
         enabled: !searchGestureActive && searchPullProgress > 0.01 && !UIStore.searchOpen
 

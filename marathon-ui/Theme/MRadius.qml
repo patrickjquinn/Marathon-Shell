@@ -11,4 +11,5 @@ QtObject {
 
     readonly property int pill: 999
     readonly property int circle: 999
+    readonly property int full: pill
 }

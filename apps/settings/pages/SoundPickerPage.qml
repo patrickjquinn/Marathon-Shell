@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 SettingsPageTemplate {
     id: soundPickerPage
@@ -11,20 +11,22 @@ SettingsPageTemplate {
     property string soundType: "ringtone"
     property string currentSound: ""
     property var availableSounds: []
+    property string pageName: soundType
 
     signal soundSelected(string path)
 
     pageTitle: {
         if (soundType === "ringtone")
             return "Ringtone";
+
         if (soundType === "notification")
             return "Notification Sound";
+
         if (soundType === "alarm")
             return "Alarm Sound";
+
         return "Sound";
     }
-
-    property string pageName: soundType
 
     content: Flickable {
         contentHeight: soundContent.height + MSpacing.xl * 3
@@ -33,6 +35,7 @@ SettingsPageTemplate {
 
         Column {
             id: soundContent
+
             width: parent.width
             spacing: MSpacing.lg
             leftPadding: MSpacing.lg
@@ -84,6 +87,7 @@ SettingsPageTemplate {
 
                                 Icon {
                                     id: soundIcon
+
                                     anchors.left: parent.left
                                     anchors.leftMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
@@ -110,6 +114,7 @@ SettingsPageTemplate {
 
                                 Rectangle {
                                     id: checkBox
+
                                     anchors.right: parent.right
                                     anchors.rightMargin: MSpacing.md
                                     anchors.verticalCenter: parent.verticalCenter
@@ -139,22 +144,18 @@ SettingsPageTemplate {
 
                             MouseArea {
                                 id: soundMouseArea
+
                                 anchors.fill: parent
                                 onClicked: {
                                     Logger.info("SoundPickerPage", "Selected sound: " + modelData);
-
-                                    // Save selection
                                     soundPickerPage.currentSound = modelData;
                                     soundPickerPage.soundSelected(modelData);
-
-                                    // Preview the sound using dedicated preview player
-                                    if (soundPickerPage.soundType === "ringtone") {
+                                    if (soundPickerPage.soundType === "ringtone")
                                         AudioManager.previewRingtone(modelData);
-                                    } else if (soundPickerPage.soundType === "notification") {
+                                    else if (soundPickerPage.soundType === "notification")
                                         AudioManager.previewNotificationSound(modelData);
-                                    } else if (soundPickerPage.soundType === "alarm") {
+                                    else if (soundPickerPage.soundType === "alarm")
                                         AudioManager.previewAlarmSound(modelData);
-                                    }
                                 }
                             }
                         }

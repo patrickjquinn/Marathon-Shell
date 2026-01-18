@@ -13,7 +13,7 @@ Item {
     property bool iconLeft: true
     property bool disabled: false
     property string state: "default"
-    property string shape: "rounded"  // "rounded" or "circular"
+    property string shape: "rounded"
 
     signal clicked
     signal pressed
@@ -58,8 +58,6 @@ Item {
         implicitWidth: contentRow.width + MSpacing.xl * 2
         implicitHeight: MSpacing.touchTargetMin
 
-        // Always subtract glow offset to ensure containment and stability
-        // This prevents jumping when switching variants and clipping in tight layouts
         width: (root.width > 0 ? root.width : root.implicitWidth) - borderGlowOffset * 2
         height: (root.height > 0 ? root.height : root.implicitHeight) - borderGlowOffset * 2
 
@@ -136,7 +134,7 @@ Item {
                 visible: iconName !== "" && root.state === "default"
                 name: iconName
                 size: iconSize
-                color: variant === "primary" ? "#000000" : MColors.textPrimary  // Black icon on teal
+                color: variant === "primary" ? "#000000" : MColors.textPrimary
                 anchors.verticalCenter: parent.verticalCenter
             }
 
@@ -146,12 +144,12 @@ Item {
                     if (disabled)
                         return MColors.textHint;
                     if (variant === "primary")
-                        return "#000000";  // Pure black for maximum contrast on teal
+                        return "#000000";
                     if (variant === "secondary")
                         return MColors.textPrimary;
                     return MColors.textPrimary;
                 }
-                font.pixelSize: MTypography.sizeBody  // Larger for readability
+                font.pixelSize: MTypography.sizeBody
                 font.weight: variant === "primary" ? MTypography.weightBold : MTypography.weightDemiBold
                 font.family: MTypography.fontFamily
                 anchors.verticalCenter: parent.verticalCenter

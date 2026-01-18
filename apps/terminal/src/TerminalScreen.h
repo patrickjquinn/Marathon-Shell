@@ -7,8 +7,8 @@
 
 struct TerminalCell {
     uint32_t codePoint = ' ';
-    uint32_t fgColor   = 0xFFFFFFFF; // ARGB
-    uint32_t bgColor   = 0xFF000000; // ARGB
+    uint32_t fgColor   = 0xFFFFFFFF;
+    uint32_t bgColor   = 0xFF000000;
     bool     bold      = false;
     bool     italic    = false;
     bool     underline = false;
@@ -34,32 +34,27 @@ class TerminalScreen : public QObject {
     void resize(int cols, int rows);
     void clear();
 
-    // Character manipulation
     void putChar(uint32_t codePoint);
     void newLine();
     void backspace();
 
-    // Cursor movement
-    void moveCursor(int x, int y); // Absolute
+    void moveCursor(int x, int y);
     void moveCursorRelative(int dx, int dy);
     void setCursorX(int x);
     void setCursorY(int y);
 
-    // Editing
-    void clearLine(int mode);   // 0=end, 1=start, 2=all
-    void clearScreen(int mode); // 0=end, 1=start, 2=all
+    void clearLine(int mode);
+    void clearScreen(int mode);
     void deleteChars(int count);
     void insertChars(int count);
 
-    // Style
     void setFgColor(uint32_t color);
     void setBgColor(uint32_t color);
     void setBold(bool bold);
     void setInverse(bool inverse);
     void resetStyle();
 
-    // Accessors for Renderer
-    int cols() const {
+    int  cols() const {
         return m_cols;
     }
     int rows() const {
@@ -73,16 +68,14 @@ class TerminalScreen : public QObject {
     }
     const TerminalCell &cell(int x, int y) const;
 
-    // Selection
-    void setSelection(int startX, int startY, int endX, int endY);
-    void clearSelection();
-    bool hasSelection() const {
+    void                setSelection(int startX, int startY, int endX, int endY);
+    void                clearSelection();
+    bool                hasSelection() const {
         return m_hasSelection;
     }
     bool    isSelected(int x, int y) const;
     QString getSelectedText() const;
 
-    // Thread safety
     QMutex *mutex() {
         return &m_mutex;
     }
@@ -92,32 +85,26 @@ class TerminalScreen : public QObject {
     void cursorChanged();
 
   private:
-    void          scrollUp();
-    TerminalCell &cellAt(int x, int y);
+    void                           scrollUp();
+    TerminalCell                  &cellAt(int x, int y);
 
-    int           m_cols;
-    int           m_rows;
-    int           m_cursorX;
-    int           m_cursorY;
+    int                            m_cols;
+    int                            m_rows;
+    int                            m_cursorX;
+    int                            m_cursorY;
 
-    // Ring Buffer State
-    int m_topRow;      // Index of the visual top row in the buffer
-    int m_historySize; // Total rows in buffer (screen + history)
+    int                            m_topRow;
+    int                            m_historySize;
 
-    // Style state
-    uint32_t m_currentFg;
-    uint32_t m_currentBg;
-    bool     m_currentBold;
-    bool     m_currentInverse;
+    uint32_t                       m_currentFg;
+    uint32_t                       m_currentBg;
+    bool                           m_currentBold;
+    bool                           m_currentInverse;
 
-    // Selection State
-    bool m_hasSelection;
-    int  m_selStartX, m_selStartY;
-    int  m_selEndX, m_selEndY;
+    bool                           m_hasSelection;
+    int                            m_selStartX, m_selStartY;
+    int                            m_selEndX, m_selEndY;
 
-    // Grid: [row][col]
-    // We use a flat vector for better cache locality? Or vector of vectors?
-    // Vector of vectors is easier for resizing.
     QVector<QVector<TerminalCell>> m_grid;
 
     QMutex                         m_mutex;

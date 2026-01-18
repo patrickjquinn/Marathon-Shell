@@ -1,6 +1,7 @@
 import "./components" as Comp
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Window
 
@@ -14,6 +15,8 @@ Item {
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
+    property IncomingCallOverlay incomingCallOverlay: null
+    property var shellWindow: Window.window
     readonly property real maxQuickSettingsHeight: shell.height - Constants.statusBarHeight
     readonly property real quickSettingsThreshold: maxQuickSettingsHeight * Constants.quickSettingsDismissThreshold
     property var pendingLaunch: null
@@ -65,7 +68,7 @@ Item {
 
     function handleHomeKey() {
         if (virtualKeyboard.active) {
-            HapticService.light();
+            HapticManager.light();
             virtualKeyboard.active = false;
             return;
         }
@@ -101,7 +104,7 @@ Item {
         } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             powerButtonPressed = false;
             if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress();
+                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, typeof DisplayPolicyControllerCpp !== "undefined" ? DisplayPolicyControllerCpp.screenOn : true);
                 powerButtonTimer.stop();
             }
             event.accepted = true;
@@ -109,12 +112,16 @@ Item {
     }
     Component.onCompleted: {
         shell.forceActiveFocus();
-        compositor = shellInitialization.initialize(shell, Window.window);
+        compositor = shellInitialization.initialize(shell, shellWindow);
         AppLaunchService.compositor = compositor;
         AppLaunchService.appWindow = appWindow;
         AppLaunchService.uiStore = UIStore;
         AppLaunchService.appLifecycleManager = AppLifecycleManager;
         ScreenshotService.shellWindow = shell;
+        SessionStore.reset();
+        showPinScreen = false;
+        pinScreen.reset();
+        lockScreen.swipeProgress = 0;
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
@@ -166,34 +173,34 @@ Item {
         } else if ((event.key === Qt.Key_Space) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+Space pressed - Opening Universal Search");
             UIStore.toggleSearch();
-            HapticService.light();
+            HapticManager.light();
             event.accepted = true;
         } else if ((event.key === Qt.Key_K) && (event.modifiers & Qt.ControlModifier)) {
             Logger.debug("Shell", "Cmd+K pressed - Toggling Virtual Keyboard");
             virtualKeyboard.active = !virtualKeyboard.active;
-            HapticService.light();
+            HapticManager.light();
             event.accepted = true;
         } else if (event.key === Qt.Key_Menu) {
             Logger.debug("Shell", "Menu key pressed - Toggling Virtual Keyboard");
             virtualKeyboard.active = !virtualKeyboard.active;
-            HapticService.light();
+            HapticManager.light();
             event.accepted = true;
         } else if (event.key === Qt.Key_Print || event.key === Qt.Key_SysReq) {
             Logger.debug("Shell", "Print Screen pressed - Taking Screenshot");
             screenshotFlash.trigger();
             ScreenshotService.captureScreen(shell);
-            HapticService.medium();
+            HapticManager.medium();
             event.accepted = true;
         } else if ((event.key === Qt.Key_3) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
             Logger.debug("Shell", "Ctrl+Shift+3 pressed - Taking Screenshot");
             screenshotFlash.trigger();
             ScreenshotService.captureScreen(shell);
-            HapticService.medium();
+            HapticManager.medium();
             event.accepted = true;
         } else if ((event.key === Qt.Key_V) && (event.modifiers & Qt.ControlModifier) && (event.modifiers & Qt.ShiftModifier)) {
             Logger.debug("Shell", "Cmd+Shift+V pressed - Opening Clipboard Manager");
             UIStore.openClipboardManager();
-            HapticService.light();
+            HapticManager.light();
             event.accepted = true;
         } else if (shell.state === "home" && !UIStore.searchOpen && !UIStore.appWindowOpen) {
             if (event.text.length > 0 && event.text.match(/[a-zA-Z0-9]/)) {
@@ -508,6 +515,14 @@ Item {
         target: NotificationService
     }
 
+    Connections {
+        function onLockRequested() {
+            SessionStore.lock();
+        }
+
+        target: PowerBatteryHandler
+    }
+
     Comp.ShellInitialization {
         id: shellInitialization
     }
@@ -635,7 +650,7 @@ Item {
         onToggleSearch: {
             Logger.info("Shell", "Search button clicked from nav bar");
             UIStore.toggleSearch();
-            HapticService.light();
+            HapticManager.light();
         }
         onSwipeLeft: {
             if (UIStore.appWindowOpen || UIStore.settingsOpen)
@@ -678,7 +693,7 @@ Item {
         onShortSwipeUp: {
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with short swipe up");
-                HapticService.light();
+                HapticManager.light();
                 virtualKeyboard.active = false;
                 return;
             }
@@ -692,7 +707,7 @@ Item {
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
-                HapticService.light();
+                HapticManager.light();
                 virtualKeyboard.active = false;
                 return;
             }
@@ -726,13 +741,13 @@ Item {
                 Router.goToFrames();
             }
         }
-        onMinimizeApp: velocity => {
-            Logger.info("Shell", "NavBar minimize gesture detected (velocity: " + velocity + ")");
+        onMinimizeApp: {
+            Logger.info("Shell", "NavBar minimize gesture detected");
             if (typeof AppLifecycleManager !== 'undefined')
                 AppLifecycleManager.minimizeForegroundApp();
 
             shell.isTransitioningToActiveFrames = true;
-            var initialVelocity = velocity < 0 ? velocity : -1000;
+            var initialVelocity = -1000;
             snapIntoGridAnimation.startWithVelocity(initialVelocity);
         }
     }
@@ -1332,7 +1347,7 @@ Item {
                 showPinScreen = true;
                 pinScreen.show();
             }
-            HapticService.medium();
+            HapticManager.medium();
         }
         onPhoneLaunched: {
             Logger.info("LockScreen", "Phone quick action tapped");
@@ -1348,7 +1363,7 @@ Item {
                 showPinScreen = true;
                 pinScreen.show();
             }
-            HapticService.medium();
+            HapticManager.medium();
         }
     }
 
@@ -1465,18 +1480,7 @@ Item {
             shell.forceActiveFocus();
         }
         onResultSelected: result => {
-            if (result.type === "app") {
-                var app = {
-                    "id": result.data.id,
-                    "name": result.data.name,
-                    "icon": result.data.icon,
-                    "type": result.data.type || "marathon"
-                };
-                AppLaunchService.launchApp(app, compositor, appWindow);
-            } else if (result.type === "deeplink")
-                UnifiedSearchService.executeSearchResult(result);
-            else if (result.type === "setting")
-                UnifiedSearchService.executeSearchResult(result);
+            UnifiedSearchService.executeSearchResult(result);
             UIStore.closeSearch();
         }
     }
@@ -1486,10 +1490,19 @@ Item {
     }
 
     Connections {
+        function onSettingRequested(settingId) {
+            if (typeof Router !== "undefined")
+                Router.navigateToSetting(settingId);
+        }
+
+        target: UnifiedSearchService
+    }
+
+    Connections {
         function onScreenshotCaptured(filePath, thumbnailPath) {
             Logger.info("Shell", "Screenshot captured: " + filePath);
             screenshotPreview.show(filePath, thumbnailPath);
-            HapticService.medium();
+            HapticManager.medium();
         }
 
         function onScreenshotFailed(error) {
@@ -1548,13 +1561,13 @@ Item {
             if (errorToast)
                 errorToast.show(title, body, iconName);
 
-            if (typeof HapticService !== "undefined" && HapticService) {
+            if (typeof HapticManager !== "undefined" && HapticManager) {
                 if (hapticLevel >= 3)
-                    HapticService.heavy();
+                    HapticManager.heavy();
                 else if (hapticLevel === 2)
-                    HapticService.medium();
+                    HapticManager.medium();
                 else if (hapticLevel === 1)
-                    HapticService.light();
+                    HapticManager.light();
             }
         }
 
@@ -1576,7 +1589,7 @@ Item {
         interval: 10000
         repeat: false
         onTriggered: {
-            Logger.critical("Battery", "Emergency critical power action due to battery");
+            Logger.error("Battery", "Emergency critical power action due to battery");
             if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
                 PowerPolicyControllerCpp.performCriticalPowerAction();
             else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
@@ -1624,13 +1637,17 @@ Item {
     }
 
     Connections {
-        function onAlarmTriggered(alarm) {
-            Logger.info("Shell", "Alarm triggered: " + (alarm && alarm.label ? alarm.label : "(unknown)"));
+        function onAlarmTriggered(id, label) {
+            var alarm = {
+                "id": id,
+                "label": label
+            };
+            Logger.info("Shell", "Alarm triggered: " + (label ? label : "(unknown)"));
             alarmOverlay.show(alarm);
-            HapticService.heavy();
+            HapticManager.heavy();
         }
 
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
+        target: typeof AlarmManagerCpp !== 'undefined' ? AlarmManagerCpp : null
     }
 
     VirtualKeyboard {
@@ -1640,16 +1657,15 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         Component.onCompleted: {
-            focusConnection.target = Window.window;
+            focusConnection.target = shellWindow;
         }
 
         Connections {
             id: focusConnection
 
             function onActiveFocusItemChanged() {
-                var item = focusConnection.target ? focusConnection.target.activeFocusItem : null;
+                var item = shellWindow ? shellWindow["activeFocusItem"] : null;
                 if (!item) {
-                    // Internal focus lost. If InputMethodEngine is also not active, hide.
                     if (!InputMethodEngine.active)
                         virtualKeyboard.active = false;
 
@@ -1684,8 +1700,7 @@ Item {
             }
 
             function onInputItemUnfocused() {
-                // If internal focus is NOT on an input, hide.
-                var item = Window.window ? Window.window.activeFocusItem : null;
+                var item = shellWindow ? shellWindow["activeFocusItem"] : null;
                 var isInternalInput = item && (item.toString().indexOf("TextInput") !== -1 || item.toString().indexOf("TextEdit") !== -1);
                 if (!isInternalInput) {
                     Logger.info("Shell", "InputMethodEngine: Input item unfocused");
@@ -1810,6 +1825,16 @@ Item {
         z: Constants.zIndexModalOverlay + 100
         active: false
         source: Qt.resolvedUrl("components/IncomingCallOverlay.qml")
+        onLoaded: {
+            shell.incomingCallOverlay = item;
+            TelephonyIntegration.incomingCallOverlay = item;
+        }
+        onActiveChanged: {
+            if (!active) {
+                shell.incomingCallOverlay = null;
+                TelephonyIntegration.incomingCallOverlay = null;
+            }
+        }
     }
 
     Connections {
@@ -1821,33 +1846,26 @@ Item {
             TelephonyIntegration.callWasAnswered = false;
         }
 
-        target: incomingCallOverlayLoader.item
-        enabled: incomingCallOverlayLoader.item !== null
+        target: shell.incomingCallOverlay
+        enabled: shell.incomingCallOverlay !== null
     }
 
     Connections {
-        function onIncomingCall(number) {
+        function onIncomingCallRequested(number) {
             incomingCallOverlayLoader.active = true;
-            TelephonyIntegration.incomingCallOverlay = incomingCallOverlayLoader.item;
-            TelephonyIntegration.handleIncomingCall(number);
         }
 
-        function onCallStateChanged(state) {
-            TelephonyIntegration.handleCallStateChanged(state);
-            if ((state === "active" || state === "idle" || state === "terminated") && incomingCallOverlayLoader.item && incomingCallOverlayLoader.item.visible) {
-                incomingCallOverlayLoader.item.hide();
-                incomingCallOverlayLoader.active = false;
-            }
+        function onCallOverlayDismissRequested() {
+            if (shell.incomingCallOverlay && shell.incomingCallOverlay.visible)
+                shell.incomingCallOverlay.hide();
+            incomingCallOverlayLoader.active = false;
         }
 
-        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
-    }
-
-    Connections {
-        function onMessageReceived(sender, text, timestamp) {
-            TelephonyIntegration.handleMessageReceived(sender, text, timestamp);
+        function onUnlockRequested() {
+            if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+                SessionStore.unlock();
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: TelephonyIntegration
     }
 }

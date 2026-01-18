@@ -12,7 +12,7 @@ class SoftwareVideoOutput : public QQuickItem {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(QVideoSink *videoSink READ videoSink CONSTANT)
+    Q_PROPERTY(QObject *videoSink READ videoSink CONSTANT)
     Q_PROPERTY(int fillMode READ fillMode WRITE setFillMode NOTIFY fillModeChanged)
 
   public:
@@ -26,10 +26,10 @@ class SoftwareVideoOutput : public QQuickItem {
     explicit SoftwareVideoOutput(QQuickItem *parent = nullptr);
     ~SoftwareVideoOutput() override;
 
-    QVideoSink *videoSink() const;
+    QObject *videoSink() const;
 
-    int         fillMode() const;
-    void        setFillMode(int mode);
+    int      fillMode() const;
+    void     setFillMode(int mode);
 
   protected:
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *) override;

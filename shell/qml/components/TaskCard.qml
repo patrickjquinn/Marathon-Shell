@@ -1,5 +1,6 @@
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -19,6 +20,7 @@ Item {
     property bool gridMoving: false
     property bool gridDragging: false
     property bool suppressTapOpen: false
+    property Item nativeSurfaceItem: null
 
     signal closed
     signal taskClosed(string appId)
@@ -113,7 +115,7 @@ Item {
         Rectangle {
             anchors.fill: parent
             anchors.margins: 1
-            radius: parent.radius - 1
+            radius: cardRoot.radius - 1
             color: "transparent"
             border.width: 1
             border.color: Qt.rgba(255, 255, 255, 0.03)
@@ -126,7 +128,7 @@ Item {
                 anchors.fill: parent
                 anchors.bottomMargin: Math.round(50 * Constants.scaleFactor)
                 color: MColors.background
-                radius: parent.parent.radius
+                radius: cardRoot.radius
 
                 Loader {
                     id: appPreview
@@ -180,7 +182,6 @@ Item {
                                 Component.onCompleted: updateLiveApp()
                                 onLiveAppChanged: snapshotUpdateDebounce.restart()
 
-                                // Debounced snapshot refresh (avoid spamming scheduleUpdate)
                                 Timer {
                                     id: snapshotUpdateDebounce
 
@@ -192,7 +193,6 @@ Item {
                                     }
                                 }
 
-                                // Prefer signal-based registration over polling.
                                 Connections {
                                     function onAppRegistered(appId, instance) {
                                         if (taskCard.type === "native")
@@ -242,7 +242,6 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     sourceItem: previewContainer.liveApp
-                                    // Snapshot-based preview: avoid live recursive rendering per-card.
                                     live: false
                                     recursive: true
                                     visible: previewContainer.liveApp !== null
@@ -257,7 +256,6 @@ Item {
                                     }
                                 }
 
-                                // Throttled live updates: keep previews feeling alive without per-frame cost.
                                 Timer {
                                     id: livePreviewRefreshTimer
 
@@ -279,32 +277,35 @@ Item {
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                     onItemChanged: {
                                         if (item) {
-                                            item.anchors.fill = nativeSurfaceLoader;
+                                            taskCard.nativeSurfaceItem = item;
+                                            taskCard.nativeSurfaceItem.anchors.fill = nativeSurfaceLoader;
                                             item.autoResize = false;
                                             item.hasSentInitialSize = true;
                                             item.isMinimized = true;
+                                        } else {
+                                            taskCard.nativeSurfaceItem = null;
                                         }
                                     }
 
                                     Binding {
-                                        target: nativeSurfaceLoader.item
+                                        target: taskCard.nativeSurfaceItem
                                         property: "surfaceObj"
                                         value: taskCard.waylandSurface
-                                        when: nativeSurfaceLoader.item !== null
+                                        when: taskCard.nativeSurfaceItem !== null
                                     }
 
                                     Binding {
-                                        target: nativeSurfaceLoader.item
+                                        target: taskCard.nativeSurfaceItem
                                         property: "touchEventsEnabled"
                                         value: false
-                                        when: nativeSurfaceLoader.item !== null
+                                        when: taskCard.nativeSurfaceItem !== null
                                     }
 
                                     Binding {
-                                        target: nativeSurfaceLoader.item
+                                        target: taskCard.nativeSurfaceItem
                                         property: "inputEventsEnabled"
                                         value: false
-                                        when: nativeSurfaceLoader.item !== null
+                                        when: taskCard.nativeSurfaceItem !== null
                                     }
                                 }
 

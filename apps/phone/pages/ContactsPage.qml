@@ -1,28 +1,27 @@
-import QtQuick
 import MarathonApp.Phone
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     color: MColors.background
 
     ListView {
         id: contactsList
+
         anchors.fill: parent
         anchors.leftMargin: MSpacing.md
         anchors.rightMargin: MSpacing.md
         anchors.bottomMargin: MSpacing.md
         spacing: MSpacing.sm
         clip: true
+        model: phoneApp.contacts
 
-        // Header spacer for top padding
         header: Item {
             width: parent.width
             height: MSpacing.lg
         }
-
-        model: phoneApp.contacts
 
         delegate: Rectangle {
             width: contactsList.width

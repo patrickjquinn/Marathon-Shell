@@ -7,8 +7,8 @@ file(GLOB_RECURSE QML_FILES
 )
 
 set(SOURCES
-    # Future: src/calendarmanager.cpp
-    # Future: src/eventmanager.cpp
+    src/CalendarStorage.cpp
+    src/CalendarStorage.h
 )
 
 add_marathon_app(${APP_NAME}

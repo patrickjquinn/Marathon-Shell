@@ -15,7 +15,7 @@ class CameraController : public QObject {
     Q_OBJECT
     QML_ELEMENT
 
-    Q_PROPERTY(QVideoSink *videoSink READ videoSink WRITE setVideoSink NOTIFY videoSinkChanged)
+    Q_PROPERTY(QObject *videoSink READ videoSink WRITE setVideoSink NOTIFY videoSinkChanged)
     Q_PROPERTY(bool ready READ isReady NOTIFY readyChanged)
     Q_PROPERTY(bool active READ isActive NOTIFY activeChanged)
     Q_PROPERTY(int cameraCount READ cameraCount NOTIFY cameraCountChanged)
@@ -46,8 +46,8 @@ class CameraController : public QObject {
     explicit CameraController(QObject *parent = nullptr);
     ~CameraController() override;
 
-    QVideoSink      *videoSink() const;
-    void             setVideoSink(QVideoSink *sink);
+    QObject         *videoSink() const;
+    void             setVideoSink(QObject *sink);
 
     bool             isReady() const;
     bool             isActive() const;

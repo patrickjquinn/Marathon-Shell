@@ -9,7 +9,7 @@ Item {
     property alias contentItem: contentContainer.data
     property list<QtObject> leftActions
     property list<QtObject> rightActions
-    property real threshold: width * 0.3  // 30% swipe to trigger
+    property real threshold: width * 0.3
     property bool hapticEnabled: true
 
     signal leftActionTriggered(int index)
@@ -21,7 +21,6 @@ Item {
     height: 88
     clip: true
 
-    // Background actions (left side)
     Row {
         id: leftActionsRow
         anchors.left: parent.left
@@ -58,7 +57,6 @@ Item {
         }
     }
 
-    // Background actions (right side)
     Row {
         id: rightActionsRow
         anchors.right: parent.right
@@ -96,7 +94,6 @@ Item {
         }
     }
 
-    // Main content (swipeable)
     Rectangle {
         id: contentContainer
         anchors.top: parent.top
@@ -114,7 +111,6 @@ Item {
             }
         }
 
-        // Drag area for swiping
         MouseArea {
             id: dragArea
             anchors.fill: parent
@@ -134,15 +130,12 @@ Item {
                 var swipeDistance = contentContainer.x - startX;
                 var absDistance = Math.abs(swipeDistance);
 
-                // Snap to actions if threshold exceeded
                 if (absDistance > root.threshold) {
                     if (swipeDistance > 0 && leftActions.length > 0) {
-                        // Swiped right - show left actions
                         contentContainer.x = leftActionsRow.width;
                         if (root.hapticEnabled)
                             MHaptics.light();
                     } else if (swipeDistance < 0 && rightActions.length > 0) {
-                        // Swiped left - show right actions
                         contentContainer.x = -rightActionsRow.width;
                         if (root.hapticEnabled)
                             MHaptics.light();

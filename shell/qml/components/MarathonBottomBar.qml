@@ -1,5 +1,6 @@
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -74,7 +75,6 @@ Item {
                 startY = mouse.y;
             }
             onReleased: mouse => {
-                // Only trigger click if no significant vertical movement (not a swipe)
                 const deltaY = Math.abs(mouse.y - startY);
                 if (deltaY < 10) {
                     var app = {
@@ -104,7 +104,7 @@ Item {
 
             width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: 999 // BB10: True circle
+            radius: 999
             color: bottomBar.currentPage === -2 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
@@ -145,12 +145,12 @@ Item {
 
             width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            radius: 999 // BB10: True circle
+            radius: 999
             color: bottomBar.currentPage === -1 ? "#FFFFFF" : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
             Icon {
-                name: "layers" // Task Switcher usually represented by layers
+                name: "layers"
                 size: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
                 color: bottomBar.currentPage === -1 ? "black" : "white"
@@ -192,7 +192,7 @@ Item {
 
                 width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
                 height: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
-                radius: 999 // BB10: True circle
+                radius: 999
                 color: index === bottomBar.currentPage ? "#FFFFFF" : "#444444"
                 anchors.verticalCenter: parent.verticalCenter
 
@@ -238,7 +238,6 @@ Item {
         }
     }
 
-    // Drag/scrub gesture handler
     MouseArea {
         id: scrubGesture
 
@@ -246,7 +245,6 @@ Item {
         property int lastHoveredPage: -999
 
         function checkPageUnderMouse(mouseX, mouseY) {
-            // Check Hub indicator
             var hubPos = mapToItem(hubIndicator, mouseX, mouseY);
             if (hubPos.x >= 0 && hubPos.x <= hubIndicator.width && hubPos.y >= 0 && hubPos.y <= hubIndicator.height) {
                 if (lastHoveredPage !== -2) {
@@ -255,7 +253,6 @@ Item {
                 }
                 return;
             }
-            // Check Frames indicator
             var framesPos = mapToItem(framesIndicator, mouseX, mouseY);
             if (framesPos.x >= 0 && framesPos.x <= framesIndicator.width && framesPos.y >= 0 && framesPos.y <= framesIndicator.height) {
                 if (lastHoveredPage !== -1) {
@@ -264,7 +261,6 @@ Item {
                 }
                 return;
             }
-            // Check each app grid page indicator
             for (var i = 0; i < appGridIndicators.count; i++) {
                 var indicator = appGridIndicators.itemAt(i);
                 if (indicator) {
@@ -343,7 +339,6 @@ Item {
                 startY = mouse.y;
             }
             onReleased: mouse => {
-                // Only trigger click if no significant vertical movement (not a swipe)
                 const deltaY = Math.abs(mouse.y - startY);
                 if (deltaY < 10) {
                     var app = {

@@ -1,10 +1,10 @@
-import QtQuick
-import QtQuick.Layouts
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
-import MarathonUI.Theme
 import MarathonUI.Navigation
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Layouts
 
 MPage {
     id: mainPage
@@ -51,7 +51,6 @@ MPage {
                         width: parent.width - parent.padding * 2
                         elevation: 1
                         interactive: true
-
                         onClicked: {
                             HapticService.light();
                             Logger.info("TemplateApp", "Card clicked");

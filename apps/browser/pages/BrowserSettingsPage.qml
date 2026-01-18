@@ -1,24 +1,26 @@
-import QtQuick
 import MarathonApp.Browser
-import QtQuick.Controls
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: settingsPage
-    color: MColors.background
-
-    signal clearHistoryRequested
-    signal clearCookiesRequested
 
     property bool isPrivateMode: false
     property string searchEngine: "Google"
     property string searchEngineUrl: "https://www.google.com/search?q="
     property string homepage: "https://www.google.com"
 
+    signal clearHistoryRequested
+    signal clearCookiesRequested
+
+    color: MColors.background
+
     StackView {
         id: settingsStack
+
         anchors.fill: parent
         initialItem: mainSettingsComponent
 
@@ -28,38 +30,37 @@ Rectangle {
             ListView {
                 clip: true
                 spacing: 0
-
                 model: [
                     {
-                        type: "toggle",
-                        title: "Private Browsing",
-                        subtitle: "Don't save history or cookies",
-                        iconName: "eye-off",
-                        value: settingsPage.isPrivateMode
+                        "type": "toggle",
+                        "title": "Private Browsing",
+                        "subtitle": "Don't save history or cookies",
+                        "iconName": "eye-off",
+                        "value": settingsPage.isPrivateMode
                     },
                     {
-                        type: "button",
-                        title: "Clear History",
-                        subtitle: "Remove all browsing history",
-                        iconName: "trash-2"
+                        "type": "button",
+                        "title": "Clear History",
+                        "subtitle": "Remove all browsing history",
+                        "iconName": "trash-2"
                     },
                     {
-                        type: "button",
-                        title: "Clear Cookies",
-                        subtitle: "Remove all stored website data",
-                        iconName: "trash-2"
+                        "type": "button",
+                        "title": "Clear Cookies",
+                        "subtitle": "Remove all stored website data",
+                        "iconName": "trash-2"
                     },
                     {
-                        type: "chevron",
-                        title: "Search Engine",
-                        subtitle: settingsPage.searchEngine,
-                        iconName: "search"
+                        "type": "chevron",
+                        "title": "Search Engine",
+                        "subtitle": settingsPage.searchEngine,
+                        "iconName": "search"
                     },
                     {
-                        type: "chevron",
-                        title: "Homepage",
-                        subtitle: settingsPage.homepage,
-                        iconName: "home"
+                        "type": "chevron",
+                        "title": "Homepage",
+                        "subtitle": settingsPage.homepage,
+                        "iconName": "home"
                     }
                 ]
 
@@ -70,21 +71,17 @@ Rectangle {
                     showChevron: modelData.type === "chevron"
                     showToggle: modelData.type === "toggle"
                     toggleValue: modelData.type === "toggle" ? modelData.value : false
-
                     onSettingClicked: {
                         Logger.info("BrowserSettings", "Clicked: " + modelData.title);
-
-                        if (modelData.title === "Clear History") {
+                        if (modelData.title === "Clear History")
                             settingsPage.clearHistoryRequested();
-                        } else if (modelData.title === "Clear Cookies") {
+                        else if (modelData.title === "Clear Cookies")
                             settingsPage.clearCookiesRequested();
-                        } else if (modelData.title === "Search Engine") {
+                        else if (modelData.title === "Search Engine")
                             settingsStack.push(searchEngineComponent);
-                        } else if (modelData.title === "Homepage") {
+                        else if (modelData.title === "Homepage")
                             settingsStack.push(homepageComponent);
-                        }
                     }
-
                     onToggleChanged: value => {
                         if (modelData.title === "Private Browsing") {
                             settingsPage.isPrivateMode = value;

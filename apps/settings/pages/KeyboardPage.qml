@@ -1,3 +1,4 @@
+import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -9,7 +10,6 @@ Page {
     id: keyboardPage
 
     property string pageName: "keyboard"
-
     signal navigateBack
 
     Component.onCompleted: {

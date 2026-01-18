@@ -1,4 +1,5 @@
 import "./ui"
+import MarathonOS.Shell 1.0
 import MarathonOS.Shell 1.0 as Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -6,38 +7,46 @@ import QtQuick
 import QtQuick.Effects
 
 Item {
-    // No overlay needed - content underneath (PIN/launcher) is already visible
-
     id: lockScreen
 
     property real swipeProgress: 0
-    property string expandedCategory: "" // Track which notification category is expanded
-    property int idleTimeoutMs: 30000 // 30 seconds idle timeout before blanking screen
+    property string expandedCategory: ""
+    property int idleTimeoutMs: 30000
 
     signal unlockRequested
     signal cameraLaunched
     signal phoneLaunched
     signal notificationTapped(int notifId, string appId, string title)
 
-    // Reset idle timer on any user interaction
+    function roleId(name) {
+        if (!NotificationModel || !name)
+            return -1;
+        return NotificationModel.roleId(name);
+    }
+
+    readonly property int roleIsRead: roleId("isRead")
+    readonly property int roleAppId: roleId("appId")
+    readonly property int roleIcon: roleId("icon")
+    readonly property int roleIdValue: roleId("id")
+    readonly property int roleTitle: roleId("title")
+    readonly property int roleBody: roleId("body")
+    readonly property int roleTimestamp: roleId("timestamp")
+
     function resetIdleTimer() {
         if (lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true))
             idleTimer.restart();
     }
 
-    // Update categories function
     function updateCategories() {
         var cats = {};
-        // Iterate through NotificationModel using Repeater pattern
         for (var i = 0; i < NotificationModel.rowCount(); i++) {
             var idx = NotificationModel.index(i, 0);
-            var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false;
-            // Skip read notifications
+            var isRead = NotificationModel.data(idx, roleIsRead) || false;
             if (isRead)
                 continue;
 
-            var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other";
-            var icon = NotificationModel.data(idx, Shell.NotificationRoles.IconRole) || "bell";
+            var appId = NotificationModel.data(idx, roleAppId) || "other";
+            var icon = NotificationModel.data(idx, roleIcon) || "bell";
             if (!cats[appId])
                 cats[appId] = {
                     "appId": appId,
@@ -47,7 +56,6 @@ Item {
 
             cats[appId].count++;
         }
-        // Rebuild model
         categoriesModel.clear();
         for (var cat in cats) {
             categoriesModel.append(cats[cat]);
@@ -56,11 +64,7 @@ Item {
     }
 
     anchors.fill: parent
-    // Keep lock screen visible during entire swipe (only hide when opacity reaches 0)
-    // This prevents home screen flash-through
     visible: opacity > 0.01
-    // Refresh categories when lock screen becomes visible
-    // Update SessionStore to show lock icon in status bar
     onVisibleChanged: {
         if (visible) {
             Logger.info("LockScreen", "Lock screen visible - refreshing categories");
@@ -70,7 +74,6 @@ Item {
             SessionStore.isOnLockScreen = false;
         }
     }
-    // Set initial state on component creation
     Component.onCompleted: {
         if (visible) {
             Logger.info("LockScreen", "Lock screen created visible - setting initial state");
@@ -79,11 +82,9 @@ Item {
             lockScreen.updateCategories();
         }
     }
-    // Performance optimization: use layers for static content
     layer.enabled: true
     layer.smooth: true
 
-    // Idle timer to blank screen after inactivity
     Timer {
         id: idleTimer
 
@@ -91,11 +92,9 @@ Item {
         running: lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true)
         repeat: false
         onTriggered: {
-            // Check if any surface inhibits idle (e.g., video playback)
-            // The compositor checks all native wayland surfaces for inhibitsIdle
             if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
                 Logger.info("LockScreen", "Idle inhibitor active (video playback?) - postponing screen blank");
-                idleTimer.restart(); // Keep checking
+                idleTimer.restart();
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
@@ -106,12 +105,10 @@ Item {
         }
     }
 
-    // Auto-expand notifications when they arrive while on lock screen
     Connections {
         function onNotificationReceived(notification) {
             if (lockScreen.visible) {
                 Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
-                // Wake screen if off
                 var screenOn = (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.screenOn : true;
                 if (!screenOn) {
                     if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
@@ -119,10 +116,8 @@ Item {
                     else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
                         DisplayManagerCpp.setScreenState(true);
                 }
-                // Auto-expand the notification's category
                 var appId = notification.appId || "other";
                 expandedCategory = appId;
-                // Reset idle timer
                 resetIdleTimer();
                 Logger.info("LockScreen", "Auto-expanded category: " + appId);
             }
@@ -131,14 +126,9 @@ Item {
         target: NotificationService
     }
 
-    // Restart idle timer when screen turns on
     Connections {
-        // Note: Don't lock the session when screen turns off - preserve grace period!
-        // When screen turns on, showLock() displays lock screen but keeps isLocked state
-
         function onScreenStateChanged(isOn) {
             if (isOn) {
-                // Show lock screen when screen turns on (preserves grace period if unlocked)
                 SessionStore.showLock();
                 if (lockScreen.visible) {
                     Logger.info("LockScreen", "Screen turned on - starting idle timer");
@@ -150,12 +140,10 @@ Item {
         target: typeof DisplayManagerCpp !== "undefined" ? DisplayManagerCpp : null
     }
 
-    // Categories Model - Moved to top level for reliable access
     ListModel {
         id: categoriesModel
     }
 
-    // Update categories when notifications change
     Connections {
         function onCountChanged() {
             lockScreen.updateCategories();
@@ -169,10 +157,8 @@ Item {
 
         anchors.fill: parent
         z: 1
-        // Fade out effect as user swipes
         opacity: 1 - Math.pow(swipeProgress, 0.7)
 
-        // Wallpaper with proper caching
         Image {
             anchors.fill: parent
             source: WallpaperStore.path
@@ -180,12 +166,10 @@ Item {
             asynchronous: true
             cache: true
             smooth: true
-            // GPU-accelerated layer
             layer.enabled: true
             layer.smooth: true
         }
 
-        // Dismiss expanded notifications when tapping elsewhere
         MouseArea {
             anchors.fill: parent
             z: 1
@@ -204,18 +188,15 @@ Item {
             z: 5
         }
 
-        // Time and Date - centered, or pushed up if unread notifications present
         Column {
             id: clockColumn
 
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingSmall
-            width: parent.width * 0.9 // Constrain width for children
-            // Default state (centered)
+            width: parent.width * 0.9
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
             onYChanged: Logger.info("LockScreen", "ClockColumn Y changed to: " + y)
-            // GPU layer for text rendering
             layer.enabled: true
             layer.smooth: true
 
@@ -223,7 +204,6 @@ Item {
                 text: SystemStatusStore.timeString
                 color: MColors.text
                 font.pixelSize: Constants.fontSizeGigantic
-                // font.family: MTypography.fontFamily  <-- REMOVED to match Task Switcher
                 font.weight: Font.Thin
                 anchors.horizontalCenter: parent.horizontalCenter
                 renderType: Text.NativeRendering
@@ -255,7 +235,6 @@ Item {
                 }
             }
 
-            // Media Player on Lock Screen
             Item {
                 width: parent.width
                 height: Constants.spacingMedium
@@ -269,17 +248,14 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: hasMedia
                 border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3) // MColors.marathonTealBorder approx
+                border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3)
 
-                // Override background opacity for lock screen integration
-                // Dark teal gradient background
                 gradient: Gradient {
                     GradientStop {
                         position: 0
                         color: Qt.rgba(0, 191 / 255, 165 / 255, 0.15)
                     }
 
-                    // MColors.marathonTealGlowTop approx
                     GradientStop {
                         position: 1
                         color: Qt.rgba(0, 0, 0, 0.2)
@@ -287,7 +263,6 @@ Item {
                 }
             }
 
-            // States for layout transitions
             states: State {
                 name: "hasNotifications"
                 when: categoriesModel.count > 0
@@ -299,9 +274,8 @@ Item {
                 }
 
                 PropertyChanges {
-                    target: clockColumn
-                    anchors.topMargin: Math.round(80 * Constants.scaleFactor)
-                    anchors.verticalCenterOffset: 0
+                    clockColumn.anchors.topMargin: Math.round(80 * Constants.scaleFactor)
+                    clockColumn.anchors.verticalCenterOffset: 0
                 }
             }
 
@@ -319,11 +293,9 @@ Item {
             }
         }
 
-        // BB10-style Hub Notifications
         Item {
             id: notificationContainer
 
-            // Anchor to clockColumn to ensure no overlap
             anchors.top: clockColumn.bottom
             anchors.topMargin: Constants.spacingMedium
             anchors.bottom: parent.bottom
@@ -333,16 +305,11 @@ Item {
             z: 10
             onYChanged: Logger.info("LockScreen", "NotificationContainer Y changed to: " + y)
 
-            // Category icons on left edge
             Column {
-                // Expose category count for clock positioning - NO LONGER NEEDED, using top level model
-                // property alias unreadCategoryCount: categoriesModel.count
-
                 id: categoryIcons
 
                 anchors.left: parent.left
                 anchors.leftMargin: Constants.spacingMedium
-                // Position relative to container
                 anchors.top: categoriesModel.count <= 3 ? parent.top : undefined
                 anchors.topMargin: categoriesModel.count <= 3 ? Math.round(20 * Constants.scaleFactor) : 0
                 anchors.verticalCenter: categoriesModel.count > 3 ? parent.verticalCenter : undefined
@@ -359,7 +326,6 @@ Item {
                         width: Math.round(56 * Constants.scaleFactor)
                         height: Math.round(56 * Constants.scaleFactor)
 
-                        // Category icon
                         Rectangle {
                             id: categoryIconBg
 
@@ -380,7 +346,6 @@ Item {
                                 anchors.centerIn: parent
                             }
 
-                            // Badge count
                             Rectangle {
                                 visible: model.count > 0
                                 anchors.right: parent.right
@@ -430,7 +395,7 @@ Item {
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {
-                                HapticService.light();
+                                HapticManager.light();
                                 resetIdleTimer();
                                 if (expandedCategory === category) {
                                     expandedCategory = "";
@@ -448,7 +413,6 @@ Item {
             Item {
                 id: lineAndChevron
 
-                // Calculate chevron Y position based on active category
                 function calculateChevronY() {
                     var activeIndex = -1;
                     for (var i = 0; i < categoriesModel.count; i++) {
@@ -460,11 +424,8 @@ Item {
                     if (activeIndex === -1)
                         activeIndex = 0;
 
-                    // Account for item height (56px), spacing (20px), and centering
-                    // Icon center: activeIndex * (56 + 20) + 28
-                    // Chevron is 16px, center it: icon_center - 8 = activeIndex * 76 + 20
                     var itemHeight = Math.round(56 * Constants.scaleFactor);
-                    var itemSpacing = Math.round(20 * Constants.scaleFactor); // Constants.spacingLarge
+                    var itemSpacing = Math.round(20 * Constants.scaleFactor);
                     var yPos = activeIndex * (itemHeight + itemSpacing) + Math.round(20 * Constants.scaleFactor);
                     Logger.info("LockScreen", "Chevron Y calculated: " + yPos + " for category: " + expandedCategory + " at index: " + activeIndex);
                     return yPos;
@@ -481,14 +442,13 @@ Item {
                 Connections {
                     function onExpandedCategoryChanged() {
                         chevronCanvas.y = lineAndChevron.calculateChevronY();
-                        topLineSegment.height = chevronCanvas.y; // Line goes right up to chevron
-                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor); // Start right after chevron
+                        topLineSegment.height = chevronCanvas.y;
+                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor);
                     }
 
                     target: lockScreen
                 }
 
-                // Top line segment (from top to chevron)
                 Rectangle {
                     id: topLineSegment
 
@@ -510,11 +470,10 @@ Item {
                     }
                 }
 
-                // Chevron positioned at the active icon's vertical center
                 Canvas {
                     id: chevronCanvas
 
-                    anchors.right: topLineSegment.horizontalCenter // Trailing edge aligned with line center
+                    anchors.right: topLineSegment.horizontalCenter
                     y: Math.round(20 * Constants.scaleFactor)
                     width: Math.round(12 * Constants.scaleFactor)
                     height: Math.round(16 * Constants.scaleFactor)
@@ -530,7 +489,6 @@ Item {
                         ctx.lineWidth = 2;
                         ctx.globalAlpha = 0.6;
                         ctx.beginPath();
-                        // Draw left-pointing chevron (right edge is the trailing edge)
                         ctx.moveTo(width, 0);
                         ctx.lineTo(0, height / 2);
                         ctx.lineTo(width, height);
@@ -547,7 +505,6 @@ Item {
                     }
                 }
 
-                // Bottom line segment (from chevron to bottom)
                 Rectangle {
                     id: bottomLineSegment
 
@@ -571,7 +528,6 @@ Item {
                 }
             }
 
-            // Notification list for active category - positioned to the right of line, aligned with icons
             ListView {
                 id: notificationList
 
@@ -582,18 +538,17 @@ Item {
 
                     for (var i = 0; i < NotificationModel.rowCount(); i++) {
                         var idx = NotificationModel.index(i, 0);
-                        var isRead = NotificationModel.data(idx, Shell.NotificationRoles.IsReadRole) || false;
-                        // Skip read notifications
+                        var isRead = NotificationModel.data(idx, roleIsRead) || false;
                         if (isRead)
                             continue;
 
-                        var appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "other";
+                        var appId = NotificationModel.data(idx, roleAppId) || "other";
                         if (appId === expandedCategory)
                             filteredNotificationsModel.append({
-                                "notifId": NotificationModel.data(idx, Shell.NotificationRoles.IdRole),
-                                "title": NotificationModel.data(idx, Shell.NotificationRoles.TitleRole),
-                                "body": NotificationModel.data(idx, Shell.NotificationRoles.BodyRole),
-                                "timestamp": NotificationModel.data(idx, Shell.NotificationRoles.TimestampRole)
+                                "notifId": NotificationModel.data(idx, roleIdValue),
+                                "title": NotificationModel.data(idx, roleTitle),
+                                "body": NotificationModel.data(idx, roleBody),
+                                "timestamp": NotificationModel.data(idx, roleTimestamp)
                             });
                     }
                 }
@@ -609,7 +564,6 @@ Item {
                 spacing: Constants.spacingSmall
                 clip: true
                 z: 40
-                // Update filtered notifications when category changes
                 onVisibleChanged: {
                     if (visible)
                         updateFilteredNotifications();
@@ -645,7 +599,6 @@ Item {
                         anchors.margins: Constants.spacingMedium
                         spacing: 0
 
-                        // Left content
                         Column {
                             width: parent.width - timestampText.width - Constants.spacingMedium
                             anchors.verticalCenter: parent.verticalCenter
@@ -689,7 +642,6 @@ Item {
                             }
                         }
 
-                        // Timestamp on right
                         Text {
                             id: timestampText
 
@@ -713,22 +665,19 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.light();
+                            HapticManager.light();
                             resetIdleTimer();
                             Logger.info("LockScreen", "Notification tapped: " + model.title);
-                            // Get the full notification data
                             var notifId = model.notifId || 0;
                             var appId = "";
-                            // Find the appId from the original notification
                             for (var i = 0; i < NotificationModel.rowCount(); i++) {
                                 var idx = NotificationModel.index(i, 0);
-                                var id = NotificationModel.data(idx, Shell.NotificationRoles.IdRole);
+                                var id = NotificationModel.data(idx, roleIdValue);
                                 if (id === notifId) {
-                                    appId = NotificationModel.data(idx, Shell.NotificationRoles.AppIdRole) || "";
+                                    appId = NotificationModel.data(idx, roleAppId) || "";
                                     break;
                                 }
                             }
-                            // Emit signal with notification info
                             notificationTapped(notifId, appId, model.title);
                         }
                     }
@@ -736,7 +685,6 @@ Item {
             }
         }
 
-        // Use actual BottomBar component
         MarathonBottomBar {
             id: lockScreenBottomBar
 
@@ -747,18 +695,17 @@ Item {
             z: 10
             onAppLaunched: app => {
                 if (app.id === "phone") {
-                    HapticService.medium();
+                    HapticManager.medium();
                     Logger.info("LockScreen", "Phone quick action tapped");
                     phoneLaunched();
                 } else if (app.id === "camera") {
-                    HapticService.medium();
+                    HapticManager.medium();
                     Logger.info("LockScreen", "Camera quick action tapped");
                     cameraLaunched();
                 }
             }
         }
 
-        // Swipe up indicator - vertically centered with bottom bar icons
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: lockScreenBottomBar.verticalCenter
@@ -809,10 +756,7 @@ Item {
         }
     }
 
-    // Optimized touch handling with momentum
     MouseArea {
-        // Don't reject here - we need to track the gesture to determine if it's a swipe or tap
-
         property real startY: 0
         property real lastY: 0
         property real velocity: 0
@@ -839,37 +783,29 @@ Item {
 
             lastY = mouse.y;
             lastTime = now;
-            // Allow swipes from anywhere on the screen (including swipe indicator area)
             const totalDelta = startY - mouse.y;
             if (totalDelta > 10) {
                 isDragging = true;
-                // Once we detect dragging, stop propagating to notification taps
                 mouse.accepted = true;
             }
             if (isDragging) {
-                // Super easy: only need to swipe 15% of screen height
                 const threshold = height * 0.15;
                 swipeProgress = Math.max(0, Math.min(1, totalDelta / threshold));
-                // Haptic feedback at 50% and 100%
                 if (swipeProgress > 0.5 && swipeProgress < 0.55)
-                    HapticService.light();
+                    HapticManager.light();
             }
         }
         onReleased: mouse => {
             if (isDragging) {
-                // Very low threshold: 20% progress OR positive velocity
                 if (swipeProgress > 0.2 || velocity > 0.5) {
-                    // Animate to complete
                     swipeProgress = 1;
-                    HapticService.medium();
+                    HapticManager.medium();
                     unlockTimer.start();
                 } else {
-                    // Snap back
                     swipeProgress = 0;
                     expandedCategory = "";
                 }
             } else {
-                // Was a tap, not a swipe - notifications will handle it via their MouseAreas
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
             }
             isDragging = false;
@@ -887,7 +823,6 @@ Item {
         }
     }
 
-    // Smooth spring animation for swipe progress
     Behavior on swipeProgress {
         enabled: swipeProgress < 1
 

@@ -1,14 +1,12 @@
-pragma ComponentBehavior: Bound
 import QtQuick
 
 Rectangle {
     id: languageSelector
 
-    visible: false
-
     signal languageSelected(string languageId)
     signal dismissed
 
+    visible: false
     width: parent.width
     height: languageSelector.visible ? selectorColumn.implicitHeight + Math.round(20 * Constants.scaleFactor) : 0
     color: "#2a2a2a"

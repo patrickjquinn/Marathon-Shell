@@ -1,17 +1,18 @@
-import QtQuick
 import MarathonApp.Settings
-import QtQuick.Controls
 import MarathonApp.Settings
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 SettingsPageTemplate {
     id: hiddenAppsPage
-    pageTitle: "Hidden Apps"
 
     property string pageName: "hiddenapps"
+
+    pageTitle: "Hidden Apps"
 
     content: Flickable {
         contentHeight: contentColumn.height + 40
@@ -19,6 +20,7 @@ SettingsPageTemplate {
 
         Column {
             id: contentColumn
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -51,7 +53,6 @@ SettingsPageTemplate {
                         onToggleChanged: value => {
                             var hiddenList = SettingsManagerCpp.hiddenApps;
                             var index = hiddenList.indexOf(model.id);
-
                             if (value && index < 0) {
                                 hiddenList.push(model.id);
                                 SettingsManagerCpp.hiddenApps = hiddenList;

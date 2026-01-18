@@ -24,4 +24,4 @@ class WaylandCompositorManager : public QObject {
 #endif
 };
 
-#endif // WAYLANDCOMPOSITORMANAGER_H
+#endif

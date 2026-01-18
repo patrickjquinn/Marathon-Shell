@@ -51,7 +51,6 @@ Rectangle {
         border.width: 1
         border.color: MColors.borderGlass
 
-        // Performant shadow for sheets (upward shadow)
         Rectangle {
             anchors.fill: parent
             anchors.topMargin: -4
@@ -128,11 +127,20 @@ Rectangle {
         }
     }
 
-    function show() {
+    function open() {
         showing = true;
     }
 
-    function hide() {
+    function close() {
         showing = false;
+        closed();
+    }
+
+    function show() {
+        open();
+    }
+
+    function hide() {
+        close();
     }
 }

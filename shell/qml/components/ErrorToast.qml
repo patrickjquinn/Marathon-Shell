@@ -2,12 +2,6 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
-/**
- * ErrorToast - System-wide error notification
- *
- * Shows temporary error messages with icons and dismiss action
- * Auto-dismisses after 5 seconds or user can swipe away
- */
 Item {
     id: errorToast
 
@@ -18,7 +12,6 @@ Item {
 
     signal dismissed
 
-    // Show error with message
     function show(title, message, icon) {
         errorTitle = title || "Error";
         errorMessage = message;
@@ -26,20 +19,18 @@ Item {
         visible = true;
         showAnimation.start();
         dismissTimer.restart();
-        HapticService.medium();
+        HapticManager.medium();
         Logger.warn("ErrorToast", title + ": " + message);
     }
 
-    // Hide error
     function hide() {
         hideAnimation.start();
     }
 
     anchors.fill: parent
     visible: false
-    z: 2500 // Above everything except keyboard
+    z: 2500
 
-    // Auto-dismiss timer
     Timer {
         id: dismissTimer
 
@@ -47,13 +38,11 @@ Item {
         onTriggered: errorToast.hide()
     }
 
-    // Background overlay (tap to dismiss)
     MouseArea {
         anchors.fill: parent
         onClicked: errorToast.hide()
     }
 
-    // Error card
     Rectangle {
         id: errorCard
 
@@ -67,14 +56,9 @@ Item {
         border.width: Constants.borderWidthMedium
         border.color: MColors.error
         opacity: 0
-        // Glass morphism
         layer.enabled: true
 
-        // Swipe down to dismiss
         MouseArea {
-            // Swiped down far enough - dismiss
-            // Snap back
-
             id: swipeArea
 
             anchors.fill: parent
@@ -88,7 +72,6 @@ Item {
                 else
                     snapBackAnimation.start();
             }
-            // Prevent click-through
             onClicked: mouse.accepted = true
         }
 
@@ -101,12 +84,10 @@ Item {
             anchors.margins: Constants.spacingMedium
             spacing: Constants.spacingSmall
 
-            // Header row
             Row {
                 width: parent.width
                 spacing: Constants.spacingMedium
 
-                // Error icon
                 Rectangle {
                     width: Constants.touchTargetSmall
                     height: Constants.touchTargetSmall
@@ -122,7 +103,6 @@ Item {
                     }
                 }
 
-                // Title and close
                 Column {
                     width: parent.width - Constants.touchTargetSmall - Constants.touchTargetMinimum - Constants.spacingMedium * 2
                     spacing: Constants.spacingXSmall
@@ -146,7 +126,6 @@ Item {
                     }
                 }
 
-                // Close button
                 Rectangle {
                     width: Constants.touchTargetMinimum
                     height: Constants.touchTargetMinimum
@@ -166,14 +145,13 @@ Item {
 
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.light();
+                            HapticManager.light();
                             errorToast.hide();
                         }
                     }
                 }
             }
 
-            // Error message
             Text {
                 text: errorToast.errorMessage
                 color: MColors.textSecondary
@@ -190,7 +168,6 @@ Item {
         }
     }
 
-    // Show animation
     ParallelAnimation {
         id: showAnimation
 
@@ -213,7 +190,6 @@ Item {
         }
     }
 
-    // Hide animation
     SequentialAnimation {
         id: hideAnimation
 
@@ -243,7 +219,6 @@ Item {
         }
     }
 
-    // Snap back animation (after partial swipe)
     NumberAnimation {
         id: snapBackAnimation
 

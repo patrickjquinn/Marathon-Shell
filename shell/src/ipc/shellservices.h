@@ -21,10 +21,10 @@ class NetworkManagerCpp;
 class PowerManagerCpp;
 class AudioManagerCpp;
 class AudioPolicyController;
-
-// Service: org.marathonos.Shell
-// All objects enforce strict caller identity:
-//   DBus sender → PID → appId (via AppLaunchService) and optional permission checks.
+class HapticManager;
+class SensorManagerCpp;
+class LocationManager;
+class AlarmManagerCpp;
 
 class PermissionsObject : public QObject, protected QDBusContext {
     Q_OBJECT
@@ -129,6 +129,9 @@ class TelephonyObject : public QObject, protected QDBusContext {
     void    Hangup();
     void    SendDTMF(const QString &digit);
 
+    void    SimulateIncomingCall(const QString &number);
+    void    SimulateCallStateChange(const QString &state);
+
   signals:
     void CallStateChanged(const QString &state);
     void IncomingCall(const QString &number);
@@ -160,6 +163,8 @@ class SmsObject : public QObject, protected QDBusContext {
     void         DeleteConversation(const QString &conversationId);
     void         MarkAsRead(const QString &conversationId);
     QString      GenerateConversationId(const QString &number);
+
+    void         SimulateIncomingSMS(const QString &sender, const QString &message);
 
   signals:
     void MessageReceived(const QString &sender, const QString &text, qint64 timestamp);
@@ -455,5 +460,108 @@ class NavigationObject : public QObject, protected QDBusContext {
 
   private:
     QString           callerAppIdOrEmpty() const;
+    AppLaunchService *m_launchService = nullptr;
+};
+
+class HapticObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Haptic1")
+
+  public:
+    HapticObject(HapticManager *haptic, AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    bool IsAvailable() const;
+    void Light();
+    void Medium();
+    void Heavy();
+    void Vibrate(int duration);
+    void VibratePattern(const QVariantList &pattern);
+    void Stop();
+
+  private:
+    HapticManager    *m_haptic        = nullptr;
+    AppLaunchService *m_launchService = nullptr;
+};
+
+class SensorObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sensor1")
+
+  public:
+    SensorObject(SensorManagerCpp *sensors, AppLaunchService *launchService,
+                 QObject *parent = nullptr);
+
+  public slots:
+    bool IsAvailable() const;
+    bool ProximityNear() const;
+    int  AmbientLight() const;
+
+  signals:
+    void ProximityChanged(bool near);
+    void AmbientLightChanged(int lux);
+
+  private:
+    SensorManagerCpp *m_sensors       = nullptr;
+    AppLaunchService *m_launchService = nullptr;
+};
+
+class LocationObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Location1")
+
+  public:
+    LocationObject(LocationManager *location, AppLaunchService *launchService,
+                   QObject *parent = nullptr);
+
+  public slots:
+    bool        IsAvailable() const;
+    bool        IsActive() const;
+    void        Start();
+    void        Stop();
+    QVariantMap GetLocation() const;
+
+  signals:
+    void LocationChanged(const QVariantMap &location);
+    void activeChanged(bool active);
+
+  private:
+    LocationManager  *m_location      = nullptr;
+    AppLaunchService *m_launchService = nullptr;
+};
+
+class AlarmObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Alarm1")
+
+  public:
+    AlarmObject(AlarmManagerCpp *alarms, AppLaunchService *launchService,
+                QObject *parent = nullptr);
+
+  public slots:
+
+    QVariantList GetAlarms() const;
+    QVariantList GetActiveAlarms() const;
+
+    QString      CreateAlarm(const QString &time, const QString &label, const QList<int> &repeat,
+                             const QVariantMap &options);
+    bool         UpdateAlarm(const QString &id, const QVariantMap &updates);
+    bool         DeleteAlarm(const QString &id);
+    bool         EnableAlarm(const QString &id);
+    bool         DisableAlarm(const QString &id);
+    bool         SnoozeAlarm(const QString &id);
+    bool         DismissAlarm(const QString &id);
+    void         StopAll();
+    void         TriggerAlarmNow(const QString &label);
+
+  signals:
+    void AlarmsChanged();
+    void ActiveAlarmsChanged();
+    void AlarmTriggered(const QString &id, const QString &label);
+    void AlarmDismissed(const QString &id);
+    void AlarmSnoozed(const QString &id, int minutes);
+
+  private:
+    AlarmManagerCpp  *m_alarms        = nullptr;
     AppLaunchService *m_launchService = nullptr;
 };

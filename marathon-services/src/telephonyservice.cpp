@@ -17,8 +17,7 @@ TelephonyService::TelephonyService(QObject *parent)
 
     connectToModemManager();
 
-    // Setup reconnect timer for modem detection
-    m_reconnectTimer->setInterval(10000); // Check every 10 seconds
+    m_reconnectTimer->setInterval(10000);
     m_reconnectTimer->setSingleShot(false);
     connect(m_reconnectTimer, &QTimer::timeout, this, &TelephonyService::checkModemStatus);
     if (QDBusConnection::systemBus().isConnected()) {
@@ -63,7 +62,6 @@ void TelephonyService::dial(const QString &number) {
         return;
     }
 
-    // Call ModemManager D-Bus method to create voice call
     QDBusInterface voiceInterface("org.freedesktop.ModemManager1", m_modemPath,
                                   "org.freedesktop.ModemManager1.Modem.Voice",
                                   QDBusConnection::systemBus());
@@ -75,7 +73,6 @@ void TelephonyService::dial(const QString &number) {
         return;
     }
 
-    // Create call
     QVariantMap properties;
     properties["number"] = number;
 
@@ -91,7 +88,6 @@ void TelephonyService::dial(const QString &number) {
     QString callPath = reply.value().path();
     qDebug() << "[TelephonyService] Call created:" << callPath;
 
-    // Start the call
     QDBusInterface callInterface("org.freedesktop.ModemManager1", callPath,
                                  "org.freedesktop.ModemManager1.Call",
                                  QDBusConnection::systemBus());
@@ -113,7 +109,6 @@ void TelephonyService::dial(const QString &number) {
     m_activeNumber   = number;
     m_callState      = "dialing";
 
-    // Monitor call state changes
     setupCallMonitoring(callPath);
 
     emit callStateChanged("dialing");
@@ -130,7 +125,6 @@ void TelephonyService::answer() {
         return;
     }
 
-    // Handle simulation mode
     if (m_activeCallPath.contains("simulate")) {
         m_callState = "active";
         emit callStateChanged("active");
@@ -169,7 +163,6 @@ void TelephonyService::hangup() {
         return;
     }
 
-    // Handle simulation mode
     if (m_activeCallPath.contains("simulate")) {
         m_callState = "idle";
         m_activeCallPath.clear();
@@ -243,7 +236,7 @@ void TelephonyService::simulateIncomingCall(const QString &number) {
 
     m_activeNumber   = number;
     m_callState      = "incoming";
-    m_activeCallPath = "/org/freedesktop/ModemManager1/Call/simulate"; // Mock path for simulation
+    m_activeCallPath = "/org/freedesktop/ModemManager1/Call/simulate";
 
     emit incomingCall(number);
     emit callStateChanged("incoming");
@@ -285,7 +278,7 @@ void TelephonyService::connectToModemManager() {
 }
 
 void TelephonyService::setupDBusConnections() {
-    // Monitor for modems being added/removed
+
     QDBusConnection::systemBus().connect(
         "org.freedesktop.ModemManager1", "/org/freedesktop/ModemManager1",
         "org.freedesktop.DBus.ObjectManager", "InterfacesAdded", this, SLOT(checkModemStatus()));
@@ -304,7 +297,6 @@ void TelephonyService::checkModemStatus() {
         return;
     }
 
-    // Get list of modems - use correct DBus type
     typedef QMap<QString, QVariantMap>           InterfaceList;
     typedef QMap<QDBusObjectPath, InterfaceList> ManagedObjectList;
 
@@ -322,7 +314,6 @@ void TelephonyService::checkModemStatus() {
     ManagedObjectList   objects;
     arg >> objects;
 
-    // Find first modem with Voice capability
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
         QString       path       = it.key().path();
         InterfaceList interfaces = it.value();
@@ -338,13 +329,11 @@ void TelephonyService::checkModemStatus() {
                 emit modemChanged(true);
             }
 
-            // Monitor for incoming calls
             monitorIncomingCalls();
             return;
         }
     }
 
-    // No modem found
     if (m_hasModem) {
         m_hasModem = false;
         m_modemPath.clear();
@@ -354,7 +343,7 @@ void TelephonyService::checkModemStatus() {
 }
 
 void TelephonyService::setupCallMonitoring(const QString &callPath) {
-    // Monitor call property changes
+
     QDBusConnection::systemBus().connect(
         "org.freedesktop.ModemManager1", callPath, "org.freedesktop.DBus.Properties",
         "PropertiesChanged", this,
@@ -365,7 +354,6 @@ void TelephonyService::monitorIncomingCalls() {
     if (m_modemPath.isEmpty())
         return;
 
-    // Monitor for new calls being added
     QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", m_modemPath,
                                          "org.freedesktop.ModemManager1.Modem.Voice", "CallAdded",
                                          this, SLOT(onCallAdded(QDBusObjectPath)));
@@ -375,7 +363,6 @@ void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
     QString path = callPath.path();
     qInfo() << "[TelephonyService] New call detected:" << path;
 
-    // Get call properties
     QDBusInterface callInterface("org.freedesktop.ModemManager1", path,
                                  "org.freedesktop.DBus.Properties", QDBusConnection::systemBus());
 
@@ -384,16 +371,14 @@ void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
         return;
     }
 
-    // Get call direction (incoming/outgoing)
     QDBusReply<QVariant> directionReply =
         callInterface.call("Get", "org.freedesktop.ModemManager1.Call", "Direction");
 
     if (directionReply.isValid()) {
         uint direction = directionReply.value().toUInt();
 
-        // 0 = unknown, 1 = incoming, 2 = outgoing
         if (direction == 1) {
-            // Incoming call
+
             QDBusReply<QVariant> numberReply =
                 callInterface.call("Get", "org.freedesktop.ModemManager1.Call", "Number");
 
@@ -432,7 +417,6 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
                 emit callStateChanged(newState);
                 qDebug() << "[TelephonyService] Call state changed to:" << newState;
 
-                // Call ended
                 if (newState == "idle" || newState == "terminated") {
                     m_activeCallPath.clear();
                     m_activeNumber.clear();
@@ -444,9 +428,6 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
 }
 
 QString TelephonyService::callStateFromModemManager(uint mmState) {
-    // ModemManager call states:
-    // 0 = Unknown, 1 = Dialing, 2 = Ringing-out, 3 = Ringing-in
-    // 4 = Active, 5 = Held, 6 = Waiting, 7 = Terminated
 
     switch (mmState) {
         case 0: return "unknown";
@@ -462,8 +443,7 @@ QString TelephonyService::callStateFromModemManager(uint mmState) {
 }
 
 QString TelephonyService::extractNumberFromPath(const QString &path) {
-    // Extract number from call path if embedded
-    // This is a fallback; normally we get it from properties
+
     Q_UNUSED(path)
     return "Unknown";
 }

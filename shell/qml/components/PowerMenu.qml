@@ -2,10 +2,6 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
-/**
- * World-Class Power Menu - Tile Grid Design
- * Modern, visual, with large touchable tiles
- */
 Item {
     id: root
 
@@ -19,7 +15,7 @@ Item {
     function show() {
         showing = true;
         visible = true;
-        HapticService.medium();
+        HapticManager.medium();
         fadeIn.start();
     }
 
@@ -32,7 +28,6 @@ Item {
     visible: false
     z: Constants.zIndexModal + 100
 
-    // Dark backdrop
     Rectangle {
         id: backdrop
 
@@ -49,7 +44,6 @@ Item {
         }
     }
 
-    // Power menu dialog
     Rectangle {
         id: dialog
 
@@ -64,7 +58,6 @@ Item {
         opacity: 0
         scale: 0.9
 
-        // Inner glow
         Rectangle {
             anchors.fill: parent
             anchors.margins: Math.max(1, Math.round(Constants.scaleFactor))
@@ -74,7 +67,6 @@ Item {
             border.color: Qt.rgba(255 / 255, 255 / 255, 255 / 255, 0.05)
         }
 
-        // Prevent click propagation
         MouseArea {
             anchors.fill: parent
             onClicked: {}
@@ -87,7 +79,6 @@ Item {
             width: parent.width - MSpacing.xxl * 2
             spacing: MSpacing.lg
 
-            // Title
             Text {
                 text: "Power Options"
                 font.pixelSize: MTypography.sizeLarge
@@ -98,14 +89,12 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
             }
 
-            // 2x2 Grid of power tiles
             Grid {
                 width: parent.width
                 columns: 2
                 rowSpacing: MSpacing.md
                 columnSpacing: MSpacing.md
 
-                // Sleep Tile
                 Rectangle {
                     id: sleepTile
 
@@ -117,7 +106,6 @@ Item {
                     border.color: MColors.border
                     scale: sleepMouseArea.pressed ? 0.95 : 1
 
-                    // Inner border
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
@@ -153,7 +141,7 @@ Item {
 
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.medium();
+                            HapticManager.medium();
                             root.sleepRequested();
                             root.hide();
                         }
@@ -174,7 +162,6 @@ Item {
                     }
                 }
 
-                // Reboot Tile
                 Rectangle {
                     id: rebootTile
 
@@ -186,7 +173,6 @@ Item {
                     border.color: MColors.border
                     scale: rebootMouseArea.pressed ? 0.95 : 1
 
-                    // Inner border
                     Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
@@ -222,7 +208,7 @@ Item {
 
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.medium();
+                            HapticManager.medium();
                             root.rebootRequested();
                             root.hide();
                         }
@@ -243,7 +229,6 @@ Item {
                     }
                 }
 
-                // Power Off Tile (primary/teal)
                 Rectangle {
                     id: powerOffTile
 
@@ -253,7 +238,6 @@ Item {
                     border.width: 0
                     scale: powerOffMouseArea.pressed ? 0.95 : 1
 
-                    // Outer glow
                     Rectangle {
                         visible: true
                         anchors.centerIn: parent
@@ -292,7 +276,7 @@ Item {
 
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.medium();
+                            HapticManager.medium();
                             root.shutdownRequested();
                             root.hide();
                         }
@@ -326,7 +310,6 @@ Item {
                     }
                 }
 
-                // Cancel Tile
                 Rectangle {
                     id: cancelTile
 
@@ -364,7 +347,7 @@ Item {
 
                         anchors.fill: parent
                         onClicked: {
-                            HapticService.light();
+                            HapticManager.light();
                             root.canceled();
                             root.hide();
                         }
@@ -388,7 +371,6 @@ Item {
         }
     }
 
-    // Fade in animation
     ParallelAnimation {
         id: fadeIn
 
@@ -418,7 +400,6 @@ Item {
         }
     }
 
-    // Fade out animation
     SequentialAnimation {
         id: fadeOut
 

@@ -1,6 +1,4 @@
-// DEPRECATED: Use MarathonUI.Core.MButton instead
-// This component is kept for backward compatibility only
-
+import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
@@ -21,7 +19,7 @@ Rectangle {
         console.warn("DEPRECATED: components/ui/Button is deprecated. Use MarathonUI.Core.MButton instead.");
     }
     width: Math.max(Math.round(120 * Constants.scaleFactor), buttonText.width + Math.round(32 * Constants.scaleFactor))
-    height: Constants.touchTargetMedium // BB10: 70px minimum
+    height: Constants.touchTargetMedium
     radius: Constants.borderRadiusSmall
     color: {
         if (disabled)
@@ -43,7 +41,7 @@ Rectangle {
             name: iconName
             size: 24
             anchors.verticalCenter: parent.verticalCenter
-            color: "white" // Or bind to a property
+            color: "white"
             visible: iconName !== ""
         }
 
@@ -77,7 +75,6 @@ Rectangle {
         }
     }
 
-    // BB10 Highlight behavior (page 111)
     Rectangle {
         anchors.fill: parent
         radius: parent.radius

@@ -40,19 +40,46 @@ Column {
     }
 
     function selectByIndex(index) {
-        if (index >= 0 && index < optionsRepeater.count) {
-            var item = optionsRepeater.itemAt(index);
-            if (item) {
-                item.select();
-            }
-        }
+        if (index < 0 || index >= optionsRepeater.count)
+            return;
+
+        var data = optionsRepeater.model;
+        var entry = data;
+        if (data && typeof data.get === "function")
+            entry = data.get(index);
+        else if (Array.isArray(data))
+            entry = data[index];
+        else if (data && data.length !== undefined)
+            entry = data[index];
+
+        var value = entry;
+        if (entry && typeof entry === "object" && entry.value !== undefined)
+            value = entry.value;
+
+        root.selectedIndex = index;
+        root.selectedValue = value;
+        root.selectionChanged(value, index);
     }
 
     function selectByValue(value) {
+        var data = optionsRepeater.model;
         for (var i = 0; i < optionsRepeater.count; i++) {
-            var item = optionsRepeater.itemAt(i);
-            if (item && item.value === value) {
-                item.select();
+            var entry = data;
+            if (data && typeof data.get === "function")
+                entry = data.get(i);
+            else if (Array.isArray(data))
+                entry = data[i];
+            else if (data && data.length !== undefined)
+                entry = data[i];
+
+            var entryValue = entry;
+            if (entry && typeof entry === "object" && entry.value !== undefined)
+                entryValue = entry.value;
+
+            if (entryValue === value) {
+                root.selectedIndex = i;
+                root.selectedValue = entryValue;
+                root.selectionChanged(entryValue, i);
                 return;
             }
         }

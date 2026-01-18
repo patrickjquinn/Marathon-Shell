@@ -1,10 +1,10 @@
-import QtQuick
 import MarathonApp.Notes
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Page {
     id: listPage
@@ -12,17 +12,35 @@ Page {
     signal createNewNote
     signal openNote(int noteId)
 
-    background: Rectangle {
-        color: MColors.background
+    function formatTimestamp(timestamp) {
+        var date = new Date(timestamp);
+        var now = new Date();
+        var diff = now - date;
+        if (diff < 60000) {
+            return "Just now";
+        } else if (diff < 3.6e+06) {
+            var mins = Math.floor(diff / 60000);
+            return mins + "m ago";
+        } else if (diff < 8.64e+07) {
+            var hours = Math.floor(diff / 3.6e+06);
+            return hours + "h ago";
+        } else if (diff < 6.048e+08) {
+            var days = Math.floor(diff / 8.64e+07);
+            return days + "d ago";
+        } else {
+            return Qt.formatDate(date, "MMM d");
+        }
     }
 
     MScrollView {
         id: scrollView
+
         anchors.fill: parent
         contentHeight: notesContent.height + 40
 
         Column {
             id: notesContent
+
             width: parent.width
             spacing: MSpacing.xl
             leftPadding: 24
@@ -52,16 +70,16 @@ Page {
                 Repeater {
                     model: [
                         {
-                            label: "Newest",
-                            value: "newest"
+                            "label": "Newest",
+                            "value": "newest"
                         },
                         {
-                            label: "Oldest",
-                            value: "oldest"
+                            "label": "Oldest",
+                            "value": "oldest"
                         },
                         {
-                            label: "A-Z",
-                            value: "alphabetical"
+                            "label": "A-Z",
+                            "value": "alphabetical"
                         }
                     ]
 
@@ -113,6 +131,7 @@ Page {
 
                             Rectangle {
                                 id: deleteButton
+
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
@@ -139,19 +158,13 @@ Page {
 
                             Rectangle {
                                 id: noteItem
+
                                 anchors.fill: parent
                                 anchors.margins: MSpacing.sm
                                 color: MColors.surface
                                 radius: Constants.borderRadiusSharp
                                 border.width: Constants.borderWidthThin
                                 border.color: MColors.border
-
-                                Behavior on x {
-                                    NumberAnimation {
-                                        duration: 200
-                                        easing.type: Easing.OutQuad
-                                    }
-                                }
 
                                 Row {
                                     anchors.fill: parent
@@ -210,9 +223,9 @@ Page {
                                 }
 
                                 MouseArea {
-                                    anchors.fill: parent
                                     property real startX: 0
 
+                                    anchors.fill: parent
                                     onPressed: {
                                         startX = mouse.x;
                                         noteItem.color = MColors.elevated;
@@ -220,11 +233,10 @@ Page {
                                     }
                                     onReleased: {
                                         noteItem.color = MColors.surface;
-                                        if (noteItem.x < -100) {
+                                        if (noteItem.x < -100)
                                             notesApp.deleteNote(modelData.id);
-                                        } else {
+                                        else
                                             noteItem.x = 0;
-                                        }
                                     }
                                     onCanceled: {
                                         noteItem.color = MColors.surface;
@@ -233,17 +245,22 @@ Page {
                                     onPositionChanged: {
                                         if (pressed) {
                                             var delta = mouse.x - startX;
-                                            if (delta < 0) {
+                                            if (delta < 0)
                                                 noteItem.x = Math.max(delta, -120);
-                                            }
                                         }
                                     }
                                     onClicked: {
-                                        if (noteItem.x === 0) {
+                                        if (noteItem.x === 0)
                                             openNote(modelData.id);
-                                        } else {
+                                        else
                                             noteItem.x = 0;
-                                        }
+                                    }
+                                }
+
+                                Behavior on x {
+                                    NumberAnimation {
+                                        duration: 200
+                                        easing.type: Easing.OutQuad
                                     }
                                 }
                             }
@@ -281,24 +298,7 @@ Page {
         }
     }
 
-    function formatTimestamp(timestamp) {
-        var date = new Date(timestamp);
-        var now = new Date();
-        var diff = now - date;
-
-        if (diff < 60000) {
-            return "Just now";
-        } else if (diff < 3600000) {
-            var mins = Math.floor(diff / 60000);
-            return mins + "m ago";
-        } else if (diff < 86400000) {
-            var hours = Math.floor(diff / 3600000);
-            return hours + "h ago";
-        } else if (diff < 604800000) {
-            var days = Math.floor(diff / 86400000);
-            return days + "d ago";
-        } else {
-            return Qt.formatDate(date, "MMM d");
-        }
+    background: Rectangle {
+        color: MColors.background
     }
 }

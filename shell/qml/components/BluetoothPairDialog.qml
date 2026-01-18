@@ -4,26 +4,14 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 
-/**
- * Polished Bluetooth Pairing Dialog
- *
- * Handles various Bluetooth pairing types:
- * - Just Works (no input needed)
- * - PIN Entry (user enters 4-6 digit PIN)
- * - Passkey Entry (user enters 6-digit passkey)
- * - Passkey Confirmation (user confirms displayed passkey)
- * - Pairing in progress
- * - Success/failure states
- */
 Item {
     id: bluetoothPairDialog
 
-    // Public API
     property string deviceName: ""
     property string deviceAddress: ""
-    property string deviceType: "" // "headphones", "keyboard", "mouse", "phone", etc.
-    property string pairingMode: "" // "pin", "passkey", "confirm", "justworks"
-    property string displayedPasskey: "" // For confirmation mode
+    property string deviceType: ""
+    property string pairingMode: ""
+    property string displayedPasskey: ""
     property bool isPairing: false
     property string errorMessage: ""
 
@@ -31,7 +19,6 @@ Item {
     signal pairConfirmed(bool accepted)
     signal cancelled
 
-    // Show the dialog for pairing
     function show(name, address, type, mode) {
         deviceName = name;
         deviceAddress = address;
@@ -49,11 +36,10 @@ Item {
         }
         bluetoothPairDialog.visible = true;
         showAnimation.start();
-        HapticService.light();
+        HapticManager.light();
         Logger.info("BluetoothPairDialog", "Showing pairing dialog for: " + name);
     }
 
-    // Show passkey for confirmation
     function showPasskeyConfirmation(name, address, type, passkey) {
         deviceName = name;
         deviceAddress = address;
@@ -64,29 +50,25 @@ Item {
         errorMessage = "";
         bluetoothPairDialog.visible = true;
         showAnimation.start();
-        HapticService.light();
+        HapticManager.light();
         Logger.info("BluetoothPairDialog", "Showing passkey confirmation: " + passkey);
     }
 
-    // Hide the dialog
     function hide() {
         hideAnimation.start();
     }
 
-    // Show error
     function showError(message) {
         errorMessage = message;
         isPairing = false;
-        HapticService.medium();
+        HapticManager.medium();
     }
 
-    // Show pairing in progress
     function showPairing() {
         isPairing = true;
         errorMessage = "";
     }
 
-    // Helper functions
     function getDeviceIcon(type) {
         switch (type.toLowerCase()) {
         case "headphones":
@@ -153,13 +135,11 @@ Item {
     anchors.fill: parent
     visible: false
     z: Constants.zIndexModalOverlay + 10
-    // Handle escape key
     Keys.onEscapePressed: {
         if (!isPairing)
             bluetoothPairDialog.hide();
     }
 
-    // Background overlay
     Rectangle {
         id: overlay
 
@@ -176,7 +156,6 @@ Item {
         }
     }
 
-    // Dialog card
     Rectangle {
         id: dialogCard
 
@@ -189,7 +168,6 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        // Glass morphism effect
         layer.enabled: true
 
         Column {
@@ -201,12 +179,10 @@ Item {
             anchors.margins: Constants.spacingLarge
             spacing: Constants.spacingLarge
 
-            // Header row
             Row {
                 width: parent.width
                 spacing: Constants.spacingMedium
 
-                // Device icon
                 Rectangle {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
@@ -222,7 +198,6 @@ Item {
                     }
                 }
 
-                // Device info
                 Column {
                     width: parent.width - Constants.touchTargetMedium - Constants.spacingMedium
                     spacing: Constants.spacingXSmall
@@ -248,7 +223,6 @@ Item {
                 }
             }
 
-            // PIN/Passkey input (for pin/passkey modes)
             Rectangle {
                 width: parent.width
                 height: Constants.inputHeight
@@ -288,7 +262,6 @@ Item {
                                 pairButton.clicked();
                         }
 
-                        // Placeholder
                         Text {
                             text: "Enter PIN (4-6 digits)"
                             font: pinInput.font
@@ -316,7 +289,6 @@ Item {
                                 pairButton.clicked();
                         }
 
-                        // Placeholder
                         Text {
                             text: "Enter 6-digit passkey"
                             font: passkeyInput.font
@@ -334,7 +306,6 @@ Item {
                 }
             }
 
-            // Passkey confirmation display
             Rectangle {
                 width: parent.width
                 height: Math.round(100 * Constants.scaleFactor)
@@ -368,7 +339,6 @@ Item {
                 }
             }
 
-            // Error message
             Rectangle {
                 width: parent.width
                 height: errorText.height + Constants.spacingMedium
@@ -404,7 +374,6 @@ Item {
                 }
             }
 
-            // Pairing progress
             Column {
                 width: parent.width
                 spacing: Constants.spacingSmall
@@ -431,14 +400,12 @@ Item {
                 }
             }
 
-            // Action buttons
             Row {
                 width: parent.width
                 height: Constants.touchTargetMedium
                 spacing: Constants.spacingMedium
                 visible: !isPairing
 
-                // Cancel/Reject button
                 Rectangle {
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
@@ -459,7 +426,7 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             Logger.info("BluetoothPairDialog", "Pairing cancelled/rejected");
-                            HapticService.light();
+                            HapticManager.light();
                             if (pairingMode === "confirm")
                                 bluetoothPairDialog.pairConfirmed(false);
                             else
@@ -469,7 +436,6 @@ Item {
                     }
                 }
 
-                // Pair/Accept button
                 Rectangle {
                     id: pairButton
 
@@ -491,13 +457,11 @@ Item {
                     }
 
                     MouseArea {
-                        // Just works mode
-
                         anchors.fill: parent
                         enabled: canPair()
                         onClicked: {
                             Logger.info("BluetoothPairDialog", "Pair/Accept clicked");
-                            HapticService.medium();
+                            HapticManager.medium();
                             bluetoothPairDialog.showPairing();
                             if (pairingMode === "confirm")
                                 bluetoothPairDialog.pairConfirmed(true);
@@ -512,7 +476,6 @@ Item {
                 }
             }
 
-            // Help text
             Text {
                 text: getHelpText(pairingMode)
                 font.pixelSize: MTypography.sizeXSmall
@@ -536,7 +499,6 @@ Item {
         }
     }
 
-    // Show animation
     ParallelAnimation {
         id: showAnimation
 
@@ -559,7 +521,6 @@ Item {
         }
     }
 
-    // Hide animation
     SequentialAnimation {
         id: hideAnimation
 

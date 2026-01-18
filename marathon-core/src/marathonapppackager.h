@@ -9,13 +9,10 @@ class MarathonAppPackager : public QObject {
   public:
     explicit MarathonAppPackager(QObject *parent = nullptr);
 
-    // Create a .marathon package from an app directory
-    Q_INVOKABLE bool createPackage(const QString &appDir, const QString &outputPath);
+    Q_INVOKABLE bool    createPackage(const QString &appDir, const QString &outputPath);
 
-    // Extract a .marathon package to a destination directory
-    Q_INVOKABLE bool extractPackage(const QString &packagePath, const QString &destDir);
+    Q_INVOKABLE bool    extractPackage(const QString &packagePath, const QString &destDir);
 
-    // Get the last error message
     Q_INVOKABLE QString lastError() const {
         return m_lastError;
     }

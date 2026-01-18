@@ -17,7 +17,7 @@ Rectangle {
 
     function dismiss() {
         if (currentAlarm) {
-            AlarmManager.dismissAlarm(currentAlarm.id);
+            AlarmManagerCpp.dismissAlarm(currentAlarm.id);
             currentAlarm = null;
         }
         visible = false;
@@ -25,7 +25,7 @@ Rectangle {
 
     function snooze() {
         if (currentAlarm) {
-            AlarmManager.snoozeAlarm(currentAlarm.id);
+            AlarmManagerCpp.snoozeAlarm(currentAlarm.id);
             currentAlarm = null;
         }
         visible = false;
@@ -128,7 +128,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        HapticService.medium();
+                        HapticManager.medium();
                         alarmOverlay.snooze();
                     }
                 }
@@ -163,7 +163,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        HapticService.medium();
+                        HapticManager.medium();
                         alarmOverlay.dismiss();
                     }
                 }
@@ -221,10 +221,13 @@ Rectangle {
     }
 
     Connections {
-        function onAlarmTriggered(alarm) {
-            alarmOverlay.show(alarm);
+        function onAlarmTriggered(id, label) {
+            alarmOverlay.show({
+                "id": id,
+                "label": label
+            });
         }
 
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
+        target: typeof AlarmManagerCpp !== 'undefined' ? AlarmManagerCpp : null
     }
 }

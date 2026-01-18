@@ -143,7 +143,6 @@ Item {
         }
     }
 
-    // Signal emitted when app wants to register with lifecycle manager
     signal requestRegister(string appId, var appInstance)
     signal requestUnregister(string appId)
 
@@ -162,12 +161,10 @@ Item {
         appStarted();
         appResumed();
 
-        // Try direct registration first (works in shell context)
         if (typeof AppLifecycleManager !== 'undefined' && appId) {
             console.log("   Calling AppLifecycleManager.registerApp() directly");
             AppLifecycleManager.registerApp(appId, root);
         } else {
-            // Fallback: emit signal for external registration (works in app loader context)
             console.log("  ℹ  AppLifecycleManager not available, emitting requestRegister signal");
             requestRegister(appId, root);
         }
@@ -178,11 +175,9 @@ Item {
         appWillTerminate();
         appClosed();
 
-        // Try direct unregistration first
         if (typeof AppLifecycleManager !== 'undefined' && appId) {
             AppLifecycleManager.unregisterApp(appId);
         } else {
-            // Fallback: emit signal
             requestUnregister(appId);
         }
     }

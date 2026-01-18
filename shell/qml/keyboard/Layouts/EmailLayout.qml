@@ -1,15 +1,11 @@
 import "../UI"
-// Marathon Virtual Keyboard - Email Layout
-// Optimized for email addresses with @ and domain shortcuts
 import QtQuick
 
 Item {
     id: layout
 
-    // Properties
     property bool shifted: false
 
-    // Signals
     signal keyClicked(string text)
     signal backspaceClicked
     signal enterClicked
@@ -17,7 +13,6 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
-    // Expose Column's implicit height
     implicitHeight: layoutColumn.implicitHeight
 
     Column {
@@ -26,8 +21,8 @@ Item {
         width: parent.width
         spacing: 0
 
-        // Row 1: Q W E R T Y U I O P
         Row {
+            id: row1
             readonly property real keyWidth: (width - spacing * 9) / 10
 
             width: parent.width
@@ -37,7 +32,7 @@ Item {
                 model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
 
                 Key {
-                    width: parent.keyWidth
+                    width: row1.keyWidth
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
                     onClicked: {
@@ -53,8 +48,8 @@ Item {
             color: "#666666"
         }
 
-        // Row 2: A S D F G H J K L @
         Row {
+            id: row2
             readonly property real keyWidth: (width - spacing * 9) / 10
 
             width: parent.width
@@ -64,7 +59,7 @@ Item {
                 model: ["a", "s", "d", "f", "g", "h", "j", "k", "l", "@"]
 
                 Key {
-                    width: parent.keyWidth
+                    width: row2.keyWidth
                     text: modelData
                     displayText: (modelData === "@" || !layout.shifted) ? modelData : modelData.toUpperCase()
                     isSpecial: modelData === "@"
@@ -81,15 +76,13 @@ Item {
             color: "#666666"
         }
 
-        // Row 3: Shift Z X C V B N M Backspace
         Row {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
-            // Shift key
             Key {
                 width: Math.round(60 * Constants.scaleFactor)
-                iconName: layout.capsLock ? "chevrons-up" : "chevron-up"
+                iconName: layout.shifted ? "chevrons-up" : "chevron-up"
                 isSpecial: true
                 highlighted: layout.shifted
                 onClicked: {
@@ -97,7 +90,6 @@ Item {
                 }
             }
 
-            // Letter keys
             Repeater {
                 model: ["z", "x", "c", "v", "b", "n", "m"]
 
@@ -111,7 +103,6 @@ Item {
                 }
             }
 
-            // Backspace
             Key {
                 width: Math.round(60 * Constants.scaleFactor)
                 iconName: "delete"
@@ -128,12 +119,10 @@ Item {
             color: "#666666"
         }
 
-        // Row 4: 123 . _ - Space .com .net Return
         Row {
             width: parent.width
             spacing: Math.round(1 * Constants.scaleFactor)
 
-            // 123 key
             Key {
                 width: Math.round(55 * Constants.scaleFactor)
                 text: "123"
@@ -144,7 +133,6 @@ Item {
                 }
             }
 
-            // Common email characters
             Key {
                 width: Math.round(40 * Constants.scaleFactor)
                 text: "."
@@ -163,7 +151,6 @@ Item {
                 displayText: "-"
             }
 
-            // Space bar
             Key {
                 width: Math.round(120 * Constants.scaleFactor)
                 text: " "
@@ -173,7 +160,6 @@ Item {
                 }
             }
 
-            // Domain shortcuts
             Key {
                 width: Math.round(55 * Constants.scaleFactor)
                 text: ".com"
@@ -194,7 +180,6 @@ Item {
                 }
             }
 
-            // Return key
             Key {
                 width: Math.round(60 * Constants.scaleFactor)
                 iconName: "corner-down-left"

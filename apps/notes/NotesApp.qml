@@ -1,37 +1,29 @@
-import QtQuick
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 MApp {
     id: notesApp
-    appId: "notes"
-    appName: "Notes"
-    appIcon: "assets/icon.svg"
 
     property var notes: []
     property int nextId: 1
-    property string sortMode: "newest" // "newest", "oldest", "alphabetical"
-
-    Component.onCompleted: {
-        loadNotes();
-    }
+    property string sortMode: "newest"
 
     function sortNotes() {
-        if (sortMode === "newest") {
+        if (sortMode === "newest")
             notes.sort(function (a, b) {
                 return b.timestamp - a.timestamp;
             });
-        } else if (sortMode === "oldest") {
+        else if (sortMode === "oldest")
             notes.sort(function (a, b) {
                 return a.timestamp - b.timestamp;
             });
-        } else if (sortMode === "alphabetical") {
+        else if (sortMode === "alphabetical")
             notes.sort(function (a, b) {
                 return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
             });
-        }
         notesChanged();
     }
 
@@ -39,9 +31,11 @@ MApp {
         var savedNotes = SettingsManagerCpp.get("notes/data", "[]");
         try {
             notes = JSON.parse(savedNotes);
-            if (notes.length > 0) {
-                nextId = Math.max(...notes.map(n => n.id)) + 1;
-            }
+            if (notes.length > 0)
+                nextId = Math.max(notes.map(n => {
+                    return n.id;
+                })) + 1;
+
             sortNotes();
         } catch (e) {
             Logger.error("NotesApp", "Failed to load notes: " + e);
@@ -56,10 +50,10 @@ MApp {
 
     function createNote(title, content) {
         var note = {
-            id: nextId++,
-            title: title || "Untitled",
-            content: content || "",
-            timestamp: Date.now()
+            "id": nextId++,
+            "title": title || "Untitled",
+            "content": content || "",
+            "timestamp": Date.now()
         };
         notes.push(note);
         notesChanged();
@@ -95,22 +89,27 @@ MApp {
 
     function getNote(id) {
         for (var i = 0; i < notes.length; i++) {
-            if (notes[i].id === id) {
+            if (notes[i].id === id)
                 return notes[i];
-            }
         }
         return null;
     }
 
     function searchNotes(query) {
-        if (!query || query.length === 0) {
+        if (!query || query.length === 0)
             return notes;
-        }
 
         var lowerQuery = query.toLowerCase();
         return notes.filter(function (note) {
             return note.title.toLowerCase().indexOf(lowerQuery) !== -1 || note.content.toLowerCase().indexOf(lowerQuery) !== -1;
         });
+    }
+
+    appId: "notes"
+    appName: "Notes"
+    appIcon: "assets/icon.svg"
+    Component.onCompleted: {
+        loadNotes();
     }
 
     content: Rectangle {
@@ -119,29 +118,24 @@ MApp {
 
         StackView {
             id: navigationStack
-            anchors.fill: parent
-            initialItem: notesListPage
 
             property var backConnection: null
 
+            anchors.fill: parent
+            initialItem: notesListPage
             onDepthChanged: {
                 notesApp.navigationDepth = depth - 1;
             }
-
             Component.onCompleted: {
                 notesApp.navigationDepth = depth - 1;
-
                 backConnection = notesApp.backPressed.connect(function () {
-                    if (depth > 1) {
+                    if (depth > 1)
                         pop();
-                    }
                 });
             }
-
             Component.onDestruction: {
-                if (backConnection) {
+                if (backConnection)
                     notesApp.backPressed.disconnect(backConnection);
-                }
             }
 
             pushEnter: Transition {
@@ -162,10 +156,11 @@ MApp {
                     duration: Constants.animationDurationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     property: "opacity"
-                    from: 1.0
-                    to: 0.0
+                    from: 1
+                    to: 0
                     duration: Constants.animationDurationNormal
                 }
             }
@@ -178,10 +173,11 @@ MApp {
                     duration: Constants.animationDurationNormal
                     easing.type: Easing.OutCubic
                 }
+
                 NumberAnimation {
                     property: "opacity"
-                    from: 0.0
-                    to: 1.0
+                    from: 0
+                    to: 1
                     duration: Constants.animationDurationNormal
                 }
             }
@@ -199,39 +195,37 @@ MApp {
 
         Component {
             id: notesListPage
+
             NotesListPage {
                 onCreateNewNote: {
                     navigationStack.push(noteEditorPage, {
-                        isNewNote: true
+                        "isNewNote": true
                     });
                 }
-
                 onOpenNote: function (noteId) {
                     var note = notesApp.getNote(noteId);
-                    if (note) {
+                    if (note)
                         navigationStack.push(noteEditorPage, {
-                            isNewNote: false,
-                            noteId: noteId,
-                            initialTitle: note.title,
-                            initialContent: note.content
+                            "isNewNote": false,
+                            "noteId": noteId,
+                            "initialTitle": note.title,
+                            "initialContent": note.content
                         });
-                    }
                 }
             }
         }
 
         Component {
             id: noteEditorPage
+
             NoteEditorPage {
                 onSaveNote: function (title, content) {
-                    if (isNewNote) {
+                    if (isNewNote)
                         notesApp.createNote(title, content);
-                    } else {
+                    else
                         notesApp.updateNote(noteId, title, content);
-                    }
                     navigationStack.pop();
                 }
-
                 onDeleteNote: function (id) {
                     notesApp.deleteNote(id);
                     navigationStack.pop();

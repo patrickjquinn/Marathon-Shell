@@ -7,145 +7,98 @@ import QtQuick
 import QtQuick.Layouts
 
 MApp {
-    // appIcon loaded from registry - don't override here
-
     id: clockApp
 
-    property var alarms // No initial binding - set by loadAlarms()
-    property int nextAlarmId: 1
+    property var alarms: []
 
     function loadAlarms() {
-        if (typeof AlarmManager !== 'undefined') {
-            alarms = AlarmManager.alarms;
-        } else {
-            var savedAlarms = SettingsManagerCpp.get("clock/alarms", "[]");
-            try {
-                alarms = JSON.parse(savedAlarms);
-                if (alarms.length > 0)
-                    nextAlarmId = Math.max(alarms.map(a => {
-                        return parseInt(a.id) || 0;
-                    })) + 1;
-            } catch (e) {
-                Logger.error("ClockApp", "Failed to load alarms: " + e);
-                alarms = []; // Fallback to empty array on error
-            }
-        }
+        if (typeof AlarmService === 'undefined')
+            return;
+
+        alarms = AlarmService.alarms;
         alarmsChanged();
     }
 
-    function saveAlarms() {
-        var data = JSON.stringify(alarms);
-        SettingsManagerCpp.set("clock/alarms", data);
-    }
-
     function createAlarm(hour, minute, label, enabled) {
+        if (typeof AlarmService === 'undefined')
+            return null;
+
         var timeString = _padZero(hour) + ":" + _padZero(minute);
         var repeat = [];
-        if (typeof AlarmManager !== 'undefined') {
-            var alarmId = AlarmManager.createAlarm(timeString, label, repeat, {
-                "vibrate": true,
-                "snoozeEnabled": true,
-                "snoozeDuration": 10
-            });
-            loadAlarms();
-            return {
-                "id": alarmId,
-                "hour": hour,
-                "minute": minute,
-                "label": label,
-                "enabled": true,
-                "repeat": repeat
-            };
-        } else {
-            var alarm = {
-                "id": String(nextAlarmId++),
-                "time": timeString,
-                "hour": hour,
-                "minute": minute,
-                "label": label || "Alarm",
-                "enabled": enabled !== undefined ? enabled : true,
-                "repeat": []
-            };
-            alarms.push(alarm);
-            alarmsChanged();
-            saveAlarms();
-            return alarm;
-        }
+        var alarmId = AlarmService.createAlarm(timeString, label, repeat, {
+            "vibrate": true,
+            "snoozeEnabled": true,
+            "snoozeDuration": 10
+        });
+        loadAlarms();
+        return {
+            "id": alarmId,
+            "hour": hour,
+            "minute": minute,
+            "label": label,
+            "enabled": enabled !== undefined ? enabled : true,
+            "repeat": repeat
+        };
     }
 
     function updateAlarm(id, hour, minute, label, enabled, repeat) {
-        var timeString = _padZero(hour) + ":" + _padZero(minute);
-        if (typeof AlarmManager !== 'undefined') {
-            var repeatDays = [];
-            if (repeat) {
-                for (var i = 0; i < repeat.length; i++) {
-                    if (repeat[i])
-                        repeatDays.push(i);
-                }
-            }
-            AlarmManager.updateAlarm(id, {
-                "time": timeString,
-                "label": label,
-                "enabled": enabled,
-                "repeat": repeatDays
-            });
-            loadAlarms();
-        } else {
-            for (var i = 0; i < alarms.length; i++) {
-                if (alarms[i].id === id) {
-                    alarms[i].time = timeString;
-                    alarms[i].hour = hour;
-                    alarms[i].minute = minute;
-                    alarms[i].label = label;
-                    alarms[i].enabled = enabled;
-                    if (repeat)
-                        alarms[i].repeat = repeat;
+        if (typeof AlarmService === 'undefined')
+            return false;
 
-                    alarmsChanged();
-                    saveAlarms();
-                    return true;
-                }
+        var timeString = _padZero(hour) + ":" + _padZero(minute);
+        var repeatDays = [];
+        if (repeat) {
+            for (var i = 0; i < repeat.length; i++) {
+                if (repeat[i])
+                    repeatDays.push(i);
             }
         }
+        AlarmService.updateAlarm(id, {
+            "time": timeString,
+            "label": label,
+            "enabled": enabled,
+            "repeat": repeatDays
+        });
+        loadAlarms();
         return true;
     }
 
     function deleteAlarm(id) {
-        if (typeof AlarmManager !== 'undefined') {
-            AlarmManager.deleteAlarm(id);
-            loadAlarms();
-        } else {
-            for (var i = 0; i < alarms.length; i++) {
-                if (alarms[i].id === id) {
-                    alarms.splice(i, 1);
-                    alarmsChanged();
-                    saveAlarms();
-                    return true;
-                }
-            }
-        }
+        if (typeof AlarmService === 'undefined')
+            return false;
+
+        AlarmService.deleteAlarm(id);
+        loadAlarms();
         return true;
     }
 
     function toggleAlarm(id) {
-        if (typeof AlarmManager !== 'undefined') {
-            AlarmManager.toggleAlarm(id);
-            loadAlarms();
-        } else {
-            for (var i = 0; i < alarms.length; i++) {
-                if (alarms[i].id === id) {
-                    alarms[i].enabled = !alarms[i].enabled;
-                    alarmsChanged();
-                    saveAlarms();
-                    return true;
-                }
-            }
-        }
+        if (typeof AlarmService === 'undefined')
+            return false;
+
+        var alarm = _getAlarmById(id);
+        if (!alarm)
+            return false;
+
+        AlarmService.updateAlarm(id, {
+            "enabled": !alarm.enabled
+        });
+        loadAlarms();
         return true;
     }
 
     function _padZero(num) {
         return (num < 10 ? "0" : "") + num;
+    }
+
+    function _getAlarmById(id) {
+        if (!alarms)
+            return null;
+        for (var i = 0; i < alarms.length; i++) {
+            if (alarms[i].id === id)
+                return alarms[i];
+        }
+        return null;
     }
 
     appId: "clock"
@@ -155,20 +108,12 @@ MApp {
     }
 
     Connections {
-        function onAlarmCreated() {
+        function onAlarmsChanged() {
             loadAlarms();
         }
 
-        function onAlarmUpdated() {
-            loadAlarms();
-        }
-
-        function onAlarmDeleted() {
-            loadAlarms();
-        }
-
-        target: typeof AlarmManager !== 'undefined' ? AlarmManager : null
-        enabled: typeof AlarmManager !== 'undefined'
+        target: typeof AlarmService !== 'undefined' ? AlarmService : null
+        enabled: typeof AlarmService !== 'undefined'
     }
 
     content: Rectangle {

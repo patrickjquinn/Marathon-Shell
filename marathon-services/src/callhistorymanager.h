@@ -14,9 +14,9 @@ struct CallRecord {
     int     id;
     QString number;
     QString contactName;
-    QString type; // "incoming", "outgoing", "missed"
+    QString type;
     qint64  timestamp;
-    int     duration; // seconds
+    int     duration;
 };
 
 class CallHistoryManager : public QObject {
@@ -56,4 +56,4 @@ class CallHistoryManager : public QObject {
     static const int  MAX_HISTORY_SIZE = 500;
 };
 
-#endif // CALLHISTORYMANAGER_H
+#endif

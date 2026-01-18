@@ -1,18 +1,18 @@
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Controls
 
 Item {
     id: permissionDialog
 
-    property string appId: PermissionManager.currentAppId
-    property string permission: PermissionManager.currentPermission
+    property string appId: PermissionManager && PermissionManager.currentAppId ? PermissionManager.currentAppId : ""
+    property string permission: PermissionManager && PermissionManager.currentPermission ? PermissionManager.currentPermission : ""
     property string appName: getAppName(appId)
-    property string permissionDesc: PermissionManager.getPermissionDescription(permission)
+    property string permissionDesc: permission ? PermissionManager.getPermissionDescription(permission) : ""
 
     function getAppName(id) {
-        // Try to get app name from registry
         if (!id)
             return "Unknown App";
 
@@ -37,14 +37,11 @@ Item {
         return icons[perm] || "help";
     }
 
-    // CRITICAL: Must be parented to shell root overlay to appear above apps
-    parent: Overlay.overlay
     anchors.fill: parent
     z: 10000
     visible: opacity > 0
     opacity: PermissionManager.promptActive ? 1 : 0
 
-    // Backdrop (tap outside to deny once)
     Rectangle {
         anchors.fill: parent
         color: MColors.overlay
@@ -55,7 +52,6 @@ Item {
         }
     }
 
-    // Card (match PowerMenu "popover" sizing: width constrained, height fits content)
     Rectangle {
         id: dialog
 
@@ -70,7 +66,6 @@ Item {
         border.color: MColors.border
         scale: PermissionManager.promptActive ? 1 : 0.95
 
-        // Inner glow
         Rectangle {
             anchors.fill: parent
             anchors.margins: Math.max(1, Math.round(Constants.scaleFactor))
@@ -80,7 +75,6 @@ Item {
             border.color: Qt.rgba(255 / 255, 255 / 255, 255 / 255, 0.05)
         }
 
-        // Prevent click propagation
         MouseArea {
             anchors.fill: parent
             onClicked: {}
@@ -93,7 +87,6 @@ Item {
             width: parent.width - dialog.pad * 2
             spacing: MSpacing.lg
 
-            // Header (matches screenshot style)
             Row {
                 width: parent.width
                 spacing: MSpacing.md
@@ -136,7 +129,6 @@ Item {
                 }
             }
 
-            // App info
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: MSpacing.md
@@ -171,45 +163,68 @@ Item {
                 }
             }
 
-            // Permission description
-            Rectangle {
+            ListView {
+                id: permList
+
                 width: parent.width
-                radius: MRadius.md
-                color: MColors.bb10Elevated
-                border.width: Math.max(1, Math.round(Constants.scaleFactor))
-                border.color: MColors.borderSubtle
-                implicitHeight: descRow.implicitHeight + MSpacing.lg * 2
+                height: Math.min(contentHeight, Math.round(300 * Constants.scaleFactor))
+                clip: true
+                spacing: MSpacing.md
+                model: PermissionManager.currentPermissions
 
-                Row {
-                    id: descRow
+                delegate: Rectangle {
+                    width: parent.width
+                    height: Math.round(56 * Constants.scaleFactor)
+                    color: MColors.bb10Elevated
+                    radius: MRadius.md
+                    border.width: Math.max(1, Math.round(Constants.scaleFactor))
+                    border.color: MColors.borderSubtle
 
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.margins: MSpacing.lg
-                    spacing: MSpacing.md
+                    Row {
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.md
+                        spacing: MSpacing.md
 
-                    Text {
-                        text: "●"
-                        font.pixelSize: Math.round(22 * Constants.scaleFactor)
-                        color: MColors.marathonTeal
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
+                        Item {
+                            width: Math.round(24 * Constants.scaleFactor)
+                            height: width
+                            anchors.verticalCenter: parent.verticalCenter
 
-                    Text {
-                        text: permissionDialog.permissionDesc
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        color: MColors.textPrimary
-                        width: parent.width - Math.round(26 * Constants.scaleFactor)
-                        wrapMode: Text.WordWrap
+                            Icon {
+                                anchors.centerIn: parent
+                                name: permissionDialog.getPermissionIcon(modelData)
+                                size: Math.round(24 * Constants.scaleFactor)
+                                color: MColors.marathonTeal
+                            }
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width - Math.round(60 * Constants.scaleFactor)
+                            spacing: 2
+
+                            Text {
+                                text: modelData.charAt(0).toUpperCase() + modelData.slice(1)
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: Font.DemiBold
+                                color: MColors.textPrimary
+                            }
+
+                            Text {
+                                text: PermissionManager.getPermissionDescription(modelData)
+                                font.pixelSize: MTypography.sizeSmall
+                                color: MColors.textSecondary
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                        }
                     }
                 }
             }
 
             Text {
                 width: parent.width
-                text: "You can change this permission later in Settings."
+                text: "You can change these permissions later in Settings."
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textSecondary
@@ -222,24 +237,24 @@ Item {
                 spacing: MSpacing.md
 
                 MButton {
-                    text: "Allow"
+                    text: "Allow All"
                     variant: "primary"
                     width: parent.width
-                    onClicked: PermissionManager.setPermission(permissionDialog.appId, permissionDialog.permission, true, true)
+                    onClicked: PermissionManager.setPermissions(permissionDialog.appId, PermissionManager.currentPermissions, true, true)
                 }
 
                 MButton {
                     text: "Allow Once"
                     variant: "secondary"
                     width: parent.width
-                    onClicked: PermissionManager.setPermission(permissionDialog.appId, permissionDialog.permission, true, false)
+                    onClicked: PermissionManager.setPermissions(permissionDialog.appId, PermissionManager.currentPermissions, true, false)
                 }
 
                 MButton {
-                    text: "Deny"
+                    text: "Deny All"
                     variant: "tertiary"
                     width: parent.width
-                    onClicked: PermissionManager.setPermission(permissionDialog.appId, permissionDialog.permission, false, true)
+                    onClicked: PermissionManager.setPermissions(permissionDialog.appId, PermissionManager.currentPermissions, false, true)
                 }
             }
         }

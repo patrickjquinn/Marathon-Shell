@@ -4,21 +4,9 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 
-/**
- * Polished WiFi Password Dialog
- *
- * Slide-up modal for entering WiFi passwords with:
- * - Auto-focus on input field
- * - Show/hide password toggle
- * - Signal strength indicator
- * - Security type badge
- * - Loading state during connection
- * - Error handling with retry
- */
 Item {
     id: wifiDialog
 
-    // Public API
     property string networkSsid: ""
     property int signalStrength: 0
     property string securityType: ""
@@ -29,7 +17,6 @@ Item {
     signal connectRequested(string ssid, string password)
     signal cancelled
 
-    // Show the dialog
     function show(ssid, strength, security, isSecured) {
         networkSsid = ssid;
         signalStrength = strength;
@@ -41,23 +28,20 @@ Item {
         passwordInput.forceActiveFocus();
         wifiDialog.visible = true;
         showAnimation.start();
-        HapticService.light();
+        HapticManager.light();
         Logger.info("WiFiDialog", "Showing dialog for: " + ssid);
     }
 
-    // Hide the dialog
     function hide() {
         hideAnimation.start();
     }
 
-    // Show error
     function showError(message) {
         errorMessage = message;
         isConnecting = false;
-        HapticService.medium();
+        HapticManager.medium();
     }
 
-    // Show connecting state
     function showConnecting() {
         isConnecting = true;
         errorMessage = "";
@@ -66,13 +50,11 @@ Item {
     anchors.fill: parent
     visible: false
     z: Constants.zIndexModalOverlay + 10
-    // Handle back button/escape key
     Keys.onEscapePressed: {
         if (!isConnecting)
             wifiDialog.hide();
     }
 
-    // Background overlay
     Rectangle {
         id: overlay
 
@@ -89,7 +71,6 @@ Item {
         }
     }
 
-    // Dialog card
     Rectangle {
         id: dialogCard
 
@@ -102,7 +83,6 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        // Glass morphism effect
         layer.enabled: true
 
         Column {
@@ -114,12 +94,10 @@ Item {
             anchors.margins: Constants.spacingLarge
             spacing: Constants.spacingLarge
 
-            // Header row
             Row {
                 width: parent.width
                 spacing: Constants.spacingMedium
 
-                // Network icon with signal strength
                 Rectangle {
                     width: Constants.touchTargetMedium
                     height: Constants.touchTargetMedium
@@ -136,7 +114,6 @@ Item {
                     }
                 }
 
-                // Network info
                 Column {
                     width: parent.width - Constants.touchTargetMedium - Constants.spacingMedium
                     spacing: Constants.spacingXSmall
@@ -155,7 +132,6 @@ Item {
                     Row {
                         spacing: Constants.spacingSmall
 
-                        // Security badge
                         Rectangle {
                             width: securityBadgeText.width + Math.round(16 * Constants.scaleFactor)
                             height: Math.round(24 * Constants.scaleFactor)
@@ -174,7 +150,6 @@ Item {
                             }
                         }
 
-                        // Signal strength text
                         Text {
                             text: signalStrength >= 75 ? "Excellent" : signalStrength >= 50 ? "Good" : signalStrength >= 25 ? "Fair" : "Weak"
                             font.pixelSize: MTypography.sizeXSmall
@@ -186,7 +161,6 @@ Item {
                 }
             }
 
-            // Password input
             Rectangle {
                 width: parent.width
                 height: Constants.inputHeight
@@ -226,7 +200,6 @@ Item {
                                 connectButton.clicked();
                         }
 
-                        // Placeholder text (TextInput doesn't render placeholderText, so we fake it)
                         Text {
                             text: "Enter password"
                             font: passwordInput.font
@@ -236,7 +209,6 @@ Item {
                         }
                     }
 
-                    // Show/hide password toggle
                     Rectangle {
                         id: showPasswordToggle
 
@@ -259,7 +231,7 @@ Item {
                             anchors.fill: parent
                             onClicked: {
                                 showPasswordToggle.checked = !showPasswordToggle.checked;
-                                HapticService.light();
+                                HapticManager.light();
                             }
                         }
                     }
@@ -272,7 +244,6 @@ Item {
                 }
             }
 
-            // Error message
             Rectangle {
                 width: parent.width
                 height: errorText.height + Constants.spacingMedium
@@ -308,7 +279,6 @@ Item {
                 }
             }
 
-            // Connection progress
             Column {
                 width: parent.width
                 spacing: Constants.spacingSmall
@@ -335,13 +305,11 @@ Item {
                 }
             }
 
-            // Action buttons
             Row {
                 width: parent.width
                 height: Constants.touchTargetMedium
                 spacing: Constants.spacingMedium
 
-                // Cancel button
                 Rectangle {
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
@@ -364,14 +332,13 @@ Item {
                         enabled: !isConnecting
                         onClicked: {
                             Logger.info("WiFiDialog", "Cancelled");
-                            HapticService.light();
+                            HapticManager.light();
                             wifiDialog.cancelled();
                             wifiDialog.hide();
                         }
                     }
                 }
 
-                // Connect button
                 Rectangle {
                     id: connectButton
 
@@ -397,7 +364,7 @@ Item {
                         enabled: !isConnecting && (!secured || passwordInput.text.length >= 8)
                         onClicked: {
                             Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid);
-                            HapticService.medium();
+                            HapticManager.medium();
                             wifiDialog.showConnecting();
                             wifiDialog.connectRequested(networkSsid, passwordInput.text);
                         }
@@ -405,7 +372,6 @@ Item {
                 }
             }
 
-            // Help text
             Text {
                 text: secured ? "Password must be at least 8 characters" : "This network is not secured"
                 font.pixelSize: MTypography.sizeXSmall
@@ -429,7 +395,6 @@ Item {
         }
     }
 
-    // Show animation
     ParallelAnimation {
         id: showAnimation
 
@@ -452,7 +417,6 @@ Item {
         }
     }
 
-    // Hide animation
     SequentialAnimation {
         id: hideAnimation
 

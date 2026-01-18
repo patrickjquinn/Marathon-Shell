@@ -16,6 +16,7 @@
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QColor>
+#include <QtQml/qqml.h>
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusContext>
@@ -27,6 +28,7 @@
 #include "marathonappscanner.h"
 
 #include "ipc/shellipcclients.h"
+#include "calendarmanagercpp.h"
 
 class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
     Q_OBJECT
@@ -85,13 +87,11 @@ class AppRunnerLifecycleObject : public QObject, protected QDBusContext {
             return false;
         }
 
-        // QML methods report return types as QVariant in metaobject (even when the function returns true/false),
-        // so we must marshal via QVariant to avoid "return type mismatch" warnings.
         QVariant ret;
         bool     ok = QMetaObject::invokeMethod(m_root.data(), method, Qt::DirectConnection,
                                                 Q_RETURN_ARG(QVariant, ret));
         if (!ok) {
-            // Fall back to emitting the signal if method isn't invokable (best-effort).
+
             QMetaObject::invokeMethod(m_root.data(),
                                       QByteArray(method) == "handleBack" ? "backPressed" :
                                                                            "forwardPressed",
@@ -138,7 +138,7 @@ static bool copyDirRecursively(const QString &srcPath, const QString &dstPath) {
             if (!copyDirRecursively(srcItem, dstItem))
                 return false;
         } else {
-            // Overwrite if it already exists (this is a temp dir; correctness > preserving)
+
             if (QFileInfo::exists(dstItem))
                 QFile::remove(dstItem);
             if (!QFile::copy(srcItem, dstItem))
@@ -159,8 +159,6 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
     if (qmldirText.isEmpty())
         return {};
 
-    // Only patch when the qmldir is explicitly preferring qrc resources; that breaks in the runner
-    // because this process does not embed the shell's qrc.
     if (!qmldirText.contains("prefer :/qt/qml/"))
         return {};
 
@@ -180,7 +178,6 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
         if (line.isEmpty() || line.startsWith('#'))
             continue;
 
-        // Drop prefer line so it loads from filesystem (this process does not embed shell qrc).
         if (line.startsWith("prefer "))
             continue;
 
@@ -193,8 +190,6 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
     f.write(patched.toUtf8());
     f.close();
 
-    // Copy module payload so qmldir relative paths remain valid.
-    // (Absolute paths in qmldir produce warnings and can fail with "Network error".)
     const QString srcQmlDir = QDir(moduleAbsDir).filePath("qml");
     const QString dstQmlDir = QDir(tmpModuleDir).filePath("qml");
     if (!QDir(dstQmlDir).exists()) {
@@ -212,7 +207,7 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
 
 struct QmldirInfo {
     QString moduleUri;
-    QString componentVersion; // e.g. "1.0" (may be empty)
+    QString componentVersion;
 };
 
 static QmldirInfo parseQmldirForComponent(const QString &qmldirPath, const QString &componentName) {
@@ -227,13 +222,11 @@ static QmldirInfo parseQmldirForComponent(const QString &qmldirPath, const QStri
         if (line.isEmpty() || line.startsWith('#'))
             continue;
 
-        // Example: "module MarathonApp.Calculator"
         if (line.startsWith("module ")) {
             out.moduleUri = line.mid(QString("module ").size()).trimmed();
             continue;
         }
 
-        // Example: "CalculatorApp 1.0 CalculatorApp.qml"
         if (line.startsWith(componentName + ' ')) {
             const QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
             if (parts.size() >= 2)
@@ -245,14 +238,12 @@ static QmldirInfo parseQmldirForComponent(const QString &qmldirPath, const QStri
 }
 
 static QString findAppQmldirPath(const QString &appAbsolutePath, const QString &appId) {
-    // Common install layout:
-    //   <appAbsolutePath>/MarathonApp/<CapitalizedId>/qmldir
+
     QString p1 = QDir(appAbsolutePath)
                      .filePath(QStringLiteral("MarathonApp/%1/qmldir").arg(capitalizeAppId(appId)));
     if (QFileInfo::exists(p1))
         return p1;
 
-    // Slightly more defensive: scan <appAbsolutePath>/MarathonApp/*/qmldir
     const QDir root(QDir(appAbsolutePath).filePath("MarathonApp"));
     if (!root.exists())
         return {};
@@ -289,11 +280,8 @@ int main(int argc, char *argv[]) {
         return 2;
     }
 
-    // Help Qt/Wayland set a stable xdg-shell app_id (often derived from desktopFileName).
-    // This is metadata only; the compositor should still primarily identify clients by PID.
     QGuiApplication::setDesktopFileName(appId);
 
-    // Discover installed apps using the same scanner as the shell.
     MarathonAppRegistry registry;
     MarathonAppScanner  scanner(&registry);
     scanner.scanApplications();
@@ -307,13 +295,9 @@ int main(int argc, char *argv[]) {
     QQuickView view;
     view.setResizeMode(QQuickView::SizeRootObjectToView);
     view.setTitle(info->name);
-    // Clear to transparent (not white) while the scene is warming up.
-    view.setColor(Qt::transparent);
-    // NOTE: Do not call QQuickView::setOpacity() here.
-    // The Wayland client plugin may not support window opacity and will log warnings.
-    // The shell compositor already gates visibility until first frame, so we don't need it.
 
-    // Default phone-like size for desktop testing; can be overridden by env.
+    view.setColor(Qt::transparent);
+
     const int w = qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") > 0 ?
         qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") :
         540;
@@ -324,21 +308,17 @@ int main(int argc, char *argv[]) {
 
     QQmlEngine *engine = view.engine();
 
-    // Import paths:
-    // - Marathon app directory itself (for relative imports/assets)
     if (QDir(info->absolutePath).exists())
         engine->addImportPath(info->absolutePath);
 
-    // - MarathonUI module root (dev build + user install + system install)
-    // The import path must be the *parent* that contains MarathonUI/*/qmldir.
     {
         const QDir        binDir(QCoreApplication::applicationDirPath());
         const QDir        cwd(QDir::currentPath());
 
         const QStringList devCandidates = {
-            // Typical build tree: <repo>/build/tools/marathon-app-runner -> <repo>/build-ui
+
             binDir.filePath("../../../build-ui"),
-            // Fallbacks for other layouts
+
             binDir.filePath("../../build-ui"),
             binDir.filePath("../build-ui"),
             cwd.filePath("build-ui"),
@@ -354,7 +334,6 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // User install path (optional)
         const QString userUi =
             QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/marathon-ui";
         if (QDir(userUi + "/MarathonUI").exists()) {
@@ -362,7 +341,6 @@ int main(int argc, char *argv[]) {
             foundUi = true;
         }
 
-        // System install paths (optional)
         if (QDir("/usr/lib/qt6/qml/MarathonUI").exists()) {
             engine->addImportPath("/usr/lib/qt6/qml");
             foundUi = true;
@@ -386,19 +364,19 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // - Shell QML module (MarathonOS.Shell) for Logger/Constants/etc.
-    // Prefer an explicit env override, otherwise try dev-build sibling path.
     const QByteArray shellQmlEnv = qgetenv("MARATHON_SHELL_QML_IMPORT_PATH").trimmed();
     if (!shellQmlEnv.isEmpty()) {
         const QString p = QString::fromLocal8Bit(shellQmlEnv);
-        if (QDir(p).exists())
-            engine->addImportPath(p);
+        if (QDir(p).exists()) {
+            const QString patchedRoot = createPatchedQmldirWithoutPrefer(p, "MarathonOS/Shell");
+            if (!patchedRoot.isEmpty())
+                engine->addImportPath(patchedRoot);
+            else
+                engine->addImportPath(p);
+        }
     } else {
-        const QDir binDir(QCoreApplication::applicationDirPath());
-        // Common layouts:
-        // - build/tools/marathon-app-runner/  -> build/shell/qml  (../../shell/qml)
-        // - build/                           -> build/shell/qml  (shell/qml)
-        // - /usr/local/bin/                  -> /usr/local/lib/qt6/qml (system install)
+        const QDir        binDir(QCoreApplication::applicationDirPath());
+
         const QString     p1         = binDir.filePath("../../shell/qml");
         const QString     p2         = binDir.filePath("../shell/qml");
         const QString     p3         = binDir.filePath("shell/qml");
@@ -409,12 +387,10 @@ int main(int argc, char *argv[]) {
         for (const QString &cand : candidates) {
             if (!QDir(cand).exists())
                 continue;
-            // Patch out "prefer :/qt/qml/..." in the generated qmldir so MarathonOS.Shell works in this process.
+
             const QString patchedRoot = createPatchedQmldirWithoutPrefer(cand, "MarathonOS/Shell");
             if (!patchedRoot.isEmpty()) {
-                // IMPORTANT: Do NOT also add the original import root here.
-                // If it is searched first, the qmldir "prefer :/qt/qml/..." will route loads to qrc,
-                // which this process does not embed.
+
                 engine->addImportPath(patchedRoot);
             } else {
                 engine->addImportPath(cand);
@@ -422,17 +398,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Allow qrc imports if present in this process (apps should prefer filesystem assets).
     engine->addImportPath("qrc:/");
     engine->addImportPath(":/");
 
-    auto *ctx = view.rootContext();
+    auto      *ctx = view.rootContext();
 
-    // Real IPC clients (no stubs): apps talk to the shell over DBus.
-    //
-    // IMPORTANT: Only create clients for permissions the app declares.
-    // Otherwise, "initial refresh" will hit AccessDenied and spam stderr on every app launch
-    // (e.g. Gallery should not talk to Network/Bluetooth/Audio/etc).
     const auto hasPerm = [&](const QString &perm) -> bool {
         return std::find(info->permissions.begin(), info->permissions.end(), perm) !=
             info->permissions.end();
@@ -441,17 +411,17 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("PermissionManager", new PermissionClient(&app));
     ctx->setContextProperty("ContactsManager", new ContactsClient(&app));
     ctx->setContextProperty("CallHistoryManager", new CallHistoryClient(&app));
-    ctx->setContextProperty("TelephonyService", new TelephonyClient(&app));
-    ctx->setContextProperty("SMSService", new SmsClient(&app));
+    ctx->setContextProperty("TelephonyService", new TelephonyClient(appId, &app));
+    ctx->setContextProperty("SMSService", new SmsClient(appId, &app));
 
     if (hasPerm("storage"))
         ctx->setContextProperty("MediaLibraryManager", new MediaLibraryClient(appId, &app));
 
-    // SettingsManagerCpp is used for:
-    // - system/global settings (requires "system")
-    // - app-scoped settings (keys under "<appId>/...") which only require "storage"
-    if (hasPerm("system") || hasPerm("storage"))
-        ctx->setContextProperty("SettingsManagerCpp", new SettingsClient(appId, &app));
+    SettingsClient *settingsClient = nullptr;
+    if (hasPerm("system") || hasPerm("storage")) {
+        settingsClient = new SettingsClient(appId, &app);
+        ctx->setContextProperty("SettingsManagerCpp", settingsClient);
+    }
 
     if (hasPerm("system")) {
         ctx->setContextProperty("BluetoothManagerCpp", new BluetoothClient(appId, &app));
@@ -463,7 +433,37 @@ int main(int argc, char *argv[]) {
     if (hasPerm("network"))
         ctx->setContextProperty("NetworkManagerCpp", new NetworkClient(appId, &app));
 
-    ctx->setContextProperty("NavigationService", new NavigationClient(&app));
+    auto *navigationClient = new NavigationClient(&app);
+    ctx->setContextProperty("NavigationService", navigationClient);
+    ctx->setContextProperty("NavigationRouter", navigationClient);
+    ctx->setContextProperty("HapticService", new HapticClient(&app));
+    auto *notificationClient = new NotificationClient(appId, &app);
+    ctx->setContextProperty("NativeNotificationService", notificationClient);
+    ctx->setContextProperty("SensorService", new SensorClient(&app));
+    ctx->setContextProperty("LocationService", new LocationClient(&app));
+    ctx->setContextProperty("AlarmService", new AlarmClient(&app));
+
+    auto *systemStatusStore = new SystemStatusStoreClient(
+        qobject_cast<PowerClient *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),
+        qobject_cast<NetworkClient *>(ctx->contextProperty("NetworkManagerCpp").value<QObject *>()),
+        &app);
+    qmlRegisterSingletonInstance<SystemStatusStoreClient>("MarathonOS.Shell", 1, 0,
+                                                          "SystemStatusStore", systemStatusStore);
+    auto *systemControlStore = new SystemControlStoreClient(
+        qobject_cast<NetworkClient *>(ctx->contextProperty("NetworkManagerCpp").value<QObject *>()),
+        qobject_cast<BluetoothClient *>(
+            ctx->contextProperty("BluetoothManagerCpp").value<QObject *>()),
+        qobject_cast<DisplayClient *>(ctx->contextProperty("DisplayManagerCpp").value<QObject *>()),
+        settingsClient,
+        qobject_cast<AudioClient *>(ctx->contextProperty("AudioManagerCpp").value<QObject *>()),
+        &app);
+    qmlRegisterSingletonInstance<SystemControlStoreClient>(
+        "MarathonOS.Shell", 1, 0, "SystemControlStore", systemControlStore);
+
+    if (appId == "calendar") {
+        ctx->setContextProperty("CalendarManager",
+                                new CalendarManagerCpp(settingsClient, notificationClient, &app));
+    }
 
     const QString entryAbs      = QDir(info->absolutePath).filePath(info->entryPoint);
     const QUrl    entryUrl      = QUrl::fromLocalFile(entryAbs);
@@ -472,14 +472,12 @@ int main(int argc, char *argv[]) {
     qInfo() << "[marathon-app-runner] Starting app" << appId << "entryPoint" << info->entryPoint
             << "entryAbs" << entryAbs << "appPath" << info->absolutePath;
 
-    // Show a window immediately so the Wayland client creates a surface quickly.
     view.show();
 
-    // Runner-side DBus lifecycle server: shell can send Back/Forward to this app instance.
     AppRunnerLifecycleObject lifecycleObj;
     {
-        const qint64 pid = QCoreApplication::applicationPid();
-        // D-Bus service name elements cannot start with a digit, so prefix the PID.
+        const qint64  pid = QCoreApplication::applicationPid();
+
         const QString serviceName = QStringLiteral("org.marathonos.AppRunner.pid%1").arg(pid);
         auto          bus         = QDBusConnection::sessionBus();
         if (bus.isConnected()) {
@@ -498,24 +496,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Create and attach the app root item on the next tick.
     const QString appAbsPath = info->absolutePath;
 
     QTimer::singleShot(
         0, &view,
         [&view, engine, ctx, entryUrl, entryAbs, appId, componentName, appAbsPath,
          &lifecycleObj]() {
-            // NOTE: QQmlComponent can be asynchronously "Loading" even for local files/modules.
-            // If we call create() while not Ready, Qt prints "Component is not ready" and returns null.
-            // That was causing apps to fail to launch intermittently.
-
             QQmlComponent *component = nullptr;
 
-            // Two supported layouts:
-            // 1) "unpacked" app directory contains the entrypoint QML file on disk
-            // 2) "compiled module" app directory contains MarathonApp/<X>/qmldir + lib<app>plugin.so
-            //    In that case, the entryPoint in the manifest is the *type* (e.g. CalculatorApp.qml),
-            //    but the actual QML lives in the module's internal resources (:/qt/qml/...).
             if (QFileInfo::exists(entryAbs)) {
                 component = new QQmlComponent(engine, entryUrl, &view);
             } else {
@@ -530,8 +518,6 @@ int main(int argc, char *argv[]) {
                     return;
                 }
 
-                // Create a tiny wrapper QML file that imports the module and instantiates the root type.
-                // This forces the module plugin to load (and thus register its qrc resources).
                 QString wrapper;
                 wrapper += "import QtQuick\n";
                 if (!qmldir.componentVersion.isEmpty())
@@ -589,8 +575,6 @@ int main(int argc, char *argv[]) {
                 rootItem->setWidth(view.width());
                 rootItem->setHeight(view.height());
 
-                // Ensure QML focus is given to the root item so forceActiveFocus() on
-                // child items (e.g. browser address bar) properly routes keyboard input.
                 rootItem->forceActiveFocus();
 
                 QObject::connect(&view, &QQuickView::widthChanged, rootItem,
@@ -602,7 +586,7 @@ int main(int argc, char *argv[]) {
             };
 
             if (component->status() == QQmlComponent::Loading) {
-                // Wait until the imports/plugins are loaded.
+
                 QObject::connect(component, &QQmlComponent::statusChanged, &view,
                                  [component, createAndAttach](QQmlComponent::Status st) {
                                      if (st == QQmlComponent::Ready || st == QQmlComponent::Error)

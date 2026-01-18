@@ -36,7 +36,6 @@ Row {
                 }
             }
 
-            // Inner highlight on active dot
             Rectangle {
                 visible: index === root.currentIndex
                 anchors.centerIn: parent

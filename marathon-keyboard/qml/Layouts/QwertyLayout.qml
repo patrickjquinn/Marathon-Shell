@@ -1,5 +1,3 @@
-// Marathon Virtual Keyboard - QWERTY Layout
-// BlackBerry 10-style QWERTY keyboard layout
 import QtQuick
 import "../UI"
 import "../Data"
@@ -7,14 +5,11 @@ import "../Data"
 Item {
     id: layout
 
-    // Properties
     property bool shifted: false
     property bool capsLock: false
 
-    // Expose Column's implicit height
     implicitHeight: layoutColumn.implicitHeight
 
-    // Signals
     signal keyClicked(string text)
     signal backspaceClicked
     signal enterClicked
@@ -23,7 +18,6 @@ Item {
     signal layoutSwitchClicked(string layout)
     signal dismissClicked
 
-    // Key definitions with alternates
     readonly property var row1Keys: [
         {
             char: "q",
@@ -140,7 +134,6 @@ Item {
         width: parent.width
         spacing: 0
 
-        // Row 1: Q W E R T Y U I O P
         Row {
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
@@ -166,15 +159,13 @@ Item {
             }
         }
 
-        // Separator line between Row 1 and Row 2
         Rectangle {
             width: parent.width
             height: Math.round(2 * scaleFactor)
-            color: "#666666"  // BRIGHT grey line - very visible
+            color: "#666666"
             opacity: 1.0
         }
 
-        // Row 2: A S D F G H J K L
         Row {
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
@@ -200,7 +191,6 @@ Item {
             }
         }
 
-        // Separator line between Row 2 and Row 3
         Rectangle {
             width: parent.width
             height: Math.round(2 * scaleFactor)
@@ -208,14 +198,12 @@ Item {
             opacity: 1.0
         }
 
-        // Row 3: Shift Z X C V B N M Backspace
         Row {
             id: row3
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
             property real availableWidth: width - spacing * 8
 
-            // Shift key (wider)
             Key {
                 width: row3.availableWidth * 0.15
                 text: "shift"
@@ -228,7 +216,6 @@ Item {
                 }
             }
 
-            // Letter keys (equal width)
             Repeater {
                 model: row3Keys
 
@@ -248,7 +235,6 @@ Item {
                 }
             }
 
-            // Backspace key (wider)
             Key {
                 width: row3.availableWidth * 0.15
                 text: "backspace"
@@ -261,7 +247,6 @@ Item {
             }
         }
 
-        // Separator line between Row 3 and Row 4
         Rectangle {
             width: parent.width
             height: Math.round(2 * scaleFactor)
@@ -269,14 +254,12 @@ Item {
             opacity: 1.0
         }
 
-        // Row 4: 123, Comma, Space, Dismiss, Period, Enter (BlackBerry 10 exact style)
         Row {
             id: row4
             width: parent.width
             spacing: Math.round(1 * scaleFactor)
             property real availableWidth: width - spacing * 5
 
-            // 123 key (switch to numbers)
             Key {
                 width: row4.availableWidth * 0.12
                 text: "123"
@@ -288,7 +271,6 @@ Item {
                 }
             }
 
-            // Comma key
             Key {
                 width: row4.availableWidth * 0.08
                 text: ","
@@ -299,7 +281,6 @@ Item {
                 }
             }
 
-            // Space bar (MASSIVE - 50% of row)
             Key {
                 width: row4.availableWidth * 0.50
                 text: " "
@@ -311,7 +292,6 @@ Item {
                 }
             }
 
-            // Dismiss key (keyboard down icon) - LEFT OF ENTER
             Key {
                 width: row4.availableWidth * 0.08
                 text: "dismiss"
@@ -323,7 +303,6 @@ Item {
                 }
             }
 
-            // Period key
             Key {
                 width: row4.availableWidth * 0.08
                 text: "."
@@ -334,7 +313,6 @@ Item {
                 }
             }
 
-            // Enter key (rightmost)
             Key {
                 width: row4.availableWidth * 0.14
                 text: "enter"

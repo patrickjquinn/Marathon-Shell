@@ -46,6 +46,12 @@ endif()
 # Enable QML Language Server support for IDE/VS Code
 set(QT_QML_GENERATE_QMLLS_INI ON)
 
+set(QML_IMPORT_PATH
+    "${CMAKE_BINARY_DIR}"
+    "${CMAKE_BINARY_DIR}/shell/qml"
+    CACHE STRING "" FORCE
+)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)

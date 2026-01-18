@@ -82,7 +82,7 @@ Item {
         Icon {
             name: iconName
             size: scaledIconSize
-            color: disabled ? MColors.textHint : (variant === "primary" ? "#000000" : iconColor)  // Black icon on teal
+            color: disabled ? MColors.textHint : (variant === "primary" ? "#000000" : iconColor)
             anchors.centerIn: parent
         }
 

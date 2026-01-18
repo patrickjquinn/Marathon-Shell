@@ -1,25 +1,19 @@
-import QtQuick
 import MarathonApp.Browser
-import QtWebEngine
 import MarathonOS.Shell
 import MarathonUI.Core
+import QtQuick
+import QtWebEngine
 
-// Separate file for WebEngineView to enable true lazy loading
-// This file is only loaded when needed, avoiding QtWebEngine initialization on app launch
 WebEngineView {
     id: webView
 
     property bool updatingTabUrl: false
     property bool active: true
     property bool crashed: false
-    // Allows BrowserApp to discard WebEngine state while minimized without breaking bindings.
     property bool forceDiscarded: false
 
-    zoomFactor: 1.0
-
-    // Keep per-tab state, but freeze background tabs (no reload) on low-end devices.
+    zoomFactor: 1
     lifecycleState: forceDiscarded ? WebEngineView.LifecycleState.Discarded : (active ? WebEngineView.LifecycleState.Active : WebEngineView.LifecycleState.Frozen)
-
     settings.accelerated2dCanvasEnabled: false
     settings.webGLEnabled: false
     settings.pluginsEnabled: false

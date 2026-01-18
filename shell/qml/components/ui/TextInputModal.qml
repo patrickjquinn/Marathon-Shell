@@ -103,7 +103,6 @@ Modal {
                 border.width: Constants.borderWidthThin
                 border.color: Qt.rgba(20, 184, 166, 0.4)
 
-                // Glow effect on hover
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.radius

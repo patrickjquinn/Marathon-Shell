@@ -2,95 +2,18 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // =========================================================================
-    // RESPONSIVE SIZING SYSTEM
-    // =========================================================================
-    // Matches baseDPI for 1:1 scaling in desktop testing (device: 320)
-    // =========================================================================
-    // Z-INDEX LAYERS
-    // =========================================================================
-    // =========================================================================
-    // GESTURE THRESHOLDS (responsive)
-    // =========================================================================
-    // =========================================================================
-    // ANIMATION DURATIONS (time-based, not size-based)
-    // =========================================================================
-    // =========================================================================
-    // SESSION & TIMEOUT
-    // =========================================================================
-    // =========================================================================
-    // PERFORMANCE MODE
-    // =========================================================================
-    // =========================================================================
-    // PEEK GESTURE THRESHOLDS (from legacy Theme.qml)
-    // =========================================================================
-    // =========================================================================
-    // LAYOUT DIMENSIONS (responsive)
-    // =========================================================================
-    // =========================================================================
-    // PAGE INDICATORS (responsive)
-    // =========================================================================
-    // =========================================================================
-    // LOCK SCREEN (responsive)
-    // =========================================================================
-    // =========================================================================
-    // SCROLLING PERFORMANCE (physics-based, tuned for touch)
-    // =========================================================================
-    // Responsive to fast flicks
-    // =========================================================================
-    // BB10 TOUCH TARGETS (responsive)
-    // =========================================================================
-    // Divider lines
-    // =========================================================================
-    // BB10 ACTION BAR (responsive)
-    // =========================================================================
-    // =========================================================================
-    // APP GRID (responsive)
-    // =========================================================================
-    // =========================================================================
-    // CARDS (responsive)
-    // =========================================================================
-    // =========================================================================
-    // TYPOGRAPHY (responsive)
-    // =========================================================================
-    // =========================================================================
-    // SPACING SYSTEM (responsive)
-    // =========================================================================
-    // =========================================================================
-    // BORDERS & RADII (responsive, BB10-inspired sharp)
-    // =========================================================================
-    // =========================================================================
-    // ICON SIZES (responsive)
-    // =========================================================================
-    // =========================================================================
-    // SHADOWS (responsive)
-    // =========================================================================
-    // =========================================================================
-    // MODAL & OVERLAY SIZES (responsive)
-    // =========================================================================
-    // =========================================================================
-    // HELPER FUNCTION
-    // =========================================================================
-
     id: constants
 
-    // Screen dimensions (initialized from ScreenMetricsCpp; updated by updateScreenSize())
     property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.width : 0
     property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.height : 0
-    // Pixel diagonal (computed; updated automatically as screenWidth/screenHeight change)
     readonly property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
-    // Physical DPI (fallback to baseDPI until updated)
     property real dpi: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : baseDPI
-    // Responsive scaling - scale everything based on ACTUAL DPI
     readonly property real baseDPI: 160
-    property real userScaleFactor: 1 // Initialized from SettingsManagerCpp
+    property real userScaleFactor: 1
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
-    // Two-way binding for userScaleFactor
     property Binding userScaleFactorBinding
-    // Legacy height-based scaling
     readonly property real baseHeight: 800
     readonly property real heightScaleFactor: screenHeight / baseHeight
-    // Aspect ratio detection
     readonly property real tallScreenRatio: 1.2
     readonly property real squareScreenTolerance: 100
     readonly property bool isTallScreen: (screenWidth > 0) ? (screenHeight / screenWidth > tallScreenRatio) : false
@@ -113,6 +36,7 @@ QtObject {
     readonly property int zIndexNavBarApp: 1600
     readonly property int zIndexStatusBarDrag: 1700
     readonly property int zIndexModalOverlay: 2000
+    readonly property int zIndexModal: zIndexModalOverlay
     readonly property int zIndexKeyboard: 3000
     readonly property real gestureEdgeWidth: Math.round(50 * scaleFactor)
     readonly property real gesturePeekThreshold: Math.round(100 * scaleFactor)
@@ -126,10 +50,9 @@ QtObject {
     readonly property int animationDurationFast: 150
     readonly property int animationDurationNormal: 250
     readonly property int animationDurationSlow: 400
-    readonly property int sessionTimeout: 600000 // 10 minutes
+    readonly property int sessionTimeout: 600000
     property bool performanceMode: false
     readonly property bool enableAnimations: !performanceMode
-    // Debug mode - controlled by MARATHON_DEBUG environment variable
     property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
     readonly property int peekThreshold: 40
     readonly property int commitThreshold: 100
@@ -147,27 +70,20 @@ QtObject {
     readonly property real lockScreenNotificationSize: Math.round(40 * scaleFactor)
     readonly property real lockScreenShortcutSize: Math.round(64 * scaleFactor)
     readonly property int flickDecelerationFast: 8000
-    readonly property int flickVelocityMax: 5000 // Higher for responsive touch
-    // Touch-optimized flick physics
+    readonly property int flickVelocityMax: 5000
     readonly property int touchFlickDeceleration: 25000
-    // Snappy page transitions
     readonly property int touchFlickVelocity: 8000
     readonly property real touchTargetLarge: Math.round(90 * scaleFactor)
+    readonly property real touchTargetXLarge: Math.round(110 * scaleFactor)
     readonly property real touchTargetMedium: Math.round(70 * scaleFactor)
     readonly property real touchTargetSmall: Math.round(60 * scaleFactor)
     readonly property real touchTargetIndicator: Math.round(50 * scaleFactor)
     readonly property real touchTargetMinimum: Math.max(44, Math.round(45 * scaleFactor))
-    // Common component dimensions (responsive)
     readonly property real inputHeight: Math.round(48 * scaleFactor)
-    // Standard text input
     readonly property real listItemHeight: Math.round(56 * scaleFactor)
-    // Standard list item
     readonly property real iconButtonSize: Math.round(20 * scaleFactor)
-    // Small icon button
     readonly property real smallIndicatorSize: Math.round(8 * scaleFactor)
-    // Small dots/indicators
     readonly property real mediumIndicatorSize: Math.round(12 * scaleFactor)
-    // Medium indicators
     readonly property real dividerHeight: Math.max(1, Math.round(1 * scaleFactor))
     readonly property real actionBarHeight: Math.round(72 * scaleFactor)
     readonly property real hubHeaderHeight: Math.round(80 * scaleFactor)
@@ -185,7 +101,7 @@ QtObject {
     readonly property real fontSizeXLarge: Math.round(24 * scaleFactor)
     readonly property real fontSizeXXLarge: Math.round(32 * scaleFactor)
     readonly property real fontSizeHuge: Math.round(48 * scaleFactor)
-    readonly property real fontSizeGigantic: Math.round(96 * scaleFactor) // Lock screen clock
+    readonly property real fontSizeGigantic: Math.round(96 * scaleFactor)
     readonly property real spacingXSmall: Math.round(5 * scaleFactor)
     readonly property real spacingSmall: Math.round(10 * scaleFactor)
     readonly property real spacingMedium: Math.round(16 * scaleFactor)
@@ -215,27 +131,22 @@ QtObject {
     readonly property real toastHeight: Math.round(64 * scaleFactor)
     readonly property real hudSize: Math.round(128 * scaleFactor)
 
-    // Update screen dimensions (called by shell on startup/resize)
     function updateScreenSize(width, height, deviceDpi) {
         screenWidth = width;
         screenHeight = height;
-        // Priority order: Reported > Fallback
         var dpiMin = 50;
         var dpiMax = 1000;
-        var newDpi = baseDPI; // Default fallback
+        var newDpi = baseDPI;
         var dpiSource = "fallback";
         if (deviceDpi && deviceDpi >= dpiMin && deviceDpi <= dpiMax) {
-            // Trust reported DPI if reasonable (validated range)
             newDpi = deviceDpi;
             dpiSource = "reported";
         } else {
-            // Fallback to baseDPI for unknown/invalid cases
             newDpi = baseDPI;
             dpiSource = "fallback";
             if (deviceDpi && (deviceDpi < dpiMin || deviceDpi > dpiMax))
                 Logger.warn("Constants", "Invalid deviceDPI (" + deviceDpi + "), using baseDPI: " + newDpi);
         }
-        // Only update if changed (avoid unnecessary property updates and cascading recalculations)
         if (Math.abs(dpi - newDpi) > 0.1) {
             dpi = newDpi;
             Logger.debug("Constants", "Screen: " + width.toFixed(0) + "×" + height.toFixed(0) + " @ " + dpi.toFixed(0) + " DPI (source: " + dpiSource + ", scaleFactor: " + scaleFactor.toFixed(2) + ")");

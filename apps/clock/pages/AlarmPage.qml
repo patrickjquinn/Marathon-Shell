@@ -1,8 +1,8 @@
-import QtQuick
 import MarathonApp.Clock
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: alarmPage
@@ -17,46 +17,12 @@ Item {
 
             ListView {
                 id: alarmsList
+
                 anchors.fill: parent
                 anchors.topMargin: MSpacing.md
                 clip: true
                 model: clockApp.alarms
                 spacing: 0
-
-                delegate: AlarmItem {
-                    width: alarmsList.width
-                    alarmId: modelData.id
-                    alarmHour: modelData.time ? _getHour(modelData.time) : (modelData.hour || 0)
-                    alarmMinute: modelData.time ? _getMinute(modelData.time) : (modelData.minute || 0)
-                    alarmLabel: modelData.label
-                    alarmEnabled: modelData.enabled
-
-                    onClicked: {
-                        alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel);
-                    }
-
-                    onToggled: {
-                        clockApp.toggleAlarm(alarmId);
-                    }
-
-                    onDeleted: {
-                        clockApp.deleteAlarm(alarmId);
-                    }
-
-                    function _getHour(timeStr) {
-                        if (!timeStr)
-                            return 0;
-                        var parts = timeStr.split(":");
-                        return parseInt(parts[0]);
-                    }
-
-                    function _getMinute(timeStr) {
-                        if (!timeStr)
-                            return 0;
-                        var parts = timeStr.split(":");
-                        return parseInt(parts[1]);
-                    }
-                }
 
                 Rectangle {
                     anchors.centerIn: parent
@@ -67,6 +33,7 @@ Item {
 
                     Column {
                         id: emptyColumn
+
                         anchors.centerIn: parent
                         spacing: MSpacing.lg
 
@@ -97,6 +64,40 @@ Item {
                         }
                     }
                 }
+
+                delegate: AlarmItem {
+                    function _getHour(timeStr) {
+                        if (!timeStr)
+                            return 0;
+
+                        var parts = timeStr.split(":");
+                        return parseInt(parts[0]);
+                    }
+
+                    function _getMinute(timeStr) {
+                        if (!timeStr)
+                            return 0;
+
+                        var parts = timeStr.split(":");
+                        return parseInt(parts[1]);
+                    }
+
+                    width: alarmsList.width
+                    alarmId: modelData && modelData.id !== undefined ? modelData.id : ""
+                    alarmHour: modelData && modelData.time ? _getHour(modelData.time) : (modelData && modelData.hour !== undefined ? modelData.hour : 0)
+                    alarmMinute: modelData && modelData.time ? _getMinute(modelData.time) : (modelData && modelData.minute !== undefined ? modelData.minute : 0)
+                    alarmLabel: modelData && modelData.label !== undefined ? modelData.label : "Alarm"
+                    alarmEnabled: modelData && modelData.enabled !== undefined ? modelData.enabled : false
+                    onClicked: {
+                        alarmEditorDialog.openForEdit(alarmId, alarmHour, alarmMinute, alarmLabel);
+                    }
+                    onToggled: {
+                        clockApp.toggleAlarm(alarmId);
+                    }
+                    onDeleted: {
+                        clockApp.deleteAlarm(alarmId);
+                    }
+                }
             }
         }
     }
@@ -116,6 +117,7 @@ Item {
 
     AlarmEditorDialog {
         id: alarmEditorDialog
+
         onAlarmCreated: function (hour, minute) {
             clockApp.createAlarm(hour, minute, "Alarm", true);
         }

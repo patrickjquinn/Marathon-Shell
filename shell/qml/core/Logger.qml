@@ -11,8 +11,6 @@ QtObject {
         ERROR = 3
     }
 
-    // Default to WARN in production; allow full verbosity in debug.
-    // This keeps the core experience quiet + fast on low-end devices.
     property int currentLevel: Constants.debugMode ? Logger.Level.DEBUG : Logger.Level.WARN
 
     function debug(component, message) {

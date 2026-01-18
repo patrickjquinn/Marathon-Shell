@@ -53,12 +53,12 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Available: " + (AmbientLightSensor.available ? "Yes" : "No")
+                            text: "Available: " + (SensorService.available ? "Yes" : "No")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Light Level: " + AmbientLightSensor.lightLevel + " lux"
+                            text: "Light Level: " + SensorService.ambientLight + " lux"
                             variant: "secondary"
                         }
                     }
@@ -71,12 +71,7 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                AmbientLightSensor.enable();
-                                Logger.info("TestApp", "Enabled ambient light sensor");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
-                                }
+                                Logger.info("TestApp", "Enabled ambient light sensor (noop)");
                             }
                         }
 
@@ -85,12 +80,7 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                AmbientLightSensor.disable();
-                                Logger.info("TestApp", "Disabled ambient light sensor");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
-                                }
+                                Logger.info("TestApp", "Disabled ambient light sensor (noop)");
                             }
                         }
                     }
@@ -115,12 +105,12 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Available: " + (ProximitySensor.available ? "Yes" : "No")
+                            text: "Available: " + (SensorService.available ? "Yes" : "No")
                             variant: "secondary"
                         }
 
                         MLabel {
-                            text: "Near: " + (ProximitySensor.near ? "Yes" : "No")
+                            text: "Near: " + (SensorService.proximityNear ? "Yes" : "No")
                             variant: "secondary"
                         }
                     }
@@ -133,12 +123,7 @@ Item {
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                ProximitySensor.enable();
-                                Logger.info("TestApp", "Enabled proximity sensor");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
-                                }
+                                Logger.info("TestApp", "Enabled proximity sensor (noop)");
                             }
                         }
 
@@ -147,12 +132,7 @@ Item {
                             variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                ProximitySensor.disable();
-                                Logger.info("TestApp", "Disabled proximity sensor");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
-                                }
+                                Logger.info("TestApp", "Disabled proximity sensor (noop)");
                             }
                         }
                     }
@@ -177,7 +157,7 @@ Item {
                         spacing: MSpacing.xs
 
                         MLabel {
-                            text: "Enabled: " + (LocationService.enabled ? "Yes" : "No")
+                            text: "Active: " + (LocationService.active ? "Yes" : "No")
                             variant: "secondary"
                         }
 
@@ -201,11 +181,11 @@ Item {
                         spacing: MSpacing.md
 
                         MButton {
-                            text: "Enable"
+                            text: "Start"
                             variant: "primary"
                             onClicked: {
                                 HapticService.light();
-                                LocationService.enable();
+                                LocationService.start();
                                 Logger.info("TestApp", "Enabled location service");
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -215,16 +195,12 @@ Item {
                         }
 
                         MButton {
-                            text: "Get Location"
-                            variant: "accent"
+                            text: "Stop"
+                            variant: "secondary"
                             onClicked: {
                                 HapticService.light();
-                                LocationService.startUpdating();
-                                Logger.info("TestApp", "Requested location update");
-                                if (testApp) {
-                                    testApp.passedTests++;
-                                    testApp.totalTests++;
-                                }
+                                LocationService.stop();
+                                Logger.info("TestApp", "Stopped location service");
                             }
                         }
                     }

@@ -1,6 +1,7 @@
 #include "shellipcclients.h"
 
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
@@ -8,8 +9,9 @@
 #include <QDBusVariant>
 #include <QDebug>
 #include <QTimer>
+#include <algorithm>
+#include <cmath>
 
-// Helper to reduce noise when access is denied: that's an expected state until permissions are granted.
 static bool isAccessDenied(const QDBusError &e) {
     return e.type() == QDBusError::AccessDenied;
 }
@@ -37,28 +39,23 @@ static QVariantMap normalizeMapDeep(const QVariantMap &in) {
 }
 
 static QVariant normalizeDbusVariantDeep(QVariant v) {
-    // Peel DBus "variant" wrappers first.
+
     if (v.canConvert<QDBusVariant>())
         v = v.value<QDBusVariant>().variant();
 
-    // If this value is still a QDBusArgument, try to coerce into a Qt container type.
-    // This is critical for arrays/maps that otherwise become `undefined` in QML.
     if (v.userType() == qMetaTypeId<QDBusArgument>()) {
-        // Try map first (for a{sv}).
+
         const QVariantMap asMap = qdbus_cast<QVariantMap>(v);
         if (!asMap.isEmpty())
             return normalizeMapDeep(asMap);
 
-        // Then list (for arrays).
         const QVariantList asList = qdbus_cast<QVariantList>(v);
         if (!asList.isEmpty())
             return normalizeListDeep(asList);
 
-        // Fall back to original (best effort).
         return v;
     }
 
-    // Recurse into containers.
     if (v.metaType().id() == QMetaType::QVariantList)
         return normalizeListDeep(v.toList());
     if (v.metaType().id() == QMetaType::QVariantMap)
@@ -68,7 +65,7 @@ static QVariant normalizeDbusVariantDeep(QVariant v) {
 }
 
 static QVariantList unwrapDbusVariantList(const QVariant &v) {
-    // Convert payload to a plain QVariantList of plain QVariantMap values for QML consumption.
+
     QVariantList raw;
     if (v.canConvert<QDBusVariant>()) {
         raw = unwrapDbusVariantList(v.value<QDBusVariant>().variant());
@@ -88,7 +85,13 @@ static QDBusInterface makePermissionsIface(QObject *parent) {
                           parent);
 }
 
-// ---- PermissionClient ----
+static QString notificationServiceName() {
+    auto *iface = QDBusConnection::sessionBus().interface();
+    if (iface && iface->isServiceRegistered("org.marathon.Notifications"))
+        return QStringLiteral("org.marathon.Notifications");
+    return QStringLiteral("org.freedesktop.Notifications");
+}
+
 PermissionClient::PermissionClient(QObject *parent)
     : QObject(parent)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Permissions",
@@ -132,7 +135,6 @@ void PermissionClient::setPermission(const QString &appId, const QString &permis
         qWarning() << "[PermissionClient] SetPermission failed:" << r.errorMessage();
 }
 
-// ---- ContactsClient ----
 ContactsClient::ContactsClient(QObject *parent)
     : QObject(parent)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Contacts",
@@ -216,7 +218,6 @@ QVariantMap ContactsClient::getContactByNumber(const QString &phoneNumber) {
     return r.value();
 }
 
-// ---- CallHistoryClient ----
 CallHistoryClient::CallHistoryClient(QObject *parent)
     : QObject(parent)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/CallHistory",
@@ -287,11 +288,12 @@ QVariantList CallHistoryClient::getCallsByNumber(const QString &number) {
     return r.value();
 }
 
-// ---- TelephonyClient ----
-TelephonyClient::TelephonyClient(QObject *parent)
+TelephonyClient::TelephonyClient(const QString &appId, QObject *parent)
     : QObject(parent)
+    , m_appId(appId)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Telephony",
-              "org.marathonos.Shell.Telephony1", QDBusConnection::sessionBus()) {
+              "org.marathonos.Shell.Telephony1", QDBusConnection::sessionBus())
+    , m_permIface(makePermissionsIface(this)) {
     if (!m_iface.isValid()) {
         qWarning() << "[TelephonyClient] DBus interface invalid:" << m_iface.lastError().message();
         return;
@@ -315,6 +317,29 @@ TelephonyClient::TelephonyClient(QObject *parent)
     refresh();
 }
 
+bool TelephonyClient::ensurePermission() {
+    if (m_appId.isEmpty())
+        return false;
+    QDBusReply<bool> rTelephony = m_permIface.call("HasPermission", m_appId, "telephony");
+    if (rTelephony.isValid() && rTelephony.value()) {
+        m_permissionRequested = false;
+        return true;
+    }
+    QDBusReply<bool> rPhone = m_permIface.call("HasPermission", m_appId, "phone");
+    if (rPhone.isValid() && rPhone.value()) {
+        m_permissionRequested = false;
+        return true;
+    }
+    if (!rTelephony.isValid() && !rPhone.isValid())
+        return false;
+    if (!m_permissionRequested) {
+        m_permissionRequested = true;
+        m_permIface.call("RequestPermission", m_appId, "telephony");
+    }
+    QTimer::singleShot(750, this, &TelephonyClient::refresh);
+    return false;
+}
+
 void TelephonyClient::setCallState(const QString &s) {
     if (m_callState == s)
         return;
@@ -335,6 +360,8 @@ void TelephonyClient::setActiveNumber(const QString &n) {
 }
 
 void TelephonyClient::refresh() {
+    if (!ensurePermission())
+        return;
     QDBusReply<QString> cs = m_iface.call("CallState");
     if (cs.isValid())
         setCallState(cs.value());
@@ -347,31 +374,56 @@ void TelephonyClient::refresh() {
 }
 
 void TelephonyClient::dial(const QString &number) {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("Dial", number);
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[TelephonyClient] Dial failed:" << r.errorMessage();
 }
 void TelephonyClient::answer() {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("Answer");
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[TelephonyClient] Answer failed:" << r.errorMessage();
 }
 void TelephonyClient::hangup() {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("Hangup");
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[TelephonyClient] Hangup failed:" << r.errorMessage();
 }
 void TelephonyClient::sendDTMF(const QString &digit) {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("SendDTMF", digit);
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[TelephonyClient] SendDTMF failed:" << r.errorMessage();
 }
 
-// ---- SmsClient ----
-SmsClient::SmsClient(QObject *parent)
+void TelephonyClient::simulateIncomingCall(const QString &number) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SimulateIncomingCall", number);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[TelephonyClient] SimulateIncomingCall failed:" << r.errorMessage();
+}
+
+void TelephonyClient::simulateCallStateChange(const QString &state) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SimulateCallStateChange", state);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[TelephonyClient] SimulateCallStateChange failed:" << r.errorMessage();
+}
+
+SmsClient::SmsClient(const QString &appId, QObject *parent)
     : QObject(parent)
+    , m_appId(appId)
     , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Sms", "org.marathonos.Shell.Sms1",
-              QDBusConnection::sessionBus()) {
+              QDBusConnection::sessionBus())
+    , m_permIface(makePermissionsIface(this)) {
     if (!m_iface.isValid()) {
         qWarning() << "[SmsClient] DBus interface invalid:" << m_iface.lastError().message();
         return;
@@ -391,7 +443,28 @@ SmsClient::SmsClient(QObject *parent)
     refresh();
 }
 
-// ---- MediaLibraryClient ----
+bool SmsClient::ensurePermission() {
+    if (m_appId.isEmpty())
+        return false;
+    QDBusReply<bool> rSms = m_permIface.call("HasPermission", m_appId, "sms");
+    if (rSms.isValid() && rSms.value()) {
+        m_permissionRequested = false;
+        return true;
+    }
+    QDBusReply<bool> rPhone = m_permIface.call("HasPermission", m_appId, "phone");
+    if (rPhone.isValid() && rPhone.value()) {
+        m_permissionRequested = false;
+        return true;
+    }
+    if (!rSms.isValid() && !rPhone.isValid())
+        return false;
+    if (!m_permissionRequested) {
+        m_permissionRequested = true;
+        m_permIface.call("RequestPermission", m_appId, "sms");
+    }
+    QTimer::singleShot(750, this, &SmsClient::refresh);
+    return false;
+}
 
 MediaLibraryClient::MediaLibraryClient(const QString &appId, QObject *parent)
     : QObject(parent)
@@ -466,7 +539,7 @@ void MediaLibraryClient::setScanProgress(int progress) {
 }
 
 void MediaLibraryClient::onLibraryChanged() {
-    // Update counts on library changes
+
     QDBusReply<int> p = m_iface.call("PhotoCount");
     if (p.isValid())
         m_photoCount = p.value();
@@ -573,8 +646,6 @@ void MediaLibraryClient::deleteMedia(int mediaId) {
         qWarning() << "[MediaLibraryClient] DeleteMedia failed:" << r.errorMessage();
 }
 
-// ---- SettingsClient ----
-
 SettingsClient::SettingsClient(const QString &appId, QObject *parent)
     : QObject(parent)
     , m_appId(appId)
@@ -614,7 +685,6 @@ bool SettingsClient::ensureSystemPermission() {
                        << req.errorMessage();
     }
 
-    // Retry later; this becomes valid once the user grants permission.
     QTimer::singleShot(750, this, &SettingsClient::refresh);
     return false;
 }
@@ -662,13 +732,11 @@ void SettingsClient::refresh() {
         return;
     m_refreshInFlight = true;
 
-    // Global Settings state is only available to "system" apps.
     if (!ensureSystemPermission()) {
         m_refreshInFlight = false;
         return;
     }
 
-    // Avoid blocking the UI thread with long DBus timeouts during startup.
     m_iface.setTimeout(2000);
 
     auto  async = m_iface.asyncCall("GetState");
@@ -682,13 +750,13 @@ void SettingsClient::refresh() {
             if (!isAccessDenied(r.error()) && debugEnabled())
                 qWarning() << "[SettingsClient] GetState failed:" << r.error().name()
                            << r.error().message();
-            // Retry quickly; Settings needs this for core functionality.
+
             QTimer::singleShot(250, this, &SettingsClient::refresh);
             return;
         }
 
         m_state = r.value();
-        // Emit a broad refresh for key properties.
+
         emit userScaleFactorChanged();
         emit wallpaperPathChanged();
         emit deviceNameChanged();
@@ -744,7 +812,7 @@ void SettingsClient::setProp(const QString &name, const QVariant &value) {
             qWarning() << "[SettingsClient] SetProperty failed:" << msg.errorMessage();
         return;
     }
-    // Optimistic local update; shell will also broadcast PropertyChanged.
+
     m_state.insert(name, value);
     onPropertyChanged(name, QDBusVariant(value));
 }
@@ -753,7 +821,6 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
     const QVariant v = value.variant();
     m_state.insert(name, v);
 
-    // Emit per-property change signals (QML relies on these).
     if (name == "userScaleFactor")
         emit userScaleFactorChanged();
     else if (name == "wallpaperPath")
@@ -835,7 +902,6 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
     Q_UNUSED(v);
 }
 
-// Getters
 qreal SettingsClient::userScaleFactor() const {
     return prop("userScaleFactor", 1.0).toReal();
 }
@@ -961,7 +1027,6 @@ QString SettingsClient::keyboardHapticStrength() const {
     return prop("keyboardHapticStrength", "medium").toString();
 }
 
-// Setters
 void SettingsClient::setUserScaleFactor(qreal v) {
     setProp("userScaleFactor", v);
 }
@@ -1088,22 +1153,32 @@ void SettingsClient::setKeyboardHapticStrength(const QString &v) {
 }
 
 QStringList SettingsClient::availableRingtones() {
+    if (!ensureSystemPermission())
+        return {};
     QDBusReply<QStringList> r = m_iface.call("AvailableRingtones");
     return r.isValid() ? r.value() : QStringList{};
 }
 QStringList SettingsClient::availableNotificationSounds() {
+    if (!ensureSystemPermission())
+        return {};
     QDBusReply<QStringList> r = m_iface.call("AvailableNotificationSounds");
     return r.isValid() ? r.value() : QStringList{};
 }
 QStringList SettingsClient::availableAlarmSounds() {
+    if (!ensureSystemPermission())
+        return {};
     QDBusReply<QStringList> r = m_iface.call("AvailableAlarmSounds");
     return r.isValid() ? r.value() : QStringList{};
 }
 QStringList SettingsClient::screenTimeoutOptions() {
+    if (!ensureSystemPermission())
+        return {};
     QDBusReply<QStringList> r = m_iface.call("ScreenTimeoutOptions");
     return r.isValid() ? r.value() : QStringList{};
 }
 int SettingsClient::screenTimeoutValue(const QString &option) {
+    if (!ensureSystemPermission())
+        return 0;
     QDBusReply<int> r = m_iface.call("ScreenTimeoutValue", option);
     return r.isValid() ? r.value() : 0;
 }
@@ -1134,7 +1209,7 @@ void SettingsClient::set(const QString &key, const QVariant &value) {
         qWarning() << "[SettingsClient] Set failed:" << r.errorMessage();
 }
 void SettingsClient::sync() {
-    // Shell allows Sync() for either "system" or "storage" callers.
+
     if (!ensureSystemPermission()) {
         if (!ensureStoragePermission())
             return;
@@ -1143,8 +1218,6 @@ void SettingsClient::sync() {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[SettingsClient] Sync failed:" << r.errorMessage();
 }
-
-// ---- BluetoothClient ----
 
 BluetoothClient::BluetoothClient(const QString &appId, QObject *parent)
     : QObject(parent)
@@ -1247,7 +1320,7 @@ void BluetoothClient::refresh() {
 
 void BluetoothClient::onStateChanged(const QVariantMap &state) {
     QVariantMap normalized = state;
-    // Normalize nested list payloads so QML gets real JS objects (not QDBusArgument/QDBusVariant).
+
     normalized["devices"]       = unwrapDbusVariantList(normalized.value("devices"));
     normalized["pairedDevices"] = unwrapDbusVariantList(normalized.value("pairedDevices"));
     m_state                     = normalized;
@@ -1318,8 +1391,6 @@ void BluetoothClient::cancelPairing(const QString &address) {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[BluetoothClient] CancelPairing failed:" << r.errorMessage();
 }
-
-// ---- DisplayClient ----
 
 DisplayClient::DisplayClient(const QString &appId, QObject *parent)
     : QObject(parent)
@@ -1475,8 +1546,6 @@ void DisplayClient::setScreenState(bool on) {
         qWarning() << "[DisplayClient] SetScreenState failed:" << r.errorMessage();
 }
 
-// ---- RemoteAudioStreamModel ----
-
 RemoteAudioStreamModel::RemoteAudioStreamModel(QObject *parent)
     : QAbstractListModel(parent) {}
 
@@ -1518,8 +1587,6 @@ void RemoteAudioStreamModel::setStreams(const QVariantList &streams) {
     m_streams = streams;
     endResetModel();
 }
-
-// ---- AudioClient ----
 
 AudioClient::AudioClient(const QString &appId, QObject *parent)
     : QObject(parent)
@@ -1624,6 +1691,10 @@ bool AudioClient::perAppVolumeSupported() const {
     return v("perAppVolumeSupported").toBool();
 }
 
+QString AudioClient::audioProfile() const {
+    return v("audioProfile").toString();
+}
+
 void AudioClient::setVolume(double v) {
     auto r = m_iface.call("SetVolume", v);
     if (r.type() == QDBusMessage::ErrorMessage)
@@ -1694,8 +1765,6 @@ void AudioClient::vibratePattern(const QVariantList &pattern) {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[AudioClient] VibratePattern failed:" << r.errorMessage();
 }
-
-// ---- PowerClient ----
 
 PowerClient::PowerClient(const QString &appId, QObject *parent)
     : QObject(parent)
@@ -1833,8 +1902,6 @@ void PowerClient::shutdown() {
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[PowerClient] Shutdown failed:" << r.errorMessage();
 }
-
-// ---- NetworkClient ----
 
 NetworkClient::NetworkClient(const QString &appId, QObject *parent)
     : QObject(parent)
@@ -2088,6 +2155,8 @@ void SmsClient::setConversations(const QVariantList &v) {
 }
 
 void SmsClient::refresh() {
+    if (!ensurePermission())
+        return;
     QDBusReply<QVariantList> r = m_iface.call("GetConversations");
     if (!r.isValid()) {
         if (r.error().type() != QDBusError::AccessDenied)
@@ -2098,12 +2167,16 @@ void SmsClient::refresh() {
 }
 
 void SmsClient::sendMessage(const QString &recipient, const QString &text) {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("SendMessage", recipient, text);
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[SmsClient] SendMessage failed:" << r.errorMessage();
 }
 
 QVariantList SmsClient::getMessages(const QString &conversationId) {
+    if (!ensurePermission())
+        return {};
     QDBusReply<QVariantList> r = m_iface.call("GetMessages", conversationId);
     if (!r.isValid()) {
         qWarning() << "[SmsClient] GetMessages failed:" << r.error().message();
@@ -2113,24 +2186,38 @@ QVariantList SmsClient::getMessages(const QString &conversationId) {
 }
 
 void SmsClient::deleteConversation(const QString &conversationId) {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("DeleteConversation", conversationId);
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[SmsClient] DeleteConversation failed:" << r.errorMessage();
 }
 
 void SmsClient::markAsRead(const QString &conversationId) {
+    if (!ensurePermission())
+        return;
     auto r = m_iface.call("MarkAsRead", conversationId);
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[SmsClient] MarkAsRead failed:" << r.errorMessage();
 }
 
 QString SmsClient::generateConversationId(const QString &number) {
+    if (!ensurePermission())
+        return {};
     QDBusReply<QString> r = m_iface.call("GenerateConversationId", number);
     if (!r.isValid()) {
         qWarning() << "[SmsClient] GenerateConversationId failed:" << r.error().message();
         return {};
     }
     return r.value();
+}
+
+void SmsClient::simulateIncomingSMS(const QString &sender, const QString &message) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SimulateIncomingSMS", sender, message);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[SmsClient] SimulateIncomingSMS failed:" << r.errorMessage();
 }
 
 NavigationClient::NavigationClient(QObject *parent)
@@ -2147,6 +2234,257 @@ NavigationClient::NavigationClient(QObject *parent)
                                           "/org/marathonos/Shell/Navigation",
                                           "org.marathonos.Shell.Navigation1", "NavigationFailed",
                                           this, SIGNAL(navigationFailed(QString, QString)));
+}
+
+SystemStatusStoreClient::SystemStatusStoreClient(PowerClient   *powerClient,
+                                                 NetworkClient *networkClient, QObject *parent)
+    : QObject(parent)
+    , m_powerClient(powerClient)
+    , m_networkClient(networkClient) {
+    refreshPower();
+    refreshNetwork();
+    if (m_powerClient) {
+        connect(m_powerClient, &PowerClient::stateChanged, this, [this]() { refreshPower(); });
+    }
+    if (m_networkClient) {
+        connect(m_networkClient, &NetworkClient::wifiConnectedChanged, this,
+                [this]() { refreshNetwork(); });
+        connect(m_networkClient, &NetworkClient::wifiSsidChanged, this,
+                [this]() { refreshNetwork(); });
+    }
+}
+
+void SystemStatusStoreClient::refreshPower() {
+    if (!m_powerClient) {
+        setBatteryLevel(0);
+        return;
+    }
+    setBatteryLevel(m_powerClient->batteryLevel());
+}
+
+void SystemStatusStoreClient::refreshNetwork() {
+    if (!m_networkClient) {
+        setWifiConnected(false);
+        setWifiNetwork(QString());
+        return;
+    }
+    setWifiConnected(m_networkClient->wifiConnected());
+    setWifiNetwork(m_networkClient->wifiSsid());
+}
+
+void SystemStatusStoreClient::setBatteryLevel(int level) {
+    if (m_batteryLevel == level) {
+        return;
+    }
+    m_batteryLevel = level;
+    emit batteryLevelChanged();
+}
+
+void SystemStatusStoreClient::setWifiConnected(bool connected) {
+    if (m_wifiConnected == connected) {
+        return;
+    }
+    m_wifiConnected = connected;
+    emit wifiConnectedChanged();
+}
+
+void SystemStatusStoreClient::setWifiNetwork(const QString &network) {
+    if (m_wifiNetwork == network) {
+        return;
+    }
+    m_wifiNetwork = network;
+    emit wifiNetworkChanged();
+}
+
+SystemControlStoreClient::SystemControlStoreClient(NetworkClient   *networkClient,
+                                                   BluetoothClient *bluetoothClient,
+                                                   DisplayClient   *displayClient,
+                                                   SettingsClient  *settingsClient,
+                                                   AudioClient *audioClient, QObject *parent)
+    : QObject(parent)
+    , m_networkClient(networkClient)
+    , m_bluetoothClient(bluetoothClient)
+    , m_displayClient(displayClient)
+    , m_settingsClient(settingsClient)
+    , m_audioClient(audioClient) {
+    refreshNetwork();
+    refreshBluetooth();
+    refreshDisplay();
+    refreshSettings();
+    refreshAudio();
+
+    if (m_networkClient) {
+        connect(m_networkClient, &NetworkClient::wifiEnabledChanged, this,
+                [this]() { refreshNetwork(); });
+        connect(m_networkClient, &NetworkClient::airplaneModeEnabledChanged, this,
+                [this]() { refreshNetwork(); });
+    }
+    if (m_bluetoothClient) {
+        connect(m_bluetoothClient, &BluetoothClient::stateChanged, this,
+                [this]() { refreshBluetooth(); });
+    }
+    if (m_displayClient) {
+        connect(m_displayClient, &DisplayClient::stateChanged, this,
+                [this]() { refreshDisplay(); });
+    }
+    if (m_settingsClient) {
+        connect(m_settingsClient, &SettingsClient::dndEnabledChanged, this,
+                [this]() { refreshSettings(); });
+    }
+    if (m_audioClient) {
+        connect(m_audioClient, &AudioClient::stateChanged, this, [this]() { refreshAudio(); });
+    }
+}
+
+void SystemControlStoreClient::toggleWifi() {
+    if (m_networkClient) {
+        m_networkClient->toggleWifi();
+    }
+}
+
+void SystemControlStoreClient::toggleBluetooth() {
+    if (m_bluetoothClient) {
+        m_bluetoothClient->setEnabled(!m_bluetoothClient->enabled());
+    }
+}
+
+void SystemControlStoreClient::toggleAirplaneMode() {
+    if (m_networkClient) {
+        m_networkClient->setAirplaneMode(!m_isAirplaneModeOn);
+    }
+}
+
+void SystemControlStoreClient::toggleRotationLock() {
+    if (m_displayClient) {
+        m_displayClient->setRotationLocked(!m_isRotationLocked);
+    }
+}
+
+void SystemControlStoreClient::toggleDndMode() {
+    if (m_settingsClient) {
+        m_settingsClient->setDndEnabled(!m_isDndMode);
+    }
+    if (m_audioClient) {
+        m_audioClient->setDoNotDisturb(!m_isDndMode);
+    }
+}
+
+void SystemControlStoreClient::setBrightness(int value) {
+    const int clamped = std::max(0, std::min(100, value));
+    if (m_displayClient) {
+        m_displayClient->setBrightness(static_cast<double>(clamped) / 100.0);
+    }
+    setBrightnessValue(clamped);
+}
+
+void SystemControlStoreClient::setVolume(int value) {
+    const int clamped = std::max(0, std::min(100, value));
+    if (m_audioClient) {
+        m_audioClient->setVolume(static_cast<double>(clamped) / 100.0);
+    }
+    setVolumeValue(clamped);
+}
+
+void SystemControlStoreClient::refreshNetwork() {
+    if (!m_networkClient) {
+        setIsWifiOn(true);
+        setIsAirplaneModeOn(false);
+        return;
+    }
+    setIsWifiOn(m_networkClient->wifiEnabled());
+    setIsAirplaneModeOn(m_networkClient->airplaneModeEnabled());
+}
+
+void SystemControlStoreClient::refreshBluetooth() {
+    if (!m_bluetoothClient) {
+        setIsBluetoothOn(false);
+        return;
+    }
+    setIsBluetoothOn(m_bluetoothClient->enabled());
+}
+
+void SystemControlStoreClient::refreshDisplay() {
+    if (!m_displayClient) {
+        setIsRotationLocked(false);
+        setBrightnessValue(50);
+        return;
+    }
+    setIsRotationLocked(m_displayClient->rotationLocked());
+    setBrightnessValue(
+        static_cast<int>(std::round(std::clamp(m_displayClient->brightness(), 0.0, 1.0) * 100.0)));
+}
+
+void SystemControlStoreClient::refreshSettings() {
+    if (!m_settingsClient) {
+        setIsDndMode(false);
+        return;
+    }
+    setIsDndMode(m_settingsClient->dndEnabled());
+}
+
+void SystemControlStoreClient::refreshAudio() {
+    if (!m_audioClient) {
+        setVolumeValue(50);
+        return;
+    }
+    setVolumeValue(
+        static_cast<int>(std::round(std::clamp(m_audioClient->volume(), 0.0, 1.0) * 100.0)));
+}
+
+void SystemControlStoreClient::setIsWifiOn(bool enabled) {
+    if (m_isWifiOn == enabled) {
+        return;
+    }
+    m_isWifiOn = enabled;
+    emit isWifiOnChanged();
+}
+
+void SystemControlStoreClient::setIsBluetoothOn(bool enabled) {
+    if (m_isBluetoothOn == enabled) {
+        return;
+    }
+    m_isBluetoothOn = enabled;
+    emit isBluetoothOnChanged();
+}
+
+void SystemControlStoreClient::setIsAirplaneModeOn(bool enabled) {
+    if (m_isAirplaneModeOn == enabled) {
+        return;
+    }
+    m_isAirplaneModeOn = enabled;
+    emit isAirplaneModeOnChanged();
+}
+
+void SystemControlStoreClient::setIsRotationLocked(bool locked) {
+    if (m_isRotationLocked == locked) {
+        return;
+    }
+    m_isRotationLocked = locked;
+    emit isRotationLockedChanged();
+}
+
+void SystemControlStoreClient::setIsDndMode(bool enabled) {
+    if (m_isDndMode == enabled) {
+        return;
+    }
+    m_isDndMode = enabled;
+    emit isDndModeChanged();
+}
+
+void SystemControlStoreClient::setBrightnessValue(int value) {
+    if (m_brightness == value) {
+        return;
+    }
+    m_brightness = value;
+    emit brightnessChanged();
+}
+
+void SystemControlStoreClient::setVolumeValue(int value) {
+    if (m_volume == value) {
+        return;
+    }
+    m_volume = value;
+    emit volumeChanged();
 }
 
 bool NavigationClient::launchApp(const QString &appId) {
@@ -2190,4 +2528,311 @@ bool NavigationClient::launchAppWithRoute(const QString &appId, const QString &r
         return false;
     }
     return r.value();
+}
+
+HapticClient::HapticClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Haptic",
+              "org.marathonos.Shell.Haptic1", QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[HapticClient] DBus interface invalid:" << m_iface.lastError().message();
+    refresh();
+}
+
+void HapticClient::refresh() {
+    QDBusReply<bool> r = m_iface.call("IsAvailable");
+    if (r.isValid() && r.value() != m_available) {
+        m_available = r.value();
+        emit availableChanged();
+    }
+}
+
+void HapticClient::light() {
+    m_iface.call("Light");
+}
+
+void HapticClient::medium() {
+    m_iface.call("Medium");
+}
+
+void HapticClient::heavy() {
+    m_iface.call("Heavy");
+}
+
+void HapticClient::vibrate(int duration) {
+    m_iface.call("Vibrate", duration);
+}
+
+void HapticClient::vibratePattern(const QVariantList &pattern, int repeat) {
+    Q_UNUSED(repeat)
+    m_iface.call("VibratePattern", pattern);
+}
+
+void HapticClient::stopVibration() {
+    m_iface.call("Stop");
+}
+
+NotificationClient::NotificationClient(const QString &appId, QObject *parent)
+    : QObject(parent)
+    , m_appId(appId)
+    , m_iface(notificationServiceName(), "/org/freedesktop/Notifications",
+              "org.freedesktop.Notifications", QDBusConnection::sessionBus())
+    , m_permIface(makePermissionsIface(this)) {
+    if (!m_iface.isValid())
+        qWarning() << "[NotificationClient] DBus interface invalid:"
+                   << m_iface.lastError().message();
+
+    QDBusConnection::sessionBus().connect(m_iface.service(), "/org/freedesktop/Notifications",
+                                          "org.freedesktop.Notifications", "NotificationClosed",
+                                          this, SLOT(notificationClosed(int, int)));
+    QDBusConnection::sessionBus().connect(m_iface.service(), "/org/freedesktop/Notifications",
+                                          "org.freedesktop.Notifications", "ActionInvoked", this,
+                                          SLOT(actionInvoked(int, QString)));
+}
+
+bool NotificationClient::ensurePermission() {
+    if (m_appId.isEmpty())
+        return false;
+    QDBusReply<bool> r = m_permIface.call("HasPermission", m_appId, "notifications");
+    if (!r.isValid())
+        return false;
+    if (r.value()) {
+        m_permissionRequested = false;
+        return true;
+    }
+    if (!m_permissionRequested) {
+        m_permissionRequested = true;
+        m_permIface.call("RequestPermission", m_appId, "notifications");
+    }
+    return false;
+}
+
+int NotificationClient::sendNotification(const QString &appId, const QString &title,
+                                         const QString &body, const QVariantMap &options) {
+    if (!ensurePermission())
+        return -1;
+
+    QStringList actions;
+    if (options.contains("actions")) {
+        QVariantList actionList = options.value("actions").toList();
+        for (const QVariant &a : actionList) {
+            actions << a.toString() << a.toString();
+        }
+    }
+
+    QVariantMap hints;
+    if (options.contains("category"))
+        hints["category"] = options.value("category");
+    if (options.contains("priority")) {
+        QString priority = options.value("priority").toString();
+        hints["urgency"] = (priority == "high") ? 2 : ((priority == "low") ? 0 : 1);
+    }
+    hints["desktop-entry"] = appId;
+
+    QString          icon    = options.value("icon").toString();
+    int              timeout = options.value("persistent", false).toBool() ? 0 : 5000;
+
+    QDBusReply<uint> r =
+        m_iface.call("Notify", appId, 0u, icon, title, body, actions, hints, timeout);
+    if (!r.isValid()) {
+        qWarning() << "[NotificationClient] Notify failed:" << r.error().message();
+        return -1;
+    }
+    return static_cast<int>(r.value());
+}
+
+void NotificationClient::dismissNotification(int id) {
+    m_iface.call("CloseNotification", static_cast<uint>(id));
+}
+
+void NotificationClient::dismissAllNotifications() {
+
+    qWarning() << "[NotificationClient] dismissAllNotifications not supported by freedesktop spec";
+}
+
+SensorClient::SensorClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Sensor",
+              "org.marathonos.Shell.Sensor1", QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[SensorClient] DBus interface invalid:" << m_iface.lastError().message();
+
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sensor",
+                                          "org.marathonos.Shell.Sensor1", "ProximityChanged", this,
+                                          SIGNAL(proximityChanged()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Sensor",
+                                          "org.marathonos.Shell.Sensor1", "AmbientLightChanged",
+                                          this, SIGNAL(ambientLightChanged()));
+
+    refresh();
+}
+
+void SensorClient::refresh() {
+    if (m_iface.isValid()) {
+        bool avail = m_iface.property("available").toBool();
+        bool prox  = m_iface.property("proximityNear").toBool();
+        int  light = m_iface.property("ambientLight").toInt();
+
+        if (avail != m_available) {
+            m_available = avail;
+            emit availableChanged();
+        }
+        if (prox != m_proximityNear) {
+            m_proximityNear = prox;
+            emit proximityChanged();
+        }
+        if (light != m_ambientLight) {
+            m_ambientLight = light;
+            emit ambientLightChanged();
+        }
+    }
+}
+
+LocationClient::LocationClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Location",
+              "org.marathonos.Shell.Location1", QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[LocationClient] DBus interface invalid:" << m_iface.lastError().message();
+
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Location",
+                                          "org.marathonos.Shell.Location1", "LocationChanged", this,
+                                          SLOT(updateLocation(QVariantMap)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Location",
+                                          "org.marathonos.Shell.Location1", "activeChanged", this,
+                                          SIGNAL(activeChanged()));
+    refresh();
+}
+
+void LocationClient::refresh() {
+    if (m_iface.isValid()) {
+        bool avail  = m_iface.property("available").toBool();
+        bool active = m_iface.property("active").toBool();
+
+        if (avail != m_available) {
+            m_available = avail;
+            emit availableChanged();
+        }
+        if (active != m_active) {
+            m_active = active;
+            emit activeChanged();
+        }
+        updateLocation(m_iface.call("GetLocation").arguments().at(0).value<QVariantMap>());
+    }
+}
+
+void LocationClient::updateLocation(const QVariantMap &loc) {
+    if (loc.isEmpty())
+        return;
+
+    m_latitude  = loc.value("latitude").toDouble();
+    m_longitude = loc.value("longitude").toDouble();
+    m_accuracy  = loc.value("accuracy").toDouble();
+    m_altitude  = loc.value("altitude").toDouble();
+    m_speed     = loc.value("speed").toDouble();
+    m_heading   = loc.value("heading").toDouble();
+    m_timestamp = loc.value("timestamp").toLongLong();
+    emit locationChanged();
+}
+
+void LocationClient::start() {
+    m_iface.call("Start");
+}
+
+void LocationClient::stop() {
+    m_iface.call("Stop");
+}
+
+AlarmClient::AlarmClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Alarm", "org.marathonos.Shell.Alarm1",
+              QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[AlarmClient] DBus interface invalid:" << m_iface.lastError().message();
+
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Alarm",
+                                          "org.marathonos.Shell.Alarm1", "AlarmsChanged", this,
+                                          SLOT(onAlarmsChanged()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Alarm",
+                                          "org.marathonos.Shell.Alarm1", "ActiveAlarmsChanged",
+                                          this, SLOT(onActiveAlarmsChanged()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Alarm",
+                                          "org.marathonos.Shell.Alarm1", "AlarmTriggered", this,
+                                          SIGNAL(alarmTriggered(QString, QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Alarm",
+                                          "org.marathonos.Shell.Alarm1", "AlarmDismissed", this,
+                                          SIGNAL(alarmDismissed(QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Alarm",
+                                          "org.marathonos.Shell.Alarm1", "AlarmSnoozed", this,
+                                          SIGNAL(alarmSnoozed(QString, int)));
+
+    refresh();
+}
+
+void AlarmClient::refresh() {
+    if (m_iface.isValid()) {
+        onAlarmsChanged();
+        onActiveAlarmsChanged();
+    }
+}
+
+void AlarmClient::onAlarmsChanged() {
+    QDBusReply<QVariantList> r = m_iface.call("GetAlarms");
+    if (r.isValid()) {
+        m_alarms = r.value();
+        emit alarmsChanged();
+    }
+}
+
+void AlarmClient::onActiveAlarmsChanged() {
+    QDBusReply<QVariantList> r = m_iface.call("GetActiveAlarms");
+    if (r.isValid()) {
+        m_activeAlarms = r.value();
+        emit activeAlarmsChanged();
+    }
+}
+
+QString AlarmClient::createAlarm(const QString &time, const QString &label,
+                                 const QList<int> &repeat, const QVariantMap &options) {
+    QDBusReply<QString> r =
+        m_iface.call("CreateAlarm", time, label, QVariant::fromValue(repeat), options);
+    return r.isValid() ? r.value() : QString();
+}
+
+bool AlarmClient::updateAlarm(const QString &id, const QVariantMap &updates) {
+    QDBusReply<bool> r = m_iface.call("UpdateAlarm", id, updates);
+    return r.isValid() && r.value();
+}
+
+bool AlarmClient::deleteAlarm(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("DeleteAlarm", id);
+    return r.isValid() && r.value();
+}
+
+bool AlarmClient::enableAlarm(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("EnableAlarm", id);
+    return r.isValid() && r.value();
+}
+
+bool AlarmClient::disableAlarm(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("DisableAlarm", id);
+    return r.isValid() && r.value();
+}
+
+bool AlarmClient::snoozeAlarm(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("SnoozeAlarm", id);
+    return r.isValid() && r.value();
+}
+
+bool AlarmClient::dismissAlarm(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("DismissAlarm", id);
+    return r.isValid() && r.value();
+}
+
+void AlarmClient::stopAll() {
+    m_iface.call("StopAll");
+}
+
+void AlarmClient::triggerAlarmNow(const QString &label) {
+    m_iface.call("TriggerAlarmNow", label);
 }

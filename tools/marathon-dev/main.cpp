@@ -41,7 +41,7 @@ int packageCommand(const QStringList &args) {
     if (args.size() >= 4) {
         outputFile = args.at(3);
     } else {
-        // Generate output filename from app directory
+
         QFileInfo dirInfo(appDir);
         QString   appDirName = dirInfo.fileName();
         outputFile           = appDirName + ".marathon";
@@ -55,7 +55,6 @@ int packageCommand(const QStringList &args) {
     if (packager.createPackage(appDir, outputFile)) {
         printSuccess("Package created successfully: " + outputFile);
 
-        // Show package info
         QFileInfo packageInfo(outputFile);
         qint64    sizeKB = packageInfo.size() / 1024;
         printInfo(QString("Package size: %1 KB").arg(sizeKB));
@@ -121,10 +120,10 @@ int validateCommand(const QStringList &args) {
     MarathonAppVerifier::VerificationResult result;
 
     if (pathInfo.isDir()) {
-        // Validate directory
+
         result = verifier.verifyDirectory(path);
     } else if (path.endsWith(".marathon")) {
-        // For packages, we need to extract first
+
         printError("Direct package validation not supported yet");
         printInfo("Extract the package first, then validate the directory");
         return 1;
@@ -166,7 +165,6 @@ int installCommand(const QStringList &args) {
 
     printInfo("Installing: " + path);
 
-    // Create installer components
     MarathonAppRegistry  registry;
     MarathonAppScanner   scanner(&registry);
     MarathonAppInstaller installer(&registry, &scanner);
@@ -174,10 +172,10 @@ int installCommand(const QStringList &args) {
     bool                 success = false;
 
     if (pathInfo.isDir()) {
-        // Install from directory
+
         success = installer.installFromDirectory(path);
     } else if (path.endsWith(".marathon")) {
-        // Install from package
+
         success = installer.installFromPackage(path);
     } else {
         printError("Unknown file type. Expected directory or .marathon package");
@@ -203,20 +201,17 @@ int initCommand(const QStringList &args) {
     QString appName = args.at(2);
     QString appId   = appName.toLower().replace(" ", "-");
 
-    // Create app directory
-    QDir dir;
+    QDir    dir;
     if (!dir.mkdir(appId)) {
         printError("Failed to create directory: " + appId);
         return 1;
     }
 
-    // Create subdirectories
     dir.cd(appId);
     dir.mkdir("pages");
     dir.mkdir("components");
     dir.mkdir("assets");
 
-    // Create manifest.json
     QJsonObject manifest;
     manifest["id"]              = appId;
     manifest["name"]            = appName;
@@ -234,7 +229,6 @@ int initCommand(const QStringList &args) {
         manifestFile.close();
     }
 
-    // Create main QML file
     QString appFileName = appId.replace("-", "");
     appFileName[0]      = appFileName[0].toUpper();
     appFileName += "App.qml";
@@ -285,7 +279,6 @@ MApplicationWindow {
         qmlFile.close();
     }
 
-    // Create qmldir
     QString qmldirContent = QString("module %1\n").arg(appId);
     QFile   qmldirFile(appId + "/qmldir");
     if (qmldirFile.open(QIODevice::WriteOnly)) {
@@ -293,9 +286,8 @@ MApplicationWindow {
         qmldirFile.close();
     }
 
-    // Create placeholder icon
     QString iconSVG = R"(<?xml version="1.0" encoding="UTF-8"?>
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http: 
     <rect width="512" height="512" fill="#4CAF50" rx="100"/>
     <text x="256" y="320" font-family="Arial" font-size="200" fill="white" text-anchor="middle">A</text>
 </svg>)";

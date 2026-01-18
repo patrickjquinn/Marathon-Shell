@@ -17,7 +17,6 @@ Rectangle {
     height: barHeight
     color: MColors.glassTitlebar
 
-    // Glass morphism without blur (blur effect would blur content UNDER the bar, not desired)
     border.width: borderWidth
     border.color: MColors.borderGlass
 

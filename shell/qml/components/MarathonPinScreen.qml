@@ -1,22 +1,20 @@
 import MarathonUI.Core
 import MarathonUI.Feedback
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Effects
 
-// High-Performance PIN Entry Screen with Frosted Glass Effect
 Item {
-    // Small delay for visual feedback
-
     id: pinScreen
 
     property string pin: ""
     property string password: ""
     property string error: ""
     property real entryProgress: 0
-    property bool passwordMode: false // true = password input, false = PIN pad
+    property bool passwordMode: false
     property bool biometricInProgress: false
-    property bool authenticating: false // Show spinner when validating
+    property bool authenticating: false
 
     signal pinCorrect
     signal cancelled
@@ -31,22 +29,17 @@ Item {
     }
 
     function verifyPin() {
-        // Check if locked out
         if (SecurityManagerCpp.isLockedOut) {
             var secs = SecurityManagerCpp.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
-            HapticService.heavy();
+            HapticManager.heavy();
             return;
         }
-        // Show spinner
         Logger.info("PinScreen", "🔄 Starting authentication, showing spinner");
         authenticating = true;
-        // Authenticate based on current mode
         if (SecurityManagerCpp.hasQuickPIN && !passwordMode) {
-            // Quick PIN authentication
             SecurityManagerCpp.authenticateQuickPIN(pin);
         } else {
-            // System password authentication via PAM
             var inputPassword = passwordMode ? password : pin;
             SecurityManagerCpp.authenticatePassword(inputPassword);
         }
@@ -56,15 +49,14 @@ Item {
         if (SecurityManagerCpp.isLockedOut) {
             var secs = SecurityManagerCpp.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
-            HapticService.heavy();
+            HapticManager.heavy();
             return;
         }
         if (password.trim().length === 0) {
             error = "Password cannot be empty";
-            HapticService.light();
+            HapticManager.light();
             return;
         }
-        // Show spinner
         Logger.info("PinScreen", "🔄 Starting password authentication, showing spinner");
         authenticating = true;
         SecurityManagerCpp.authenticatePassword(password);
@@ -74,27 +66,26 @@ Item {
         if (SecurityManagerCpp.isLockedOut) {
             var secs = SecurityManagerCpp.lockoutSecondsRemaining;
             error = "Locked for " + secs + "s";
-            HapticService.heavy();
+            HapticManager.heavy();
             return;
         }
         if (!SecurityManagerCpp.fingerprintAvailable) {
             error = "Fingerprint not enrolled";
-            HapticService.light();
+            HapticManager.light();
             return;
         }
         biometricInProgress = true;
         error = "Place your finger...";
-        SecurityManagerCpp.authenticateBiometric(0); // 0 = Fingerprint
+        SecurityManagerCpp.authenticateBiometric(0);
     }
 
     function switchToPasswordMode() {
         passwordMode = true;
         pin = "";
         password = "";
-        passwordTextInput.text = ""; // Explicitly clear TextInput
+        passwordTextInput.text = "";
         error = "";
         Logger.info("PinScreen", "Switched to password mode");
-        // Focus the password field
         Qt.callLater(function () {
             passwordTextInput.forceActiveFocus();
         });
@@ -104,7 +95,7 @@ Item {
         passwordMode = false;
         pin = "";
         password = "";
-        passwordTextInput.text = ""; // Explicitly clear TextInput
+        passwordTextInput.text = "";
         error = "";
         Logger.info("PinScreen", "Switched to PIN mode");
     }
@@ -112,7 +103,7 @@ Item {
     function reset() {
         pin = "";
         password = "";
-        passwordTextInput.text = ""; // Explicitly clear TextInput for security
+        passwordTextInput.text = "";
         error = "";
         entryProgress = 0;
     }
@@ -120,20 +111,17 @@ Item {
     function show() {
         pin = "";
         password = "";
-        passwordTextInput.text = ""; // Explicitly clear TextInput for security
+        passwordTextInput.text = "";
         error = "";
         entryProgress = 1;
-        passwordMode = false; // Reset to PIN mode
+        passwordMode = false;
         forceActiveFocus();
         Logger.info("PinScreen", "📱 PIN screen shown");
     }
 
     anchors.fill: parent
-    // NO fade animation - opacity controlled by parent state for instant security
-    // Pre-render for zero-latency display
     layer.enabled: true
     layer.smooth: true
-    // Update SessionStore to show lock icon in status bar when PIN screen visible
     onVisibleChanged: {
         if (visible) {
             SessionStore.isOnLockScreen = true;
@@ -156,30 +144,25 @@ Item {
     }
     focus: visible && entryProgress >= 1
 
-    // Security Manager connections
     Connections {
         function onAuthenticationSuccess() {
             Logger.info("PinScreen", " Authentication successful, hiding spinner");
             authenticating = false;
-            HapticService.medium();
-            // Clear password field for security
+            HapticManager.medium();
             pin = "";
             password = "";
             passwordTextInput.text = "";
-            // Trigger unlock animation in status bar
             SessionStore.triggerUnlockAnimation();
-            // Delay unlock to allow animation to play (350ms for smooth unlock visual)
             unlockDelayTimer.start();
         }
 
         function onAuthenticationFailed(reason) {
             Logger.warn("PinScreen", " Authentication failed, hiding spinner:", reason);
             authenticating = false;
-            HapticService.heavy();
+            HapticManager.heavy();
             error = reason;
             errorTimer.start();
             biometricInProgress = false;
-            // Trigger shake animation in status bar
             SessionStore.triggerShakeAnimation();
         }
 
@@ -199,7 +182,6 @@ Item {
         target: SecurityManagerCpp
     }
 
-    // Wallpaper background (source for blur)
     Image {
         id: wallpaperSource
 
@@ -211,7 +193,6 @@ Item {
         z: 0
     }
 
-    // Frosted glass overlay covering entire screen
     Rectangle {
         id: glassRect
 
@@ -220,7 +201,6 @@ Item {
         opacity: 0.95
         z: 1
 
-        // Capture wallpaper for blurring
         ShaderEffectSource {
             id: wallpaperCapture
 
@@ -230,7 +210,6 @@ Item {
             visible: false
         }
 
-        // Apply blur effect (Qt6 MultiEffect)
         MultiEffect {
             anchors.fill: parent
             source: wallpaperCapture
@@ -243,7 +222,6 @@ Item {
         }
     }
 
-    // Solid background overlay for better contrast
     Rectangle {
         anchors.fill: parent
         color: MColors.overlay
@@ -253,24 +231,20 @@ Item {
     Column {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: Math.round(-20 * Constants.scaleFactor)
-        spacing: Math.round(24 * Constants.scaleFactor) // Reduced from 40
-        z: 100 // PIN UI on top of blur
-        // GPU layer for column content
+        spacing: Math.round(24 * Constants.scaleFactor)
+        z: 100
         layer.enabled: true
         layer.smooth: true
 
-        // Header
         Column {
-            // Lock icon removed - now shown in status bar for consistency
-
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(16 * Constants.scaleFactor) // Reduced from 24
+            spacing: Math.round(16 * Constants.scaleFactor)
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: passwordMode ? "Enter Password" : "Enter PIN"
                 color: MColors.text
-                font.pixelSize: Math.round(24 * Constants.scaleFactor) // Reduced from 28
+                font.pixelSize: Math.round(24 * Constants.scaleFactor)
                 font.weight: Font.Medium
                 renderType: Text.NativeRendering
 
@@ -299,12 +273,10 @@ Item {
             }
         }
 
-        // PIN dots with loading spinner
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(16 * Constants.scaleFactor)
 
-            // PIN dots
             Row {
                 id: pinCircles
 
@@ -321,10 +293,8 @@ Item {
                         border.width: 2
                         border.color: index < pin.length ? MColors.accentBright : MColors.borderSubtle
                         antialiasing: true
-                        // Quick scale pulse
                         scale: (index === pin.length - 1 && pin.length > 0) ? 1.3 : 1
 
-                        // Simple, fast animations
                         Behavior on color {
                             ColorAnimation {
                                 duration: 100
@@ -347,7 +317,6 @@ Item {
                 }
             }
 
-            // Authentication spinner - aligned with PIN circles center
             MActivityIndicator {
                 anchors.verticalCenter: pinCircles.verticalCenter
                 size: Math.round(32 * Constants.scaleFactor)
@@ -364,7 +333,6 @@ Item {
             }
         }
 
-        // Error message
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width: Math.round(300 * Constants.scaleFactor)
@@ -389,7 +357,6 @@ Item {
                 }
             }
 
-            // Simple shake
             SequentialAnimation on x {
                 running: error !== ""
 
@@ -420,18 +387,16 @@ Item {
             }
         }
 
-        // Number pad - larger, cleaner, faster (only visible in PIN mode)
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(12 * Constants.scaleFactor) // Reduced from 16
+            spacing: Math.round(12 * Constants.scaleFactor)
             visible: !passwordMode
 
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
                 columnSpacing: Math.round(16 * Constants.scaleFactor)
-                rowSpacing: Math.round(12 * Constants.scaleFactor) // Reduced from 16
-                // GPU layer for grid
+                rowSpacing: Math.round(12 * Constants.scaleFactor)
                 layer.enabled: true
                 layer.smooth: true
 
@@ -441,18 +406,18 @@ Item {
                     delegate: Item {
                         property string digit: modelData
 
-                        width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor) // Reduced from 80
-                        height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor) // Reduced from 80
+                        width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                        height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
 
                         MCircularIconButton {
                             anchors.centerIn: parent
                             text: digit
-                            iconSize: Math.round(28 * Constants.scaleFactor) // Reduced from 32
-                            buttonSize: Math.round(70 * Constants.scaleFactor) // Reduced from 80
+                            iconSize: Math.round(28 * Constants.scaleFactor)
+                            buttonSize: Math.round(70 * Constants.scaleFactor)
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: {
-                                HapticService.light();
+                                HapticManager.light();
                                 handleInput(parent.digit);
                             }
                         }
@@ -460,12 +425,10 @@ Item {
                 }
             }
 
-            // Bottom row: keyboard button, 0, and backspace
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Math.round(16 * Constants.scaleFactor)
 
-                // Keyboard button (switch to password mode)
                 Item {
                     width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
@@ -478,13 +441,12 @@ Item {
                         variant: "secondary"
                         visible: !passwordMode
                         onClicked: {
-                            HapticService.light();
+                            HapticManager.light();
                             switchToPasswordMode();
                         }
                     }
                 }
 
-                // Zero button
                 Item {
                     width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
@@ -497,13 +459,12 @@ Item {
                         variant: "secondary"
                         textColor: MColors.textPrimary
                         onClicked: {
-                            HapticService.light();
+                            HapticManager.light();
                             handleInput("0");
                         }
                     }
                 }
 
-                // Backspace button
                 Item {
                     width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
                     height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
@@ -516,7 +477,7 @@ Item {
                         variant: "secondary"
                         iconColor: MColors.textSecondary
                         onClicked: {
-                            HapticService.light();
+                            HapticManager.light();
                             pin = "";
                             error = "";
                         }
@@ -525,14 +486,12 @@ Item {
             }
         }
 
-        // Password input mode (alternative to PIN pad)
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Math.round(24 * Constants.scaleFactor)
             visible: passwordMode
             width: Math.round(320 * Constants.scaleFactor)
 
-            // Password field with spinner overlay (no layout shift)
             Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: Math.round(280 * Constants.scaleFactor)
@@ -569,7 +528,7 @@ Item {
 
                         anchors.fill: parent
                         anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-                        anchors.rightMargin: Math.round(48 * Constants.scaleFactor) // Extra space for spinner
+                        anchors.rightMargin: Math.round(48 * Constants.scaleFactor)
                         verticalAlignment: TextInput.AlignVCenter
                         color: MColors.textPrimary
                         selectedTextColor: MColors.textOnAccent
@@ -592,7 +551,6 @@ Item {
                     }
                 }
 
-                // Authentication spinner - overlays on right side of password field
                 MActivityIndicator {
                     anchors.right: parent.right
                     anchors.rightMargin: Math.round(12 * Constants.scaleFactor)
@@ -611,13 +569,11 @@ Item {
                 }
             }
 
-            // Action buttons - horizontal layout
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width
                 spacing: Math.round(12 * Constants.scaleFactor)
 
-                // Secondary button - Use PIN (left)
                 MButton {
                     width: (parent.width - parent.spacing) / 2
                     text: "Use PIN"
@@ -625,7 +581,6 @@ Item {
                     onClicked: switchToPINMode()
                 }
 
-                // Primary button - Unlock (right)
                 MButton {
                     width: (parent.width - parent.spacing) / 2
                     text: "Unlock"
@@ -636,7 +591,6 @@ Item {
             }
         }
 
-        // Fingerprint button (centered, below PIN pad)
         MCircularIconButton {
             anchors.horizontalCenter: parent.horizontalCenter
             iconName: "fingerprint"
@@ -646,12 +600,11 @@ Item {
             visible: SecurityManagerCpp.fingerprintAvailable && !biometricInProgress && !passwordMode
             enabled: !SecurityManagerCpp.isLockedOut
             onClicked: {
-                HapticService.light();
+                HapticManager.light();
                 startBiometric();
             }
         }
 
-        // Cancel button
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Cancel"
@@ -667,7 +620,7 @@ Item {
                 anchors.fill: parent
                 anchors.margins: Math.round(-16 * Constants.scaleFactor)
                 onClicked: {
-                    HapticService.light();
+                    HapticManager.light();
                     cancelled();
                 }
             }
@@ -700,9 +653,9 @@ Item {
     Timer {
         id: unlockDelayTimer
 
-        interval: 350 // Match unlock animation duration
+        interval: 350
         onTriggered: {
-            pinCorrect(); // Now emit the unlock signal
+            pinCorrect();
         }
     }
 }

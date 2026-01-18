@@ -1,9 +1,9 @@
-import QtQuick
 import MarathonApp.Test
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonUI.Containers
+import QtQuick
 
 Item {
     Flickable {
@@ -13,18 +13,21 @@ Item {
 
         Column {
             id: notifColumn
+
             width: parent.width
             spacing: MSpacing.md
             padding: MSpacing.lg
 
             Row {
                 spacing: MSpacing.sm
+
                 Icon {
                     name: "bell"
                     size: 24
                     color: MColors.accent
                     anchors.verticalCenter: parent.verticalCenter
                 }
+
                 MLabel {
                     text: "Notifications"
                     variant: "headline"
@@ -69,8 +72,8 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("test", "Marathon Test", "Notification with custom icon", {
-                                    icon: "bell",
-                                    category: "test"
+                                    "icon": "bell",
+                                    "category": "test"
                                 });
                                 Logger.info("TestApp", "Sent notification with icon");
                                 if (testApp) {
@@ -86,9 +89,9 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("test", "Important", "This is a high priority notification", {
-                                    priority: "high",
-                                    persistent: true,
-                                    icon: "alert-triangle"
+                                    "priority": "high",
+                                    "persistent": true,
+                                    "icon": "alert-triangle"
                                 });
                                 Logger.info("TestApp", "Sent high priority notification");
                                 if (testApp) {
@@ -104,9 +107,9 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("test", "Interactive", "Tap an action below", {
-                                    actions: ["reply", "dismiss", "snooze"],
-                                    category: "message",
-                                    icon: "message-circle"
+                                    "actions": ["reply", "dismiss", "snooze"],
+                                    "category": "message",
+                                    "icon": "message-circle"
                                 });
                                 Logger.info("TestApp", "Sent notification with actions");
                                 if (testApp) {
@@ -142,8 +145,8 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("messages", "John Doe", "Hey, how are you doing?", {
-                                    category: "message",
-                                    icon: "message-circle"
+                                    "category": "message",
+                                    "icon": "message-circle"
                                 });
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -158,8 +161,8 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("mail", "New Email", "You have 3 new emails", {
-                                    category: "email",
-                                    icon: "mail"
+                                    "category": "email",
+                                    "icon": "mail"
                                 });
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -174,8 +177,8 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("social", "Friend Request", "Jane wants to connect with you", {
-                                    category: "social",
-                                    icon: "users"
+                                    "category": "social",
+                                    "icon": "users"
                                 });
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -190,8 +193,8 @@ Item {
                             onClicked: {
                                 HapticService.light();
                                 NotificationService.sendNotification("system", "System Update", "A new system update is available", {
-                                    category: "system",
-                                    icon: "download"
+                                    "category": "system",
+                                    "icon": "download"
                                 });
                                 if (testApp) {
                                     testApp.passedTests++;
@@ -226,7 +229,7 @@ Item {
                                 HapticService.medium();
                                 for (var i = 0; i < 10; i++) {
                                     NotificationService.sendNotification("test", "Burst Test " + (i + 1), "Testing notification system under load", {
-                                        icon: "zap"
+                                        "icon": "zap"
                                     });
                                 }
                                 Logger.info("TestApp", "Sent 10 burst notifications");

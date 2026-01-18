@@ -14,7 +14,7 @@ Modal {
 
     Column {
         width: parent.width
-        spacing: 0 // No spacing between list items
+        spacing: 0
 
         Repeater {
             model: options
@@ -25,7 +25,6 @@ Modal {
                 color: "transparent"
                 radius: Constants.borderRadiusSmall
 
-                // Glass morphism hover effect
                 Rectangle {
                     anchors.fill: parent
                     color: Qt.rgba(255, 255, 255, 0.02)
@@ -42,7 +41,6 @@ Modal {
                     }
                 }
 
-                // Press feedback
                 Rectangle {
                     anchors.fill: parent
                     color: MColors.marathonTeal

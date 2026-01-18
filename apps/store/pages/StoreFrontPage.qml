@@ -1,13 +1,14 @@
+import MarathonOS.Shell
+import MarathonUI.Containers
+import MarathonUI.Core
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import MarathonUI.Core
-import MarathonUI.Containers
-import MarathonUI.Theme
-import MarathonOS.Shell
 
 Rectangle {
     id: page
+
     anchors.fill: parent
     color: MColors.background
 
@@ -18,7 +19,6 @@ Rectangle {
             width: page.width
             spacing: 0
 
-            // Hero Section
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 280
@@ -58,7 +58,6 @@ Rectangle {
                 }
             }
 
-            // Features Grid
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.margins: MSpacing.xl
@@ -79,39 +78,40 @@ Rectangle {
                     Repeater {
                         model: [
                             {
-                                title: "Curated Catalog",
-                                desc: "Browse hand-picked Marathon apps",
-                                icon: "📱"
+                                "title": "Curated Catalog",
+                                "desc": "Browse hand-picked Marathon apps",
+                                "icon": "📱"
                             },
                             {
-                                title: "Secure Installation",
-                                desc: "GPG-verified packages with signature checking",
-                                icon: "🔒"
+                                "title": "Secure Installation",
+                                "desc": "GPG-verified packages with signature checking",
+                                "icon": "🔒"
                             },
                             {
-                                title: "Smart Permissions",
-                                desc: "Runtime permission prompts for user privacy",
-                                icon: "🛡"
+                                "title": "Smart Permissions",
+                                "desc": "Runtime permission prompts for user privacy",
+                                "icon": "🛡"
                             },
                             {
-                                title: "Automatic Updates",
-                                desc: "Keep your apps up-to-date automatically",
-                                icon: "🔄"
+                                "title": "Automatic Updates",
+                                "desc": "Keep your apps up-to-date automatically",
+                                "icon": "🔄"
                             },
                             {
-                                title: "Developer Tools",
-                                desc: "CLI tools for packaging and signing apps",
-                                icon: ""
+                                "title": "Developer Tools",
+                                "desc": "CLI tools for packaging and signing apps",
+                                "icon": ""
                             },
                             {
-                                title: "Fast & Native",
-                                desc: "QML apps optimized for ARM performance",
-                                icon: ""
+                                "title": "Fast & Native",
+                                "desc": "QML apps optimized for ARM performance",
+                                "icon": ""
                             }
                         ]
 
                         delegate: Rectangle {
                             required property var modelData
+
                             Layout.fillWidth: true
                             Layout.preferredHeight: 90
                             color: MColors.surface
@@ -152,7 +152,6 @@ Rectangle {
                     }
                 }
 
-                // Developer Info
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 120

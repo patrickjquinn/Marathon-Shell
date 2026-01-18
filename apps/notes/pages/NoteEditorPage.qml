@@ -1,10 +1,10 @@
-import QtQuick
 import MarathonApp.Notes
-import QtQuick.Controls
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Page {
     id: editorPage
@@ -17,16 +17,11 @@ Page {
     signal saveNote(string title, string content)
     signal deleteNote(int noteId)
 
-    background: Rectangle {
-        color: MColors.background
-    }
-
     Component.onCompleted: {
         titleInput.text = initialTitle;
         contentInput.text = initialContent;
-        if (isNewNote) {
+        if (isNewNote)
             titleInput.forceActiveFocus();
-        }
     }
 
     Column {
@@ -63,6 +58,7 @@ Page {
 
                 MButton {
                     id: deleteBtn
+
                     anchors.verticalCenter: parent.verticalCenter
                     text: !isNewNote ? "Delete" : ""
                     variant: "danger"
@@ -104,6 +100,7 @@ Page {
 
             Column {
                 id: editorContent
+
                 width: parent.width
                 padding: MSpacing.lg
                 spacing: MSpacing.md
@@ -119,6 +116,7 @@ Page {
 
                     TextInput {
                         id: titleInput
+
                         anchors.fill: parent
                         anchors.margins: MSpacing.md
                         color: MColors.text
@@ -140,6 +138,7 @@ Page {
 
                 MTextArea {
                     id: contentInput
+
                     width: parent.width - parent.padding * 2
                     height: Math.max(Constants.screenHeight * 0.4, 300)
                     placeholderText: "Start typing..."
@@ -151,10 +150,6 @@ Page {
 
     MConfirmDialog {
         id: deleteDialog
-        title: "Delete Note?"
-        message: "This note will be permanently deleted."
-        confirmText: "Delete"
-        cancelText: "Cancel"
 
         function open() {
             show();
@@ -164,8 +159,16 @@ Page {
             hide();
         }
 
+        title: "Delete Note?"
+        message: "This note will be permanently deleted."
+        confirmText: "Delete"
+        cancelText: "Cancel"
         onConfirmed: {
             editorPage.deleteNote(noteId);
         }
+    }
+
+    background: Rectangle {
+        color: MColors.background
     }
 }

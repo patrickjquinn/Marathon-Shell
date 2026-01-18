@@ -48,4 +48,4 @@ class NotificationDatabase : public QObject {
     NotificationRecord recordFromQuery(class QSqlQuery &query);
 };
 
-#endif // NOTIFICATIONDATABASE_H
+#endif

@@ -1,30 +1,17 @@
-import QtQuick
 import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: activeCallPage
-    color: MColors.background
-    visible: false
-    z: 1000
 
     property string callNumber: ""
     property string callName: "Unknown"
     property int callDuration: 0
     property bool isMuted: false
     property bool isSpeakerOn: false
-
-    Timer {
-        id: durationTimer
-        interval: 1000
-        running: activeCallPage.visible
-        repeat: true
-        onTriggered: {
-            callDuration++;
-        }
-    }
 
     function show(number, name) {
         callNumber = number;
@@ -44,11 +31,25 @@ Rectangle {
         var hours = Math.floor(seconds / 3600);
         var minutes = Math.floor((seconds % 3600) / 60);
         var secs = seconds % 60;
-
-        if (hours > 0) {
+        if (hours > 0)
             return hours + ":" + (minutes < 10 ? "0" : "") + minutes + ":" + (secs < 10 ? "0" : "") + secs;
-        }
+
         return minutes + ":" + (secs < 10 ? "0" : "") + secs;
+    }
+
+    color: MColors.background
+    visible: false
+    z: 1000
+
+    Timer {
+        id: durationTimer
+
+        interval: 1000
+        running: activeCallPage.visible
+        repeat: true
+        onTriggered: {
+            callDuration++;
+        }
     }
 
     Column {
@@ -114,34 +115,34 @@ Rectangle {
             Repeater {
                 model: [
                     {
-                        icon: isMuted ? "volume-x" : "volume-2",
-                        label: "Mute",
-                        action: "mute"
+                        "icon": isMuted ? "volume-x" : "volume-2",
+                        "label": "Mute",
+                        "action": "mute"
                     },
                     {
-                        icon: "user-plus",
-                        label: "Add",
-                        action: "add"
+                        "icon": "user-plus",
+                        "label": "Add",
+                        "action": "add"
                     },
                     {
-                        icon: isSpeakerOn ? "volume-2" : "smartphone",
-                        label: "Speaker",
-                        action: "speaker"
+                        "icon": isSpeakerOn ? "volume-2" : "smartphone",
+                        "label": "Speaker",
+                        "action": "speaker"
                     },
                     {
-                        icon: "grid",
-                        label: "Keypad",
-                        action: "keypad"
+                        "icon": "grid",
+                        "label": "Keypad",
+                        "action": "keypad"
                     },
                     {
-                        icon: "pause",
-                        label: "Hold",
-                        action: "hold"
+                        "icon": "pause",
+                        "label": "Hold",
+                        "action": "hold"
                     },
                     {
-                        icon: "arrow-left",
-                        label: "Transfer",
-                        action: "transfer"
+                        "icon": "arrow-left",
+                        "label": "Transfer",
+                        "action": "transfer"
                     }
                 ]
 
@@ -172,23 +173,23 @@ Rectangle {
                                 HapticService.light();
                             }
                             onReleased: {
-                                parent.scale = 1.0;
+                                parent.scale = 1;
                             }
                             onCanceled: {
-                                parent.scale = 1.0;
+                                parent.scale = 1;
                             }
                             onClicked: {
                                 if (modelData.action === "mute") {
                                     isMuted = !isMuted;
-                                    if (typeof AudioRoutingManagerCpp !== 'undefined') {
+                                    if (typeof AudioRoutingManagerCpp !== 'undefined')
                                         AudioRoutingManagerCpp.setMuted(isMuted);
-                                    }
+
                                     Logger.info("Phone", "Mute toggled: " + isMuted);
                                 } else if (modelData.action === "speaker") {
                                     isSpeakerOn = !isSpeakerOn;
-                                    if (typeof AudioRoutingManagerCpp !== 'undefined') {
+                                    if (typeof AudioRoutingManagerCpp !== 'undefined')
                                         AudioRoutingManagerCpp.setSpeakerphone(isSpeakerOn);
-                                    }
+
                                     Logger.info("Phone", "Speaker toggled: " + isSpeakerOn);
                                 } else {
                                     Logger.info("Phone", "Action: " + modelData.action);
@@ -239,15 +240,15 @@ Rectangle {
                     HapticService.medium();
                 }
                 onReleased: {
-                    parent.scale = 1.0;
+                    parent.scale = 1;
                 }
                 onCanceled: {
-                    parent.scale = 1.0;
+                    parent.scale = 1;
                 }
                 onClicked: {
-                    if (typeof TelephonyService !== 'undefined') {
+                    if (typeof TelephonyService !== 'undefined')
                         TelephonyService.hangup();
-                    }
+
                     hide();
                 }
             }

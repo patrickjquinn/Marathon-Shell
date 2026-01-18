@@ -1,30 +1,31 @@
-import QtQuick
 import MarathonApp.Browser
 import MarathonOS.Shell
-import MarathonUI.Theme
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: historyPage
-    color: MColors.background
+
+    property var history: []
 
     signal historySelected(string url)
     signal clearHistory
-
-    property var history: []
 
     function getDateGroup(timestamp) {
         var now = Date.now();
         var diff = now - timestamp;
         var dayMs = 24 * 60 * 60 * 1000;
-
         if (diff < dayMs)
             return "Today";
+
         if (diff < dayMs * 2)
             return "Yesterday";
+
         if (diff < dayMs * 7)
             return "This Week";
+
         return "Older";
     }
 
@@ -35,47 +36,53 @@ Rectangle {
             "This Week": [],
             "Older": []
         };
-
         for (var i = 0; i < history.length; i++) {
             var item = history[i];
             var group = getDateGroup(item.timestamp);
             groups[group].push(item);
         }
-
         return groups;
     }
+
+    color: MColors.background
 
     Column {
         anchors.fill: parent
 
         ListView {
             id: historyList
+
             width: parent.width
             height: parent.height - clearButton.height
             clip: true
-
             model: {
                 var groups = historyPage.groupHistoryByDate();
                 var result = [];
-
                 var order = ["Today", "Yesterday", "This Week", "Older"];
                 for (var i = 0; i < order.length; i++) {
                     var groupName = order[i];
                     if (groups[groupName].length > 0) {
                         result.push({
-                            type: "header",
-                            title: groupName
+                            "type": "header",
+                            "title": groupName
                         });
                         for (var j = 0; j < groups[groupName].length; j++) {
                             result.push({
-                                type: "item",
-                                data: groups[groupName][j]
+                                "type": "item",
+                                "data": groups[groupName][j]
                             });
                         }
                     }
                 }
-
                 return result;
+            }
+
+            Text {
+                visible: historyPage.history.length === 0
+                anchors.centerIn: parent
+                text: "No history yet"
+                font.pixelSize: MTypography.sizeLarge
+                color: MColors.textTertiary
             }
 
             delegate: Item {
@@ -97,7 +104,6 @@ Rectangle {
                     iconName: "clock"
                     showChevron: true
                     value: modelData.data ? (modelData.data.visitCount > 1 ? modelData.data.visitCount + " visits" : "") : ""
-
                     onSettingClicked: {
                         if (modelData.data) {
                             Logger.info("HistoryPage", "History clicked: " + modelData.data.url);
@@ -106,18 +112,11 @@ Rectangle {
                     }
                 }
             }
-
-            Text {
-                visible: historyPage.history.length === 0
-                anchors.centerIn: parent
-                text: "No history yet"
-                font.pixelSize: MTypography.sizeLarge
-                color: MColors.textTertiary
-            }
         }
 
         Rectangle {
             id: clearButton
+
             width: parent.width
             height: Constants.touchTargetMedium + MSpacing.md * 2
             color: MColors.surface

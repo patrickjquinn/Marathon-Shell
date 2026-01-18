@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Window
+import MarathonOS.Shell 1.0
 
 QtObject {
     id: root

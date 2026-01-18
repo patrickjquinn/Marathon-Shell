@@ -2,6 +2,7 @@ import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -174,7 +175,7 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             Logger.info("ShareSheet", "Share to: " + modelData.name);
-                            HapticService.light();
+                            HapticManager.light();
                             UIStore.closeShareSheet();
                         }
                     }

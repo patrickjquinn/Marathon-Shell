@@ -23,7 +23,7 @@ CallHistoryManager::~CallHistoryManager() {
 
 void CallHistoryManager::setContactsManager(ContactsManager *contactsManager) {
     m_contactsManager = contactsManager;
-    // Reload history to resolve contact names
+
     loadHistory();
 }
 
@@ -62,7 +62,6 @@ void CallHistoryManager::addCall(const QString &number, const QString &type, qin
 
     saveCall(record);
 
-    // Reload to get the ID
     loadHistory();
 
     qDebug() << "[CallHistoryManager] Added call:" << type << number << duration << "seconds";
@@ -143,7 +142,6 @@ void CallHistoryManager::initDatabase() {
         return;
     }
 
-    // Create table if it doesn't exist
     QSqlQuery query(m_database);
     bool      success = query.exec("CREATE TABLE IF NOT EXISTS call_history ("
                                         "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -201,7 +199,6 @@ void CallHistoryManager::saveCall(const CallRecord &record) {
         qWarning() << "[CallHistoryManager] Failed to save call:" << query.lastError().text();
     }
 
-    // Clean up old records if exceeding limit
     QSqlQuery countQuery(m_database);
     if (countQuery.exec("SELECT COUNT(*) FROM call_history")) {
         if (countQuery.next() && countQuery.value(0).toInt() > MAX_HISTORY_SIZE) {
@@ -219,7 +216,6 @@ QString CallHistoryManager::resolveContactName(const QString &number) {
         return "Unknown";
     }
 
-    // Search contacts by phone number
     QVariantList results = m_contactsManager->searchContacts(number);
     if (!results.isEmpty()) {
         QVariantMap contact = results.first().toMap();

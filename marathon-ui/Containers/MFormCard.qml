@@ -23,7 +23,6 @@ Rectangle {
     Accessible.name: title
     Accessible.description: description
 
-    // Performant shadow
     Rectangle {
         anchors.fill: parent
         anchors.topMargin: 2

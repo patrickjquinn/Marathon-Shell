@@ -1,95 +1,143 @@
 set(SOURCES
     main.cpp
-    src/desktopfileparser.h
-    src/desktopfileparser.cpp
-    src/lunasvgimageprovider.h
-    src/lunasvgimageprovider.cpp
-    src/appmodel.h
-    src/appmodel.cpp
-    src/applaunchservice.h
-    src/applaunchservice.cpp
-    src/applifecyclemanager.h
-    src/applifecyclemanager.cpp
+    src/components/desktopfileparser.h
+    src/components/desktopfileparser.cpp
+    src/components/lunasvgimageprovider.h
+    src/components/lunasvgimageprovider.cpp
+    src/models/appmodel.h
+    src/models/appmodel.cpp
+    src/services/applaunchservice.h
+    src/services/applaunchservice.cpp
+    src/services/applifecyclemanager.h
+    src/services/applifecyclemanager.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
     src/ipc/shellservices.h
     src/ipc/shellservices.cpp
-    src/taskmodel.h
-    src/taskmodel.cpp
-    src/notificationmodel.h
-    src/notificationmodel.cpp
-    src/crashhandler.h
-    src/crashhandler.cpp
+    src/models/taskmodel.h
+    src/models/taskmodel.cpp
+    src/services/statemanagercpp.h
+    src/services/statemanagercpp.cpp
+    src/services/unifiedsearchservicecpp.h
+    src/services/unifiedsearchservicecpp.cpp
+    src/models/notificationmodel.h
+    src/models/notificationmodel.cpp
+    src/services/notificationhandlercpp.h
+    src/services/notificationhandlercpp.cpp
+    src/services/notificationservicecpp.h
+    src/services/notificationservicecpp.cpp
+    src/services/telephonyintegrationcpp.h
+    src/services/telephonyintegrationcpp.cpp
+    src/components/crashhandler.h
+    src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
     qml/keyboard/Data/WordEngine.cpp
     qml/keyboard/Data/WordTrie.h
     qml/keyboard/Data/WordTrie.cpp
-    src/networkmanagercpp.h
-    src/networkmanagercpp.cpp
-    src/powermanagercpp.h
-    src/powermanagercpp.cpp
-    src/powerpolicycontroller.h
-    src/powerpolicycontroller.cpp
-    src/displaypolicycontroller.h
-    src/displaypolicycontroller.cpp
-    src/displaymanagercpp.h
-    src/displaymanagercpp.cpp
-    src/audiomanagercpp.h
-    src/audiomanagercpp.cpp
-    src/modemmanagercpp.h
-    src/modemmanagercpp.cpp
-    src/sensormanagercpp.h
-    src/sensormanagercpp.cpp
-    src/settingsmanager.h
-    src/settingsmanager.cpp
-    src/platformcpp.h
-    src/bluetoothmanager.h
-    src/bluetoothmanager.cpp
-    src/bluetoothagent.h
-    src/bluetoothagent.cpp
-    src/marathoninputmethodengine.h
-    src/marathoninputmethodengine.cpp
-    src/marathoninputmethodengine.h
-    src/marathoninputmethodengine.cpp
-    src/rtscheduler.h
-    src/rtscheduler.cpp
+    src/managers/networkmanagercpp.h
+    src/managers/networkmanagercpp.cpp
+    src/managers/powermanagercpp.h
+    src/managers/powermanagercpp.cpp
+    src/controllers/powerpolicycontroller.h
+    src/controllers/powerpolicycontroller.cpp
+    src/services/powerbatteryhandlercpp.h
+    src/services/powerbatteryhandlercpp.cpp
+    src/controllers/displaypolicycontroller.h
+    src/controllers/displaypolicycontroller.cpp
+    src/managers/displaymanagercpp.h
+    src/managers/displaymanagercpp.cpp
+    src/services/screenshotservicecpp.h
+    src/services/screenshotservicecpp.cpp
+    src/managers/audiomanagercpp.h
+    src/managers/audiomanagercpp.cpp
+    src/managers/modemmanagercpp.h
+    src/managers/modemmanagercpp.cpp
+    src/managers/sensormanagercpp.h
+    src/managers/sensormanagercpp.cpp
+    src/managers/settingsmanager.h
+    src/managers/settingsmanager.cpp
+    src/managers/platformcpp.h
+    src/services/navigationroutercpp.h
+    src/services/navigationroutercpp.cpp
+    src/managers/bluetoothmanager.h
+    src/managers/bluetoothmanager.cpp
+    src/components/bluetoothagent.h
+    src/components/bluetoothagent.cpp
+    src/managers/marathoninputmethodengine.h
+    src/managers/marathoninputmethodengine.cpp
+    src/managers/rtscheduler.h
+    src/managers/rtscheduler.cpp
     src/dbus/freedesktopnotifications.h
     src/dbus/freedesktopnotifications.cpp
     src/dbus/notificationdatabase.h
     src/dbus/notificationdatabase.cpp
     src/marathonpermissionmanager.h
     src/marathonpermissionmanager.cpp
-    src/portalmanager.h
-    src/portalmanager.cpp
-    src/marathonappstoreservice.h
-    src/marathonappstoreservice.cpp
+    src/components/portalmanager.h
+    src/components/portalmanager.cpp
+    src/services/marathonappstoreservice.h
+    src/services/marathonappstoreservice.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
-    src/mpris2controller.h
-    src/mpris2controller.cpp
-    src/rotationmanager.h
-    src/rotationmanager.cpp
-    src/locationmanager.h
-    src/locationmanager.cpp
-    src/hapticmanager.h
-    src/hapticmanager.cpp
-    src/flashlightmanagercpp.h
-    src/flashlightmanagercpp.cpp
-    src/audioroutingmanager.h
-    src/audioroutingmanager.cpp
-    src/audiopolicycontroller.h
-    src/audiopolicycontroller.cpp
-    src/securitymanager.h
-    src/securitymanager.cpp
-    src/screenmetrics.h
-    src/screenmetrics.cpp
+    src/managers/mpris2controller.h
+    src/managers/mpris2controller.cpp
+    src/managers/rotationmanager.h
+    src/managers/rotationmanager.cpp
+    src/managers/locationmanager.h
+    src/managers/locationmanager.cpp
+    src/managers/clipboardmanagercpp.h
+    src/managers/clipboardmanagercpp.cpp
+    src/managers/hapticmanager.h
+    src/managers/hapticmanager.cpp
+    src/managers/alarmmanagercpp.h
+    src/managers/alarmmanagercpp.cpp
+    src/services/statusbariconservicecpp.h
+    src/services/statusbariconservicecpp.cpp
+    src/services/systemstatusstore.h
+    src/services/systemstatusstore.cpp
+    src/services/systemcontrolstore.h
+    src/services/systemcontrolstore.cpp
+    src/services/uistore.h
+    src/services/uistore.cpp
+    src/services/appstore.h
+    src/services/appstore.cpp
+    src/services/wallpaperstore.h
+    src/services/wallpaperstore.cpp
+    src/services/router.h
+    src/services/router.cpp
+    src/services/surfaceregistry.h
+    src/services/surfaceregistry.cpp
+    src/services/domainsuggestions.h
+    src/services/domainsuggestions.cpp
+    src/services/emojipredictor.h
+    src/services/emojipredictor.cpp
+    src/services/phrasepredictor.h
+    src/services/phrasepredictor.cpp
+    src/services/languagemanager.h
+    src/services/languagemanager.cpp
+    src/services/dictionary.h
+    src/services/dictionary.cpp
+    src/services/autocorrect.h
+    src/services/autocorrect.cpp
+    src/services/inputcontext.h
+    src/services/inputcontext.cpp
+    src/managers/flashlightmanagercpp.h
+    src/managers/flashlightmanagercpp.cpp
+    src/controllers/audioroutingmanager.h
+    src/controllers/audioroutingmanager.cpp
+    src/controllers/audiopolicycontroller.h
+    src/controllers/audiopolicycontroller.cpp
+    src/managers/securitymanager.h
+    src/managers/securitymanager.cpp
+    src/managers/screenmetrics.h
+    src/managers/screenmetrics.cpp
 )
 
 list(APPEND SOURCES
     src/wayland/waylandcompositormanager.h
     src/wayland/waylandcompositormanager.cpp
-    src/cursormanager.h
-    src/cursormanager.cpp
+    src/managers/cursormanager.h
+    src/managers/cursormanager.cpp
 )
 
 if(TARGET Qt6::WaylandCompositor)
@@ -171,8 +219,6 @@ set(QML_FILES
     qml/components/VirtualKeyboard.qml
     qml/components/PermissionDialog.qml
     qml/keyboard/Core/MarathonKeyboard.qml
-    qml/keyboard/Core/KeyboardPerformance.qml
-    qml/keyboard/Core/LanguageManager.qml
     qml/keyboard/UI/Key.qml
     qml/keyboard/UI/PredictionBar.qml
     qml/keyboard/UI/LongPressPopup.qml
@@ -186,45 +232,14 @@ set(QML_FILES
     qml/keyboard/Layouts/NumberLayout.qml
     qml/keyboard/Layouts/PhoneLayout.qml
     qml/keyboard/Layouts/TerminalLayout.qml
-    qml/keyboard/Input/InputContext.qml
-    qml/keyboard/Data/Dictionary.qml
-    qml/keyboard/Data/AutoCorrect.qml
-    qml/keyboard/Data/DomainSuggestions.qml
     qml/components/PowerMenu.qml
     qml/components/QuickSettingsTile.qml
     qml/components/MediaPlaybackManager.qml
     qml/apps/template/TemplateApp.qml
     qml/apps/native/NativeAppWindow.qml
-    qml/stores/AppStore.qml
-    qml/stores/WallpaperStore.qml
-    qml/stores/SystemStatusStore.qml
-    qml/stores/SystemControlStore.qml
-    qml/stores/SessionStore.qml
-    qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
-    qml/core/SurfaceRegistry.qml
-    qml/core/Router.qml
     qml/models/FilteredAppModel.qml
-    qml/services/Platform.qml
-    qml/services/AudioManager.qml
-    qml/services/NotificationService.qml
-    qml/services/LocationService.qml
-    qml/services/StatusBarIconService.qml
-    qml/services/ScreenshotService.qml
-    qml/services/HapticService.qml
-    qml/services/ClipboardService.qml
-    qml/services/NavigationRouter.qml
-    qml/services/UnifiedSearchService.qml
-    qml/services/NotificationHandler.qml
-    qml/services/TelephonyIntegration.qml
-    qml/services/PowerBatteryHandler.qml
-    qml/services/AlarmManager.qml
-    qml/services/CalendarManager.qml
-    qml/services/CalendarWorker.js
-    qml/services/AmbientLightSensor.qml
-    qml/services/ProximitySensor.qml
-    qml/services/StateManager.qml
 )
 
 set(JSON_FILES
@@ -251,36 +266,8 @@ qt6_add_executable(marathon-shell ${SOURCES})
 
 # Mark singleton files BEFORE adding QML module
 set(SINGLETON_FILES
-    qml/stores/AppStore.qml
-    qml/stores/WallpaperStore.qml
-    qml/stores/SystemStatusStore.qml
-    qml/stores/SystemControlStore.qml
-    qml/stores/SessionStore.qml
-    qml/stores/UIStore.qml
     qml/core/Constants.qml
     qml/core/Logger.qml
-    qml/core/SurfaceRegistry.qml
-    qml/core/Router.qml
-    qml/services/Platform.qml
-    qml/services/AudioManager.qml
-    qml/services/NotificationService.qml
-    qml/services/LocationService.qml
-    qml/services/StatusBarIconService.qml
-    qml/services/ScreenshotService.qml
-    qml/services/HapticService.qml
-    qml/services/ClipboardService.qml
-    qml/services/NavigationRouter.qml
-    qml/services/UnifiedSearchService.qml
-    qml/services/NotificationHandler.qml
-    qml/services/TelephonyIntegration.qml
-    qml/services/PowerBatteryHandler.qml
-    qml/services/AlarmManager.qml
-    qml/services/CalendarManager.qml
-    qml/services/AmbientLightSensor.qml
-    qml/services/ProximitySensor.qml
-    qml/keyboard/Core/LanguageManager.qml
-    qml/keyboard/Data/Dictionary.qml
-    qml/keyboard/Data/AutoCorrect.qml
 )
 
 foreach(singleton_file ${SINGLETON_FILES})
@@ -288,10 +275,6 @@ foreach(singleton_file ${SINGLETON_FILES})
         QT_QML_SINGLETON_TYPE TRUE
     )
 endforeach()
-
-set_source_files_properties(qml/services/CalendarWorker.js PROPERTIES
-    QT_QML_SKIP_QMLDIR_ENTRY TRUE
-)
 
 if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
@@ -317,8 +300,47 @@ qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
     QML_FILES ${QML_FILES}
+    SOURCES
+        src/services/sessionstore.cpp
+        src/services/sessionstore.h
+        src/services/systemstatusstore.cpp
+        src/services/systemstatusstore.h
+        src/services/systemcontrolstore.cpp
+        src/services/systemcontrolstore.h
+        src/services/uistore.cpp
+        src/services/uistore.h
+        src/services/appstore.cpp
+        src/services/appstore.h
+        src/services/wallpaperstore.cpp
+        src/services/wallpaperstore.h
+        src/services/router.cpp
+        src/services/router.h
+        src/services/surfaceregistry.cpp
+        src/services/surfaceregistry.h
+        src/services/domainsuggestions.cpp
+        src/services/domainsuggestions.h
+        src/services/emojipredictor.cpp
+        src/services/emojipredictor.h
+        src/services/phrasepredictor.cpp
+        src/services/phrasepredictor.h
+        src/services/languagemanager.cpp
+        src/services/languagemanager.h
+        src/services/dictionary.cpp
+        src/services/dictionary.h
+        src/services/autocorrect.cpp
+        src/services/autocorrect.h
+        src/services/inputcontext.cpp
+        src/services/inputcontext.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
+)
+
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/qmllint")
+
+set_property(TARGET marathon-shell PROPERTY QT_QML_IMPORT_PATH
+    "${CMAKE_BINARY_DIR}/qmllint"
+    "${CMAKE_BINARY_DIR}"
+    "${CMAKE_BINARY_DIR}/shell/qml"
 )
 
 # Link the big resources to the target
@@ -334,6 +356,12 @@ pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
 target_include_directories(marathon-shell PRIVATE
     ${PULSEAUDIO_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/components
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/services
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/managers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/models
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/controllers
 )
 
 find_package(Qt6 REQUIRED COMPONENTS Gui)

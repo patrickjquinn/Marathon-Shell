@@ -102,7 +102,6 @@ Item {
         onLoaded: {
             if (item) {
                 console.log("SafeAppLoader: Successfully loaded app", root.appId);
-                // Connect to app's registration signals
                 if (item.requestRegister)
                     item.requestRegister.connect(function (appId, appInstance) {
                         console.log("SafeAppLoader: App requested registration:", appId);
