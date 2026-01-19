@@ -3,6 +3,7 @@
 #include "applaunchservice.h"
 #include "marathonpermissionmanager.h"
 #include "settingsmanager.h"
+#include "securitymanager.h"
 #include "bluetoothmanager.h"
 #include "displaymanagercpp.h"
 #include "networkmanagercpp.h"
@@ -168,6 +169,10 @@ SettingsObject::SettingsObject(SettingsManager *settings, MarathonPermissionMana
                      [this, emitProp]() {
                          emitProp("showNotificationBadges", m_settings->showNotificationBadges());
                      });
+    QObject::connect(m_settings, &SettingsManager::appNotificationSettingsChanged, this,
+                     [this, emitProp]() {
+                         emitProp("appNotificationSettings", m_settings->appNotificationSettings());
+                     });
     QObject::connect(
         m_settings, &SettingsManager::showFrequentAppsChanged, this,
         [this, emitProp]() { emitProp("showFrequentApps", m_settings->showFrequentApps()); });
@@ -266,6 +271,7 @@ QVariantMap SettingsObject::GetState() {
         {"appGridColumns", m_settings->appGridColumns()},
         {"searchNativeApps", m_settings->searchNativeApps()},
         {"showNotificationBadges", m_settings->showNotificationBadges()},
+        {"appNotificationSettings", m_settings->appNotificationSettings()},
         {"showFrequentApps", m_settings->showFrequentApps()},
         {"defaultApps", m_settings->defaultApps()},
         {"firstRunComplete", m_settings->firstRunComplete()},
@@ -342,6 +348,8 @@ void SettingsObject::SetProperty(const QString &name, const QDBusVariant &value)
         m_settings->setSearchNativeApps(v.toBool());
     else if (name == "showNotificationBadges")
         m_settings->setShowNotificationBadges(v.toBool());
+    else if (name == "appNotificationSettings")
+        m_settings->setAppNotificationSettings(v.toMap());
     else if (name == "showFrequentApps")
         m_settings->setShowFrequentApps(v.toBool());
     else if (name == "defaultApps")
@@ -439,6 +447,132 @@ void SettingsObject::Sync() {
             return;
     }
     m_settings->sync();
+}
+
+SecurityObject::SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,
+                               AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_security(security)
+    , m_permissions(permissions)
+    , m_launchService(launchService) {
+    Q_ASSERT(m_security);
+    Q_ASSERT(m_permissions);
+    Q_ASSERT(m_launchService);
+
+    QObject::connect(m_security, &SecurityManager::authModeChanged, this,
+                     [this]() { emit StateChanged(buildState()); });
+    QObject::connect(m_security, &SecurityManager::quickPINChanged, this, [this]() {
+        emit QuickPINChanged();
+        emit StateChanged(buildState());
+    });
+    QObject::connect(m_security, &SecurityManager::fingerprintAvailableChanged, this,
+                     [this]() { emit StateChanged(buildState()); });
+    QObject::connect(m_security, &SecurityManager::lockoutStateChanged, this,
+                     [this]() { emit StateChanged(buildState()); });
+    QObject::connect(m_security, &SecurityManager::failedAttemptsChanged, this,
+                     [this]() { emit StateChanged(buildState()); });
+    QObject::connect(m_security, &SecurityManager::authenticationFailed, this,
+                     [this](const QString &reason) {
+                         emit AuthenticationFailed(reason);
+                         emit StateChanged(buildState());
+                     });
+    QObject::connect(m_security, &SecurityManager::authenticationSuccess, this, [this]() {
+        emit AuthenticationSuccess();
+        emit StateChanged(buildState());
+    });
+}
+
+QString SecurityObject::callerAppIdOrEmpty() const {
+    return dbusCallerAppIdOrEmpty(*this, m_launchService);
+}
+
+bool SecurityObject::requireSystem() {
+    if (!checkRateLimit(*this, "Security")) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+        return false;
+    }
+    const QString caller = callerAppIdOrEmpty();
+    if (caller.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return false;
+    }
+    if (!hasAnyPermission(m_permissions, caller, {"system"})) {
+        SecurityLogger::logPermissionDenied(caller, "system");
+        sendErrorReply(QDBusError::AccessDenied, "Missing permission: system");
+        return false;
+    }
+    return true;
+}
+
+QVariantMap SecurityObject::buildState() const {
+    return {
+        {"authMode", static_cast<int>(m_security->authMode())},
+        {"hasQuickPIN", m_security->hasQuickPIN()},
+        {"fingerprintAvailable", m_security->fingerprintAvailable()},
+        {"isLockedOut", m_security->isLockedOut()},
+        {"lockoutSecondsRemaining", m_security->lockoutSecondsRemaining()},
+        {"failedAttempts", m_security->failedAttempts()},
+    };
+}
+
+QVariantMap SecurityObject::GetState() {
+    if (!requireSystem())
+        return {};
+    return buildState();
+}
+
+void SecurityObject::SetQuickPIN(const QString &pin, const QString &systemPassword) {
+    if (!requireSystem())
+        return;
+    m_security->setQuickPIN(pin, systemPassword);
+}
+
+void SecurityObject::RemoveQuickPIN(const QString &systemPassword) {
+    if (!requireSystem())
+        return;
+    m_security->removeQuickPIN(systemPassword);
+}
+
+void SecurityObject::AuthenticatePassword(const QString &password) {
+    if (!requireSystem())
+        return;
+    m_security->authenticatePassword(password);
+}
+
+void SecurityObject::AuthenticateQuickPIN(const QString &pin) {
+    if (!requireSystem())
+        return;
+    m_security->authenticateQuickPIN(pin);
+}
+
+void SecurityObject::AuthenticateBiometric(int type) {
+    if (!requireSystem())
+        return;
+    m_security->authenticateBiometric(static_cast<SecurityManager::BiometricType>(type));
+}
+
+void SecurityObject::CancelAuthentication() {
+    if (!requireSystem())
+        return;
+    m_security->cancelAuthentication();
+}
+
+void SecurityObject::ResetLockout() {
+    if (!requireSystem())
+        return;
+    m_security->resetLockout();
+}
+
+bool SecurityObject::IsBiometricEnrolled(int type) {
+    if (!requireSystem())
+        return false;
+    return m_security->isBiometricEnrolled(static_cast<SecurityManager::BiometricType>(type));
+}
+
+QString SecurityObject::CurrentUsername() {
+    if (!requireSystem())
+        return {};
+    return m_security->getCurrentUsername();
 }
 
 BluetoothObject::BluetoothObject(BluetoothManager *bt, MarathonPermissionManager *permissions,

@@ -62,8 +62,10 @@ int NotificationServiceCpp::sendNotification(const QString &appId, const QString
         return -1;
 
     const QString resolvedAppId = appId.isEmpty() ? QStringLiteral("system") : appId;
-    const QString icon          = options.value("icon").toString();
-    const int     id            = m_model->addNotification(resolvedAppId, title, body, icon);
+    if (m_settings && !m_settings->isNotificationsEnabledForApp(resolvedAppId))
+        return -1;
+    const QString icon = options.value("icon").toString();
+    const int     id   = m_model->addNotification(resolvedAppId, title, body, icon);
 
     QVariantMap   meta;
     meta.insert("icon", icon);

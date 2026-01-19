@@ -879,6 +879,8 @@ void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &
         emit searchNativeAppsChanged();
     else if (name == "showNotificationBadges")
         emit showNotificationBadgesChanged();
+    else if (name == "appNotificationSettings")
+        emit appNotificationSettingsChanged();
     else if (name == "showFrequentApps")
         emit showFrequentAppsChanged();
     else if (name == "defaultApps")
@@ -992,6 +994,9 @@ bool SettingsClient::searchNativeApps() const {
 }
 bool SettingsClient::showNotificationBadges() const {
     return prop("showNotificationBadges", true).toBool();
+}
+QVariantMap SettingsClient::appNotificationSettings() const {
+    return prop("appNotificationSettings", QVariantMap{}).toMap();
 }
 bool SettingsClient::showFrequentApps() const {
     return prop("showFrequentApps", false).toBool();
@@ -1118,6 +1123,9 @@ void SettingsClient::setSearchNativeApps(bool v) {
 void SettingsClient::setShowNotificationBadges(bool v) {
     setProp("showNotificationBadges", v);
 }
+void SettingsClient::setAppNotificationSettings(const QVariantMap &settings) {
+    setProp("appNotificationSettings", settings);
+}
 void SettingsClient::setShowFrequentApps(bool v) {
     setProp("showFrequentApps", v);
 }
@@ -1217,6 +1225,181 @@ void SettingsClient::sync() {
     auto r = m_iface.call("Sync");
     if (r.type() == QDBusMessage::ErrorMessage)
         qWarning() << "[SettingsClient] Sync failed:" << r.errorMessage();
+}
+
+SecurityClient::SecurityClient(const QString &appId, QObject *parent)
+    : QObject(parent)
+    , m_appId(appId)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Security",
+              "org.marathonos.Shell.Security1", QDBusConnection::sessionBus())
+    , m_permIface(makePermissionsIface(this)) {
+    if (!m_iface.isValid())
+        qWarning() << "[SecurityClient] DBus interface invalid:" << m_iface.lastError().message();
+
+    m_startTimer.start();
+
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Security",
+                                          "org.marathonos.Shell.Security1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Security",
+                                          "org.marathonos.Shell.Security1", "AuthenticationFailed",
+                                          this, SIGNAL(authenticationFailed(QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Security",
+                                          "org.marathonos.Shell.Security1", "AuthenticationSuccess",
+                                          this, SIGNAL(authenticationSuccess()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Security",
+                                          "org.marathonos.Shell.Security1", "QuickPINChanged", this,
+                                          SIGNAL(quickPINChanged()));
+
+    refresh();
+}
+
+bool SecurityClient::ensureSystemPermission() {
+    if (m_appId.isEmpty())
+        return false;
+    QDBusReply<bool> r = m_permIface.call("HasPermission", m_appId, "system");
+    if (!r.isValid())
+        return false;
+    if (r.value()) {
+        m_permissionRequested = false;
+        return true;
+    }
+    if (!m_permissionRequested) {
+        m_permissionRequested = true;
+        m_permIface.call("RequestPermission", m_appId, "system");
+    }
+    QTimer::singleShot(750, this, &SecurityClient::refresh);
+    return false;
+}
+
+void SecurityClient::refresh() {
+    if (m_refreshInFlight)
+        return;
+    m_refreshInFlight = true;
+    m_iface.setTimeout(2000);
+
+    if (!ensureSystemPermission()) {
+        m_refreshInFlight = false;
+        return;
+    }
+
+    auto  async = m_iface.asyncCall("GetState");
+    auto *w     = new QDBusPendingCallWatcher(async, this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this, w]() {
+        m_refreshInFlight                = false;
+        QDBusPendingReply<QVariantMap> r = *w;
+        w->deleteLater();
+        if (!r.isValid()) {
+            if (!m_loggedFirstFailure && debugEnabled()) {
+                m_loggedFirstFailure = true;
+                qWarning() << "[SecurityClient] Initial GetState failed:" << r.error().name()
+                           << r.error().message();
+            }
+            if (m_refreshRetryCount < 40) {
+                const int backoffMs = qMin(2000, 250 * (1 << qMin(m_refreshRetryCount / 8, 3)));
+                ++m_refreshRetryCount;
+                QTimer::singleShot(backoffMs, this, &SecurityClient::refresh);
+            } else if (!isAccessDenied(r.error())) {
+                qWarning() << "[SecurityClient] GetState failed:" << r.error().message();
+            }
+            return;
+        }
+        if (!m_loggedFirstSync) {
+            m_loggedFirstSync = true;
+            if (debugEnabled())
+                qWarning() << "[SecurityClient] First sync after" << m_startTimer.elapsed() << "ms";
+        }
+        m_refreshRetryCount = 0;
+        onStateChanged(normalizeMapDeep(r.value()));
+    });
+}
+
+QVariant SecurityClient::v(const QString &k, const QVariant &fallback) const {
+    return m_state.contains(k) ? m_state.value(k) : fallback;
+}
+
+void SecurityClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+int SecurityClient::authMode() const {
+    return v("authMode", 0).toInt();
+}
+bool SecurityClient::hasQuickPIN() const {
+    return v("hasQuickPIN", false).toBool();
+}
+bool SecurityClient::fingerprintAvailable() const {
+    return v("fingerprintAvailable", false).toBool();
+}
+bool SecurityClient::isLockedOut() const {
+    return v("isLockedOut", false).toBool();
+}
+int SecurityClient::lockoutSecondsRemaining() const {
+    return v("lockoutSecondsRemaining", 0).toInt();
+}
+int SecurityClient::failedAttempts() const {
+    return v("failedAttempts", 0).toInt();
+}
+
+void SecurityClient::setQuickPIN(const QString &pin, const QString &systemPassword) {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("SetQuickPIN", pin, systemPassword);
+}
+
+void SecurityClient::removeQuickPIN(const QString &systemPassword) {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("RemoveQuickPIN", systemPassword);
+}
+
+void SecurityClient::authenticatePassword(const QString &password) {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("AuthenticatePassword", password);
+}
+
+void SecurityClient::authenticateQuickPIN(const QString &pin) {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("AuthenticateQuickPIN", pin);
+}
+
+void SecurityClient::authenticateBiometric(int type) {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("AuthenticateBiometric", type);
+}
+
+void SecurityClient::cancelAuthentication() {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("CancelAuthentication");
+}
+
+void SecurityClient::resetLockout() {
+    if (!ensureSystemPermission())
+        return;
+    m_iface.call("ResetLockout");
+}
+
+bool SecurityClient::isBiometricEnrolled(int type) {
+    if (!ensureSystemPermission())
+        return false;
+    QDBusReply<bool> r = m_iface.call("IsBiometricEnrolled", type);
+    if (!r.isValid())
+        return false;
+    return r.value();
+}
+
+QString SecurityClient::currentUsername() {
+    if (!ensureSystemPermission())
+        return {};
+    QDBusReply<QString> r = m_iface.call("CurrentUsername");
+    if (!r.isValid())
+        return {};
+    return r.value();
 }
 
 BluetoothClient::BluetoothClient(const QString &appId, QObject *parent)

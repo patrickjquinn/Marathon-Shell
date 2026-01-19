@@ -26,6 +26,7 @@
 
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
+#include "marathonappinstaller.h"
 
 #include "ipc/shellipcclients.h"
 #include "calendarmanagercpp.h"
@@ -401,7 +402,10 @@ int main(int argc, char *argv[]) {
     engine->addImportPath("qrc:/");
     engine->addImportPath(":/");
 
-    auto      *ctx = view.rootContext();
+    auto *ctx = view.rootContext();
+    ctx->setContextProperty("MarathonAppRegistry", &registry);
+    ctx->setContextProperty("MarathonAppInstaller",
+                            new MarathonAppInstaller(&registry, &scanner, ctx));
 
     const auto hasPerm = [&](const QString &perm) -> bool {
         return std::find(info->permissions.begin(), info->permissions.end(), perm) !=
@@ -428,6 +432,7 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("DisplayManagerCpp", new DisplayClient(appId, &app));
         ctx->setContextProperty("PowerManagerService", new PowerClient(appId, &app));
         ctx->setContextProperty("AudioManagerCpp", new AudioClient(appId, &app));
+        ctx->setContextProperty("SecurityManagerCpp", new SecurityClient(appId, &app));
     }
 
     if (hasPerm("network"))
