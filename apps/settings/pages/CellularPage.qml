@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers

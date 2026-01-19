@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QStorageInfo>
+#include <QColor>
 #include <QtQmlIntegration>
 
 class StorageInfo : public QObject {
@@ -12,6 +13,7 @@ class StorageInfo : public QObject {
     Q_PROPERTY(qint64 availableSpace READ availableSpace NOTIFY changed)
     Q_PROPERTY(qint64 usedSpace READ usedSpace NOTIFY changed)
     Q_PROPERTY(double usedPercentage READ usedPercentage NOTIFY changed)
+    Q_PROPERTY(QColor usageColor READ usageColor NOTIFY changed)
 
     Q_PROPERTY(QString totalSpaceString READ totalSpaceString NOTIFY changed)
     Q_PROPERTY(QString availableSpaceString READ availableSpaceString NOTIFY changed)
@@ -24,6 +26,7 @@ class StorageInfo : public QObject {
     qint64           availableSpace() const;
     qint64           usedSpace() const;
     double           usedPercentage() const;
+    QColor           usageColor() const;
 
     QString          totalSpaceString() const;
     QString          availableSpaceString() const;

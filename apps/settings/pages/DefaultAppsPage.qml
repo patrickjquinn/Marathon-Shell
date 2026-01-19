@@ -1,49 +1,16 @@
-import MarathonApp.Settings
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 SettingsPageTemplate {
     id: defaultAppsPage
 
     property string pageName: "defaultapps"
-
-    function getAppsForHandler(handler) {
-        var eligible = [];
-        for (var i = 0; i < AppModel.rowCount(); i++) {
-            var app = AppModel.getApp(i);
-            if (app && app.defaultFor && app.defaultFor.indexOf(handler) >= 0)
-                eligible.push(app);
-        }
-        return eligible;
-    }
-
-    function getDefaultAppName(handler) {
-        var defaultAppId = SettingsManagerCpp.defaultApps[handler] || "";
-        if (!defaultAppId) {
-            var eligible = getAppsForHandler(handler);
-            if (eligible.length > 0) {
-                var defaults = SettingsManagerCpp.defaultApps;
-                defaults[handler] = eligible[0].id;
-                SettingsManagerCpp.defaultApps = defaults;
-                Logger.info("DefaultApps", "Auto-assigned " + handler + " to " + eligible[0].id);
-                defaultAppId = eligible[0].id;
-            } else {
-                return "None";
-            }
-        }
-        for (var i = 0; i < AppModel.rowCount(); i++) {
-            var app = AppModel.getApp(i);
-            if (app && app.id === defaultAppId)
-                return app.name;
-        }
-        return "None";
-    }
 
     pageTitle: "Default Apps"
 
@@ -55,7 +22,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("browser")
+            model: SettingsController.appsForHandler("browser", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -65,10 +32,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["browser"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set browser to " + modelData.id);
+                    SettingsController.setDefaultApp("browser", modelData.id);
                     browserSheet.visible = false;
                 }
             }
@@ -83,7 +47,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("dialer")
+            model: SettingsController.appsForHandler("dialer", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -93,10 +57,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["dialer"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set dialer to " + modelData.id);
+                    SettingsController.setDefaultApp("dialer", modelData.id);
                     dialerSheet.visible = false;
                 }
             }
@@ -111,7 +72,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("messaging")
+            model: SettingsController.appsForHandler("messaging", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -121,10 +82,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["messaging"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set messaging to " + modelData.id);
+                    SettingsController.setDefaultApp("messaging", modelData.id);
                     messagingSheet.visible = false;
                 }
             }
@@ -139,7 +97,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("email")
+            model: SettingsController.appsForHandler("email", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -149,10 +107,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["email"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set email to " + modelData.id);
+                    SettingsController.setDefaultApp("email", modelData.id);
                     emailSheet.visible = false;
                 }
             }
@@ -167,7 +122,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("camera")
+            model: SettingsController.appsForHandler("camera", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -177,10 +132,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["camera"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set camera to " + modelData.id);
+                    SettingsController.setDefaultApp("camera", modelData.id);
                     cameraSheet.visible = false;
                 }
             }
@@ -195,7 +147,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("gallery")
+            model: SettingsController.appsForHandler("gallery", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -205,10 +157,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["gallery"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set gallery to " + modelData.id);
+                    SettingsController.setDefaultApp("gallery", modelData.id);
                     gallerySheet.visible = false;
                 }
             }
@@ -223,7 +172,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("music")
+            model: SettingsController.appsForHandler("music", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -233,10 +182,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["music"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set music to " + modelData.id);
+                    SettingsController.setDefaultApp("music", modelData.id);
                     musicSheet.visible = false;
                 }
             }
@@ -251,7 +197,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("video")
+            model: SettingsController.appsForHandler("video", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -261,10 +207,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["video"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set video to " + modelData.id);
+                    SettingsController.setDefaultApp("video", modelData.id);
                     videoSheet.visible = false;
                 }
             }
@@ -279,7 +222,7 @@ SettingsPageTemplate {
 
         ListView {
             anchors.fill: parent
-            model: getAppsForHandler("files")
+            model: SettingsController.appsForHandler("files", SettingsController.appSourceRevision)
             spacing: 0
             clip: true
 
@@ -289,10 +232,7 @@ SettingsPageTemplate {
                 title: modelData.name
                 subtitle: modelData.id
                 onSettingClicked: {
-                    var defaults = SettingsManagerCpp.defaultApps;
-                    defaults["files"] = modelData.id;
-                    SettingsManagerCpp.defaultApps = defaults;
-                    Logger.info("DefaultApps", "Set files to " + modelData.id);
+                    SettingsController.setDefaultApp("files", modelData.id);
                     filesSheet.visible = false;
                 }
             }
@@ -318,7 +258,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Browser"
-                    value: getDefaultAppName("browser")
+                    value: SettingsController.defaultAppName("browser", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "globe"
                     onSettingClicked: browserSheet.visible = true
@@ -326,7 +266,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Phone"
-                    value: getDefaultAppName("dialer")
+                    value: SettingsController.defaultAppName("dialer", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "phone"
                     onSettingClicked: dialerSheet.visible = true
@@ -334,7 +274,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Messaging"
-                    value: getDefaultAppName("messaging")
+                    value: SettingsController.defaultAppName("messaging", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "message-circle"
                     onSettingClicked: messagingSheet.visible = true
@@ -342,7 +282,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Email"
-                    value: getDefaultAppName("email")
+                    value: SettingsController.defaultAppName("email", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "mail"
                     onSettingClicked: emailSheet.visible = true
@@ -355,7 +295,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Camera"
-                    value: getDefaultAppName("camera")
+                    value: SettingsController.defaultAppName("camera", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "camera"
                     onSettingClicked: cameraSheet.visible = true
@@ -363,7 +303,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Gallery"
-                    value: getDefaultAppName("gallery")
+                    value: SettingsController.defaultAppName("gallery", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "image"
                     onSettingClicked: gallerySheet.visible = true
@@ -371,7 +311,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Music"
-                    value: getDefaultAppName("music")
+                    value: SettingsController.defaultAppName("music", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "music"
                     onSettingClicked: musicSheet.visible = true
@@ -379,7 +319,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Video"
-                    value: getDefaultAppName("video")
+                    value: SettingsController.defaultAppName("video", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "video"
                     onSettingClicked: videoSheet.visible = true
@@ -392,7 +332,7 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "File Manager"
-                    value: getDefaultAppName("files")
+                    value: SettingsController.defaultAppName("files", SettingsController.defaultAppsRevision)
                     showChevron: true
                     iconName: "folder"
                     onSettingClicked: filesSheet.visible = true

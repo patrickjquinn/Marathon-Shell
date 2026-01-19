@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -64,15 +66,7 @@ SettingsPageTemplate {
                                 width: parent.width * storageInfo.usedPercentage
                                 height: parent.height
                                 radius: parent.radius
-                                color: {
-                                    if (storageInfo.usedPercentage > 0.9)
-                                        return Qt.rgba(255, 59, 48, 0.8);
-
-                                    if (storageInfo.usedPercentage > 0.75)
-                                        return Qt.rgba(255, 149, 0, 0.8);
-
-                                    return Qt.rgba(20, 184, 166, 0.8);
-                                }
+                                color: storageInfo.usageColor
                             }
                         }
                     }

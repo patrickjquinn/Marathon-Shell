@@ -1,5 +1,5 @@
-import MarathonApp.Settings
-import MarathonApp.Settings
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Theme
@@ -232,7 +232,7 @@ Page {
                 MSettingsListItem {
                     title: "Quick Settings"
                     subtitle: "Customize Quick Settings tiles"
-                    iconName: "sliders"
+                    iconName: "settings-2"
                     showChevron: true
                     onSettingClicked: {
                         mainPage.navigateToPage("quicksettings");
@@ -272,7 +272,7 @@ Page {
                         var gridText = SettingsManagerCpp.appGridColumns === 0 ? "Auto" : SettingsManagerCpp.appGridColumns + " columns";
                         return sortText + " • " + gridText;
                     }
-                    iconName: "layout"
+                    iconName: "layout-grid"
                     showChevron: true
                     onSettingClicked: {
                         mainPage.navigateToPage("appsort");

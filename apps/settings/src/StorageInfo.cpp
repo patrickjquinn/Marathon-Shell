@@ -30,6 +30,17 @@ double StorageInfo::usedPercentage() const {
     return static_cast<double>(usedSpace()) / static_cast<double>(total);
 }
 
+QColor StorageInfo::usageColor() const {
+    const double usage = usedPercentage();
+    if (usage > 0.9) {
+        return QColor::fromRgbF(1.0, 59.0 / 255.0, 48.0 / 255.0, 0.8);
+    }
+    if (usage > 0.75) {
+        return QColor::fromRgbF(1.0, 149.0 / 255.0, 0.0, 0.8);
+    }
+    return QColor::fromRgbF(20.0 / 255.0, 184.0 / 255.0, 166.0 / 255.0, 0.8);
+}
+
 QString StorageInfo::totalSpaceString() const {
     return formatBytes(totalSpace());
 }

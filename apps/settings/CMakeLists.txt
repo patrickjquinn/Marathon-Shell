@@ -2,7 +2,7 @@
 
 set(APP_NAME settings)
 
-file(GLOB_RECURSE QML_FILES
+file(GLOB_RECURSE QML_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.qml"
 )
 
@@ -11,6 +11,8 @@ set(SOURCES
     src/StorageInfo.h
     src/KeyboardSettingsStore.cpp
     src/KeyboardSettingsStore.h
+    src/SettingsController.cpp
+    src/SettingsController.h
 )
 
 add_marathon_app(${APP_NAME}

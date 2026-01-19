@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -8,6 +10,43 @@ SettingsPageTemplate {
     id: scalePage
 
     property string pageName: "scale"
+    property var scaleOptions: [
+        {
+            "factor": 0.75,
+            "title": "75% - Compact",
+            "description": "More content, smaller text"
+        },
+        {
+            "factor": 0.9,
+            "title": "90% - Small",
+            "description": "Slightly smaller UI"
+        },
+        {
+            "factor": 1,
+            "title": "100% - Default",
+            "description": "Recommended for most users"
+        },
+        {
+            "factor": 1.1,
+            "title": "110% - Comfortable",
+            "description": "A bit larger for readability"
+        },
+        {
+            "factor": 1.25,
+            "title": "125% - Large",
+            "description": "Larger text, easier to read"
+        },
+        {
+            "factor": 1.4,
+            "title": "140% - Extra Large",
+            "description": "Maximum readability"
+        },
+        {
+            "factor": 1.5,
+            "title": "150% - Huge",
+            "description": "Oversized UI elements"
+        }
+    ]
 
     pageTitle: "UI Scale"
 
@@ -42,250 +81,68 @@ SettingsPageTemplate {
                     width: parent.width
                     spacing: MSpacing.sm
 
-                    Rectangle {
-                        width: parent.width
-                        height: Constants.touchTargetMedium
-                        radius: Constants.borderRadiusSmall
-                        color: Constants.userScaleFactor === 0.75 ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
-                        border.width: Constants.userScaleFactor === 0.75 ? 1 : 0
-                        border.color: Qt.rgba(20, 184, 166, 0.3)
+                    Repeater {
+                        model: scalePage.scaleOptions
 
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            spacing: MSpacing.md
+                        Rectangle {
+                            width: parent.width
+                            height: Constants.touchTargetMedium
+                            radius: Constants.borderRadiusSmall
+                            color: Constants.userScaleFactor === modelData.factor ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
+                            border.width: Constants.userScaleFactor === modelData.factor ? 1 : 0
+                            border.color: Qt.rgba(20, 184, 166, 0.3)
 
-                            Rectangle {
-                                width: Math.round(28 * Constants.userScaleFactor)
-                                height: Math.round(28 * Constants.userScaleFactor)
-                                radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 0.75 ? MColors.marathonTeal : "transparent"
-                                border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 0.75 ? MColors.marathonTeal : MColors.textSecondary
-                                anchors.verticalCenter: parent.verticalCenter
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: MSpacing.md
+                                spacing: MSpacing.md
 
                                 Rectangle {
-                                    visible: Constants.userScaleFactor === 0.75
-                                    width: Math.round(12 * Constants.userScaleFactor)
-                                    height: Math.round(12 * Constants.userScaleFactor)
-                                    radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: MColors.background
-                                    anchors.centerIn: parent
+                                    width: Math.round(28 * Constants.userScaleFactor)
+                                    height: Math.round(28 * Constants.userScaleFactor)
+                                    radius: Math.round(14 * Constants.userScaleFactor)
+                                    color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : "transparent"
+                                    border.width: Math.round(2 * Constants.userScaleFactor)
+                                    border.color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : MColors.textSecondary
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Rectangle {
+                                        visible: Constants.userScaleFactor === modelData.factor
+                                        width: Math.round(12 * Constants.userScaleFactor)
+                                        height: Math.round(12 * Constants.userScaleFactor)
+                                        radius: Math.round(6 * Constants.userScaleFactor)
+                                        color: MColors.background
+                                        anchors.centerIn: parent
+                                    }
+                                }
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 4
+
+                                    Text {
+                                        text: modelData.title
+                                        color: MColors.textPrimary
+                                        font.pixelSize: MTypography.sizeBody
+                                        font.weight: Font.DemiBold
+                                        font.family: MTypography.fontFamily
+                                    }
+
+                                    Text {
+                                        text: modelData.description
+                                        color: MColors.textSecondary
+                                        font.pixelSize: MTypography.sizeSmall
+                                        font.family: MTypography.fontFamily
+                                    }
                                 }
                             }
 
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
-
-                                Text {
-                                    text: "75% - Compact"
-                                    color: MColors.textPrimary
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.DemiBold
-                                    font.family: MTypography.fontFamily
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    Constants.userScaleFactor = modelData.factor;
+                                    SettingsManagerCpp.userScaleFactor = modelData.factor;
                                 }
-
-                                Text {
-                                    text: "More content, smaller text"
-                                    color: MColors.textSecondary
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                Constants.userScaleFactor = 0.75;
-                                SettingsManagerCpp.userScaleFactor = 0.75;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: Constants.touchTargetMedium
-                        radius: Constants.borderRadiusSmall
-                        color: Constants.userScaleFactor === 1 ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
-                        border.width: Constants.userScaleFactor === 1 ? 1 : 0
-                        border.color: Qt.rgba(20, 184, 166, 0.3)
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            spacing: MSpacing.md
-
-                            Rectangle {
-                                width: Math.round(28 * Constants.userScaleFactor)
-                                height: Math.round(28 * Constants.userScaleFactor)
-                                radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1 ? MColors.marathonTeal : "transparent"
-                                border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1 ? MColors.marathonTeal : MColors.textSecondary
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                Rectangle {
-                                    visible: Constants.userScaleFactor === 1
-                                    width: Math.round(12 * Constants.userScaleFactor)
-                                    height: Math.round(12 * Constants.userScaleFactor)
-                                    radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: MColors.background
-                                    anchors.centerIn: parent
-                                }
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
-
-                                Text {
-                                    text: "100% - Default"
-                                    color: MColors.textPrimary
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.DemiBold
-                                    font.family: MTypography.fontFamily
-                                }
-
-                                Text {
-                                    text: "Recommended for most users"
-                                    color: MColors.textSecondary
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                Constants.userScaleFactor = 1;
-                                SettingsManagerCpp.userScaleFactor = 1;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: Constants.touchTargetMedium
-                        radius: Constants.borderRadiusSmall
-                        color: Constants.userScaleFactor === 1.25 ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
-                        border.width: Constants.userScaleFactor === 1.25 ? 1 : 0
-                        border.color: Qt.rgba(20, 184, 166, 0.3)
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            spacing: MSpacing.md
-
-                            Rectangle {
-                                width: Math.round(28 * Constants.userScaleFactor)
-                                height: Math.round(28 * Constants.userScaleFactor)
-                                radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1.25 ? MColors.marathonTeal : "transparent"
-                                border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1.25 ? MColors.marathonTeal : MColors.textSecondary
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                Rectangle {
-                                    visible: Constants.userScaleFactor === 1.25
-                                    width: Math.round(12 * Constants.userScaleFactor)
-                                    height: Math.round(12 * Constants.userScaleFactor)
-                                    radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: MColors.background
-                                    anchors.centerIn: parent
-                                }
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
-
-                                Text {
-                                    text: "125% - Comfortable"
-                                    color: MColors.textPrimary
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.DemiBold
-                                    font.family: MTypography.fontFamily
-                                }
-
-                                Text {
-                                    text: "Larger text, easier to read"
-                                    color: MColors.textSecondary
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                Constants.userScaleFactor = 1.25;
-                                SettingsManagerCpp.userScaleFactor = 1.25;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: Constants.touchTargetMedium
-                        radius: Constants.borderRadiusSmall
-                        color: Constants.userScaleFactor === 1.5 ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
-                        border.width: Constants.userScaleFactor === 1.5 ? 1 : 0
-                        border.color: Qt.rgba(20, 184, 166, 0.3)
-
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            spacing: MSpacing.md
-
-                            Rectangle {
-                                width: Math.round(28 * Constants.userScaleFactor)
-                                height: Math.round(28 * Constants.userScaleFactor)
-                                radius: Math.round(14 * Constants.userScaleFactor)
-                                color: Constants.userScaleFactor === 1.5 ? MColors.marathonTeal : "transparent"
-                                border.width: Math.round(2 * Constants.userScaleFactor)
-                                border.color: Constants.userScaleFactor === 1.5 ? MColors.marathonTeal : MColors.textSecondary
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                Rectangle {
-                                    visible: Constants.userScaleFactor === 1.5
-                                    width: Math.round(12 * Constants.userScaleFactor)
-                                    height: Math.round(12 * Constants.userScaleFactor)
-                                    radius: Math.round(6 * Constants.userScaleFactor)
-                                    color: MColors.background
-                                    anchors.centerIn: parent
-                                }
-                            }
-
-                            Column {
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 4
-
-                                Text {
-                                    text: "150% - Large"
-                                    color: MColors.textPrimary
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.DemiBold
-                                    font.family: MTypography.fontFamily
-                                }
-
-                                Text {
-                                    text: "Maximum readability"
-                                    color: MColors.textSecondary
-                                    font.pixelSize: MTypography.sizeSmall
-                                    font.family: MTypography.fontFamily
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                Constants.userScaleFactor = 1.5;
-                                SettingsManagerCpp.userScaleFactor = 1.5;
                             }
                         }
                     }

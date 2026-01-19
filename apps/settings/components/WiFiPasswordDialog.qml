@@ -1,4 +1,5 @@
-import MarathonApp.Settings
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Core
@@ -9,52 +10,33 @@ import QtQuick.Controls
 Item {
     id: wifiDialog
 
-    property string networkSsid: ""
-    property int signalStrength: 0
-    property string securityType: ""
-    property bool secured: true
-    property bool isConnecting: false
-    property string errorMessage: ""
-
-    signal connectRequested(string ssid, string password)
-    signal cancelled
-
-    function show(ssid, strength, security, isSecured) {
-        networkSsid = ssid;
-        signalStrength = strength;
-        securityType = security || "WPA2";
-        secured = isSecured;
-        isConnecting = false;
-        errorMessage = "";
-        passwordInput.text = "";
-        passwordInput.forceActiveFocus();
-        wifiDialog.visible = true;
-        showAnimation.start();
-        HapticService.light();
-        Logger.info("WiFiDialog", "Showing dialog for: " + ssid);
-    }
-
-    function hide() {
-        hideAnimation.start();
-    }
-
-    function showError(message) {
-        errorMessage = message;
-        isConnecting = false;
-        HapticService.medium();
-    }
-
-    function showConnecting() {
-        isConnecting = true;
-        errorMessage = "";
-    }
+    property string networkSsid: SettingsController.wifiDialogSsid
+    property int signalStrength: SettingsController.wifiDialogStrength
+    property string securityType: SettingsController.wifiDialogSecurity
+    property bool secured: SettingsController.wifiDialogSecured
+    property bool isConnecting: SettingsController.wifiDialogConnecting
+    property string errorMessage: SettingsController.wifiDialogError
+    property bool dialogVisible: SettingsController.wifiDialogVisible
+    property bool internalVisible: false
 
     anchors.fill: parent
-    visible: false
+    visible: internalVisible
     z: Constants.zIndexModalOverlay + 10
     Keys.onEscapePressed: {
-        if (!isConnecting)
-            wifiDialog.hide();
+        if (!wifiDialog.isConnecting)
+            SettingsController.dismissWifiDialog();
+    }
+    onDialogVisibleChanged: {
+        if (dialogVisible) {
+            internalVisible = true;
+            passwordInput.text = "";
+            if (secured)
+                passwordInput.forceActiveFocus();
+            showAnimation.restart();
+            HapticService.light();
+        } else if (internalVisible) {
+            hideAnimation.restart();
+        }
     }
 
     Rectangle {
@@ -67,8 +49,8 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                if (!isConnecting)
-                    wifiDialog.hide();
+                if (!wifiDialog.isConnecting)
+                    SettingsController.dismissWifiDialog();
             }
         }
     }
@@ -108,11 +90,11 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Icon {
-                        name: secured ? "lock" : "wifi"
+                        name: wifiDialog.secured ? "lock" : "wifi"
                         size: Constants.iconSizeMedium
                         color: MColors.marathonTeal
                         anchors.centerIn: parent
-                        opacity: signalStrength / 100
+                        opacity: wifiDialog.signalStrength / 100
                     }
                 }
 
@@ -122,7 +104,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
-                        text: networkSsid
+                        text: wifiDialog.networkSsid
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
                         font.family: MTypography.fontFamily
@@ -138,22 +120,22 @@ Item {
                             width: securityBadgeText.width + Math.round(16 * Constants.scaleFactor)
                             height: Math.round(24 * Constants.scaleFactor)
                             radius: Constants.borderRadiusSmall
-                            color: secured ? Qt.rgba(MColors.warning.r, MColors.warning.g, MColors.warning.b, 0.2) : Qt.rgba(MColors.success.r, MColors.success.g, MColors.success.b, 0.2)
+                            color: wifiDialog.secured ? Qt.rgba(MColors.warning.r, MColors.warning.g, MColors.warning.b, 0.2) : Qt.rgba(MColors.success.r, MColors.success.g, MColors.success.b, 0.2)
 
                             Text {
                                 id: securityBadgeText
 
-                                text: secured ? securityType : "Open"
+                                text: wifiDialog.secured ? wifiDialog.securityType : "Open"
                                 font.pixelSize: MTypography.sizeXSmall
                                 font.weight: Font.Medium
                                 font.family: MTypography.fontFamily
-                                color: secured ? MColors.warning : MColors.success
+                                color: wifiDialog.secured ? MColors.warning : MColors.success
                                 anchors.centerIn: parent
                             }
                         }
 
                         Text {
-                            text: signalStrength >= 75 ? "Excellent" : signalStrength >= 50 ? "Good" : signalStrength >= 25 ? "Fair" : "Weak"
+                            text: wifiDialog.signalStrength >= 75 ? "Excellent" : wifiDialog.signalStrength >= 50 ? "Good" : wifiDialog.signalStrength >= 25 ? "Fair" : "Weak"
                             font.pixelSize: MTypography.sizeXSmall
                             font.family: MTypography.fontFamily
                             color: MColors.textTertiary
@@ -169,8 +151,8 @@ Item {
                 radius: Constants.borderRadiusSmall
                 color: MColors.background || Qt.darker(MColors.background, 1.05)
                 border.width: passwordInput.activeFocus ? Constants.borderWidthMedium : Constants.borderWidthThin
-                border.color: errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.marathonTeal : MColors.border)
-                visible: secured
+                border.color: wifiDialog.errorMessage !== "" ? MColors.error : (passwordInput.activeFocus ? MColors.marathonTeal : MColors.border)
+                visible: wifiDialog.secured
 
                 Row {
                     anchors.fill: parent
@@ -194,7 +176,7 @@ Item {
                         color: MColors.textPrimary
                         echoMode: showPasswordToggle.checked ? TextInput.Normal : TextInput.Password
                         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
-                        enabled: !isConnecting
+                        enabled: !wifiDialog.isConnecting
                         selectByMouse: true
                         clip: true
                         Keys.onReturnPressed: {
@@ -255,7 +237,7 @@ Item {
                 color: Qt.rgba(MColors.error.r, MColors.error.g, MColors.error.b, 0.15)
                 border.width: Constants.borderWidthThin
                 border.color: MColors.error
-                visible: errorMessage !== "" && !isConnecting
+                visible: wifiDialog.errorMessage !== "" && !wifiDialog.isConnecting
 
                 Row {
                     anchors.fill: parent
@@ -273,7 +255,7 @@ Item {
                     Text {
                         id: errorText
 
-                        text: errorMessage
+                        text: wifiDialog.errorMessage
                         font.pixelSize: MTypography.sizeSmall
                         font.family: MTypography.fontFamily
                         color: MColors.error
@@ -286,7 +268,7 @@ Item {
             Column {
                 width: parent.width
                 spacing: MSpacing.sm
-                visible: isConnecting
+                visible: wifiDialog.isConnecting
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -295,12 +277,12 @@ Item {
                     BusyIndicator {
                         width: Constants.iconSizeMedium
                         height: Constants.iconSizeMedium
-                        running: isConnecting
+                        running: wifiDialog.isConnecting
                         anchors.verticalCenter: parent.verticalCenter
                     }
 
                     Text {
-                        text: "Connecting to " + networkSsid + "..."
+                        text: "Connecting to " + wifiDialog.networkSsid + "..."
                         font.pixelSize: MTypography.sizeBody
                         font.family: MTypography.fontFamily
                         color: MColors.textSecondary
@@ -321,7 +303,7 @@ Item {
                     color: "transparent"
                     border.width: Constants.borderWidthThin
                     border.color: MColors.border
-                    opacity: isConnecting ? 0.5 : 1
+                    opacity: wifiDialog.isConnecting ? 0.5 : 1
 
                     Text {
                         text: "Cancel"
@@ -333,12 +315,11 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
-                        enabled: !isConnecting
+                        enabled: !wifiDialog.isConnecting
                         onClicked: {
                             Logger.info("WiFiDialog", "Cancelled");
                             HapticService.light();
-                            wifiDialog.cancelled();
-                            wifiDialog.hide();
+                            SettingsController.dismissWifiDialog();
                         }
                     }
                 }
@@ -351,8 +332,8 @@ Item {
                     width: (parent.width - MSpacing.md) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.marathonTeal, 1.5) : MColors.marathonTeal
-                    opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1
+                    color: (wifiDialog.secured && passwordInput.text.length < 8) || wifiDialog.isConnecting ? Qt.darker(MColors.marathonTeal, 1.5) : MColors.marathonTeal
+                    opacity: (wifiDialog.secured && passwordInput.text.length < 8) || wifiDialog.isConnecting ? 0.5 : 1
 
                     Text {
                         text: "Connect"
@@ -365,26 +346,25 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
-                        enabled: !isConnecting && (!secured || passwordInput.text.length >= 8)
+                        enabled: !wifiDialog.isConnecting && (!wifiDialog.secured || passwordInput.text.length >= 8)
                         onClicked: {
-                            Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid);
+                            Logger.info("WiFiDialog", "Connect clicked for: " + wifiDialog.networkSsid);
                             HapticService.medium();
-                            wifiDialog.showConnecting();
-                            wifiDialog.connectRequested(networkSsid, passwordInput.text);
+                            SettingsController.submitWifiPassword(passwordInput.text);
                         }
                     }
                 }
             }
 
             Text {
-                text: secured ? "Password must be at least 8 characters" : "This network is not secured"
+                text: wifiDialog.secured ? "Password must be at least 8 characters" : "This network is not secured"
                 font.pixelSize: MTypography.sizeXSmall
                 font.family: MTypography.fontFamily
                 color: MColors.textTertiary
                 horizontalAlignment: Text.AlignHCenter
                 width: parent.width
                 wrapMode: Text.WordWrap
-                visible: !isConnecting
+                visible: !wifiDialog.isConnecting
             }
         }
 
@@ -444,10 +424,8 @@ Item {
 
         ScriptAction {
             script: {
-                wifiDialog.visible = false;
+                wifiDialog.internalVisible = false;
                 passwordInput.text = "";
-                errorMessage = "";
-                isConnecting = false;
             }
         }
     }
