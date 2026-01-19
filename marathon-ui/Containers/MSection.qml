@@ -8,6 +8,23 @@ Item {
     property string subtitle: ""
     default property alias content: contentColumn.children
 
+    function updateDividers() {
+        var dividerItems = [];
+        for (var i = 0; i < contentColumn.children.length; i++) {
+            var child = contentColumn.children[i];
+            if (!child || child.visible === false)
+                continue;
+            if (child.hasOwnProperty("showDivider"))
+                dividerItems.push(child);
+        }
+
+        for (var j = 0; j < dividerItems.length; j++) {
+            dividerItems[j].showDivider = true;
+        }
+        if (dividerItems.length > 0)
+            dividerItems[dividerItems.length - 1].showDivider = false;
+    }
+
     width: parent ? parent.width : 400
     height: headerColumn.height + contentCard.height + (title !== "" ? MSpacing.md : 0)
 
@@ -61,6 +78,9 @@ Item {
         Column {
             id: contentColumn
             width: parent.width
+
+            Component.onCompleted: section.updateDividers()
+            onChildrenChanged: section.updateDividers()
         }
     }
 }
