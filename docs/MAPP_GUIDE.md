@@ -204,7 +204,7 @@ MApp {
 
 ### Stack-Based Navigation
 
-For apps with multiple pages, use `StackView` and update `navigationDepth`:
+For apps with multiple pages, use `StackView` with `MAppRouter` to keep navigation logic consistent across apps:
 
 ```qml
 MApp {
@@ -218,26 +218,17 @@ MApp {
             id: navigationStack
             anchors.fill: parent
             initialItem: homePage
-            
-            // Update navigationDepth when stack changes
-            onDepthChanged: {
-                myApp.navigationDepth = depth - 1
-            }
-            
-            Component.onCompleted: {
-                myApp.navigationDepth = depth - 1
-            }
         }
     }
-    
-    // Handle back gesture
-    Connections {
-        target: myApp
-        function onBackPressed() {
-            if (navigationStack.depth > 1) {
-                navigationStack.pop()
-            }
-        }
+
+    MAppRouter {
+        appId: myApp.appId
+        stackView: navigationStack
+        navigationTarget: myApp
+        navigationDepthTarget: myApp
+        routeMap: ({
+            home: homePage
+        })
     }
 }
 ```
@@ -299,12 +290,16 @@ MApp {
    }
    ```
 
-2. **Update `navigationDepth` in `StackView.onDepthChanged`**
+2. **Use `MAppRouter` to keep navigation consistent**
    ```qml
-   StackView {
-       onDepthChanged: {
-           myApp.navigationDepth = depth - 1
-       }
+   MAppRouter {
+       appId: myApp.appId
+       stackView: navigationStack
+       navigationTarget: myApp
+       navigationDepthTarget: myApp
+       routeMap: ({
+           home: homePage
+       })
    }
    ```
 
@@ -342,11 +337,14 @@ MApp {
    }
    ```
 
-2. **Don't forget to update `navigationDepth`**
+2. **Don't manage back handling manually when using MAppRouter**
    ```qml
-   //  Bad - back gesture won't work
-   StackView {
-       // Missing onDepthChanged
+   //  Bad - duplicates router behavior
+   Connections {
+       target: myApp
+       function onBackPressed() {
+           navigationStack.pop()
+       }
    }
    ```
 
@@ -394,14 +392,17 @@ MApp {
 
 #### Issue: Back gesture doesn't work
 
-**Solution**: Ensure `navigationDepth` is updated:
+**Solution**: Ensure `MAppRouter` is wired to the stack:
 
 ```qml
-StackView {
-    id: navigationStack
-    onDepthChanged: {
-        myApp.navigationDepth = depth - 1
-    }
+MAppRouter {
+    appId: myApp.appId
+    stackView: navigationStack
+    navigationTarget: myApp
+    navigationDepthTarget: myApp
+    routeMap: ({
+        home: homePage
+    })
 }
 ```
 
@@ -504,25 +505,21 @@ MApp {
             id: navigationStack
             anchors.fill: parent
             initialItem: notesListPage
-            
-            onDepthChanged: {
-                notesApp.navigationDepth = depth - 1
-            }
         }
     }
-    
-    Connections {
-        target: notesApp
-        function onBackPressed() {
-            if (navigationStack.depth > 1) {
-                navigationStack.pop()
-            }
-        }
+
+    MAppRouter {
+        appId: notesApp.appId
+        stackView: navigationStack
+        navigationTarget: notesApp
+        navigationDepthTarget: notesApp
+        routeMap: ({
+            list: notesListPage
+        })
     }
-    
+
     Component {
         id: notesListPage
-        // Notes list UI
     }
 }
 ```
