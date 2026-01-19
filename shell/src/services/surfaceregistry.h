@@ -17,6 +17,10 @@ class SurfaceRegistry : public QObject {
     Q_INVOKABLE void     unregisterSurface(int surfaceId);
     Q_INVOKABLE QObject *getSurfaceItem(int surfaceId) const;
 
+  signals:
+    void surfaceRegistered(int surfaceId);
+    void surfaceUnregistered(int surfaceId);
+
   private:
     void                          logMessage(const QString &message) const;
 

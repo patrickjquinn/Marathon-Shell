@@ -21,9 +21,36 @@ Item {
     property bool gridDragging: false
     property bool suppressTapOpen: false
     property Item nativeSurfaceItem: null
+    property bool nativeSurfaceActive: false
+    property Item registeredSurfaceItem: null
+    readonly property bool shouldLoadNativeSurface: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
+    readonly property bool useRegisteredSurface: taskCard.registeredSurfaceItem !== null
 
     signal closed
     signal taskClosed(string appId)
+
+    function refreshNativeSurface() {
+        if (!shouldLoadNativeSurface) {
+            nativeSurfaceActive = false;
+            return;
+        }
+        nativeSurfaceActive = false;
+        Qt.callLater(function () {
+            nativeSurfaceActive = shouldLoadNativeSurface;
+        });
+    }
+
+    function updateRegisteredSurface() {
+        if (typeof SurfaceRegistry === "undefined" || !SurfaceRegistry) {
+            registeredSurfaceItem = null;
+            return;
+        }
+        if (taskCard.surfaceId <= 0) {
+            registeredSurfaceItem = null;
+            return;
+        }
+        registeredSurfaceItem = SurfaceRegistry.getSurfaceItem(taskCard.surfaceId);
+    }
 
     Rectangle {
         id: cardRoot
@@ -273,7 +300,7 @@ Item {
                                     width: parent.width
                                     height: (Constants.screenHeight / Constants.screenWidth) * width
                                     visible: taskCard.type === "native"
-                                    active: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
+                                    active: taskCard.nativeSurfaceActive && !taskCard.useRegisteredSurface
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""
                                     onItemChanged: {
                                         if (item) {
@@ -296,6 +323,13 @@ Item {
 
                                     Binding {
                                         target: taskCard.nativeSurfaceItem
+                                        property: "surfaceId"
+                                        value: taskCard.surfaceId
+                                        when: taskCard.nativeSurfaceItem !== null
+                                    }
+
+                                    Binding {
+                                        target: taskCard.nativeSurfaceItem
                                         property: "touchEventsEnabled"
                                         value: false
                                         when: taskCard.nativeSurfaceItem !== null
@@ -307,6 +341,23 @@ Item {
                                         value: false
                                         when: taskCard.nativeSurfaceItem !== null
                                     }
+                                }
+
+                                ShaderEffectSource {
+                                    id: registeredSurfacePreview
+
+                                    anchors.top: parent.top
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    width: parent.width
+                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    sourceItem: taskCard.registeredSurfaceItem
+                                    visible: taskCard.useRegisteredSurface
+                                    live: true
+                                    recursive: true
+                                    hideSource: false
+                                    smooth: false
+                                    format: ShaderEffectSource.RGBA
+                                    samples: 0
                                 }
 
                                 Rectangle {
@@ -555,5 +606,34 @@ Item {
             duration: 250
             easing.type: Easing.OutCubic
         }
+    }
+
+    onWaylandSurfaceChanged: refreshNativeSurface()
+    onSurfaceIdChanged: updateRegisteredSurface()
+    onTaskSwitcherVisibleChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    onHaveWaylandChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    Component.onCompleted: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+
+    Connections {
+        function onSurfaceRegistered(surfaceId) {
+            if (surfaceId === taskCard.surfaceId)
+                updateRegisteredSurface();
+        }
+
+        function onSurfaceUnregistered(surfaceId) {
+            if (surfaceId === taskCard.surfaceId)
+                updateRegisteredSurface();
+        }
+
+        target: typeof SurfaceRegistry !== "undefined" ? SurfaceRegistry : null
     }
 }

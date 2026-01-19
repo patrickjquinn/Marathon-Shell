@@ -120,7 +120,7 @@ ShellSurfaceItem {
 
     autoCreatePopupItems: true
     opacity: hasSentInitialSize && hasFirstFrame ? 1 : 0
-    bufferLocked: isMinimized
+    bufferLocked: isMinimized && hasFirstFrame
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
         if (xdg && xdg.surface)
