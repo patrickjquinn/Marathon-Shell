@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -65,6 +67,7 @@ Page {
                     model: KeyboardSettingsStore.availableLanguages
 
                     MSettingsListItem {
+                        required property var modelData
                         title: KeyboardSettingsStore.getLanguageName(modelData)
                         subtitle: modelData
                         iconName: KeyboardSettingsStore.currentLanguage === modelData ? "check" : ""

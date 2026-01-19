@@ -13,6 +13,12 @@ class InputContext : public QObject {
     Q_PROPERTY(QObject *keyboard READ keyboard WRITE setKeyboard NOTIFY keyboardChanged)
     Q_PROPERTY(QString inputMode READ inputMode WRITE setInputMode NOTIFY inputModeChanged)
     Q_PROPERTY(QString recommendedLayout READ recommendedLayout NOTIFY inputModeChanged)
+    Q_PROPERTY(bool autoCapitalizeEnabled READ autoCapitalizeEnabled WRITE setAutoCapitalizeEnabled
+                   NOTIFY inputModeChanged)
+    Q_PROPERTY(bool autoCorrectEnabled READ autoCorrectEnabled WRITE setAutoCorrectEnabled NOTIFY
+                   inputModeChanged)
+    Q_PROPERTY(bool predictionsEnabled READ predictionsEnabled WRITE setPredictionsEnabled NOTIFY
+                   inputModeChanged)
     Q_PROPERTY(bool shouldAutoCapitalize READ shouldAutoCapitalize NOTIFY inputModeChanged)
     Q_PROPERTY(bool shouldAutoCorrect READ shouldAutoCorrect NOTIFY inputModeChanged)
     Q_PROPERTY(bool shouldShowPredictions READ shouldShowPredictions NOTIFY inputModeChanged)
@@ -32,6 +38,12 @@ class InputContext : public QObject {
     void                setInputMode(const QString &mode);
 
     QString             recommendedLayout() const;
+    bool                autoCapitalizeEnabled() const;
+    void                setAutoCapitalizeEnabled(bool enabled);
+    bool                autoCorrectEnabled() const;
+    void                setAutoCorrectEnabled(bool enabled);
+    bool                predictionsEnabled() const;
+    void                setPredictionsEnabled(bool enabled);
     bool                shouldAutoCapitalize() const;
     bool                shouldAutoCorrect() const;
     bool                shouldShowPredictions() const;
@@ -57,7 +69,10 @@ class InputContext : public QObject {
   private:
     void          setInputModeInternal(const QString &mode);
 
-    QObject      *m_keyboard    = nullptr;
-    QInputMethod *m_inputMethod = nullptr;
-    QString       m_inputMode   = QStringLiteral("text");
+    QObject      *m_keyboard              = nullptr;
+    QInputMethod *m_inputMethod           = nullptr;
+    QString       m_inputMode             = QStringLiteral("text");
+    bool          m_autoCapitalizeEnabled = true;
+    bool          m_autoCorrectEnabled    = true;
+    bool          m_predictionsEnabled    = true;
 };

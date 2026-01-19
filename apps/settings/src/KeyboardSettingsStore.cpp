@@ -57,6 +57,7 @@ void KeyboardSettingsStore::setAutoCapitalizeEnabled(bool enabled) {
     }
     m_autoCapitalizeEnabled = enabled;
     emit autoCapitalizeEnabledChanged();
+    writeSettingValue("keyboardAutoCapitalize", enabled);
 }
 
 void KeyboardSettingsStore::setHapticFeedbackEnabled(bool enabled) {
@@ -104,6 +105,7 @@ void KeyboardSettingsStore::resolveSettingsManager() {
     m_settingsManager = settingsObject;
     connectSettingSignal("keyboardLanguageChanged()", SLOT(syncFromSettings()));
     connectSettingSignal("keyboardAutoCorrectionChanged()", SLOT(syncFromSettings()));
+    connectSettingSignal("keyboardAutoCapitalizeChanged()", SLOT(syncFromSettings()));
     connectSettingSignal("keyboardPredictiveTextChanged()", SLOT(syncFromSettings()));
     connectSettingSignal("keyboardHapticStrengthChanged()", SLOT(syncFromSettings()));
     syncFromSettings();
@@ -120,6 +122,12 @@ void KeyboardSettingsStore::syncFromSettings() {
     if (m_autoCorrectEnabled != autoCorrect) {
         m_autoCorrectEnabled = autoCorrect;
         emit autoCorrectEnabledChanged();
+    }
+
+    const bool autoCapitalize = readSettingValue("keyboardAutoCapitalize", true).toBool();
+    if (m_autoCapitalizeEnabled != autoCapitalize) {
+        m_autoCapitalizeEnabled = autoCapitalize;
+        emit autoCapitalizeEnabledChanged();
     }
 
     const bool predictions = readSettingValue("keyboardPredictiveText", true).toBool();

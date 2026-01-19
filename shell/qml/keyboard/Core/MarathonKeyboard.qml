@@ -588,6 +588,9 @@ Rectangle {
     inputContext: InputContext {
         id: inputContextInstance
         keyboard: keyboard
+        autoCapitalizeEnabled: typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp ? SettingsManagerCpp.keyboardAutoCapitalize : true
+        autoCorrectEnabled: typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp ? SettingsManagerCpp.keyboardAutoCorrection : true
+        predictionsEnabled: typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp ? SettingsManagerCpp.keyboardPredictiveText : true
 
         onTextInserted: function (text) {
             if (text === " " || text === "\n")
