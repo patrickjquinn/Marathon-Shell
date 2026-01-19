@@ -61,6 +61,8 @@ class SettingsManager : public QObject {
                    searchNativeAppsChanged)
     Q_PROPERTY(bool showNotificationBadges READ showNotificationBadges WRITE
                    setShowNotificationBadges NOTIFY showNotificationBadgesChanged)
+    Q_PROPERTY(QVariantMap appNotificationSettings READ appNotificationSettings WRITE
+                   setAppNotificationSettings NOTIFY appNotificationSettingsChanged)
     Q_PROPERTY(bool showFrequentApps READ showFrequentApps WRITE setShowFrequentApps NOTIFY
                    showFrequentAppsChanged)
     Q_PROPERTY(
@@ -76,6 +78,8 @@ class SettingsManager : public QObject {
 
     Q_PROPERTY(bool keyboardAutoCorrection READ keyboardAutoCorrection WRITE
                    setKeyboardAutoCorrection NOTIFY keyboardAutoCorrectionChanged)
+    Q_PROPERTY(bool keyboardAutoCapitalize READ keyboardAutoCapitalize WRITE
+                   setKeyboardAutoCapitalize NOTIFY keyboardAutoCapitalizeChanged)
     Q_PROPERTY(bool keyboardPredictiveText READ keyboardPredictiveText WRITE
                    setKeyboardPredictiveText NOTIFY keyboardPredictiveTextChanged)
     Q_PROPERTY(bool keyboardWordFling READ keyboardWordFling WRITE setKeyboardWordFling NOTIFY
@@ -183,6 +187,9 @@ class SettingsManager : public QObject {
     bool showNotificationBadges() const {
         return m_showNotificationBadges;
     }
+    QVariantMap appNotificationSettings() const {
+        return m_appNotificationSettings;
+    }
     bool showFrequentApps() const {
         return m_showFrequentApps;
     }
@@ -203,6 +210,9 @@ class SettingsManager : public QObject {
 
     bool keyboardAutoCorrection() const {
         return m_keyboardAutoCorrection;
+    }
+    bool keyboardAutoCapitalize() const {
+        return m_keyboardAutoCapitalize;
     }
     bool keyboardPredictiveText() const {
         return m_keyboardPredictiveText;
@@ -254,6 +264,9 @@ class SettingsManager : public QObject {
     void                    setAppGridColumns(int columns);
     void                    setSearchNativeApps(bool enabled);
     void                    setShowNotificationBadges(bool enabled);
+    void                    setAppNotificationSettings(const QVariantMap &settings);
+    bool                    isNotificationsEnabledForApp(const QString &appId) const;
+    void                    setNotificationsEnabledForApp(const QString &appId, bool enabled);
     void                    setShowFrequentApps(bool enabled);
     void                    setDefaultApps(const QVariantMap &apps);
 
@@ -263,6 +276,7 @@ class SettingsManager : public QObject {
     void                    setQuickSettingsTileOrder(const QStringList &order);
 
     void                    setKeyboardAutoCorrection(bool enabled);
+    void                    setKeyboardAutoCapitalize(bool enabled);
     void                    setKeyboardPredictiveText(bool enabled);
     void                    setKeyboardWordFling(bool enabled);
     void                    setKeyboardPredictiveSpacing(bool enabled);
@@ -318,6 +332,7 @@ class SettingsManager : public QObject {
     void appGridColumnsChanged();
     void searchNativeAppsChanged();
     void showNotificationBadgesChanged();
+    void appNotificationSettingsChanged();
     void showFrequentAppsChanged();
     void defaultAppsChanged();
 
@@ -327,6 +342,7 @@ class SettingsManager : public QObject {
     void quickSettingsTileOrderChanged();
 
     void keyboardAutoCorrectionChanged();
+    void keyboardAutoCapitalizeChanged();
     void keyboardPredictiveTextChanged();
     void keyboardWordFlingChanged();
     void keyboardPredictiveSpacingChanged();
@@ -373,6 +389,7 @@ class SettingsManager : public QObject {
     int         m_appGridColumns;
     bool        m_searchNativeApps;
     bool        m_showNotificationBadges;
+    QVariantMap m_appNotificationSettings;
     bool        m_showFrequentApps;
     QVariantMap m_defaultApps;
 
@@ -382,6 +399,7 @@ class SettingsManager : public QObject {
     QStringList m_quickSettingsTileOrder;
 
     bool        m_keyboardAutoCorrection;
+    bool        m_keyboardAutoCapitalize;
     bool        m_keyboardPredictiveText;
     bool        m_keyboardWordFling;
     bool        m_keyboardPredictiveSpacing;

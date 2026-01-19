@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -10,116 +12,14 @@ SettingsPageTemplate {
     id: bluetoothPage
 
     property string pageName: "bluetooth"
-    property BluetoothPairDialog activePairDialog: null
-    property var pendingPairRequest: null
-
     pageTitle: "Bluetooth"
     Component.onCompleted: {
         Logger.info("BluetoothPage", "Initialized");
-        if (BluetoothManagerCpp.enabled)
-            BluetoothManagerCpp.startScan();
     }
 
-    Loader {
-        id: bluetoothPairDialogLoader
-
-        function show(name, address, type, mode) {
-            active = true;
-            bluetoothPage.pendingPairRequest = {
-                "name": name,
-                "address": address,
-                "type": type,
-                "mode": mode
-            };
-            if (bluetoothPage.activePairDialog) {
-                bluetoothPage.activePairDialog.show(name, address, type, mode);
-                bluetoothPage.pendingPairRequest = null;
-            }
-        }
-
+    BluetoothPairDialog {
+        id: pairDialog
         anchors.fill: parent
-        active: false
-        z: 1000
-        onLoaded: {
-            bluetoothPage.activePairDialog = item;
-            if (bluetoothPage.pendingPairRequest) {
-                var request = bluetoothPage.pendingPairRequest;
-                bluetoothPage.pendingPairRequest = null;
-                bluetoothPage.activePairDialog.show(request.name, request.address, request.type, request.mode);
-            }
-        }
-        onActiveChanged: {
-            if (!active)
-                bluetoothPage.activePairDialog = null;
-        }
-
-        sourceComponent: Component {
-            BluetoothPairDialog {
-                id: pairDialog
-
-                anchors.fill: parent
-                onPairRequested: pin => {
-                    Logger.info("BluetoothPage", "Pairing requested with PIN: " + (pin ? "****" : "none"));
-                    BluetoothManagerCpp.pairDevice(deviceAddress, pin);
-                }
-                onPairConfirmed: accepted => {
-                    Logger.info("BluetoothPage", "Pairing confirmation: " + accepted);
-                    if (accepted) {
-                        BluetoothManagerCpp.confirmPairing(deviceAddress, true);
-                    } else {
-                        BluetoothManagerCpp.confirmPairing(deviceAddress, false);
-                        bluetoothPairDialogLoader.item.hide();
-                    }
-                }
-                onCancelled: {
-                    Logger.info("BluetoothPage", "Pairing cancelled");
-                    BluetoothManagerCpp.cancelPairing(deviceAddress);
-                }
-            }
-        }
-    }
-
-    Connections {
-        function onEnabledChanged() {
-            if (BluetoothManagerCpp.enabled)
-                BluetoothManagerCpp.startScan();
-            else
-                BluetoothManagerCpp.stopScan();
-        }
-
-        function onPairingSucceeded(address) {
-            Logger.info("BluetoothPage", "✓ Successfully paired with: " + address);
-            if (bluetoothPage.activePairDialog)
-                bluetoothPage.activePairDialog.hide();
-
-            HapticService.medium();
-        }
-
-        function onPairingFailed(address, error) {
-            Logger.error("BluetoothPage", "✗ Failed to pair with " + address + ": " + error);
-            if (bluetoothPage.activePairDialog)
-                bluetoothPage.activePairDialog.showError(error || "Pairing failed. Try again.");
-        }
-
-        function onPinRequested(address, deviceName) {
-            Logger.info("BluetoothPage", "PIN requested for device: " + deviceName);
-            if (bluetoothPage.activePairDialog)
-                bluetoothPage.activePairDialog.show(deviceName, address, "device", "pin");
-        }
-
-        function onPasskeyRequested(address, deviceName) {
-            Logger.info("BluetoothPage", "Passkey requested for device: " + deviceName);
-            if (bluetoothPage.activePairDialog)
-                bluetoothPage.activePairDialog.show(deviceName, address, "device", "passkey");
-        }
-
-        function onPasskeyConfirmation(address, deviceName, passkey) {
-            Logger.info("BluetoothPage", "Passkey confirmation requested: " + passkey);
-            if (bluetoothPage.activePairDialog)
-                bluetoothPage.activePairDialog.showPasskeyConfirmation(deviceName, address, "device", passkey);
-        }
-
-        target: BluetoothManagerCpp
     }
 
     content: Flickable {
@@ -205,6 +105,7 @@ SettingsPageTemplate {
                         model: BluetoothManagerCpp.pairedDevices
 
                         Rectangle {
+                            required property var modelData
                             width: parent.width
                             height: Constants.hubHeaderHeight
                             color: "transparent"
@@ -315,6 +216,7 @@ SettingsPageTemplate {
                             model: BluetoothManagerCpp.devices
 
                             Rectangle {
+                                required property var modelData
                                 width: parent.width
                                 height: Constants.hubHeaderHeight
                                 color: "transparent"
@@ -376,7 +278,7 @@ SettingsPageTemplate {
                                     onClicked: {
                                         Logger.info("BluetoothPage", "Selected device for pairing: " + modelData.name);
                                         HapticService.light();
-                                        bluetoothPairDialogLoader.show(modelData.name, modelData.address, modelData.type || "device", "justworks");
+                                        SettingsController.showBluetoothDialog(modelData.name, modelData.address, modelData.type || "device", "justworks");
                                     }
                                 }
                             }

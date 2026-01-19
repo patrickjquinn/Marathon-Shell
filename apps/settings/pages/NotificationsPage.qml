@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -50,15 +52,32 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Notification Sound"
-                    value: AudioManager.currentNotificationSoundName
+                    value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.notificationSound)
                     showChevron: true
+                    onSettingClicked: SettingsController.requestPage("sound")
                 }
             }
 
             MSection {
                 title: "Per-App Notifications"
-                subtitle: "Coming soon"
                 width: parent.width - 48
+
+                Repeater {
+                    model: SettingsController.notificationApps || []
+
+                    MSettingsListItem {
+                        required property var modelData
+
+                        title: modelData.name
+                        subtitle: modelData.id
+                        iconName: "app-window"
+                        showToggle: true
+                        toggleValue: modelData.enabled
+                        onToggleChanged: value => {
+                            SettingsController.setNotificationEnabled(modelData.id, value);
+                        }
+                    }
+                }
             }
 
             Item {

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -15,18 +17,7 @@ SettingsPageTemplate {
 
     signal soundSelected(string path)
 
-    pageTitle: {
-        if (soundType === "ringtone")
-            return "Ringtone";
-
-        if (soundType === "notification")
-            return "Notification Sound";
-
-        if (soundType === "alarm")
-            return "Alarm Sound";
-
-        return "Sound";
-    }
+    pageTitle: SettingsController.soundTypeLabel(soundType)
 
     content: Flickable {
         contentHeight: soundContent.height + MSpacing.xl * 3
@@ -150,12 +141,7 @@ SettingsPageTemplate {
                                     Logger.info("SoundPickerPage", "Selected sound: " + modelData);
                                     soundPickerPage.currentSound = modelData;
                                     soundPickerPage.soundSelected(modelData);
-                                    if (soundPickerPage.soundType === "ringtone")
-                                        AudioManager.previewRingtone(modelData);
-                                    else if (soundPickerPage.soundType === "notification")
-                                        AudioManager.previewNotificationSound(modelData);
-                                    else if (soundPickerPage.soundType === "alarm")
-                                        AudioManager.previewAlarmSound(modelData);
+                                    AudioManagerCpp.previewSound(modelData);
                                 }
                             }
                         }

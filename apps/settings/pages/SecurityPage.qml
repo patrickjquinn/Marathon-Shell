@@ -1,7 +1,8 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
@@ -134,14 +135,9 @@ SettingsPageTemplate {
                 MButton {
                     text: "Set PIN"
                     onClicked: {
-                        if (newPINField.text.length < 4) {
-                            pinErrorText.text = "PIN must be 4-6 digits";
+                        pinErrorText.text = SettingsController.quickPinValidationError(newPINField.text, systemPasswordField.text);
+                        if (pinErrorText.text.length > 0)
                             return;
-                        }
-                        if (systemPasswordField.text.trim().length === 0) {
-                            pinErrorText.text = "System password required";
-                            return;
-                        }
                         SecurityManagerCpp.setQuickPIN(newPINField.text, systemPasswordField.text);
                         showQuickPINDialog = false;
                         newPINField.text = "";
@@ -201,21 +197,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Lock Method"
                     subtitle: {
-                        if (!SecurityManagerCpp)
-                            return "System Password";
-
-                        switch (SecurityManagerCpp.authMode) {
-                        case 0:
-                            return "System Password (PAM)";
-                        case 1:
-                            return "Quick PIN";
-                        case 2:
-                            return "Fingerprint Only";
-                        case 3:
-                            return "Fingerprint + PIN";
-                        default:
-                            return "Unknown";
-                        }
+                        return SettingsController.authModeLabel(SecurityManagerCpp ? SecurityManagerCpp.authMode : -1);
                     }
                     iconName: "lock"
                     enabled: false
@@ -265,14 +247,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Account Status"
                     subtitle: {
-                        if (!SecurityManagerCpp)
-                            return "Active";
-
-                        if (SecurityManagerCpp.isLockedOut) {
-                            var secs = SecurityManagerCpp.lockoutSecondsRemaining;
-                            return "Locked (" + secs + "s remaining)";
-                        }
-                        return "Active";
+                        return SettingsController.lockoutStatusText(SecurityManagerCpp ? SecurityManagerCpp.isLockedOut : false, SecurityManagerCpp ? SecurityManagerCpp.lockoutSecondsRemaining : 0);
                     }
                     iconName: SecurityManagerCpp && SecurityManagerCpp.isLockedOut ? "lock" : "check-circle"
                     enabled: false

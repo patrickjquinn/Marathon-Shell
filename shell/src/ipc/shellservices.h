@@ -15,6 +15,7 @@ class TelephonyService;
 class SMSService;
 class MediaLibraryManager;
 class SettingsManager;
+class SecurityManager;
 class BluetoothManager;
 class DisplayManagerCpp;
 class NetworkManagerCpp;
@@ -255,6 +256,42 @@ class SettingsObject : public QObject, protected QDBusContext {
     bool                       isAppScopedKey(const QString &key) const;
 
     SettingsManager           *m_settings      = nullptr;
+    MarathonPermissionManager *m_permissions   = nullptr;
+    AppLaunchService          *m_launchService = nullptr;
+};
+
+class SecurityObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Security1")
+
+  public:
+    SecurityObject(SecurityManager *security, MarathonPermissionManager *permissions,
+                   AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap GetState();
+    void        SetQuickPIN(const QString &pin, const QString &systemPassword);
+    void        RemoveQuickPIN(const QString &systemPassword);
+    void        AuthenticatePassword(const QString &password);
+    void        AuthenticateQuickPIN(const QString &pin);
+    void        AuthenticateBiometric(int type);
+    void        CancelAuthentication();
+    void        ResetLockout();
+    bool        IsBiometricEnrolled(int type);
+    QString     CurrentUsername();
+
+  signals:
+    void StateChanged(const QVariantMap &state);
+    void AuthenticationFailed(const QString &reason);
+    void AuthenticationSuccess();
+    void QuickPINChanged();
+
+  private:
+    QString                    callerAppIdOrEmpty() const;
+    bool                       requireSystem();
+    QVariantMap                buildState() const;
+
+    SecurityManager           *m_security      = nullptr;
     MarathonPermissionManager *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
 };

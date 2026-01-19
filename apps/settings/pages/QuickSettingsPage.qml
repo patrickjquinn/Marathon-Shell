@@ -1,11 +1,11 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
 SettingsPageTemplate {
     id: quickSettingsPage
@@ -83,7 +83,7 @@ SettingsPageTemplate {
                             {
                                 "id": "hotspot",
                                 "label": "Hotspot",
-                                "icon": "wifi-tethering",
+                                "icon": "router",
                                 "desc": "Share internet connection"
                             },
                             {
@@ -147,6 +147,7 @@ SettingsPageTemplate {
 
                             title: modelData.label
                             subtitle: modelData.desc
+                            iconName: modelData.icon
                             showToggle: true
                             toggleValue: SettingsManagerCpp.enabledQuickSettingsTiles.indexOf(modelData.id) !== -1
                             onToggleChanged: value => {

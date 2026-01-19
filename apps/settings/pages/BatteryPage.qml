@@ -1,7 +1,8 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
-import MarathonUI.Controls
 import MarathonUI.Theme
 import QtQuick
 
@@ -39,24 +40,7 @@ SettingsPageTemplate {
                 }
 
                 Text {
-                    text: {
-                        if (PowerManagerService.isCharging)
-                            return "Charging";
-
-                        if (PowerManagerService.isPluggedIn)
-                            return "Plugged In, Not Charging";
-
-                        var time = PowerManagerService.estimatedBatteryTime;
-                        if (time > 0) {
-                            var hours = Math.floor(time / 3600);
-                            var minutes = Math.floor((time % 3600) / 60);
-                            if (hours > 0)
-                                return hours + "h " + minutes + "m remaining";
-
-                            return minutes + "m remaining";
-                        }
-                        return "Discharging";
-                    }
+                    text: SettingsController.batteryStatusText(PowerManagerService.isCharging, PowerManagerService.isPluggedIn, PowerManagerService.estimatedBatteryTime)
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary

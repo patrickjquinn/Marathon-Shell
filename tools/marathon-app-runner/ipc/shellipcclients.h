@@ -304,6 +304,8 @@ class SettingsClient : public QObject {
                    searchNativeAppsChanged)
     Q_PROPERTY(bool showNotificationBadges READ showNotificationBadges WRITE
                    setShowNotificationBadges NOTIFY showNotificationBadgesChanged)
+    Q_PROPERTY(QVariantMap appNotificationSettings READ appNotificationSettings WRITE
+                   setAppNotificationSettings NOTIFY appNotificationSettingsChanged)
     Q_PROPERTY(bool showFrequentApps READ showFrequentApps WRITE setShowFrequentApps NOTIFY
                    showFrequentAppsChanged)
     Q_PROPERTY(
@@ -364,6 +366,7 @@ class SettingsClient : public QObject {
     int                     appGridColumns() const;
     bool                    searchNativeApps() const;
     bool                    showNotificationBadges() const;
+    QVariantMap             appNotificationSettings() const;
     bool                    showFrequentApps() const;
     QVariantMap             defaultApps() const;
 
@@ -411,6 +414,7 @@ class SettingsClient : public QObject {
     void                    setAppGridColumns(int v);
     void                    setSearchNativeApps(bool v);
     void                    setShowNotificationBadges(bool v);
+    void                    setAppNotificationSettings(const QVariantMap &settings);
     void                    setShowFrequentApps(bool v);
     void                    setDefaultApps(const QVariantMap &v);
 
@@ -470,6 +474,7 @@ class SettingsClient : public QObject {
     void appGridColumnsChanged();
     void searchNativeAppsChanged();
     void showNotificationBadgesChanged();
+    void appNotificationSettingsChanged();
     void showFrequentAppsChanged();
     void defaultAppsChanged();
 
@@ -503,6 +508,61 @@ class SettingsClient : public QObject {
     bool           m_refreshInFlight     = false;
     bool           m_permissionRequested = false;
     bool           m_storageRequested    = false;
+};
+
+class SecurityClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(int authMode READ authMode NOTIFY stateChanged)
+    Q_PROPERTY(bool hasQuickPIN READ hasQuickPIN NOTIFY stateChanged)
+    Q_PROPERTY(bool fingerprintAvailable READ fingerprintAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool isLockedOut READ isLockedOut NOTIFY stateChanged)
+    Q_PROPERTY(int lockoutSecondsRemaining READ lockoutSecondsRemaining NOTIFY stateChanged)
+    Q_PROPERTY(int failedAttempts READ failedAttempts NOTIFY stateChanged)
+
+  public:
+    explicit SecurityClient(const QString &appId, QObject *parent = nullptr);
+
+    int                 authMode() const;
+    bool                hasQuickPIN() const;
+    bool                fingerprintAvailable() const;
+    bool                isLockedOut() const;
+    int                 lockoutSecondsRemaining() const;
+    int                 failedAttempts() const;
+
+    Q_INVOKABLE void    setQuickPIN(const QString &pin, const QString &systemPassword);
+    Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);
+    Q_INVOKABLE void    authenticatePassword(const QString &password);
+    Q_INVOKABLE void    authenticateQuickPIN(const QString &pin);
+    Q_INVOKABLE void    authenticateBiometric(int type);
+    Q_INVOKABLE void    cancelAuthentication();
+    Q_INVOKABLE void    resetLockout();
+    Q_INVOKABLE bool    isBiometricEnrolled(int type);
+    Q_INVOKABLE QString currentUsername();
+
+  signals:
+    void stateChanged();
+    void authenticationFailed(const QString &reason);
+    void authenticationSuccess();
+    void quickPINChanged();
+
+  private slots:
+    void onStateChanged(const QVariantMap &state);
+
+  private:
+    bool           ensureSystemPermission();
+    void           refresh();
+    QVariant       v(const QString &k, const QVariant &fallback = QVariant()) const;
+
+    QString        m_appId;
+    QDBusInterface m_iface;
+    QDBusInterface m_permIface;
+    QVariantMap    m_state;
+    int            m_refreshRetryCount = 0;
+    QElapsedTimer  m_startTimer;
+    bool           m_loggedFirstSync     = false;
+    bool           m_loggedFirstFailure  = false;
+    bool           m_refreshInFlight     = false;
+    bool           m_permissionRequested = false;
 };
 
 class BluetoothClient : public QObject {

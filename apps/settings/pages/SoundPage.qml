@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -18,12 +20,12 @@ SettingsPageTemplate {
 
         SoundPickerPage {
             soundType: "ringtone"
-            currentSound: AudioManager.currentRingtone
-            availableSounds: AudioManager.availableRingtones
+            currentSound: SettingsManagerCpp.ringtone
+            availableSounds: SettingsManagerCpp.availableRingtones()
             onSoundSelected: path => {
-                AudioManager.setRingtone(path);
+                SettingsManagerCpp.ringtone = path;
             }
-            onNavigateBack: soundPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
         }
     }
 
@@ -32,12 +34,12 @@ SettingsPageTemplate {
 
         SoundPickerPage {
             soundType: "notification"
-            currentSound: AudioManager.currentNotificationSound
-            availableSounds: AudioManager.availableNotificationSounds
+            currentSound: SettingsManagerCpp.notificationSound
+            availableSounds: SettingsManagerCpp.availableNotificationSounds()
             onSoundSelected: path => {
-                AudioManager.setNotificationSound(path);
+                SettingsManagerCpp.notificationSound = path;
             }
-            onNavigateBack: soundPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
         }
     }
 
@@ -46,12 +48,12 @@ SettingsPageTemplate {
 
         SoundPickerPage {
             soundType: "alarm"
-            currentSound: AudioManager.currentAlarmSound
-            availableSounds: AudioManager.availableAlarmSounds
+            currentSound: SettingsManagerCpp.alarmSound
+            availableSounds: SettingsManagerCpp.availableAlarmSounds()
             onSoundSelected: path => {
-                AudioManager.setAlarmSound(path);
+                SettingsManagerCpp.alarmSound = path;
             }
-            onNavigateBack: soundPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
         }
     }
 
@@ -155,28 +157,28 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Ringtone"
-                    value: AudioManager.currentRingtoneName
+                    value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.ringtone)
                     showChevron: true
                     onSettingClicked: {
-                        soundPage.parent.push(ringtonePickerComponent);
+                        StackView.view.push(ringtonePickerComponent);
                     }
                 }
 
                 MSettingsListItem {
                     title: "Notification Sound"
-                    value: AudioManager.currentNotificationSoundName
+                    value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.notificationSound)
                     showChevron: true
                     onSettingClicked: {
-                        soundPage.parent.push(notificationSoundPickerComponent);
+                        StackView.view.push(notificationSoundPickerComponent);
                     }
                 }
 
                 MSettingsListItem {
                     title: "Alarm Sound"
-                    value: AudioManager.currentAlarmSoundName
+                    value: SettingsManagerCpp.formatSoundName(SettingsManagerCpp.alarmSound)
                     showChevron: true
                     onSettingClicked: {
-                        soundPage.parent.push(alarmSoundPickerComponent);
+                        StackView.view.push(alarmSoundPickerComponent);
                     }
                 }
             }

@@ -32,9 +32,9 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                DisplayManagerCpp *displayManager, PowerManagerCpp *powerManager,
                                AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
                                NetworkManagerCpp *networkManager, HapticManager *hapticManager,
-                               SensorManagerCpp *sensorManager, LocationManager *locationManager,
-                               AlarmManagerCpp *alarmManager, AppLaunchService *appLaunchService,
-                               QObject *parent)
+                               SecurityManager *securityManager, SensorManagerCpp *sensorManager,
+                               LocationManager *locationManager, AlarmManagerCpp *alarmManager,
+                               AppLaunchService *appLaunchService, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
     , m_contacts(contacts)
@@ -50,6 +50,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     , m_audioPolicy(audioPolicy)
     , m_networkManager(networkManager)
     , m_hapticManager(hapticManager)
+    , m_securityManager(securityManager)
     , m_sensorManager(sensorManager)
     , m_locationManager(locationManager)
     , m_alarmManager(alarmManager)
@@ -80,6 +81,8 @@ bool ShellIpcServer::registerOnSessionBus() {
         new MediaLibraryObject(m_mediaLibrary, m_permissions, m_appLaunchService, this);
     auto *settingsObj =
         new SettingsObject(m_settingsManager, m_permissions, m_appLaunchService, this);
+    auto *securityObj =
+        new SecurityObject(m_securityManager, m_permissions, m_appLaunchService, this);
     auto *btObj = new BluetoothObject(m_bluetoothManager, m_permissions, m_appLaunchService, this);
     auto *displayObj = new DisplayObject(m_displayManager, m_permissions, m_appLaunchService, this);
     auto *powerObj   = new PowerObject(m_powerManager, m_permissions, m_appLaunchService, this);
@@ -106,6 +109,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject("/org/marathonos/Shell/MediaLibrary", mediaObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Settings", settingsObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/Security", securityObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/Bluetooth", btObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);

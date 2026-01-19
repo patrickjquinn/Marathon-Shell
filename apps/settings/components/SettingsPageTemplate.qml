@@ -1,5 +1,5 @@
-import MarathonApp.Settings
-import MarathonApp.Settings
+pragma ComponentBehavior: Bound
+
 import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -24,7 +24,7 @@ Page {
         height: Constants.actionBarHeight
         color: MColors.surface
         z: 10
-        visible: showBackButton
+        visible: pageTemplate.showBackButton
 
         Row {
             anchors.left: parent.left
@@ -82,7 +82,7 @@ Page {
     Loader {
         id: contentLoader
 
-        anchors.top: showBackButton ? header.bottom : parent.top
+        anchors.top: pageTemplate.showBackButton ? header.bottom : parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom

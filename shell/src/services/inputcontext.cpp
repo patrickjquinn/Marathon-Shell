@@ -54,17 +54,62 @@ QString InputContext::recommendedLayout() const {
     return "dynamic";
 }
 
+bool InputContext::autoCapitalizeEnabled() const {
+    return m_autoCapitalizeEnabled;
+}
+
+void InputContext::setAutoCapitalizeEnabled(bool enabled) {
+    if (m_autoCapitalizeEnabled == enabled) {
+        return;
+    }
+    m_autoCapitalizeEnabled = enabled;
+    emit inputModeChanged();
+}
+
+bool InputContext::autoCorrectEnabled() const {
+    return m_autoCorrectEnabled;
+}
+
+void InputContext::setAutoCorrectEnabled(bool enabled) {
+    if (m_autoCorrectEnabled == enabled) {
+        return;
+    }
+    m_autoCorrectEnabled = enabled;
+    emit inputModeChanged();
+}
+
+bool InputContext::predictionsEnabled() const {
+    return m_predictionsEnabled;
+}
+
+void InputContext::setPredictionsEnabled(bool enabled) {
+    if (m_predictionsEnabled == enabled) {
+        return;
+    }
+    m_predictionsEnabled = enabled;
+    emit inputModeChanged();
+}
+
 bool InputContext::shouldAutoCapitalize() const {
+    if (!m_autoCapitalizeEnabled) {
+        return false;
+    }
     return !(m_inputMode == "email" || m_inputMode == "url" || m_inputMode == "number" ||
              m_inputMode == "phone" || m_inputMode == "terminal");
 }
 
 bool InputContext::shouldAutoCorrect() const {
+    if (!m_autoCorrectEnabled) {
+        return false;
+    }
     return !(m_inputMode == "email" || m_inputMode == "url" || m_inputMode == "number" ||
              m_inputMode == "phone" || m_inputMode == "terminal");
 }
 
 bool InputContext::shouldShowPredictions() const {
+    if (!m_predictionsEnabled) {
+        return false;
+    }
     if (m_inputMode == "number" || m_inputMode == "phone" || m_inputMode == "terminal") {
         return false;
     }

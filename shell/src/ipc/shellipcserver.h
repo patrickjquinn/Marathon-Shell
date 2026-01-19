@@ -19,6 +19,7 @@ class PowerManagerCpp;
 class AudioManagerCpp;
 class AudioPolicyController;
 class HapticManager;
+class SecurityManager;
 class SensorManagerCpp;
 class LocationManager;
 class AlarmManagerCpp;
@@ -34,9 +35,9 @@ class ShellIpcServer : public QObject {
                             DisplayManagerCpp *displayManager, PowerManagerCpp *powerManager,
                             AudioManagerCpp *audioManager, AudioPolicyController *audioPolicy,
                             NetworkManagerCpp *networkManager, HapticManager *hapticManager,
-                            SensorManagerCpp *sensorManager, LocationManager *locationManager,
-                            AlarmManagerCpp *alarmManager, AppLaunchService *appLaunchService,
-                            QObject *parent = nullptr);
+                            SecurityManager *securityManager, SensorManagerCpp *sensorManager,
+                            LocationManager *locationManager, AlarmManagerCpp *alarmManager,
+                            AppLaunchService *appLaunchService, QObject *parent = nullptr);
 
     bool registerOnSessionBus();
 
@@ -55,6 +56,7 @@ class ShellIpcServer : public QObject {
     AudioPolicyController     *m_audioPolicy      = nullptr;
     NetworkManagerCpp         *m_networkManager   = nullptr;
     HapticManager             *m_hapticManager    = nullptr;
+    SecurityManager           *m_securityManager  = nullptr;
     SensorManagerCpp          *m_sensorManager    = nullptr;
     LocationManager           *m_locationManager  = nullptr;
     AlarmManagerCpp           *m_alarmManager     = nullptr;

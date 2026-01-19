@@ -390,7 +390,7 @@ int main(int argc, char *argv[]) {
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
-    createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
+    auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
 
     auto *appLaunchService =
         createObject<AppLaunchService>(ctx, "AppLaunchService", appModel, taskModel, &app);
@@ -572,8 +572,8 @@ int main(int argc, char *argv[]) {
         auto *ipc = new ShellIpcServer(
             permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
-            audioManager, audioPolicyController, networkManager, hapticsObj, sensorManager,
-            locationManager, alarmManager, appLaunchService, &app);
+            audioManager, audioPolicyController, networkManager, hapticsObj, securityManager,
+            sensorManager, locationManager, alarmManager, appLaunchService, &app);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

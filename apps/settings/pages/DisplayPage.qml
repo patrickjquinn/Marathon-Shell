@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -16,7 +18,7 @@ SettingsPageTemplate {
         id: scalePageComponent
 
         ScalePage {
-            onNavigateBack: displayPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
         }
     }
 
@@ -24,7 +26,7 @@ SettingsPageTemplate {
         id: wallpaperPageComponent
 
         WallpaperPage {
-            onNavigateBack: displayPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
         }
     }
 
@@ -32,7 +34,7 @@ SettingsPageTemplate {
         id: screenTimeoutPageComponent
 
         ScreenTimeoutPage {
-            onNavigateBack: displayPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
         }
     }
 
@@ -41,7 +43,7 @@ SettingsPageTemplate {
 
         SettingsPageTemplate {
             pageTitle: "Clock Position"
-            onNavigateBack: displayPage.parent.pop()
+            onNavigateBack: StackView.view.pop()
 
             content: Flickable {
                 contentHeight: clockPositionContent.height + 40
@@ -171,7 +173,7 @@ SettingsPageTemplate {
                     value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.screenTimeoutString : ""
                     showChevron: true
                     onSettingClicked: {
-                        displayPage.parent.push(screenTimeoutPageComponent);
+                        StackView.view.push(screenTimeoutPageComponent);
                     }
                 }
             }
@@ -189,7 +191,7 @@ SettingsPageTemplate {
                     }
                     showChevron: true
                     onSettingClicked: {
-                        displayPage.parent.push(clockPositionPageComponent);
+                        StackView.view.push(clockPositionPageComponent);
                     }
                 }
             }
@@ -203,7 +205,7 @@ SettingsPageTemplate {
                     subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
                     showChevron: true
                     onSettingClicked: {
-                        displayPage.parent.push(scalePageComponent);
+                        StackView.view.push(scalePageComponent);
                     }
                 }
 
@@ -212,7 +214,7 @@ SettingsPageTemplate {
                     subtitle: "Change background image"
                     showChevron: true
                     onSettingClicked: {
-                        displayPage.parent.push(wallpaperPageComponent);
+                        StackView.view.push(wallpaperPageComponent);
                     }
                 }
             }

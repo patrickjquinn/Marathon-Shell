@@ -12,11 +12,13 @@ void SurfaceRegistry::registerSurface(int surfaceId, QObject *item) {
     }
     m_surfaceMap.insert(surfaceId, item);
     logMessage(QString("Registered surface: %1").arg(surfaceId));
+    emit surfaceRegistered(surfaceId);
 }
 
 void SurfaceRegistry::unregisterSurface(int surfaceId) {
     if (m_surfaceMap.remove(surfaceId) > 0) {
         logMessage(QString("Unregistered surface: %1").arg(surfaceId));
+        emit surfaceUnregistered(surfaceId);
     }
 }
 

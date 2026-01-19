@@ -13,6 +13,7 @@ Rectangle {
     property bool showChevron: false
     property bool showToggle: false
     property bool toggleValue: false
+    property bool showDivider: true
 
     signal settingClicked
     signal toggleChanged(bool value)
@@ -159,6 +160,7 @@ Rectangle {
         anchors.leftMargin: iconName !== "" ? 56 : MSpacing.md
         height: 1
         color: Qt.rgba(1, 1, 1, 0.08)
+        visible: root.showDivider
     }
 
     MouseArea {

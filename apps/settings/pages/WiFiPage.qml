@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -11,9 +13,6 @@ SettingsPageTemplate {
     id: wifiPage
 
     property string pageName: "wifi"
-    property WiFiPasswordDialog activePasswordDialog: null
-    property var pendingPasswordRequest: null
-
     pageTitle: "WiFi"
     Component.onCompleted: {
         Logger.info("WiFiPage", "Initialized");
@@ -70,72 +69,9 @@ SettingsPageTemplate {
         }
     }
 
-    Loader {
-        id: wifiPasswordDialogLoader
-
-        function show(ssid, strength, security, secured) {
-            active = true;
-            wifiPage.pendingPasswordRequest = {
-                "ssid": ssid,
-                "strength": strength,
-                "security": security,
-                "secured": secured
-            };
-            if (wifiPage.activePasswordDialog) {
-                wifiPage.activePasswordDialog.show(ssid, strength, security, secured);
-                wifiPage.pendingPasswordRequest = null;
-            }
-        }
-
+    WiFiPasswordDialog {
+        id: passwordDialog
         anchors.fill: parent
-        active: false
-        z: 1000
-        onLoaded: {
-            wifiPage.activePasswordDialog = item;
-            if (wifiPage.pendingPasswordRequest) {
-                var request = wifiPage.pendingPasswordRequest;
-                wifiPage.pendingPasswordRequest = null;
-                wifiPage.activePasswordDialog.show(request.ssid, request.strength, request.security, request.secured);
-            }
-        }
-        onActiveChanged: {
-            if (!active)
-                wifiPage.activePasswordDialog = null;
-        }
-
-        sourceComponent: Component {
-            WiFiPasswordDialog {
-                id: passwordDialog
-
-                anchors.fill: parent
-                onConnectRequested: (ssid, password) => {
-                    Logger.info("WiFiPage", "Attempting WiFi connection to:", ssid);
-                    if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                        NetworkManagerCpp.connectToNetwork(ssid, password);
-                }
-                onCancelled: {
-                    Logger.info("WiFiPage", "WiFi dialog cancelled");
-                }
-            }
-        }
-    }
-
-    Connections {
-        function onConnectionSuccess() {
-            Logger.info("WiFiPage", "WiFi connection successful!");
-            if (wifiPage.activePasswordDialog)
-                wifiPage.activePasswordDialog.hide();
-            wifiPasswordDialogLoader.active = false;
-            HapticService.medium();
-        }
-
-        function onConnectionFailed(message) {
-            Logger.warn("WiFiPage", "WiFi connection failed: " + message);
-            if (wifiPage.activePasswordDialog)
-                wifiPage.activePasswordDialog.showError(message);
-        }
-
-        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
     }
 
     content: Flickable {
@@ -190,19 +126,7 @@ SettingsPageTemplate {
                         spacing: MSpacing.md
 
                         Icon {
-                            name: {
-                                var strength = (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0;
-                                if (strength === 0)
-                                    return "wifi-zero";
-
-                                if (strength <= 33)
-                                    return "wifi-low";
-
-                                if (strength <= 66)
-                                    return "wifi";
-
-                                return "wifi-high";
-                            }
+                            name: SettingsController.wifiSignalIcon((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0)
                             size: 28
                             color: Qt.rgba(20, 184, 166, 1)
                             anchors.verticalCenter: parent.verticalCenter
@@ -224,7 +148,7 @@ SettingsPageTemplate {
                             }
 
                             Text {
-                                text: "Connected • " + ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0) + "% signal"
+                                text: SettingsController.wifiConnectionStatusText((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.wifiSignalStrength : 0)
                                 color: MColors.textSecondary
                                 font.pixelSize: MTypography.sizeSmall
                                 font.family: MTypography.fontFamily
@@ -291,21 +215,11 @@ SettingsPageTemplate {
                         model: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.availableNetworks : []
 
                         MSettingsListItem {
+                            required property var modelData
                             width: parent.width
                             title: modelData.ssid
-                            subtitle: (modelData.security || "Open") + " • " + modelData.strength + "% signal" + (modelData.frequency ? (" • " + modelData.frequency + " GHz") : "")
-                            iconName: {
-                                if (modelData.strength === 0)
-                                    return "wifi-zero";
-
-                                if (modelData.strength <= 33)
-                                    return "wifi-low";
-
-                                if (modelData.strength <= 66)
-                                    return "wifi";
-
-                                return "wifi-high";
-                            }
+                            subtitle: SettingsController.availableNetworkSubtitle(modelData.security || "", modelData.strength, modelData.frequency)
+                            iconName: SettingsController.wifiSignalIcon(modelData.strength)
                             showChevron: true
                             onSettingClicked: {
                                 HapticService.light();
@@ -314,7 +228,7 @@ SettingsPageTemplate {
                                     disconnectSheet.show();
                                 } else {
                                     Logger.info("WiFiPage", "Connect to: " + modelData.ssid);
-                                    wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security || "Open", modelData.secured);
+                                    SettingsController.showWifiDialog(modelData.ssid, modelData.strength, modelData.security || "Open", modelData.secured);
                                 }
                             }
                         }

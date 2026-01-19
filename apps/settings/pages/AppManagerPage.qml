@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonApp.Settings
 import MarathonOS.Shell
@@ -18,14 +20,6 @@ SettingsPageTemplate {
 
         property string appId: ""
         property string appName: ""
-
-        function open() {
-            visible = true;
-        }
-
-        function close() {
-            visible = false;
-        }
 
         anchors.centerIn: parent
         width: Math.min(Constants.screenWidth * 0.85, parent.width - MSpacing.xl * 2)
@@ -71,9 +65,7 @@ SettingsPageTemplate {
                     Layout.fillWidth: true
                     text: "Cancel"
                     variant: "secondary"
-                    onClicked: {
-                        uninstallDialog.close();
-                    }
+                    onClicked: uninstallDialog.visible = false
                 }
 
                 MButton {
@@ -83,7 +75,7 @@ SettingsPageTemplate {
                     onClicked: {
                         Logger.info("AppManagerPage", "Uninstalling: " + uninstallDialog.appId);
                         MarathonAppInstaller.uninstallApp(uninstallDialog.appId);
-                        uninstallDialog.close();
+                        uninstallDialog.visible = false;
                     }
                 }
             }
@@ -99,7 +91,7 @@ SettingsPageTemplate {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                uninstallDialog.close();
+                uninstallDialog.visible = false;
             }
         }
     }
@@ -217,7 +209,7 @@ SettingsPageTemplate {
                                 onClicked: {
                                     uninstallDialog.appId = model.id;
                                     uninstallDialog.appName = model.name;
-                                    uninstallDialog.open();
+                                    uninstallDialog.visible = true;
                                 }
                             }
                         }

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import MarathonApp.Settings
 import MarathonOS.Shell
 import MarathonUI.Containers
@@ -10,6 +12,11 @@ SettingsPageTemplate {
     property string pageName: "about"
 
     pageTitle: "About Device"
+    signal openSourceLicensesRequested
+
+    StorageInfo {
+        id: storageInfo
+    }
 
     content: Flickable {
         contentHeight: aboutContent.height + 40
@@ -36,22 +43,22 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Model"
-                    value: "Marathon Passport"
+                    value: SettingsController.deviceModel
                 }
 
                 MSettingsListItem {
                     title: "OS Version"
-                    value: "Marathon OS 1.0.0"
+                    value: SettingsController.osVersion
                 }
 
                 MSettingsListItem {
                     title: "Build"
-                    value: "Alpha"
+                    value: SettingsController.buildType
                 }
 
                 MSettingsListItem {
                     title: "Kernel Version"
-                    value: Platform.os === "linux" ? "Linux 6.x" : "Darwin"
+                    value: SettingsController.kernelVersion
                 }
             }
 
@@ -61,12 +68,27 @@ SettingsPageTemplate {
 
                 MSettingsListItem {
                     title: "Storage"
-                    value: "64 GB"
+                    value: storageInfo.totalSpaceString
                 }
 
                 MSettingsListItem {
                     title: "Display"
-                    value: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? (ScreenMetricsCpp.width + "x" + ScreenMetricsCpp.height) : ""
+                    value: SettingsController.displayResolution
+                }
+
+                MSettingsListItem {
+                    title: "Refresh Rate"
+                    value: SettingsController.displayRefreshRate
+                }
+
+                MSettingsListItem {
+                    title: "DPI"
+                    value: SettingsController.displayDpi
+                }
+
+                MSettingsListItem {
+                    title: "Scale"
+                    value: SettingsController.displayScale
                 }
 
                 MSettingsListItem {
@@ -82,16 +104,19 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Open Source Licenses"
                     showChevron: true
+                    onSettingClicked: aboutPage.openSourceLicensesRequested()
                 }
 
                 MSettingsListItem {
                     title: "Terms of Service"
                     showChevron: true
+                    onSettingClicked: SettingsController.requestPage("tos")
                 }
 
                 MSettingsListItem {
                     title: "Privacy Policy"
                     showChevron: true
+                    onSettingClicked: SettingsController.requestPage("privacy")
                 }
             }
 

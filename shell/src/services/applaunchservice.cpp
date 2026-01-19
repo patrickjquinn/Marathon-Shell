@@ -15,6 +15,7 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusMessage>
+#include <QDBusReply>
 
 #if defined(HAVE_WAYLAND)
 #include "wayland/waylandcompositor.h"
@@ -443,6 +444,11 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
             qInfo() << "[AppLaunchService] Closed task for app" << p.appId << "on PID exit";
         }
     }
+
+    if (m_appLifecycleManager) {
+        QMetaObject::invokeMethod(m_appLifecycleManager, "unregisterApp", Qt::DirectConnection,
+                                  Q_ARG(QString, p.appId));
+    }
 }
 
 QString AppLaunchService::appIdForPid(qint64 pid) const {
@@ -476,8 +482,10 @@ static bool callRunnerLifecycle(qint64 pid, const char *method) {
         QStringLiteral("org.marathonos.AppRunner.Lifecycle1"), QDBusConnection::sessionBus());
     if (!iface.isValid())
         return false;
-    QDBusMessage r = iface.call(QString::fromLatin1(method));
-    return r.type() != QDBusMessage::ErrorMessage;
+    QDBusReply<bool> r = iface.call(QString::fromLatin1(method));
+    if (!r.isValid())
+        return false;
+    return r.value();
 }
 
 bool AppLaunchService::sendBackToRunner(const QString &appId) {

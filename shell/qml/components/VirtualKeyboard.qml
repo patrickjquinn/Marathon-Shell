@@ -50,6 +50,13 @@ Item {
         }
     }
 
+    Binding {
+        target: typeof HapticManager !== "undefined" ? HapticManager : null
+        property: "enabled"
+        value: typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp ? (SettingsManagerCpp.keyboardHapticStrength !== "off" && SettingsManagerCpp.vibrationEnabled) : true
+        when: typeof HapticManager !== "undefined" && HapticManager
+    }
+
     Behavior on height {
         NumberAnimation {
             duration: 120

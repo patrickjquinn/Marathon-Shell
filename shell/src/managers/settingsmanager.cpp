@@ -38,12 +38,14 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_appGridColumns(0)
     , m_searchNativeApps(true)
     , m_showNotificationBadges(true)
+    , m_appNotificationSettings()
     , m_showFrequentApps(false)
     , m_defaultApps()
     , m_firstRunComplete(false)
     , m_enabledQuickSettingsTiles()
     , m_quickSettingsTileOrder()
     , m_keyboardAutoCorrection(true)
+    , m_keyboardAutoCapitalize(true)
     , m_keyboardPredictiveText(true)
     , m_keyboardWordFling(true)
     , m_keyboardPredictiveSpacing(false)
@@ -195,7 +197,9 @@ void SettingsManager::load() {
     m_appGridColumns           = m_settings.value("apps/gridColumns", 0).toInt();
     m_searchNativeApps         = m_settings.value("apps/searchNativeApps", true).toBool();
     m_showNotificationBadges   = m_settings.value("apps/showBadges", true).toBool();
-    m_showFrequentApps         = m_settings.value("apps/showFrequentApps", false).toBool();
+    m_appNotificationSettings =
+        m_settings.value("notifications/appSettings", QVariantMap()).toMap();
+    m_showFrequentApps = m_settings.value("apps/showFrequentApps", false).toBool();
 
     QVariantMap defaultApps;
     defaultApps["browser"]   = m_settings.value("apps/defaultBrowser", "").toString();
@@ -221,6 +225,7 @@ void SettingsManager::load() {
         m_settings.value("quicksettings/tileOrder", defaultTiles).toStringList();
 
     m_keyboardAutoCorrection    = m_settings.value("keyboard/autoCorrection", true).toBool();
+    m_keyboardAutoCapitalize    = m_settings.value("keyboard/autoCapitalize", true).toBool();
     m_keyboardPredictiveText    = m_settings.value("keyboard/predictiveText", true).toBool();
     m_keyboardWordFling         = m_settings.value("keyboard/wordFling", true).toBool();
     m_keyboardPredictiveSpacing = m_settings.value("keyboard/predictiveSpacing", false).toBool();
@@ -265,6 +270,7 @@ void SettingsManager::save() {
     m_settings.setValue("display/statusBarClockPosition", m_statusBarClockPosition);
 
     m_settings.setValue("notifications/showOnLockScreen", m_showNotificationsOnLockScreen);
+    m_settings.setValue("notifications/appSettings", m_appNotificationSettings);
 
     m_settings.setValue("apps/filterMobileFriendly", m_filterMobileFriendlyApps);
     m_settings.setValue("apps/hiddenApps", m_hiddenApps);
@@ -290,6 +296,7 @@ void SettingsManager::save() {
     m_settings.setValue("quicksettings/tileOrder", m_quickSettingsTileOrder);
 
     m_settings.setValue("keyboard/autoCorrection", m_keyboardAutoCorrection);
+    m_settings.setValue("keyboard/autoCapitalize", m_keyboardAutoCapitalize);
     m_settings.setValue("keyboard/predictiveText", m_keyboardPredictiveText);
     m_settings.setValue("keyboard/wordFling", m_keyboardWordFling);
     m_settings.setValue("keyboard/predictiveSpacing", m_keyboardPredictiveSpacing);
@@ -547,6 +554,15 @@ void SettingsManager::setKeyboardAutoCorrection(bool enabled) {
     qDebug() << "[SettingsManager] Keyboard auto-correction:" << enabled;
 }
 
+void SettingsManager::setKeyboardAutoCapitalize(bool enabled) {
+    if (m_keyboardAutoCapitalize == enabled)
+        return;
+    m_keyboardAutoCapitalize = enabled;
+    save();
+    emit keyboardAutoCapitalizeChanged();
+    qDebug() << "[SettingsManager] Keyboard auto-capitalize:" << enabled;
+}
+
 void SettingsManager::setKeyboardPredictiveText(bool enabled) {
     if (m_keyboardPredictiveText == enabled)
         return;
@@ -767,6 +783,39 @@ void SettingsManager::setShowNotificationBadges(bool enabled) {
     save();
 
     qDebug() << "[SettingsManager] Show notification badges:" << enabled;
+}
+
+void SettingsManager::setAppNotificationSettings(const QVariantMap &settings) {
+    if (m_appNotificationSettings == settings) {
+        return;
+    }
+    m_appNotificationSettings = settings;
+    emit appNotificationSettingsChanged();
+    save();
+}
+
+bool SettingsManager::isNotificationsEnabledForApp(const QString &appId) const {
+    if (appId.isEmpty()) {
+        return true;
+    }
+    const QVariant value = m_appNotificationSettings.value(appId);
+    if (!value.isValid()) {
+        return true;
+    }
+    return value.toBool();
+}
+
+void SettingsManager::setNotificationsEnabledForApp(const QString &appId, bool enabled) {
+    if (appId.isEmpty()) {
+        return;
+    }
+    const bool current = isNotificationsEnabledForApp(appId);
+    if (current == enabled) {
+        return;
+    }
+    m_appNotificationSettings.insert(appId, enabled);
+    emit appNotificationSettingsChanged();
+    save();
 }
 
 void SettingsManager::setShowFrequentApps(bool enabled) {
