@@ -48,9 +48,11 @@ Item {
             backPressed();
             return true;
         }
-
-        minimizeRequested();
-        return true;
+        if (typeof AppLifecycleManager !== 'undefined') {
+            minimizeRequested();
+            return true;
+        }
+        return false;
     }
 
     function handleForward() {
