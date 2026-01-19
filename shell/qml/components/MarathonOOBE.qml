@@ -175,19 +175,34 @@ Item {
                     "description": "More content, smaller text"
                 },
                 {
+                    "factor": 0.9,
+                    "title": "90% - Small",
+                    "description": "Slightly smaller UI"
+                },
+                {
                     "factor": 1,
                     "title": "100% - Default",
                     "description": "Recommended for most users"
                 },
                 {
+                    "factor": 1.1,
+                    "title": "110% - Comfortable",
+                    "description": "A bit larger for readability"
+                },
+                {
                     "factor": 1.25,
-                    "title": "125% - Comfortable",
+                    "title": "125% - Large",
                     "description": "Larger text, easier to read"
                 },
                 {
-                    "factor": 1.5,
-                    "title": "150% - Large",
+                    "factor": 1.4,
+                    "title": "140% - Extra Large",
                     "description": "Maximum readability"
+                },
+                {
+                    "factor": 1.5,
+                    "title": "150% - Huge",
+                    "description": "Oversized UI elements"
                 }
             ]
 
