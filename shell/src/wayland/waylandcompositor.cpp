@@ -775,8 +775,9 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
     if (!process)
         return;
 
-    QString       command = m_processes.value(process, "unknown");
-    qint64        pid     = process->processId();
+    QString       command       = m_processes.value(process, "unknown");
+    qint64        pid           = process->processId();
+    const bool    alreadyClosed = process->property("marathonAppClosedEmitted").toBool();
 
     const QString desktopFile = process->property("marathonDesktopFile").toString();
     if (!desktopFile.isEmpty()) {
@@ -816,7 +817,7 @@ void WaylandCompositor::handleProcessFinished(int exitCode, QProcess::ExitStatus
                            << err.trimmed();
         }
 
-        if (pid > 0) {
+        if (pid > 0 && !alreadyClosed) {
             emit appClosed(pid);
         }
     }
@@ -955,6 +956,14 @@ void WaylandCompositor::handleProcessError(QProcess::ProcessError error) {
         qWarning() << "[WaylandCompositor] stdout tail for" << command << ":\n" << output.trimmed();
     if (!err.trimmed().isEmpty())
         qWarning() << "[WaylandCompositor] stderr tail for" << command << ":\n" << err.trimmed();
+
+    if (error == QProcess::Crashed) {
+        const qint64 pid = process->processId();
+        if (pid > 0 && !process->property("marathonAppClosedEmitted").toBool()) {
+            process->setProperty("marathonAppClosedEmitted", true);
+            emit appClosed(pid);
+        }
+    }
 
     if (error == QProcess::FailedToStart) {
         m_processes.remove(process);
