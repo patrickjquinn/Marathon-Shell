@@ -280,9 +280,27 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
             env.insert("QT_FORCE_STDERR_LOGGING", "1");
         }
     }
-    const bool forceShm = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
+    const bool forceShm      = envBool("MARATHON_FORCE_WAYLAND_SHM", false);
+    const bool appsUseVulkan = envBool("MARATHON_APPS_USE_VULKAN", false);
+    QString    rhiBackend    = env.value("QSG_RHI_BACKEND").trimmed().toLower();
+    QString    quickBackend  = env.value("QT_QUICK_BACKEND").trimmed().toLower();
+    bool       usingVulkan   = (rhiBackend == "vulkan") || (quickBackend == "vulkan");
+    if (isRunner && usingVulkan && !appsUseVulkan) {
+        env.insert("QSG_RHI_BACKEND", "opengl");
+        env.remove("QT_QUICK_BACKEND");
+        usingVulkan = false;
+        rhiBackend  = QStringLiteral("opengl");
+        quickBackend.clear();
+        qInfo()
+            << "[WaylandCompositor] App runner forced to OpenGL (set MARATHON_APPS_USE_VULKAN=1 "
+               "to override)";
+    }
     if (!env.contains("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION")) {
-        env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", forceShm ? "shm" : "wayland-egl");
+        if (forceShm) {
+            env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", "shm");
+        } else if (!usingVulkan) {
+            env.insert("QT_WAYLAND_CLIENT_BUFFER_INTEGRATION", "wayland-egl");
+        }
     }
 
     env.insert("GDK_BACKEND", "wayland");

@@ -27,6 +27,12 @@ fi
 echo "🛑 Killing any running Marathon Shell instances..."
 pkill -9 marathon-shell 2>/dev/null || true
 
+if [ "$CLEAR_QML_CACHE" = "1" ] || [ "$CLEAR_QML_CACHE" = "true" ]; then
+    CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}"
+    echo "🧹 Clearing QML disk cache from $CACHE_ROOT"
+    rm -rf "$CACHE_ROOT/QtProject/qmlcache" "$CACHE_ROOT/qmlcache" "$CACHE_ROOT/marathon-qml"
+fi
+
 echo ""
 echo "============================================"
 echo "Marathon OS Incremental Build"
@@ -173,6 +179,12 @@ if [ $? -eq 0 ]; then
     export QT_QUICK_CONTROLS_MATERIAL_VARIANT=""
     export QT_QUICK_CONTROLS_UNIVERSAL_THEME=""
     export QT_QUICK_CONTROLS_UNIVERSAL_VARIANT=""
+
+    if [ "$USE_VULKAN" = "1" ] || [ "$USE_VULKAN" = "true" ]; then
+        export QSG_RHI_BACKEND=vulkan
+        echo "🧪 Qt Quick RHI backend: Vulkan"
+        echo ""
+    fi
     
     # Set QML import path for MarathonUI modules
     export QML_IMPORT_PATH="$PROJECT_DIR/build/shell/qml:$QML_IMPORT_PATH"
