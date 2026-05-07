@@ -13,10 +13,8 @@
 #include <QDBusMetaType>
 #include <QElapsedTimer>
 
-#ifdef Q_OS_LINUX
-#include <sched.h>
-#include <pthread.h>
-#endif
+#include "util/rtprio.h"
+#include <cstring>
 
 #include "src/components/desktopfileparser.h"
 #include "src/components/crashhandler.h"
@@ -253,22 +251,11 @@ int main(int argc, char *argv[]) {
     qInfo() << "[Marathon] Crash protection installed (signal handlers active)";
 
 #ifdef Q_OS_LINUX
-    // Main (GUI) thread on SCHED_RR priority 2 — one notch above the compositor
-    // render thread (priority 1, set via QQuickWindow::beforeSynchronizing in
-    // WaylandCompositor::setCompositorRealtimePriority) so input event dispatch
-    // wins against rendering when both are runnable.
-    // Still well below audio/modem/IRQ — see WaylandCompositor for the rationale.
-    struct sched_param mainSchedParam;
-    mainSchedParam.sched_priority = 2;
-    int mainSchedRc =
-        pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &mainSchedParam);
-    if (mainSchedRc == 0) {
-        qWarning() << "[MarathonShell] Main thread on SCHED_RR priority 2 (input dispatch)";
-    } else {
-        qWarning() << "[MarathonShell] Main thread RT elevation failed (errno" << mainSchedRc << "/"
-                   << strerror(mainSchedRc)
-                   << ") — running on SCHED_OTHER. Grant CAP_SYS_NICE for tighter "
-                      "input-event variance under heavy CPU load.";
+    // Shell main thread = SCHED_RR/2; render thread is set to RR/1 from
+    // WaylandCompositor. See docs/RT_SCHEDULING.md for the full hierarchy.
+    if (const int rc = marathon::rt::setCurrentThreadPriority(2); rc != 0) {
+        qWarning() << "[MarathonShell] Main thread RT elevation failed:" << strerror(rc)
+                   << "— grant CAP_SYS_NICE or rtprio in /etc/security/limits.d/.";
     }
 #endif
 

@@ -68,48 +68,47 @@ static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
 }
 
 static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als) {
+    // Resolve the caller to a Marathon app id; return empty (= deny) when we
+    // can't. Under MARATHON_TEST_TRUSTED, every non-resolution returns the
+    // synthetic test caller instead — never overriding a real resolution.
+    const auto unresolved = []() {
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+    };
+
     if (!ctx.calledFromDBus() || !als)
         return {};
+
     const QString sender   = ctx.message().service();
     auto          pidReply = ctx.connection().interface()->servicePid(sender);
     if (!pidReply.isValid())
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+        return unresolved();
     const qint64 pid = static_cast<qint64>(pidReply.value());
 
-    QString      mapped = als->appIdForPid(pid);
-    if (!mapped.isEmpty())
+    if (QString mapped = als->appIdForPid(pid); !mapped.isEmpty())
         return mapped;
 
     const qint64 shellPid = static_cast<qint64>(QCoreApplication::applicationPid());
     if (shellPid <= 0 || pid <= 0)
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+        return unresolved();
 
+    // Confirm the caller is a marathon-app-runner whose parent is this shell —
+    // i.e. one we ourselves launched and just haven't registered yet.
     QFile statFile(QStringLiteral("/proc/%1/stat").arg(pid));
     if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+        return unresolved();
     const QByteArray statLine = statFile.readAll();
     const qsizetype  closeIdx = statLine.lastIndexOf(')');
-    if (closeIdx < 0)
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-    const QByteArray        after = statLine.mid(closeIdx + 1).trimmed();
-    const QList<QByteArray> parts = after.split(' ');
-    if (parts.size() < 2)
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-    const qint64 ppid = parts.at(1).toLongLong();
-    if (ppid != shellPid)
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+    const QByteArray afterCmd = closeIdx < 0 ? QByteArray() : statLine.mid(closeIdx + 1).trimmed();
+    const QList<QByteArray> parts = afterCmd.split(' ');
+    if (parts.size() < 2 || parts.at(1).toLongLong() != shellPid)
+        return unresolved();
 
     QFile cmdFile(QStringLiteral("/proc/%1/cmdline").arg(pid));
     if (!cmdFile.open(QIODevice::ReadOnly))
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-    const QByteArray        cmdRaw = cmdFile.readAll();
-    const QList<QByteArray> argv   = cmdRaw.split('\0');
-    if (argv.isEmpty())
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-
-    const QString argv0 = QString::fromLocal8Bit(argv.value(0));
-    if (!argv0.contains("marathon-app-runner"))
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+        return unresolved();
+    const QList<QByteArray> argv = cmdFile.readAll().split('\0');
+    if (argv.isEmpty() || !QString::fromLocal8Bit(argv.value(0)).contains("marathon-app-runner"))
+        return unresolved();
 
     QString appId;
     for (int i = 0; i + 1 < argv.size(); ++i) {
@@ -118,10 +117,8 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
             break;
         }
     }
-    if (appId.isEmpty())
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
-    if (!als->isMarathonAppId(appId))
-        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+    if (appId.isEmpty() || !als->isMarathonAppId(appId))
+        return unresolved();
 
     als->registerPidForAppId(pid, appId);
     return appId;
