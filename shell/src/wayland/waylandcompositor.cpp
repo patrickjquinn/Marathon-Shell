@@ -109,6 +109,11 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     } else {
         qInfo() << "[WaylandCompositor] zwp_idle_inhibit_manager_v1 disabled";
     }
+    // Note: wp_presentation (QWaylandPresentationTime) is intentionally NOT
+    // wired up here. Qt 6.10.2 on Fedora exposes the class only via private
+    // headers; using it would tie Marathon to Qt's private API. Re-add when
+    // either (a) we standardize on a Qt version with the public class, or
+    // (b) we decide the private-header dependency is acceptable.
 
     connect(defaultSeat(), &QWaylandSeat::keyboardFocusChanged, this,
             [this](QWaylandSurface *newFocus, QWaylandSurface *oldFocus) {
