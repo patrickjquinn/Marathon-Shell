@@ -254,17 +254,21 @@ int main(int argc, char *argv[]) {
 
 #ifdef Q_OS_LINUX
     // Main (GUI) thread on SCHED_RR priority 2 — one notch above the compositor
-    // render thread (priority 1, set in WaylandCompositor::setCompositorRealtimePriority)
-    // so input event dispatch wins against rendering when both are runnable.
+    // render thread (priority 1, set via QQuickWindow::beforeSynchronizing in
+    // WaylandCompositor::setCompositorRealtimePriority) so input event dispatch
+    // wins against rendering when both are runnable.
     // Still well below audio/modem/IRQ — see WaylandCompositor for the rationale.
-    struct sched_param param;
-    param.sched_priority = 2;
-    if (pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param) == 0) {
-        qInfo() << "[MarathonShell] Main thread on SCHED_RR priority 2 (input dispatch)";
+    struct sched_param mainSchedParam;
+    mainSchedParam.sched_priority = 2;
+    int mainSchedRc =
+        pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &mainSchedParam);
+    if (mainSchedRc == 0) {
+        qWarning() << "[MarathonShell] Main thread on SCHED_RR priority 2 (input dispatch)";
     } else {
-        qInfo() << "[MarathonShell] Main thread will run on SCHED_OTHER "
-                   "(grant CAP_SYS_NICE for slightly tighter input-event variance "
-                   "under heavy CPU load).";
+        qWarning() << "[MarathonShell] Main thread RT elevation failed (errno" << mainSchedRc << "/"
+                   << strerror(mainSchedRc)
+                   << ") — running on SCHED_OTHER. Grant CAP_SYS_NICE for tighter "
+                      "input-event variance under heavy CPU load.";
     }
 #endif
 
