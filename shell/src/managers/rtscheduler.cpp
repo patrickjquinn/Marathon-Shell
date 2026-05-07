@@ -20,70 +20,58 @@ RTScheduler::RTScheduler(QObject *parent)
 
 void RTScheduler::detectKernelCapabilities() {
 #ifdef Q_OS_LINUX
+    // Two independent capabilities matter here:
+    //
+    //   (1) SCHED_FIFO permission — the shell needs CAP_SYS_NICE (or rtprio in
+    //       /etc/security/limits.conf) to elevate its compositor/input threads
+    //       to SCHED_FIFO. Without this we run on SCHED_OTHER and may drop
+    //       frames under heavy CPU load. THIS is what we actually need.
+    //
+    //   (2) PREEMPT_RT kernel — bounds worst-case latency for SCHED_FIFO
+    //       threads (~280 µs vs ~700 µs under load). For a 60–120 Hz touch UI
+    //       with a 8–16 ms frame budget this is well below the noise floor.
+    //       postmarketOS, Plasma Mobile, Phosh and Android all ship with
+    //       CONFIG_PREEMPT (low-latency, not PREEMPT_RT). It's a nice-to-have
+    //       primarily for hard-real-time audio paths.
 
+    // Detect the kernel preemption model — informational only.
     QFile realtimeFile("/sys/kernel/realtime");
     if (realtimeFile.exists() && realtimeFile.open(QIODevice::ReadOnly)) {
         QTextStream stream(&realtimeFile);
-        QString     value  = stream.readLine().trimmed();
-        m_isRealtimeKernel = (value == "1");
-        realtimeFile.close();
-
-        if (m_isRealtimeKernel) {
-            qInfo() << "[RTScheduler] ✓ PREEMPT_RT kernel detected";
-        } else {
-            qCritical() << "[RTScheduler] ✗ NOT running on PREEMPT_RT kernel!";
-            qCritical() << "[RTScheduler]   This WILL cause performance issues on mobile devices.";
-            qCritical() << "[RTScheduler]   Rebuild kernel with CONFIG_PREEMPT_RT=y";
-        }
+        m_isRealtimeKernel = (stream.readLine().trimmed() == "1");
     } else {
-
         QFile versionFile("/proc/version");
         if (versionFile.open(QIODevice::ReadOnly)) {
             QTextStream stream(&versionFile);
-            QString     version = stream.readAll();
-            m_isRealtimeKernel  = version.contains("PREEMPT_RT");
-            versionFile.close();
+            m_isRealtimeKernel = stream.readAll().contains("PREEMPT_RT");
         }
     }
 
+    if (m_isRealtimeKernel) {
+        qInfo() << "[RTScheduler] PREEMPT_RT kernel detected (bonus: bounded worst-case latency)";
+    } else {
+        qInfo() << "[RTScheduler] Standard preemptible kernel (CONFIG_PREEMPT). "
+                   "PREEMPT_RT is not required for typical phone workloads.";
+    }
+
+    // Probe SCHED_FIFO permission — this IS the real requirement.
     struct sched_param param;
     param.sched_priority = 1;
-
     if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
-        m_hasRTPermissions = true;
-
+        m_hasRTPermissions   = true;
         param.sched_priority = 0;
         sched_setscheduler(0, SCHED_OTHER, &param);
-        qInfo() << "[RTScheduler] ✓ RT scheduling permissions available";
+        qInfo() << "[RTScheduler] SCHED_FIFO scheduling available";
     } else {
         m_hasRTPermissions = false;
-        qWarning() << "╔════════════════════════════════════════════════════════════╗";
-        qWarning() << "║ [RTScheduler]  RT SCHEDULING NOT AVAILABLE               ║";
-        qWarning() << "╠════════════════════════════════════════════════════════════╣";
-        qWarning() << "║ IMPACT: Shell will run with DEGRADED performance          ║";
-        qWarning() << "║         - Touch latency may be higher                     ║";
-        qWarning() << "║         - Compositor may drop frames                      ║";
-        qWarning() << "║         - Audio/video may stutter                         ║";
-        qWarning() << "╠════════════════════════════════════════════════════════════╣";
-        qWarning() << "║ REQUIRED FOR: postmarketOS / Mobile device deployment     ║";
-        qWarning() << "║ OPTIONAL FOR: Desktop testing only                        ║";
-        qWarning() << "╠════════════════════════════════════════════════════════════╣";
-        qWarning() << "║ FIX (Option 1): Grant CAP_SYS_NICE capability             ║";
-        qWarning() << "║   sudo setcap cap_sys_nice+ep /usr/bin/marathon-shell     ║";
-        qWarning() << "║                                                            ║";
-        qWarning() << "║ FIX (Option 2): Configure /etc/security/limits.conf       ║";
-        qWarning() << "║   username  -  rtprio  99                                 ║";
-        qWarning() << "║   username  -  nice    -20                                ║";
-        qWarning() << "╠════════════════════════════════════════════════════════════╣";
-        qWarning() << "║ KERNEL REQUIREMENT: CONFIG_PREEMPT_RT=y                   ║";
-        qWarning() << "║ Check: cat /sys/kernel/realtime                           ║";
-        qWarning() << "║ Expected: 1 (PREEMPT_RT enabled)                          ║";
-        qWarning() << "║ Current kernel: "
-                   << (m_isRealtimeKernel ? "PREEMPT_RT ✓" : "STANDARD (missing RT!) ✗");
-        qWarning() << "╚════════════════════════════════════════════════════════════╝";
-
-        if (errno != EPERM && errno != ENOSYS) {
-            qWarning() << "[RTScheduler] System error:" << strerror(errno);
+        const int err      = errno;
+        qWarning() << "[RTScheduler] SCHED_FIFO not permitted — compositor/input threads "
+                      "will run on SCHED_OTHER. Frames may drop under heavy CPU load.";
+        qWarning() << "[RTScheduler] Fix: sudo setcap cap_sys_nice+ep "
+                      "/usr/bin/marathon-shell-bin   (or grant rtprio via "
+                      "/etc/security/limits.conf, then re-login).";
+        if (err != EPERM && err != ENOSYS) {
+            qWarning() << "[RTScheduler] System error:" << strerror(err);
         }
     }
 #else

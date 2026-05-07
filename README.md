@@ -134,7 +134,8 @@ apk add cmake samurai g++ pkgconf git \
 - Wayland display server support
 - D-Bus session bus
 - Linux kernel 5.10 or later
-- **Real-Time Kernel (PREEMPT_RT)**: Recommended for optimal performance and touch response. The shell will warn if running on a standard kernel.
+- **Standard preemptible kernel (`CONFIG_PREEMPT=y`)** — what postmarketOS, Plasma Mobile, Phosh and Android all ship. The compositor uses `SCHED_FIFO` for its render thread, which only needs `CAP_SYS_NICE` (or `rtprio` in `limits.conf`) — NOT a `PREEMPT_RT` kernel.
+- **`PREEMPT_RT` kernel (optional)** — useful primarily if you need bounded worst-case latency for hard-real-time audio paths. For a 60–120 Hz touch UI on a 8–16 ms frame budget the difference is below the noise floor; the shell will not warn if it's missing.
 
 ### Optional Dependencies
 
