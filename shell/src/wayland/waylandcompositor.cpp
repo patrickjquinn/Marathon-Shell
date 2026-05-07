@@ -944,16 +944,40 @@ void WaylandCompositor::setCompositorRealtimePriority() {
     //   * SCHED_RESET_ON_FORK so any process forked off the compositor (the
     //     marathon-app-runner instances) doesn't inherit RT priority.
 
-    struct sched_param param;
-    param.sched_priority = 1;
+    // The QtQuick scene-graph render thread (QSGRenderThread) is what actually
+    // paints frames. The previous version of this code called
+    // pthread_setschedparam(pthread_self(), …) — but this constructor runs on
+    // the *main* thread, so it was bumping (and clobbering) the main thread,
+    // not the render thread. Verified by `ps -eLo class,rtprio,comm` — the
+    // QSGRenderThread stayed on SCHED_OTHER while the main thread carried RT.
+    //
+    // Hook QQuickWindow::beforeSynchronizing — that signal is emitted on the
+    // render thread when the scene graph is about to sync. With
+    // Qt::DirectConnection the slot runs in the emitting (render) thread.
 
-    if (pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param) == 0) {
-        qInfo() << "[WaylandCompositor] Compositor thread on SCHED_RR priority 1 "
-                   "(KWin-style; loses to audio/modem/IRQ, beats SCHED_OTHER)";
-    } else {
-        qWarning() << "[WaylandCompositor] Failed to set RT priority — compositor will run on "
-                      "SCHED_OTHER. Frame pacing may suffer under heavy CPU load.";
+    if (!m_window) {
+        qWarning() << "[WaylandCompositor] No QQuickWindow — render thread RT priority skipped";
+        return;
     }
+
+    static bool s_renderThreadPrimed = false;
+    connect(
+        m_window, &QQuickWindow::beforeSynchronizing, this,
+        []() {
+            if (s_renderThreadPrimed)
+                return;
+            s_renderThreadPrimed = true;
+            struct sched_param param;
+            param.sched_priority = 1;
+            if (pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param) ==
+                0) {
+                qInfo() << "[WaylandCompositor] QSGRenderThread on SCHED_RR priority 1";
+            } else {
+                qWarning() << "[WaylandCompositor] Failed to elevate QSGRenderThread to RT — "
+                              "frame pacing may suffer under heavy CPU load.";
+            }
+        },
+        Qt::DirectConnection);
 #else
     qDebug() << "[WaylandCompositor] RT scheduling not available (not Linux)";
 #endif
