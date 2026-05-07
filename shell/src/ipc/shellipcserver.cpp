@@ -34,6 +34,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                NetworkManagerCpp *networkManager, HapticManager *hapticManager,
                                SecurityManager *securityManager, SensorManagerCpp *sensorManager,
                                LocationManager *locationManager, AlarmManagerCpp *alarmManager,
+                               AudioRoutingManager *audioRoutingManager,
                                AppLaunchService *appLaunchService, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
@@ -54,6 +55,7 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     , m_sensorManager(sensorManager)
     , m_locationManager(locationManager)
     , m_alarmManager(alarmManager)
+    , m_audioRoutingManager(audioRoutingManager)
     , m_appLaunchService(appLaunchService) {}
 
 bool ShellIpcServer::registerOnSessionBus() {
@@ -64,6 +66,10 @@ bool ShellIpcServer::registerOnSessionBus() {
     }
 
     qInfo() << "[ShellIpcServer] Registering DBus service org.marathonos.Shell…";
+    if (qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0) {
+        qWarning() << "[ShellIpcServer] !!! MARATHON_TEST_TRUSTED is set — IPC caller "
+                      "verification is bypassed. Do NOT use in production.";
+    }
     if (!bus.registerService("org.marathonos.Shell")) {
 
         qWarning() << "[ShellIpcServer] Failed to register service org.marathonos.Shell:"
@@ -75,7 +81,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *contactsObj = new ContactsObject(m_contacts, m_permissions, m_appLaunchService, this);
     auto *callHistoryObj =
         new CallHistoryObject(m_callHistory, m_permissions, m_appLaunchService, this);
-    auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService, this);
+    auto *telephonyObj = new TelephonyObject(m_telephony, m_permissions, m_appLaunchService,
+                                             m_audioRoutingManager, this);
     auto *smsObj       = new SmsObject(m_sms, m_permissions, m_appLaunchService, this);
     auto *mediaObj =
         new MediaLibraryObject(m_mediaLibrary, m_permissions, m_appLaunchService, this);
