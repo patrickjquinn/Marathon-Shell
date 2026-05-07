@@ -51,8 +51,7 @@ static bool appLogsAllEnabled() {
 #endif
 
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
-    : QWaylandCompositor()
-    , m_window(window)
+    : m_window(window)
     , m_nextSurfaceId(1)
     , m_output(nullptr)
     , m_hasIdleInhibitor(false) {
@@ -140,6 +139,14 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     setCompositorRealtimePriority();
 
     m_window->installEventFilter(this);
+
+    // AUTO-LAUNCH TEST: only kick off if the optional dev helper is installed.
+    QTimer::singleShot(15000, this, [this]() {
+        if (QFile::exists("/usr/bin/marathon-app-debug")) {
+            qInfo() << "[WaylandCompositor] Auto-launching debug app";
+            launchApp("/usr/bin/marathon-app-debug");
+        }
+    });
 }
 
 WaylandCompositor::~WaylandCompositor() {
@@ -272,6 +279,13 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
     env.insert("WAYLAND_DISPLAY", socketName());
     env.insert("XDG_RUNTIME_DIR", runtimeDir);
     env.insert("QT_QPA_PLATFORM", "wayland");
+    env.insert("QT_WAYLAND_SHELL_INTEGRATION", "xdg-shell");
+    env.insert(
+        "QT_QUICK_BACKEND",
+        "software"); // SHM buffers required when EGL_WL_bind_wayland_display unavailable (nested)
+
+    qDebug() << "[WaylandCompositor] Setting WAYLAND_DISPLAY=" << socketName()
+             << "for child process";
 
     {
         const QByteArray debugEnv = qgetenv("MARATHON_DEBUG").trimmed().toLower();
@@ -436,7 +450,7 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         }
     });
 
-    const bool    useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", true);
+    const bool    useSandbox = !isFlatpak && !isSnap && envBool("MARATHON_ENABLE_SANDBOX", false);
 
     const QString dbusConfigPath = runtimeDir + "/marathon-dbus-restricted.conf";
     if (useSandbox && !isRunner) {
@@ -1071,6 +1085,11 @@ void WaylandCompositor::setOutputOrientation(const QString &orientation) {
                 contentItem->setX(0);
                 contentItem->setY(H);
                 break;
+
+            default:
+                qWarning() << "[WaylandCompositor] Unexpected rotation angle:" << rotation
+                           << "(expected 0/90/180/270); leaving content position unchanged";
+                break;
         }
     } else {
         qWarning() << "[WaylandCompositor] No content item to rotate";
@@ -1115,24 +1134,29 @@ bool WaylandCompositor::checkIdleInhibitors() {
 }
 
 bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
-    if (watched == m_window &&
-        (event->type() == QEvent::KeyPress || event->type() == QEvent::KeyRelease)) {
-        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
-        int        key      = keyEvent->key();
+    if (watched == m_window) {
+        const auto type = event->type();
+        if (type == QEvent::TouchBegin || type == QEvent::MouseButtonPress ||
+            type == QEvent::KeyPress) {
+            emit userActivity();
+        }
 
-        if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
+        if (type == QEvent::KeyPress || type == QEvent::KeyRelease) {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+            int        key      = keyEvent->key();
 
-            if (event->type() == QEvent::KeyPress) {
-                return true;
-            }
-
-            if (event->type() == QEvent::KeyRelease) {
-                if (key == Qt::Key_Escape) {
-                    emit systemBackTriggered();
-                } else {
-                    emit systemHomeTriggered();
+            if (key == Qt::Key_Escape || key == Qt::Key_Super_L || key == Qt::Key_Meta) {
+                if (type == QEvent::KeyPress) {
+                    return true;
                 }
-                return true;
+                if (type == QEvent::KeyRelease) {
+                    if (key == Qt::Key_Escape) {
+                        emit systemBackTriggered();
+                    } else {
+                        emit systemHomeTriggered();
+                    }
+                    return true;
+                }
             }
         }
     }

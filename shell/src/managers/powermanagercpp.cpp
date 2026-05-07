@@ -42,7 +42,7 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     , m_fallbackMode("none")
     , m_rtcAlarmSupported(false)
     , m_criticalAction(QStringLiteral("PowerOff")) {
-    qCritical() << "[PowerManagerCpp] Initializing PowerManagerCpp Service";
+    qInfo() << "[PowerManagerCpp] Initializing";
 
     m_upowerInterface =
         new QDBusInterface("org.freedesktop.UPower", "/org/freedesktop/UPower",
@@ -384,6 +384,14 @@ void PowerManagerCpp::setAutoSuspendEnabled(bool enabled) {
         m_autoSuspendEnabled = enabled;
         qInfo() << "[PowerManagerCpp] Auto-suspend:" << (enabled ? "enabled" : "disabled");
         emit autoSuspendEnabledChanged();
+    }
+}
+
+void PowerManagerCpp::updateActivity() {
+    m_lastActivityTime = QDateTime::currentMSecsSinceEpoch();
+    if (m_isIdle) {
+        m_isIdle = false;
+        emit idleStateChanged(false);
     }
 }
 
