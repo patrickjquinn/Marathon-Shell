@@ -54,19 +54,23 @@ void RTScheduler::detectKernelCapabilities() {
                    "PREEMPT_RT is not required for typical phone workloads.";
     }
 
-    // Probe SCHED_FIFO permission — this IS the real requirement.
+    // Probe RT-class permission — the actual requirement.
+    // Use SCHED_RR (the policy the compositor will adopt) so the probe
+    // matches reality. CAP_SYS_NICE / rtprio in limits.conf governs both
+    // SCHED_FIFO and SCHED_RR identically.
     struct sched_param param;
     param.sched_priority = 1;
-    if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
+    if (sched_setscheduler(0, SCHED_RR, &param) == 0) {
         m_hasRTPermissions   = true;
         param.sched_priority = 0;
         sched_setscheduler(0, SCHED_OTHER, &param);
-        qInfo() << "[RTScheduler] SCHED_FIFO scheduling available";
+        qInfo() << "[RTScheduler] Real-time scheduling available";
     } else {
         m_hasRTPermissions = false;
         const int err      = errno;
-        qWarning() << "[RTScheduler] SCHED_FIFO not permitted — compositor/input threads "
-                      "will run on SCHED_OTHER. Frames may drop under heavy CPU load.";
+        qWarning() << "[RTScheduler] Real-time scheduling not permitted — compositor and "
+                      "input threads will run on SCHED_OTHER. Frame pacing may suffer "
+                      "under heavy CPU load (background browsers, app launches, etc.).";
         qWarning() << "[RTScheduler] Fix: sudo setcap cap_sys_nice+ep "
                       "/usr/bin/marathon-shell-bin   (or grant rtprio via "
                       "/etc/security/limits.conf, then re-login).";

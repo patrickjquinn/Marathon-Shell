@@ -932,14 +932,27 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
 
 void WaylandCompositor::setCompositorRealtimePriority() {
 #ifdef Q_OS_LINUX
-    struct sched_param param;
-    param.sched_priority = 75;
+    // Match KWin's pattern (kwin/D7757, "KWin/Wayland goes real time", 2017):
+    //
+    //   * SCHED_RR, not SCHED_FIFO. SCHED_RR round-robins with other same-priority
+    //     RT threads, so if the compositor enters a busy loop it can't starve
+    //     audio/modem/IRQ threads.
+    //   * Priority 1 (the lowest RT priority). Any SCHED_RR/FIFO thread with a
+    //     higher priority — PipeWire (88), ModemManager (90), kernel IRQ
+    //     threads — wins against the compositor. Priority 1 is enough to win
+    //     against every SCHED_OTHER (background apps, builds, browsers).
+    //   * SCHED_RESET_ON_FORK so any process forked off the compositor (the
+    //     marathon-app-runner instances) doesn't inherit RT priority.
 
-    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
-        qInfo() << "[WaylandCompositor] ✓ Compositor thread set to RT priority 75 (SCHED_FIFO)";
+    struct sched_param param;
+    param.sched_priority = 1;
+
+    if (pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param) == 0) {
+        qInfo() << "[WaylandCompositor] Compositor thread on SCHED_RR priority 1 "
+                   "(KWin-style; loses to audio/modem/IRQ, beats SCHED_OTHER)";
     } else {
-        qWarning()
-            << "[WaylandCompositor]  Failed to set RT priority (need CAP_SYS_NICE or limits.conf)";
+        qWarning() << "[WaylandCompositor] Failed to set RT priority — compositor will run on "
+                      "SCHED_OTHER. Frame pacing may suffer under heavy CPU load.";
     }
 #else
     qDebug() << "[WaylandCompositor] RT scheduling not available (not Linux)";
