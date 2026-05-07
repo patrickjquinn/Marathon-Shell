@@ -21,8 +21,77 @@
 #include <QDBusConnectionInterface>
 #include <QDBusContext>
 #include <QDBusError>
+#include <atomic>
+
+#ifdef Q_OS_LINUX
+#include <sched.h>
+#include <pthread.h>
+#include <cstring>
+#endif
 
 #include <memory>
+
+#ifdef Q_OS_LINUX
+// Foreground-app render-thread RT elevation. Mirrors what AOSP does with the
+// top-app cpuset and what iOS does with UserInteractive QoS: when the user is
+// looking at this app, its scene-graph render thread is the most latency-
+// sensitive thread on the system after the compositor itself.
+//
+// Compositor (marathon-shell-bin) main thread:    SCHED_RR  2
+// Compositor (marathon-shell-bin) QSGRenderThread:SCHED_RR  1
+// This app's QSGRenderThread when foregrounded:   SCHED_RR  3   ← here
+// This app's QSGRenderThread when backgrounded:   SCHED_OTHER
+//
+// The desired priority is set on the GUI thread (from QWindow::activeChanged)
+// and applied on the render thread (from beforeSynchronizing) — pthread sched
+// calls must run on the thread being adjusted.
+//
+// Priority 3 sits one above the compositor's render thread (1) and the shell's
+// main thread (2), so a foregrounded app's frame production wins over compositor
+// composition when both are runnable. Audio (typ. 88), modem (90), kernel IRQ
+// threads still preempt us. SCHED_RR (not FIFO) means a busy loop in QML can't
+// starve same-priority RT threads.
+constexpr int           kForegroundRTPriority = 3;
+static std::atomic<int> g_desiredRenderPriority{0}; // 0 = SCHED_OTHER, >0 = SCHED_RR
+static std::atomic<int> g_appliedRenderPriority{-1};
+
+static void             applyRenderThreadPriorityIfNeeded() {
+    const int desired = g_desiredRenderPriority.load(std::memory_order_relaxed);
+    const int applied = g_appliedRenderPriority.load(std::memory_order_relaxed);
+    if (desired == applied)
+        return;
+
+    struct sched_param param;
+    int                rc;
+    if (desired > 0) {
+        param.sched_priority = desired;
+        rc = pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param);
+    } else {
+        param.sched_priority = 0;
+        rc = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+    }
+
+    if (rc == 0) {
+        g_appliedRenderPriority.store(desired, std::memory_order_relaxed);
+        if (desired > 0)
+            qInfo() << "[AppRunner] Render thread elevated to SCHED_RR/" << desired
+                    << "(window foregrounded)";
+        else
+            qInfo() << "[AppRunner] Render thread back on SCHED_OTHER (window backgrounded)";
+    } else {
+        // Don't spam — log once per failed attempt only on the first attempt.
+        static std::atomic<bool> warned{false};
+        bool                     expected = false;
+        if (warned.compare_exchange_strong(expected, true)) {
+            qInfo() << "[AppRunner] Render-thread RT elevation skipped (rtprio rlimit not "
+                                   "granted; configure /etc/security/limits.d/99-marathon.conf rtprio 10):"
+                    << strerror(rc);
+        }
+        // Mark as applied so we don't retry every frame.
+        g_appliedRenderPriority.store(desired, std::memory_order_relaxed);
+    }
+}
+#endif
 
 #include "marathonappregistry.h"
 #include "marathonappscanner.h"
@@ -298,6 +367,18 @@ int main(int argc, char *argv[]) {
     view.setTitle(info->name);
 
     view.setColor(Qt::transparent);
+
+#ifdef Q_OS_LINUX
+    // Wire foreground-state → desired render-thread priority on the GUI thread,
+    // and apply it on the render thread via beforeSynchronizing.
+    QObject::connect(&view, &QWindow::activeChanged, &view, [&view]() {
+        g_desiredRenderPriority.store(view.isActive() ? kForegroundRTPriority : 0,
+                                      std::memory_order_relaxed);
+    });
+    QObject::connect(
+        &view, &QQuickWindow::beforeSynchronizing, &view,
+        []() { applyRenderThreadPriorityIfNeeded(); }, Qt::DirectConnection);
+#endif
 
     const int w = qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") > 0 ?
         qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") :

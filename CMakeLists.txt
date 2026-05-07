@@ -186,6 +186,7 @@ if(TARGET Qt6::WaylandCompositor)
         message(STATUS "Qt WaylandCompositorPrivate not found - text-input-v3 disabled")
         set(HAVE_WAYLAND_PRIVATE FALSE)
     endif()
+
 else()
         message(STATUS "Qt WaylandCompositor not found - Wayland support disabled")
     set(HAVE_WAYLAND FALSE)
