@@ -1,6 +1,9 @@
 #include <QGuiApplication>
 #include <QQuickView>
 #include <QQmlEngine>
+#include <QElapsedTimer>
+#include <algorithm>
+#include <vector>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QCommandLineParser>
@@ -30,6 +33,44 @@
 #endif
 
 #include <memory>
+
+// Frame-timing tracker (matches the one in waylandcompositor.cpp). When
+// MARATHON_FRAME_TIMING=1 is set, hooks QQuickWindow::frameSwapped and prints
+// P50/P99/max frame-delta every N swaps. Useful to compare per-app jitter
+// against the compositor's own.
+namespace {
+    constexpr int kFrameTimingReportEveryN = 240;
+    struct FrameTiming {
+        QElapsedTimer       timer;
+        qint64              lastNs = 0;
+        bool                primed = false;
+        QString             label;
+        std::vector<qint64> samples;
+    };
+    void recordFrameSwap(FrameTiming &s) {
+        if (!s.primed) {
+            s.timer.start();
+            s.lastNs = s.timer.nsecsElapsed();
+            s.primed = true;
+            s.samples.reserve(kFrameTimingReportEveryN);
+            return;
+        }
+        const qint64 now = s.timer.nsecsElapsed();
+        s.samples.push_back(now - s.lastNs);
+        s.lastNs = now;
+        if (s.samples.size() < static_cast<size_t>(kFrameTimingReportEveryN))
+            return;
+        auto sorted = s.samples;
+        std::sort(sorted.begin(), sorted.end());
+        const qint64 p50 = sorted[sorted.size() / 2];
+        const qint64 p99 = sorted[sorted.size() * 99 / 100];
+        const qint64 max = sorted.back();
+        qInfo().nospace() << "[FrameTiming] " << s.label << "  P50=" << (p50 / 1000)
+                          << "µs  P99=" << (p99 / 1000) << "µs  max=" << (max / 1000) << "µs  ("
+                          << sorted.size() << " frames)";
+        s.samples.clear();
+    }
+} // namespace
 
 #ifdef Q_OS_LINUX
 // Foreground-app RT elevation. Mirrors what AOSP does with top-app cpuset
@@ -408,6 +449,17 @@ int main(int argc, char *argv[]) {
         &view, &QQuickWindow::beforeSynchronizing, &view, []() { applyRenderPriorityIfNeeded(); },
         Qt::DirectConnection);
 #endif
+
+    // Frame-timing diagnostics, gated by env. Emits P50/P99/max every 240
+    // swapped frames so we can compare per-app jitter against the compositor.
+    if (qEnvironmentVariableIntValue("MARATHON_FRAME_TIMING") != 0) {
+        auto *ft  = new FrameTiming;
+        ft->label = QStringLiteral("app:%1").arg(appId);
+        QObject::connect(&view, &QQuickWindow::frameSwapped, &view,
+                         [ft]() { recordFrameSwap(*ft); });
+        QObject::connect(&view, &QObject::destroyed, &view, [ft]() { delete ft; });
+        qInfo() << "[AppRunner] Frame-timing diagnostics enabled";
+    }
 
     const int w = qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") > 0 ?
         qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") :
