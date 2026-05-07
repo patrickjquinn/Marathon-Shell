@@ -91,20 +91,31 @@ class SecurityLogger {
   private:
     static void log(EventType type, const QString &message) {
         QString fullMessage = QString("[SECURITY] %1").arg(message);
-        qWarning().noquote() << fullMessage;
 
+        // Choose the Qt log channel that matches the event severity, so callers
+        // tailing the shell log see the right colour/level. Syslog priority is
+        // selected separately below so syslog stays informative regardless.
         int priority = LOG_AUTH;
         switch (type) {
             case AuthSuccess:
-            case PermissionGranted: priority |= LOG_INFO; break;
+            case PermissionGranted:
+                qInfo().noquote() << fullMessage;
+                priority |= LOG_INFO;
+                break;
             case AuthFailure:
             case PermissionDenied:
-            case PermissionRequested: priority |= LOG_WARNING; break;
+            case PermissionRequested:
+                qWarning().noquote() << fullMessage;
+                priority |= LOG_WARNING;
+                break;
             case AuthLockout:
             case SandboxViolation:
             case RateLimitExceeded:
             case PathTraversalBlocked:
-            case InvalidInput: priority |= LOG_ALERT; break;
+            case InvalidInput:
+                qCritical().noquote() << fullMessage;
+                priority |= LOG_ALERT;
+                break;
         }
 
         syslog(priority, "%s", fullMessage.toUtf8().constData());
