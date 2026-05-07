@@ -337,7 +337,7 @@ int main(int argc, char *argv[]) {
 
     createObject<WaylandCompositorManager>(ctx, "WaylandCompositorManager", &app);
     if (debugEnabled || profileMode) {
-        qWarning() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
+        qInfo() << "[Profiler] Compositor Manager initialized:" << timer.elapsed() << "ms";
     }
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
@@ -358,7 +358,7 @@ int main(int argc, char *argv[]) {
     auto *appInstaller = createObject<MarathonAppInstaller>(ctx, "MarathonAppInstaller",
                                                             appRegistry, appScanner, &app);
     if (debugEnabled || profileMode) {
-        qWarning() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
+        qInfo() << "[Profiler] App System initialized:" << timer.elapsed() << "ms";
     }
 
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
@@ -462,7 +462,7 @@ int main(int argc, char *argv[]) {
 
     createObject<CursorManager>(ctx, "CursorManager", &app);
     if (debugEnabled || profileMode) {
-        qWarning() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
+        qInfo() << "[Profiler] Hardware Managers initialized:" << timer.elapsed() << "ms";
     }
 
     QObject::connect(audioManager, &AudioManagerCpp::isPlayingChanged, powerManager,

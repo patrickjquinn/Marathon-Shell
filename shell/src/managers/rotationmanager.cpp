@@ -5,7 +5,7 @@ RotationManager::RotationManager(QObject *parent)
     : QObject(parent)
     , m_available(false)
     , m_autoRotateEnabled(true)
-    , m_currentOrientation("normal")
+    , m_currentOrientation("portrait")
     , m_currentRotation(0) {
     m_sensor = new QOrientationSensor(this);
 

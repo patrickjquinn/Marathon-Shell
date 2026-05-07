@@ -473,6 +473,10 @@ void SettingsManager::setAudioProfile(const QString &profile) {
 }
 
 void SettingsManager::setScreenTimeout(int ms) {
+    // FIXME: SettingsManager::screenTimeout (ms) duplicates DisplayManagerCpp::screenTimeout (s).
+    // The settings UI writes to DisplayManagerCpp; this property is only reachable via the
+    // Settings1.GetState/SetProperty D-Bus interface. Treat DisplayManagerCpp as canonical;
+    // unify in a follow-up refactor (will require plumbing DisplayManager into SettingsObject).
     if (m_screenTimeout == ms)
         return;
     m_screenTimeout = ms;
