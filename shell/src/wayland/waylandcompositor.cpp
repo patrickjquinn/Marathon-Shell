@@ -16,6 +16,10 @@
 #include <QKeyEvent>
 #include "textinputv3.h"
 
+#include <QElapsedTimer>
+#include <algorithm>
+#include <vector>
+
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
     if (raw.isEmpty()) {
@@ -49,6 +53,47 @@ static bool appLogsAllEnabled() {
 #include <sched.h>
 #include <pthread.h>
 #endif
+
+// Frame-timing tracker. When MARATHON_FRAME_TIMING=1 is set, hooks
+// QQuickWindow::frameSwapped on the compositor's window and prints
+// P50/P99/max frame-delta every kFrameTimingReportEveryN swaps. Lets us
+// validate Tier 1-3 RT priority work with actual jitter measurements
+// rather than just asserting it should help. ~Zero overhead when off.
+namespace {
+    constexpr int kFrameTimingReportEveryN = 240; // ≈ 4 s at 60 Hz / 2 s at 120 Hz
+    struct FrameTiming {
+        QElapsedTimer       timer;
+        qint64              lastNs = 0;
+        bool                primed = false;
+        QString             label;
+        std::vector<qint64> samples;
+    };
+
+    void recordFrameSwap(FrameTiming &s) {
+        if (!s.primed) {
+            s.timer.start();
+            s.lastNs = s.timer.nsecsElapsed();
+            s.primed = true;
+            s.samples.reserve(kFrameTimingReportEveryN);
+            return;
+        }
+        const qint64 now = s.timer.nsecsElapsed();
+        s.samples.push_back(now - s.lastNs);
+        s.lastNs = now;
+        if (s.samples.size() < static_cast<size_t>(kFrameTimingReportEveryN))
+            return;
+
+        auto sorted = s.samples;
+        std::sort(sorted.begin(), sorted.end());
+        const qint64 p50 = sorted[sorted.size() / 2];
+        const qint64 p99 = sorted[sorted.size() * 99 / 100];
+        const qint64 max = sorted.back();
+        qInfo().nospace() << "[FrameTiming] " << s.label << "  P50=" << (p50 / 1000)
+                          << "µs  P99=" << (p99 / 1000) << "µs  max=" << (max / 1000) << "µs  ("
+                          << sorted.size() << " frames)";
+        s.samples.clear();
+    }
+} // namespace
 
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     : m_window(window)
@@ -142,6 +187,15 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
             << "output:" << window->size() << "(scale=" << m_output->scaleFactor() << ")";
 
     setCompositorRealtimePriority();
+
+    if (envBool("MARATHON_FRAME_TIMING", false)) {
+        auto *ft  = new FrameTiming;
+        ft->label = QStringLiteral("compositor");
+        connect(m_window, &QQuickWindow::frameSwapped, this, [ft]() { recordFrameSwap(*ft); });
+        connect(m_window, &QObject::destroyed, this, [ft]() { delete ft; });
+        qInfo() << "[WaylandCompositor] Frame-timing diagnostics enabled "
+                   "(MARATHON_FRAME_TIMING=1)";
+    }
 
     m_window->installEventFilter(this);
 
