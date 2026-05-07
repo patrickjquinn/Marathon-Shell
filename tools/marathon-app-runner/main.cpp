@@ -1,9 +1,6 @@
 #include <QGuiApplication>
 #include <QQuickView>
 #include <QQmlEngine>
-#include <QElapsedTimer>
-#include <algorithm>
-#include <vector>
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QCommandLineParser>
@@ -25,133 +22,52 @@
 #include <QDBusContext>
 #include <QDBusError>
 #include <atomic>
-
-#ifdef Q_OS_LINUX
-#include <sched.h>
-#include <pthread.h>
 #include <cstring>
-#endif
 
-#include <memory>
-
-// Frame-timing tracker (matches the one in waylandcompositor.cpp). When
-// MARATHON_FRAME_TIMING=1 is set, hooks QQuickWindow::frameSwapped and prints
-// P50/P99/max frame-delta every N swaps. Useful to compare per-app jitter
-// against the compositor's own.
-namespace {
-    constexpr int kFrameTimingReportEveryN = 240;
-    struct FrameTiming {
-        QElapsedTimer       timer;
-        qint64              lastNs = 0;
-        bool                primed = false;
-        QString             label;
-        std::vector<qint64> samples;
-    };
-    void recordFrameSwap(FrameTiming &s) {
-        if (!s.primed) {
-            s.timer.start();
-            s.lastNs = s.timer.nsecsElapsed();
-            s.primed = true;
-            s.samples.reserve(kFrameTimingReportEveryN);
-            return;
-        }
-        const qint64 now = s.timer.nsecsElapsed();
-        s.samples.push_back(now - s.lastNs);
-        s.lastNs = now;
-        if (s.samples.size() < static_cast<size_t>(kFrameTimingReportEveryN))
-            return;
-        auto sorted = s.samples;
-        std::sort(sorted.begin(), sorted.end());
-        const qint64 p50 = sorted[sorted.size() / 2];
-        const qint64 p99 = sorted[sorted.size() * 99 / 100];
-        const qint64 max = sorted.back();
-        qInfo().nospace() << "[FrameTiming] " << s.label << "  P50=" << (p50 / 1000)
-                          << "µs  P99=" << (p99 / 1000) << "µs  max=" << (max / 1000) << "µs  ("
-                          << sorted.size() << " frames)";
-        s.samples.clear();
-    }
-} // namespace
+#include "util/frametiming.h"
+#include "util/rtprio.h"
 
 #ifdef Q_OS_LINUX
-// Foreground-app RT elevation. Mirrors what AOSP does with top-app cpuset
-// and what iOS does with UserInteractive QoS: when the user is looking at
-// this app, its main and render threads are the most latency-sensitive
-// threads on the system after the compositor itself.
-//
-//   Compositor main thread       SCHED_RR  2
-//   Compositor QSGRenderThread   SCHED_RR  1
-//   App main thread (this proc)  SCHED_RR  4   ← when foregrounded
-//   App QSGRenderThread          SCHED_RR  3   ← when foregrounded
-//   Both, when backgrounded      SCHED_OTHER
-//
-// The app's main thread elevation matters: Wayland touch events arrive on
-// main, get routed to QML signal handlers on main, and only then trigger a
-// render-thread paint. If main is starved by other SCHED_OTHER threads, the
-// render thread sits idle waiting for QML signals.
-//
-// Priority 4 (main) > 3 (render): input dispatch wins over rendering when
-// both are runnable. Both well below audio (typ. 88), modem (90), kernel
-// IRQ threads. SCHED_RR (not FIFO) so a busy loop in QML can't starve other
-// same-priority RT threads.
-//
-// All within the rtprio=10 limit set in /etc/security/limits.d/99-marathon.conf
-// — no setcap on the runner binary required.
+// Foreground app: main thread RR/4, render thread RR/3 — see
+// docs/RT_SCHEDULING.md for the full hierarchy and rationale.
 constexpr int           kForegroundMainPriority   = 4;
 constexpr int           kForegroundRenderPriority = 3;
 
-static std::atomic<int> g_desiredRenderPriority{0}; // 0 = SCHED_OTHER, >0 = SCHED_RR
-static std::atomic<int> g_appliedRenderPriority{-1};
+static std::atomic<int> g_desiredRenderPriority{0};
 
-static int              applyToCurrentThread(int priority) {
-    struct sched_param param;
-    if (priority > 0) {
-        param.sched_priority = priority;
-        return pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param);
-    }
-    param.sched_priority = 0;
-    return pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
-}
-
-// Called from the render thread (DirectConnection from beforeSynchronizing).
+// Render thread (called from beforeSynchronizing on the render thread).
 static void applyRenderPriorityIfNeeded() {
-    const int desired = g_desiredRenderPriority.load(std::memory_order_relaxed);
-    if (desired == g_appliedRenderPriority.load(std::memory_order_relaxed))
+    static int last = -1;
+    const int  want = g_desiredRenderPriority.load(std::memory_order_relaxed);
+    if (want == last)
         return;
-    const int rc = applyToCurrentThread(desired);
-    g_appliedRenderPriority.store(desired, std::memory_order_relaxed);
-    if (rc == 0) {
-        if (desired > 0)
-            qInfo() << "[AppRunner] Render thread elevated to SCHED_RR/" << desired;
-        else
-            qInfo() << "[AppRunner] Render thread back on SCHED_OTHER";
-    } else {
-        static std::atomic<bool> warned{false};
-        bool                     exp = false;
-        if (warned.compare_exchange_strong(exp, true))
-            qInfo() << "[AppRunner] Render-thread RT elevation skipped (configure "
-                       "/etc/security/limits.d/99-marathon.conf rtprio 10):"
+    const int rc = marathon::rt::setCurrentThreadPriority(want);
+    last         = want;
+    if (rc != 0) {
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            qInfo() << "[AppRunner] Render-thread RT elevation skipped (rtprio rlimit not "
+                       "granted):"
                     << strerror(rc);
+        }
     }
 }
 
-// Called from the GUI/main thread (from QWindow::activeChanged).
+// Main thread (called directly from activeChanged on main thread).
 static void applyMainPriorityForActive(bool active) {
-    static std::atomic<int> applied{-1};
-    const int               desired = active ? kForegroundMainPriority : 0;
-    if (desired == applied.load(std::memory_order_relaxed))
+    static int last = -1;
+    const int  want = active ? kForegroundMainPriority : 0;
+    if (want == last)
         return;
-    const int rc = applyToCurrentThread(desired);
-    applied.store(desired, std::memory_order_relaxed);
-    if (rc == 0) {
-        if (active)
-            qInfo() << "[AppRunner] Main thread elevated to SCHED_RR/" << desired;
-        else
-            qInfo() << "[AppRunner] Main thread back on SCHED_OTHER";
-    } else {
-        static std::atomic<bool> warned{false};
-        bool                     exp = false;
-        if (warned.compare_exchange_strong(exp, true))
+    const int rc = marathon::rt::setCurrentThreadPriority(want);
+    last         = want;
+    if (rc != 0) {
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
             qInfo() << "[AppRunner] Main-thread RT elevation skipped:" << strerror(rc);
+        }
     }
 }
 #endif
@@ -450,16 +366,8 @@ int main(int argc, char *argv[]) {
         Qt::DirectConnection);
 #endif
 
-    // Frame-timing diagnostics, gated by env. Emits P50/P99/max every 240
-    // swapped frames so we can compare per-app jitter against the compositor.
-    if (qEnvironmentVariableIntValue("MARATHON_FRAME_TIMING") != 0) {
-        auto *ft  = new FrameTiming;
-        ft->label = QStringLiteral("app:%1").arg(appId);
-        QObject::connect(&view, &QQuickWindow::frameSwapped, &view,
-                         [ft]() { recordFrameSwap(*ft); });
-        QObject::connect(&view, &QObject::destroyed, &view, [ft]() { delete ft; });
-        qInfo() << "[AppRunner] Frame-timing diagnostics enabled";
-    }
+    if (qEnvironmentVariableIntValue("MARATHON_FRAME_TIMING") != 0)
+        marathon::diag::installFrameTimingTracker(&view, QStringLiteral("app:%1").arg(appId));
 
     const int w = qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") > 0 ?
         qEnvironmentVariableIntValue("MARATHON_APP_WIDTH") :

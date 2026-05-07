@@ -16,9 +16,9 @@
 #include <QKeyEvent>
 #include "textinputv3.h"
 
-#include <QElapsedTimer>
-#include <algorithm>
-#include <vector>
+#include "util/frametiming.h"
+#include "util/rtprio.h"
+#include <cstring>
 
 static bool envBool(const char *name, bool defaultValue) {
     const QByteArray raw = qgetenv(name);
@@ -48,52 +48,6 @@ static bool appLogsEnabled() {
 static bool appLogsAllEnabled() {
     return envBool("MARATHON_APP_LOGS_ALL", false);
 }
-
-#ifdef Q_OS_LINUX
-#include <sched.h>
-#include <pthread.h>
-#endif
-
-// Frame-timing tracker. When MARATHON_FRAME_TIMING=1 is set, hooks
-// QQuickWindow::frameSwapped on the compositor's window and prints
-// P50/P99/max frame-delta every kFrameTimingReportEveryN swaps. Lets us
-// validate Tier 1-3 RT priority work with actual jitter measurements
-// rather than just asserting it should help. ~Zero overhead when off.
-namespace {
-    constexpr int kFrameTimingReportEveryN = 240; // ≈ 4 s at 60 Hz / 2 s at 120 Hz
-    struct FrameTiming {
-        QElapsedTimer       timer;
-        qint64              lastNs = 0;
-        bool                primed = false;
-        QString             label;
-        std::vector<qint64> samples;
-    };
-
-    void recordFrameSwap(FrameTiming &s) {
-        if (!s.primed) {
-            s.timer.start();
-            s.lastNs = s.timer.nsecsElapsed();
-            s.primed = true;
-            s.samples.reserve(kFrameTimingReportEveryN);
-            return;
-        }
-        const qint64 now = s.timer.nsecsElapsed();
-        s.samples.push_back(now - s.lastNs);
-        s.lastNs = now;
-        if (s.samples.size() < static_cast<size_t>(kFrameTimingReportEveryN))
-            return;
-
-        auto sorted = s.samples;
-        std::sort(sorted.begin(), sorted.end());
-        const qint64 p50 = sorted[sorted.size() / 2];
-        const qint64 p99 = sorted[sorted.size() * 99 / 100];
-        const qint64 max = sorted.back();
-        qInfo().nospace() << "[FrameTiming] " << s.label << "  P50=" << (p50 / 1000)
-                          << "µs  P99=" << (p99 / 1000) << "µs  max=" << (max / 1000) << "µs  ("
-                          << sorted.size() << " frames)";
-        s.samples.clear();
-    }
-} // namespace
 
 WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     : m_window(window)
@@ -189,12 +143,8 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     setCompositorRealtimePriority();
 
     if (envBool("MARATHON_FRAME_TIMING", false)) {
-        auto *ft  = new FrameTiming;
-        ft->label = QStringLiteral("compositor");
-        connect(m_window, &QQuickWindow::frameSwapped, this, [ft]() { recordFrameSwap(*ft); });
-        connect(m_window, &QObject::destroyed, this, [ft]() { delete ft; });
-        qInfo() << "[WaylandCompositor] Frame-timing diagnostics enabled "
-                   "(MARATHON_FRAME_TIMING=1)";
+        marathon::diag::installFrameTimingTracker(m_window, QStringLiteral("compositor"));
+        qInfo() << "[WaylandCompositor] Frame-timing diagnostics enabled";
     }
 
     m_window->installEventFilter(this);
@@ -991,54 +941,23 @@ void WaylandCompositor::calculateAndSetPhysicalSize() {
 
 void WaylandCompositor::setCompositorRealtimePriority() {
 #ifdef Q_OS_LINUX
-    // Match KWin's pattern (kwin/D7757, "KWin/Wayland goes real time", 2017):
-    //
-    //   * SCHED_RR, not SCHED_FIFO. SCHED_RR round-robins with other same-priority
-    //     RT threads, so if the compositor enters a busy loop it can't starve
-    //     audio/modem/IRQ threads.
-    //   * Priority 1 (the lowest RT priority). Any SCHED_RR/FIFO thread with a
-    //     higher priority — PipeWire (88), ModemManager (90), kernel IRQ
-    //     threads — wins against the compositor. Priority 1 is enough to win
-    //     against every SCHED_OTHER (background apps, builds, browsers).
-    //   * SCHED_RESET_ON_FORK so any process forked off the compositor (the
-    //     marathon-app-runner instances) doesn't inherit RT priority.
-
-    // The QtQuick scene-graph render thread (QSGRenderThread) is what actually
-    // paints frames. The previous version of this code called
-    // pthread_setschedparam(pthread_self(), …) — but this constructor runs on
-    // the *main* thread, so it was bumping (and clobbering) the main thread,
-    // not the render thread. Verified by `ps -eLo class,rtprio,comm` — the
-    // QSGRenderThread stayed on SCHED_OTHER while the main thread carried RT.
-    //
-    // Hook QQuickWindow::beforeSynchronizing — that signal is emitted on the
-    // render thread when the scene graph is about to sync. With
-    // Qt::DirectConnection the slot runs in the emitting (render) thread.
-
-    if (!m_window) {
-        qWarning() << "[WaylandCompositor] No QQuickWindow — render thread RT priority skipped";
+    // Elevate the QSGRenderThread (NOT the main thread that runs this
+    // constructor). beforeSynchronizing fires on the render thread, so a
+    // DirectConnection lambda runs in the right context for setsched.
+    if (!m_window)
         return;
-    }
-
-    static bool s_renderThreadPrimed = false;
     connect(
         m_window, &QQuickWindow::beforeSynchronizing, this,
         []() {
-            if (s_renderThreadPrimed)
+            static bool primed = false;
+            if (primed)
                 return;
-            s_renderThreadPrimed = true;
-            struct sched_param param;
-            param.sched_priority = 1;
-            if (pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param) ==
-                0) {
-                qInfo() << "[WaylandCompositor] QSGRenderThread on SCHED_RR priority 1";
-            } else {
-                qWarning() << "[WaylandCompositor] Failed to elevate QSGRenderThread to RT — "
-                              "frame pacing may suffer under heavy CPU load.";
-            }
+            primed = true;
+            if (const int rc = marathon::rt::setCurrentThreadPriority(1); rc != 0)
+                qWarning() << "[WaylandCompositor] QSGRenderThread RT elevation failed:"
+                           << strerror(rc);
         },
         Qt::DirectConnection);
-#else
-    qDebug() << "[WaylandCompositor] RT scheduling not available (not Linux)";
 #endif
 }
 
