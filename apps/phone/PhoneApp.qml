@@ -19,6 +19,7 @@ MApp {
     property string editingContactPhone: ""
     property string editingContactEmail: ""
     property var activeCallPageRef: null
+    property var incomingCallScreenRef: null
 
     function resolveContactName(number) {
         for (var i = 0; i < contacts.length; i++) {
@@ -110,6 +111,7 @@ MApp {
             var contactName = resolveContactName(number);
             if (activeCallPageRef)
                 activeCallPageRef.show(number, contactName);
+
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
         if (typeof PermissionManager !== 'undefined') {
@@ -148,7 +150,8 @@ MApp {
         function onIncomingCall(number) {
             Logger.info("Phone", "Incoming call from: " + number);
             var contactName = resolveContactName(number);
-            incomingCallScreen.show(number, contactName);
+            if (incomingCallScreenRef)
+                incomingCallScreenRef.show(number, contactName);
         }
 
         function onCallStateChanged(state) {
@@ -157,21 +160,19 @@ MApp {
                 if (dialedNumber.length > 0)
                     dialedNumber = "";
 
-                if (activeCallPage.visible)
-                    if (activeCallPageRef)
-                        activeCallPageRef.hide();
+                if (activeCallPageRef && activeCallPageRef.visible)
+                    activeCallPageRef.hide();
 
-                if (incomingCallScreen.visible)
-                    incomingCallScreen.hide();
+                if (incomingCallScreenRef && incomingCallScreenRef.visible)
+                    incomingCallScreenRef.hide();
             } else if (state === "active") {
-                if (incomingCallScreen.visible)
-                    incomingCallScreen.hide();
+                if (incomingCallScreenRef && incomingCallScreenRef.visible)
+                    incomingCallScreenRef.hide();
 
-                if (!activeCallPage.visible && typeof TelephonyService !== 'undefined') {
+                if (activeCallPageRef && !activeCallPageRef.visible && typeof TelephonyService !== 'undefined') {
                     var number = TelephonyService.activeNumber;
                     var contactName = resolveContactName(number);
-                    if (activeCallPageRef)
-                        activeCallPageRef.show(number, contactName);
+                    activeCallPageRef.show(number, contactName);
                 }
             }
         }
@@ -224,6 +225,7 @@ MApp {
 
                         Grid {
                             id: dialPadGrid
+
                             width: parent.width
                             height: parent.height - Constants.touchTargetLarge - Constants.touchTargetLarge - MSpacing.lg * 3
                             columns: 3
@@ -555,7 +557,7 @@ MApp {
 
                                         Text {
                                             width: parent.width
-                                            text: modelData.name
+                                            text: modelData ? modelData.name || "" : ""
                                             font.pixelSize: MTypography.sizeBody
                                             font.weight: MTypography.weightDemiBold
                                             font.family: MTypography.fontFamily
@@ -564,7 +566,7 @@ MApp {
                                         }
 
                                         Text {
-                                            text: modelData.phone
+                                            text: modelData ? modelData.phone || "" : ""
                                             font.pixelSize: MTypography.sizeSmall
                                             font.family: MTypography.fontFamily
                                             color: MColors.textSecondary
@@ -655,6 +657,11 @@ MApp {
             id: incomingCallScreen
 
             anchors.fill: parent
+            Component.onCompleted: phoneApp.incomingCallScreenRef = incomingCallScreen
+            Component.onDestruction: {
+                if (phoneApp.incomingCallScreenRef === incomingCallScreen)
+                    phoneApp.incomingCallScreenRef = null;
+            }
         }
 
         ActiveCallPage {
