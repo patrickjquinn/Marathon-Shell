@@ -171,6 +171,15 @@ void SecurityManager::authenticatePassword(const QString &password) {
         return;
     }
 
+    // Reject re-entrant calls while a previous attempt is still in flight.
+    // Without this, replacing the watcher's future drops the in-flight result on the floor —
+    // the lockout counter doesn't increment under rapid attempts, weakening rate limiting.
+    if (m_passwordAuthWatcher && m_passwordAuthWatcher->isRunning()) {
+        qDebug() << "[SecurityManager] Auth already in flight — rejecting re-entrant attempt";
+        emit authenticationFailed("Authentication already in progress");
+        return;
+    }
+
     m_currentPassword = password;
 
     qDebug() << "[SecurityManager] Starting async PAM authentication";
@@ -326,6 +335,12 @@ void SecurityManager::authenticateQuickPIN(const QString &pin) {
 
     if (pin.isEmpty()) {
         emit authenticationFailed("PIN cannot be empty");
+        return;
+    }
+
+    if (m_quickPINAuthWatcher && m_quickPINAuthWatcher->isRunning()) {
+        qDebug() << "[SecurityManager] Quick PIN auth already in flight — rejecting re-entrant";
+        emit authenticationFailed("Authentication already in progress");
         return;
     }
 
