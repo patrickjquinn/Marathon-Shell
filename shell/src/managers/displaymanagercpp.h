@@ -6,6 +6,7 @@
 
 class PowerManagerCpp;
 class RotationManager;
+class SensorManagerCpp;
 
 class DisplayManagerCpp : public QObject {
     Q_OBJECT
@@ -28,6 +29,8 @@ class DisplayManagerCpp : public QObject {
   public:
     explicit DisplayManagerCpp(PowerManagerCpp *powerManager, RotationManager *rotationManager,
                                QObject *parent = nullptr);
+
+    void setSensorManager(SensorManagerCpp *sensorManager);
 
     bool available() const {
         return m_available;
@@ -77,29 +80,31 @@ class DisplayManagerCpp : public QObject {
     void screenStateChanged(bool on);
 
   private:
-    bool             m_available;
-    QString          m_backlightDevice;
-    int              m_maxBrightness;
-    bool             m_autoBrightnessEnabled;
-    bool             m_rotationLocked;
-    int              m_screenTimeout;
-    double           m_brightness;
-    bool             m_nightLightEnabled;
-    int              m_nightLightTemperature;
-    QString          m_nightLightSchedule;
-    PowerManagerCpp *m_powerManager;
-    RotationManager *m_rotationManager;
+    bool              m_available;
+    QString           m_backlightDevice;
+    int               m_maxBrightness;
+    bool              m_autoBrightnessEnabled;
+    bool              m_rotationLocked;
+    int               m_screenTimeout;
+    double            m_brightness;
+    bool              m_nightLightEnabled;
+    int               m_nightLightTemperature;
+    QString           m_nightLightSchedule;
+    PowerManagerCpp  *m_powerManager;
+    RotationManager  *m_rotationManager;
+    SensorManagerCpp *m_sensorManager = nullptr;
 
-    bool             detectBacklightDevice();
-    void             loadSettings();
-    void             saveSettings();
-    void             setupBrightnessMonitoring();
-    void             pollBrightness();
+    bool              detectBacklightDevice();
+    void              loadSettings();
+    void              saveSettings();
+    void              setupBrightnessMonitoring();
+    void              pollBrightness();
 
   private slots:
     void onExternalBrightnessChanged();
     void onDBusPropertiesChanged(const QString &interface, const QVariantMap &changed,
                                  const QStringList &invalidated);
+    void onAmbientLightChanged();
 };
 
 #endif

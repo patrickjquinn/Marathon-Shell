@@ -1,6 +1,7 @@
 #include "displaymanagercpp.h"
 #include "powermanagercpp.h"
 #include "rotationmanager.h"
+#include "sensormanagercpp.h"
 #include "platform.h"
 #include <QDebug>
 #include <QFile>
@@ -13,6 +14,7 @@
 #include <QTimer>
 #include <QFileSystemWatcher>
 #include <QScreen>
+#include <QSettings>
 #if MARATHON_HAVE_QT_GUI_PRIVATE
 #include <qpa/qplatformscreen.h>
 #endif
@@ -181,6 +183,14 @@ void DisplayManagerCpp::setBrightness(double brightness) {
     }
 }
 
+void DisplayManagerCpp::setSensorManager(SensorManagerCpp *sensorManager) {
+    m_sensorManager = sensorManager;
+    if (m_sensorManager && m_autoBrightnessEnabled) {
+        connect(m_sensorManager, &SensorManagerCpp::ambientLightChanged, this,
+                &DisplayManagerCpp::onAmbientLightChanged);
+    }
+}
+
 void DisplayManagerCpp::setAutoBrightness(bool enabled) {
     if (m_autoBrightnessEnabled == enabled) {
         return;
@@ -190,7 +200,32 @@ void DisplayManagerCpp::setAutoBrightness(bool enabled) {
     emit autoBrightnessEnabledChanged();
     saveSettings();
 
+    if (m_sensorManager) {
+        if (enabled) {
+            connect(m_sensorManager, &SensorManagerCpp::ambientLightChanged, this,
+                    &DisplayManagerCpp::onAmbientLightChanged, Qt::UniqueConnection);
+            onAmbientLightChanged();
+        } else {
+            disconnect(m_sensorManager, &SensorManagerCpp::ambientLightChanged, this,
+                       &DisplayManagerCpp::onAmbientLightChanged);
+        }
+    }
+
     qInfo() << "[DisplayManagerCpp] Auto-brightness" << (enabled ? "enabled" : "disabled");
+}
+
+void DisplayManagerCpp::onAmbientLightChanged() {
+    if (!m_autoBrightnessEnabled || !m_sensorManager)
+        return;
+
+    int lux = m_sensorManager->ambientLight();
+    // Map lux to brightness: 0 lux → 0.05, ~500 lux → 0.5, ~10000+ lux → 1.0
+    double target = qBound(0.05, 0.05 + 0.95 * (qLn(lux + 1.0) / qLn(10001.0)), 1.0);
+
+    if (qAbs(target - m_brightness) > 0.03) {
+        qDebug() << "[DisplayManagerCpp] Auto-brightness: lux=" << lux << "→ brightness=" << target;
+        setBrightness(target);
+    }
 }
 
 void DisplayManagerCpp::setRotationLock(bool locked) {
@@ -245,12 +280,30 @@ QString DisplayManagerCpp::screenTimeoutString() const {
 }
 
 void DisplayManagerCpp::loadSettings() {
-
-    qDebug() << "[DisplayManagerCpp] Settings loaded";
+    QSettings s;
+    s.beginGroup("displayManager");
+    m_autoBrightnessEnabled = s.value("autoBrightness", m_autoBrightnessEnabled).toBool();
+    m_rotationLocked        = s.value("rotationLocked", m_rotationLocked).toBool();
+    m_screenTimeout         = s.value("screenTimeoutSeconds", m_screenTimeout).toInt();
+    m_nightLightEnabled     = s.value("nightLightEnabled", m_nightLightEnabled).toBool();
+    m_nightLightTemperature = s.value("nightLightTemperature", m_nightLightTemperature).toInt();
+    m_nightLightSchedule    = s.value("nightLightSchedule", m_nightLightSchedule).toString();
+    s.endGroup();
+    qDebug() << "[DisplayManagerCpp] Settings loaded (timeout=" << m_screenTimeout
+             << "rotationLocked=" << m_rotationLocked << ")";
 }
 
 void DisplayManagerCpp::saveSettings() {
-
+    QSettings s;
+    s.beginGroup("displayManager");
+    s.setValue("autoBrightness", m_autoBrightnessEnabled);
+    s.setValue("rotationLocked", m_rotationLocked);
+    s.setValue("screenTimeoutSeconds", m_screenTimeout);
+    s.setValue("nightLightEnabled", m_nightLightEnabled);
+    s.setValue("nightLightTemperature", m_nightLightTemperature);
+    s.setValue("nightLightSchedule", m_nightLightSchedule);
+    s.endGroup();
+    s.sync();
     qDebug() << "[DisplayManagerCpp] Settings saved";
 }
 
