@@ -113,13 +113,16 @@ class CallHistoryObject : public QObject, protected QDBusContext {
     AppLaunchService          *m_launchService = nullptr;
 };
 
+class AudioRoutingManager;
+
 class TelephonyObject : public QObject, protected QDBusContext {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
 
   public:
     TelephonyObject(TelephonyService *telephony, MarathonPermissionManager *permissions,
-                    AppLaunchService *launchService, QObject *parent = nullptr);
+                    AppLaunchService *launchService, AudioRoutingManager *audioRouting,
+                    QObject *parent = nullptr);
 
   public slots:
     QString CallState() const;
@@ -129,6 +132,11 @@ class TelephonyObject : public QObject, protected QDBusContext {
     void    Answer();
     void    Hangup();
     void    SendDTMF(const QString &digit);
+
+    void    SetSpeakerphone(bool on);
+    void    SetCallMuted(bool muted);
+    bool    IsSpeakerphoneOn() const;
+    bool    IsCallMuted() const;
 
     void    SimulateIncomingCall(const QString &number);
     void    SimulateCallStateChange(const QString &state);
@@ -147,6 +155,7 @@ class TelephonyObject : public QObject, protected QDBusContext {
     TelephonyService          *m_telephony     = nullptr;
     MarathonPermissionManager *m_permissions   = nullptr;
     AppLaunchService          *m_launchService = nullptr;
+    AudioRoutingManager       *m_audioRouting  = nullptr;
 };
 
 class SmsObject : public QObject, protected QDBusContext {

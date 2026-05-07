@@ -20,6 +20,7 @@
 #include "callhistorymanager.h"
 #include "contactsmanager.h"
 #include "smsservice.h"
+#include "audioroutingmanager.h"
 #include "telephonyservice.h"
 #include "medialibrarymanager.h"
 
@@ -34,8 +35,16 @@ static RateLimiter   g_ipcRateLimiter;
 static constexpr int RATE_LIMIT_MAX_CALLS = 30;
 static constexpr int RATE_LIMIT_WINDOW_MS = 1000;
 
-static bool          hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
-                                      const QStringList &perms) {
+// Test bypass: when MARATHON_TEST_TRUSTED=1 is set in the shell's environment,
+// external D-Bus callers are admitted as a synthetic trusted caller. Intended for
+// automation/smoke tests only; never set this in production.
+static const char *const MARATHON_TEST_CALLER_ID = "_marathon_test_caller";
+static bool g_testBypassEnabled = qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0;
+
+static bool hasAnyPermission(MarathonPermissionManager *pm, const QString &appId,
+                             const QStringList &perms) {
+    if (g_testBypassEnabled && appId == QLatin1String(MARATHON_TEST_CALLER_ID))
+        return true;
     if (!pm)
         return false;
     for (const auto &p : perms) {
@@ -64,43 +73,43 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     const QString sender   = ctx.message().service();
     auto          pidReply = ctx.connection().interface()->servicePid(sender);
     if (!pidReply.isValid())
-        return {};
-    const qint64  pid = static_cast<qint64>(pidReply.value());
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
+    const qint64 pid = static_cast<qint64>(pidReply.value());
 
-    const QString mapped = als->appIdForPid(pid);
+    QString      mapped = als->appIdForPid(pid);
     if (!mapped.isEmpty())
         return mapped;
 
     const qint64 shellPid = static_cast<qint64>(QCoreApplication::applicationPid());
     if (shellPid <= 0 || pid <= 0)
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
 
     QFile statFile(QStringLiteral("/proc/%1/stat").arg(pid));
     if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     const QByteArray statLine = statFile.readAll();
     const qsizetype  closeIdx = statLine.lastIndexOf(')');
     if (closeIdx < 0)
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     const QByteArray        after = statLine.mid(closeIdx + 1).trimmed();
     const QList<QByteArray> parts = after.split(' ');
     if (parts.size() < 2)
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     const qint64 ppid = parts.at(1).toLongLong();
     if (ppid != shellPid)
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
 
     QFile cmdFile(QStringLiteral("/proc/%1/cmdline").arg(pid));
     if (!cmdFile.open(QIODevice::ReadOnly))
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     const QByteArray        cmdRaw = cmdFile.readAll();
     const QList<QByteArray> argv   = cmdRaw.split('\0');
     if (argv.isEmpty())
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
 
     const QString argv0 = QString::fromLocal8Bit(argv.value(0));
     if (!argv0.contains("marathon-app-runner"))
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
 
     QString appId;
     for (int i = 0; i + 1 < argv.size(); ++i) {
@@ -110,9 +119,9 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
         }
     }
     if (appId.isEmpty())
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     if (!als->isMarathonAppId(appId))
-        return {};
+        return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
 
     als->registerPidForAppId(pid, appId);
     return appId;
@@ -1550,11 +1559,13 @@ void CallHistoryObject::ClearHistory() {
 
 TelephonyObject::TelephonyObject(TelephonyService          *telephony,
                                  MarathonPermissionManager *permissions,
-                                 AppLaunchService *launchService, QObject *parent)
+                                 AppLaunchService *launchService, AudioRoutingManager *audioRouting,
+                                 QObject *parent)
     : QObject(parent)
     , m_telephony(telephony)
     , m_permissions(permissions)
-    , m_launchService(launchService) {
+    , m_launchService(launchService)
+    , m_audioRouting(audioRouting) {
     Q_ASSERT(m_telephony);
     Q_ASSERT(m_permissions);
     Q_ASSERT(m_launchService);
@@ -1640,6 +1651,32 @@ void TelephonyObject::SimulateCallStateChange(const QString &state) {
     if (!requirePhone())
         return;
     m_telephony->simulateCallStateChange(state);
+}
+
+void TelephonyObject::SetSpeakerphone(bool on) {
+    if (!requirePhone())
+        return;
+    if (m_audioRouting)
+        m_audioRouting->setSpeakerphone(on);
+}
+
+void TelephonyObject::SetCallMuted(bool muted) {
+    if (!requirePhone())
+        return;
+    if (m_audioRouting)
+        m_audioRouting->setMuted(muted);
+}
+
+bool TelephonyObject::IsSpeakerphoneOn() const {
+    if (!const_cast<TelephonyObject *>(this)->requirePhone())
+        return false;
+    return m_audioRouting ? m_audioRouting->isSpeakerphoneEnabled() : false;
+}
+
+bool TelephonyObject::IsCallMuted() const {
+    if (!const_cast<TelephonyObject *>(this)->requirePhone())
+        return false;
+    return m_audioRouting ? m_audioRouting->isMuted() : false;
 }
 
 SmsObject::SmsObject(SMSService *sms, MarathonPermissionManager *permissions,
