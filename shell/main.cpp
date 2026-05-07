@@ -253,15 +253,18 @@ int main(int argc, char *argv[]) {
     qInfo() << "[Marathon] Crash protection installed (signal handlers active)";
 
 #ifdef Q_OS_LINUX
+    // Main (GUI) thread on SCHED_RR priority 2 — one notch above the compositor
+    // render thread (priority 1, set in WaylandCompositor::setCompositorRealtimePriority)
+    // so input event dispatch wins against rendering when both are runnable.
+    // Still well below audio/modem/IRQ — see WaylandCompositor for the rationale.
     struct sched_param param;
-    param.sched_priority = 85;
-    if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &param) == 0) {
-        qInfo()
-            << "[MarathonShell] ✓ Main thread (input handling) set to RT priority 85 (SCHED_FIFO)";
+    param.sched_priority = 2;
+    if (pthread_setschedparam(pthread_self(), SCHED_RR | SCHED_RESET_ON_FORK, &param) == 0) {
+        qInfo() << "[MarathonShell] Main thread on SCHED_RR priority 2 (input dispatch)";
     } else {
-        qWarning() << "[MarathonShell]  Failed to set RT priority for input handling";
-        qInfo() << "[MarathonShell]   Configure /etc/security/limits.d/99-marathon.conf:";
-        qInfo() << "[MarathonShell]     @marathon-users  -  rtprio  90";
+        qInfo() << "[MarathonShell] Main thread will run on SCHED_OTHER "
+                   "(grant CAP_SYS_NICE for slightly tighter input-event variance "
+                   "under heavy CPU load).";
     }
 #endif
 
