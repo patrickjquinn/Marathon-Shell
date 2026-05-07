@@ -1,0 +1,118 @@
+#!/bin/sh
+# Marathon Shell Session for Droidian (hwcomposer-based devices)
+# This script configures Qt for Android hwcomposer via libhybris
+#
+# Platform: Droidian (Debian Bookworm on Android HAL via Halium)
+# Target Devices: MT6789 (Zinwa Q25), Snapdragon, Exynos via Halium
+#
+# Reference: https://github.com/ArekDevGH/droidian-zinwa-q25/wiki
+
+set -e
+
+# Session type
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=marathon
+export XDG_CURRENT_DESKTOP=marathon
+
+# Marathon-specific paths
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+export MARATHON_PREFIX="${MARATHON_PREFIX:-$(dirname -- "$SCRIPT_DIR")}"
+export MARATHON_APPS_DIR=${MARATHON_APPS_DIR:-/usr/share/marathon-apps}
+export MARATHON_DATA_DIR=${MARATHON_DATA_DIR:-/usr/share/marathon-shell}
+export LD_LIBRARY_PATH="$MARATHON_PREFIX/lib:${LD_LIBRARY_PATH:-}"
+
+# ===== Qt/QML Configuration for Droidian =====
+# Use hwcomposer QPA (NOT eglfs) - required for Android HAL via libhybris
+export QT_QPA_PLATFORM=hwcomposer
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export QT_QUICK_CONTROLS_STYLE=""
+export QT_MEDIA_BACKEND=gstreamer
+
+# WebEngine sandbox MUST be disabled - seccomp blocks libhybris libGLESv2.so loading
+# See wiki: "Firefox WebGL... software... until figured out sandbox/seccomp permitting libhybris"
+export QT_WEBENGINE_DISABLE_SANDBOX=1
+export QTWEBENGINE_DISABLE_SANDBOX=1
+
+# Debian multi-arch QML paths (CRITICAL for Droidian)
+export QML_IMPORT_PATH=/usr/lib/aarch64-linux-gnu/qt6/qml:/usr/lib/qt6/qml:$QML_IMPORT_PATH
+export QML2_IMPORT_PATH=/usr/lib/aarch64-linux-gnu/qt6/qml:/usr/lib/qt6/qml:$QML2_IMPORT_PATH
+
+# QML disk cache for ARM performance
+export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QT_QML_DISK_CACHE_PATH"
+
+# ===== Display Scaling (Device-Specific) =====
+# Zinwa Q25: 720x720 square display, ~300 DPI
+# Per wiki phoc.ini examples: 1.0=720p, 1.125=640p, 1.25=576p (clips UI)
+# Marathon uses Qt scaling - 1.0 is good default, user can override
+export QT_SCALE_FACTOR=${QT_SCALE_FACTOR:-1}
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_ENABLE_HIGHDPI_SCALING=0
+
+# ===== Wayland Environment =====
+export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+
+# Ensure XDG_RUNTIME_DIR exists with correct permissions (CRITICAL for Wayland)
+if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+fi
+
+# ===== Wait for hwcomposer (handles rare boot failures) =====
+# Wiki: "vendor.hwcomposer-2-3 may fail to get drm master... requiring full reboot"
+# We wait briefly for the Android hwcomposer service to be ready
+HWCOMPOSER_TIMEOUT=${HWCOMPOSER_TIMEOUT:-30}
+hwc_ready=0
+for i in $(seq 1 $HWCOMPOSER_TIMEOUT); do
+    if getprop init.svc.vendor.hwcomposer-2-3 2>/dev/null | grep -q running; then
+        hwc_ready=1
+        break
+    fi
+    sleep 1
+done
+if [ "$hwc_ready" = "0" ]; then
+    echo "WARNING: hwcomposer-2-3 not ready after ${HWCOMPOSER_TIMEOUT}s, attempting to start anyway" >&2
+fi
+
+# D-Bus session
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# ===== Performance Optimizations =====
+export QSG_RENDER_LOOP=threaded
+export QSG_RHI_BACKEND=opengl
+
+# ===== Wayland Buffer Fallback =====
+# Set to 1 if EGL crashes (falls back to shm buffer integration)
+export MARATHON_FORCE_WAYLAND_SHM=${MARATHON_FORCE_WAYLAND_SHM:-0}
+
+# ===== Sandbox Configuration =====
+# NOTE: Sandbox may need to be disabled for libhybris compatibility on some devices
+export MARATHON_ENABLE_SANDBOX=${MARATHON_ENABLE_SANDBOX:-0}
+
+# ===== Logging =====
+if [ "$MARATHON_DEBUG" = "1" ]; then
+    export QT_LOGGING_RULES="*.debug=true;marathon.*.info=true"
+    export QT_DEBUG_PLUGINS=1  # Debug plugin loading issues
+else
+    export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
+fi
+
+# Performance: Use QML cache
+export QML_FORCE_DISK_CACHE=1
+export QML_DISABLE_DISK_CACHE=0
+
+# Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
+export NO_AT_BRIDGE=1
+export GTK_A11Y=none
+export QT_ACCESSIBILITY=0
+
+# GIO/GSettings - use memory backend if no dconf
+export GIO_USE_VFS=local
+export GSETTINGS_BACKEND=memory
+
+# Start the compositor
+exec /usr/bin/marathon-shell-bin "$@"
+

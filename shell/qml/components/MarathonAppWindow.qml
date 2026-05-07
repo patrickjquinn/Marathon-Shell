@@ -1,7 +1,7 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Modals
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 
 Rectangle {
@@ -72,8 +72,9 @@ Rectangle {
     }
 
     function show(id, name, icon, type, surface, sid) {
-        if (appWindow.appId === id && type === "native" && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
-            if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface && surface !== null) {
+        var hasSurface = (surface !== null && surface !== undefined && sid >= 0);
+        if (appWindow.appId === id && hasSurface && appWindow.appContainer && appContentLoader.status === Loader.Ready && appWindow.appContainer["appInstance"] && appWindow.appContainer["appInstance"].visible) {
+            if (appWindow.waylandSurface !== null && appWindow.waylandSurface !== surface) {
                 Logger.info("AppWindow", "Secondary toplevel (dialog) detected for: " + id + " - creating overlay");
                 var dialog = dialogOverlayComponent.createObject(appWindow, {
                     "dialogSurface": surface,
@@ -97,6 +98,22 @@ Rectangle {
 
             return;
         }
+        if (appWindow.appId === id && hasSurface && appWindow.isLoadingComponent) {
+            Logger.info("AppWindow", "Surface arrived for " + id + " (surfaceId: " + sid + ") - creating native window");
+            appWindow.waylandSurface = surface;
+            appWindow.surfaceId = sid;
+            appWindow.isLoadingComponent = false;
+            var surfComponent = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
+            if (surfComponent.status === Component.Ready) {
+                _finishNativeCreation(surfComponent, id, name, icon, surface, sid);
+            } else {
+                var cc = surfComponent, ci = id, cn = name, cic = icon, cs = surface, csid = sid;
+                surfComponent.statusChanged.connect(function () {
+                    _finishNativeCreation(cc, ci, cn, cic, cs, csid);
+                });
+            }
+            return;
+        }
         var launchStartTime = Date.now();
         appId = id;
         appName = name;
@@ -117,13 +134,13 @@ Rectangle {
                 }
             }
         }
-        if (appType === "native") {
+        if (hasSurface) {
             var existingNativeInstance = null;
             if (typeof AppLifecycleManager !== 'undefined')
                 existingNativeInstance = AppLifecycleManager.getAppInstance(id);
 
             if (existingNativeInstance) {
-                Logger.info("AppWindow", "Reusing existing native app instance: " + id);
+                Logger.info("AppWindow", "Reusing existing app instance: " + id);
                 existingNativeInstance.visible = true;
                 appWindow.pendingAppInstance = existingNativeInstance;
                 if (appContentLoader.status === Loader.Ready && appWindow.appContainer) {
@@ -134,9 +151,8 @@ Rectangle {
                     appContentLoader.sourceComponent = appInstanceContainer;
                 }
             } else {
-                Logger.info("AppWindow", "Creating new native app instance: " + id);
+                Logger.info("AppWindow", "Creating app window with surface for: " + id + " (surfaceId: " + sid + ")");
                 appWindow.isLoadingComponent = true;
-                Logger.info("AppWindow", "Showing loading splash...");
                 var component = Qt.createComponent("../apps/native/NativeAppWindow.qml", Component.Asynchronous);
                 if (component.status === Component.Ready) {
                     _finishNativeCreation(component, id, name, icon, surface, sid);
@@ -153,7 +169,7 @@ Rectangle {
                 }
             }
         } else {
-            Logger.warn("AppWindow", "Non-native show() requested for appId=" + id + " - waiting for Wayland surface");
+            Logger.info("AppWindow", "Showing loading splash for: " + id + " - waiting for Wayland surface");
             appWindow.isLoadingComponent = true;
         }
         visible = true;
@@ -218,6 +234,7 @@ Rectangle {
         appWindow.appType = type;
         if (typeof UIStore !== 'undefined')
             UIStore.restoreApp(id, name, icon);
+
         if (!appContentLoader.item) {
             appWindow.pendingAppInstance = instance;
             appContentLoader.source = "appInstanceContainer";
@@ -257,21 +274,13 @@ Rectangle {
             anchors.centerIn: parent
             spacing: 24
 
-            Image {
+            MAppIcon {
                 id: splashIconImage
 
-                width: Math.round(128 * Constants.scaleFactor)
-                height: width
-                source: appWindow.appIcon && appWindow.appIcon.startsWith("file://") ? appWindow.appIcon : ""
+                size: Math.round(128 * Constants.scaleFactor)
+                source: appWindow.appIcon || ""
                 anchors.horizontalCenter: parent.horizontalCenter
-                smooth: true
-                mipmap: true
-                sourceSize.width: 256
-                sourceSize.height: 256
-                fillMode: Image.PreserveAspectFit
-                asynchronous: true
-                cache: true
-                visible: source !== "" && status === Image.Ready
+                visible: source !== "" && (status === Image.Ready || !isImage)
                 onStatusChanged: {
                     if (status === Image.Ready)
                         Logger.debug("AppWindow", "Splash icon loaded: " + source + " intrinsic: " + implicitWidth + "x" + implicitHeight);

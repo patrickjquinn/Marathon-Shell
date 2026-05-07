@@ -93,11 +93,11 @@ void MarathonAppRegistry::registerApp(const QString &id, const QString &name, co
         return;
     }
 
-    AppInfo *info = new AppInfo{id,           name,       icon,    static_cast<AppType>(type),
-                                absolutePath, entryPoint, version, isProtected,
-                                permissions};
+    AppInfo info{id,           name,       icon,    static_cast<AppType>(type),
+                 absolutePath, entryPoint, version, isProtected,
+                 permissions};
 
-    registerAppInfo(*info);
+    registerAppInfo(info);
 }
 
 void MarathonAppRegistry::registerAppInfo(const AppInfo &info) {

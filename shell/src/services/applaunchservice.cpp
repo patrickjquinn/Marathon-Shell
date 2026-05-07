@@ -253,6 +253,7 @@ bool AppLaunchService::launchNativeApp(const QVariantMap &app, QObject *composit
         p.appId   = appId;
         p.name    = name;
         p.icon    = icon;
+        p.type    = QStringLiteral("native");
         p.command = exec;
         m_pendingByCommand.insert(exec, p);
 
@@ -303,7 +304,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         invokeVoid(m_uiStore, "openApp", {appId, name, icon});
 
     emit appLaunchProgress(appId, 30);
-    invokeVoid(appWindowRef, "show", {appId, name, icon, QStringLiteral("native"), QVariant(), -1});
+    invokeVoid(
+        appWindowRef, "show",
+        {appId, name, icon, type.isEmpty() ? QStringLiteral("marathon") : type, QVariant(), -1});
     emit          appLaunchProgress(appId, 60);
 
     QString       runnerPath;
@@ -317,6 +320,8 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     }
 
     QVariantMap env;
+    env.insert("QT_NO_XDG_DESKTOP_PORTAL", "1");
+
     QStringList permissions = app.value("permissions").toStringList();
 
     if (permissions.contains("network")) {
@@ -332,6 +337,7 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     p.appId   = appId;
     p.name    = name;
     p.icon    = icon;
+    p.type    = type.isEmpty() ? QStringLiteral("marathon") : type;
     p.command = cmd;
     m_pendingByCommand.insert(cmd, p);
 
@@ -561,14 +567,16 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                 if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
                     m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
                 } else {
-                    m_taskModel->launchTask(p.appId, p.name, p.icon, "native", surfaceId,
-                                            qmlSurfaceObj);
+                    m_taskModel->launchTask(p.appId, p.name, p.icon,
+                                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
+                                            surfaceId, qmlSurfaceObj);
                 }
             }
 
             if (m_appWindow)
                 invokeVoid(m_appWindow, "show",
-                           {p.appId, p.name, p.icon, QStringLiteral("native"),
+                           {p.appId, p.name, p.icon,
+                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
                             QVariant::fromValue(qmlSurfaceObj), surfaceId});
             return;
         }
@@ -593,14 +601,16 @@ void AppLaunchService::onCompositorSurfaceCreated(QWaylandSurface *surface, int 
                 if (Task *existing = m_taskModel->getTaskByAppId(p.appId)) {
                     m_taskModel->updateTaskNativeInfo(p.appId, surfaceId, qmlSurfaceObj);
                 } else {
-                    m_taskModel->launchTask(p.appId, p.name, p.icon, "native", surfaceId,
-                                            qmlSurfaceObj);
+                    m_taskModel->launchTask(p.appId, p.name, p.icon,
+                                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
+                                            surfaceId, qmlSurfaceObj);
                 }
             }
 
             if (m_appWindow)
                 invokeVoid(m_appWindow, "show",
-                           {p.appId, p.name, p.icon, QStringLiteral("native"),
+                           {p.appId, p.name, p.icon,
+                            p.type.isEmpty() ? QStringLiteral("native") : p.type,
                             QVariant::fromValue(qmlSurfaceObj), surfaceId});
             return;
         }

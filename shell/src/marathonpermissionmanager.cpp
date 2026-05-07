@@ -110,7 +110,7 @@ void MarathonPermissionManager::savePermissions() {
     QJsonObject root;
 
     for (auto it = m_permissions.constBegin(); it != m_permissions.constEnd(); ++it) {
-        QString                    appId = it.key();
+        const QString             &appId = it.key();
         QJsonObject                appPerms;
 
         const QMap<QString, bool> &permissions = it.value();
@@ -252,14 +252,15 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
     qDebug() << "[MarathonPermissionManager] Setting permissions:" << appId << permissions
              << granted << remember;
 
-    if (remember) {
-        if (!m_permissions.contains(appId)) {
-            m_permissions[appId] = QMap<QString, bool>();
-        }
+    if (!m_permissions.contains(appId)) {
+        m_permissions[appId] = QMap<QString, bool>();
+    }
 
-        for (const QString &perm : permissions) {
-            m_permissions[appId][perm] = granted;
-        }
+    for (const QString &perm : permissions) {
+        m_permissions[appId][perm] = granted;
+    }
+
+    if (remember) {
         savePermissions();
     }
 
@@ -283,6 +284,23 @@ void MarathonPermissionManager::setPermissions(const QString &appId, const QStri
 
     // Check if there are more pending requests
     checkQueue();
+}
+
+void MarathonPermissionManager::dismissAll() {
+    if (!m_promptActive && m_pendingRequests.isEmpty())
+        return;
+
+    qDebug() << "[MarathonPermissionManager] Dismissing all: active prompt for" << m_currentAppId
+             << "+" << m_pendingRequests.size() << "pending requests";
+
+    m_pendingRequests.clear();
+    m_batchTimer->stop();
+    m_promptActive = false;
+    m_currentAppId.clear();
+    m_currentPermissions.clear();
+    m_currentPermission.clear();
+    emit promptActiveChanged();
+    emit currentRequestChanged();
 }
 
 void MarathonPermissionManager::revokePermission(const QString &appId, const QString &permission) {

@@ -34,6 +34,7 @@ class MarathonPermissionManager : public QObject {
     Q_INVOKABLE void setPermissions(const QString &appId, const QStringList &permissions,
                                     bool granted, bool remember = true);
 
+    Q_INVOKABLE void dismissAll();
     Q_INVOKABLE QStringList      getAppPermissions(const QString &appId);
 
     Q_INVOKABLE void             revokePermission(const QString &appId, const QString &permission);

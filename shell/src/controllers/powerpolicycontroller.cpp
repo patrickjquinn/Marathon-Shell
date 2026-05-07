@@ -232,6 +232,10 @@ bool PowerPolicyController::cancelScheduledWake(const QString &wakeId) {
         if (wake.value("id").toString() == wakeId) {
             m_scheduledWakes.removeAt(i);
             emit scheduledWakesChanged();
+
+            if (m_scheduledWakes.isEmpty() && m_powerManager)
+                m_powerManager->clearRtcAlarm();
+
             return true;
         }
     }

@@ -164,7 +164,8 @@ Item {
     Connections {
         function onScreenshotCaptured(path, image) {
             flashAnimation.start();
-            screenshotPreview.show(path, image);
+            var thumbUri = image.startsWith("file://") ? image : ("file://" + image);
+            screenshotPreview.show(path, thumbUri);
         }
 
         target: ScreenshotService

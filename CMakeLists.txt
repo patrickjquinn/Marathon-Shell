@@ -9,10 +9,8 @@ if(POLICY CMP0071)
     cmake_policy(SET CMP0071 NEW)
 endif()
 
-if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-    qt_policy(SET QTP0004 NEW)
-endif()
+# NOTE: Qt 6.5+ policies (QTP0001/QTP0004) are set AFTER find_package(Qt6)
+# because qt_policy command is only available after Qt6 is loaded
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -104,7 +102,7 @@ elseif(UNIX)
     message(STATUS "Using system Qt6 at ${Qt6_DIR}")
 endif()
 
-find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
+find_package(Qt6 6.4...6.12 REQUIRED COMPONENTS
     Core
     Gui
     Widgets
@@ -119,6 +117,19 @@ find_package(Qt6 6.4...6.10.1 REQUIRED COMPONENTS
     Positioning
     Sensors
 )
+
+# Qt 6.5+ QML policies - must be AFTER find_package so Qt6_VERSION is defined
+# QTP0001: Use ':/qt/qml/' as the default QML resource prefix
+# QTP0004: Generate qmldir file for each directory with .qml files
+if(COMMAND qt_policy)
+    if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+        qt_policy(SET QTP0001 NEW)
+        qt_policy(SET QTP0004 NEW)
+        message(STATUS "Qt ${Qt6_VERSION} >= 6.5.0 - QTP0001/QTP0004 policies enabled")
+    else()
+        message(STATUS "Qt ${Qt6_VERSION} < 6.5.0 - QTP0001/QTP0004 policies skipped (Droidian compat)")
+    endif()
+endif()
 
 # GuiPrivate is optional: it's a Qt-internal module (unstable across Qt versions).
 # We only use it when explicitly enabled.

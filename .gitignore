@@ -2,6 +2,7 @@ build/
 build-apps/
 build-release/
 build-ui/
+build-tests/
 .vscode/
 *.user
 *.autosave
@@ -12,8 +13,17 @@ build-ui/
 *.log
 *.ini
 check_output.cpp
-cmake/
 .cache/
 compile_commands.json
-build-tests/
 CMakeFiles/
+
+# Deployment artifacts (generated manually, not part of source)
+*.tar
+libs_to_deploy.txt
+
+# Profiling output
+profile_data.qtd
+shell_perf.log
+
+# AI assistant guidance (local only)
+CLAUDE.md

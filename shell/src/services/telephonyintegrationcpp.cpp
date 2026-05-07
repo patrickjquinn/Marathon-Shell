@@ -10,6 +10,7 @@
 #include "telephonyservice.h"
 #include "smsservice.h"
 #include "contactsmanager.h"
+#include "sensormanagercpp.h"
 
 #include <QMetaObject>
 
@@ -18,7 +19,7 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     PowerPolicyController *powerPolicy, PowerManagerCpp *powerManager,
     DisplayPolicyController *displayPolicy, DisplayManagerCpp *displayManager,
     AudioPolicyController *audioPolicy, HapticManager *haptics, TelephonyService *telephonyService,
-    SMSService *smsService, QObject *parent)
+    SMSService *smsService, SensorManagerCpp *sensorManager, QObject *parent)
     : QObject(parent)
     , m_contactsManager(contactsManager)
     , m_notificationService(notificationService)
@@ -29,7 +30,8 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     , m_audioPolicy(audioPolicy)
     , m_haptics(haptics)
     , m_telephonyService(telephonyService)
-    , m_smsService(smsService) {
+    , m_smsService(smsService)
+    , m_sensorManager(sensorManager) {
     if (m_telephonyService) {
         connect(m_telephonyService, &TelephonyService::incomingCall, this,
                 &TelephonyIntegrationCpp::handleIncomingCall);
@@ -40,6 +42,11 @@ TelephonyIntegrationCpp::TelephonyIntegrationCpp(
     if (m_smsService) {
         connect(m_smsService, &SMSService::messageReceived, this,
                 &TelephonyIntegrationCpp::handleMessageReceived);
+    }
+
+    if (m_sensorManager) {
+        connect(m_sensorManager, &SensorManagerCpp::proximityNearChanged, this,
+                &TelephonyIntegrationCpp::handleProximityChanged);
     }
 }
 
@@ -200,4 +207,17 @@ void TelephonyIntegrationCpp::updateHasActiveCall(const QString &state) {
         return;
     m_hasActiveCall = active;
     emit hasActiveCallChanged();
+}
+
+void TelephonyIntegrationCpp::handleProximityChanged() {
+    if (!m_hasActiveCall || !m_sensorManager || !m_displayManager)
+        return;
+
+    if (m_sensorManager->proximityNear()) {
+        qInfo() << "[TelephonyIntegration] Proximity near during call - screen off";
+        m_displayManager->setScreenState(false);
+    } else {
+        qInfo() << "[TelephonyIntegration] Proximity far during call - screen on";
+        m_displayManager->setScreenState(true);
+    }
 }

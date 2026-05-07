@@ -132,8 +132,8 @@ fi
 
 # Add warning file to installed apps directory
 echo "Adding DO NOT EDIT warning..."
-cat > "$INSTALL_DIR/DO_NOT_EDIT_WARNING.txt" << 'EOF'
-  WARNING: DO NOT EDIT APPS IN THIS DIRECTORY! 
+cat > "$INSTALL_DIR/DO_NOT_EDIT_WARNING.txt" << EOF
+  WARNING: DO NOT EDIT APPS IN THIS DIRECTORY!
 
 This directory contains INSTALLED COPIES of Marathon apps.
 These files are overwritten every time you run ./run.sh or ./scripts/build-apps.sh
@@ -141,27 +141,27 @@ These files are overwritten every time you run ./run.sh or ./scripts/build-apps.
 TO MAKE CHANGES TO APPS:
 ========================
 
-1. Edit source files in: /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/
+1. Edit source files in: $PROJECT_ROOT/apps/
 2. Run: ./run.sh (or ./scripts/build-apps.sh)
 3. Changes will be automatically installed to this directory
 
 THESE INSTALLED FILES ARE TEMPORARY COPIES!
 Any edits made here will be LOST on the next build.
 
-Source location: /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/
-Build script: /Users/patrick.quinn/Developer/personal/Marathon-Shell/scripts/build-apps.sh
+Source location: $PROJECT_ROOT/apps/
+Build script: $PROJECT_ROOT/scripts/build-apps.sh
 EOF
 
 # Add .do-not-edit marker to each app directory
 for app in "$INSTALL_DIR"/*; do
     if [ -d "$app" ] && [ "$(basename "$app")" != "." ]; then
-        cat > "$app/.do-not-edit" << 'MARKER'
-  DO NOT EDIT FILES IN THIS DIRECTORY 
+        cat > "$app/.do-not-edit" << EOF
+  DO NOT EDIT FILES IN THIS DIRECTORY
 
 This is an INSTALLED COPY. Changes here will be LOST.
-Edit source files in: /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/
+Edit source files in: $PROJECT_ROOT/apps/
 Then run: ./run.sh
-MARKER
+EOF
     fi
 done
 

@@ -196,7 +196,7 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
         if (typeInt == MarathonAppRegistry::Native) {
             type = "native";
         } else if (typeInt == MarathonAppRegistry::System) {
-            type = "marathon";
+            type = "system";
         }
 
         QString absolutePath = appInfo.value("absolutePath").toString();

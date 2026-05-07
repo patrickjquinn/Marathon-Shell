@@ -126,6 +126,11 @@ class TelephonyClient : public QObject {
     Q_INVOKABLE void simulateIncomingCall(const QString &number);
     Q_INVOKABLE void simulateCallStateChange(const QString &state);
 
+    Q_INVOKABLE void setSpeakerphone(bool on);
+    Q_INVOKABLE void setCallMuted(bool muted);
+    Q_INVOKABLE bool isSpeakerphoneOn();
+    Q_INVOKABLE bool isCallMuted();
+
   signals:
     void callStateChanged(const QString &state);
     void incomingCall(const QString &number);

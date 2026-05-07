@@ -12,6 +12,13 @@ Item {
     property real swipeProgress: 0
     property string expandedCategory: ""
     property int idleTimeoutMs: 30000
+    readonly property int roleIsRead: roleId("isRead")
+    readonly property int roleAppId: roleId("appId")
+    readonly property int roleIcon: roleId("icon")
+    readonly property int roleIdValue: roleId("id")
+    readonly property int roleTitle: roleId("title")
+    readonly property int roleBody: roleId("body")
+    readonly property int roleTimestamp: roleId("timestamp")
 
     signal unlockRequested
     signal cameraLaunched
@@ -21,16 +28,9 @@ Item {
     function roleId(name) {
         if (!NotificationModel || !name)
             return -1;
+
         return NotificationModel.roleId(name);
     }
-
-    readonly property int roleIsRead: roleId("isRead")
-    readonly property int roleAppId: roleId("appId")
-    readonly property int roleIcon: roleId("icon")
-    readonly property int roleIdValue: roleId("id")
-    readonly property int roleTitle: roleId("title")
-    readonly property int roleBody: roleId("body")
-    readonly property int roleTimestamp: roleId("timestamp")
 
     function resetIdleTimer() {
         if (lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true))
@@ -196,7 +196,7 @@ Item {
             width: parent.width * 0.9
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
-            onYChanged: Logger.info("LockScreen", "ClockColumn Y changed to: " + y)
+            onYChanged: Logger.debug("LockScreen", "ClockColumn Y changed to: " + y)
             layer.enabled: true
             layer.smooth: true
 
@@ -303,7 +303,7 @@ Item {
             anchors.right: parent.right
             visible: categoriesModel.count > 0
             z: 10
-            onYChanged: Logger.info("LockScreen", "NotificationContainer Y changed to: " + y)
+            onYChanged: Logger.debug("LockScreen", "NotificationContainer Y changed to: " + y)
 
             Column {
                 id: categoryIcons

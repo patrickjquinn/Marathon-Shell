@@ -147,10 +147,11 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
     if (it != m_iconCache.constEnd())
         return it.value();
 
+    static const QString kIconFallback = QStringLiteral("layout-grid");
+
     if (iconName.isEmpty()) {
-        const QString fallback = "grid";
-        m_iconCache.insert(iconName, fallback);
-        return fallback;
+        m_iconCache.insert(iconName, kIconFallback);
+        return kIconFallback;
     }
 
     if (iconName.startsWith('/')) {
@@ -158,9 +159,8 @@ QString DesktopFileParser::resolveIconPath(const QString &iconName) {
             m_iconCache.insert(iconName, iconName);
             return iconName;
         }
-        const QString fallback = "grid";
-        m_iconCache.insert(iconName, fallback);
-        return fallback;
+        m_iconCache.insert(iconName, kIconFallback);
+        return kIconFallback;
     }
 
     if (iconName.endsWith(".svg") || iconName.endsWith(".png") || iconName.endsWith(".xpm") ||
@@ -278,14 +278,14 @@ QString DesktopFileParser::cleanExecLine(const QString &exec) {
     QStringList windowFlags = {"--new-window", "-new-window",    "--new-tab",
                                "-new-tab",     "--new-instance", "-new-instance"};
 
+    QStringList tokens = cleaned.split(' ', Qt::SkipEmptyParts);
     for (const QString &flag : windowFlags) {
-        if (cleaned.contains(flag)) {
-            cleaned.remove(flag);
-            cleaned = cleaned.trimmed();
+        if (tokens.removeAll(flag) > 0) {
             qInfo() << "[DesktopFileParser] *** REMOVED window control flag:" << flag
                     << "to enable compositor embedding";
         }
     }
+    cleaned = tokens.join(' ');
 
     if (cleaned.startsWith("gapplication launch ")) {
         QString     appId = cleaned.mid(20).trimmed();
