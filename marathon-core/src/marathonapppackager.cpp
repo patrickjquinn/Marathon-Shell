@@ -265,6 +265,52 @@ bool MarathonAppPackager::createPackage(const QString &appDir, const QString &ou
     return true;
 }
 
+bool MarathonAppPackager::verifyArchiveNoSymlinks(const QString &zipPath) {
+    QProcess zipInfo;
+    zipInfo.start("zipinfo", {"-1", zipPath});
+
+    if (!zipInfo.waitForStarted(3000)) {
+        QProcess fallback;
+        fallback.start("unzip", {"-Z", "-1", zipPath});
+        if (!fallback.waitForStarted(3000) || !fallback.waitForFinished(10000)) {
+            m_lastError = "Cannot inspect archive: neither zipinfo nor unzip -Z available";
+            return false;
+        }
+        // unzip -Z -1 just lists names; check with -l for attributes
+        // Fall through to the filesystem-based check only
+        return true;
+    }
+
+    zipInfo.waitForFinished(10000);
+
+    // Use zipinfo -v for verbose output that shows symlink attributes
+    QProcess zipInfoVerbose;
+    zipInfoVerbose.start("zipinfo", {zipPath});
+
+    if (!zipInfoVerbose.waitForStarted(3000) || !zipInfoVerbose.waitForFinished(10000)) {
+        return true; // Can't inspect, rely on post-extraction check
+    }
+
+    QString     output = QString::fromUtf8(zipInfoVerbose.readAllStandardOutput());
+    QStringList lines  = output.split('\n');
+
+    for (const QString &line : lines) {
+        // zipinfo output lines start with file attributes; symlinks start with 'l'
+        QString trimmed = line.trimmed();
+        if (trimmed.isEmpty())
+            continue;
+        if (trimmed.startsWith('l')) {
+            m_lastError = "SECURITY: Archive contains symlink: " + trimmed;
+            qWarning() << "[MarathonAppPackager]" << m_lastError;
+            syslog(LOG_AUTH | LOG_ALERT, "[SECURITY] Symlink in package archive: %s",
+                   trimmed.toUtf8().constData());
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool MarathonAppPackager::extractPackage(const QString &packagePath, const QString &destDir) {
     qDebug() << "[MarathonAppPackager] Extracting package:" << packagePath;
     qDebug() << "[MarathonAppPackager] Destination:" << destDir;
@@ -273,6 +319,11 @@ bool MarathonAppPackager::extractPackage(const QString &packagePath, const QStri
 
     if (!QFile::exists(packagePath)) {
         m_lastError = "Package file does not exist: " + packagePath;
+        emit error(m_lastError);
+        return false;
+    }
+
+    if (!verifyArchiveNoSymlinks(packagePath)) {
         emit error(m_lastError);
         return false;
     }

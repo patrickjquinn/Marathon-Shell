@@ -181,14 +181,14 @@ Rectangle {
                             onClicked: {
                                 if (modelData.action === "mute") {
                                     isMuted = !isMuted;
-                                    if (typeof AudioRoutingManagerCpp !== 'undefined')
-                                        AudioRoutingManagerCpp.setMuted(isMuted);
+                                    if (typeof TelephonyService !== 'undefined')
+                                        TelephonyService.setCallMuted(isMuted);
 
                                     Logger.info("Phone", "Mute toggled: " + isMuted);
                                 } else if (modelData.action === "speaker") {
                                     isSpeakerOn = !isSpeakerOn;
-                                    if (typeof AudioRoutingManagerCpp !== 'undefined')
-                                        AudioRoutingManagerCpp.setSpeakerphone(isSpeakerOn);
+                                    if (typeof TelephonyService !== 'undefined')
+                                        TelephonyService.setSpeakerphone(isSpeakerOn);
 
                                     Logger.info("Phone", "Speaker toggled: " + isSpeakerOn);
                                 } else {

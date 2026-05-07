@@ -287,8 +287,11 @@ include(${CMAKE_SOURCE_DIR}/cmake/QMLLint.cmake)
 # QTP0001: Use ':/qt/qml/' as the default resource prefix (required for proper QML module loading)
 # QTP0004: for each directory that contains .qml files, qmldir file is generated
 if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-    qt_policy(SET QTP0004 NEW)
+    # Guard for Droidian (Qt 6.4.2) - these policies are Qt 6.5+ only
+    if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+        qt_policy(SET QTP0001 NEW)
+        qt_policy(SET QTP0004 NEW)
+    endif()
 endif()
 
 # FIX: Use Big Resources for large assets to prevent OOM

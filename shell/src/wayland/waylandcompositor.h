@@ -57,6 +57,7 @@ class WaylandCompositor : public QWaylandCompositor {
     void appClosed(int pid);
     void systemBackTriggered();
     void systemHomeTriggered();
+    void userActivity();
     void nativeTextInputPanelRequested(bool show);
     void hasIdleInhibitingSurfaceChanged();
 

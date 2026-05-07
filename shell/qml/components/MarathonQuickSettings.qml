@@ -1,8 +1,8 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Controls
 
@@ -283,28 +283,28 @@ Rectangle {
     Component.onCompleted: {
         Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)");
         var enabled = SettingsManagerCpp.enabledQuickSettingsTiles || [];
-        var knownCount = 0;
-        var unknownCount = 0;
+        var knownIds = {};
+        for (var j = 0; j < allTiles.length; j++)
+            knownIds[allTiles[j].id] = true;
+        var cleaned = [];
         var seen = {};
+        var unknownCount = 0;
         for (var i = 0; i < enabled.length; i++) {
             var id = enabled[i];
             if (seen[id])
                 continue;
 
             seen[id] = true;
-            var isKnown = false;
-            for (var j = 0; j < allTiles.length; j++) {
-                if (allTiles[j].id === id) {
-                    isKnown = true;
-                    break;
-                }
-            }
-            if (isKnown)
-                knownCount++;
+            if (knownIds[id])
+                cleaned.push(id);
             else
                 unknownCount++;
         }
-        Logger.info("QuickSettings", "Enabled tiles: " + knownCount + " of " + allTiles.length + (unknownCount > 0 ? (" (" + unknownCount + " unknown in settings)") : ""));
+        if (unknownCount > 0) {
+            Logger.warn("QuickSettings", "Removed " + unknownCount + " stale tile IDs from saved settings");
+            SettingsManagerCpp.enabledQuickSettingsTiles = cleaned;
+        }
+        Logger.info("QuickSettings", "Enabled tiles: " + cleaned.length + " of " + allTiles.length);
     }
 
     Connections {

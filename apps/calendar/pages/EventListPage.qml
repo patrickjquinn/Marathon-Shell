@@ -76,7 +76,7 @@ Page {
             }
 
             Connections {
-                function onDataChanged() {
+                function onEventsChanged() {
                     updateTrigger++;
                 }
 

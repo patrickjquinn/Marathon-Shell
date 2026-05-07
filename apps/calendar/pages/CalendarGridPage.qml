@@ -92,6 +92,7 @@ Rectangle {
 
                 Rectangle {
                     id: dayCell
+
                     width: calendarGridPage.width / 7
                     height: Constants.touchTargetMedium
                     color: MColors.elevated
@@ -110,6 +111,8 @@ Rectangle {
                 model: 42
 
                 Rectangle {
+                    id: dayCell
+
                     property int dayNumber: {
                         var firstDay = getFirstDayOfMonth(currentYear, currentMonth);
                         var dayIndex = index - firstDay;

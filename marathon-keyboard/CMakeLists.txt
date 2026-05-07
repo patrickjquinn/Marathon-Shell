@@ -9,17 +9,21 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-if(COMMAND qt_policy)
-    qt_policy(SET QTP0001 NEW)
-    qt_policy(SET QTP0004 NEW)
-endif()
-
 find_package(Qt6 6.4 REQUIRED COMPONENTS
     Core
     Qml
     Quick
     Gui
 )
+
+# QTP0001/QTP0004 are Qt 6.5+ only - guard for Droidian (Qt 6.4.2)
+# Must be after find_package so Qt6_VERSION is defined
+if(COMMAND qt_policy)
+    if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+        qt_policy(SET QTP0001 NEW)
+        qt_policy(SET QTP0004 NEW)
+    endif()
+endif()
 
 # Installation directory - system-wide for production
 set(MARATHON_KEYBOARD_DIR "/usr/lib64/qt6/qml/MarathonKeyboard" CACHE PATH "MarathonKeyboard installation directory")

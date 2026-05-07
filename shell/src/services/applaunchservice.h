@@ -69,6 +69,7 @@ class AppLaunchService : public QObject {
         QString appId;
         QString name;
         QString icon;
+        QString type;
         QString command;
         qint64  pid = -1;
     };

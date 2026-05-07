@@ -136,8 +136,8 @@ void ModemManagerCpp::discoverModem() {
     }
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString       path       = it.key().path();
-        InterfaceList interfaces = it.value();
+        QString              path       = it.key().path();
+        const InterfaceList &interfaces = it.value();
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem")) {
             m_modemPath      = path;
@@ -166,6 +166,24 @@ void ModemManagerCpp::queryModemState() {
 
     if (!modem.isValid())
         return;
+
+    // Query SIM presence via the Modem's Sim property (object path, empty = no SIM)
+    QVariant simPathVar = modem.property("Sim");
+    bool hasSim = simPathVar.isValid() && !simPathVar.value<QDBusObjectPath>().path().isEmpty() &&
+        simPathVar.value<QDBusObjectPath>().path() != "/";
+    if (m_simPresent != hasSim) {
+        m_simPresent = hasSim;
+        emit simPresentChanged();
+        qInfo() << "[ModemManagerCpp] SIM present:" << m_simPresent;
+    }
+
+    // Query modem enabled state
+    uint modemState = modem.property("State").toUInt();
+    bool enabled    = (modemState >= 3); // MM_MODEM_STATE_ENABLED = 3
+    if (m_modemEnabled != enabled) {
+        m_modemEnabled = enabled;
+        emit modemEnabledChanged();
+    }
 
     QDBusInterface modemSignal("org.freedesktop.ModemManager1", m_modemPath,
                                "org.freedesktop.ModemManager1.Modem.Signal",
@@ -200,6 +218,13 @@ void ModemManagerCpp::queryModemState() {
         if (m_registered != isRegistered) {
             m_registered = isRegistered;
             emit registeredChanged();
+        }
+
+        // MM_MODEM_3GPP_REGISTRATION_STATE_ROAMING = 5
+        bool isRoaming = (registrationState == 5);
+        if (m_roaming != isRoaming) {
+            m_roaming = isRoaming;
+            emit roamingChanged();
         }
     }
 

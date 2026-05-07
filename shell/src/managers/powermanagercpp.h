@@ -119,6 +119,8 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_INVOKABLE bool setRtcAlarm(qint64 epochTime);
     Q_INVOKABLE bool clearRtcAlarm();
 
+    Q_INVOKABLE void updateActivity();
+
   signals:
     void batteryLevelChanged();
     void warningLevelChanged();

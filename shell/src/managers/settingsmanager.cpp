@@ -33,17 +33,12 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_statusBarClockPosition("center")
     , m_showNotificationsOnLockScreen(true)
     , m_filterMobileFriendlyApps(true)
-    , m_hiddenApps()
     , m_appSortOrder("alphabetical")
     , m_appGridColumns(0)
     , m_searchNativeApps(true)
     , m_showNotificationBadges(true)
-    , m_appNotificationSettings()
     , m_showFrequentApps(false)
-    , m_defaultApps()
     , m_firstRunComplete(false)
-    , m_enabledQuickSettingsTiles()
-    , m_quickSettingsTileOrder()
     , m_keyboardAutoCorrection(true)
     , m_keyboardAutoCapitalize(true)
     , m_keyboardPredictiveText(true)
@@ -68,12 +63,12 @@ namespace {
         if (!env.isEmpty()) {
             return QString::fromLocal8Bit(env);
         }
-        const QString sys = defaultSystemDataDir();
+        QString sys = defaultSystemDataDir();
         if (QDir(sys).exists())
             return sys;
 
         const QString home = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
-        const QString user = home + "/.local/share/marathon-shell";
+        QString       user = home + "/.local/share/marathon-shell";
         if (QDir(user).exists())
             return user;
 
@@ -215,10 +210,9 @@ void SettingsManager::load() {
 
     m_firstRunComplete = m_settings.value("system/firstRunComplete", false).toBool();
 
-    QStringList defaultTiles = {
-        "wifi",     "bluetooth",  "flight",    "cellular",   "rotation", "autobrightness",
-        "location", "hotspot",    "vibration", "nightlight", "torch",    "notifications",
-        "battery",  "screenshot", "settings",  "lock",       "power"};
+    QStringList defaultTiles = {"wifi",       "bluetooth", "flight",     "cellular", "rotation",
+                                "hotspot",    "vibration", "nightlight", "torch",    "battery",
+                                "screenshot", "alarm",     "settings",   "lock",     "power"};
     m_enabledQuickSettingsTiles =
         m_settings.value("quicksettings/enabledTiles", defaultTiles).toStringList();
     m_quickSettingsTileOrder =

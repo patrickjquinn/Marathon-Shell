@@ -373,14 +373,15 @@ int main(int argc, char *argv[]) {
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
-    auto *networkManager   = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
-    auto *powerManager     = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
-    auto *rotationManager  = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager   = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
-                                                             rotationManager, &app);
-    auto *audioManager     = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
-    auto *modemManager     = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
-    auto *sensorManager    = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    auto *networkManager  = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
+    auto *powerManager    = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
+    auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
+    auto *displayManager  = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
+                                                            rotationManager, &app);
+    auto *audioManager    = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
+    auto *modemManager    = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *sensorManager   = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
     auto *hapticManager    = createObject<HapticManager>(ctx, "HapticManager", &app);
@@ -550,7 +551,7 @@ int main(int argc, char *argv[]) {
     createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
         powerManager, displayPolicyController, displayManager, audioPolicyController, hapticsObj,
-        telephonyService, smsService, &app);
+        telephonyService, smsService, sensorManager, &app);
 
     callHistoryManager->setContactsManager(contactsManager);
     smsService->setContactsManager(contactsManager);
@@ -573,7 +574,8 @@ int main(int argc, char *argv[]) {
             permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
             audioManager, audioPolicyController, networkManager, hapticsObj, securityManager,
-            sensorManager, locationManager, alarmManager, appLaunchService, &app);
+            sensorManager, locationManager, alarmManager, audioRoutingManager, appLaunchService,
+            &app);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

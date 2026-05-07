@@ -1,150 +1,107 @@
 # Marathon Shell Tests
 
-This directory contains unit and integration tests for security-critical Marathon Shell components.
-
 ## Running Tests
 
-### Build Tests
+### Build with tests enabled
 
 ```bash
 cd /path/to/Marathon-Shell
-cmake -B build -DBUILD_TESTING=ON
+cmake -B build -G Ninja -DBUILD_TESTING=ON
 cmake --build build
 ```
 
-### Run All Tests
+### Run all tests
 
 ```bash
 cd build
 ctest --output-on-failure
 ```
 
-### Run Individual Tests
+### Run individual test suites
 
 ```bash
-# Test app packager
-./tests/test_apppackager
+# Core library tests
+ctest -R Core_AppRegistry
+ctest -R Core_AppPackager
+ctest -R Core_PermissionManager
 
-# Test app verifier (requires GPG)
-./tests/test_appverifier
-
-# Test permission manager
-./tests/test_permissionmanager
+# Keyboard tests
+ctest -R Keyboard_WordTrie
+ctest -R Keyboard_WordEngine
+ctest -R Keyboard_QML
 ```
 
-## Test Coverage
+## Test Suites
 
-### AppPackager Tests
-- Create package from app directory
-- Extract package to directory
-- Handle invalid app directories
-- Validate manifest presence
-- Validate manifest structure
+### Core: AppRegistry (15 tests)
+- Empty registry state
+- Register app and verify signals
+- Duplicate registration rejection
+- hasApp / getApp / getAppInfo lookups
+- Non-existent app returns empty
+- Protected app flag
+- getAllAppIds enumeration
+- Model data via QAbstractListModel roles
+- Invalid model index handling
+- Role names verification
+- Multiple app type registration (Marathon, System, Native)
 
-### AppVerifier Tests
-- Verify valid GPG signatures
-- Detect invalid signatures
-- Detect tampered manifests
-- Handle missing signatures (dev mode)
-- Handle missing manifests
-- Sign manifests with GPG
-- Trusted key management
+### Core: AppPackager (11 tests)
+- Validates directory existence
+- Requires manifest.json
+- Validates JSON syntax
+- Requires mandatory manifest fields (id, name, version, entryPoint, icon)
+- Rejects empty required fields
+- Requires manifest to be a JSON object
+- Validates entry point file exists
+- Requires package file for extraction
+- Round-trip create + extract (requires zip/unzip on system)
 
-### PermissionManager Tests
-- Grant/deny permissions
-- Check permission status
-- Request permissions (shows dialog)
-- Revoke permissions
-- Get app permissions
-- Permission persistence
+### Core: PermissionManager (13 tests)
+- Initial state verification
+- Grant permission with signal
+- Deny permission with signal
+- Revoke previously granted permission
+- Get all permissions for an app
+- Permission status lifecycle (NotRequested -> Granted / Denied)
+- Multiple app isolation
 - Available permissions list
 - Permission descriptions
+- Batch set multiple permissions
+- Non-existent app returns no permissions
+
+### Keyboard: WordTrie (15 tests)
+- Insert and size
+- Completions (basic, max results, case insensitive, no match, empty prefix)
+- Clear, empty word, very long word
+- Special characters, unicode, duplicates
+- Memory stress
+
+### Keyboard: WordEngine (11 tests)
+- Enabled/language properties
+- Predictions, learn word, spell check
+- Zero/negative max results
+- Concurrent requests, empty language
+
+### Keyboard: QML (78 tests)
+- Core keyboard (key press, shift, caps lock, punctuation)
+- Space handling (insert, double-tap period, shift after space)
+- Enter handling (clear word, learn, shift, caps lock)
+- Input context (text/email/url/number/phone/terminal modes)
+- Predictions (accept, clear, learn, punctuation, long words)
+- Undo auto-correct (revert, state management)
+- Domain suggestions (email/url modes, dot suggestions)
 
 ## Requirements
 
-### For All Tests
-- Qt 6.5+
-- CMake 3.16+
-
-### For GPG Signing Tests
-- GPG (GnuPG) installed
-- GPG key configured
-- Or tests will be skipped gracefully
-
-## Test Results
-
-Tests use Qt Test framework and output results in standard format:
-
-```
-********* Start testing of TestAppPackager *********
-PASS   : TestAppPackager::initTestCase()
-PASS   : TestAppPackager::testCreatePackage()
-PASS   : TestAppPackager::testExtractPackage()
-PASS   : TestAppPackager::testInvalidAppDirectory()
-PASS   : TestAppPackager::cleanupTestCase()
-Totals: 5 passed, 0 failed, 0 skipped, 0 blacklisted
-********* Finished testing of TestAppPackager *********
-```
-
-## Continuous Integration
-
-Tests are automatically run in CI/CD pipeline:
-- On every commit
-- Before merges
-- Before releases
+- Qt 6.4+ with Test and Core components
+- Qt6QuickTest for QML tests
+- Hunspell for WordEngine tests
+- zip/unzip for AppPackager round-trip test (test is skipped if unavailable)
 
 ## Adding New Tests
 
-1. Create `test_component.cpp` in this directory
-2. Include component header
-3. Write test cases using Qt Test framework
-4. Add to `CMakeLists.txt`
-5. Run and verify tests pass
-
-Example:
-
-```cpp
-#include <QTest>
-#include "../shell/src/mycomponent.h"
-
-class TestMyComponent : public QObject {
-    Q_OBJECT
-    
-private slots:
-    void testSomething() {
-        MyComponent component;
-        QVERIFY(component.doSomething());
-    }
-};
-
-QTEST_MAIN(TestMyComponent)
-#include "test_mycomponent.moc"
-```
-
-## Debugging Tests
-
-Run tests with verbose output:
-
-```bash
-./test_apppackager -v2
-```
-
-Run specific test function:
-
-```bash
-./test_apppackager testCreatePackage
-```
-
-## Known Issues
-
-- GPG tests may fail if GPG is not configured
-- Some tests require temporary file system access
-- Tests clean up temporary files automatically
-
-## Contributing
-
-When adding new features to Marathon Shell:
-1. Write tests for security-critical code
-2. Ensure tests pass before submitting PR
-3. Update this README if adding new test suites
-
+1. Create test file in the appropriate subdirectory (`tests/core/`, `tests/keyboard/`)
+2. Add the target to the corresponding `CMakeLists.txt`
+3. Register with `add_test(NAME ... COMMAND ...)`
+4. Run `ctest --output-on-failure` to verify

@@ -418,6 +418,36 @@ void TelephonyClient::simulateCallStateChange(const QString &state) {
         qWarning() << "[TelephonyClient] SimulateCallStateChange failed:" << r.errorMessage();
 }
 
+void TelephonyClient::setSpeakerphone(bool on) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SetSpeakerphone", on);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[TelephonyClient] SetSpeakerphone failed:" << r.errorMessage();
+}
+
+void TelephonyClient::setCallMuted(bool muted) {
+    if (!ensurePermission())
+        return;
+    auto r = m_iface.call("SetCallMuted", muted);
+    if (r.type() == QDBusMessage::ErrorMessage)
+        qWarning() << "[TelephonyClient] SetCallMuted failed:" << r.errorMessage();
+}
+
+bool TelephonyClient::isSpeakerphoneOn() {
+    if (!ensurePermission())
+        return false;
+    QDBusReply<bool> r = m_iface.call("IsSpeakerphoneOn");
+    return r.isValid() ? r.value() : false;
+}
+
+bool TelephonyClient::isCallMuted() {
+    if (!ensurePermission())
+        return false;
+    QDBusReply<bool> r = m_iface.call("IsCallMuted");
+    return r.isValid() ? r.value() : false;
+}
+
 SmsClient::SmsClient(const QString &appId, QObject *parent)
     : QObject(parent)
     , m_appId(appId)

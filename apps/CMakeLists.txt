@@ -82,8 +82,11 @@ function(add_marathon_app APP_NAME)
   set(APP_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
   set(INSTALL_DIR "${MARATHON_APPS_DIR}/${APP_NAME}")
 
-  qt_policy(SET QTP0001 NEW)
-  qt_policy(SET QTP0004 NEW)
+  # QTP0001/QTP0004 are Qt 6.5+ only - guard for Droidian (Qt 6.4.2)
+  if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5.0")
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+  endif()
 
   string(REPLACE "." "/" MODULE_PATH "${ARG_URI}")
   set(MODULE_OUTPUT_DIR "${CMAKE_BINARY_DIR}/apps/${APP_NAME}/${MODULE_PATH}")

@@ -1,7 +1,7 @@
 import "./components" as Comp
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Window
 
@@ -24,6 +24,10 @@ Item {
     property bool powerButtonPressed: false
 
     function handleBackKey() {
+        if (typeof PermissionManager !== "undefined" && PermissionManager.promptActive) {
+            dismissPermissionPrompt();
+            return;
+        }
         var overlayClosed = false;
         if (showPinScreen) {
             showPinScreen = false;
@@ -66,7 +70,13 @@ Item {
         }
     }
 
+    function dismissPermissionPrompt() {
+        if (typeof PermissionManager !== "undefined" && PermissionManager.promptActive)
+            PermissionManager.dismissAll();
+    }
+
     function handleHomeKey() {
+        dismissPermissionPrompt();
         if (virtualKeyboard.active) {
             HapticManager.light();
             virtualKeyboard.active = false;
@@ -125,6 +135,8 @@ Item {
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
+            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
+                compositor.userActivity.connect(PowerManagerService.updateActivity);
         }
     }
     onWidthChanged: {
@@ -691,6 +703,7 @@ Item {
             }
         }
         onShortSwipeUp: {
+            dismissPermissionPrompt();
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with short swipe up");
                 HapticManager.light();
@@ -704,6 +717,7 @@ Item {
             Router.goToAppPage(0);
         }
         onLongSwipeUp: {
+            dismissPermissionPrompt();
             Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
@@ -1858,6 +1872,7 @@ Item {
         function onCallOverlayDismissRequested() {
             if (shell.incomingCallOverlay && shell.incomingCallOverlay.visible)
                 shell.incomingCallOverlay.hide();
+
             incomingCallOverlayLoader.active = false;
         }
 

@@ -1,7 +1,9 @@
 #include "BrowserData.h"
 
+#ifdef HAVE_WEBENGINE
 #include <QtWebEngineQuick/QQuickWebEngineProfile>
 #include <QtWebEngineCore/QWebEngineCookieStore>
+#endif
 
 BrowserData::BrowserData(QObject *parent)
     : QObject(parent) {}
@@ -13,6 +15,7 @@ BrowserData *BrowserData::create(QQmlEngine *qmlEngine, QJSEngine *jsEngine) {
 }
 
 bool BrowserData::clearCookiesAndCache(QObject *webEngineProfileObject) {
+#ifdef HAVE_WEBENGINE
     auto *profile = qobject_cast<QQuickWebEngineProfile *>(webEngineProfileObject);
     if (!profile)
         return false;
@@ -24,4 +27,8 @@ bool BrowserData::clearCookiesAndCache(QObject *webEngineProfileObject) {
 
     profile->clearHttpCache();
     return true;
+#else
+    Q_UNUSED(webEngineProfileObject)
+    return false;
+#endif
 }
