@@ -237,8 +237,6 @@ void BluetoothManager::initializeAdapter() {
         });
 }
 
-void BluetoothManager::connectToBlueZ() {}
-
 void BluetoothManager::updateAdapterProperties() {
     if (!m_adapter)
         return;

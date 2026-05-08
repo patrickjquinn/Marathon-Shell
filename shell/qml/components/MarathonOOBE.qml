@@ -1,8 +1,8 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -123,6 +123,7 @@ Item {
                         width: Math.min(parent.width * 0.45, Math.round(180 * Constants.scaleFactor))
                         height: width
                         source: "qrc:/images/marathon.png"
+                        sourceSize: Qt.size(width, height)
                         fillMode: Image.PreserveAspectFit
                         smooth: false
                         mipmap: false
@@ -1011,6 +1012,7 @@ Item {
         function onConnectionSuccess() {
             if (oobeRoot.activePasswordDialog)
                 oobeRoot.activePasswordDialog.hide();
+
             wifiPasswordDialogLoader.active = false;
             HapticManager.medium();
         }

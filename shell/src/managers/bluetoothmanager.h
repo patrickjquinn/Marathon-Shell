@@ -158,7 +158,6 @@ class BluetoothManager : public QObject {
     void updateAdapterProperties();
     void refreshDevices();
 
-    void connectToBlueZ();
     BluetoothDevice *findDeviceByPath(const QString &path);
     BluetoothDevice *findDeviceByAddress(const QString &address);
     void             addDevice(const QString &path);

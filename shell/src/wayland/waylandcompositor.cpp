@@ -614,6 +614,9 @@ void WaylandCompositor::handleSurfaceCreated(QWaylandSurface *surface) {
 
     if (auto *inputControl = surface->inputMethodControl()) {
         qDebug() << "[WaylandCompositor] Connected to inputMethodControl for surface";
+        // QWaylandInputMethodControl::enabledChanged isn't exported in the public
+        // Qt build, so the Qt5 pointer-to-member form fails to link. The SIGNAL/
+        // SLOT macro form uses MOC's string dispatch and works without the symbol.
         connect(inputControl, SIGNAL(enabledChanged(bool)), this,
                 SLOT(handleTextInputEnabled(bool)));
     } else {

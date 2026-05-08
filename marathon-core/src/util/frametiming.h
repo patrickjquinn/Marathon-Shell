@@ -51,7 +51,7 @@ namespace marathon::diag {
             s->samples.clear();
         });
 
-        QObject::connect(window, &QObject::destroyed, [s]() { delete s; });
+        QObject::connect(window, &QObject::destroyed, window, [s]() { delete s; });
     }
 
 } // namespace marathon::diag

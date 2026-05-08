@@ -98,7 +98,6 @@ class DisplayManagerCpp : public QObject {
     void              loadSettings();
     void              saveSettings();
     void              setupBrightnessMonitoring();
-    void              pollBrightness();
 
   private slots:
     void onExternalBrightnessChanged();
