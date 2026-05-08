@@ -50,11 +50,9 @@ Rectangle {
                         appWindow.closeApp(skipNative === true, capturedId);
                     });
                 }
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
-                    AppLifecycleManager.registerApp(id, nativeInstance);
-                    AppLifecycleManager.bringToForeground(id);
-                }
+                Logger.info("AppWindow", "Registering native app with lifecycle: " + id);
+                AppLifecycleManager.registerApp(id, nativeInstance);
+                AppLifecycleManager.bringToForeground(id);
                 Logger.info("AppWindow", "Native app instance created successfully: " + id);
                 appWindow.hasError = false;
             } else {
@@ -135,10 +133,7 @@ Rectangle {
             }
         }
         if (hasSurface) {
-            var existingNativeInstance = null;
-            if (typeof AppLifecycleManager !== 'undefined')
-                existingNativeInstance = AppLifecycleManager.getAppInstance(id);
-
+            var existingNativeInstance = AppLifecycleManager.getAppInstance(id);
             if (existingNativeInstance) {
                 Logger.info("AppWindow", "Reusing existing app instance: " + id);
                 existingNativeInstance.visible = true;
@@ -203,9 +198,7 @@ Rectangle {
         if (targetAppId === "")
             return;
 
-        if (typeof AppLifecycleManager !== 'undefined')
-            AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
-
+        AppLifecycleManager.closeApp(targetAppId, skipNativeClose === true);
         if (targetAppId !== appId)
             return;
 
@@ -232,8 +225,7 @@ Rectangle {
         appWindow.appName = name;
         appWindow.appIcon = icon;
         appWindow.appType = type;
-        if (typeof UIStore !== 'undefined')
-            UIStore.restoreApp(id, name, icon);
+        UIStore.restoreApp(id, name, icon);
 
         if (!appContentLoader.item) {
             appWindow.pendingAppInstance = instance;
@@ -408,17 +400,13 @@ Rectangle {
                     if (appInstance.requestRegister)
                         appInstance.requestRegister.connect(containerRoot, function (appId, appInst) {
                             console.log("AppWindow: App requested registration:", appId);
-                            if (typeof AppLifecycleManager !== 'undefined')
-                                AppLifecycleManager.registerApp(appId, appInst);
-                            else
-                                console.error("AppWindow: AppLifecycleManager not available!");
+                            AppLifecycleManager.registerApp(appId, appInst);
                         });
 
                     if (appInstance.requestUnregister)
                         appInstance.requestUnregister.connect(containerRoot, function (appId) {
                             console.log("AppWindow: App requested unregistration:", appId);
-                            if (typeof AppLifecycleManager !== 'undefined')
-                                AppLifecycleManager.unregisterApp(appId);
+                            AppLifecycleManager.unregisterApp(appId);
                         });
 
                     if (appInstance.minimizeRequested)

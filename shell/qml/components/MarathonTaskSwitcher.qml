@@ -6,7 +6,7 @@ import QtQuick
 Item {
     id: taskSwitcher
 
-    readonly property bool haveWayland: typeof HAVE_WAYLAND !== 'undefined' ? HAVE_WAYLAND : false
+    readonly property bool haveWayland: HAVE_WAYLAND
     property real searchPullProgress: 0
     property bool searchGestureActive: false
     property var compositor: null

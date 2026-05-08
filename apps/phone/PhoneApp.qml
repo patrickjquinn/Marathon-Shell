@@ -10,10 +10,10 @@ MApp {
     id: phoneApp
 
     property bool hasContactsPermission: false
-    property var contacts: hasContactsPermission && typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
-    property var callHistory: typeof CallHistoryManager !== 'undefined' ? CallHistoryManager.history : []
+    property var contacts: hasContactsPermission ? ContactsManager.contacts : []
+    property var callHistory: CallHistoryManager.history
     property string dialedNumber: ""
-    property bool inCall: typeof TelephonyService !== 'undefined' && TelephonyService.callState !== "idle"
+    property bool inCall: TelephonyService.callState !== "idle"
     property int editingContactId: -1
     property string editingContactName: ""
     property string editingContactPhone: ""
@@ -92,12 +92,10 @@ MApp {
     function makeCall() {
         if (dialedNumber.length > 0) {
             Logger.info("Phone", "Calling: " + dialedNumber);
-            if (typeof TelephonyService !== 'undefined') {
-                TelephonyService.dial(dialedNumber);
-                var contactName = resolveContactName(dialedNumber);
-                if (activeCallPageRef)
-                    activeCallPageRef.show(dialedNumber, contactName);
-            }
+            TelephonyService.dial(dialedNumber);
+            var contactName = resolveContactName(dialedNumber);
+            if (activeCallPageRef)
+                activeCallPageRef.show(dialedNumber, contactName);
             HapticService.medium();
         }
     }
@@ -106,7 +104,7 @@ MApp {
     appName: "Phone"
     appIcon: "assets/icon.svg"
     Component.onCompleted: {
-        if (typeof TelephonyService !== 'undefined' && TelephonyService.callState === "active") {
+        if (TelephonyService.callState === "active") {
             var number = TelephonyService.activeNumber;
             var contactName = resolveContactName(number);
             if (activeCallPageRef)
@@ -114,17 +112,12 @@ MApp {
 
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
-        if (typeof PermissionManager !== 'undefined') {
-            if (PermissionManager.hasPermission(appId, "contacts")) {
-                Logger.info("Phone", "Contacts permission already granted");
-                hasContactsPermission = true;
-            } else {
-                Logger.info("Phone", "Requesting contacts permission");
-                PermissionManager.requestPermission(appId, "contacts");
-            }
-        } else {
-            Logger.warn("Phone", "PermissionManager not available, auto-granting");
+        if (PermissionManager.hasPermission(appId, "contacts")) {
+            Logger.info("Phone", "Contacts permission already granted");
             hasContactsPermission = true;
+        } else {
+            Logger.info("Phone", "Requesting contacts permission");
+            PermissionManager.requestPermission(appId, "contacts");
         }
     }
 
@@ -143,7 +136,7 @@ MApp {
             }
         }
 
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+        target: PermissionManager
     }
 
     Connections {
@@ -169,7 +162,7 @@ MApp {
                 if (incomingCallScreenRef && incomingCallScreenRef.visible)
                     incomingCallScreenRef.hide();
 
-                if (activeCallPageRef && !activeCallPageRef.visible && typeof TelephonyService !== 'undefined') {
+                if (activeCallPageRef && !activeCallPageRef.visible) {
                     var number = TelephonyService.activeNumber;
                     var contactName = resolveContactName(number);
                     activeCallPageRef.show(number, contactName);
@@ -177,8 +170,7 @@ MApp {
             }
         }
 
-        target: typeof TelephonyService !== 'undefined' ? TelephonyService : null
-        enabled: target !== null
+        target: TelephonyService
     }
 
     content: Rectangle {

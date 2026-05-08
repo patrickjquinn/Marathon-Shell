@@ -113,7 +113,6 @@ class SystemControlStore : public QObject {
     Q_INVOKABLE void toggleCellular();
     Q_INVOKABLE void toggleCellularData();
     Q_INVOKABLE void toggleDndMode();
-    Q_INVOKABLE void toggleAlarm();
     Q_INVOKABLE void toggleLowPowerMode();
     Q_INVOKABLE void toggleAutoBrightness();
     Q_INVOKABLE void toggleLocation();

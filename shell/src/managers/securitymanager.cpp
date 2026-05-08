@@ -52,11 +52,8 @@ SecurityManager::SecurityManager(QObject *parent)
 SecurityManager::~SecurityManager() {
     if (m_fprintdDevice) {
         m_fprintdDevice->call("Release");
-        delete m_fprintdDevice;
     }
-    if (m_fprintdManager) {
-        delete m_fprintdManager;
-    }
+    // m_fprintdDevice and m_fprintdManager are parented to this; Qt will delete them
 }
 
 void SecurityManager::setAuthMode(AuthMode mode) {
@@ -426,7 +423,7 @@ void SecurityManager::initFingerprintDevice() {
     if (!m_fprintdManager->isValid()) {
         qWarning() << "[SecurityManager] fprintd Manager interface invalid:"
                    << m_fprintdManager->lastError().message();
-        delete m_fprintdManager;
+        // m_fprintdManager is parented to this; Qt will delete it on destruction
         m_fprintdManager       = nullptr;
         m_fingerprintAvailable = false;
         return;
@@ -448,7 +445,7 @@ void SecurityManager::initFingerprintDevice() {
     if (!m_fprintdDevice->isValid()) {
         qWarning() << "[SecurityManager] fprintd Device interface invalid:"
                    << m_fprintdDevice->lastError().message();
-        delete m_fprintdDevice;
+        // m_fprintdDevice is parented to this; Qt will delete it on destruction
         m_fprintdDevice        = nullptr;
         m_fingerprintAvailable = false;
         return;

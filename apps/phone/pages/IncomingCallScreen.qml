@@ -123,9 +123,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        if (typeof TelephonyService !== 'undefined')
-                            TelephonyService.hangup();
-
+                        TelephonyService.hangup();
                         hide();
                     }
                 }
@@ -149,9 +147,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        if (typeof TelephonyService !== 'undefined')
-                            TelephonyService.answer();
-
+                        TelephonyService.answer();
                         hide();
                     }
                 }

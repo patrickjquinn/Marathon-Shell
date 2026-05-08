@@ -24,7 +24,7 @@ Item {
     property bool powerButtonPressed: false
 
     function handleBackKey() {
-        if (typeof PermissionManager !== "undefined" && PermissionManager.promptActive) {
+        if (PermissionManager.promptActive) {
             dismissPermissionPrompt();
             return;
         }
@@ -58,20 +58,16 @@ Item {
             return;
         }
         Logger.info("Shell", "Back Key Triggered - Calling handleSystemBack");
-        if (typeof AppLifecycleManager !== 'undefined') {
-            var handled = AppLifecycleManager.handleSystemBack();
-            if (!handled) {
-                Logger.info("Shell", "Back not handled by app, closing");
-                if (UIStore.appWindowOpen)
-                    UIStore.closeApp();
-            }
-        } else if (UIStore.appWindowOpen) {
-            UIStore.closeApp();
+        var handled = AppLifecycleManager.handleSystemBack();
+        if (!handled) {
+            Logger.info("Shell", "Back not handled by app, closing");
+            if (UIStore.appWindowOpen)
+                UIStore.closeApp();
         }
     }
 
     function dismissPermissionPrompt() {
-        if (typeof PermissionManager !== "undefined" && PermissionManager.promptActive)
+        if (PermissionManager.promptActive)
             PermissionManager.dismissAll();
     }
 
@@ -83,8 +79,7 @@ Item {
             return;
         }
         if (UIStore.appWindowOpen) {
-            if (typeof AppLifecycleManager !== 'undefined')
-                AppLifecycleManager.minimizeForegroundApp();
+            AppLifecycleManager.minimizeForegroundApp();
 
             var appInstance = appWindow.detachCurrentApp();
             if (appInstance) {
@@ -114,7 +109,7 @@ Item {
         } else if (event.key === Qt.Key_PowerOff || event.key === Qt.Key_Sleep || event.key === Qt.Key_Suspend) {
             powerButtonPressed = false;
             if (powerButtonTimer.running) {
-                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, typeof DisplayPolicyControllerCpp !== "undefined" ? DisplayPolicyControllerCpp.screenOn : true);
+                PowerBatteryHandler.handlePowerButtonPress(SessionStore.isLocked, DisplayPolicyControllerCpp.screenOn);
                 powerButtonTimer.stop();
             }
             event.accepted = true;
@@ -135,8 +130,7 @@ Item {
         if (compositor) {
             compositor.systemBackTriggered.connect(handleBackKey);
             compositor.systemHomeTriggered.connect(handleHomeKey);
-            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
-                compositor.userActivity.connect(PowerManagerService.updateActivity);
+            compositor.userActivity.connect(PowerManagerService.updateActivity);
         }
     }
     onWidthChanged: {
@@ -472,9 +466,7 @@ Item {
         enabled: true
         focus: false
         onPositionChanged: mouse => {
-            if (typeof CursorManager !== 'undefined')
-                CursorManager.onMouseActivity();
-
+            CursorManager.onMouseActivity();
             mouse.accepted = false;
         }
         onPressed: mouse => {
@@ -499,14 +491,13 @@ Item {
 
     Connections {
         function onDeepLinkRequested(appId, route, params) {
-            var appInfo = typeof MarathonAppRegistry !== "undefined" ? MarathonAppRegistry.getApp(appId) : null;
+            var appInfo = MarathonAppRegistry.getApp(appId);
             if (appInfo && appInfo.id) {
                 UIStore.openApp(appInfo.id, appInfo.name, appInfo.icon);
                 if (appWindow)
                     appWindow.show(appInfo.id, appInfo.name, appInfo.icon, appInfo.type);
 
-                if (typeof AppLifecycleManager !== "undefined")
-                    AppLifecycleManager.bringToForeground(appInfo.id);
+                AppLifecycleManager.bringToForeground(appInfo.id);
             } else {
                 Logger.warn("Shell", "App not found for deep link: " + appId);
             }
@@ -674,7 +665,7 @@ Item {
             }
         }
         onSwipeRight: {
-            if (UIStore.appWindowOpen && typeof AppLifecycleManager !== 'undefined') {
+            if (UIStore.appWindowOpen) {
                 var handled = AppLifecycleManager.handleSystemForward();
                 if (handled)
                     return;
@@ -689,15 +680,9 @@ Item {
         }
         onSwipeBack: {
             Logger.info("NavBar", "Back gesture detected");
-            if (typeof AppLifecycleManager !== 'undefined') {
-                var handled = AppLifecycleManager.handleSystemBack();
-                if (!handled) {
-                    Logger.info("NavBar", "App didn't handle back, closing");
-                    if (UIStore.appWindowOpen)
-                        UIStore.closeApp();
-                }
-            } else {
-                Logger.info("NavBar", "AppLifecycleManager unavailable, closing directly");
+            var handled = AppLifecycleManager.handleSystemBack();
+            if (!handled) {
+                Logger.info("NavBar", "App didn't handle back, closing");
                 if (UIStore.appWindowOpen)
                     UIStore.closeApp();
             }
@@ -732,13 +717,9 @@ Item {
                 Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                if (typeof AppLifecycleManager !== 'undefined') {
-                    Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()");
-                    var result = AppLifecycleManager.minimizeForegroundApp();
-                    Logger.info("NavBar", "   AppLifecycleManager.minimizeForegroundApp() returned: " + result);
-                } else {
-                    Logger.error("NavBar", "   AppLifecycleManager is undefined!");
-                }
+                Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()");
+                var result = AppLifecycleManager.minimizeForegroundApp();
+                Logger.info("NavBar", "   AppLifecycleManager.minimizeForegroundApp() returned: " + result);
                 Logger.info("NavBar", "   Triggering snapIntoGridAnimation for smooth transition");
                 shell.isTransitioningToActiveFrames = true;
                 snapIntoGridAnimation.startWithVelocity(-1500);
@@ -757,9 +738,7 @@ Item {
         }
         onMinimizeApp: {
             Logger.info("Shell", "NavBar minimize gesture detected");
-            if (typeof AppLifecycleManager !== 'undefined')
-                AppLifecycleManager.minimizeForegroundApp();
-
+            AppLifecycleManager.minimizeForegroundApp();
             shell.isTransitioningToActiveFrames = true;
             var initialVelocity = -1000;
             snapIntoGridAnimation.startWithVelocity(initialVelocity);
@@ -1086,9 +1065,7 @@ Item {
             var duration = Math.max(150, 350 - (velocityFactor * 100));
             scaleAnim.duration = duration;
             opacityAnim.duration = duration;
-            if (typeof Router !== 'undefined')
-                Router.goToFrames();
-
+            Router.goToFrames();
             start();
         }
 
@@ -1505,8 +1482,7 @@ Item {
 
     Connections {
         function onSettingRequested(settingId) {
-            if (typeof Router !== "undefined")
-                Router.navigateToSetting(settingId);
+            Router.navigateToSetting(settingId);
         }
 
         target: UnifiedSearchService
@@ -1554,20 +1530,20 @@ Item {
 
     Connections {
         function onWifiConnectedChanged() {
-            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiConnected)
+            if (NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Connected to Wi-Fi", "wifi");
-            else if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.wifiEnabled && !NetworkManagerCpp.wifiConnected)
+            else if (NetworkManagerCpp.wifiEnabled && !NetworkManagerCpp.wifiConnected)
                 connectionToast.show("Wi-Fi disconnected", "wifi-off");
         }
 
         function onEthernetConnectedChanged() {
-            if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && NetworkManagerCpp.ethernetConnected)
+            if (NetworkManagerCpp.ethernetConnected)
                 connectionToast.show("Connected to Ethernet", "plug-zap");
-            else if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp && !NetworkManagerCpp.ethernetConnected && !NetworkManagerCpp.wifiConnected)
+            else if (!NetworkManagerCpp.ethernetConnected && !NetworkManagerCpp.wifiConnected)
                 connectionToast.show("No network connection", "wifi-off");
         }
 
-        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
+        target: NetworkManagerCpp
     }
 
     Connections {
@@ -1575,14 +1551,12 @@ Item {
             if (errorToast)
                 errorToast.show(title, body, iconName);
 
-            if (typeof HapticManager !== "undefined" && HapticManager) {
-                if (hapticLevel >= 3)
-                    HapticManager.heavy();
-                else if (hapticLevel === 2)
-                    HapticManager.medium();
-                else if (hapticLevel === 1)
-                    HapticManager.light();
-            }
+            if (hapticLevel >= 3)
+                HapticManager.heavy();
+            else if (hapticLevel === 2)
+                HapticManager.medium();
+            else if (hapticLevel === 1)
+                HapticManager.light();
         }
 
         function onEmergencyShutdownArmed(secondsUntilShutdown) {
@@ -1594,7 +1568,7 @@ Item {
             criticalBatteryShutdownTimer.stop();
         }
 
-        target: typeof PowerPolicyControllerCpp !== "undefined" ? PowerPolicyControllerCpp : null
+        target: PowerPolicyControllerCpp
     }
 
     Timer {
@@ -1604,10 +1578,7 @@ Item {
         repeat: false
         onTriggered: {
             Logger.error("Battery", "Emergency critical power action due to battery");
-            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
-                PowerPolicyControllerCpp.performCriticalPowerAction();
-            else if (typeof PowerManagerService !== "undefined" && PowerManagerService)
-                PowerManagerService.shutdown();
+            PowerPolicyControllerCpp.performCriticalPowerAction();
         }
     }
 
@@ -1617,7 +1588,7 @@ Item {
         interval: 5000
         repeat: false
         onTriggered: {
-            if (typeof BluetoothManagerCpp !== 'undefined' && BluetoothManagerCpp.enabled) {
+            if (BluetoothManagerCpp.enabled) {
                 Logger.info("Shell", "Attempting Bluetooth auto-reconnect...");
                 var pairedDevices = BluetoothManagerCpp.pairedDevices;
                 if (pairedDevices && pairedDevices.length > 0) {
@@ -1661,7 +1632,7 @@ Item {
             HapticManager.heavy();
         }
 
-        target: typeof AlarmManagerCpp !== 'undefined' ? AlarmManagerCpp : null
+        target: AlarmManagerCpp
     }
 
     VirtualKeyboard {
@@ -1728,7 +1699,7 @@ Item {
 
     Connections {
         function onNativeTextInputPanelRequested(show) {
-            if (typeof Platform !== 'undefined' && !Platform.hasHardwareKeyboard) {
+            if (!Platform.hasHardwareKeyboard) {
                 Logger.info("Shell", "Native app text input panel requested: " + show);
                 if (show && !virtualKeyboard.active)
                     virtualKeyboard.active = true;
@@ -1737,8 +1708,8 @@ Item {
             }
         }
 
-        target: typeof compositor !== 'undefined' ? compositor : null
-        enabled: typeof compositor !== 'undefined'
+        target: compositor
+        enabled: compositor !== null
     }
 
     MouseArea {
@@ -1773,27 +1744,18 @@ Item {
         onSleepRequested: {
             Logger.info("Shell", "Sleep requested from power menu");
             var locked = SessionStore.isLocked;
-            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp) {
-                var action = PowerPolicyControllerCpp.sleepAction(locked);
-                if (action === PowerPolicyControllerCpp.LockThenSleep)
-                    SessionStore.lock();
-            } else if (!locked) {
+            var action = PowerPolicyControllerCpp.sleepAction(locked);
+            if (action === PowerPolicyControllerCpp.LockThenSleep)
                 SessionStore.lock();
-            }
-            if (typeof PowerPolicyControllerCpp !== "undefined" && PowerPolicyControllerCpp)
-                PowerPolicyControllerCpp.sleep();
-            else
-                PowerManagerService.suspend();
+            PowerPolicyControllerCpp.sleep();
         }
         onRebootRequested: {
             Logger.info("Shell", "Reboot requested from power menu");
-            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
-                PowerManagerService.restart();
+            PowerManagerService.restart();
         }
         onShutdownRequested: {
             Logger.info("Shell", "Shutdown requested from power menu");
-            if (typeof PowerManagerService !== "undefined" && PowerManagerService)
-                PowerManagerService.shutdown();
+            PowerManagerService.shutdown();
         }
     }
 
@@ -1877,7 +1839,7 @@ Item {
         }
 
         function onUnlockRequested() {
-            if (typeof SessionStore !== "undefined" && SessionStore && !SessionStore.isLocked && SessionStore.showLockScreen)
+            if (!SessionStore.isLocked && SessionStore.showLockScreen)
                 SessionStore.unlock();
         }
 

@@ -14,11 +14,9 @@ MApp {
     property int currentTabIndex: 0
     property int nextTabId: 1
     readonly property int maxTabs: {
-        if (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) {
-            var v = parseInt(SettingsManagerCpp.get("browser/maxTabs", "12"));
-            if (!isNaN(v) && v > 0)
-                return v;
-        }
+        var v = parseInt(SettingsManagerCpp.get("browser/maxTabs", "12"));
+        if (!isNaN(v) && v > 0)
+            return v;
         return 12;
     }
     property var bookmarks: []
@@ -109,24 +107,18 @@ MApp {
     }
 
     function loadBookmarks() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]");
-            try {
-                bookmarks = JSON.parse(savedBookmarks);
-            } catch (e) {
-                Logger.error("BrowserApp", "Failed to load bookmarks: " + e);
-                bookmarks = [];
-            }
-        } else {
+        var savedBookmarks = SettingsManagerCpp.get("browser/bookmarks", "[]");
+        try {
+            bookmarks = JSON.parse(savedBookmarks);
+        } catch (e) {
+            Logger.error("BrowserApp", "Failed to load bookmarks: " + e);
             bookmarks = [];
         }
     }
 
     function saveBookmarks() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var data = JSON.stringify(bookmarks);
-            SettingsManagerCpp.set("browser/bookmarks", data);
-        }
+        var data = JSON.stringify(bookmarks);
+        SettingsManagerCpp.set("browser/bookmarks", data);
     }
 
     function addBookmark(url, title) {
@@ -173,24 +165,18 @@ MApp {
     }
 
     function loadHistory() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedHistory = SettingsManagerCpp.get("browser/history", "[]");
-            try {
-                history = JSON.parse(savedHistory);
-            } catch (e) {
-                Logger.error("BrowserApp", "Failed to load history: " + e);
-                history = [];
-            }
-        } else {
+        var savedHistory = SettingsManagerCpp.get("browser/history", "[]");
+        try {
+            history = JSON.parse(savedHistory);
+        } catch (e) {
+            Logger.error("BrowserApp", "Failed to load history: " + e);
             history = [];
         }
     }
 
     function saveHistory() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var data = JSON.stringify(history);
-            SettingsManagerCpp.set("browser/history", data);
-        }
+        var data = JSON.stringify(history);
+        SettingsManagerCpp.set("browser/history", data);
     }
 
     function updateHistoryTitle(url, title) {
@@ -260,53 +246,47 @@ MApp {
     }
 
     function loadSettings() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo");
-            searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=");
-            homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com");
-        }
+        searchEngineName = SettingsManagerCpp.get("browser/searchEngine", "DuckDuckGo");
+        searchEngineUrl = SettingsManagerCpp.get("browser/searchEngineUrl", "https://duckduckgo.com/?q=");
+        homepageUrl = SettingsManagerCpp.get("browser/homepage", "https://duckduckgo.com");
     }
 
     function saveSettings() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            SettingsManagerCpp.set("browser/searchEngine", searchEngineName);
-            SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl);
-            SettingsManagerCpp.set("browser/homepage", homepageUrl);
-        }
+        SettingsManagerCpp.set("browser/searchEngine", searchEngineName);
+        SettingsManagerCpp.set("browser/searchEngineUrl", searchEngineUrl);
+        SettingsManagerCpp.set("browser/homepage", homepageUrl);
     }
 
     function loadTabs() {
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
-            if (savedTabs) {
-                try {
-                    var parsedTabs = JSON.parse(savedTabs);
-                    tabs.clear();
-                    if (Array.isArray(parsedTabs)) {
-                        var maxId = 0;
-                        for (var i = 0; i < parsedTabs.length; i++) {
-                            var tab = parsedTabs[i];
-                            tabs.append({
-                                "tabId": tab.id,
-                                "url": (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
-                                "title": tab.title || "New Tab",
-                                "isLoading": false,
-                                "canGoBack": false,
-                                "canGoForward": false,
-                                "loadProgress": 0,
-                                "isCrashed": false,
-                                "isNewTab": false,
-                                "crashCount": 0,
-                                "lastCrashAt": 0
-                            });
-                            if (tab.id > maxId)
-                                maxId = tab.id;
-                        }
-                        nextTabId = maxId + 1;
+        var savedTabs = SettingsManagerCpp.get("browser/tabs", "[]");
+        if (savedTabs) {
+            try {
+                var parsedTabs = JSON.parse(savedTabs);
+                tabs.clear();
+                if (Array.isArray(parsedTabs)) {
+                    var maxId = 0;
+                    for (var i = 0; i < parsedTabs.length; i++) {
+                        var tab = parsedTabs[i];
+                        tabs.append({
+                            "tabId": tab.id,
+                            "url": (tab.url && tab.url !== "about:blank") ? tab.url : homepageUrl,
+                            "title": tab.title || "New Tab",
+                            "isLoading": false,
+                            "canGoBack": false,
+                            "canGoForward": false,
+                            "loadProgress": 0,
+                            "isCrashed": false,
+                            "isNewTab": false,
+                            "crashCount": 0,
+                            "lastCrashAt": 0
+                        });
+                        if (tab.id > maxId)
+                            maxId = tab.id;
                     }
-                } catch (e) {
-                    Logger.error("BrowserApp", "Failed to load tabs: " + e);
+                    nextTabId = maxId + 1;
                 }
+            } catch (e) {
+                Logger.error("BrowserApp", "Failed to load tabs: " + e);
             }
         }
     }
@@ -315,18 +295,16 @@ MApp {
         if (isPrivateMode)
             return;
 
-        if (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp) {
-            var tabsArray = [];
-            for (var i = 0; i < tabs.count; i++) {
-                var tab = tabs.get(i);
-                tabsArray.push({
-                    "id": tab.tabId,
-                    "url": tab.url,
-                    "title": tab.title
-                });
-            }
-            SettingsManagerCpp.set("browser/tabs", JSON.stringify(tabsArray));
+        var tabsArray = [];
+        for (var i = 0; i < tabs.count; i++) {
+            var tab = tabs.get(i);
+            tabsArray.push({
+                "id": tab.tabId,
+                "url": tab.url,
+                "title": tab.title
+            });
         }
+        SettingsManagerCpp.set("browser/tabs", JSON.stringify(tabsArray));
     }
 
     function createNewTab(url) {

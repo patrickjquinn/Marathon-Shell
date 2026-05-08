@@ -188,8 +188,6 @@ void SystemControlStore::toggleDndMode() {
     }
 }
 
-void SystemControlStore::toggleAlarm() {}
-
 void SystemControlStore::toggleLowPowerMode() {
     if (m_powerManager) {
         m_powerManager->setPowerSaveMode(!m_isLowPowerMode);

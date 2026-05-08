@@ -31,9 +31,7 @@ TelephonyService::~TelephonyService() {
     if (m_voiceCall) {
         delete m_voiceCall;
     }
-    if (m_modemManager) {
-        delete m_modemManager;
-    }
+    // m_modemManager is parented to this; Qt will delete it
 }
 
 QString TelephonyService::callState() const {

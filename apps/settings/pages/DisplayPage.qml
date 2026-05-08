@@ -161,16 +161,15 @@ SettingsPageTemplate {
                     title: "Auto-Brightness"
                     subtitle: "Adjust brightness automatically"
                     showToggle: true
-                    toggleValue: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.autoBrightnessEnabled : false
+                    toggleValue: DisplayManagerCpp.autoBrightnessEnabled
                     onToggleChanged: value => {
-                        if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                            DisplayManagerCpp.autoBrightnessEnabled = value;
+                        DisplayManagerCpp.autoBrightnessEnabled = value;
                     }
                 }
 
                 MSettingsListItem {
                     title: "Screen Timeout"
-                    value: (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp) ? DisplayManagerCpp.screenTimeoutString : ""
+                    value: DisplayManagerCpp.screenTimeoutString
                     showChevron: true
                     onSettingClicked: {
                         StackView.view.push(screenTimeoutPageComponent);

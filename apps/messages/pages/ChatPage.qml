@@ -21,10 +21,7 @@ Rectangle {
         if (!conversation)
             return;
 
-        if (typeof SMSService !== 'undefined')
-            messages = SMSService.getMessages(conversation.id);
-        else
-            messages = [];
+        messages = SMSService.getMessages(conversation.id);
         groupMessages();
     }
 
@@ -81,7 +78,7 @@ Rectangle {
     color: MColors.background
     Component.onCompleted: {
         loadMessages();
-        if (typeof SMSService !== 'undefined' && conversation)
+        if (conversation)
             SMSService.markAsRead(conversation.id);
     }
 
@@ -98,7 +95,7 @@ Rectangle {
             }
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: SMSService
     }
 
     Column {
@@ -214,8 +211,7 @@ Rectangle {
                 if (text.trim().length > 0 && conversation) {
                     Logger.info("Messages", "Sending message to: " + conversation.contactName);
                     var recipientNumber = conversation.contactNumber || conversation.id.replace("conv_", "");
-                    if (typeof SMSService !== 'undefined')
-                        SMSService.sendMessage(recipientNumber, text.trim());
+                    SMSService.sendMessage(recipientNumber, text.trim());
                 }
             }
             onAttachPressed: {

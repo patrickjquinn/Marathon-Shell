@@ -4,10 +4,10 @@ import QtQuick
 QtObject {
     id: constants
 
-    property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.width : 0
-    property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.height : 0
+    property real screenWidth: ScreenMetricsCpp.width
+    property real screenHeight: ScreenMetricsCpp.height
     readonly property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
-    property real dpi: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : baseDPI
+    property real dpi: ScreenMetricsCpp.dpi > 0 ? ScreenMetricsCpp.dpi : baseDPI
     readonly property real baseDPI: 160
     property real userScaleFactor: 1
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
@@ -53,7 +53,7 @@ QtObject {
     readonly property int sessionTimeout: 600000
     property bool performanceMode: false
     readonly property bool enableAnimations: !performanceMode
-    property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
+    property bool debugMode: MARATHON_DEBUG_ENABLED
     readonly property int peekThreshold: 40
     readonly property int commitThreshold: 100
     readonly property real statusBarHeight: Math.round(44 * scaleFactor)
@@ -156,8 +156,7 @@ QtObject {
     userScaleFactorBinding: Binding {
         target: constants
         property: "userScaleFactor"
-        value: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp.userScaleFactor : 1
+        value: SettingsManagerCpp.userScaleFactor
         restoreMode: Binding.RestoreBinding
-        when: typeof SettingsManagerCpp !== 'undefined'
     }
 }

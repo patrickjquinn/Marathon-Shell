@@ -10,16 +10,13 @@ import QtQuick.Layouts
 MApp {
     id: galleryApp
 
-    property var albums: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager.albums : []
+    property var albums: MediaLibraryManager.albums
     property var photos: []
     property string selectedAlbum: ""
     property int currentView: 0
     property alias photoViewerLoader: photoViewerLoader
 
     function refreshAllPhotos() {
-        if (typeof MediaLibraryManager === 'undefined')
-            return;
-
         Qt.callLater(function () {
             photos = MediaLibraryManager.getAllPhotos();
         });
@@ -29,12 +26,10 @@ MApp {
     appName: "Gallery"
     appIcon: "assets/icon.svg"
     Component.onCompleted: {
-        if (typeof MediaLibraryManager !== 'undefined') {
-            if (MediaLibraryManager.scanLibraryAsync)
-                MediaLibraryManager.scanLibraryAsync();
-            else
-                MediaLibraryManager.scanLibrary();
-        }
+        if (MediaLibraryManager.scanLibraryAsync)
+            MediaLibraryManager.scanLibraryAsync();
+        else
+            MediaLibraryManager.scanLibrary();
     }
 
     Connections {
@@ -44,7 +39,7 @@ MApp {
                 galleryApp.refreshAllPhotos();
         }
 
-        target: typeof MediaLibraryManager !== 'undefined' ? MediaLibraryManager : null
+        target: MediaLibraryManager
     }
 
     Loader {

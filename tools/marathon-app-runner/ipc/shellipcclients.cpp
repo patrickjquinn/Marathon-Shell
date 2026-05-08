@@ -848,90 +848,53 @@ void SettingsClient::setProp(const QString &name, const QVariant &value) {
 }
 
 void SettingsClient::onPropertyChanged(const QString &name, const QDBusVariant &value) {
-    const QVariant v = value.variant();
-    m_state.insert(name, v);
+    m_state.insert(name, value.variant());
 
-    if (name == "userScaleFactor")
-        emit userScaleFactorChanged();
-    else if (name == "wallpaperPath")
-        emit wallpaperPathChanged();
-    else if (name == "deviceName")
-        emit deviceNameChanged();
-    else if (name == "autoLock")
-        emit autoLockChanged();
-    else if (name == "autoLockTimeout")
-        emit autoLockTimeoutChanged();
-    else if (name == "showNotificationPreviews")
-        emit showNotificationPreviewsChanged();
-    else if (name == "timeFormat")
-        emit timeFormatChanged();
-    else if (name == "dateFormat")
-        emit dateFormatChanged();
-    else if (name == "ringtone")
-        emit ringtoneChanged();
-    else if (name == "notificationSound")
-        emit notificationSoundChanged();
-    else if (name == "alarmSound")
-        emit alarmSoundChanged();
-    else if (name == "mediaVolume")
-        emit mediaVolumeChanged();
-    else if (name == "ringtoneVolume")
-        emit ringtoneVolumeChanged();
-    else if (name == "alarmVolume")
-        emit alarmVolumeChanged();
-    else if (name == "notificationVolume")
-        emit notificationVolumeChanged();
-    else if (name == "systemVolume")
-        emit systemVolumeChanged();
-    else if (name == "dndEnabled")
-        emit dndEnabledChanged();
-    else if (name == "vibrationEnabled")
-        emit vibrationEnabledChanged();
-    else if (name == "audioProfile")
-        emit audioProfileChanged();
-    else if (name == "screenTimeout")
-        emit screenTimeoutChanged();
-    else if (name == "autoBrightness")
-        emit autoBrightnessChanged();
-    else if (name == "statusBarClockPosition")
-        emit statusBarClockPositionChanged();
-    else if (name == "showNotificationsOnLockScreen")
-        emit showNotificationsOnLockScreenChanged();
-    else if (name == "filterMobileFriendlyApps")
-        emit filterMobileFriendlyAppsChanged();
-    else if (name == "hiddenApps")
-        emit hiddenAppsChanged();
-    else if (name == "appSortOrder")
-        emit appSortOrderChanged();
-    else if (name == "appGridColumns")
-        emit appGridColumnsChanged();
-    else if (name == "searchNativeApps")
-        emit searchNativeAppsChanged();
-    else if (name == "showNotificationBadges")
-        emit showNotificationBadgesChanged();
-    else if (name == "appNotificationSettings")
-        emit appNotificationSettingsChanged();
-    else if (name == "showFrequentApps")
-        emit showFrequentAppsChanged();
-    else if (name == "defaultApps")
-        emit defaultAppsChanged();
-    else if (name == "firstRunComplete")
-        emit firstRunCompleteChanged();
-    else if (name == "enabledQuickSettingsTiles")
-        emit enabledQuickSettingsTilesChanged();
-    else if (name == "quickSettingsTileOrder")
-        emit quickSettingsTileOrderChanged();
-    else if (name == "keyboardAutoCorrection")
-        emit keyboardAutoCorrectionChanged();
-    else if (name == "keyboardPredictiveText")
-        emit keyboardPredictiveTextChanged();
-    else if (name == "keyboardWordFling")
-        emit keyboardWordFlingChanged();
-    else if (name == "keyboardPredictiveSpacing")
-        emit keyboardPredictiveSpacingChanged();
-    else if (name == "keyboardHapticStrength")
-        emit keyboardHapticStrengthChanged();
-    Q_UNUSED(v);
+    using Notify                                           = void (SettingsClient::*)();
+    static const QHash<QString, Notify> kSignalForProperty = {
+        {"userScaleFactor", &SettingsClient::userScaleFactorChanged},
+        {"wallpaperPath", &SettingsClient::wallpaperPathChanged},
+        {"deviceName", &SettingsClient::deviceNameChanged},
+        {"autoLock", &SettingsClient::autoLockChanged},
+        {"autoLockTimeout", &SettingsClient::autoLockTimeoutChanged},
+        {"showNotificationPreviews", &SettingsClient::showNotificationPreviewsChanged},
+        {"timeFormat", &SettingsClient::timeFormatChanged},
+        {"dateFormat", &SettingsClient::dateFormatChanged},
+        {"ringtone", &SettingsClient::ringtoneChanged},
+        {"notificationSound", &SettingsClient::notificationSoundChanged},
+        {"alarmSound", &SettingsClient::alarmSoundChanged},
+        {"mediaVolume", &SettingsClient::mediaVolumeChanged},
+        {"ringtoneVolume", &SettingsClient::ringtoneVolumeChanged},
+        {"alarmVolume", &SettingsClient::alarmVolumeChanged},
+        {"notificationVolume", &SettingsClient::notificationVolumeChanged},
+        {"systemVolume", &SettingsClient::systemVolumeChanged},
+        {"dndEnabled", &SettingsClient::dndEnabledChanged},
+        {"vibrationEnabled", &SettingsClient::vibrationEnabledChanged},
+        {"audioProfile", &SettingsClient::audioProfileChanged},
+        {"screenTimeout", &SettingsClient::screenTimeoutChanged},
+        {"autoBrightness", &SettingsClient::autoBrightnessChanged},
+        {"statusBarClockPosition", &SettingsClient::statusBarClockPositionChanged},
+        {"showNotificationsOnLockScreen", &SettingsClient::showNotificationsOnLockScreenChanged},
+        {"filterMobileFriendlyApps", &SettingsClient::filterMobileFriendlyAppsChanged},
+        {"hiddenApps", &SettingsClient::hiddenAppsChanged},
+        {"appSortOrder", &SettingsClient::appSortOrderChanged},
+        {"appGridColumns", &SettingsClient::appGridColumnsChanged},
+        {"searchNativeApps", &SettingsClient::searchNativeAppsChanged},
+        {"showNotificationBadges", &SettingsClient::showNotificationBadgesChanged},
+        {"appNotificationSettings", &SettingsClient::appNotificationSettingsChanged},
+        {"showFrequentApps", &SettingsClient::showFrequentAppsChanged},
+        {"defaultApps", &SettingsClient::defaultAppsChanged},
+        {"firstRunComplete", &SettingsClient::firstRunCompleteChanged},
+        {"enabledQuickSettingsTiles", &SettingsClient::enabledQuickSettingsTilesChanged},
+        {"quickSettingsTileOrder", &SettingsClient::quickSettingsTileOrderChanged},
+        {"keyboardAutoCorrection", &SettingsClient::keyboardAutoCorrectionChanged},
+        {"keyboardPredictiveText", &SettingsClient::keyboardPredictiveTextChanged},
+        {"keyboardWordFling", &SettingsClient::keyboardWordFlingChanged},
+        {"keyboardPredictiveSpacing", &SettingsClient::keyboardPredictiveSpacingChanged},
+        {"keyboardHapticStrength", &SettingsClient::keyboardHapticStrengthChanged},
+    };
+    if (auto it = kSignalForProperty.constFind(name); it != kSignalForProperty.constEnd())
+        (this->**it)();
 }
 
 qreal SettingsClient::userScaleFactor() const {

@@ -105,17 +105,13 @@ Item {
                 if (item.requestRegister)
                     item.requestRegister.connect(function (appId, appInstance) {
                         console.log("SafeAppLoader: App requested registration:", appId);
-                        if (typeof AppLifecycleManager !== 'undefined')
-                            AppLifecycleManager.registerApp(appId, appInstance);
-                        else
-                            console.error("SafeAppLoader: AppLifecycleManager not available!");
+                        AppLifecycleManager.registerApp(appId, appInstance);
                     });
 
                 if (item.requestUnregister)
                     item.requestUnregister.connect(function (appId) {
                         console.log("SafeAppLoader: App requested unregistration:", appId);
-                        if (typeof AppLifecycleManager !== 'undefined')
-                            AppLifecycleManager.unregisterApp(appId);
+                        AppLifecycleManager.unregisterApp(appId);
                     });
             }
         }

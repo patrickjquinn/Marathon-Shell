@@ -101,12 +101,8 @@ PowerManagerCpp::~PowerManagerCpp() {
     cleanupWakelocks();
     releaseInhibitor();
 
-    if (m_upowerInterface)
-        delete m_upowerInterface;
-    if (m_displayDeviceInterface)
-        delete m_displayDeviceInterface;
-    if (m_logindInterface)
-        delete m_logindInterface;
+    // m_upowerInterface, m_displayDeviceInterface, and m_logindInterface
+    // are parented to this; Qt will delete them
 }
 
 void PowerManagerCpp::setupDBusConnections() {

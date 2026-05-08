@@ -41,10 +41,6 @@ Item {
     }
 
     function updateRegisteredSurface() {
-        if (typeof SurfaceRegistry === "undefined" || !SurfaceRegistry) {
-            registeredSurfaceItem = null;
-            return;
-        }
         if (taskCard.surfaceId <= 0) {
             registeredSurfaceItem = null;
             return;
@@ -88,8 +84,7 @@ Item {
                         }
                         TaskModel.closeTask(taskCard.id);
                     } else {
-                        if (typeof AppLifecycleManager !== 'undefined')
-                            AppLifecycleManager.closeApp(taskCard.appId);
+                        AppLifecycleManager.closeApp(taskCard.appId);
                     }
                     cardRoot.closing = false;
                 }
@@ -126,12 +121,10 @@ Item {
                     var appIcon = taskCard.icon;
                     var appType = taskCard.type;
                     Qt.callLater(function () {
-                        if (typeof AppLifecycleManager !== 'undefined') {
-                            if (appType !== "native")
-                                AppLifecycleManager.restoreApp(appId);
-                            else
-                                AppLifecycleManager.bringToForeground(appId);
-                        }
+                        if (appType !== "native")
+                            AppLifecycleManager.restoreApp(appId);
+                        else
+                            AppLifecycleManager.bringToForeground(appId);
                         UIStore.restoreApp(appId, appTitle, appIcon);
                         taskCard.closed();
                     });
@@ -192,10 +185,6 @@ Item {
                                         liveApp = null;
                                         return;
                                     }
-                                    if (typeof AppLifecycleManager === 'undefined') {
-                                        liveApp = null;
-                                        return;
-                                    }
                                     var instance = AppLifecycleManager.getAppInstance(taskCard.appId);
                                     liveApp = instance;
                                     if (liveApp)
@@ -239,7 +228,7 @@ Item {
                                         previewContainer.liveApp = null;
                                     }
 
-                                    target: typeof AppLifecycleManager !== "undefined" ? AppLifecycleManager : null
+                                    target: AppLifecycleManager
                                 }
 
                                 Connections {
@@ -482,12 +471,10 @@ Item {
                         var appIcon = taskCard.icon;
                         var appType = taskCard.type;
                         Qt.callLater(function () {
-                            if (typeof AppLifecycleManager !== 'undefined') {
-                                if (appType !== "native")
-                                    AppLifecycleManager.restoreApp(appId);
-                                else
-                                    AppLifecycleManager.bringToForeground(appId);
-                            }
+                            if (appType !== "native")
+                                AppLifecycleManager.restoreApp(appId);
+                            else
+                                AppLifecycleManager.bringToForeground(appId);
                             UIStore.restoreApp(appId, appTitle, appIcon);
                             taskCard.closed();
                         });
@@ -634,6 +621,6 @@ Item {
                 updateRegisteredSurface();
         }
 
-        target: typeof SurfaceRegistry !== "undefined" ? SurfaceRegistry : null
+        target: SurfaceRegistry
     }
 }

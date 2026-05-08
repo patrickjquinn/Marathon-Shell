@@ -125,9 +125,7 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
 }
 
 NetworkManagerCpp::~NetworkManagerCpp() {
-    if (m_nmInterface) {
-        delete m_nmInterface;
-    }
+    // m_nmInterface is parented to this; Qt will delete it
 }
 
 void NetworkManagerCpp::detectHardwareAvailability() {

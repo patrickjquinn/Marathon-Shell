@@ -68,17 +68,12 @@ MApp {
     appIcon: "assets/icon.svg"
     onAppLaunched: {
         loadTimer.start();
-        if (typeof PermissionManager !== 'undefined') {
-            if (PermissionManager.hasPermission(appId, "location")) {
-                Logger.info("Maps", "Location permission already granted");
-                hasLocationPermission = true;
-            } else {
-                Logger.info("Maps", "Requesting location permission");
-                PermissionManager.requestPermission(appId, "location");
-            }
-        } else {
-            Logger.warn("Maps", "PermissionManager not available, auto-granting");
+        if (PermissionManager.hasPermission(appId, "location")) {
+            Logger.info("Maps", "Location permission already granted");
             hasLocationPermission = true;
+        } else {
+            Logger.info("Maps", "Requesting location permission");
+            PermissionManager.requestPermission(appId, "location");
         }
     }
 
@@ -98,7 +93,7 @@ MApp {
             }
         }
 
-        target: typeof PermissionManager !== 'undefined' ? PermissionManager : null
+        target: PermissionManager
     }
 
     Timer {
