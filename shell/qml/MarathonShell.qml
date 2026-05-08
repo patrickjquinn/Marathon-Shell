@@ -485,7 +485,12 @@ Item {
 
         interval: 100
         onTriggered: {
-            Constants.updateScreenSize(shell.width, shell.height, Screen.pixelDensity * 25.4);
+            // Prefer ScreenMetricsCpp.dpi when available — it honors the
+            // MARATHON_FORCE_DPI override used for QEMU validation. Fall
+            // back to Qt's pixelDensity-derived DPI on real hardware where
+            // the env stays unset.
+            var deviceDpi = (typeof ScreenMetricsCpp !== 'undefined' && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : Screen.pixelDensity * 25.4;
+            Constants.updateScreenSize(shell.width, shell.height, deviceDpi);
         }
     }
 
