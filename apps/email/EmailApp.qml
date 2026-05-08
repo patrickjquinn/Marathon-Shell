@@ -6,6 +6,7 @@ import MarathonUI.Lists
 import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import QtWebEngine
 
@@ -115,7 +116,7 @@ MApp {
                             subtitle: modelData.url
                             Accessible.name: "Use " + modelData.label
                             Accessible.role: Accessible.Button
-                            onClicked: {
+                            onSettingClicked: {
                                 emailApp.setProvider(modelData.id);
                                 stack.replace(webComponent);
                             }
@@ -128,23 +129,40 @@ MApp {
                         subtitle: emailApp.customUrl || "Enter your own webmail address"
                         Accessible.name: "Use a custom webmail URL"
                         Accessible.role: Accessible.Button
-                        onClicked: customUrlDialog.open()
+                        onSettingClicked: {
+                            customUrlField.text = emailApp.customUrl;
+                            customUrlInline.visible = true;
+                        }
                     }
-                }
 
-                MTextInputModal {
-                    id: customUrlDialog
+                    Row {
+                        id: customUrlInline
 
-                    title: "Custom webmail URL"
-                    placeholder: "https://example.com/mail"
-                    initialText: emailApp.customUrl
-                    onAccepted: text => {
-                        if (text.length === 0)
-                            return;
+                        visible: false
+                        width: pickerPage.width - MSpacing.lg * 2
+                        spacing: MSpacing.sm
 
-                        emailApp.setCustomUrl(text);
-                        emailApp.setProvider("custom");
-                        stack.replace(webComponent);
+                        TextField {
+                            id: customUrlField
+
+                            placeholderText: "https://example.com/mail"
+                            width: parent.width - applyBtn.width - MSpacing.sm
+                        }
+
+                        MButton {
+                            id: applyBtn
+
+                            text: "Use"
+                            variant: "primary"
+                            onClicked: {
+                                if (customUrlField.text.length === 0)
+                                    return;
+
+                                emailApp.setCustomUrl(customUrlField.text);
+                                emailApp.setProvider("custom");
+                                stack.replace(webComponent);
+                            }
+                        }
                     }
                 }
             }
@@ -157,47 +175,67 @@ MApp {
                 id: webPage
 
                 title: ""
-                actionBarVisible: true
+                showTopBar: false
 
-                WebEngineView {
-                    id: webView
-
+                content: Item {
                     anchors.fill: parent
-                    url: emailApp.urlForProvider(emailApp.activeProviderId)
-                    settings.javascriptEnabled: true
-                    settings.localStorageEnabled: true
-                    settings.touchIconsEnabled: true
-                    settings.autoLoadIconsForPage: true
-                    Accessible.name: "Mail"
-                    Accessible.role: Accessible.Document
 
-                    profile: WebEngineProfile {
-                        storageName: "marathon-email"
-                        offTheRecord: false
-                        httpUserAgent: "Mozilla/5.0 (Linux; Marathon Shell) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                    Rectangle {
+                        id: actionBar
+
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 44
+                        color: MColors.elevated
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.leftMargin: MSpacing.md
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: MSpacing.sm
+
+                            MIconButton {
+                                iconName: "arrow-left"
+                                Accessible.name: "Back"
+                                disabled: !webView.canGoBack
+                                onClicked: webView.goBack()
+                            }
+
+                            MIconButton {
+                                iconName: "rotate-cw"
+                                Accessible.name: "Reload"
+                                onClicked: webView.reload()
+                            }
+
+                            MIconButton {
+                                iconName: "settings"
+                                Accessible.name: "Switch provider"
+                                onClicked: stack.replace(pickerComponent)
+                            }
+                        }
                     }
-                }
 
-                actionBarContent: Row {
-                    spacing: MSpacing.sm
+                    WebEngineView {
+                        id: webView
 
-                    IconButton {
-                        name: "arrow-left"
-                        Accessible.name: "Back"
-                        enabled: webView.canGoBack
-                        onClicked: webView.goBack()
-                    }
+                        anchors.top: actionBar.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        url: emailApp.urlForProvider(emailApp.activeProviderId)
+                        settings.javascriptEnabled: true
+                        settings.localStorageEnabled: true
+                        settings.touchIconsEnabled: true
+                        settings.autoLoadIconsForPage: true
+                        Accessible.name: "Mail"
+                        Accessible.role: Accessible.Document
 
-                    IconButton {
-                        name: "rotate-cw"
-                        Accessible.name: "Reload"
-                        onClicked: webView.reload()
-                    }
-
-                    IconButton {
-                        name: "settings"
-                        Accessible.name: "Switch provider"
-                        onClicked: stack.replace(pickerComponent)
+                        profile: WebEngineProfile {
+                            storageName: "marathon-email"
+                            offTheRecord: false
+                            httpUserAgent: "Mozilla/5.0 (Linux; Marathon Shell) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                        }
                     }
                 }
             }

@@ -73,6 +73,11 @@ PowerManagerCpp::PowerManagerCpp(QObject *parent)
     if (m_logindInterface->isValid()) {
         m_hasLogind = true;
         qDebug() << "[PowerManagerCpp] Connected to systemd-logind D-Bus";
+        // Take the lifelong sleep/delay inhibit at boot. setupDBusConnections
+        // runs from the UPower branch above (so PrepareForSleep is wired even
+        // when UPower is missing), but we have to defer the actual inhibit
+        // call until after m_logindInterface is alive.
+        inhibitSuspend("marathon-shell", "Handle wake events");
     } else {
         qDebug() << "[PowerManagerCpp] systemd-logind D-Bus not available:"
                  << m_logindInterface->lastError().message();
@@ -106,20 +111,14 @@ PowerManagerCpp::~PowerManagerCpp() {
 }
 
 void PowerManagerCpp::setupDBusConnections() {
-
-    if (m_hasLogind) {
-        QDBusConnection::systemBus().connect("org.freedesktop.login1", "/org/freedesktop/login1",
-                                             "org.freedesktop.login1.Manager", "PrepareForSleep",
-                                             this, SLOT(onPrepareForSleep(bool)));
-
-        // Take a lifelong "delay" inhibit on sleep at boot so we always have
-        // a window to react to incoming radio events (calls/SMS) before the
-        // system actually suspends. Phosh + GNOME do the same; the delay is
-        // gated by `InhibitDelayMaxSec=` in logind.conf (default 5s).
-        // We release this on PrepareForSleep(true) and reacquire on
-        // PrepareForSleep(false) so suspend can actually proceed.
-        inhibitSuspend("marathon-shell", "Handle wake events");
-    }
+    // Subscribe to PrepareForSleep regardless of m_hasLogind — the system
+    // bus is global, signals route by name, and we want this in place even
+    // before m_logindInterface initialises later in the constructor.
+    QDBusConnection::systemBus().connect("org.freedesktop.login1", "/org/freedesktop/login1",
+                                         "org.freedesktop.login1.Manager", "PrepareForSleep", this,
+                                         SLOT(onPrepareForSleep(bool)));
+    // The lifelong sleep/delay inhibit is taken in PowerManagerCpp() right
+    // after logind init — see PowerManagerCpp::PowerManagerCpp.
 }
 
 void PowerManagerCpp::setupDisplayDevice() {

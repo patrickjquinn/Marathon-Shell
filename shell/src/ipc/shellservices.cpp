@@ -1615,7 +1615,12 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
     qInfo() << "[NavigationObject] LaunchAppWithRoute requested by" << caller << "for" << appId
             << "route:" << route << "params:" << paramsJson;
 
-    const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
+    // Route + params are plumbed to the runner via launchAppWithRoute, which
+    // appends --route and sets MARATHON_APP_ROUTE / MARATHON_APP_ROUTE_PARAMS
+    // in the spawned process's environment. The runner exposes these to QML
+    // as context properties — used by the lock-screen Emergency affordance.
+    const bool ok =
+        m_launchService->launchAppWithRoute(QVariant(appId), route, paramsJson, nullptr, nullptr);
     if (ok) {
         emit AppLaunched(appId);
     } else {
