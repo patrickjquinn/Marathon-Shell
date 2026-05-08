@@ -41,6 +41,7 @@ Rectangle {
         width: parent.width
         height: parent.height
         source: photo ? photo.path : ""
+        sourceSize: Qt.size(width, height)
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         cache: true

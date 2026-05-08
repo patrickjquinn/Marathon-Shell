@@ -162,6 +162,7 @@ Item {
         Image {
             anchors.fill: parent
             source: WallpaperStore.path
+            sourceSize: Qt.size(width, height)
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: true

@@ -54,7 +54,6 @@ class MarathonInputMethodEngine : public QObject {
 
   private slots:
     void onInputMethodVisibleChanged();
-    void onInputMethodAnimatingChanged();
     void onCursorRectangleChanged();
 
   protected:

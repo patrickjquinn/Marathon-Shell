@@ -64,6 +64,7 @@ Item {
                 Image {
                     anchors.fill: parent
                     source: thumbnailPath || ""
+                    sourceSize: Qt.size(width, height)
                     fillMode: Image.PreserveAspectFit
                     smooth: true
                     asynchronous: true

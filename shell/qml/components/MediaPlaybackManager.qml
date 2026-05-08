@@ -74,6 +74,7 @@ Rectangle {
                 Image {
                     anchors.fill: parent
                     source: mediaManager.albumArt
+                    sourceSize: Qt.size(width, height)
                     fillMode: Image.PreserveAspectCrop
                     visible: source !== ""
                 }

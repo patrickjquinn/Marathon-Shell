@@ -478,5 +478,3 @@ void DisplayManagerCpp::onDBusPropertiesChanged(const QString     &interface,
         }
     }
 }
-
-void DisplayManagerCpp::pollBrightness() {}

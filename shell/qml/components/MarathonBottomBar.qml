@@ -1,6 +1,6 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -50,6 +50,8 @@ Item {
             source: "qrc:/images/phone.svg"
             width: Constants.iconSizeMedium
             height: Constants.iconSizeMedium
+            sourceSize.width: Constants.iconSizeMedium
+            sourceSize.height: Constants.iconSizeMedium
             fillMode: Image.PreserveAspectFit
             anchors.centerIn: parent
             asynchronous: true
@@ -314,6 +316,8 @@ Item {
             source: "qrc:/images/camera.svg"
             width: Constants.iconSizeMedium
             height: Constants.iconSizeMedium
+            sourceSize.width: Constants.iconSizeMedium
+            sourceSize.height: Constants.iconSizeMedium
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             cache: true

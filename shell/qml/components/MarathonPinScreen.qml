@@ -1,7 +1,7 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Feedback
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 import QtQuick.Effects
 
@@ -187,6 +187,7 @@ Item {
 
         anchors.fill: parent
         source: WallpaperStore.path
+        sourceSize: Qt.size(width, height)
         fillMode: Image.PreserveAspectCrop
         cache: true
         smooth: true
