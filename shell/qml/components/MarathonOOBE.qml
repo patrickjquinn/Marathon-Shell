@@ -35,10 +35,20 @@ Item {
             "title": "Gestures"
         },
         {
+            "id": "passcode",
+            "title": "Passcode"
+        },
+        {
             "id": "complete",
             "title": "Done"
         }
     ]
+
+    // Passcode entry state for the new step.
+    property string newPasscode: ""
+    property string confirmPasscode: ""
+    property string passcodeError: ""
+    property bool passcodeSkipped: false
 
     signal setupComplete
 
@@ -804,6 +814,171 @@ Item {
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Passcode page — sets the device unlock PIN via SecurityManager.
+        // This is the SHELL lock (not the system password). A phone never
+        // ships with a system password; the device PIN is what protects the
+        // user. Skippable, but recommended.
+        Item {
+            Column {
+                anchors.fill: parent
+                anchors.margins: MSpacing.xl
+                spacing: MSpacing.lg
+
+                Text {
+                    width: parent.width
+                    text: "Set a device passcode"
+                    horizontalAlignment: Text.AlignHCenter
+                    font.pixelSize: MTypography.sizeXLarge
+                    font.weight: Font.Bold
+                    font.family: MTypography.fontFamily
+                    color: MColors.text
+                }
+
+                Text {
+                    width: parent.width
+                    text: "A 4–8 digit passcode unlocks the device after sleep. You can skip this and add one later from Settings → Security."
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
+                    color: MColors.textSecondary
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: MSpacing.sm
+
+                    Text {
+                        text: "Passcode"
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: Math.round(56 * Constants.scaleFactor)
+                        color: MColors.elevated
+                        radius: MRadius.md
+                        border.width: 1
+                        border.color: MColors.borderGlass
+
+                        TextInput {
+                            id: passcodeField
+
+                            anchors.fill: parent
+                            anchors.margins: MSpacing.md
+                            verticalAlignment: TextInput.AlignVCenter
+                            inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
+                            echoMode: TextInput.Password
+                            maximumLength: 8
+                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            font.family: MTypography.fontFamily
+                            text: oobeRoot.newPasscode
+                            onTextChanged: {
+                                oobeRoot.newPasscode = text;
+                                oobeRoot.passcodeError = "";
+                            }
+                            Accessible.name: "Enter new passcode"
+                            Accessible.role: Accessible.EditableText
+                            Accessible.passwordEdit: true
+                        }
+                    }
+
+                    Text {
+                        text: "Confirm"
+                        color: MColors.textSecondary
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: Math.round(56 * Constants.scaleFactor)
+                        color: MColors.elevated
+                        radius: MRadius.md
+                        border.width: 1
+                        border.color: oobeRoot.passcodeError.length > 0 ? MColors.error : MColors.borderGlass
+
+                        TextInput {
+                            id: confirmField
+
+                            anchors.fill: parent
+                            anchors.margins: MSpacing.md
+                            verticalAlignment: TextInput.AlignVCenter
+                            inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
+                            echoMode: TextInput.Password
+                            maximumLength: 8
+                            color: MColors.text
+                            font.pixelSize: MTypography.sizeLarge
+                            font.family: MTypography.fontFamily
+                            text: oobeRoot.confirmPasscode
+                            onTextChanged: {
+                                oobeRoot.confirmPasscode = text;
+                                oobeRoot.passcodeError = "";
+                            }
+                            Accessible.name: "Confirm passcode"
+                            Accessible.role: Accessible.EditableText
+                            Accessible.passwordEdit: true
+                        }
+                    }
+
+                    Text {
+                        visible: oobeRoot.passcodeError.length > 0
+                        text: oobeRoot.passcodeError
+                        color: MColors.error
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
+                    }
+                }
+
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: MSpacing.md
+                    topPadding: MSpacing.lg
+
+                    MButton {
+                        text: "Skip for now"
+                        variant: "default"
+                        onClicked: {
+                            oobeRoot.passcodeSkipped = true;
+                            oobeRoot.newPasscode = "";
+                            oobeRoot.confirmPasscode = "";
+                            oobeRoot.passcodeError = "";
+                            oobeRoot.currentPage++;
+                        }
+                    }
+
+                    MButton {
+                        text: "Set passcode"
+                        variant: "primary"
+                        disabled: oobeRoot.newPasscode.length < 4
+                        onClicked: {
+                            if (oobeRoot.newPasscode.length < 4) {
+                                oobeRoot.passcodeError = "At least 4 digits";
+                                return;
+                            }
+                            if (oobeRoot.newPasscode !== oobeRoot.confirmPasscode) {
+                                oobeRoot.passcodeError = "Passcodes don't match";
+                                return;
+                            }
+                            // First-run: setQuickPINFirstRun bypasses the
+                            // PAM check that the regular setQuickPIN does.
+                            // It only succeeds when no PIN is configured yet,
+                            // so it's safe to expose during OOBE.
+                            if (typeof SecurityManagerCpp !== 'undefined') {
+                                SecurityManagerCpp.setQuickPINFirstRun(oobeRoot.newPasscode);
+                            }
+                            oobeRoot.passcodeSkipped = false;
+                            oobeRoot.passcodeError = "";
+                            oobeRoot.currentPage++;
                         }
                     }
                 }

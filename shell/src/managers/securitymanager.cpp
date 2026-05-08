@@ -392,6 +392,27 @@ void SecurityManager::setQuickPIN(const QString &pin, const QString &systemPassw
     }
 }
 
+bool SecurityManager::setQuickPINFirstRun(const QString &pin) {
+    // Refuse if a PIN is already configured — prevents this entry point
+    // being abused after OOBE to bypass the system-password check.
+    if (m_hasQuickPIN) {
+        qWarning() << "[SecurityManager] setQuickPINFirstRun rejected: PIN already set";
+        return false;
+    }
+    if (pin.length() < 4) {
+        qWarning() << "[SecurityManager] setQuickPINFirstRun rejected: PIN too short";
+        return false;
+    }
+    if (!storeQuickPIN(pin)) {
+        emit authenticationFailed("Failed to store Quick PIN");
+        return false;
+    }
+    m_hasQuickPIN = true;
+    emit quickPINChanged();
+    qInfo() << "[SecurityManager] Quick PIN set during first-run setup";
+    return true;
+}
+
 void SecurityManager::removeQuickPIN(const QString &systemPassword) {
     qDebug() << "[SecurityManager] Removing Quick PIN (requires system password verification)";
 
