@@ -201,7 +201,7 @@ Use semantic versioning: `MAJOR.MINOR.PATCH`
 ### Do's
 
  Provide clear app description
- Use high-quality screenshots  
+ Use high-quality screenshots
  Request only necessary permissions
  Handle errors gracefully
  Support portrait and landscape
