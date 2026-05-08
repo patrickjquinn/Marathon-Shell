@@ -181,15 +181,11 @@ Rectangle {
                             onClicked: {
                                 if (modelData.action === "mute") {
                                     isMuted = !isMuted;
-                                    if (typeof TelephonyService !== 'undefined')
-                                        TelephonyService.setCallMuted(isMuted);
-
+                                    TelephonyService.setCallMuted(isMuted);
                                     Logger.info("Phone", "Mute toggled: " + isMuted);
                                 } else if (modelData.action === "speaker") {
                                     isSpeakerOn = !isSpeakerOn;
-                                    if (typeof TelephonyService !== 'undefined')
-                                        TelephonyService.setSpeakerphone(isSpeakerOn);
-
+                                    TelephonyService.setSpeakerphone(isSpeakerOn);
                                     Logger.info("Phone", "Speaker toggled: " + isSpeakerOn);
                                 } else {
                                     Logger.info("Phone", "Action: " + modelData.action);
@@ -246,9 +242,7 @@ Rectangle {
                     parent.scale = 1;
                 }
                 onClicked: {
-                    if (typeof TelephonyService !== 'undefined')
-                        TelephonyService.hangup();
-
+                    TelephonyService.hangup();
                     hide();
                 }
             }

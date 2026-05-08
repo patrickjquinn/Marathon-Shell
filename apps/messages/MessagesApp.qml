@@ -7,7 +7,7 @@ import QtQuick.Controls
 MApp {
     id: messagesApp
 
-    property var conversations: typeof SMSService !== 'undefined' ? SMSService.conversations : []
+    property var conversations: SMSService.conversations
     property string selectedConversationId: ""
 
     function getConversation(id) {
@@ -24,8 +24,7 @@ MApp {
     }
 
     function refreshConversations() {
-        if (typeof SMSService !== 'undefined')
-            conversations = SMSService.conversations;
+        conversations = SMSService.conversations;
     }
 
     function formatTimestamp(timestamp) {
@@ -48,7 +47,7 @@ MApp {
             Logger.info("Messages", "New message from: " + sender);
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: SMSService
     }
 
     Connections {
@@ -57,7 +56,7 @@ MApp {
             refreshConversations();
         }
 
-        target: typeof SMSService !== 'undefined' ? SMSService : null
+        target: SMSService
     }
 
     content: Rectangle {
@@ -177,7 +176,7 @@ MApp {
             NewConversationPage {
                 onConversationStarted: function (recipient, recipientName) {
                     Logger.info("Messages", "Starting conversation with: " + recipient);
-                    var conversationId = typeof SMSService !== 'undefined' ? SMSService.generateConversationId(recipient) : "conv_" + recipient;
+                    var conversationId = SMSService.generateConversationId(recipient);
                     var conversation = {
                         "id": conversationId,
                         "contactName": recipientName,

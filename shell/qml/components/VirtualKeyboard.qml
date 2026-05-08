@@ -51,10 +51,9 @@ Item {
     }
 
     Binding {
-        target: typeof HapticManager !== "undefined" ? HapticManager : null
+        target: HapticManager
         property: "enabled"
-        value: typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp ? (SettingsManagerCpp.keyboardHapticStrength !== "off" && SettingsManagerCpp.vibrationEnabled) : true
-        when: typeof HapticManager !== "undefined" && HapticManager
+        value: SettingsManagerCpp.keyboardHapticStrength !== "off" && SettingsManagerCpp.vibrationEnabled
     }
 
     Behavior on height {

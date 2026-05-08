@@ -126,7 +126,7 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
     if (!m_playerInterface->isValid()) {
         qWarning() << "[MPRIS2Controller] Failed to connect to" << busName << ":"
                    << m_playerInterface->lastError().message();
-        delete m_playerInterface;
+        // m_playerInterface is parented to this; Qt will delete it on destruction
         m_playerInterface = nullptr;
         return;
     }
@@ -188,7 +188,7 @@ void MPRIS2Controller::disconnectFromPlayer() {
         }
 
         m_positionTimer->stop();
-        delete m_playerInterface;
+        // m_playerInterface is parented to this; Qt will delete it on destruction
         m_playerInterface = nullptr;
         m_currentBusName.clear();
         m_hasActivePlayer = false;

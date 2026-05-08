@@ -84,13 +84,11 @@ MApp {
     Component.onCompleted: {
         playlist = [];
         Qt.callLater(function () {
-            if (typeof MusicLibraryManager !== 'undefined') {
-                playlist = MusicLibraryManager.getAllTracks();
-                if (playlist.length > 0)
-                    currentTrack = playlist[0];
+            playlist = MusicLibraryManager.getAllTracks();
+            if (playlist.length > 0)
+                currentTrack = playlist[0];
 
-                MusicLibraryManager.scanLibrary();
-            }
+            MusicLibraryManager.scanLibrary();
         });
     }
 
@@ -102,7 +100,7 @@ MApp {
                 currentTrack = playlist[0];
         }
 
-        target: typeof MusicLibraryManager !== 'undefined' ? MusicLibraryManager : null
+        target: MusicLibraryManager
     }
 
     MediaPlayer {

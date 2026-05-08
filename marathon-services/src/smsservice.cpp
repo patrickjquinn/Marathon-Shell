@@ -36,9 +36,7 @@ SMSService::~SMSService() {
     if (m_database.isOpen()) {
         m_database.close();
     }
-    if (m_modemManager) {
-        delete m_modemManager;
-    }
+    // m_modemManager is parented to this; Qt will delete it
 }
 
 void SMSService::setContactsManager(ContactsManager *contactsManager) {

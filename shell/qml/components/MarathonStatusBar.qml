@@ -53,7 +53,7 @@ Item {
     Item {
         id: centerContent
 
-        property string position: (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.statusBarClockPosition) ? SettingsManagerCpp.statusBarClockPosition : "center"
+        property string position: SettingsManagerCpp.statusBarClockPosition || "center"
 
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(clockText.implicitWidth, lockIcon.width)
@@ -347,15 +347,15 @@ Item {
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
-            visible: (typeof BluetoothManagerCpp !== "undefined" && BluetoothManagerCpp ? BluetoothManagerCpp.available : false) && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
+            visible: BluetoothManagerCpp.available && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
 
         Icon {
-            name: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength) : "smartphone"
+            name: ModemManagerCpp.modemAvailable ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength) : "smartphone"
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable) ? StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength) : 0.3
+            opacity: ModemManagerCpp.modemAvailable ? StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength) : 0.3
         }
 
         Icon {
@@ -368,11 +368,11 @@ Item {
         }
 
         Icon {
-            name: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false) ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : false) : "wifi-off"
+            name: NetworkManagerCpp.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected) : "wifi-off"
             color: MColors.text
             size: Constants.iconSizeSmall
             anchors.verticalCenter: parent.verticalCenter
-            opacity: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiAvailable : false) ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp ? NetworkManagerCpp.wifiConnected : false) : 0.3
+            opacity: NetworkManagerCpp.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected) : 0.3
         }
     }
 }

@@ -20,25 +20,23 @@ Rectangle {
         if (nameInput.text.length === 0 || phoneInput.text.length === 0)
             return;
 
-        if (typeof ContactsManager !== 'undefined') {
-            if (isNewContact) {
-                ContactsManager.addContact(nameInput.text, phoneInput.text, emailInput.text);
-                Logger.info("ContactEditor", "Created contact: " + nameInput.text);
-            } else {
-                ContactsManager.updateContact(contactId, {
-                    "name": nameInput.text,
-                    "phone": phoneInput.text,
-                    "email": emailInput.text
-                });
-                Logger.info("ContactEditor", "Updated contact: " + nameInput.text);
-            }
+        if (isNewContact) {
+            ContactsManager.addContact(nameInput.text, phoneInput.text, emailInput.text);
+            Logger.info("ContactEditor", "Created contact: " + nameInput.text);
+        } else {
+            ContactsManager.updateContact(contactId, {
+                "name": nameInput.text,
+                "phone": phoneInput.text,
+                "email": emailInput.text
+            });
+            Logger.info("ContactEditor", "Updated contact: " + nameInput.text);
         }
         HapticService.medium();
         contactSaved();
     }
 
     function deleteContact() {
-        if (typeof ContactsManager !== 'undefined' && contactId !== -1) {
+        if (contactId !== -1) {
             ContactsManager.deleteContact(contactId);
             Logger.info("ContactEditor", "Deleted contact ID: " + contactId);
         }

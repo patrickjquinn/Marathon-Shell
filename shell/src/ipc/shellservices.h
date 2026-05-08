@@ -27,7 +27,22 @@ class SensorManagerCpp;
 class LocationManager;
 class AlarmManagerCpp;
 
-class PermissionsObject : public QObject, protected QDBusContext {
+class IpcPermissionedService : public QObject, protected QDBusContext {
+    Q_OBJECT
+
+  public:
+    IpcPermissionedService(MarathonPermissionManager *permissions, AppLaunchService *launchService,
+                           QObject *parent = nullptr);
+
+  protected:
+    QString callerAppIdOrEmpty() const;
+    bool    requirePermission(const QString &rateLimitKey, const QStringList &permissions);
+
+    MarathonPermissionManager *m_permissions   = nullptr;
+    AppLaunchService          *m_launchService = nullptr;
+};
+
+class PermissionsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Permissions1")
 
@@ -45,14 +60,9 @@ class PermissionsObject : public QObject, protected QDBusContext {
     void PermissionGranted(const QString &appId, const QString &permission);
     void PermissionDenied(const QString &appId, const QString &permission);
     void PermissionRequested(const QString &appId, const QString &permission);
-
-  private:
-    QString                    callerAppIdOrEmpty() const;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
 };
 
-class ContactsObject : public QObject, protected QDBusContext {
+class ContactsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Contacts1")
 
@@ -76,15 +86,14 @@ class ContactsObject : public QObject, protected QDBusContext {
     void ContactDeleted(int id);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireContacts();
+    bool requireContacts() {
+        return requirePermission("Contacts", {"contacts"});
+    }
 
-    ContactsManager           *m_contacts      = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    ContactsManager *m_contacts = nullptr;
 };
 
-class CallHistoryObject : public QObject, protected QDBusContext {
+class CallHistoryObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.CallHistory1")
 
@@ -105,17 +114,16 @@ class CallHistoryObject : public QObject, protected QDBusContext {
     void CallAdded(int id);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requirePhone();
+    bool requirePhone() {
+        return requirePermission("CallHistory", {"telephony", "phone"});
+    }
 
-    CallHistoryManager        *m_callHistory   = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    CallHistoryManager *m_callHistory = nullptr;
 };
 
 class AudioRoutingManager;
 
-class TelephonyObject : public QObject, protected QDBusContext {
+class TelephonyObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Telephony1")
 
@@ -149,16 +157,15 @@ class TelephonyObject : public QObject, protected QDBusContext {
     void ActiveNumberChanged(const QString &number);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requirePhone();
+    bool requirePhone() {
+        return requirePermission("Telephony", {"telephony", "phone"});
+    }
 
-    TelephonyService          *m_telephony     = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
-    AudioRoutingManager       *m_audioRouting  = nullptr;
+    TelephonyService    *m_telephony    = nullptr;
+    AudioRoutingManager *m_audioRouting = nullptr;
 };
 
-class SmsObject : public QObject, protected QDBusContext {
+class SmsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Sms1")
 
@@ -183,15 +190,14 @@ class SmsObject : public QObject, protected QDBusContext {
     void ConversationsChanged();
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSms();
+    bool requireSms() {
+        return requirePermission("Sms", {"sms", "phone"});
+    }
 
-    SMSService                *m_sms           = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    SMSService *m_sms = nullptr;
 };
 
-class MediaLibraryObject : public QObject, protected QDBusContext {
+class MediaLibraryObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.MediaLibrary1")
 
@@ -223,15 +229,14 @@ class MediaLibraryObject : public QObject, protected QDBusContext {
     void ScanProgressChanged(int progress);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireStorage();
+    bool requireStorage() {
+        return requirePermission("MediaLibrary", {"storage"});
+    }
 
-    MediaLibraryManager       *m_media         = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    MediaLibraryManager *m_media = nullptr;
 };
 
-class SettingsObject : public QObject, protected QDBusContext {
+class SettingsObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Settings1")
 
@@ -259,17 +264,18 @@ class SettingsObject : public QObject, protected QDBusContext {
     void PropertyChanged(const QString &name, const QDBusVariant &value);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    bool                       requireStorage();
-    bool                       isAppScopedKey(const QString &key) const;
+    bool requireSystem() {
+        return requirePermission("Settings", {"system"});
+    }
+    bool requireStorage() {
+        return requirePermission("Settings.Storage", {"storage"});
+    }
+    bool             isAppScopedKey(const QString &key) const;
 
-    SettingsManager           *m_settings      = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    SettingsManager *m_settings = nullptr;
 };
 
-class SecurityObject : public QObject, protected QDBusContext {
+class SecurityObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Security1")
 
@@ -296,16 +302,15 @@ class SecurityObject : public QObject, protected QDBusContext {
     void QuickPINChanged();
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Security", {"system"});
+    }
+    QVariantMap      buildState() const;
 
-    SecurityManager           *m_security      = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    SecurityManager *m_security = nullptr;
 };
 
-class BluetoothObject : public QObject, protected QDBusContext {
+class BluetoothObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Bluetooth1")
 
@@ -334,18 +339,17 @@ class BluetoothObject : public QObject, protected QDBusContext {
     void PasskeyConfirmation(const QString &address, const QString &deviceName, quint32 passkey);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
+    bool requireSystem() {
+        return requirePermission("Bluetooth", {"system"});
+    }
 
-    QVariantMap                buildState() const;
-    QVariantList               buildDevices(bool pairedOnly) const;
+    QVariantMap       buildState() const;
+    QVariantList      buildDevices(bool pairedOnly) const;
 
-    BluetoothManager          *m_bt            = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    BluetoothManager *m_bt = nullptr;
 };
 
-class DisplayObject : public QObject, protected QDBusContext {
+class DisplayObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Display1")
 
@@ -368,16 +372,15 @@ class DisplayObject : public QObject, protected QDBusContext {
     void StateChanged(const QVariantMap &state);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Display", {"system"});
+    }
+    QVariantMap        buildState() const;
 
-    DisplayManagerCpp         *m_display       = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    DisplayManagerCpp *m_display = nullptr;
 };
 
-class PowerObject : public QObject, protected QDBusContext {
+class PowerObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Power1")
 
@@ -397,16 +400,15 @@ class PowerObject : public QObject, protected QDBusContext {
     void StateChanged(const QVariantMap &state);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Power", {"system"});
+    }
+    QVariantMap      buildState() const;
 
-    PowerManagerCpp           *m_power         = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    PowerManagerCpp *m_power = nullptr;
 };
 
-class AudioObject : public QObject, protected QDBusContext {
+class AudioObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Audio1")
 
@@ -438,17 +440,16 @@ class AudioObject : public QObject, protected QDBusContext {
     void StateChanged(const QVariantMap &state);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireSystem();
-    QVariantMap                buildState() const;
+    bool requireSystem() {
+        return requirePermission("Audio", {"system"});
+    }
+    QVariantMap            buildState() const;
 
-    AudioManagerCpp           *m_audio         = nullptr;
-    AudioPolicyController     *m_policy        = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    AudioManagerCpp       *m_audio  = nullptr;
+    AudioPolicyController *m_policy = nullptr;
 };
 
-class NetworkObject : public QObject, protected QDBusContext {
+class NetworkObject : public IpcPermissionedService {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Network1")
 
@@ -479,13 +480,12 @@ class NetworkObject : public QObject, protected QDBusContext {
     void ConnectionFailed(const QString &message);
 
   private:
-    QString                    callerAppIdOrEmpty() const;
-    bool                       requireNetwork();
-    QVariantMap                buildState() const;
+    bool requireNetwork() {
+        return requirePermission("Network", {"network", "system"});
+    }
+    QVariantMap        buildState() const;
 
-    NetworkManagerCpp         *m_network       = nullptr;
-    MarathonPermissionManager *m_permissions   = nullptr;
-    AppLaunchService          *m_launchService = nullptr;
+    NetworkManagerCpp *m_network = nullptr;
 };
 
 class NavigationObject : public QObject, protected QDBusContext {

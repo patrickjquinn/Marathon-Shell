@@ -135,7 +135,7 @@ Rectangle {
                 interval: 300
                 repeat: false
                 onTriggered: {
-                    if (recipientInput.text.length > 0 && typeof ContactsManager !== 'undefined')
+                    if (recipientInput.text.length > 0)
                         contactsList.model = ContactsManager.searchContacts(recipientInput.text);
                 }
             }
@@ -157,7 +157,7 @@ Rectangle {
                 clip: true
                 spacing: MSpacing.xs
                 topMargin: MSpacing.sm
-                model: typeof ContactsManager !== 'undefined' ? ContactsManager.contacts : []
+                model: ContactsManager.contacts
 
                 delegate: Item {
                     width: contactsList.width

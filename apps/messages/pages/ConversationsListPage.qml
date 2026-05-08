@@ -38,8 +38,7 @@ Page {
     }
 
     function deleteConversation(conversationId) {
-        if (typeof SMSService !== 'undefined')
-            SMSService.deleteConversation(conversationId);
+        SMSService.deleteConversation(conversationId);
     }
 
     Component.onCompleted: {
@@ -322,10 +321,8 @@ Page {
                 iconName: contextMenu.isUnread ? "check" : "circle"
                 showChevron: false
                 onSettingClicked: {
-                    if (typeof SMSService !== 'undefined') {
-                        if (contextMenu.isUnread)
-                            SMSService.markAsRead(contextMenu.conversationId);
-                    }
+                    if (contextMenu.isUnread)
+                        SMSService.markAsRead(contextMenu.conversationId);
                     HapticService.light();
                     contextMenu.visible = false;
                 }

@@ -33,7 +33,7 @@ Item {
     }
 
     function resetIdleTimer() {
-        if (lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true))
+        if (lockScreen.visible && DisplayPolicyControllerCpp.screenOn)
             idleTimer.restart();
     }
 
@@ -89,7 +89,7 @@ Item {
         id: idleTimer
 
         interval: idleTimeoutMs
-        running: lockScreen.visible && (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp ? DisplayPolicyControllerCpp.screenOn : true)
+        running: lockScreen.visible && DisplayPolicyControllerCpp.screenOn
         repeat: false
         onTriggered: {
             if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
@@ -98,10 +98,7 @@ Item {
                 return;
             }
             Logger.info("LockScreen", "Idle timeout - blanking screen");
-            if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
-                DisplayPolicyControllerCpp.turnScreenOff();
-            else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                DisplayManagerCpp.setScreenState(false);
+            DisplayPolicyControllerCpp.turnScreenOff();
         }
     }
 
@@ -109,12 +106,8 @@ Item {
         function onNotificationReceived(notification) {
             if (lockScreen.visible) {
                 Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
-                var screenOn = (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp) ? DisplayPolicyControllerCpp.screenOn : true;
-                if (!screenOn) {
-                    if (typeof DisplayPolicyControllerCpp !== "undefined" && DisplayPolicyControllerCpp)
-                        DisplayPolicyControllerCpp.turnScreenOn();
-                    else if (typeof DisplayManagerCpp !== "undefined" && DisplayManagerCpp)
-                        DisplayManagerCpp.setScreenState(true);
+                if (!DisplayPolicyControllerCpp.screenOn) {
+                    DisplayPolicyControllerCpp.turnScreenOn();
                 }
                 var appId = notification.appId || "other";
                 expandedCategory = appId;
@@ -137,7 +130,7 @@ Item {
             }
         }
 
-        target: typeof DisplayManagerCpp !== "undefined" ? DisplayManagerCpp : null
+        target: DisplayManagerCpp
     }
 
     ListModel {

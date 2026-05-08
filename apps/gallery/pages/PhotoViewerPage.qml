@@ -86,7 +86,7 @@ Rectangle {
                 iconSize: Constants.iconSizeLarge
                 iconColor: "#FF4444"
                 onClicked: {
-                    if (photo && typeof MediaLibraryManager !== 'undefined') {
+                    if (photo) {
                         MediaLibraryManager.deletePhoto(photo.id);
                         photoViewer.hide();
                     }

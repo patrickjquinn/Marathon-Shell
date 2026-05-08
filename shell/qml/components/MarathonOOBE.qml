@@ -426,7 +426,7 @@ Item {
                         }
 
                         Repeater {
-                            model: (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? NetworkManagerCpp.availableNetworks : []
+                            model: NetworkManagerCpp.availableNetworks
 
                             MCard {
                                 width: parent.parent.width
@@ -999,8 +999,7 @@ Item {
         sourceComponent: WiFiPasswordDialog {
             onConnectRequested: (ssid, password) => {
                 Logger.info("OOBE", "Connecting to WiFi:", ssid);
-                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                    NetworkManagerCpp.connectToNetwork(ssid, password);
+                NetworkManagerCpp.connectToNetwork(ssid, password);
             }
             onCancelled: {
                 Logger.info("OOBE", "WiFi connection cancelled");
@@ -1022,7 +1021,7 @@ Item {
                 oobeRoot.activePasswordDialog.showError(message);
         }
 
-        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
+        target: NetworkManagerCpp
     }
 
     Timer {
@@ -1031,8 +1030,7 @@ Item {
         repeat: false
         onTriggered: {
             if (SystemStatusStore.isWifiOn) {
-                if (typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp)
-                    NetworkManagerCpp.scanWifi();
+                NetworkManagerCpp.scanWifi();
             }
         }
     }

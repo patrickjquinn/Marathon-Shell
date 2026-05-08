@@ -16,10 +16,10 @@ Rectangle {
     readonly property int maxGridRows: Math.max(3, Math.min(5, Math.floor(availableGridHeight / (tileHeight + Constants.spacingSmall))))
     readonly property int tilesPerPage: gridColumns * maxGridRows
     readonly property real calculatedGridHeight: (tileHeight * maxGridRows) + (Constants.spacingSmall * (maxGridRows - 1))
-    property string networkSubtitle: SystemStatusStore.ethernetConnected ? ((typeof NetworkManagerCpp !== "undefined" && NetworkManagerCpp) ? (NetworkManagerCpp.ethernetConnectionName || "Wired") : "Wired") : (SystemStatusStore.wifiNetwork || "Not connected")
+    property string networkSubtitle: SystemStatusStore.ethernetConnected ? (NetworkManagerCpp.ethernetConnectionName || "Wired") : (SystemStatusStore.wifiNetwork || "Not connected")
     property string networkIcon: SystemStatusStore.ethernetConnected ? "plug-zap" : "wifi"
     property string networkLabel: SystemStatusStore.ethernetConnected ? "Ethernet" : "Wi-Fi"
-    property string cellularSubtitle: (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp ? ModemManagerCpp.operatorName : "") || "No service"
+    property string cellularSubtitle: ModemManagerCpp.operatorName || "No service"
     property string batterySubtitle: "Battery " + SystemStatusStore.batteryLevel + "%"
     property int updateTrigger: 0
     property var allTiles: [
@@ -69,7 +69,7 @@ Rectangle {
             "icon": "bluetooth",
             "label": "Bluetooth",
             "active": SystemControlStore.isBluetoothOn,
-            "available": (typeof BluetoothManagerCpp !== "undefined" && BluetoothManagerCpp ? BluetoothManagerCpp.available : false),
+            "available": BluetoothManagerCpp.available,
             "subtitle": SystemControlStore.isBluetoothOn ? (SystemStatusStore.bluetoothConnectedDevicesCount > 0 ? SystemStatusStore.bluetoothConnectedDevicesCount + " devices" : "On") : "Off",
             "trigger": updateTrigger
         },
@@ -86,7 +86,7 @@ Rectangle {
             "icon": "signal-high",
             "label": "Mobile network",
             "active": SystemControlStore.isCellularOn,
-            "available": (typeof ModemManagerCpp !== 'undefined' && ModemManagerCpp.modemAvailable),
+            "available": ModemManagerCpp.modemAvailable,
             "subtitle": cellularSubtitle,
             "trigger": updateTrigger
         },
@@ -95,7 +95,7 @@ Rectangle {
             "icon": "router",
             "label": "Hotspot",
             "active": SystemControlStore.isHotspotOn,
-            "available": (typeof NetworkManagerCpp !== 'undefined' && NetworkManagerCpp.hotspotSupported),
+            "available": NetworkManagerCpp.hotspotSupported,
             "trigger": updateTrigger
         },
         {
@@ -103,7 +103,7 @@ Rectangle {
             "icon": "smartphone",
             "label": "Vibration",
             "active": SystemControlStore.isVibrationOn,
-            "available": (typeof HapticManager !== 'undefined' && HapticManager.available),
+            "available": HapticManager.available,
             "trigger": updateTrigger
         },
         {
@@ -111,7 +111,7 @@ Rectangle {
             "icon": "moon",
             "label": "Night Light",
             "active": SystemControlStore.isNightLightOn,
-            "available": (typeof DisplayManagerCpp !== 'undefined' && DisplayManagerCpp.available),
+            "available": DisplayManagerCpp.available,
             "trigger": updateTrigger
         },
         {
@@ -119,7 +119,7 @@ Rectangle {
             "icon": "flashlight",
             "label": "Torch",
             "active": SystemControlStore.isFlashlightOn,
-            "available": (typeof FlashlightManagerCpp !== "undefined" && FlashlightManagerCpp.available),
+            "available": FlashlightManagerCpp.available,
             "trigger": updateTrigger
         },
         {
@@ -211,7 +211,6 @@ Rectangle {
             SystemControlStore.captureScreenshot();
             UIStore.closeQuickSettings();
         } else if (toggleId === "alarm") {
-            SystemControlStore.toggleAlarm();
             UIStore.closeQuickSettings();
             Qt.callLater(function () {
                 var app = {
@@ -348,7 +347,7 @@ Rectangle {
             updateTrigger++;
         }
 
-        target: typeof NetworkManagerCpp !== "undefined" ? NetworkManagerCpp : null
+        target: NetworkManagerCpp
     }
 
     Connections {

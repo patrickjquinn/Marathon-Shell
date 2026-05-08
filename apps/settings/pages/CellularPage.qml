@@ -29,21 +29,21 @@ SettingsPageTemplate {
             MSection {
                 title: "Status"
                 width: parent.width - 48
-                visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
+                visible: ModemManagerCpp.available
 
                 MSettingsListItem {
                     title: "Operator"
-                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.operatorName) || "No service"
+                    value: ModemManagerCpp.operatorName || "No service"
                 }
 
                 MSettingsListItem {
                     title: "Signal Strength"
-                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? (ModemManagerCpp.signalStrength + "%") : "N/A")
+                    value: ModemManagerCpp.signalStrength + "%"
                 }
 
                 MSettingsListItem {
                     title: "Network Type"
-                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.networkType) || "Unknown"
+                    value: ModemManagerCpp.networkType || "Unknown"
                 }
             }
 
@@ -55,35 +55,33 @@ SettingsPageTemplate {
                     title: "Mobile Data"
                     subtitle: "Use cellular network for data"
                     showToggle: true
-                    toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.dataEnabled : false
+                    toggleValue: ModemManagerCpp.dataEnabled
                     onToggleChanged: value => {
-                        if (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp) {
-                            if (ModemManagerCpp.dataEnabled)
-                                ModemManagerCpp.disableData();
-                            else
-                                ModemManagerCpp.enableData();
-                        }
+                        if (ModemManagerCpp.dataEnabled)
+                            ModemManagerCpp.disableData();
+                        else
+                            ModemManagerCpp.enableData();
                     }
                 }
 
                 MSettingsListItem {
                     title: "Data Roaming"
-                    subtitle: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.roaming) ? "Currently roaming" : "Use data when traveling"
+                    subtitle: ModemManagerCpp.roaming ? "Currently roaming" : "Use data when traveling"
                     showToggle: true
-                    toggleValue: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp ? ModemManagerCpp.roaming : false
+                    toggleValue: ModemManagerCpp.roaming
                     enabled: false
-                    visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.available
+                    visible: ModemManagerCpp.available
                 }
             }
 
             MSection {
                 title: "SIM Card"
                 width: parent.width - 48
-                visible: typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.simPresent
+                visible: ModemManagerCpp.simPresent
 
                 MSettingsListItem {
                     title: "SIM Operator"
-                    value: (typeof ModemManagerCpp !== "undefined" && ModemManagerCpp && ModemManagerCpp.operatorName) || "Unknown"
+                    value: ModemManagerCpp.operatorName || "Unknown"
                 }
 
                 MSettingsListItem {
@@ -94,13 +92,13 @@ SettingsPageTemplate {
 
             Text {
                 width: parent.width - 48
-                text: (typeof ModemManagerCpp === "undefined" || !ModemManagerCpp || !ModemManagerCpp.available) ? "Mobile network features require Linux with ModemManager" : ""
+                text: !ModemManagerCpp.available ? "Mobile network features require Linux with ModemManager" : ""
                 color: MColors.textSecondary
                 font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
-                visible: typeof ModemManagerCpp === "undefined" || !ModemManagerCpp || !ModemManagerCpp.available
+                visible: !ModemManagerCpp.available
             }
 
             Item {

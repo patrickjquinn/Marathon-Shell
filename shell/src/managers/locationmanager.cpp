@@ -44,12 +44,7 @@ LocationManager::~LocationManager() {
     if (m_active) {
         stop();
     }
-    if (m_client) {
-        delete m_client;
-    }
-    if (m_manager) {
-        delete m_manager;
-    }
+    // m_client and m_manager are parented to this; Qt will delete them
 }
 
 void LocationManager::connectToGeoclue() {

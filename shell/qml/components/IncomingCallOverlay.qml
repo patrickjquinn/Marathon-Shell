@@ -19,21 +19,15 @@ Rectangle {
         callerName = name || "Unknown";
         isRinging = true;
         visible = true;
-        if (typeof AudioPolicyControllerCpp !== 'undefined')
-            AudioPolicyControllerCpp.playRingtone();
-
-        if (typeof HapticManager !== 'undefined')
-            HapticManager.vibrate(1000);
-
+        AudioPolicyControllerCpp.playRingtone();
+        HapticManager.vibrate(1000);
         Logger.info("IncomingCallOverlay", "Showing call from: " + number);
     }
 
     function hide() {
         isRinging = false;
         visible = false;
-        if (typeof AudioPolicyControllerCpp !== 'undefined')
-            AudioPolicyControllerCpp.stopRingtone();
-
+        AudioPolicyControllerCpp.stopRingtone();
         Logger.info("IncomingCallOverlay", "Hiding call overlay");
     }
 
@@ -201,9 +195,7 @@ Rectangle {
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call declined");
                             HapticManager.medium();
-                            if (typeof TelephonyService !== 'undefined')
-                                TelephonyService.hangup();
-
+                            TelephonyService.hangup();
                             declined();
                             hide();
                         }
@@ -254,13 +246,10 @@ Rectangle {
                         onClicked: {
                             Logger.info("IncomingCallOverlay", "Call answered");
                             HapticManager.heavy();
-                            if (typeof TelephonyService !== 'undefined')
-                                TelephonyService.answer();
-
+                            TelephonyService.answer();
                             answered();
                             hide();
-                            if (typeof UIStore !== 'undefined')
-                                UIStore.openApp("phone", "Phone", "");
+                            UIStore.openApp("phone", "Phone", "");
                         }
                     }
 

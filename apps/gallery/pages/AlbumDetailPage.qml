@@ -29,7 +29,7 @@ Rectangle {
 
     color: MColors.background
     Component.onCompleted: {
-        if (typeof MediaLibraryManager !== 'undefined' && albumId)
+        if (albumId)
             Qt.callLater(function () {
                 photos = MediaLibraryManager.getPhotos(albumId);
             });

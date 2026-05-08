@@ -228,6 +228,6 @@ Rectangle {
             });
         }
 
-        target: typeof AlarmManagerCpp !== 'undefined' ? AlarmManagerCpp : null
+        target: AlarmManagerCpp
     }
 }
