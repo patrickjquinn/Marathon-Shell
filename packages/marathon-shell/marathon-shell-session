@@ -31,14 +31,30 @@ export QML2_IMPORT_PATH="/usr/lib/qt6/qml:${QML2_IMPORT_PATH:-}"
 #
 # Marathon Shell IS the compositor; we never want a Wayland-CLIENT plugin here.
 
+IS_VIRTIO_GPU=0
+# Detect QEMU virtio-gpu by PCI vendor:device, which is populated by the
+# kernel as soon as the bus enumerates — well before greetd spawns us, and
+# regardless of whether the virtio_gpu *driver* has bound yet (the driver
+# can autoload lazily when /dev/dri/card0 is first opened). Checking via
+# /sys/class/drm/.../uevent has a race we don't want to hit.
+if grep -qsE '^PCI_ID=1AF4:1050' /sys/bus/pci/devices/*/uevent 2>/dev/null; then
+    IS_VIRTIO_GPU=1
+fi
+
 if [ -z "${QT_QPA_PLATFORM:-}" ]; then
-    if grep -qsE '^DRIVER=virtio_gpu' /sys/class/drm/card*/device/uevent 2>/dev/null; then
-        export QT_QPA_PLATFORM=kms
-    else
-        export QT_QPA_PLATFORM=eglfs
-        export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
-        export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
-    fi
+    # eglfs+eglfs_kms is the right combo on both real phone hardware and on
+    # QEMU virtio-gpu — Qt has no standalone "kms" platform plugin.
+    export QT_QPA_PLATFORM=eglfs
+    export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+    export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+fi
+
+# QEMU virtio-gpu reports a fake desktop-monitor physical size in EDID, so Qt
+# derives ~108 DPI for a phone-shaped 720x1440 canvas and the shell renders at
+# desktop scale. Inject the DPI override here (read by ScreenMetrics::computeDpi)
+# so QEMU validation matches phone-hardware proportions. Unset on real devices.
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_FORCE_DPI:-}" ]; then
+    export MARATHON_FORCE_DPI=400
 fi
 
 # ---- Qt-wide env -------------------------------------------------------------

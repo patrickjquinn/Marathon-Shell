@@ -44,7 +44,11 @@ echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
 # ─ 1. Build marathon-base-config (file-only, fast) ─
 echo "─ building marathon-base-config ─"
 mkdir -p /work/aports
-rsync -a --delete /src/packages/ /work/aports/
+# Use --checksum so file content drives sync, not mtime — bind-mount mtime
+# preservation under SELinux :Z relabel can leave stale content in the
+# work tree. Also force --no-times to avoid carrying mtimes that confuse
+# later rsync compares.
+rsync -a --checksum --no-times --delete /src/packages/ /work/aports/
 cd /work/aports/marathon-base-config
 abuild -F checksum >/dev/null 2>&1
 abuild -d -F 2>&1 | tail -2
@@ -54,7 +58,10 @@ if [ "${WITH_MARATHON_SHELL:-0}" = "1" ]; then
     echo "─ building marathon-shell (Qt6/QML/WebEngine, ~30min cold) ─"
     SHELL_VERSION=$(grep -E '^pkgver=' /work/aports/marathon-shell/APKBUILD | cut -d= -f2)
     mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
-    rsync -a --delete \
+    # --checksum --no-times: see note above. Without this, edits made
+    # between rapid rebuilds can fail to propagate and the apk gets built
+    # against stale source.
+    rsync -a --checksum --no-times --delete \
           --exclude='.git' --exclude='build' --exclude='build-apps' \
           --exclude='build-ui' --exclude='.cache' \
           /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
@@ -143,6 +150,49 @@ EOF
 [ -d "$ROOTFS/lib/firmware" ] && rmdir "$ROOTFS/lib/firmware" 2>/dev/null
 ln -sfn /usr/lib/modules  "$ROOTFS/lib/modules"
 ln -sfn /usr/lib/firmware "$ROOTFS/lib/firmware"
+
+# Force-load virtio-gpu + DRM helpers on QEMU. systemd-modules-load.service
+# walks /etc/modules-load.d/* on boot. Listed modules don't exist on real
+# phone kernels — modprobe fails silently and we move on, so this is safe to
+# always include.
+mkdir -p "$ROOTFS/etc/modules-load.d"
+cat > "$ROOTFS/etc/modules-load.d/marathon-qemu.conf" <<'EOMOD'
+drm
+drm_kms_helper
+drm_shmem_helper
+virtio_pci
+virtio_gpu
+EOMOD
+
+# modules-load.d alone isn't sufficient: virtio_gpu pulls drm helper symbols
+# that don't resolve unless depmod is run with the rootfs's *actual* /lib/modules
+# layout (not the stale paths baked in by the apk's depmod). Run depmod -a at
+# boot — once — before greetd starts.
+mkdir -p "$ROOTFS/etc/systemd/system/sysinit.target.wants"
+cat > "$ROOTFS/etc/systemd/system/marathon-modprobe.service" <<'EOSVC'
+[Unit]
+Description=Marathon: depmod + load virtio-gpu (idempotent, harmless on real HW)
+DefaultDependencies=no
+After=systemd-tmpfiles-setup.service local-fs.target
+Before=systemd-modules-load.service greetd.service
+ConditionPathExists=/usr/lib/modules
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/depmod -a
+ExecStart=-/sbin/modprobe drm_kms_helper
+ExecStart=-/sbin/modprobe drm_shmem_helper
+ExecStart=-/sbin/modprobe virtio_pci
+ExecStart=-/sbin/modprobe virtio_gpu
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target
+EOSVC
+ln -sfn /etc/systemd/system/marathon-modprobe.service \
+    "$ROOTFS/etc/systemd/system/sysinit.target.wants/marathon-modprobe.service"
 
 # Force a default user 'user' (UID 10000 — pmOS convention).
 echo "─ creating default user ─"
