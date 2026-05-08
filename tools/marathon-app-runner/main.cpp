@@ -477,6 +477,16 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("MarathonAppInstaller",
                             new MarathonAppInstaller(&registry, &scanner, ctx));
 
+    // Mirror the shell's MARATHON_DEBUG flag into the runner so Logger.info()
+    // and the test-app auto-run path actually emit. Without this, every
+    // Logger.info() in app QML is silently dropped because Constants.qml's
+    // debugMode resolves to false in the runner process.
+    {
+        const QByteArray dbg = qgetenv("MARATHON_DEBUG");
+        const bool       on  = (dbg == "1" || dbg.toLower() == "true");
+        ctx->setContextProperty("MARATHON_DEBUG_ENABLED", on);
+    }
+
     const auto hasPerm = [&](const QString &perm) -> bool {
         return std::find(info->permissions.begin(), info->permissions.end(), perm) !=
             info->permissions.end();
@@ -514,6 +524,8 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("HapticService", new HapticClient(&app));
     auto *notificationClient = new NotificationClient(appId, &app);
     ctx->setContextProperty("NativeNotificationService", notificationClient);
+    // Apps and the test suite consume this under the shorter name.
+    ctx->setContextProperty("NotificationService", notificationClient);
     ctx->setContextProperty("SensorService", new SensorClient(&app));
     ctx->setContextProperty("LocationService", new LocationClient(&app));
     ctx->setContextProperty("AlarmService", new AlarmClient(&app));
