@@ -57,14 +57,19 @@ class SecurityManager : public QObject {
         return m_failedAttempts;
     }
 
-    void                setAuthMode(AuthMode mode);
+    void             setAuthMode(AuthMode mode);
 
-    Q_INVOKABLE void    authenticatePassword(const QString &password);
-    Q_INVOKABLE void    authenticateQuickPIN(const QString &pin);
-    Q_INVOKABLE void    authenticateBiometric(BiometricType type = Fingerprint);
-    Q_INVOKABLE void    cancelAuthentication();
+    Q_INVOKABLE void authenticatePassword(const QString &password);
+    Q_INVOKABLE void authenticateQuickPIN(const QString &pin);
+    Q_INVOKABLE void authenticateBiometric(BiometricType type = Fingerprint);
+    Q_INVOKABLE void cancelAuthentication();
 
-    Q_INVOKABLE void    setQuickPIN(const QString &pin, const QString &systemPassword);
+    Q_INVOKABLE void setQuickPIN(const QString &pin, const QString &systemPassword);
+    // First-run / OOBE entry — sets the Quick PIN WITHOUT requiring a system
+    // password. Only succeeds while no Quick PIN is configured yet (i.e. true
+    // first boot). Subsequent changes go through setQuickPIN which still
+    // requires authentication.
+    Q_INVOKABLE bool    setQuickPINFirstRun(const QString &pin);
     Q_INVOKABLE void    removeQuickPIN(const QString &systemPassword);
 
     Q_INVOKABLE bool    isBiometricEnrolled(BiometricType type) const;
