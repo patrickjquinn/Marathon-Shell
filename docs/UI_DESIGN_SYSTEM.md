@@ -169,9 +169,9 @@ MCard {
     elevationHover: 2
     elevationPressed: 0
     interactive: true  // Enables hover/press states
-    
+  
     onClicked: { }
-    
+  
     content: [
         Text {
             text: "Card content"
@@ -194,12 +194,12 @@ import MarathonUI.Effects
 
 Rectangle {
     // ... your component ...
-    
+  
     MRipple {
         id: ripple
         rippleColor: MColors.ripple
     }
-    
+  
     MouseArea {
         anchors.fill: parent
         onPressed: function(mouse) {
@@ -222,7 +222,7 @@ import MarathonUI.Navigation
 
 MNavigationPane {
     initialPage: homePage
-    
+  
     onPagePushed: function(page) { }
     onPagePopped: function(page) { }
 }
@@ -319,7 +319,7 @@ State changes are animated, not instant:
 Icon {
     visible: state === "success"
     scale: state === "success" ? 1 : 0
-    
+  
     Behavior on scale {
         SpringAnimation { 
             spring: MMotion.springLight
@@ -381,7 +381,7 @@ Spring animations are CPU-bound but provide natural motion. Use sparingly:
 ```qml
 Rectangle {
     color: mouseArea.pressed ? "#1A1A1A" : "#0F0F0F"
-    
+  
     Behavior on color {
         ColorAnimation { duration: 150 }
     }
@@ -396,20 +396,20 @@ import MarathonUI.Effects
 Rectangle {
     color: mouseArea.pressed ? MColors.surface2 : MColors.surface1
     scale: mouseArea.pressed ? 0.98 : 1.0
-    
+  
     Behavior on color {
         ColorAnimation { duration: MMotion.quick }
     }
-    
+  
     Behavior on scale {
         SpringAnimation { 
             spring: MMotion.springMedium
             damping: MMotion.dampingMedium
         }
     }
-    
+  
     MRipple { id: ripple }
-    
+  
     MouseArea {
         id: mouseArea
         anchors.fill: parent
@@ -467,9 +467,9 @@ QSG_VISUALIZE=batches ./marathon-shell
 
 ---
 
-**Version**: 2.0  
-**Last Updated**: October 18, 2025  
-**Target**: Raspberry Pi 4 (ARM Cortex-A72)  
+**Version**: 2.0
+**Last Updated**: October 18, 2025
+**Target**: Raspberry Pi 4 (ARM Cortex-A72)
 **Status**: Production Ready 
 
 
@@ -539,7 +539,7 @@ Rectangle {
     color: MColors.surface
     border.width: 1
     border.color: MColors.borderOuter
-    
+  
     Rectangle {
         anchors.fill: parent
         anchors.margins: 1
@@ -602,11 +602,11 @@ import MarathonOS.Shell
 
 Rectangle {
     property int elevation: 2
-    
+  
     color: MElevation.getSurface(elevation)  // Lighter surface at higher elevation
     border.width: Constants.borderWidthThin
     border.color: MElevation.getBorderOuter(elevation)
-    
+  
     // Inner highlight border
     Rectangle {
         anchors.fill: parent
@@ -641,7 +641,7 @@ import MarathonUI.Containers
 MCard {
     elevation: 2
     pressed: mouseArea.pressed
-    
+  
     content: [
         Text {
             text: "Card content"
@@ -688,7 +688,7 @@ import MarathonUI.Containers
 
 MLayer {
     elevation: 3
-    
+  
     content: [
         Column {
             spacing: Constants.spacingMedium
@@ -708,7 +708,7 @@ import MarathonUI.Effects
 MInset {
     width: 200
     height: 40
-    
+  
     content: [
         Text {
             text: "Inset input field"
@@ -779,7 +779,7 @@ Loader {
     id: dynamicContent
     active: false  // Load explicitly
     asynchronous: true
-    
+  
     onStatusChanged: {
         if (status === Loader.Error) {
             console.error("Failed to load")
@@ -945,7 +945,7 @@ QSG_INFO=1 ./marathon-shell
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: October 16, 2025  
+**Version**: 1.0
+**Last Updated**: October 16, 2025
 **Target**: Raspberry Pi 4 (ARM Cortex-A72)
 

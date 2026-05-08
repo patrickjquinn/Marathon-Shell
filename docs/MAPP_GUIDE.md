@@ -56,14 +56,14 @@ MApp {
     appId: "myapp"              // Required: unique identifier
     appName: "My App"            // Required: display name
     appIcon: "assets/icon.svg"   // Optional: defaults to manifest icon
-    
+  
     // Optional: Enable lifecycle debug logging
     debugLifecycle: false
-    
+  
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+      
         // Your app UI here
     }
 }
@@ -121,22 +121,22 @@ Created → Launched → Started → Resumed
 MApp {
     id: myApp
     appId: "myapp"
-    
+  
     property var userData: []
     property int refreshTimer: 0
-    
+  
     // Load initial data
     onAppLaunched: {
         Logger.info("MyApp", "App launched - loading data")
         userData = loadUserData()
     }
-    
+  
     // Start background tasks
     onAppResumed: {
         Logger.info("MyApp", "App resumed - starting timer")
         refreshTimer = setInterval(refreshData, 30000)
     }
-    
+  
     // Stop background tasks
     onAppPaused: {
         Logger.info("MyApp", "App paused - stopping timer")
@@ -146,19 +146,19 @@ MApp {
         }
         saveUserData(userData)
     }
-    
+  
     // Final cleanup
     onAppWillTerminate: {
         Logger.info("MyApp", "App terminating - final save")
         saveUserData(userData)
     }
-    
+  
     // Handle low memory
     onLowMemoryWarning: {
         Logger.warn("MyApp", "Low memory - clearing cache")
         clearImageCache()
     }
-    
+  
     content: Rectangle {
         // UI here
     }
@@ -185,7 +185,7 @@ MApp {
 ```qml
 MApp {
     id: myApp
-    
+  
     Timer {
         interval: 1000
         running: myApp.isActive && myApp.isForeground
@@ -210,10 +210,10 @@ For apps with multiple pages, use `StackView` with `MAppRouter` to keep navigati
 MApp {
     id: myApp
     appId: "myapp"
-    
+  
     content: Rectangle {
         anchors.fill: parent
-        
+      
         StackView {
             id: navigationStack
             anchors.fill: parent
@@ -261,14 +261,14 @@ Apps can listen for system-level signals:
 ```qml
 MApp {
     id: myApp
-    
+  
     Connections {
         target: myApp
-        
+      
         function onBackPressed() {
             // Handle back navigation
         }
-        
+      
         function onMinimizeRequested() {
             // Custom minimize behavior (optional)
         }
@@ -450,23 +450,23 @@ MApp {
     id: calculatorApp
     appId: "calculator"
     appName: "Calculator"
-    
+  
     property string display: "0"
-    
+  
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+      
         Column {
             anchors.centerIn: parent
             spacing: MSpacing.md
-            
+          
             MLabel {
                 text: calculatorApp.display
                 variant: "primary"
                 font.pixelSize: 48
             }
-            
+          
             // Calculator buttons...
         }
     }
@@ -486,21 +486,21 @@ MApp {
     id: notesApp
     appId: "notes"
     appName: "Notes"
-    
+  
     property var notes: []
-    
+  
     onAppLaunched: {
         notes = loadNotes()
     }
-    
+  
     onAppPaused: {
         saveNotes(notes)
     }
-    
+  
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+      
         StackView {
             id: navigationStack
             anchors.fill: parent
@@ -537,43 +537,43 @@ MApp {
     id: phoneApp
     appId: "phone"
     appName: "Phone"
-    
+  
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
-        
+      
         Column {
             anchors.fill: parent
             spacing: 0
-            
+          
             property int currentTab: 0
-            
+          
             StackLayout {
                 width: parent.width
                 height: parent.height - tabBar.height
                 currentIndex: parent.currentTab
-                
+              
                 // Dialer tab
                 Item { /* Dialer UI */ }
-                
+              
                 // History tab
                 Item { /* History UI */ }
-                
+              
                 // Contacts tab
                 Item { /* Contacts UI */ }
             }
-            
+          
             MTabBar {
                 id: tabBar
                 width: parent.width
                 activeTab: parent.currentTab
-                
+              
                 tabs: [
                     { label: "Dial", icon: "phone" },
                     { label: "History", icon: "clock" },
                     { label: "Contacts", icon: "users" }
                 ]
-                
+              
                 onTabSelected: (index) => {
                     parent.currentTab = index
                 }
@@ -653,6 +653,6 @@ signal lowMemoryWarning()                // Low memory warning
 
 ---
 
-**Version**: 1.0  
+**Version**: 1.0
 **Last Updated**: November 6, 2025
 

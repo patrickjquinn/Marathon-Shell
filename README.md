@@ -1,10 +1,10 @@
 <div align="center">
   <img src="github-media/marathon.png" alt="Marathon Shell Logo" width="200"/>
-  
+
   # Marathon Shell
-  
+
   **A Wayland compositor and mobile-oriented application shell for Linux**
-  
+
   [Watch Demo Video](github-media/Screencast%20From%202025-11-09%2004-01-02.mp4)
 </div>
 
@@ -140,7 +140,7 @@ apk add cmake samurai g++ pkgconf git \
 ### Optional Dependencies
 
 - NetworkManager - WiFi and cellular network management
-- UPower - Battery and power profile management  
+- UPower - Battery and power profile management
 - BlueZ - Bluetooth device management
 - ModemManager - Cellular modem and telephony support
 - qt6-qtvirtualkeyboard-devel - On-screen keyboard support
@@ -253,7 +253,7 @@ sudo cmake --install build-apps
 
 This configures:
 - **Brightness control** permissions (udev rule for `/sys/class/backlight`)
-- **Bluetooth** service (installs and enables BlueZ)  
+- **Bluetooth** service (installs and enables BlueZ)
 - **PAM authentication** (copies config to `/etc/pam.d/marathon-shell`)
 
 ### Start Marathon Shell
@@ -489,7 +489,7 @@ Marathon includes an integrated App Store for browsing, installing, and updating
 
 ### marathon-dev CLI Tool
 
-The `marathon-dev` tool provides comprehensive app development functionality:
+The `marathon-dev` tool covers app development end-to-end:
 
 ```bash
 # Create new app from template
@@ -562,10 +562,10 @@ import MarathonUI.Core
 MApp {
     appId: "myapp"
     appName: "My App"
-    
+  
     content: MPage {
         title: "My App"
-        
+      
         MLabel {
             anchors.centerIn: parent
             text: "Hello Marathon!"
