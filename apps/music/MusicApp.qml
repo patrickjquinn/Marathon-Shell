@@ -84,23 +84,27 @@ MApp {
     Component.onCompleted: {
         playlist = [];
         Qt.callLater(function () {
-            playlist = MusicLibraryManager.getAllTracks();
-            if (playlist.length > 0)
-                currentTrack = playlist[0];
+            if (typeof MusicLibraryManager !== 'undefined') {
+                playlist = MusicLibraryManager.getAllTracks();
+                if (playlist.length > 0)
+                    currentTrack = playlist[0];
 
-            MusicLibraryManager.scanLibrary();
+                MusicLibraryManager.scanLibrary();
+            }
         });
     }
 
     Connections {
         function onScanComplete(trackCount) {
             Logger.info("Music", "Library scan complete: " + trackCount + " tracks");
-            playlist = MusicLibraryManager.getAllTracks();
-            if (playlist.length > 0 && !currentTrack)
-                currentTrack = playlist[0];
+            if (typeof MusicLibraryManager !== 'undefined') {
+                playlist = MusicLibraryManager.getAllTracks();
+                if (playlist.length > 0 && !currentTrack)
+                    currentTrack = playlist[0];
+            }
         }
 
-        target: MusicLibraryManager
+        target: typeof MusicLibraryManager !== 'undefined' ? MusicLibraryManager : null
     }
 
     MediaPlayer {
