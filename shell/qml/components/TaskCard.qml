@@ -1,6 +1,6 @@
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
-import MarathonOS.Shell 1.0
 import QtQuick
 
 Item {
@@ -24,7 +24,10 @@ Item {
     property bool nativeSurfaceActive: false
     property Item registeredSurfaceItem: null
     readonly property bool shouldLoadNativeSurface: taskCard.taskSwitcherVisible && taskCard.haveWayland && typeof taskCard.waylandSurface !== 'undefined' && taskCard.waylandSurface !== null
-    readonly property bool useRegisteredSurface: taskCard.registeredSurfaceItem !== null
+    // Plain bool, not a derived property binding: Qt's binding-loop detector
+    // misfires when 14 TaskCards initialize concurrently with SurfaceRegistry
+    // fanning out signals. Updated explicitly from updateRegisteredSurface().
+    property bool useRegisteredSurface: false
 
     signal closed
     signal taskClosed(string appId)
@@ -43,9 +46,26 @@ Item {
     function updateRegisteredSurface() {
         if (taskCard.surfaceId <= 0) {
             registeredSurfaceItem = null;
+            useRegisteredSurface = false;
             return;
         }
         registeredSurfaceItem = SurfaceRegistry.getSurfaceItem(taskCard.surfaceId);
+        useRegisteredSurface = registeredSurfaceItem !== null;
+    }
+
+    onWaylandSurfaceChanged: refreshNativeSurface()
+    onSurfaceIdChanged: updateRegisteredSurface()
+    onTaskSwitcherVisibleChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    onHaveWaylandChanged: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
+    }
+    Component.onCompleted: {
+        refreshNativeSurface();
+        updateRegisteredSurface();
     }
 
     Rectangle {
@@ -586,30 +606,6 @@ Item {
         }
     }
 
-    Behavior on scale {
-        enabled: Constants.enableAnimations
-
-        NumberAnimation {
-            duration: 250
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    onWaylandSurfaceChanged: refreshNativeSurface()
-    onSurfaceIdChanged: updateRegisteredSurface()
-    onTaskSwitcherVisibleChanged: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-    onHaveWaylandChanged: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-    Component.onCompleted: {
-        refreshNativeSurface();
-        updateRegisteredSurface();
-    }
-
     Connections {
         function onSurfaceRegistered(surfaceId) {
             if (surfaceId === taskCard.surfaceId)
@@ -622,5 +618,14 @@ Item {
         }
 
         target: SurfaceRegistry
+    }
+
+    Behavior on scale {
+        enabled: Constants.enableAnimations
+
+        NumberAnimation {
+            duration: 250
+            easing.type: Easing.OutCubic
+        }
     }
 }

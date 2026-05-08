@@ -85,6 +85,10 @@ void AudioPolicyController::setDoNotDisturb(bool enabled) {
     m_settings->setDndEnabled(enabled);
 }
 
+bool AudioPolicyController::isDoNotDisturb() const {
+    return m_settings ? m_settings->dndEnabled() : false;
+}
+
 void AudioPolicyController::setVibrationEnabled(bool enabled) {
     if (!m_settings)
         return;

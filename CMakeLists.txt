@@ -27,18 +27,21 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|aarch64|ARM")
     endif()
     
     # Optimize for size on embedded (older ARM has limited RAM)
+    # Only on Release. Strip qDebug/qInfo there too so production phones
+    # don't pay the log overhead. Debug/RelWithDebInfo (incl. aarch64
+    # developer hosts like Apple Silicon) keep the channels live so the
+    # security audit logger and other qInfo() callers actually work.
     if(CMAKE_BUILD_TYPE MATCHES "Release")
         add_compile_options(-Os -fdata-sections -ffunction-sections)
         add_link_options(-Wl,--gc-sections)
-        message(STATUS "   ✓ Size optimization (-Os) enabled for embedded")
+        add_compile_definitions(
+            QT_NO_DEBUG_OUTPUT
+            QT_NO_INFO_OUTPUT
+        )
+        message(STATUS "   ✓ Release: size optimization + debug/info logs stripped")
+    else()
+        message(STATUS "   ✓ Non-Release: keeping qDebug/qInfo enabled for observability")
     endif()
-    
-    # Disable debug output to reduce overhead
-    add_compile_definitions(
-        QT_NO_DEBUG_OUTPUT
-        QT_NO_INFO_OUTPUT
-    )
-    message(STATUS "   ✓ Debug output disabled for performance")
 endif()
 
 # Enable QML Language Server support for IDE/VS Code
