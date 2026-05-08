@@ -12,7 +12,7 @@ PKGCACHE="$ROOT_DIR/build/rootless/pkgcache"
 
 mkdir -p "$OUT_DIR" "$WORK_DIR" "$PKGCACHE"
 
-echo "═══ stage 1 — barebones pmOS rootless build ═══"
+echo "═══ stage 1 -- barebones pmOS rootless build ═══"
 
 podman run --rm -i \
     -v "$OUT_DIR:/out:Z" \
@@ -41,7 +41,7 @@ apk.static \
         device-qemu-aarch64 \
         device-qemu-aarch64-kernel-lts \
         losetup util-linux-misc \
-        openrc 2>&1 | tail -10 || echo "  (trigger errors swallowed — fixups run next)"
+        openrc 2>&1 | tail -10 || echo "  (trigger errors swallowed -- fixups run next)"
 echo ""
 echo "── installed packages ──"
 apk --root "$ROOTFS" info 2>/dev/null | wc -l
@@ -59,7 +59,7 @@ echo "── skipping mkinitfs (kernel has virtio_blk + ext4 built-in) ──"
 # postmarketos-mkinitfs needs /proc + /sys + /dev bind-mounts inside the
 # chroot, which require CAP_SYS_ADMIN inside the container. Rootless podman
 # without --privileged can't grant that. We work around by booting the
-# kernel directly with `root=/dev/vda` — every required driver is built-in
+# kernel directly with `root=/dev/vda` -- every required driver is built-in
 # (verified against /boot/config: CONFIG_VIRTIO_BLK=y, CONFIG_VIRTIO_PCI=y,
 # CONFIG_EXT4_FS=y). No initramfs needed for first-boot.
 

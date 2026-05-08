@@ -119,18 +119,18 @@ open /Volumes/qt-unified-macOS*/qt-unified-*.app
 
 3. **Select Components** (Qt 6.9.3 or 6.10.0):
    ```
-   ☑ Qt 6.9.3 (or 6.10.0)
-     ☑ macOS
-     ☑ Qt Quick 3D
-     ☑ Qt 5 Compatibility Module
-     ☑ Additional Libraries
-       ☑ Qt Quick Controls
-       ☑ Qt Multimedia
-       ☑ Qt Wayland Compositor
+  Qt 6.9.3 (or 6.10.0)
+    macOS
+    Qt Quick 3D
+    Qt 5 Compatibility Module
+    Additional Libraries
+      Qt Quick Controls
+      Qt Multimedia
+      Qt Wayland Compositor
    
-   ☑ Developer and Designer Tools
-     ☑ CMake 3.27.x
-     ☑ Ninja 1.11.x
+  Developer and Designer Tools
+    CMake 3.27.x
+    Ninja 1.11.x
    ```
 
 4. **Installation Path:** Accept default `~/Qt`
@@ -652,7 +652,7 @@ Item {
         z: 200
         
         onPeekStarted: {
-            console.log("👆 Peek!")
+            console.log("Peek!")
             activeFrames.visible = true
         }
         
@@ -700,7 +700,7 @@ Rectangle {
         
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: "📶 🔋 85%"
+            text: "85%"
             color: Colors.text
             font.pixelSize: Typography.sizeSmall
         }
@@ -731,13 +731,13 @@ Rectangle {
         
         model: ListModel {
             ListElement { name: "Phone"; icon: "" }
-            ListElement { name: "Messages"; icon: "💬" }
-            ListElement { name: "Email"; icon: "📧" }
-            ListElement { name: "Browser"; icon: "🌐" }
-            ListElement { name: "Camera"; icon: "📷" }
-            ListElement { name: "Photos"; icon: "🖼" }
-            ListElement { name: "Music"; icon: "🎵" }
-            ListElement { name: "Settings"; icon: "⚙" }
+            ListElement { name: "Messages"; icon: "" }
+            ListElement { name: "Email"; icon: "" }
+            ListElement { name: "Browser"; icon: "" }
+            ListElement { name: "Camera"; icon: "" }
+            ListElement { name: "Photos"; icon: "" }
+            ListElement { name: "Music"; icon: "" }
+            ListElement { name: "Settings"; icon: "" }
         }
         
         delegate: AppIcon {
@@ -959,9 +959,9 @@ Since Qt doesn't have built-in hot reload, use this script:
 ```bash
 cat > watch-and-build.sh << 'EOF'
 #!/bin/bash
-echo "👁  Watching for QML changes..."
+echo " Watching for QML changes..."
 fswatch -o shell/qml/**/*.qml | while read; do
-    echo "🔄 Rebuilding..."
+    echo "Rebuilding..."
     cmake --build build --parallel && ./build/shell/marathon-shell
 done
 EOF

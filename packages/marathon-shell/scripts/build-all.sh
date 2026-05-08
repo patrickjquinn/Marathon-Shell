@@ -48,23 +48,23 @@ cmake --build . --parallel $CORES
 cd ..
 
 echo ""
-echo "✅ Marathon Shell built successfully!"
+echo "Marathon Shell built successfully!"
 echo ""
 
 # Step 2: Build all Marathon Apps
 echo "Step 2/2: Building Marathon Apps..."
 
 # Add QML validation
-echo "🔍 Validating QML files..."
+echo "Validating QML files..."
 find "$PROJECT_ROOT/apps" -name "*.qml" -exec qmllint {} \; 2>/dev/null || {
-    echo "⚠️  QML validation found issues (continuing build...)"
+    echo " QML validation found issues (continuing build...)"
 }
 echo "----------------------------------------"
 "$SCRIPT_DIR/build-apps.sh"
 
 echo ""
 echo "============================================"
-echo "✅ Complete Build Successful!"
+echo "Complete Build Successful!"
 echo "============================================"
 echo ""
 echo "To run Marathon Shell:"

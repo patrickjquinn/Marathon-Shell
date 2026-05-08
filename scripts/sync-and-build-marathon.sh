@@ -17,9 +17,9 @@ MARATHON_IMAGE_DIR="$(dirname "$SCRIPT_DIR")"
 MARATHON_SHELL_DIR="$MARATHON_IMAGE_DIR/build/marathon-shell-source"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║     MARATHON OS - SYNC & BUILD FROM LATEST GITHUB CODE      ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------+"
+echo "|     MARATHON OS - SYNC & BUILD FROM LATEST GITHUB CODE      |"
+echo "+------------------------------------------------------------+"
 echo ""
 echo "Device: $DEVICE"
 echo "Timestamp: $TIMESTAMP"
@@ -55,7 +55,7 @@ echo "═══ STEP 1: Syncing Marathon Shell from GitHub ═══"
 echo ""
 
 if [ ! -d "$MARATHON_SHELL_DIR" ]; then
-    echo "❌ Marathon Shell directory not found: $MARATHON_SHELL_DIR"
+    echo "Marathon Shell directory not found: $MARATHON_SHELL_DIR"
     echo "   Cloning from GitHub..."
     mkdir -p "$(dirname "$MARATHON_SHELL_DIR")"
     git clone "$MARATHON_SHELL_REPO_URL" "$MARATHON_SHELL_DIR" || \
@@ -63,11 +63,11 @@ if [ ! -d "$MARATHON_SHELL_DIR" ]; then
     cd "$MARATHON_SHELL_DIR"
 else
     cd "$MARATHON_SHELL_DIR"
-    echo "📥 Pulling latest changes from GitHub..."
+    echo "Pulling latest changes from GitHub..."
     
     # Stash any local changes
     if ! git diff-index --quiet HEAD --; then
-        echo "⚠️  Local changes detected, stashing..."
+        echo " Local changes detected, stashing..."
         git stash
     fi
     
@@ -75,7 +75,7 @@ else
     git fetch origin
     git pull origin main || git pull origin master
     
-    echo "✅ Marathon Shell synced to latest commit:"
+    echo "Marathon Shell synced to latest commit:"
     git log -1 --oneline
 fi
 
@@ -83,7 +83,7 @@ echo ""
 
 # Step 2: APKBUILD now pulls directly from GitHub - no tarball needed
 echo "═══ STEP 2: APKBUILD configured to pull from GitHub ═══"
-echo "✅ Marathon Shell will be fetched directly from GitHub during build"
+echo "Marathon Shell will be fetched directly from GitHub during build"
 echo ""
 
 # Step 3: Build Marathon Shell package
@@ -133,7 +133,7 @@ pmbootstrap build linux-marathon
 echo "Building marathon-shell..."
 pmbootstrap build marathon-shell --force
 
-echo "✅ Marathon Shell built"
+echo "Marathon Shell built"
 echo ""
 
 # Step 4: Install and Generate Image
@@ -173,7 +173,7 @@ if [ -f "$OP6_APKBUILD" ]; then
     if grep -q 'linux-postmarketos-qcom-sdm845' "$OP6_APKBUILD"; then
         echo "Patching device-oneplus-enchilada to depend on linux-marathon..."
         sed -i 's/linux-postmarketos-qcom-sdm845/linux-marathon/g' "$OP6_APKBUILD"
-        echo "✅ Patched device-oneplus-enchilada (kernel -> linux-marathon)"
+        echo "Patched device-oneplus-enchilada (kernel -> linux-marathon)"
         echo ""
 
         echo "Rebuilding device-oneplus-enchilada package so the patched dependency takes effect..."
@@ -186,7 +186,7 @@ fi
 # Install the Marathon meta-package for OnePlus 6 (pulls kernel + shell + config)
 pmbootstrap install --zap --add device-oneplus-enchilada-marathon --password 147147
 
-echo "✅ System image generated"
+echo "System image generated"
 echo ""
 
 # Step 5: Verify installation (in the new rootfs)
@@ -205,7 +205,7 @@ echo "Checking QML modules..."
 pmbootstrap chroot --rootfs -- ls /usr/lib/qt6/qml/MarathonUI/ 2>/dev/null | head -8
 
 echo ""
-echo "✅ Installation verified"
+echo "Installation verified"
 echo ""
 
 # Step 6: Export images
@@ -215,7 +215,7 @@ echo ""
 EXPORT_DIR="/tmp/marathon-export-${TIMESTAMP}"
 pmbootstrap export "$EXPORT_DIR"
 
-echo "✅ Images exported to $EXPORT_DIR"
+echo "Images exported to $EXPORT_DIR"
 echo ""
 
 # Step 7: Copy to out directory
@@ -230,17 +230,17 @@ ROOT_SRC="$EXPORT_DIR/${DEVICE}.img"
 if [ -f "$BOOT_SRC" ]; then
     cp "$BOOT_SRC" "out/$DEVICE/boot-MARATHON-SYNCED-${TIMESTAMP}.img"
     BOOT_SIZE=$(ls -lh "out/$DEVICE/boot-MARATHON-SYNCED-${TIMESTAMP}.img" | awk '{print $5}')
-    echo "✅ Boot image: $BOOT_SIZE"
+    echo "Boot image: $BOOT_SIZE"
 else
-    echo "⚠️  Boot image not found at $BOOT_SRC"
+    echo " Boot image not found at $BOOT_SRC"
 fi
 
 if [ -f "$ROOT_SRC" ]; then
     cp "$ROOT_SRC" "out/$DEVICE/${DEVICE}-MARATHON-SYNCED-${TIMESTAMP}.img"
     ROOT_SIZE=$(ls -lh "out/$DEVICE/${DEVICE}-MARATHON-SYNCED-${TIMESTAMP}.img" | awk '{print $5}')
-    echo "✅ Root image: $ROOT_SIZE"
+    echo "Root image: $ROOT_SIZE"
 else
-    echo "⚠️  Root image not found at $ROOT_SRC"
+    echo " Root image not found at $ROOT_SRC"
     # Try to list export dir to help debugging
     echo "Contents of export dir:"
     ls -l "$EXPORT_DIR"
@@ -267,32 +267,32 @@ if [ -d "$HOME/Developer/personal" ]; then
     ln -sf "oneplus-enchilada-MARATHON-SYNCED-${TIMESTAMP}.img" "oneplus-enchilada-MARATHON-LATEST.img"
     cd -
     
-    echo "✅ Images copied to $HOME/Developer/personal/"
+    echo "Images copied to $HOME/Developer/personal/"
 fi
 
 echo ""
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║              ✅ SYNC & BUILD COMPLETE ✅                      ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------+"
+echo "|             SYNC & BUILD COMPLETE                     |"
+echo "+------------------------------------------------------------+"
 echo ""
-echo "📦 Images with Latest Marathon Shell:"
+echo "Images with Latest Marathon Shell:"
 echo "   Boot:  out/$DEVICE/boot-MARATHON-SYNCED-${TIMESTAMP}.img ($BOOT_SIZE)"
 echo "   Root:  out/$DEVICE/${DEVICE}-MARATHON-SYNCED-${TIMESTAMP}.img ($ROOT_SIZE)"
 echo ""
-echo "🔗 Latest Symlinks:"
+echo "Latest Symlinks:"
 echo "   out/$DEVICE/boot-MARATHON-LATEST.img"
 echo "   out/$DEVICE/${DEVICE}-MARATHON-LATEST.img"
 echo ""
-echo "📝 Marathon Shell Info:"
+echo "Marathon Shell Info:"
 cd "$MARATHON_SHELL_DIR"
 echo "   Commit: $(git log -1 --oneline)"
 echo "   Branch: $(git branch --show-current)"
 cd "$MARATHON_IMAGE_DIR"
 echo ""
-echo "🚀 Flash Commands:"
+echo "Flash Commands:"
 echo "   fastboot flash boot out/$DEVICE/boot-MARATHON-LATEST.img"
 echo "   fastboot flash userdata out/$DEVICE/${DEVICE}-MARATHON-LATEST.img"
 echo "   fastboot reboot"
 echo ""
-echo "🎉 Ready to flash!"
+echo "Ready to flash!"
 echo ""

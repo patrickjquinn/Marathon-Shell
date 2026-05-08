@@ -15,16 +15,16 @@ else
     CORES=$(nproc)
 fi
 
-echo "💻 Detected $CORES CPU cores"
+echo "Detected $CORES CPU cores"
 
 # Clean build if requested
 if [ "$CLEAN" = "1" ]; then
-    echo "🧹 Clean build requested, removing build directories..."
+    echo "Clean build requested, removing build directories..."
     rm -rf build build-apps
 fi
 
 # Kill any existing instances first
-echo "🛑 Killing any running Marathon Shell instances..."
+echo "Killing any running Marathon Shell instances..."
 pkill -9 marathon-shell 2>/dev/null || true
 
 echo ""
@@ -34,19 +34,19 @@ echo "============================================"
 echo ""
 
 # Build everything using build-all.sh script
-echo "🏗️  Building Marathon Shell and Apps..."
+echo " Building Marathon Shell and Apps..."
 ./scripts/build-all.sh
 
 if [ $? -eq 0 ]; then
     echo ""
-    echo "✅ Complete build successful!"
+    echo "Complete build successful!"
     echo ""
-    echo "🚀 Starting Marathon Shell..."
+    echo "Starting Marathon Shell..."
     echo ""
     
     # Check for debug mode
     if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
-        echo "🐛 Debug mode enabled (MARATHON_DEBUG=$MARATHON_DEBUG)"
+        echo "Debug mode enabled (MARATHON_DEBUG=$MARATHON_DEBUG)"
         echo ""
     fi
     
@@ -54,7 +54,7 @@ if [ $? -eq 0 ]; then
     if [ "$MARATHON_DEBUG" = "1" ] || [ "$MARATHON_DEBUG" = "true" ]; then
         export QML_DISABLE_DISK_CACHE=1
         export QT_LOGGING_RULES="qml.debug=false;qt.qml.debug=false;qt.quick.debug=false"
-        echo "🔍 QML validation enabled (cache disabled, reduced logging)"
+        echo "QML validation enabled (cache disabled, reduced logging)"
         echo ""
     else
         # Disable all debug logging in production
@@ -81,6 +81,6 @@ if [ $? -eq 0 ]; then
         ./build/shell/marathon-shell
     fi
 else
-    echo "❌ Build failed!"
+    echo "Build failed!"
     exit 1
 fi

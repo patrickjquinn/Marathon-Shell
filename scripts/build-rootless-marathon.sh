@@ -4,7 +4,7 @@
 # packs ext4 image, validates rootless boot.
 #
 # marathon-shell apk (Qt6/QML/WebEngine) is OPTIONAL via WITH_MARATHON_SHELL=1
-# — it's a 30+ minute first-build because of WebEngine.
+# -- it's a 30+ minute first-build because of WebEngine.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,7 +18,7 @@ MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-/home/patrickquinn/Developer/Marathon-
 
 mkdir -p "$OUT_DIR" "$WORK_DIR" "$PKGCACHE"
 
-echo "═══ stage 2 — Marathon pmOS rootless build (systemd) ═══"
+echo "═══ stage 2 -- Marathon pmOS rootless build (systemd) ═══"
 echo "WITH_MARATHON_SHELL=$WITH_MARATHON_SHELL"
 
 podman run --rm -i \
@@ -44,7 +44,7 @@ echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
 # ─ 1. Build marathon-base-config (file-only, fast) ─
 echo "─ building marathon-base-config ─"
 mkdir -p /work/aports
-# Use --checksum so file content drives sync, not mtime — bind-mount mtime
+# Use --checksum so file content drives sync, not mtime -- bind-mount mtime
 # preservation under SELinux :Z relabel can leave stale content in the
 # work tree. Also force --no-times to avoid carrying mtimes that confuse
 # later rsync compares.
@@ -53,7 +53,7 @@ cd /work/aports/marathon-base-config
 abuild -F checksum >/dev/null 2>&1
 abuild -d -F 2>&1 | tail -2
 
-# Optional: marathon-shell — heavy (Qt6 + WebEngine)
+# Optional: marathon-shell -- heavy (Qt6 + WebEngine)
 if [ "${WITH_MARATHON_SHELL:-0}" = "1" ]; then
     echo "─ building marathon-shell (Qt6/QML/WebEngine, ~30min cold) ─"
     SHELL_VERSION=$(grep -E '^pkgver=' /work/aports/marathon-shell/APKBUILD | cut -d= -f2)
@@ -100,10 +100,10 @@ ROOTFS=/work/rootfs
 rm -rf "$ROOTFS"; mkdir -p "$ROOTFS"
 
 # Pull from systemd extra-repo. Order matters:
-#   alpine main/community  — base userland
-#   pmOS master            — postmarketos-base, mkinitfs, device-qemu
-#   pmOS extra-repos/systemd/master  — systemd-targeting overrides
-#   local-apks             — marathon-base-config (and marathon-shell)
+#   alpine main/community  -- base userland
+#   pmOS master            -- postmarketos-base, mkinitfs, device-qemu
+#   pmOS extra-repos/systemd/master  -- systemd-targeting overrides
+#   local-apks             -- marathon-base-config (and marathon-shell)
 EXTRAS="postmarketos-base-systemd"
 [ "${WITH_MARATHON_SHELL:-0}" = "1" ] && EXTRAS="$EXTRAS marathon-shell"
 
@@ -124,9 +124,9 @@ apk.static \
         losetup util-linux-misc \
         greetd dbus polkit \
         marathon-base-config 2>&1 | tail -10 || \
-    echo "  (post-install trigger errors ok — will fix and continue)"
+    echo "  (post-install trigger errors ok -- will fix and continue)"
 
-# ── First-boot pre-config ───────────────────────────────────────────────
+# ── First-boot pre-config -----------------------------------------------
 echo "─ pre-configuring firstboot (skip systemd-firstboot prompt) ─"
 mkdir -p "$ROOTFS/etc"
 echo "marathon" > "$ROOTFS/etc/hostname"
@@ -153,7 +153,7 @@ ln -sfn /usr/lib/firmware "$ROOTFS/lib/firmware"
 
 # Force-load virtio-gpu + DRM helpers on QEMU. systemd-modules-load.service
 # walks /etc/modules-load.d/* on boot. Listed modules don't exist on real
-# phone kernels — modprobe fails silently and we move on, so this is safe to
+# phone kernels -- modprobe fails silently and we move on, so this is safe to
 # always include.
 mkdir -p "$ROOTFS/etc/modules-load.d"
 cat > "$ROOTFS/etc/modules-load.d/marathon-qemu.conf" <<'EOMOD'
@@ -167,7 +167,7 @@ EOMOD
 # modules-load.d alone isn't sufficient: virtio_gpu pulls drm helper symbols
 # that don't resolve unless depmod is run with the rootfs's *actual* /lib/modules
 # layout (not the stale paths baked in by the apk's depmod). Run depmod -a at
-# boot — once — before greetd starts.
+# boot -- once -- before greetd starts.
 mkdir -p "$ROOTFS/etc/systemd/system/sysinit.target.wants"
 cat > "$ROOTFS/etc/systemd/system/marathon-modprobe.service" <<'EOSVC'
 [Unit]
@@ -194,7 +194,7 @@ EOSVC
 ln -sfn /etc/systemd/system/marathon-modprobe.service \
     "$ROOTFS/etc/systemd/system/sysinit.target.wants/marathon-modprobe.service"
 
-# Force a default user 'user' (UID 10000 — pmOS convention).
+# Force a default user 'user' (UID 10000 -- pmOS convention).
 echo "─ creating default user ─"
 echo "user:x:10000:10000:Linux User,,,:/home/user:/bin/bash" >> "$ROOTFS/etc/passwd"
 # Shadow lastchange=20000 (days since epoch ≈ 2024-10-04). 0 would set
@@ -228,7 +228,7 @@ BEGIN { FS=":"; OFS=":" }
 }' "$ROOTFS/etc/group" > "$TMPF"
 cp "$TMPF" "$ROOTFS/etc/group"
 rm -f "$TMPF"
-# Restore world-readable perms — cp inherits the rootless container's umask
+# Restore world-readable perms -- cp inherits the rootless container's umask
 # (usually 077), so the new /etc/group lands at 0600 and dbus / nss lookups
 # fail with EACCES for non-root users. /etc/passwd needs the same belt+braces.
 chmod 0644 "$ROOTFS/etc/group" "$ROOTFS/etc/passwd"
@@ -241,7 +241,7 @@ ln -sfn /usr/lib/systemd/system/graphical.target "$ROOTFS/etc/systemd/system/def
 # Mask getty@tty1 so greetd owns tty1 without race.
 ln -sfn /dev/null "$ROOTFS/etc/systemd/system/getty@tty1.service"
 
-# Mask serial-getty too — agetty restart loop on ttyAMA0 spams the log.
+# Mask serial-getty too -- agetty restart loop on ttyAMA0 spams the log.
 ln -sfn /dev/null "$ROOTFS/etc/systemd/system/serial-getty@ttyAMA0.service"
 
 # Enable greetd (graphical.target.wants).
@@ -259,13 +259,13 @@ StandardError=journal+console
 EOF
 
 # Permissive PAM stack for greetd autologin. The default user has no system
-# password by design — there's no SSH/console login expected on a phone.
+# password by design -- there's no SSH/console login expected on a phone.
 # The DEVICE PIN is set during Marathon's OOBE and stored via SecurityManager,
-# unlocking the shell — not PAM. For greetd's autologin we just need pam_permit
+# unlocking the shell -- not PAM. For greetd's autologin we just need pam_permit
 # to skip the account+auth checks while keeping pam_systemd for session setup.
 mkdir -p "$ROOTFS/etc/pam.d"
 cat > "$ROOTFS/etc/pam.d/greetd" <<'EOF'
-# greetd autologin — permissive: a phone is single-seat, no system password.
+# greetd autologin -- permissive: a phone is single-seat, no system password.
 # The shell handles its own lock via Marathon's QuickPIN (stored by
 # SecurityManager). System-level account + auth therefore short-circuit.
 auth        sufficient  pam_permit.so

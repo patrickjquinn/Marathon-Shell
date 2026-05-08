@@ -7,9 +7,9 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║          MARATHON OS - COMPLETE BUILD WORKFLOW              ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------+"
+echo "|          MARATHON OS - COMPLETE BUILD WORKFLOW              |"
+echo "+------------------------------------------------------------+"
 echo ""
 
 # Step 1: Update checksums
@@ -30,7 +30,7 @@ echo ""
 pmbootstrap checksum marathon-shell
 
 echo ""
-echo "✅ Checksums updated"
+echo "Checksums updated"
 echo "Syncing updated APKBUILD back to local packages..."
 cp "$PMAPORTS_DIR/device/marathon/marathon-shell/APKBUILD" "packages/marathon-shell/APKBUILD"
 echo ""
@@ -44,6 +44,6 @@ DEVICE="${1:-oneplus-enchilada}"
 ./scripts/sync-and-build-marathon.sh "$DEVICE"
 
 echo ""
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║                  ✅ BUILD COMPLETE ✅                         ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------+"
+echo "|                 BUILD COMPLETE                        |"
+echo "+------------------------------------------------------------+"

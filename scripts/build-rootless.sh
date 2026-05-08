@@ -1,5 +1,5 @@
 #!/bin/bash
-# Marathon-Image — fully rootless aarch64 pmOS image build.
+# Marathon-Image -- fully rootless aarch64 pmOS image build.
 #
 # No `sudo` invoked anywhere on the host. Uses rootless podman + Alpine to
 # host the apk install, then `mke2fs -d` (e2fsprogs >= 1.43) to build a
@@ -27,7 +27,7 @@ echo ""
 
 MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-/home/patrickquinn/Developer/Marathon-Shell}"
 
-# Run as root inside the rootless podman container — that's still rootless on
+# Run as root inside the rootless podman container -- that's still rootless on
 # the host (container root maps to host UID via user namespaces). Use abuild
 # with -F (force-as-root) since rootless podman doesn't have the subuid range
 # to give us a separate non-root build user.
@@ -42,7 +42,7 @@ set -euo pipefail
 echo "container: $(uname -a | head -1)"
 echo "apk: $(apk --version 2>&1 | head -1)"
 
-# ── tools ──────────────────────────────────────────────────────────────
+# ── tools ------------------------------------------------------------
 apk add --no-cache --quiet \
     apk-tools-static e2fsprogs xz cpio gzip rsync abuild bash \
     curl ca-certificates git util-linux 2>&1 | tail -2
@@ -56,7 +56,7 @@ cp "$KEY_PUB" /etc/apk/keys/
 export PACKAGER_PRIVKEY="$KEY_PRIV"
 echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
 
-# ── 1. Marathon-base-config (file-only package, fast) ──────────────────
+# ── 1. Marathon-base-config (file-only package, fast) ------------------
 echo ""
 echo "═══ 1/6 building marathon-base-config ═══"
 mkdir -p /work/aports
@@ -66,7 +66,7 @@ cd /work/aports/marathon-base-config
 abuild -F checksum >/dev/null 2>&1
 abuild -d -F 2>&1 | tail -3
 
-# ── 2. Marathon-shell — heavy build (Qt6/QML/WebEngine) ────────────────
+# ── 2. Marathon-shell -- heavy build (Qt6/QML/WebEngine) ----------------
 echo ""
 echo "═══ 2/6 building marathon-shell (Qt6 build, ~10-20min cold) ═══"
 
@@ -105,7 +105,7 @@ abuild -d -F 2>&1 | tee /tmp/marathon-shell-build.log | tail -10
 echo "  build log: $(wc -l < /tmp/marathon-shell-build.log) lines"
 ls /root/packages/aports/aarch64/ 2>/dev/null | head -10
 
-# ── 3. Stage local apks as a repo ───────────────────────────────────────
+# ── 3. Stage local apks as a repo ---------------------------------------
 echo ""
 echo "═══ 3/6 staging local apk repo ═══"
 LOCAL_REPO_DIR=/work/local-apks
@@ -118,7 +118,7 @@ ls "$LOCAL_REPO_DIR/aarch64/"
   apk index -o APKINDEX.tar.gz *.apk 2>/dev/null && \
   abuild-sign -k "$KEY_PRIV" APKINDEX.tar.gz )
 
-# ── 4. Bootstrap pmOS rootfs ───────────────────────────────────────────
+# ── 4. Bootstrap pmOS rootfs -------------------------------------------
 echo ""
 echo "═══ 4/6 bootstrapping pmOS rootfs (apk.static --root) ═══"
 ROOTFS=/work/rootfs
@@ -144,7 +144,7 @@ apk.static \
     openrc \
     marathon-base-config marathon-shell 2>&1 | tail -20
 
-# ── 5. Generate initramfs ──────────────────────────────────────────────
+# ── 5. Generate initramfs ----------------------------------------------
 echo ""
 echo "═══ 5/6 generating initramfs ═══"
 chroot "$ROOTFS" /sbin/mkinitfs 2>&1 | tail -5 || true
@@ -154,7 +154,7 @@ INITRAMFS=$(ls "$ROOTFS"/boot/initramfs* 2>/dev/null | head -1)
 echo "kernel:    ${KERNEL:-MISSING}"
 echo "initramfs: ${INITRAMFS:-MISSING}"
 
-# ── 6. Build ext4 rootfs.img ───────────────────────────────────────────
+# ── 6. Build ext4 rootfs.img -------------------------------------------
 echo ""
 echo "═══ 6/6 building ext4 image (mke2fs -d) ═══"
 SIZE_BYTES=$(du -sb "$ROOTFS" | cut -f1)

@@ -62,9 +62,9 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 LOG_DIR="/tmp/marathon-qemu-logs-${TIMESTAMP}"
 mkdir -p "$LOG_DIR"
 
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║       MARATHON OS - QEMU BUILD AND RUN                      ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------+"
+echo "|       MARATHON OS - QEMU BUILD AND RUN                      |"
+echo "+------------------------------------------------------------+"
 echo ""
 echo "Device:    $DEVICE ($PMARCH)"
 echo "Target:    $ARCH_INPUT -> $ARCH ($PMARCH)"
@@ -105,7 +105,7 @@ pmbootstrap config extra_space 2048
 # MIRROR IS DOWN - Building locally instead
 # pmbootstrap config mirrors.systemd "http://postmarketos.craftyguy.net/extra-repos/systemd/"
 
-echo "✅ pmbootstrap configured for $DEVICE"
+echo "pmbootstrap configured for $DEVICE"
 pmbootstrap status 2>&1 || true
 echo ""
 
@@ -146,7 +146,7 @@ cp -r packages/marathon-base-config "$PMAPORTS_DIR/main/"
 rm -rf "$PMAPORTS_DIR/main/marathon-boot-logo"
 cp -r packages/marathon-boot-logo "$PMAPORTS_DIR/main/"
 
-echo "✅ Marathon packages copied to pmaports"
+echo "Marathon packages copied to pmaports"
 
 # Patch deviceinfo for QEMU resolution
 echo "Patching deviceinfo for ${MOBILE_WIDTH}x${MOBILE_HEIGHT} portrait mobile resolution..."
@@ -171,7 +171,7 @@ if grep -q '^deviceinfo_kernel_cmdline=' "$DEVICEINFO"; then
         sed -i -E "s/(^deviceinfo_kernel_cmdline=\"[^\"]*)\"/\1 video=${KERNEL_VIDEO_MODE}\"/" "$DEVICEINFO"
     fi
 fi
-echo "✅ deviceinfo patched"
+echo "deviceinfo patched"
 echo ""
 
 # ==============================================================================
@@ -186,9 +186,9 @@ MARATHON_SHELL_APKBUILD="$PMAPORTS_DIR/main/marathon-shell/APKBUILD"
 if [ "$PMARCH" = "x86_64" ]; then
     if ! grep -q "x86_64" "$MARATHON_SHELL_APKBUILD"; then
         sed -i 's/^arch="aarch64"$/arch="aarch64 x86_64"/' "$MARATHON_SHELL_APKBUILD"
-        echo "✅ Added x86_64 to marathon-shell arch"
+        echo "Added x86_64 to marathon-shell arch"
     else
-        echo "✅ marathon-shell already supports x86_64"
+        echo "marathon-shell already supports x86_64"
     fi
 fi
 
@@ -201,7 +201,7 @@ if [ "$PMARCH" = "x86_64" ]; then
     CURRENT_PKGREL=$(grep "^pkgrel=" "$MARATHON_SHELL_APKBUILD" | cut -d= -f2)
     NEW_PKGREL=$((CURRENT_PKGREL + 1))
     sed -i "s/^pkgrel=$CURRENT_PKGREL$/pkgrel=$NEW_PKGREL/" "$MARATHON_SHELL_APKBUILD"
-    echo "✅ Bumped pkgrel to $NEW_PKGREL"
+    echo "Bumped pkgrel to $NEW_PKGREL"
 fi
 echo ""
 
@@ -231,7 +231,7 @@ echo ""
 # picks up portrait geometry in the generated image.
 echo "Building device package for $DEVICE..."
 pmbootstrap build --arch "$PMARCH" "device-$DEVICE" --force || {
-    echo "⚠️  Could not build device-$DEVICE - trying to continue..."
+    echo " Could not build device-$DEVICE - trying to continue..."
 }
 echo ""
 
@@ -242,7 +242,7 @@ echo "Building systemd core packages from extra-repos/systemd..."
 for pkg in systemd dbus systemd-services polkit postmarketos-base-systemd; do
     echo "Building $pkg..."
     pmbootstrap build --arch "$PMARCH" "$pkg" --force || {
-        echo "⚠️  Could not build $pkg - trying to continue..."
+        echo " Could not build $pkg - trying to continue..."
     }
 done
 echo ""
@@ -256,7 +256,7 @@ pmbootstrap build --arch "$PMARCH" marathon-boot-logo
 echo "Building marathon-shell..."
 pmbootstrap build --arch "$PMARCH" marathon-shell --force
 
-echo "✅ Marathon packages built"
+echo "Marathon packages built"
 echo ""
 
 # ==============================================================================
@@ -281,7 +281,7 @@ pmbootstrap install \
     --add marathon-shell,marathon-base-config,greetd \
     --password 147147
 
-echo "✅ Marathon OS image installed"
+echo "Marathon OS image installed"
 echo ""
 
 # ==============================================================================
@@ -435,7 +435,7 @@ SESSIONEOF
     echo "d /run/user/10000 0700 user user -" > /etc/tmpfiles.d/marathon-user.conf
 
     echo ""
-    echo "✅ QEMU post-install configuration complete"
+    echo "QEMU post-install configuration complete"
 '
 
 echo ""
@@ -449,7 +449,7 @@ echo ""
 EXPORT_DIR="/tmp/marathon-qemu-${TIMESTAMP}"
 pmbootstrap export "$EXPORT_DIR"
 
-echo "✅ Images exported to $EXPORT_DIR"
+echo "Images exported to $EXPORT_DIR"
 ls -lh "$EXPORT_DIR"
 echo ""
 
@@ -459,14 +459,14 @@ echo ""
 echo "═══ STEP 10: Launching QEMU ═══"
 echo ""
 
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║              ✅ BUILD COMPLETE - LAUNCHING QEMU ✅            ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
+echo "+------------------------------------------------------------+"
+echo "|             BUILD COMPLETE - LAUNCHING QEMU           |"
+echo "+------------------------------------------------------------+"
 echo ""
-echo "📦 Image exported to: $EXPORT_DIR"
-echo "📋 Build logs: $LOG_DIR"
-echo "🔐 Login: user / 147147"
-echo "🔌 SSH: ssh -p 2222 user@localhost"
+echo "Image exported to: $EXPORT_DIR"
+echo "Build logs: $LOG_DIR"
+echo "Login: user / 147147"
+echo "SSH: ssh -p 2222 user@localhost"
 echo ""
 echo "Launching QEMU with Marathon OS..."
 echo "(Close the QEMU window or press Ctrl+C to exit)"

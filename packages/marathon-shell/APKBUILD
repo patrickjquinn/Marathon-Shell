@@ -177,15 +177,15 @@ package() {
 	fi
 
 	# Session script (overrides whatever upstream cmake install dropped under
-	# /usr/local — make sure /usr/bin/marathon-shell-session is OUR pmOS one).
+	# /usr/local -- make sure /usr/bin/marathon-shell-session is OUR pmOS one).
 	install -Dm755 "$srcdir/marathon-shell-session" \
 		"$pkgdir/usr/bin/marathon-shell-session"
 
-	# PAM stack — required for screen unlock + biometric auth.
+	# PAM stack -- required for screen unlock + biometric auth.
 	install -Dm644 "$srcdir/pam-marathon-shell" \
 		"$pkgdir/etc/pam.d/marathon-shell"
 
-	# Backlight udev rule — non-root brightness control.
+	# Backlight udev rule -- non-root brightness control.
 	install -Dm644 "$srcdir/90-backlight.rules" \
 		"$pkgdir/usr/lib/udev/rules.d/90-backlight.rules"
 

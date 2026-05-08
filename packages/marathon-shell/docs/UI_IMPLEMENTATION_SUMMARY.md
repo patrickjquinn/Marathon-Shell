@@ -19,7 +19,7 @@ Successfully transformed MarathonUI from functional to **delightful** with compr
 
 **Impact**: Cards now have clear visual hierarchy, teal accents pop, interactions are more visible.
 
-### 🌊 Motion System (`MMotion.qml` - NEW)
+###Motion System (`MMotion.qml` - NEW)
 -  Duration tokens (instant, micro, quick, moderate, slow, slower)
 -  Spring physics parameters (springLight/Medium/Heavy + damping)
 -  Easing curves (standard, decelerate, accelerate, emphasized, sharp)
@@ -29,7 +29,7 @@ Successfully transformed MarathonUI from functional to **delightful** with compr
 
 **Impact**: Animations now feel natural and responsive, not robotic.
 
-### 💧 Ripple Effect Component (`MRipple.qml` - NEW)
+###Ripple Effect Component (`MRipple.qml` - NEW)
 -  Touch-point origin ripple expansion
 -  Configurable color
 -  Performance-optimized with single animation

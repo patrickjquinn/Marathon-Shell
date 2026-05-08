@@ -35,7 +35,7 @@ Marathon Shell is a Wayland compositor and application shell that provides a com
 - **Audio**: Volume, routing
 - **Notifications**: System-wide notification service
 
-## 📋 Requirements
+##Requirements
 
 ### Build Dependencies
 ```bash
@@ -71,7 +71,7 @@ sudo apt install cmake ninja-build g++ \
 - `qt6-qtwebengine-devel` - Real browser (otherwise uses mockup UI)
 - `qt6-qtvirtualkeyboard-devel` - Virtual keyboard support
 
-## 🔨 Building
+##Building
 
 ### Quick Start
 ```bash
@@ -137,7 +137,7 @@ MARATHON_DEBUG=1 ./run.sh
 - **Swipe Left/Right**: Navigate between Hub/Switcher/App Grid
 - **Long Press App**: Task switcher
 
-## 📁 Project Structure
+##Project Structure
 
 ```
 Marathon-Shell/
@@ -258,7 +258,7 @@ gdb --args ./build/shell/marathon-shell
 valgrind --leak-check=full ./build/shell/marathon-shell
 ```
 
-## 🐧 Native App Integration Details
+##Native App Integration Details
 
 ### How It Works
 
@@ -301,7 +301,7 @@ valgrind --leak-check=full ./build/shell/marathon-shell
 - D-Bus system bus services
 - Root/privileged applications
 
-## 🚧 Known Issues
+##Known Issues
 
 ### Build Warnings (Benign)
 - `Qt6WebEngineQuick not found` - Browser uses mockup UI (expected)
@@ -318,7 +318,7 @@ valgrind --leak-check=full ./build/shell/marathon-shell
 - Some Flatpak apps need additional permissions configured
 - Snap apps require `snap connect APP:wayland :wayland`
 
-## 📖 Documentation
+##Documentation
 
 - **[App Development](docs/APP_DEVELOPMENT.md)** - Creating Marathon apps
 - **[UI Design System](docs/UI_DESIGN_SYSTEM.md)** - MarathonUI component guide

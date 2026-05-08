@@ -18,12 +18,12 @@ echo "============================================"
 echo ""
 
 # Clean install directory before building
-echo "🧹 Cleaning install directory..."
+echo "Cleaning install directory..."
 if [ -d "$INSTALL_DIR" ]; then
     rm -rf "$INSTALL_DIR"/*
-    echo "✅ Cleaned existing apps from $INSTALL_DIR"
+    echo "Cleaned existing apps from $INSTALL_DIR"
 else
-    echo "📁 Install directory doesn't exist, will be created"
+    echo "Install directory doesn't exist, will be created"
 fi
 echo ""
 
@@ -48,13 +48,13 @@ if [ ! -f "CMakeCache.txt" ] || [ "$PROJECT_ROOT/apps/CMakeLists.txt" -nt "CMake
         -DCMAKE_BUILD_TYPE=Release \
         -DMARATHON_APPS_DIR="$INSTALL_DIR"
 else
-    echo "⚡ Skipping CMake configuration (no changes detected)"
+    echo "Skipping CMake configuration (no changes detected)"
 fi
 
 echo ""
-echo "🔍 Linting QML files..."
+echo "Linting QML files..."
 find "$PROJECT_ROOT/apps" -name "*.qml" -exec qmllint {} \; 2>/dev/null || {
-    echo "⚠️  QML linting found issues (continuing build...)"
+    echo " QML linting found issues (continuing build...)"
 }
 
 echo "Building apps..."
@@ -73,9 +73,9 @@ echo "Installing apps to $INSTALL_DIR..."
 cmake --install .
 
 # Add warning file to installed apps directory
-echo "📝 Adding DO NOT EDIT warning..."
+echo "Adding DO NOT EDIT warning..."
 cat > "$INSTALL_DIR/DO_NOT_EDIT_WARNING.txt" << 'EOF'
-⚠️  WARNING: DO NOT EDIT APPS IN THIS DIRECTORY! ⚠️
+ WARNING: DO NOT EDIT APPS IN THIS DIRECTORY!
 
 This directory contains INSTALLED COPIES of Marathon apps.
 These files are overwritten every time you run ./run.sh or ./scripts/build-apps.sh
@@ -98,7 +98,7 @@ EOF
 for app in "$INSTALL_DIR"/*; do
     if [ -d "$app" ] && [ "$(basename "$app")" != "." ]; then
         cat > "$app/.do-not-edit" << 'MARKER'
-⚠️  DO NOT EDIT FILES IN THIS DIRECTORY ⚠️
+ DO NOT EDIT FILES IN THIS DIRECTORY
 
 This is an INSTALLED COPY. Changes here will be LOST.
 Edit source files in: /Users/patrick.quinn/Developer/personal/Marathon-Shell/apps/
@@ -108,9 +108,9 @@ MARKER
 done
 
 echo ""
-echo "✅ All apps built and installed successfully!"
+echo "All apps built and installed successfully!"
 echo ""
-echo "⚠️  WARNING: Apps in $INSTALL_DIR are installed copies!"
+echo " WARNING: Apps in $INSTALL_DIR are installed copies!"
 echo "   Edit source files in $PROJECT_ROOT/apps/ instead"
 echo ""
 echo "Installed apps:"
@@ -122,15 +122,15 @@ for app in "$INSTALL_DIR"/*; do
         appname=$(basename "$app")
         echo "  $appname/"
         if [ -f "$app/lib${appname}-plugin.dylib" ] || [ -f "$app/lib${appname}-plugin.so" ]; then
-            echo "    ✓ C++ plugin found"
+            echo "   C++ plugin found"
         else
             echo "    ○ Pure QML"
         fi
         if [ -f "$app/manifest.json" ]; then
-            echo "    ✓ manifest.json"
+            echo "   manifest.json"
         fi
         if [ -f "$app/qmldir" ]; then
-            echo "    ✓ qmldir"
+            echo "   qmldir"
         fi
     fi
 done
