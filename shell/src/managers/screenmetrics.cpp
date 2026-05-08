@@ -1,5 +1,6 @@
 #include "screenmetrics.h"
 
+#include <QByteArray>
 #include <QGuiApplication>
 #include <QScreen>
 
@@ -39,6 +40,22 @@ void ScreenMetrics::attachToScreen(QScreen *screen) {
 }
 
 qreal ScreenMetrics::computeDpi(QScreen *screen) const {
+    // MARATHON_FORCE_DPI overrides everything below — Qt derives DPI from EDID,
+    // and emulated panels (QEMU virtio-gpu, some VM display protocols) report
+    // a fake desktop-monitor physical size that yields ~108 DPI on a 720x1440
+    // canvas. The shell scales every metric off Constants.scaleFactor = dpi/160,
+    // so without this override the UI lands at desktop scale on a phone-shaped
+    // screen. Real phone hardware advertises correct EDID, so this env stays
+    // unset in production and behavior is unchanged.
+    const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
+    if (!forced.isEmpty()) {
+        bool        ok      = false;
+        const qreal forcedV = forced.toDouble(&ok);
+        if (ok && forcedV > 0.0) {
+            return forcedV;
+        }
+    }
+
     if (!screen) {
         return 0.0;
     }
