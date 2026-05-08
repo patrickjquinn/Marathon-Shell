@@ -1,55 +1,107 @@
 #!/bin/sh
-# Marathon Shell Wayland Session Startup Script
-# Sets up environment and launches the shell
+# Marathon Shell session entry point (postmarketOS).
+#
+# Run as the auto-login user via greetd. Sets up the Wayland compositor
+# environment, picks the right QPA backend for the target hardware, and
+# execs the shell binary.
 
-# Set session name
+# ---- Session identity --------------------------------------------------------
+
 export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
 
-# Marathon-specific paths
-export MARATHON_PREFIX=/usr
-export MARATHON_APPS_DIR=~/.local/share/marathon-apps
+# ---- Marathon paths ----------------------------------------------------------
 
-# Qt/QML environment
-# Marathon Shell is the compositor; do not force a Wayland client platform plugin.
-# EGLFS is the expected backend on phone-like devices.
-export QT_QPA_PLATFORM=eglfs
-export QT_MEDIA_BACKEND=gstreamer
-# WebEngine sandbox doesn't work in many embedded/chroot environments.
-export QT_WEBENGINE_DISABLE_SANDBOX=1
-export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
-export QT_QUICK_CONTROLS_STYLE=Basic
-export QML_IMPORT_PATH=/usr/lib/qt6/qml:$QML_IMPORT_PATH
-export QML2_IMPORT_PATH=/usr/lib/qt6/qml:$QML2_IMPORT_PATH
+export MARATHON_PREFIX="${MARATHON_PREFIX:-/usr}"
+export MARATHON_APPS_DIR="${MARATHON_APPS_DIR:-/usr/share/marathon-apps}"
+export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-/usr/share/marathon-shell}"
 
-# Wayland environment
-export WAYLAND_DISPLAY=wayland-0
-export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+# QML modules ship under /usr/lib/qt6/qml on Alpine.
+export QML_IMPORT_PATH="/usr/lib/qt6/qml:${QML_IMPORT_PATH:-}"
+export QML2_IMPORT_PATH="/usr/lib/qt6/qml:${QML2_IMPORT_PATH:-}"
 
-# D-Bus session
-# Prefer dbus-run-session (provided by the normal dbus package on Alpine) to avoid dbus-launch (dbus-x11).
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    if command -v dbus-run-session >/dev/null 2>&1; then
-        exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+# ---- QPA platform selection --------------------------------------------------
+#
+# OVERRIDE order:
+#   1. $QT_QPA_PLATFORM already exported by the caller — respected.
+#   2. /sys/class/drm/card*/device/uevent contains "DRIVER=virtio_gpu"
+#      → QEMU VM, prefer "kms" (DRM-KMS direct rendering).
+#   3. Otherwise → "eglfs" (real phone hardware).
+#
+# Marathon Shell IS the compositor; we never want a Wayland-CLIENT plugin here.
+
+if [ -z "${QT_QPA_PLATFORM:-}" ]; then
+    if grep -qsE '^DRIVER=virtio_gpu' /sys/class/drm/card*/device/uevent 2>/dev/null; then
+        export QT_QPA_PLATFORM=kms
+    else
+        export QT_QPA_PLATFORM=eglfs
+        export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+        export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
     fi
 fi
 
-# Enable debug logging if requested
-if [ "$MARATHON_DEBUG" = "1" ]; then
-    export QT_LOGGING_RULES="*.debug=true;marathon.*.info=true"
+# ---- Qt-wide env -------------------------------------------------------------
+
+export QT_MEDIA_BACKEND=gstreamer
+export QT_WEBENGINE_DISABLE_SANDBOX=1
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export QT_QUICK_CONTROLS_STYLE=Basic
+
+# Disable Qt's HiDPI auto-scaling — Marathon does its own scale factor work
+# via Constants.scaleFactor and DEVICE_DPI.
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_ENABLE_HIGHDPI_SCALING=0
+
+# Threaded scenegraph (uses additional cores for paint/upload).
+export QSG_RENDER_LOOP=threaded
+
+# QML disk cache for fast cold-start.
+export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
+mkdir -p "$QT_QML_DISK_CACHE_PATH"
+
+# ---- Wayland runtime ---------------------------------------------------------
+
+export WAYLAND_DISPLAY=wayland-0
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+
+# ---- Logging -----------------------------------------------------------------
+# MARATHON_DEBUG=1 turns on full Qt logging. Without it, only warnings + the
+# marathon.* info channel reach the journal.
+
+if [ "${MARATHON_DEBUG:-0}" = "1" ]; then
+    export QT_LOGGING_RULES="*.debug=true;*.info=true;qt.qpa.input=true;marathon.*.info=true"
 else
     export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
 fi
 
-# Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
-export NO_AT_BRIDGE=1
-export GTK_A11Y=none
-export QT_ACCESSIBILITY=0
+# ---- Accessibility -----------------------------------------------------------
+# AT-SPI bridge enabled by default so Orca / accerciser see the shell. Set
+# MARATHON_NO_A11Y=1 in the user's environment to opt out (e.g. tiny systems
+# where at-spi2-core isn't installed).
 
-# GIO/GSettings - use memory backend if no dconf
+if [ "${MARATHON_NO_A11Y:-0}" = "1" ]; then
+    export NO_AT_BRIDGE=1
+    export GTK_A11Y=none
+    export QT_ACCESSIBILITY=0
+else
+    export QT_ACCESSIBILITY=1
+fi
+
+# ---- GIO / dconf fallback ---------------------------------------------------
+
 export GIO_USE_VFS=local
 export GSETTINGS_BACKEND=memory
 
-# Start the compositor
+# ---- D-Bus session bus -------------------------------------------------------
+# Prefer dbus-run-session (provided by the regular dbus package on Alpine).
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+fi
+
+# ---- Launch ------------------------------------------------------------------
+
 exec /usr/bin/marathon-shell-bin "$@"

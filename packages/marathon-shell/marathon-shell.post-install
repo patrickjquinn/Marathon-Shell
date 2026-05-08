@@ -1,11 +1,29 @@
 #!/bin/sh
+# marathon-shell post-install
+#
+# - Refresh ld cache (Marathon ships extra .so libs under /usr/lib).
+# - Grant CAP_SYS_NICE to the shell binary so it can elevate the QSGRender
+#   thread to SCHED_RR/1 without sudo at runtime. The 99-marathon-rtprio
+#   limits.d entry is a fallback for app processes; the shell main thread
+#   uses the capability path. See docs/RT_SCHEDULING.md upstream.
+# - Reload udev so the 90-backlight.rules apply on the running system.
 
-# marathon-shell post-install script
-# Run ldconfig to update the dynamic linker cache with MarathonUI library paths
-
-# Update ldconfig cache
 if command -v ldconfig >/dev/null 2>&1; then
     ldconfig
+fi
+
+if command -v setcap >/dev/null 2>&1 && [ -x /usr/bin/marathon-shell-bin ]; then
+    setcap 'cap_sys_nice+ep' /usr/bin/marathon-shell-bin || true
+fi
+
+if command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+fi
+
+# Refresh the AT-SPI bus so accessibility comes up on first boot.
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user daemon-reload 2>/dev/null || true
 fi
 
 exit 0

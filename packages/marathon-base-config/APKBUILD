@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=12
+pkgrel=14
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -33,6 +33,7 @@ depends="
 	tmux
 	font-noto
 	ttf-dejavu
+        greetd
 "
 install="$pkgname.post-install"
 options="!check"
@@ -80,27 +81,27 @@ package() {
 		"$pkgdir/usr/lib/systemd/system/marathon-shell.service"
 	install -Dm644 "$srcdir/greetd-marathon.toml" \
 		"$pkgdir/etc/greetd/config.toml"
-	
-	# Symlinks in package() because post-install runs before service file exists
-	install -d "$pkgdir/etc/systemd/system/graphical.target.wants"
-	ln -sf /usr/lib/systemd/system/marathon-shell.service \
-		"$pkgdir/etc/systemd/system/graphical.target.wants/marathon-shell.service"
-	ln -sf /usr/lib/systemd/system/marathon-shell.service \
-		"$pkgdir/etc/systemd/system/display-manager.service"
+	install -d "$pkgdir"/etc/systemd/system/graphical.target.wants
+	ln -sf /usr/lib/systemd/system/greetd.service \
+		"$pkgdir/etc/systemd/system/graphical.target.wants/greetd.service"
+	# Avoid console login racing with greetd on tty1.
+	ln -sf /dev/null "$pkgdir/etc/systemd/system/getty@tty1.service"
+
+	# Enable graphical target by default
 	ln -sf /usr/lib/systemd/system/graphical.target \
 		"$pkgdir/etc/systemd/system/default.target"
 }
 sha512sums="
-8b1a65e8a7fc5a638c3462062da4f4d19ad60ca1c754dfc0346d724df69742e8e38de66472548b06507ec712d462f6a6da0415a5d616bf577b15109c9d04675f  99-marathon.conf
+e1b37d47f0ac4b6f7bb65e904c976f276eaddafe300469832ca101ea88d519d6b3dcb01c2c0acc3ed4b15feb12b391662837c06860410cc025f1e37e52efc985  99-marathon.conf
 68ec412f971bd5e77394f75c617e9d00de495dac37b4f1ceba102a116475d20a6d6752bd85cd997fe422e4436461453b804b0f6a145ad3a321b8720f9e12c4eb  50-marathon-zram.conf
 1e67bd4c3535b35518b2677202a079be9ea3b12dee3d047ca86dde4e2b75d034b48712c0df9c2ab8ac000b014221f1dd3c0d84656e835a3cc4dde7b2d31b6002  60-marathon-cpufreq.rules
 36582312335aa3f821e4e474cebabb6735e83a2241187830eff03e8006a95b025184bd3eb9f00211976aec7e9ebfde16efccf8c58d0e59e3d159bcaa681b6f7d  60-marathon-iosched.rules
-7161cf7d0921688f038df7cee8df0367f656eb58bfcd3835043e0abb72a04a01478e4a850d5b42f813cdedafada29eec3dfe827396db836053c6e7cf280e00d7  60-gpu-acceleration.rules
-c749d2bc17b8330d9461a94b2b7ca8103c58f5f5130a8c50d67093c6f8fad461c6a3b6971f08d9fc989e29dd1ad951d6be2a65d04e998b3ea4dea581dcaa2f9b  50-marathon-limits.conf
+40ad9b1ad62ab31ab2e2a7b8497b4d87b9f906f079d0987e090a456164a93100f5630fa90c97b8fdc90e14f62f637c828883f872919bce5e310456f707264488  60-gpu-acceleration.rules
+a50ccf62ea599793e1fd1dea46ed3f545087ccb9a6a4a23f0ebe5a2c188c9a3cbfdf9521534f31fbab0c64361daaecfcf542ae5cbee12a353b6ccba3ea325a47  50-marathon-limits.conf
 80d4b35fc079fe96d3fe6672427765b7c884481551cf09af6da7c1de095ecd0aba8bacdf53f8c3b4f9c69ccfcb6ceea8a3dc44fa4ce9f98c8880384145edcf5b  50-pipewire-priority.conf
 eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339aaf6d34ec664b0d41b0f2e823ba37a5bdc3d8e2f8285fcdf  50-modemmanager-priority.conf
-b07a1172c593dc76244d796ff3c2a856cd07b0ef24fe4fb227520883b05e885120d256e4f23724f81527b8bdbf097efa61e1356c27ef93b563ba00a89b0898a0  50-gpu-acceleration.conf
-9d767358913c14aa3746f1b3fc174a4620cc71840e081e74ca582d6d544d33fd7447ed8f8af8ab7976e3d02d423407b67068ff469c1d8a63804399d0f5a5c61d  20-modesetting.conf
-4595a32032c32dcd99fa1c28ad3f7fb08d521eed125c38c36ad61b3aaeb110c3bae359927a309255803218902490748ee69f2a50844ed4e89b1b58cadd5740c9  marathon-shell.service
-9a1ca35e94bf594f8ed79a9a6e4b0edbf9445baf49583e69ac3ed8fae95583bcf99ef2e7397bdeaf423855b7357c01fbd437ee3355be13889603ed7f2bf4caef  greetd-marathon.toml
+2578e143e2ed73b6e038f64d1956685b42bb8850439bb15ecfe8ed68458c169d0cd7759245035516f2ce28092bbc0a78254994effd0430351ac138f81922df33  50-gpu-acceleration.conf
+a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb42b16994af9bed4506491d49f47504b8ffd4981f40d38a2e  20-modesetting.conf
+17ba6bb2983a53715a65475815dd9cbf24bbe5badbdd85e351d903cb2faafc69d48dfcc0ad316d1cd52709530cf15623cb694c7c32d02f2d3d8b5d9c87c0bcb2  marathon-shell.service
+962a78c489bb610e2725017dd41aeaaa7c031477a32c07148fe11277d0155c2b1d7b203f60294ff976e5004ba8311ce769ce4f2e5bf67d1aa5ec0d677018e63a  greetd-marathon.toml
 "
