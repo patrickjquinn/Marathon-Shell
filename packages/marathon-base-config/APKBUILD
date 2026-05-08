@@ -16,7 +16,7 @@ depends="
 	mesa-egl
 	mesa-dri-gallium
 	mesa-gles
-	mesa-vdpau-gallium
+	mesa-va-gallium
 	mesa-utils
 	pipewire
 	pipewire-pulse

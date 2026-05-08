@@ -1,0 +1,12 @@
+[Unit]
+Description=Greeter Daemon
+After=systemd-user-sessions.service plymouth-quit-wait.service
+Conflicts=getty@tty1.service
+
+[Service]
+ExecStart=/usr/sbin/greetd
+Restart=always
+
+[Install]
+Alias=display-manager.service
+WantedBy=graphical.target
