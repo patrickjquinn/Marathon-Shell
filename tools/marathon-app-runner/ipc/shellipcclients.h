@@ -1243,3 +1243,112 @@ class AlarmClient : public QObject {
     QVariantList   m_alarms;
     QVariantList   m_activeAlarms;
 };
+
+class UpdateClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QString currentVersion READ currentVersion NOTIFY stateChanged)
+    Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY stateChanged)
+    Q_PROPERTY(QString releaseUrl READ releaseUrl NOTIFY stateChanged)
+    Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY stateChanged)
+    Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool checking READ checking NOTIFY stateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    Q_PROPERTY(QString channel READ channel NOTIFY stateChanged)
+
+  public:
+    explicit UpdateClient(QObject *parent = nullptr);
+
+    QString currentVersion() const {
+        return m_state.value("currentVersion").toString();
+    }
+    QString latestVersion() const {
+        return m_state.value("latestVersion").toString();
+    }
+    QString releaseUrl() const {
+        return m_state.value("releaseUrl").toString();
+    }
+    QString releaseNotes() const {
+        return m_state.value("releaseNotes").toString();
+    }
+    bool updateAvailable() const {
+        return m_state.value("updateAvailable").toBool();
+    }
+    bool checking() const {
+        return m_state.value("checking").toBool();
+    }
+    QString lastError() const {
+        return m_state.value("lastError").toString();
+    }
+    QString channel() const {
+        return m_state.value("channel").toString();
+    }
+
+    Q_INVOKABLE void checkNow();
+    Q_INVOKABLE void openInBrowser();
+    Q_INVOKABLE void setChannel(const QString &channel);
+    Q_INVOKABLE void refresh();
+
+  signals:
+    void stateChanged();
+
+  private slots:
+    void onStateChanged(const QVariantMap &state);
+
+  private:
+    QDBusInterface m_iface;
+    QVariantMap    m_state;
+};
+
+class DavClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QVariantList accounts READ accounts NOTIFY accountsChanged)
+    Q_PROPERTY(int accountCount READ accountCount NOTIFY accountsChanged)
+    Q_PROPERTY(bool syncing READ syncing NOTIFY stateChanged)
+    Q_PROPERTY(QString lastError READ lastError NOTIFY stateChanged)
+    Q_PROPERTY(qlonglong lastSyncMs READ lastSyncMs NOTIFY stateChanged)
+
+  public:
+    explicit DavClient(QObject *parent = nullptr);
+
+    QVariantList accounts() const {
+        return m_accounts;
+    }
+    int accountCount() const {
+        return static_cast<int>(m_accounts.size());
+    }
+    bool syncing() const {
+        return m_state.value("syncing").toBool();
+    }
+    QString lastError() const {
+        return m_state.value("lastError").toString();
+    }
+    qlonglong lastSyncMs() const {
+        return m_state.value("lastSyncMs").toLongLong();
+    }
+
+    Q_INVOKABLE QString addAccount(const QString &displayName, const QString &baseUrl,
+                                   const QString &username, const QString &secret,
+                                   const QString &authKind);
+    Q_INVOKABLE bool    removeAccount(const QString &id);
+    Q_INVOKABLE void    enableAccount(const QString &id, bool enabled);
+    Q_INVOKABLE void    syncNow();
+    Q_INVOKABLE void    refresh();
+
+  signals:
+    void accountsChanged();
+    void stateChanged();
+    void syncFinished(const QString &accountId);
+
+  private slots:
+    void onAccountsChanged();
+    void onStateChanged(const QVariantMap &state);
+    void onSyncFinished(const QString &accountId);
+
+  private:
+    void           refreshAccounts();
+    void           refreshState();
+
+    QDBusInterface m_iface;
+    QVariantList   m_accounts;
+    QVariantMap    m_state;
+};

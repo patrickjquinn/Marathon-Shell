@@ -20,6 +20,8 @@ qt6_add_library(MarathonServices SHARED
     src/mmsmanager.cpp
     src/davsyncengine.h
     src/davsyncengine.cpp
+    src/davcalendarstore.h
+    src/davcalendarstore.cpp
     src/medialibrarymanager.h
     src/medialibrarymanager.cpp
     src/musiclibrarymanager.h

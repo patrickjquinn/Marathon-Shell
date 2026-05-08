@@ -137,7 +137,9 @@ MApp {
                     appsort: appSortPageComponent,
                     quicksettings: quickSettingsPageComponent,
                     security: securityPageComponent,
-                    keyboard: keyboardPageComponent
+                    keyboard: keyboardPageComponent,
+                    updates: updatesPageComponent,
+                    accounts: accountsPageComponent
                 })
         }
 
@@ -305,6 +307,22 @@ MApp {
             id: keyboardPageComponent
 
             KeyboardPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: updatesPageComponent
+
+            UpdatesPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: accountsPageComponent
+
+            AccountsPage {
                 onNavigateBack: appRouter.popRoute()
             }
         }

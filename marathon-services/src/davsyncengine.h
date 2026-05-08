@@ -14,6 +14,7 @@
 class QNetworkAccessManager;
 class QNetworkReply;
 class ContactsManager;
+class DavCalendarStore;
 
 // One DAV account — stored in QSettings under "dav/accounts/<id>".
 struct DavAccount {
@@ -53,7 +54,8 @@ class DavSyncEngine : public QObject {
     Q_PROPERTY(qint64 lastSyncMs READ lastSyncMs NOTIFY lastSyncMsChanged)
 
   public:
-    explicit DavSyncEngine(ContactsManager *contacts, QObject *parent = nullptr);
+    explicit DavSyncEngine(ContactsManager *contacts, DavCalendarStore *calendarStore = nullptr,
+                           QObject *parent = nullptr);
 
     int accountCount() const {
         return m_accounts.size();
@@ -119,6 +121,7 @@ class DavSyncEngine : public QObject {
     static QString                     basicAuthHeader(const QString &user, const QString &secret);
 
     QPointer<ContactsManager>          m_contacts;
+    QPointer<DavCalendarStore>         m_calendarStore;
     QNetworkAccessManager             *m_net;
     QHash<QString, DavAccount>         m_accounts;
     QHash<QString, DavCollectionState> m_collectionState;

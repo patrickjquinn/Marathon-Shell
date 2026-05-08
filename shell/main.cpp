@@ -49,6 +49,7 @@
 #include "smsservice.h"
 #include "mmsmanager.h"
 #include "davsyncengine.h"
+#include "davcalendarstore.h"
 #include "medialibrarymanager.h"
 #include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
@@ -544,8 +545,10 @@ int main(int argc, char *argv[]) {
     auto *smsService         = createObject<SMSService>(ctx, "SMSService", &app);
     auto *mmsManager         = createObject<MmsManager>(ctx, "MmsManager", &app);
     smsService->setMmsManager(mmsManager);
-    createObject<UpdateService>(ctx, "UpdateService", &app);
-    createObject<DavSyncEngine>(ctx, "DavSyncEngine", contactsManager, &app);
+    auto *updateService    = createObject<UpdateService>(ctx, "UpdateService", &app);
+    auto *davCalendarStore = createObject<DavCalendarStore>(ctx, "DavCalendarStore", &app);
+    auto *davSyncEngine =
+        createObject<DavSyncEngine>(ctx, "DavSyncEngine", contactsManager, davCalendarStore, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
                                          navigationRouter, telephonyService, &app);
     createObject<TelephonyIntegrationCpp>(
@@ -574,8 +577,8 @@ int main(int argc, char *argv[]) {
             permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
             audioManager, audioPolicyController, networkManager, hapticsObj, securityManager,
-            sensorManager, locationManager, alarmManager, audioRoutingManager, appLaunchService,
-            &app);
+            sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
+            davSyncEngine, appLaunchService, &app);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";
