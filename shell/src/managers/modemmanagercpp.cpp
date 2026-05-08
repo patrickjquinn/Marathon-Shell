@@ -234,6 +234,41 @@ void ModemManagerCpp::queryModemState() {
         m_networkType = netType;
         emit networkTypeChanged();
     }
+
+    // Emergency-call posture: Voice.EmergencyOnly is true when only 112/911-class
+    // calls will be accepted (no SIM, PIN-locked, limited service). Sim.EmergencyNumbers
+    // surfaces the EF_ECC list — readable while PIN-locked. The lock-screen
+    // affordance reads both; we never hard-code the list (3GPP TS 22.101 + the SIM provide it).
+    QDBusInterface modemVoice("org.freedesktop.ModemManager1", m_modemPath,
+                              "org.freedesktop.ModemManager1.Modem.Voice",
+                              QDBusConnection::systemBus());
+    if (modemVoice.isValid()) {
+        QVariant emergencyOnlyVar = modemVoice.property("EmergencyOnly");
+        if (emergencyOnlyVar.isValid()) {
+            const bool eo = emergencyOnlyVar.toBool();
+            if (m_emergencyOnly != eo) {
+                m_emergencyOnly = eo;
+                emit emergencyOnlyChanged();
+                qInfo() << "[ModemManagerCpp] Emergency-only:" << m_emergencyOnly;
+            }
+        }
+    }
+
+    QString simPath = simPathVar.value<QDBusObjectPath>().path();
+    if (!simPath.isEmpty() && simPath != "/") {
+        QDBusInterface sim("org.freedesktop.ModemManager1", simPath,
+                           "org.freedesktop.ModemManager1.Sim", QDBusConnection::systemBus());
+        if (sim.isValid()) {
+            QStringList simEcc = sim.property("EmergencyNumbers").toStringList();
+            if (m_simEmergencyNumbers != simEcc) {
+                m_simEmergencyNumbers = simEcc;
+                emit simEmergencyNumbersChanged();
+            }
+        }
+    } else if (!m_simEmergencyNumbers.isEmpty()) {
+        m_simEmergencyNumbers.clear();
+        emit simEmergencyNumbersChanged();
+    }
 }
 
 QString ModemManagerCpp::networkTypeFromAccessTech(uint accessTech) {

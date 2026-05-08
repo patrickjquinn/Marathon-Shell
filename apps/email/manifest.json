@@ -1,0 +1,25 @@
+{
+  "id": "email",
+  "name": "Mail",
+  "version": "1.0.0",
+  "entryPoint": "EmailApp.qml",
+  "icon": "assets/icon.svg",
+  "author": "Marathon OS",
+  "permissions": ["network", "storage"],
+  "minShellVersion": "1.0.0",
+  "protected": false,
+  "categories": ["Productivity"],
+  "handlesUriSchemes": ["mailto"],
+  "defaultFor": ["mail"],
+  "searchKeywords": [
+    "mail",
+    "email",
+    "inbox",
+    "gmail",
+    "outlook",
+    "fastmail",
+    "messages",
+    "compose"
+  ],
+  "deepLinks": {}
+}

@@ -321,6 +321,10 @@ int main(int argc, char *argv[]) {
                                               << "app-id",
                                 "Marathon app id (e.g. phone, calculator)", "appId");
     parser.addOption(appIdOpt);
+    QCommandLineOption routeOpt(QStringList() << "r"
+                                              << "route",
+                                "In-app route to open (e.g. /emergency)", "route");
+    parser.addOption(routeOpt);
     parser.process(app);
 
     const QString appId = parser.value(appIdOpt).trimmed();
@@ -328,6 +332,12 @@ int main(int argc, char *argv[]) {
         qCritical() << "[marathon-app-runner] Missing --app-id";
         return 2;
     }
+    // Route may also arrive via env (when shell sets MARATHON_APP_ROUTE).
+    // CLI flag wins, then env, then empty.
+    QString launchRoute = parser.value(routeOpt).trimmed();
+    if (launchRoute.isEmpty())
+        launchRoute = qEnvironmentVariable("MARATHON_APP_ROUTE");
+    const QString launchRouteParams = qEnvironmentVariable("MARATHON_APP_ROUTE_PARAMS");
 
     QGuiApplication::setDesktopFileName(appId);
 
@@ -486,6 +496,11 @@ int main(int argc, char *argv[]) {
         const bool       on  = (dbg == "1" || dbg.toLower() == "true");
         ctx->setContextProperty("MARATHON_DEBUG_ENABLED", on);
     }
+
+    // Expose the launch route so apps can show a route-specific entry point
+    // (the lock-screen Emergency affordance launches phone with /emergency).
+    ctx->setContextProperty("MARATHON_APP_ROUTE", launchRoute);
+    ctx->setContextProperty("MARATHON_APP_ROUTE_PARAMS", launchRouteParams);
 
     const auto hasPerm = [&](const QString &perm) -> bool {
         return std::find(info->permissions.begin(), info->permissions.end(), perm) !=

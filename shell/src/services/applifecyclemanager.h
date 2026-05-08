@@ -17,12 +17,18 @@ class AppLifecycleManager : public QObject {
     explicit AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
                                  QObject *parent = nullptr);
 
-    Q_INVOKABLE void        registerApp(const QString &appId, QObject *appInstance);
-    Q_INVOKABLE void        unregisterApp(const QString &appId);
-    Q_INVOKABLE QObject    *getAppInstance(const QString &appId) const;
+    Q_INVOKABLE void     registerApp(const QString &appId, QObject *appInstance);
+    Q_INVOKABLE void     unregisterApp(const QString &appId);
+    Q_INVOKABLE QObject *getAppInstance(const QString &appId) const;
 
-    Q_INVOKABLE void        bringToForeground(const QString &appId);
-    Q_INVOKABLE void        restoreApp(const QString &appId);
+    Q_INVOKABLE void     bringToForeground(const QString &appId);
+    Q_INVOKABLE void     restoreApp(const QString &appId);
+    // Launch with an in-app route + params. The route is plumbed through to
+    // the runner via --route on the command line and exposed to QML as the
+    // MARATHON_APP_ROUTE context property. Used by the lock-screen Emergency
+    // affordance (route="/emergency") and any future deep-linking.
+    Q_INVOKABLE void        launchAppWithRoute(const QString &appId, const QString &route,
+                                               const QString &paramsJson);
 
     Q_INVOKABLE bool        handleSystemBack();
     Q_INVOKABLE bool        handleSystemForward();

@@ -42,10 +42,13 @@
 #include "marathonappinstaller.h"
 #include "src/marathonpermissionmanager.h"
 #include "src/services/marathonappstoreservice.h"
+#include "src/services/updateservice.h"
 #include "contactsmanager.h"
 #include "telephonyservice.h"
 #include "callhistorymanager.h"
 #include "smsservice.h"
+#include "mmsmanager.h"
+#include "davsyncengine.h"
 #include "medialibrarymanager.h"
 #include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
@@ -539,6 +542,10 @@ int main(int argc, char *argv[]) {
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
     auto *callHistoryManager = createObject<CallHistoryManager>(ctx, "CallHistoryManager", &app);
     auto *smsService         = createObject<SMSService>(ctx, "SMSService", &app);
+    auto *mmsManager         = createObject<MmsManager>(ctx, "MmsManager", &app);
+    smsService->setMmsManager(mmsManager);
+    createObject<UpdateService>(ctx, "UpdateService", &app);
+    createObject<DavSyncEngine>(ctx, "DavSyncEngine", contactsManager, &app);
     createObject<NotificationHandlerCpp>(ctx, "NotificationHandler", notificationService,
                                          navigationRouter, telephonyService, &app);
     createObject<TelephonyIntegrationCpp>(

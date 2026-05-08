@@ -77,6 +77,8 @@ set(SOURCES
     src/components/portalmanager.cpp
     src/services/marathonappstoreservice.h
     src/services/marathonappstoreservice.cpp
+    src/services/updateservice.h
+    src/services/updateservice.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/managers/mpris2controller.h

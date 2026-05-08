@@ -111,6 +111,14 @@ void PowerManagerCpp::setupDBusConnections() {
         QDBusConnection::systemBus().connect("org.freedesktop.login1", "/org/freedesktop/login1",
                                              "org.freedesktop.login1.Manager", "PrepareForSleep",
                                              this, SLOT(onPrepareForSleep(bool)));
+
+        // Take a lifelong "delay" inhibit on sleep at boot so we always have
+        // a window to react to incoming radio events (calls/SMS) before the
+        // system actually suspends. Phosh + GNOME do the same; the delay is
+        // gated by `InhibitDelayMaxSec=` in logind.conf (default 5s).
+        // We release this on PrepareForSleep(true) and reacquire on
+        // PrepareForSleep(false) so suspend can actually proceed.
+        inhibitSuspend("marathon-shell", "Handle wake events");
     }
 }
 
@@ -233,6 +241,11 @@ void PowerManagerCpp::onPrepareForSleep(bool beforeSleep) {
                 writeToFile("/sys/power/wake_lock", it.key());
             }
         }
+
+        // Reacquire the lifelong delay-inhibit so the next suspend cycle
+        // gives us another window to handle radio events.
+        if (m_hasLogind && !m_inhibitorFd.isValid())
+            inhibitSuspend("marathon-shell", "Handle wake events");
     }
 }
 

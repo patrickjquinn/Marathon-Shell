@@ -20,6 +20,10 @@ MApp {
     property string editingContactEmail: ""
     property var activeCallPageRef: null
     property var incomingCallScreenRef: null
+    // True when launched from the lock screen via the "Emergency" affordance
+    // (route="/emergency"). The UI hides contacts/history and only exposes a
+    // dialer; the actual emergency-number gate is enforced by the modem.
+    readonly property bool emergencyOnly: (typeof MARATHON_APP_ROUTE !== "undefined") && (MARATHON_APP_ROUTE === "/emergency")
 
     function resolveContactName(number) {
         for (var i = 0; i < contacts.length; i++) {
@@ -92,10 +96,17 @@ MApp {
     function makeCall() {
         if (dialedNumber.length > 0) {
             Logger.info("Phone", "Calling: " + dialedNumber);
-            TelephonyService.dial(dialedNumber);
-            var contactName = resolveContactName(dialedNumber);
+            // Emergency mode routes through dialEmergency() so the audit
+            // trail captures the attempt with metadata (operator, modem
+            // path) regardless of whether the modem accepts the number.
+            if (emergencyOnly)
+                TelephonyService.dialEmergency(dialedNumber);
+            else
+                TelephonyService.dial(dialedNumber);
+            var contactName = emergencyOnly ? "Emergency" : resolveContactName(dialedNumber);
             if (activeCallPageRef)
                 activeCallPageRef.show(dialedNumber, contactName);
+
             HapticService.medium();
         }
     }
@@ -104,6 +115,9 @@ MApp {
     appName: "Phone"
     appIcon: "assets/icon.svg"
     Component.onCompleted: {
+        if (emergencyOnly)
+            Logger.warn("Phone", "Launched in EMERGENCY ONLY mode — contacts/history disabled");
+
         if (TelephonyService.callState === "active") {
             var number = TelephonyService.activeNumber;
             var contactName = resolveContactName(number);
@@ -112,6 +126,10 @@ MApp {
 
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
+        if (emergencyOnly)
+            // Skip contacts permission request — emergency mode never reads contacts.
+            return;
+
         if (PermissionManager.hasPermission(appId, "contacts")) {
             Logger.info("Phone", "Contacts permission already granted");
             hasContactsPermission = true;
@@ -601,7 +619,16 @@ MApp {
 
                 width: parent.width
                 activeTab: parent.currentIndex
-                tabs: [
+                // Emergency mode hides History/Contacts tabs entirely — only the
+                // dialer is reachable. The bar remains so the layout dimension
+                // is consistent with non-emergency launch.
+                visible: !phoneApp.emergencyOnly
+                tabs: phoneApp.emergencyOnly ? [
+                    {
+                        "label": "Emergency",
+                        "icon": "phone"
+                    }
+                ] : [
                     {
                         "label": "Dial",
                         "icon": "phone"
@@ -617,6 +644,10 @@ MApp {
                 ]
                 onTabSelected: index => {
                     HapticService.light();
+                    if (phoneApp.emergencyOnly) {
+                        tabBar.parent.currentIndex = 0;
+                        return;
+                    }
                     tabBar.parent.currentIndex = index;
                 }
             }

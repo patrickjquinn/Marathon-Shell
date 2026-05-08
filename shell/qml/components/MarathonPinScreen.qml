@@ -614,6 +614,10 @@ Item {
             font.weight: Font.Medium
             opacity: cancelMouseArea.pressed ? 0.5 : 0.8
             renderType: Text.NativeRendering
+            // Accessibility: announce as cancel-button so screen readers can find it.
+            Accessible.name: "Cancel"
+            Accessible.role: Accessible.Button
+            Accessible.onPressAction: cancelMouseArea.clicked(null)
 
             MouseArea {
                 id: cancelMouseArea
@@ -623,6 +627,42 @@ Item {
                 onClicked: {
                     HapticManager.light();
                     cancelled();
+                }
+            }
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 80
+                }
+            }
+        }
+
+        // Emergency dial — required to be reachable from the lock screen
+        // without authentication (FCC E911 / EU Article 109). Launches the
+        // phone app in --emergency-only mode; the modem itself enforces
+        // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
+        Text {
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Emergency"
+            color: MColors.error
+            font.pixelSize: Math.round(16 * Constants.scaleFactor)
+            font.weight: Font.Bold
+            opacity: emergencyMouseArea.pressed ? 0.5 : 0.9
+            renderType: Text.NativeRendering
+            Accessible.name: "Emergency call"
+            Accessible.description: "Place an emergency call without unlocking"
+            Accessible.role: Accessible.Button
+            Accessible.onPressAction: emergencyMouseArea.clicked(null)
+
+            MouseArea {
+                id: emergencyMouseArea
+
+                anchors.fill: parent
+                anchors.margins: Math.round(-16 * Constants.scaleFactor)
+                onClicked: {
+                    HapticManager.medium();
+                    Logger.info("PinScreen", "Emergency dial requested from lock screen");
+                    AppLifecycleManager.launchAppWithRoute("phone", "/emergency", "{}");
                 }
             }
 

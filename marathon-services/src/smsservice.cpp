@@ -1,5 +1,6 @@
 #include "smsservice.h"
 #include "contactsmanager.h"
+#include "mmsmanager.h"
 #include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusReply>
@@ -43,6 +44,33 @@ void SMSService::setContactsManager(ContactsManager *contactsManager) {
     m_contactsManager = contactsManager;
 }
 
+void SMSService::setMmsManager(MmsManager *mmsManager) {
+    if (m_mmsManager == mmsManager)
+        return;
+    m_mmsManager = mmsManager;
+    if (!m_mmsManager)
+        return;
+    // Surface incoming MMS through the same `messageReceived` signal apps
+    // already listen to; the conversation thread merges SMS + MMS.
+    connect(
+        m_mmsManager, &MmsManager::messageReceived, this,
+        [this](const QString &sender, const QString &text, qint64 timestamp, const QVariantList &) {
+            Message msg;
+            msg.conversationId = generateConversationId(sender);
+            msg.sender         = sender;
+            msg.recipient      = QStringLiteral("me");
+            msg.text           = text;
+            msg.timestamp      = timestamp;
+            msg.isRead         = false;
+            msg.isOutgoing     = false;
+            storeMessage(msg);
+            loadConversations();
+            emit messageReceived(sender, text, timestamp);
+        });
+    connect(m_mmsManager, &MmsManager::sendFailed, this,
+            [this](const QString &reason) { emit sendFailed(QString(), reason); });
+}
+
 QVariantList SMSService::conversations() const {
     QVariantList result;
     for (const Conversation &conv : m_conversations) {
@@ -56,6 +84,40 @@ QVariantList SMSService::conversations() const {
         result.append(map);
     }
     return result;
+}
+
+void SMSService::sendMultiRecipient(const QStringList &recipients, const QString &text,
+                                    const QVariantList &attachments) {
+    // Routing: single recipient + no attachments + plain text fitting SMS budget
+    // -> normal SMS via ModemManager.Messaging. Otherwise -> MMS via mmsd-tng.
+    // (Mirrors Chatty's routing in chatty-mm-chat.c.)
+    const bool needsMms = recipients.size() > 1 || !attachments.isEmpty() || text.size() > 1530;
+    if (!needsMms && !recipients.isEmpty()) {
+        sendMessage(recipients.first(), text);
+        return;
+    }
+    if (!m_mmsManager || !m_mmsManager->available()) {
+        qWarning() << "[SMSService] MMS required but mmsd-tng unavailable; "
+                      "falling back to per-recipient SMS";
+        for (const QString &r : recipients)
+            sendMessage(r, text);
+        return;
+    }
+    if (!m_mmsManager->sendMms(recipients, text, attachments)) {
+        // sendMms emits sendFailed itself; nothing else to do.
+        return;
+    }
+    Message msg;
+    msg.conversationId = generateConversationId(recipients.join(","));
+    msg.sender         = QStringLiteral("me");
+    msg.recipient      = recipients.join(",");
+    msg.text           = text;
+    msg.timestamp      = QDateTime::currentMSecsSinceEpoch();
+    msg.isRead         = true;
+    msg.isOutgoing     = true;
+    storeMessage(msg);
+    loadConversations();
+    emit messageSent(recipients.join(","), msg.timestamp);
 }
 
 void SMSService::sendMessage(const QString &recipient, const QString &text) {

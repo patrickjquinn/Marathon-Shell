@@ -18,7 +18,8 @@ class SecurityLogger {
         SandboxViolation,
         RateLimitExceeded,
         PathTraversalBlocked,
-        InvalidInput
+        InvalidInput,
+        EmergencyDial
     };
 
     static void initialize(const QString &appName = "marathon-shell") {
@@ -88,6 +89,19 @@ class SecurityLogger {
                 .arg(source, field, reason));
     }
 
+    // Audit trail for emergency dials. Logs metadata only — never call
+    // content / DTMF / audio. The dialed number is kept (it is, by design,
+    // an emergency number — these are public). Operator + emergencyOnly +
+    // gpsAvailable help debug field reports without dragging in coordinates.
+    static void logEmergencyDial(const QString &number, const QString &modemPath,
+                                 const QString &networkOperator, bool emergencyOnly,
+                                 bool gpsAvailable) {
+        log(EmergencyDial,
+            QString("Emergency dial: number=%1 modem=%2 operator=%3 emergencyOnly=%4 gps=%5")
+                .arg(number, modemPath, networkOperator, emergencyOnly ? "yes" : "no",
+                     gpsAvailable ? "yes" : "no"));
+    }
+
   private:
     static void log(EventType type, const QString &message) {
         QString fullMessage = QString("[SECURITY] %1").arg(message);
@@ -101,6 +115,13 @@ class SecurityLogger {
             case PermissionGranted:
                 qInfo().noquote() << fullMessage;
                 priority |= LOG_INFO;
+                break;
+            case EmergencyDial:
+                // qWarning so it always lands in the journal, even when info
+                // is suppressed for the default category. Emergency-call audit
+                // visibility matters more than log-level cleanliness here.
+                qWarning().noquote() << fullMessage;
+                priority |= LOG_NOTICE;
                 break;
             case AuthFailure:
             case PermissionDenied:

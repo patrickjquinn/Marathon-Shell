@@ -92,10 +92,16 @@ export QML_DISABLE_OPTIMIZER=0
 # Use QML cache for faster startup
 export QML_FORCE_DISK_CACHE=1
 
-# Accessibility - disable AT-SPI bridge (causes issues on minimal systems)
-export NO_AT_BRIDGE=1
-export GTK_A11Y=none
-export QT_ACCESSIBILITY=0
+# Accessibility — keep AT-SPI bridge enabled by default so screen readers
+# (Orca, etc.) can drive the shell. Set MARATHON_NO_A11Y=1 in the session
+# environment for minimal systems where the AT-SPI registry isn't running.
+if [ "${MARATHON_NO_A11Y:-0}" = "1" ]; then
+    export NO_AT_BRIDGE=1
+    export GTK_A11Y=none
+    export QT_ACCESSIBILITY=0
+else
+    export QT_ACCESSIBILITY=1
+fi
 
 # GIO/GSettings - use memory backend if no dconf
 export GIO_USE_VFS=local

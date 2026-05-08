@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QDBusInterface>
 #include <QTimer>
 
@@ -19,6 +20,14 @@ class ModemManagerCpp : public QObject {
     Q_PROPERTY(bool simPresent READ simPresent NOTIFY simPresentChanged)
     Q_PROPERTY(bool dataEnabled READ dataEnabled NOTIFY dataEnabledChanged)
     Q_PROPERTY(bool dataConnected READ dataConnected NOTIFY dataConnectedChanged)
+    // Emergency-call surface: emergencyOnly is true when the modem will only
+    // accept emergency dials (no SIM, PIN-locked, limited service).
+    // simEmergencyNumbers comes from EF_ECC and is readable while PIN-locked.
+    // The lock-screen "Emergency" affordance reads both — we never hard-code
+    // the number list (3GPP TS 22.101 + the SIM provide it).
+    Q_PROPERTY(bool emergencyOnly READ emergencyOnly NOTIFY emergencyOnlyChanged)
+    Q_PROPERTY(
+        QStringList simEmergencyNumbers READ simEmergencyNumbers NOTIFY simEmergencyNumbersChanged)
 
   public:
     explicit ModemManagerCpp(QObject *parent = nullptr);
@@ -56,6 +65,12 @@ class ModemManagerCpp : public QObject {
     bool dataConnected() const {
         return m_dataConnected;
     }
+    bool emergencyOnly() const {
+        return m_emergencyOnly;
+    }
+    QStringList simEmergencyNumbers() const {
+        return m_simEmergencyNumbers;
+    }
 
     Q_INVOKABLE void        enable();
     Q_INVOKABLE void        disable();
@@ -79,6 +94,8 @@ class ModemManagerCpp : public QObject {
     void simPresentChanged();
     void dataEnabledChanged();
     void dataConnectedChanged();
+    void emergencyOnlyChanged();
+    void simEmergencyNumbersChanged();
 
   private slots:
     void discoverModem();
@@ -111,6 +128,9 @@ class ModemManagerCpp : public QObject {
     QString         m_apn;
     QString         m_apnUsername;
     QString         m_apnPassword;
+
+    bool            m_emergencyOnly = false;
+    QStringList     m_simEmergencyNumbers;
 };
 
 #endif
