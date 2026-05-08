@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Builds the marathon-shell apk on Alpine (postmarketOS-compatible) and
+# attaches it to a GitHub Release. Devices poll the Releases API via the
+# in-shell UpdateService and tap-to-update — no custom server required.
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    container: alpine:3.20
+    permissions:
+      contents: write
+    steps:
+      - name: Install build deps
+        run: |
+          apk add --no-cache \
+            alpine-sdk abuild git \
+            cmake ninja samurai \
+            qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
+            qt6-qtmultimedia-dev qt6-qtsvg-dev qt6-qtsensors-dev \
+            qt6-qtwebengine-dev pkgconf \
+            wayland-protocols wayland-dev \
+            hunspell-dev libdrm-dev pipewire-dev pulseaudio-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Configure abuild
+        run: |
+          adduser -D builder
+          addgroup builder abuild || true
+          mkdir -p /home/builder/.abuild
+          # Ephemeral signing key — do NOT use this for releases users will trust;
+          # for the real flow inject ABUILD_KEY_BASE64 from a repo secret.
+          if [ -n "${{ secrets.ABUILD_KEY_BASE64 }}" ]; then
+            echo "${{ secrets.ABUILD_KEY_BASE64 }}" | base64 -d > /home/builder/.abuild/marathon.rsa
+            ssh-keygen -y -f /home/builder/.abuild/marathon.rsa > /home/builder/.abuild/marathon.rsa.pub
+            echo "PACKAGER_PRIVKEY=/home/builder/.abuild/marathon.rsa" > /home/builder/.abuild/abuild.conf
+          else
+            su builder -c 'cd /home/builder && abuild-keygen -a -n -q'
+          fi
+          chown -R builder:builder /home/builder/.abuild
+
+      - name: Build apk
+        run: |
+          chown -R builder:builder $GITHUB_WORKSPACE
+          su builder -c "cd $GITHUB_WORKSPACE && abuild -F -r"
+
+      - name: Stage artifacts
+        run: |
+          mkdir -p artifacts
+          find /home/builder/packages -name '*.apk' -exec cp {} artifacts/ \;
+          cp /home/builder/.abuild/marathon.rsa.pub artifacts/ || true
+          ls -la artifacts/
+
+      - name: Publish to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.apk
+            artifacts/*.pub
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true

@@ -1,6 +1,6 @@
-import QtQuick
-import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: root
@@ -16,6 +16,10 @@ Rectangle {
     signal backClicked
 
     color: MColors.background
+    // The page itself is a navigable region; Orca announces it as a Pane
+    // with the page title. Override Accessible.* at the call site if needed.
+    Accessible.role: Accessible.Pane
+    Accessible.name: title.length > 0 ? title : "Page"
 
     Column {
         anchors.fill: parent
@@ -23,6 +27,7 @@ Rectangle {
 
         Rectangle {
             id: topBar
+
             visible: showTopBar
             width: parent.width
             height: 56
@@ -64,22 +69,24 @@ Rectangle {
 
         Flickable {
             id: scrollView
+
             width: parent.width
             height: parent.height - (showTopBar ? 56 : 0) - (showBottomBar ? 72 : 0)
             contentHeight: contentContainer.height
             clip: true
-
             flickDeceleration: 5000
             maximumFlickVelocity: 2500
 
             Column {
                 id: contentContainer
+
                 width: parent.width
             }
         }
 
         Rectangle {
             id: bottomBar
+
             visible: showBottomBar
             width: parent.width
             height: 72
@@ -90,6 +97,7 @@ Rectangle {
 
             Item {
                 id: bottomBarContainer
+
                 anchors.fill: parent
                 anchors.margins: MSpacing.md
             }

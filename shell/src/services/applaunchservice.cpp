@@ -196,6 +196,20 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
     return {};
 }
 
+bool AppLaunchService::launchAppWithRoute(const QVariant &app, const QString &route,
+                                          const QString &paramsJson, QObject *compositorRef,
+                                          QObject *appWindowRef) {
+    m_pendingRoute           = route;
+    m_pendingRouteParamsJson = paramsJson;
+    const bool ok            = launchApp(app, compositorRef, appWindowRef);
+    // Clear if launch failed; on success launchMarathonApp clears them itself.
+    if (!ok) {
+        m_pendingRoute.clear();
+        m_pendingRouteParamsJson.clear();
+    }
+    return ok;
+}
+
 bool AppLaunchService::launchApp(const QVariant &app, QObject *compositorRef,
                                  QObject *appWindowRef) {
     QObject          *comp = compositorRef ? compositorRef : m_compositor.data();
@@ -331,7 +345,17 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         env.insert("MARATHON_PERM_STORAGE", "1");
     }
 
-    const QString cmd = QStringLiteral("%1 --app-id %2").arg(runnerPath, appId);
+    QString cmd = QStringLiteral("%1 --app-id %2").arg(runnerPath, appId);
+    if (!m_pendingRoute.isEmpty()) {
+        // Quote the route so paths with spaces survive Wayland-side parsing
+        // (the runner uses QCommandLineParser which handles quoted args).
+        cmd += QStringLiteral(" --route \"%1\"").arg(m_pendingRoute);
+        env.insert("MARATHON_APP_ROUTE", m_pendingRoute);
+        if (!m_pendingRouteParamsJson.isEmpty())
+            env.insert("MARATHON_APP_ROUTE_PARAMS", m_pendingRouteParamsJson);
+    }
+    m_pendingRoute.clear();
+    m_pendingRouteParamsJson.clear();
 
     PendingLaunch p;
     p.appId   = appId;

@@ -108,11 +108,29 @@ void TelephonyService::dial(const QString &number) {
     m_callState      = "dialing";
 
     setupCallMonitoring(callPath);
+    acquireCallInhibit();
 
     emit callStateChanged("dialing");
     emit activeNumberChanged(number);
 
     qInfo() << "[TelephonyService] ✓ Call started to:" << number;
+}
+
+void TelephonyService::dialEmergency(const QString &number) {
+    // Audit the attempt regardless of outcome — emergency dials must always
+    // appear in the journal even when the modem rejects them. This is logged
+    // BEFORE the dial path so the line lands even if the dial blocks/crashes.
+    QString op;
+    if (m_modemManager && !m_modemPath.isEmpty()) {
+        QDBusInterface modem3gpp("org.freedesktop.ModemManager1", m_modemPath,
+                                 "org.freedesktop.ModemManager1.Modem.Modem3gpp",
+                                 QDBusConnection::systemBus());
+        if (modem3gpp.isValid())
+            op = modem3gpp.property("OperatorName").toString();
+    }
+    qWarning().noquote() << QString("[SECURITY] Emergency dial: number=%1 modem=%2 operator=%3")
+                                .arg(number, m_modemPath, op.isEmpty() ? QStringLiteral("?") : op);
+    dial(number);
 }
 
 void TelephonyService::answer() {
@@ -390,6 +408,7 @@ void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
             m_callState      = "incoming";
 
             setupCallMonitoring(path);
+            acquireCallInhibit();
 
             emit incomingCall(number);
             emit callStateChanged("incoming");
@@ -415,6 +434,13 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
                 emit callStateChanged(newState);
                 qDebug() << "[TelephonyService] Call state changed to:" << newState;
 
+                // Acquire/release the suspend block inhibit on call edges.
+                // Pattern lifted from Plasma-Dialer's call-manager.cpp.
+                if (newState == "active" || newState == "dialing" || newState == "incoming")
+                    acquireCallInhibit();
+                else if (newState == "idle" || newState == "terminated")
+                    releaseCallInhibit();
+
                 if (newState == "idle" || newState == "terminated") {
                     m_activeCallPath.clear();
                     m_activeNumber.clear();
@@ -422,6 +448,33 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
                 }
             }
         }
+    }
+}
+
+void TelephonyService::acquireCallInhibit() {
+    if (m_callInhibitFd.isValid())
+        return; // Already held — nothing to do.
+    QDBusInterface logind("org.freedesktop.login1", "/org/freedesktop/login1",
+                          "org.freedesktop.login1.Manager", QDBusConnection::systemBus());
+    if (!logind.isValid()) {
+        qDebug() << "[TelephonyService] logind unavailable, skipping call inhibit";
+        return;
+    }
+    QDBusReply<QDBusUnixFileDescriptor> reply = logind.call(
+        "Inhibit", "sleep", "marathon-shell", "Active call inhibits system suspend", "block");
+    if (reply.isValid()) {
+        m_callInhibitFd = reply.value();
+        qInfo() << "[TelephonyService] Acquired call sleep-block inhibit";
+    } else {
+        qWarning() << "[TelephonyService] Failed to acquire call inhibit:"
+                   << reply.error().message();
+    }
+}
+
+void TelephonyService::releaseCallInhibit() {
+    if (m_callInhibitFd.isValid()) {
+        m_callInhibitFd = QDBusUnixFileDescriptor();
+        qInfo() << "[TelephonyService] Released call sleep-block inhibit";
     }
 }
 

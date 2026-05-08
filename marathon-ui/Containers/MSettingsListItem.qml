@@ -1,7 +1,7 @@
-import QtQuick
-import MarathonUI.Theme
-import MarathonUI.Core
 import MarathonUI.Controls
+import MarathonUI.Core
+import MarathonUI.Theme
+import QtQuick
 
 Rectangle {
     id: root
@@ -21,6 +21,14 @@ Rectangle {
     width: parent ? parent.width : 0
     height: subtitle !== "" ? 72 : 56
     color: "transparent"
+    // Default a11y wiring — every settings row is announced as an interactive
+    // list item with title + value/subtitle. Toggles get CheckBox role with
+    // checked state so screen readers announce on/off.
+    Accessible.role: showToggle ? Accessible.CheckBox : Accessible.ListItem
+    Accessible.name: title
+    Accessible.description: subtitle.length > 0 ? subtitle : value
+    Accessible.checked: showToggle && toggleValue
+    Accessible.onPressAction: settingClicked()
 
     Rectangle {
         anchors.fill: parent
@@ -52,23 +60,13 @@ Rectangle {
         }
     }
 
-    transform: Translate {
-        y: mouseArea.pressed && !showToggle ? -2 : 0
-
-        Behavior on y {
-            NumberAnimation {
-                duration: MMotion.quick
-                easing.type: Easing.OutCubic
-            }
-        }
-    }
-
     Item {
         anchors.fill: parent
         anchors.margins: MSpacing.md
 
         Icon {
             id: iconImage
+
             visible: iconName !== ""
             name: iconName
             size: 24
@@ -79,6 +77,7 @@ Rectangle {
 
         Column {
             id: titleColumn
+
             anchors.left: iconImage.visible ? iconImage.right : parent.left
             anchors.leftMargin: iconImage.visible ? MSpacing.md : 0
             anchors.right: rightContent.left
@@ -112,6 +111,7 @@ Rectangle {
 
         Item {
             id: rightContent
+
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             width: showToggle ? 76 : showChevron ? (valueText.visible ? valueText.width + 36 : 20) : (valueText.visible ? valueText.width : 0)
@@ -119,6 +119,7 @@ Rectangle {
 
             MToggle {
                 id: toggle
+
                 visible: showToggle
                 checked: toggleValue
                 anchors.right: parent.right
@@ -130,6 +131,7 @@ Rectangle {
 
             Text {
                 id: valueText
+
                 visible: value !== "" && !showToggle
                 text: value
                 color: MColors.textTertiary
@@ -142,6 +144,7 @@ Rectangle {
 
             Icon {
                 id: chevronIcon
+
                 visible: showChevron && !showToggle
                 name: "chevron-down"
                 size: 16
@@ -165,11 +168,22 @@ Rectangle {
 
     MouseArea {
         id: mouseArea
+
         anchors.fill: parent
         enabled: !showToggle
-
         onClicked: {
             root.settingClicked();
+        }
+    }
+
+    transform: Translate {
+        y: mouseArea.pressed && !showToggle ? -2 : 0
+
+        Behavior on y {
+            NumberAnimation {
+                duration: MMotion.quick
+                easing.type: Easing.OutCubic
+            }
         }
     }
 }

@@ -10,6 +10,7 @@
 #include <QTimer>
 
 class ContactsManager;
+class MmsManager;
 
 struct Message {
     int     id;
@@ -38,11 +39,16 @@ class SMSService : public QObject {
     explicit SMSService(QObject *parent = nullptr);
     ~SMSService();
 
-    void                     setContactsManager(ContactsManager *contactsManager);
+    void             setContactsManager(ContactsManager *contactsManager);
+    void             setMmsManager(MmsManager *mmsManager);
 
-    QVariantList             conversations() const;
+    QVariantList     conversations() const;
 
-    Q_INVOKABLE void         sendMessage(const QString &recipient, const QString &text);
+    Q_INVOKABLE void sendMessage(const QString &recipient, const QString &text);
+    // Multi-recipient or attachments — auto-routes to MMS via mmsd-tng.
+    // recipients are E.164. attachments is a list of {contentType, filePath} maps.
+    Q_INVOKABLE void         sendMultiRecipient(const QStringList &recipients, const QString &text,
+                                                const QVariantList &attachments = {});
     Q_INVOKABLE QVariantList getMessages(const QString &conversationId);
     Q_INVOKABLE void         deleteConversation(const QString &conversationId);
     Q_INVOKABLE void         markAsRead(const QString &conversationId);
@@ -72,6 +78,7 @@ class SMSService : public QObject {
     QDBusInterface     *m_modemManager;
     QTimer             *m_pollTimer;
     ContactsManager    *m_contactsManager;
+    MmsManager         *m_mmsManager = nullptr;
 
 #ifdef Q_OS_MACOS
     bool m_stubMode;

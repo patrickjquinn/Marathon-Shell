@@ -1,0 +1,48 @@
+[Unit]
+Description=Marathon Shell — Wayland compositor + mobile UI
+Documentation=https://github.com/patrickjquinn/Marathon-Shell
+# We require login1 for delay-inhibit-locks (suspend/wake handling) and
+# basic.target so user-bus services are reachable. We deliberately do NOT
+# require display-manager.service — Marathon is the display manager.
+Requires=dbus.service
+After=dbus.service systemd-user-sessions.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+# greetd / login flow drops us in via marathon-shell-session, but if a user
+# wants to run the unit standalone (e.g. autologin to user@1000.service),
+# this works too. The session script handles all the env wiring.
+ExecStart=/usr/bin/marathon-shell-session
+ExecStopPost=/bin/sh -c 'logger -t marathon-shell "Shell exited with status $$EXIT_STATUS ($$EXIT_CODE)"'
+
+# Auto-restart on crash. 5s back-off prevents a tight loop if something is
+# fundamentally broken (e.g. compositor can't acquire DRM master).
+Restart=on-failure
+RestartSec=5
+# After 5 failures in 60s, give up — at that point, the shell is wedged
+# and a clean shutdown / TTY drop is the safer outcome than thrashing.
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+# Hardening — but we DO need broad capabilities (CAP_SYS_NICE for RT
+# scheduling, audio device access, DRM, etc.). Don't add NoNewPrivileges
+# here because we depend on setcap'd binaries for the inhibit-lock helper.
+TimeoutStopSec=10
+KillMode=mixed
+# SIGTERM → graceful shutdown handler in shell main; SIGKILL after 10s.
+
+# I/O: leave stdout/stderr to journal so users can `journalctl --user -u marathon-shell`.
+StandardOutput=journal
+StandardError=journal
+
+# Run on the seat that owns tty1 (the standard "phone" seat).
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+
+[Install]
+WantedBy=graphical.target
+Alias=display-manager.service

@@ -48,6 +48,13 @@ class AppLaunchService : public QObject {
 
     Q_INVOKABLE bool launchApp(const QVariant &app, QObject *compositorRef = nullptr,
                                QObject *appWindowRef = nullptr);
+    // Variant that injects a route/params into the runner via --route /
+    // MARATHON_APP_ROUTE. The runner exposes this to QML as a context
+    // property so the app can show a route-specific entry point (e.g.
+    // phone /emergency for the lock-screen emergency dialer).
+    Q_INVOKABLE bool launchAppWithRoute(const QVariant &app, const QString &route,
+                                        const QString &paramsJson, QObject *compositorRef = nullptr,
+                                        QObject *appWindowRef = nullptr);
     Q_INVOKABLE void closeNativeApp(int surfaceId);
 
     Q_INVOKABLE bool isAppLaunching(const QString &appId) const;
@@ -77,6 +84,12 @@ class AppLaunchService : public QObject {
     QVariantMap resolveAppObject(const QVariant &app) const;
     bool launchNativeApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
     bool launchMarathonApp(const QVariantMap &app, QObject *compositorRef, QObject *appWindowRef);
+
+    // Per-launch route+params (set by launchAppWithRoute, consumed and
+    // cleared by launchMarathonApp). Avoids changing the launchMarathonApp
+    // signature for what is genuinely transient state.
+    QString     m_pendingRoute;
+    QString     m_pendingRouteParamsJson;
 
     static bool invokeVoid(QObject *obj, const char *method, const QVariantList &args);
     static bool invokeBool(QObject *obj, const char *method, const QVariantList &args,

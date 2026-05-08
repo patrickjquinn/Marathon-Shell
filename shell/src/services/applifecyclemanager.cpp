@@ -113,6 +113,16 @@ void AppLifecycleManager::restoreApp(const QString &appId) {
     }
 }
 
+void AppLifecycleManager::launchAppWithRoute(const QString &appId, const QString &route,
+                                             const QString &paramsJson) {
+    if (!m_appLaunchService)
+        return;
+    QMetaObject::invokeMethod(m_appLaunchService, "launchAppWithRoute", Qt::DirectConnection,
+                              Q_ARG(QVariant, QVariant(appId)), Q_ARG(QString, route),
+                              Q_ARG(QString, paramsJson), Q_ARG(QObject *, nullptr),
+                              Q_ARG(QObject *, nullptr));
+}
+
 bool AppLifecycleManager::handleSystemBack() {
     if (m_foregroundAppId.isEmpty())
         return false;
