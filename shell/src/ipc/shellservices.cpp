@@ -860,6 +860,7 @@ QVariantMap AudioObject::buildState() const {
         {"muted", m_audio->muted()},
         {"perAppVolumeSupported", m_audio->perAppVolumeSupported()},
         {"streams", audioStreamsToVariantList(m_audio)},
+        {"doNotDisturb", m_policy ? m_policy->isDoNotDisturb() : false},
     };
 }
 
@@ -1222,32 +1223,44 @@ PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,
                      &PermissionsObject::PermissionRequested);
 }
 
+// Reject calls where one app is trying to set / read another app's permission.
+// MARATHON_TEST_TRUSTED ($MARATHON_TEST_CALLER_ID) is admitted as the synthetic
+// admin caller — it's the only caller allowed to act on a different appId, and
+// only when the test-bypass env var is set.
+static bool authorizePermissionCall(const QString &caller, const QString &targetAppId) {
+    if (caller.isEmpty())
+        return false;
+    if (caller == targetAppId)
+        return true;
+    return g_testBypassEnabled && caller == QLatin1String(MARATHON_TEST_CALLER_ID);
+}
+
 bool PermissionsObject::HasPermission(const QString &appId, const QString &permission) {
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty() || caller != appId) {
+    if (!authorizePermissionCall(caller, appId)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return false;
     }
-    return m_permissions->hasPermission(caller, permission);
+    return m_permissions->hasPermission(appId, permission);
 }
 
 void PermissionsObject::RequestPermission(const QString &appId, const QString &permission) {
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty() || caller != appId) {
+    if (!authorizePermissionCall(caller, appId)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }
-    m_permissions->requestPermission(caller, permission);
+    m_permissions->requestPermission(appId, permission);
 }
 
 void PermissionsObject::SetPermission(const QString &appId, const QString &permission, bool granted,
                                       bool remember) {
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty() || caller != appId) {
+    if (!authorizePermissionCall(caller, appId)) {
         sendErrorReply(QDBusError::AccessDenied, "AppId spoofing or unknown caller");
         return;
     }
-    m_permissions->setPermission(caller, permission, granted, remember);
+    m_permissions->setPermission(appId, permission, granted, remember);
 }
 
 ContactsObject::ContactsObject(ContactsManager *contacts, MarathonPermissionManager *permissions,

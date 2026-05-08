@@ -194,38 +194,6 @@ int main(int argc, char *argv[]) {
 
     const QString profileEnv  = qgetenv("MARATHON_PROFILE");
     const bool    profileMode = (profileEnv == "1" || profileEnv.toLower() == "true");
-    if (debugEnabled) {
-
-        QString rules =
-
-            QStringLiteral("*.debug=true\n") + QStringLiteral("*.info=true\n") +
-            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n")
-
-            + QStringLiteral("qt.*.debug=false\n") + QStringLiteral("qt.*.info=false\n") +
-            QStringLiteral("qt.*.warning=true\n")
-
-            + QStringLiteral("qml.debug=true\n") + QStringLiteral("js.debug=true\n") +
-            QStringLiteral("default.debug=true\n") + QStringLiteral("default.info=true\n") +
-            QStringLiteral("default.warning=true\n");
-
-        if (profileMode) {
-            rules += QStringLiteral("qt.scenegraph.time.*=true\n");
-            rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
-        }
-        QLoggingCategory::setFilterRules(rules);
-    } else {
-
-        QString rules = QStringLiteral("*.debug=false\n") + QStringLiteral("*.info=false\n") +
-            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n") +
-            QStringLiteral("qt.qpa.*=false\n") + QStringLiteral("qt.pointer.*=false\n") +
-            QStringLiteral("qt.quick.*=false\n") + QStringLiteral("qt.scenegraph.*=false\n") +
-            QStringLiteral("marathon.*.info=true\n");
-        if (profileMode) {
-            rules += QStringLiteral("qt.scenegraph.time.*=true\n");
-            rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
-        }
-        QLoggingCategory::setFilterRules(rules);
-    }
 
     QApplication::setApplicationName("Marathon Shell");
     QApplication::setOrganizationName("Marathon OS");
@@ -240,7 +208,38 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
 
-    QApplication  app(argc, argv);
+    QApplication app(argc, argv);
+
+    // Logging filter rules must go AFTER QApplication: the QApplication
+    // constructor processes QT_LOGGING_RULES and Qt config-file rules,
+    // which can override anything set earlier in main.
+    if (debugEnabled) {
+        // Order matters here: in QLoggingCategory rules the LAST matching pattern
+        // wins. We start with broad enables, then disable qt.* spam, then turn the
+        // qt.* warnings back on. The bare *.<level>=true *also* enables qInfo for
+        // the "default" category (qInfo() / qDebug() with no qCDebug category).
+        QString rules = QStringLiteral("*.debug=true\n") + QStringLiteral("*.info=true\n") +
+            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n") +
+            QStringLiteral("qt.*.debug=false\n") + QStringLiteral("qt.*.info=false\n") +
+            QStringLiteral("qt.*.warning=true\n") + QStringLiteral("qml.debug=true\n") +
+            QStringLiteral("js.debug=true\n");
+        if (profileMode) {
+            rules += QStringLiteral("qt.scenegraph.time.*=true\n");
+            rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
+        }
+        QLoggingCategory::setFilterRules(rules);
+    } else {
+        QString rules = QStringLiteral("*.debug=false\n") + QStringLiteral("*.info=false\n") +
+            QStringLiteral("*.warning=true\n") + QStringLiteral("*.error=true\n") +
+            QStringLiteral("qt.qpa.*=false\n") + QStringLiteral("qt.pointer.*=false\n") +
+            QStringLiteral("qt.quick.*=false\n") + QStringLiteral("qt.scenegraph.*=false\n") +
+            QStringLiteral("marathon.*.info=true\n");
+        if (profileMode) {
+            rules += QStringLiteral("qt.scenegraph.time.*=true\n");
+            rules += QStringLiteral("qt.scenegraph.time.renderloop=true\n");
+        }
+        QLoggingCategory::setFilterRules(rules);
+    }
 
     CrashHandler *crashHandler = CrashHandler::instance();
     crashHandler->install();
