@@ -3012,3 +3012,114 @@ void AlarmClient::stopAll() {
 void AlarmClient::triggerAlarmNow(const QString &label) {
     m_iface.call("TriggerAlarmNow", label);
 }
+
+// === UpdateClient ===========================================================
+
+UpdateClient::UpdateClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Updates",
+              "org.marathonos.Shell.Updates1", QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Updates",
+                                          "org.marathonos.Shell.Updates1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    refresh();
+}
+
+void UpdateClient::refresh() {
+    QDBusReply<QVariantMap> r = m_iface.call("GetState");
+    if (r.isValid()) {
+        m_state = r.value();
+        emit stateChanged();
+    }
+}
+
+void UpdateClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void UpdateClient::checkNow() {
+    m_iface.call("CheckNow");
+}
+
+void UpdateClient::openInBrowser() {
+    m_iface.call("OpenInBrowser");
+}
+
+void UpdateClient::setChannel(const QString &channel) {
+    m_iface.call("SetChannel", channel);
+}
+
+// === DavClient ==============================================================
+
+DavClient::DavClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/Dav", "org.marathonos.Shell.Dav1",
+              QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "AccountsChanged", this,
+                                          SLOT(onAccountsChanged()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/Dav",
+                                          "org.marathonos.Shell.Dav1", "SyncFinished", this,
+                                          SLOT(onSyncFinished(QString)));
+    refresh();
+}
+
+void DavClient::refresh() {
+    refreshAccounts();
+    refreshState();
+}
+
+void DavClient::refreshAccounts() {
+    QDBusReply<QVariantList> r = m_iface.call("ListAccounts");
+    if (r.isValid()) {
+        m_accounts = r.value();
+        emit accountsChanged();
+    }
+}
+
+void DavClient::refreshState() {
+    QDBusReply<QVariantMap> r = m_iface.call("GetState");
+    if (r.isValid()) {
+        m_state = r.value();
+        emit stateChanged();
+    }
+}
+
+void DavClient::onAccountsChanged() {
+    refreshAccounts();
+}
+
+void DavClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void DavClient::onSyncFinished(const QString &accountId) {
+    emit syncFinished(accountId);
+    refreshState();
+}
+
+QString DavClient::addAccount(const QString &displayName, const QString &baseUrl,
+                              const QString &username, const QString &secret,
+                              const QString &authKind) {
+    QDBusReply<QString> r =
+        m_iface.call("AddAccount", displayName, baseUrl, username, secret, authKind);
+    return r.isValid() ? r.value() : QString();
+}
+
+bool DavClient::removeAccount(const QString &id) {
+    QDBusReply<bool> r = m_iface.call("RemoveAccount", id);
+    return r.isValid() && r.value();
+}
+
+void DavClient::enableAccount(const QString &id, bool enabled) {
+    m_iface.call("EnableAccount", id, enabled);
+}
+
+void DavClient::syncNow() {
+    m_iface.call("SyncNow");
+}

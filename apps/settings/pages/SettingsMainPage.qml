@@ -206,6 +206,26 @@ Page {
                         mainPage.navigateToPage("about");
                     }
                 }
+
+                MSettingsListItem {
+                    title: "Accounts"
+                    subtitle: "CardDAV / CalDAV — sync contacts and calendar"
+                    iconName: "users"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("accounts");
+                    }
+                }
+
+                MSettingsListItem {
+                    title: "Software updates"
+                    subtitle: "Check for new Marathon releases"
+                    iconName: "download"
+                    showChevron: true
+                    onSettingClicked: {
+                        mainPage.navigateToPage("updates");
+                    }
+                }
             }
 
             MSection {

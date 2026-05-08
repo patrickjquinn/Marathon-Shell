@@ -851,6 +851,17 @@ Item {
                     width: parent.width
                     wrapMode: Text.WordWrap
                 }
+
+                Text {
+                    text: "Tip: open Settings to set a screen-lock PIN, link a CardDAV/CalDAV account for contacts and calendar sync, or check for software updates."
+                    font.pixelSize: MTypography.sizeBody
+                    font.family: MTypography.fontFamily
+                    color: MColors.textTertiary
+                    horizontalAlignment: Text.AlignHCenter
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    Accessible.name: text
+                }
             }
         }
     }

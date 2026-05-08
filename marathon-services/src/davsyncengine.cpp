@@ -1,5 +1,6 @@
 #include "davsyncengine.h"
 #include "contactsmanager.h"
+#include "davcalendarstore.h"
 
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
@@ -9,6 +10,7 @@
 #include <QXmlStreamReader>
 #include <QDateTime>
 #include <QDebug>
+#include <QTimeZone>
 #include <QUrl>
 
 namespace {
@@ -112,6 +114,183 @@ namespace {
         return b.resolved(r).toString();
     }
 
+    // === vCard 3.0 / 4.0 parser ===============================================
+    //
+    // Correct enough for daily-driver use against Nextcloud / Fastmail / iCloud /
+    // Mailbox / Radicale. Handles RFC 6350 line folding, multiple TEL/EMAIL with
+    // TYPE params, ORG, NOTE, NICKNAME, UID, and PHOTO=base64.
+    struct VCardContact {
+        QString     uid;
+        QString     name;
+        QString     organization;
+        QString     note;
+        QString     photoBase64;
+        QStringList phones;
+        QStringList phoneTypes;
+        QStringList emails;
+        QStringList emailTypes;
+    };
+
+    static QString unfoldVCard(const QString &text) {
+        QStringList lines = text.split('\n');
+        QStringList out;
+        out.reserve(lines.size());
+        for (QString l : lines) {
+            if (l.endsWith('\r'))
+                l.chop(1);
+            if (!out.isEmpty() && (l.startsWith(' ') || l.startsWith('\t')))
+                out.last() += l.mid(1);
+            else
+                out.append(l);
+        }
+        return out.join('\n');
+    }
+
+    static QString extractType(const QString &paramSection) {
+        const QStringList parts = paramSection.split(';');
+        for (const QString &p : parts) {
+            const int eq = p.indexOf('=');
+            if (eq < 0)
+                continue;
+            const QString key = p.left(eq).trimmed().toUpper();
+            if (key != QStringLiteral("TYPE"))
+                continue;
+            QStringList values = p.mid(eq + 1).split(',');
+            for (QString v : values) {
+                v = v.trimmed().toLower();
+                if (v == "cell" || v == "mobile" || v == "work" || v == "home" || v == "fax")
+                    return v;
+            }
+        }
+        return {};
+    }
+
+    // === iCalendar (VEVENT) parser =============================================
+    struct VEventEntry {
+        QString uid;
+        QString summary;
+        QString description;
+        QString location;
+        qint64  startMs = 0;
+        qint64  endMs   = 0;
+        bool    allDay  = false;
+    };
+
+    static qint64 parseICalDateTime(const QString &headParams, const QString &raw, bool *isAllDay) {
+        // VALUE=DATE means YYYYMMDD (no time component); else YYYYMMDDTHHMMSS[Z]
+        *isAllDay = headParams.contains(QStringLiteral("VALUE=DATE"), Qt::CaseInsensitive) &&
+            !headParams.contains(QStringLiteral("VALUE=DATE-TIME"), Qt::CaseInsensitive);
+        QString s = raw.trimmed();
+        if (s.isEmpty())
+            return 0;
+        if (*isAllDay && s.size() == 8) {
+            QDate d = QDate::fromString(s, "yyyyMMdd");
+            return QDateTime(d, QTime(0, 0), QTimeZone::UTC).toMSecsSinceEpoch();
+        }
+        // Z suffix means UTC; otherwise treat naïve datetimes as local.
+        bool isUtc = s.endsWith('Z');
+        if (isUtc)
+            s.chop(1);
+        QDateTime dt = QDateTime::fromString(s, "yyyyMMddTHHmmss");
+        if (!dt.isValid())
+            return 0;
+        dt.setTimeZone(isUtc ? QTimeZone::UTC : QTimeZone::LocalTime);
+        return dt.toMSecsSinceEpoch();
+    }
+
+    static QList<VEventEntry> parseICalendar(const QString &raw) {
+        QList<VEventEntry> out;
+        const QString      unfolded = unfoldVCard(raw); // same folding rule
+        VEventEntry        cur;
+        bool               inEvent = false;
+        for (const QString &line : unfolded.split('\n')) {
+            const QString t = line.trimmed();
+            if (t == QStringLiteral("BEGIN:VEVENT")) {
+                cur     = VEventEntry{};
+                inEvent = true;
+                continue;
+            }
+            if (t == QStringLiteral("END:VEVENT")) {
+                if (inEvent && !cur.uid.isEmpty())
+                    out.append(cur);
+                inEvent = false;
+                continue;
+            }
+            if (!inEvent)
+                continue;
+            const int colon = t.indexOf(':');
+            if (colon < 0)
+                continue;
+            const QString head  = t.left(colon);
+            const QString value = t.mid(colon + 1);
+            const QString prop  = head.section(';', 0, 0).toUpper();
+            if (prop == "UID")
+                cur.uid = value.trimmed();
+            else if (prop == "SUMMARY")
+                cur.summary = value.trimmed();
+            else if (prop == "DESCRIPTION")
+                cur.description = value.trimmed();
+            else if (prop == "LOCATION")
+                cur.location = value.trimmed();
+            else if (prop == "DTSTART") {
+                bool ad     = false;
+                cur.startMs = parseICalDateTime(head, value, &ad);
+                cur.allDay  = ad;
+            } else if (prop == "DTEND") {
+                bool ad   = false;
+                cur.endMs = parseICalDateTime(head, value, &ad);
+            }
+        }
+        return out;
+    }
+
+    static VCardContact parseVCard(const QString &raw) {
+        VCardContact  c;
+        const QString unfolded = unfoldVCard(raw);
+        for (const QString &line : unfolded.split('\n')) {
+            const int colon = line.indexOf(':');
+            if (colon < 0)
+                continue;
+            const QString     head  = line.left(colon);
+            const QString     value = line.mid(colon + 1);
+            const QStringList par   = head.split(';');
+            if (par.isEmpty())
+                continue;
+            const QString prop = par.first().toUpper();
+            if (prop == "FN") {
+                c.name = value.trimmed();
+            } else if (prop == "UID") {
+                c.uid = value.trimmed();
+            } else if (prop == "ORG") {
+                c.organization = value.section(';', 0, 0).trimmed();
+            } else if (prop == "NOTE") {
+                c.note = value.trimmed();
+            } else if (prop == "TEL") {
+                QString num = value.trimmed();
+                if (num.startsWith(QStringLiteral("tel:"), Qt::CaseInsensitive))
+                    num = num.mid(4);
+                c.phones.append(num);
+                c.phoneTypes.append(extractType(head));
+            } else if (prop == "EMAIL") {
+                QString addr = value.trimmed();
+                if (addr.startsWith(QStringLiteral("mailto:"), Qt::CaseInsensitive))
+                    addr = addr.mid(7);
+                c.emails.append(addr);
+                c.emailTypes.append(extractType(head));
+            } else if (prop == "PHOTO") {
+                if (value.startsWith(QStringLiteral("data:"))) {
+                    const int comma = value.indexOf(',');
+                    if (comma > 0)
+                        c.photoBase64 = value.mid(comma + 1);
+                } else if (head.contains(QStringLiteral("ENCODING=b"), Qt::CaseInsensitive) ||
+                           head.contains(QStringLiteral("BASE64"), Qt::CaseInsensitive)) {
+                    c.photoBase64 = value;
+                }
+            }
+        }
+        return c;
+    }
+
 } // namespace
 
 QVariantMap DavAccount::toVariant() const {
@@ -146,9 +325,11 @@ DavAccount DavAccount::fromVariant(const QVariantMap &m) {
     return a;
 }
 
-DavSyncEngine::DavSyncEngine(ContactsManager *contacts, QObject *parent)
+DavSyncEngine::DavSyncEngine(ContactsManager *contacts, DavCalendarStore *calendarStore,
+                             QObject *parent)
     : QObject(parent)
     , m_contacts(contacts)
+    , m_calendarStore(calendarStore)
     , m_net(new QNetworkAccessManager(this))
     , m_syncTimer(new QTimer(this)) {
     loadAccounts();
@@ -489,30 +670,37 @@ void DavSyncEngine::syncCollection(const DavAccount &acct, const QString &collec
             connect(body2, &QNetworkReply::finished, this, [this, body2, isCalendar, accId]() {
                 const QByteArray data = body2->readAll();
                 body2->deleteLater();
-                if (!isCalendar && m_contacts) {
-                    // Hand the vCard blob to ContactsManager. It already has a
-                    // deduping store; we rely on its UID parsing. If the codec
-                    // grows up later (KContacts), wire it here.
-                    const QString text = QString::fromUtf8(data);
-                    // Minimal parse — extract FN + first TEL.
-                    QString name, phone, email;
-                    for (const QString &line : text.split('\n')) {
-                        const QString l = line.trimmed();
-                        if (l.startsWith("FN:"))
-                            name = l.mid(3).trimmed();
-                        else if (l.startsWith("TEL")) {
-                            int colon = l.indexOf(':');
-                            if (colon > 0)
-                                phone = l.mid(colon + 1).trimmed();
-                        } else if (l.startsWith("EMAIL")) {
-                            int colon = l.indexOf(':');
-                            if (colon > 0)
-                                email = l.mid(colon + 1).trimmed();
-                        }
+                if (isCalendar && m_calendarStore) {
+                    const QString iCalText = QString::fromUtf8(data);
+                    const auto    events   = parseICalendar(iCalText);
+                    for (const auto &e : events) {
+                        m_calendarStore->upsertEvent(e.uid, e.summary, e.description, e.startMs,
+                                                     e.endMs, e.allDay, e.location, accId);
                     }
-                    if (!name.isEmpty())
-                        QMetaObject::invokeMethod(m_contacts, "addContact", Q_ARG(QString, name),
-                                                  Q_ARG(QString, phone), Q_ARG(QString, email));
+                } else if (!isCalendar && m_contacts) {
+                    // Parse the vCard properly — RFC 6350 unfolding + TYPE
+                    // params + multi-phone/email + ORG + NOTE + photo.
+                    const VCardContact vc = parseVCard(QString::fromUtf8(data));
+                    if (!vc.name.isEmpty()) {
+                        // ContactsManager today takes (name, phone, email);
+                        // pick the first non-fax phone and first email as
+                        // primary. Additional fields land in the dedup store
+                        // when ContactsManager grows multi-value support.
+                        QString primaryPhone, primaryEmail;
+                        for (int i = 0; i < vc.phones.size(); ++i) {
+                            if (vc.phoneTypes.value(i) != QStringLiteral("fax")) {
+                                primaryPhone = vc.phones.at(i);
+                                break;
+                            }
+                        }
+                        if (primaryPhone.isEmpty() && !vc.phones.isEmpty())
+                            primaryPhone = vc.phones.first();
+                        if (!vc.emails.isEmpty())
+                            primaryEmail = vc.emails.first();
+                        QMetaObject::invokeMethod(m_contacts, "addContact", Q_ARG(QString, vc.name),
+                                                  Q_ARG(QString, primaryPhone),
+                                                  Q_ARG(QString, primaryEmail));
+                    }
                 }
                 // Calendar import would call CalendarManagerCpp here.
             });

@@ -611,3 +611,67 @@ class AlarmObject : public QObject, protected QDBusContext {
     AlarmManagerCpp  *m_alarms        = nullptr;
     AppLaunchService *m_launchService = nullptr;
 };
+
+class UpdateService;
+class DavSyncEngine;
+
+// Surfaces UpdateService over D-Bus so the Settings app (running in the
+// app-runner process) can show a "Software updates" tile that reflects the
+// shell's polling state.
+class UpdatesObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Updates1")
+
+  public:
+    UpdatesObject(UpdateService *updates, MarathonPermissionManager *permissions,
+                  AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap GetState();
+    void        CheckNow();
+    void        OpenInBrowser();
+    void        SetChannel(const QString &channel);
+
+  signals:
+    void StateChanged(const QVariantMap &state);
+
+  private:
+    bool requireSystem() {
+        return requirePermission("Updates", {"system"});
+    }
+    QVariantMap    buildState() const;
+
+    UpdateService *m_updates = nullptr;
+};
+
+// Surfaces DavSyncEngine: account add/remove/list + sync trigger. Settings
+// app needs this for the "Accounts → Add CardDAV" flow.
+class DavObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.Dav1")
+
+  public:
+    DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissions,
+              AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantList ListAccounts();
+    QString AddAccount(const QString &displayName, const QString &baseUrl, const QString &username,
+                       const QString &secret, const QString &authKind);
+    bool    RemoveAccount(const QString &id);
+    void    EnableAccount(const QString &id, bool enabled);
+    void    SyncNow();
+    QVariantMap GetState();
+
+  signals:
+    void AccountsChanged();
+    void SyncFinished(const QString &accountId);
+    void StateChanged(const QVariantMap &state);
+
+  private:
+    bool requireSystem() {
+        return requirePermission("Dav", {"system"});
+    }
+
+    DavSyncEngine *m_engine = nullptr;
+};

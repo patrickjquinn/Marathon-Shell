@@ -23,6 +23,8 @@
 #include "audioroutingmanager.h"
 #include "telephonyservice.h"
 #include "medialibrarymanager.h"
+#include "../services/updateservice.h"
+#include "davsyncengine.h"
 
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
@@ -1789,4 +1791,122 @@ void AlarmObject::StopAll() {
 void AlarmObject::TriggerAlarmNow(const QString &label) {
     if (m_alarms)
         m_alarms->triggerAlarmNow(label);
+}
+
+// === UpdatesObject =========================================================
+
+UpdatesObject::UpdatesObject(UpdateService *updates, MarathonPermissionManager *permissions,
+                             AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_updates(updates) {
+    if (m_updates) {
+        connect(m_updates, &UpdateService::latestVersionChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+        connect(m_updates, &UpdateService::checkingChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+    }
+}
+
+QVariantMap UpdatesObject::buildState() const {
+    if (!m_updates)
+        return {};
+    return {
+        {"currentVersion", m_updates->currentVersion()},
+        {"latestVersion", m_updates->latestVersion()},
+        {"releaseUrl", m_updates->releaseUrl()},
+        {"releaseNotes", m_updates->releaseNotes()},
+        {"updateAvailable", m_updates->updateAvailable()},
+        {"checking", m_updates->checking()},
+        {"lastError", m_updates->lastError()},
+        {"channel", m_updates->isStableChannel() ? "stable" : "edge"},
+    };
+}
+
+QVariantMap UpdatesObject::GetState() {
+    if (!requireSystem())
+        return {};
+    return buildState();
+}
+
+void UpdatesObject::CheckNow() {
+    if (!requireSystem())
+        return;
+    if (m_updates)
+        m_updates->checkNow();
+}
+
+void UpdatesObject::OpenInBrowser() {
+    if (!requireSystem())
+        return;
+    if (m_updates)
+        m_updates->openInBrowser();
+}
+
+void UpdatesObject::SetChannel(const QString &channel) {
+    if (!requireSystem())
+        return;
+    if (m_updates)
+        m_updates->setChannel(channel);
+}
+
+// === DavObject =============================================================
+
+DavObject::DavObject(DavSyncEngine *engine, MarathonPermissionManager *permissions,
+                     AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_engine(engine) {
+    if (m_engine) {
+        connect(m_engine, &DavSyncEngine::accountsChanged, this,
+                [this]() { emit AccountsChanged(); });
+        connect(m_engine, &DavSyncEngine::syncFinished, this,
+                [this](const QString &accountId, int, int, int) { emit SyncFinished(accountId); });
+    }
+}
+
+QVariantList DavObject::ListAccounts() {
+    if (!requireSystem())
+        return {};
+    return m_engine ? m_engine->listAccounts() : QVariantList{};
+}
+
+QString DavObject::AddAccount(const QString &displayName, const QString &baseUrl,
+                              const QString &username, const QString &secret,
+                              const QString &authKind) {
+    if (!requireSystem())
+        return {};
+    return m_engine ? m_engine->addAccount(displayName, baseUrl, username, secret, authKind) :
+                      QString{};
+}
+
+bool DavObject::RemoveAccount(const QString &id) {
+    if (!requireSystem())
+        return false;
+    return m_engine ? m_engine->removeAccount(id) : false;
+}
+
+void DavObject::EnableAccount(const QString &id, bool enabled) {
+    if (!requireSystem())
+        return;
+    if (m_engine)
+        m_engine->enableAccount(id, enabled);
+}
+
+void DavObject::SyncNow() {
+    if (!requireSystem())
+        return;
+    if (m_engine)
+        m_engine->syncNow();
+}
+
+QVariantMap DavObject::GetState() {
+    if (!requireSystem())
+        return {};
+    if (!m_engine)
+        return {};
+    return {
+        {"accountCount", m_engine->accountCount()},
+        {"syncing", m_engine->syncing()},
+        {"lastError", m_engine->lastError()},
+        {"lastSyncMs", m_engine->lastSyncMs()},
+    };
 }

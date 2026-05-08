@@ -544,6 +544,8 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("SensorService", new SensorClient(&app));
     ctx->setContextProperty("LocationService", new LocationClient(&app));
     ctx->setContextProperty("AlarmService", new AlarmClient(&app));
+    ctx->setContextProperty("UpdateService", new UpdateClient(&app));
+    ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
 
     auto *systemStatusStore = new SystemStatusStoreClient(
         qobject_cast<PowerClient *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),
