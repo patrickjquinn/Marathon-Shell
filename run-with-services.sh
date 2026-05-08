@@ -9,14 +9,14 @@ echo "Service Status:"
 for svc in NetworkManager bluetooth ModemManager upower geoclue; do
     status=$(systemctl is-active "$svc" 2>&1)
     if [[ "$status" == "active" ]]; then
-        echo "  ✓ $svc"
+        echo " $svc"
     else
         echo "    $svc ($status)"
     fi
 done
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "-----------------------------------------------------------"
 echo ""
 
 # Export environment variables

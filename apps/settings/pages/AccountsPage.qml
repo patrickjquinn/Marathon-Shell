@@ -187,7 +187,7 @@ SettingsPageTemplate {
                 width: parent.width
                 wrapMode: Text.WordWrap
                 variant: "secondary"
-                text: "CardDAV contacts sync into the device's address book. Calendar collection enumeration is wired; full event ingest follows the same protocol path. Google requires OAuth2 — use Nextcloud, Fastmail, iCloud app-passwords, or Mailbox.org for now."
+                text: "CardDAV contacts sync into the device's address book. Calendar collection enumeration is wired; full event ingest follows the same protocol path. Google requires OAuth2; use Nextcloud, Fastmail, iCloud app-passwords, or Mailbox.org for now."
             }
         }
     }

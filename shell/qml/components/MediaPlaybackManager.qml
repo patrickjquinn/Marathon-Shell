@@ -27,7 +27,7 @@ Rectangle {
     border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3)
     Component.onCompleted: {
         if (MPRIS2Controller) {
-            Logger.info("MediaPlaybackManager", "✓ Initialized with MPRIS2 integration");
+            Logger.info("MediaPlaybackManager", "Initialized with MPRIS2 integration");
             Logger.info("MediaPlaybackManager", "Monitoring for media players (Spotify, VLC, Firefox, etc.)");
         } else {
             Logger.warn("MediaPlaybackManager", "MPRIS2Controller not available");

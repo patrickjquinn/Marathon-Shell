@@ -62,7 +62,7 @@ void ModemManagerCpp::initializeDBusConnection() {
     if (m_mmInterface->isValid()) {
         m_hasModemManager = true;
         m_dbusRetryCount  = 0;
-        qInfo() << "[ModemManagerCpp] ✓ Connected to ModemManager D-Bus";
+        qInfo() << "[ModemManagerCpp] Connected to ModemManager D-Bus";
         setupDBusConnections();
         discoverModem();
         m_stateMonitor->start();
@@ -237,7 +237,7 @@ void ModemManagerCpp::queryModemState() {
 
     // Emergency-call posture: Voice.EmergencyOnly is true when only 112/911-class
     // calls will be accepted (no SIM, PIN-locked, limited service). Sim.EmergencyNumbers
-    // surfaces the EF_ECC list — readable while PIN-locked. The lock-screen
+    // surfaces the EF_ECC list -- readable while PIN-locked. The lock-screen
     // affordance reads both; we never hard-code the list (3GPP TS 22.101 + the SIM provide it).
     QDBusInterface modemVoice("org.freedesktop.ModemManager1", m_modemPath,
                               "org.freedesktop.ModemManager1.Modem.Voice",
@@ -354,7 +354,7 @@ void ModemManagerCpp::enableData() {
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qInfo() << "[ModemManagerCpp] ✓ Mobile data enabled";
+    qInfo() << "[ModemManagerCpp] Mobile data enabled";
 }
 
 void ModemManagerCpp::disableData() {
@@ -383,7 +383,7 @@ void ModemManagerCpp::disableData() {
     emit dataEnabledChanged();
     emit dataConnectedChanged();
 
-    qInfo() << "[ModemManagerCpp] ✓ Mobile data disabled";
+    qInfo() << "[ModemManagerCpp] Mobile data disabled";
 }
 
 void ModemManagerCpp::setApn(const QString &apn, const QString &username, const QString &password) {
@@ -432,7 +432,7 @@ void ModemManagerCpp::setApn(const QString &apn, const QString &username, const 
             emit dataEnabledChanged();
             emit dataConnectedChanged();
 
-            qInfo() << "[ModemManagerCpp] ✓ Connected with custom APN";
+            qInfo() << "[ModemManagerCpp] Connected with custom APN";
         });
     }
 }

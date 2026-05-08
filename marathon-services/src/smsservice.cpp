@@ -230,7 +230,7 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
 
     emit messageSent(recipient, msg.timestamp);
 
-    qInfo() << "[SMSService] ✓ SMS sent to:" << recipient;
+    qInfo() << "[SMSService]SMS sent to:" << recipient;
 }
 
 QVariantList SMSService::getMessages(const QString &conversationId) {
@@ -316,7 +316,7 @@ void SMSService::simulateIncomingSMS(const QString &sender, const QString &text)
 
     emit messageReceived(sender, text, timestamp);
 
-    qInfo() << "[SMSService] [SIMULATION] ✓ Incoming SMS simulated and stored";
+    qInfo() << "[SMSService] [SIMULATION]Incoming SMS simulated and stored";
 }
 
 void SMSService::initDatabase() {
@@ -430,7 +430,7 @@ void SMSService::connectToModemManager() {
         return;
     }
 
-    qInfo() << "[SMSService] ✓ Connected to ModemManager";
+    qInfo() << "[SMSService] Connected to ModemManager";
 
     QDBusConnection::systemBus().connect("org.freedesktop.ModemManager1", "",
                                          "org.freedesktop.ModemManager1.Modem.Messaging", "Added",
@@ -535,7 +535,7 @@ void SMSService::processIncomingSMS(const QString &smsPath) {
 
     emit messageReceived(sender, text, timestamp);
 
-    qInfo() << "[SMSService] ✓ New SMS received from:" << sender;
+    qInfo() << "[SMSService] New SMS received from:" << sender;
 
     QDBusInterface smsDeleteInterface("org.freedesktop.ModemManager1", smsPath,
                                       "org.freedesktop.ModemManager1.Sms",

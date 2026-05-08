@@ -214,9 +214,9 @@ Rectangle {
             isLeftZone = !pinScreenMode && mouse.x < leftBoundary;
             isRightZone = mouse.x > rightBoundary;
             if (isLeftZone)
-                Logger.info("NavBar", "🔵 Touch in LEFT ZONE (x=" + mouse.x + ")");
+                Logger.info("NavBar", "Touch in LEFT ZONE (x=" + mouse.x + ")");
             else if (isRightZone)
-                Logger.info("NavBar", "🔴 Touch in RIGHT ZONE (keyboard) (x=" + mouse.x + ", pinScreenMode=" + pinScreenMode + ")");
+                Logger.info("NavBar", "Touch in RIGHT ZONE (keyboard) (x=" + mouse.x + ", pinScreenMode=" + pinScreenMode + ")");
         }
         onPositionChanged: mouse => {
             var now = Date.now();
@@ -270,11 +270,11 @@ Rectangle {
             });
             if ((isLeftZone || isRightZone) && diffY > 50) {
                 if (isLeftZone) {
-                    Logger.info("NavBar", "🔵 LEFT ZONE SWIPE-UP → Toggle Search (diffY: " + diffY + ")");
+                    Logger.info("NavBar", "LEFT ZONE SWIPE-UP → Toggle Search (diffY: " + diffY + ")");
                     HapticManager.medium();
                     navBar.toggleSearch();
                 } else if (isRightZone) {
-                    Logger.info("NavBar", "🔴 RIGHT ZONE SWIPE-UP → Toggle Keyboard (diffY: " + diffY + ")");
+                    Logger.info("NavBar", "RIGHT ZONE SWIPE-UP → Toggle Keyboard (diffY: " + diffY + ")");
                     HapticManager.medium();
                     navBar.toggleKeyboard();
                 }

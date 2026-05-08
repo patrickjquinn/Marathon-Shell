@@ -16,12 +16,12 @@
 
 void printSuccess(const QString &message) {
     QTextStream out(stdout);
-    out << "\033[32m✓\033[0m " << message << Qt::endl;
+    out << "\033[32m\033[0m " << message << Qt::endl;
 }
 
 void printError(const QString &message) {
     QTextStream err(stderr);
-    err << "\033[31m✗\033[0m " << message << Qt::endl;
+    err << "\033[31m\033[0m " << message << Qt::endl;
 }
 
 void printInfo(const QString &message) {

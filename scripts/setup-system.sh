@@ -1,5 +1,5 @@
 #!/bin/bash
-# Marathon Shell — System Setup (idempotent)
+# Marathon Shell -- System Setup (idempotent)
 #
 # One-shot script that prepares a Linux system to run Marathon as the primary
 # session. Safe to re-run: every step checks current state and only changes
@@ -40,9 +40,9 @@ fi
 # ---- helpers --------------------------------------------------------------
 
 log_step()    { echo ""; echo "==> $*"; }
-log_ok()      { echo "    ✓ $*"; }
+log_ok()      { echo "   $*"; }
 log_skip()    { echo "    ~ $*"; }
-log_err()     { echo "    ✗ $*" >&2; }
+log_err()     { echo "   $*" >&2; }
 
 run_or_check() {
     if [ "$CHECK_ONLY" -eq 1 ]; then
@@ -63,11 +63,11 @@ ensure_pkgs() {
         elif command -v dnf >/dev/null 2>&1; then
             rpm -q "$p" >/dev/null 2>&1 || missing+=("$p")
         else
-            return 0  # unknown package manager — assume manual install
+            return 0  # unknown package manager -- assume manual install
         fi
     done
     if [ "${#missing[@]}" -gt 0 ]; then
-        log_skip "Missing packages: ${missing[*]} — install via your package manager"
+        log_skip "Missing packages: ${missing[*]} -- install via your package manager"
         return 1
     fi
     return 0
@@ -76,7 +76,7 @@ ensure_pkgs() {
 enable_service() {
     local svc=$1
     if ! command -v systemctl >/dev/null 2>&1; then
-        log_skip "systemctl not present — assuming OpenRC; manually 'rc-update add $svc'"
+        log_skip "systemctl not present -- assuming OpenRC; manually 'rc-update add $svc'"
         return 0
     fi
     if systemctl is-enabled --quiet "$svc" 2>/dev/null; then
@@ -92,7 +92,7 @@ enable_service() {
 log_step "1/9 Required runtime packages"
 ensure_pkgs ModemManager NetworkManager bluez upower power-profiles-daemon mmsd-tng \
             polkit pam at-spi2-core mobile-broadband-provider-info || \
-    log_skip "Some optional services missing — Marathon will degrade gracefully"
+    log_skip "Some optional services missing -- Marathon will degrade gracefully"
 
 # ---- 2. PAM authentication stack ------------------------------------------
 
@@ -127,7 +127,7 @@ else
     fi
 fi
 
-# ---- 4. RT scheduling — CAP_SYS_NICE on the shell binary ------------------
+# ---- 4. RT scheduling -- CAP_SYS_NICE on the shell binary ------------------
 
 log_step "4/9 Real-time scheduling capability"
 SHELL_BIN_CANDIDATES=(
@@ -140,7 +140,7 @@ for c in "${SHELL_BIN_CANDIDATES[@]}"; do
     if [ -f "$c" ]; then SHELL_BIN="$c"; break; fi
 done
 if [ -z "$SHELL_BIN" ]; then
-    log_skip "marathon-shell-bin not found in expected paths — build first"
+    log_skip "marathon-shell-bin not found in expected paths -- build first"
 else
     if getcap "$SHELL_BIN" 2>/dev/null | grep -q "cap_sys_nice"; then
         log_ok "CAP_SYS_NICE already granted on $SHELL_BIN"
@@ -153,7 +153,7 @@ fi
 LIMITS_DST="/etc/security/limits.d/99-marathon.conf"
 if [ ! -f "$LIMITS_DST" ]; then
     run_or_check "cat > '$LIMITS_DST' <<'EOF'
-# Marathon Shell — allow non-root processes to set realtime scheduling priority
+# Marathon Shell -- allow non-root processes to set realtime scheduling priority
 # Required for QSGRenderThread / app render-thread elevation. See docs/RT_SCHEDULING.md.
 *       hard    rtprio  10
 *       soft    rtprio  10
@@ -194,7 +194,7 @@ else
             log_ok "greetd config installed"
         fi
     else
-        log_skip "greetd not installed — install it with your package manager"
+        log_skip "greetd not installed -- install it with your package manager"
     fi
 fi
 
@@ -215,7 +215,7 @@ if id "$TARGET_USER" >/dev/null 2>&1; then
         fi
     done
 else
-    log_skip "Cannot resolve target user — set SUDO_USER explicitly"
+    log_skip "Cannot resolve target user -- set SUDO_USER explicitly"
 fi
 
 # ---- 7. Enable services ---------------------------------------------------

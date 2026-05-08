@@ -58,6 +58,6 @@ if [[ "$fail" -ne 0 ]]; then
     exit 1
 fi
 
-echo "✓ QML singleton pragma placement OK"
+echo "QML singleton pragma placement OK"
 
 

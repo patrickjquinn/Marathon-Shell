@@ -28,7 +28,7 @@
 #include "util/rtprio.h"
 
 #ifdef Q_OS_LINUX
-// Foreground app: main thread RR/4, render thread RR/3 — see
+// Foreground app: main thread RR/4, render thread RR/3 -- see
 // docs/RT_SCHEDULING.md for the full hierarchy and rationale.
 constexpr int           kForegroundMainPriority   = 4;
 constexpr int           kForegroundRenderPriority = 3;
@@ -362,7 +362,7 @@ int main(int argc, char *argv[]) {
     //   1. Elevate / demote the main thread directly (we're on it).
     //   2. Set desired render-thread priority for the render thread to pick up.
     //   3. view.update() forces one more sync so beforeSynchronizing fires once
-    //      more — guarantees a demotion lands on the render thread even when
+    //      more -- guarantees a demotion lands on the render thread even when
     //      the app has otherwise stopped requesting frames (backgrounded).
     QObject::connect(&view, &QWindow::activeChanged, &view, [&view]() {
         const bool active = view.isActive();

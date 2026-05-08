@@ -111,14 +111,14 @@ PowerManagerCpp::~PowerManagerCpp() {
 }
 
 void PowerManagerCpp::setupDBusConnections() {
-    // Subscribe to PrepareForSleep regardless of m_hasLogind — the system
+    // Subscribe to PrepareForSleep regardless of m_hasLogind -- the system
     // bus is global, signals route by name, and we want this in place even
     // before m_logindInterface initialises later in the constructor.
     QDBusConnection::systemBus().connect("org.freedesktop.login1", "/org/freedesktop/login1",
                                          "org.freedesktop.login1.Manager", "PrepareForSleep", this,
                                          SLOT(onPrepareForSleep(bool)));
     // The lifelong sleep/delay inhibit is taken in PowerManagerCpp() right
-    // after logind init — see PowerManagerCpp::PowerManagerCpp.
+    // after logind init -- see PowerManagerCpp::PowerManagerCpp.
 }
 
 void PowerManagerCpp::setupDisplayDevice() {

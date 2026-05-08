@@ -346,7 +346,7 @@ Item {
             lastX = mouse.x;
             lastTime = Date.now();
             isPeeking = true;
-            console.log("👈 Peek gesture started from left edge");
+            console.log("Peek gesture started from left edge");
         }
         onPositionChanged: mouse => {
             if (!isPeeking)

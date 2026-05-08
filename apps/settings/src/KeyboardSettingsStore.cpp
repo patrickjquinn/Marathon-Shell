@@ -86,7 +86,7 @@ QString KeyboardSettingsStore::getLanguageName(const QString &languageId) const 
 
 QString KeyboardSettingsStore::getFlag(const QString &languageId) const {
     const QVariant value = m_languageFlags.value(languageId);
-    return value.isValid() ? value.toString() : QStringLiteral("🌐");
+    return value.isValid() ? value.toString() : QStringLiteral("");
 }
 
 void KeyboardSettingsStore::resolveSettingsManager() {

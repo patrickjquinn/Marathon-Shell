@@ -70,7 +70,7 @@ SettingsPageTemplate {
                             MSettingsListItem {
                                 title: "Left"
                                 subtitle: "Best for right-side notches"
-                                value: (SettingsManagerCpp.statusBarClockPosition === "left") ? "✓" : ""
+                                value: (SettingsManagerCpp.statusBarClockPosition === "left") ? "selected" : ""
                                 onSettingClicked: {
                                     SettingsManagerCpp.statusBarClockPosition = "left";
                                     HapticService.light();
@@ -80,7 +80,7 @@ SettingsPageTemplate {
                             MSettingsListItem {
                                 title: "Center"
                                 subtitle: "Default position"
-                                value: (!SettingsManagerCpp.statusBarClockPosition || SettingsManagerCpp.statusBarClockPosition === "center") ? "✓" : ""
+                                value: (!SettingsManagerCpp.statusBarClockPosition || SettingsManagerCpp.statusBarClockPosition === "center") ? "selected" : ""
                                 onSettingClicked: {
                                     SettingsManagerCpp.statusBarClockPosition = "center";
                                     HapticService.light();
@@ -90,7 +90,7 @@ SettingsPageTemplate {
                             MSettingsListItem {
                                 title: "Right"
                                 subtitle: "Best for left-side notches"
-                                value: (SettingsManagerCpp.statusBarClockPosition === "right") ? "✓" : ""
+                                value: (SettingsManagerCpp.statusBarClockPosition === "right") ? "selected" : ""
                                 onSettingClicked: {
                                     SettingsManagerCpp.statusBarClockPosition = "right";
                                     HapticService.light();

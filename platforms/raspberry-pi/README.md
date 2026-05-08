@@ -65,9 +65,9 @@ Check the troubleshooting guide in `docs/TROUBLESHOOTING.md` first. For issues s
 
 | Device | Status | Notes |
 |--------|--------|-------|
-| Hackberry Pi (CM5) | ✅ Tested | Fully working with GPU acceleration |
-| Raspberry Pi 5 | 🟡 Should work | Not tested but compatible |
-| Raspberry Pi 4 | 🟡 Should work | May need memory adjustments |
+| Hackberry Pi (CM5) |Tested | Fully working with GPU acceleration |
+| Raspberry Pi 5 |Should work | Not tested but compatible |
+| Raspberry Pi 4 |Should work | May need memory adjustments |
 
 ## Contributing
 

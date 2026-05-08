@@ -61,7 +61,7 @@ void LocationManager::connectToGeoclue() {
         return;
     }
 
-    qInfo() << "[LocationManager] ✓ Connected to Geoclue2";
+    qInfo() << "[LocationManager] Connected to Geoclue2";
     m_available = true;
     emit availableChanged();
 
@@ -134,7 +134,7 @@ void LocationManager::start() {
                 } else {
                     m_active = true;
                     emit activeChanged();
-                    qInfo() << "[LocationManager] ✓ Location updates started";
+                    qInfo() << "[LocationManager] Location updates started";
                 }
                 call->deleteLater();
             });
@@ -202,6 +202,6 @@ void LocationManager::updateLocation(const QString &locationPath) {
 
     emit locationChanged();
 
-    qInfo() << "[LocationManager] ✓ Location:" << m_latitude << "," << m_longitude
+    qInfo() << "[LocationManager] Location:" << m_latitude << "," << m_longitude
             << "accuracy:" << m_accuracy << "m";
 }

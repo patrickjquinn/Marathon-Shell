@@ -2,25 +2,25 @@
 
 ## Common Build and Runtime Issues
 
-### ❌ Error: `module "MarathonUI.Theme" is not installed`
+### Error: `module "MarathonUI.Theme" is not installed`
 
-**Symptom:**
+Symptom:
 ```
 [WARNING] QQmlApplicationEngine failed to load component
 [WARNING] qrc:/MarathonOS/Shell/qml/MarathonShell.qml:5:1: module "MarathonUI.Theme" is not installed
 [CRITICAL] No root QML objects
 ```
 
-**Root Cause:**
+Cause:
 MarathonUI QML modules must be **built AND installed** before Marathon Shell can run. Simply building the project is not enough.
 
-**Quick Fix:**
+Fix:
 ```bash
 cd Marathon-Shell
 ./scripts/build-all.sh  # Builds AND installs everything
 ```
 
-**Manual Fix (if build-all.sh fails):**
+Manual Fix (if build-all.sh fails):
 ```bash
 # Build project
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
@@ -33,7 +33,7 @@ cmake --install build
 ./build/shell/marathon-shell-bin
 ```
 
-**Why This Happens:**
+Why:
 - Marathon Shell is a Qt/QML application that imports `MarathonUI.*` modules
 - Qt searches for QML modules in specific directories (import paths)
 - MarathonUI must be installed to one of these locations:
@@ -41,7 +41,7 @@ cmake --install build
   2. `/usr/lib/qt6/qml/MarathonUI/` (system-wide, requires sudo)
   3. `build/MarathonUI/` (build directory, **now supported as of this fix**)
 
-**Verification:**
+Verification:
 After running `cmake --install build`, check:
 ```bash
 ls ~/.local/share/marathon-ui/MarathonUI/Theme/qmldir
@@ -50,21 +50,21 @@ If this file exists, MarathonUI is installed correctly.
 
 ---
 
-### ❌ Error: `module "QtWebEngine" is not installed`
+### Error: `module "QtWebEngine" is not installed`
 
-**Symptom:**
+Symptom:
 The **Browser** app fails to launch, and logs show:
 ```
 [WARNING] ... Component error: ".../BrowserApp.qml:2 module "QtWebEngine" is not installed"
 ```
 
-**Root Cause:**
+Cause:
 The `QtWebEngine` QML module is missing from your system. This is required for the Browser app.
 
-**Fix:**
+Fix:
 Install the missing dependency:
 
-**Fedora:**
+Fedora:
 ```bash
 sudo dnf install qt6-qtwebengine-devel
 ```
@@ -74,14 +74,14 @@ sudo dnf install qt6-qtwebengine-devel
 sudo apt install qml-module-qtwebengine
 ```
 
-**Arch Linux:**
+Arch Linux:
 ```bash
 sudo pacman -S qt6-webengine
 ```
 
 ---
 
-### 🐛 Debugging QML Module Loading
+### Debugging QML Module Loading
 
 If you're still getting module not found errors, enable debug mode:
 
@@ -94,7 +94,7 @@ You'll see output like:
 [QML Import] User-local MarathonUI: /home/user/.local/share/marathon-ui
 [QML Import] System-wide Qt modules: /usr/lib/qt6/qml
 [QML Import] Build directory: /home/user/Marathon-Shell/build
-[MarathonShell] ✓ MarathonUI modules found
+[MarathonShell]MarathonUI modules found
   - Using user-local installation
 ```
 
@@ -111,7 +111,7 @@ Then MarathonUI is not installed. Run `cmake --install build`.
 
 ---
 
-### 📦 System-Wide Installation (For Packaging)
+### System-Wide Installation (For Packaging)
 
 For distribution packages (Debian, Fedora, Arch, etc.):
 
@@ -135,7 +135,7 @@ sudo cmake --install build
 
 ---
 
-### 🔧 Development Workflow
+### Development Workflow
 
 **First-time setup:**
 ```bash
@@ -144,12 +144,12 @@ cd Marathon-Shell
 ./scripts/build-all.sh  # Builds AND installs everything
 ```
 
-**Iterative development:**
+Iterative development:
 ```bash
 ./run.sh  # Rebuilds and runs shell (fast incremental builds)
 ```
 
-**After modifying MarathonUI QML files:**
+After modifying MarathonUI QML files:
 ```bash
 cd build-ui && cmake --build . && cmake --install .
 ```
@@ -160,14 +160,14 @@ cd build && cmake --build .
 ./shell/marathon-shell-bin
 ```
 
-**Clean rebuild:**
+Clean rebuild:
 ```bash
 CLEAN=1 ./run.sh
 ```
 
 ---
 
-### 🖥️ Platform-Specific Notes
+### Platform-Specific Notes
 
 #### Droidian / Mobian / PostmarketOS
 
@@ -212,11 +212,11 @@ sudo dnf install cmake ninja-build gcc-c++ \
 
 ---
 
-### 🔍 Qt Version Compatibility
+### Qt Version Compatibility
 
-**Supported:** Qt 6.5.0 - 6.9.3
+Supported: Qt 6.5.0 - 6.9.3
 
-**Known Issues:**
+Known Issues:
 - **Qt 6.10+**: May have breaking QML changes (untested)
 - **Qt 6.4 and older**: Not supported (missing QML features)
 
@@ -227,23 +227,23 @@ qmake6 --version  # or qmake -version on some distros
 
 ---
 
-### 💬 Getting Help
+### Getting Help
 
 If you're still stuck:
 
-1. **Enable debug logging:**
+1. Enable debug logging:
    ```bash
    MARATHON_DEBUG=1 ./build/shell/marathon-shell-bin > debug.log 2>&1
    ```
 
-2. **Collect build information:**
+2. Collect build information:
    ```bash
    cmake --version
    qmake6 --version
    ls -la ~/.local/share/marathon-ui/MarathonUI/Theme/
    ```
 
-3. **File an issue:** https://github.com/patrickjquinn/Marathon-Shell/issues
+3. File an issue: https://github.com/patrickjquinn/Marathon-Shell/issues
 
 Include:
 - Your Linux distribution and version
@@ -268,11 +268,11 @@ cmake --install build
 ./build/shell/marathon-shell-bin
 ```
 
-**Or just use:**
+Or just use:
 ```bash
 ./scripts/build-all.sh
 ./run.sh
 ```
 
-✅ **That's it!**
+**That's it!**
 

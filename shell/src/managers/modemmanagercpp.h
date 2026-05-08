@@ -23,7 +23,7 @@ class ModemManagerCpp : public QObject {
     // Emergency-call surface: emergencyOnly is true when the modem will only
     // accept emergency dials (no SIM, PIN-locked, limited service).
     // simEmergencyNumbers comes from EF_ECC and is readable while PIN-locked.
-    // The lock-screen "Emergency" affordance reads both — we never hard-code
+    // The lock-screen "Emergency" affordance reads both -- we never hard-code
     // the number list (3GPP TS 22.101 + the SIM provide it).
     Q_PROPERTY(bool emergencyOnly READ emergencyOnly NOTIFY emergencyOnlyChanged)
     Q_PROPERTY(

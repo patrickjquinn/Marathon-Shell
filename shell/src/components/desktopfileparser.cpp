@@ -41,10 +41,10 @@ QVariantList DesktopFileParser::scanApplications(const QStringList &searchPaths,
                 if (filterMobileFriendly) {
                     if (isMobileFriendly(app)) {
                         apps.append(app);
-                        qDebug() << "[DesktopFileParser] ✓ Mobile-friendly:"
+                        qDebug() << "[DesktopFileParser] Mobile-friendly:"
                                  << app["name"].toString();
                     } else {
-                        qDebug() << "[DesktopFileParser] ✗ Not mobile-friendly (filtered):"
+                        qDebug() << "[DesktopFileParser] Not mobile-friendly (filtered):"
                                  << app["name"].toString();
                     }
                 } else {

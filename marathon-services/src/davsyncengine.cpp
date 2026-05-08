@@ -63,9 +63,9 @@ namespace {
                     else
                         cur.status = 500;
                 } else if (currentTag == "current-user-principal") {
-                    // Inner href will populate principal — we capture below in next iteration.
+                    // Inner href will populate principal -- we capture below in next iteration.
                 } else if (currentTag == "addressbook-home-set") {
-                    // Same pattern — inner href captures it.
+                    // Same pattern -- inner href captures it.
                 } else if (currentTag == "calendar-home-set") {
                     // Same.
                 } else if (currentTag == "address-data" || currentTag == "calendar-data") {
@@ -305,7 +305,7 @@ QVariantMap DavAccount::toVariant() const {
     m["collectionsContacts"] = collectionsContacts;
     m["collectionsCalendar"] = collectionsCalendar;
     m["enabled"]             = enabled;
-    // secret is intentionally NOT round-tripped through toVariant — secrets
+    // secret is intentionally NOT round-tripped through toVariant -- secrets
     // never leave the engine.
     return m;
 }
@@ -605,7 +605,7 @@ void DavSyncEngine::syncNow() {
             continue;
         for (const QString &c : a.collectionsContacts)
             syncCollection(a, c, false);
-        // Calendar collections — sync the resource list, but the actual
+        // Calendar collections -- sync the resource list, but the actual
         // event ingestion is deferred until CalendarManager is shell-side.
         for (const QString &c : a.collectionsCalendar)
             syncCollection(a, c, true);
@@ -621,7 +621,7 @@ void DavSyncEngine::syncCollection(const DavAccount &acct, const QString &collec
     DavCollectionState st = m_collectionState.value(collectionUrl);
     QString            xml;
     if (st.syncToken.isEmpty()) {
-        // Initial pull — no sync-token yet, ask for the full member list with etags.
+        // Initial pull -- no sync-token yet, ask for the full member list with etags.
         xml = QStringLiteral("<?xml version=\"1.0\" encoding=\"utf-8\" ?>"
                              "<d:sync-collection xmlns:d=\"DAV:\">"
                              "<d:sync-token/>"
@@ -678,7 +678,7 @@ void DavSyncEngine::syncCollection(const DavAccount &acct, const QString &collec
                                                      e.endMs, e.allDay, e.location, accId);
                     }
                 } else if (!isCalendar && m_contacts) {
-                    // Parse the vCard properly — RFC 6350 unfolding + TYPE
+                    // Parse the vCard properly -- RFC 6350 unfolding + TYPE
                     // params + multi-phone/email + ORG + NOTE + photo.
                     const VCardContact vc = parseVCard(QString::fromUtf8(data));
                     if (!vc.name.isEmpty()) {

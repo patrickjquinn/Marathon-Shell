@@ -72,7 +72,7 @@ static bool checkRateLimit(const QDBusContext &ctx, const QString &method) {
 static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService *als) {
     // Resolve the caller to a Marathon app id; return empty (= deny) when we
     // can't. Under MARATHON_TEST_TRUSTED, every non-resolution returns the
-    // synthetic test caller instead — never overriding a real resolution.
+    // synthetic test caller instead -- never overriding a real resolution.
     const auto unresolved = []() {
         return g_testBypassEnabled ? QString::fromLatin1(MARATHON_TEST_CALLER_ID) : QString();
     };
@@ -93,7 +93,7 @@ static QString dbusCallerAppIdOrEmpty(const QDBusContext &ctx, AppLaunchService 
     if (shellPid <= 0 || pid <= 0)
         return unresolved();
 
-    // Confirm the caller is a marathon-app-runner whose parent is this shell —
+    // Confirm the caller is a marathon-app-runner whose parent is this shell --
     // i.e. one we ourselves launched and just haven't registered yet.
     QFile statFile(QStringLiteral("/proc/%1/stat").arg(pid));
     if (!statFile.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -1227,7 +1227,7 @@ PermissionsObject::PermissionsObject(MarathonPermissionManager *permissions,
 
 // Reject calls where one app is trying to set / read another app's permission.
 // MARATHON_TEST_TRUSTED ($MARATHON_TEST_CALLER_ID) is admitted as the synthetic
-// admin caller — it's the only caller allowed to act on a different appId, and
+// admin caller -- it's the only caller allowed to act on a different appId, and
 // only when the test-bypass env var is set.
 static bool authorizePermissionCall(const QString &caller, const QString &targetAppId) {
     if (caller.isEmpty())
@@ -1618,7 +1618,7 @@ bool NavigationObject::LaunchAppWithRoute(const QString &appId, const QString &r
     // Route + params are plumbed to the runner via launchAppWithRoute, which
     // appends --route and sets MARATHON_APP_ROUTE / MARATHON_APP_ROUTE_PARAMS
     // in the spawned process's environment. The runner exposes these to QML
-    // as context properties — used by the lock-screen Emergency affordance.
+    // as context properties -- used by the lock-screen Emergency affordance.
     const bool ok =
         m_launchService->launchAppWithRoute(QVariant(appId), route, paramsJson, nullptr, nullptr);
     if (ok) {

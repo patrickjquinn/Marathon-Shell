@@ -45,7 +45,7 @@ class SMSService : public QObject {
     QVariantList     conversations() const;
 
     Q_INVOKABLE void sendMessage(const QString &recipient, const QString &text);
-    // Multi-recipient or attachments — auto-routes to MMS via mmsd-tng.
+    // Multi-recipient or attachments -- auto-routes to MMS via mmsd-tng.
     // recipients are E.164. attachments is a list of {contentType, filePath} maps.
     Q_INVOKABLE void         sendMultiRecipient(const QStringList &recipients, const QString &text,
                                                 const QVariantList &attachments = {});

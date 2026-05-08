@@ -80,22 +80,22 @@ Rectangle {
                             {
                                 "title": "Curated Catalog",
                                 "desc": "Browse hand-picked Marathon apps",
-                                "icon": "📱"
+                                "icon": ""
                             },
                             {
                                 "title": "Secure Installation",
                                 "desc": "GPG-verified packages with signature checking",
-                                "icon": "🔒"
+                                "icon": ""
                             },
                             {
                                 "title": "Smart Permissions",
                                 "desc": "Runtime permission prompts for user privacy",
-                                "icon": "🛡"
+                                "icon": ""
                             },
                             {
                                 "title": "Automatic Updates",
                                 "desc": "Keep your apps up-to-date automatically",
-                                "icon": "🔄"
+                                "icon": ""
                             },
                             {
                                 "title": "Developer Tools",

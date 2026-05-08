@@ -12,18 +12,18 @@ echo "[1/5] Checking kernel configuration..."
 if [ -f /sys/kernel/realtime ]; then
     RT_VALUE=$(cat /sys/kernel/realtime)
     if [ "$RT_VALUE" = "1" ]; then
-        echo "  ✓ PREEMPT_RT kernel active"
+        echo " PREEMPT_RT kernel active"
     else
-        echo "  ✗ PREEMPT_RT kernel not active"
+        echo " PREEMPT_RT kernel not active"
         exit 1
     fi
 else
-    echo "  ✗ /sys/kernel/realtime not found"
+    echo " /sys/kernel/realtime not found"
     echo "  Checking uname..."
     if uname -a | grep -q "PREEMPT_RT"; then
-        echo "  ✓ PREEMPT_RT found in kernel version"
+        echo " PREEMPT_RT found in kernel version"
     else
-        echo "  ✗ PREEMPT_RT not detected"
+        echo " PREEMPT_RT not detected"
         exit 1
     fi
 fi
@@ -39,23 +39,23 @@ cat > /etc/security/limits.d/99-marathon.conf <<EOF
 @marathon-users  -  nice   -10
 @marathon-users  -  memlock unlimited
 EOF
-echo "  ✓ Created /etc/security/limits.d/99-marathon.conf"
+echo " Created /etc/security/limits.d/99-marathon.conf"
 
 # 3. Create marathon-users group
 echo ""
 echo "[3/5] Creating marathon-users group..."
 if ! getent group marathon-users > /dev/null 2>&1; then
     groupadd marathon-users
-    echo "  ✓ Created marathon-users group"
+    echo " Created marathon-users group"
 else
-    echo "  ✓ marathon-users group already exists"
+    echo " marathon-users group already exists"
 fi
 
 # Add default user to group (adjust username as needed)
 DEFAULT_USER=$(getent passwd 1000 | cut -d: -f1)
 if [ -n "$DEFAULT_USER" ]; then
     usermod -aG marathon-users "$DEFAULT_USER"
-    echo "  ✓ Added $DEFAULT_USER to marathon-users group"
+    echo " Added $DEFAULT_USER to marathon-users group"
 fi
 
 # 4. Configure systemd services
@@ -69,7 +69,7 @@ cat > /etc/systemd/system/ModemManager.service.d/rt-priority.conf <<EOF
 CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=90
 EOF
-echo "  ✓ Configured ModemManager (RT priority 90)"
+echo " Configured ModemManager (RT priority 90)"
 
 # PipeWire (Priority 88)
 mkdir -p /etc/systemd/user/pipewire.service.d
@@ -78,7 +78,7 @@ cat > /etc/systemd/user/pipewire.service.d/rt-priority.conf <<EOF
 CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=88
 EOF
-echo "  ✓ Configured PipeWire (RT priority 88)"
+echo " Configured PipeWire (RT priority 88)"
 
 # Marathon Shell (Priority 75)
 mkdir -p /etc/systemd/user/marathon-shell.service.d
@@ -87,7 +87,7 @@ cat > /etc/systemd/user/marathon-shell.service.d/rt-priority.conf <<EOF
 CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=75
 EOF
-echo "  ✓ Configured Marathon Shell (RT priority 75)"
+echo " Configured Marathon Shell (RT priority 75)"
 
 # 5. Configure sysctl parameters
 echo ""
@@ -110,9 +110,9 @@ vm.min_free_kbytes = 65536
 net.core.netdev_max_backlog = 5000
 net.ipv4.tcp_fastopen = 3
 EOF
-echo "  ✓ Created /etc/sysctl.d/99-marathon.conf"
+echo " Created /etc/sysctl.d/99-marathon.conf"
 sysctl --system > /dev/null 2>&1
-echo "  ✓ Applied kernel parameters"
+echo " Applied kernel parameters"
 
 # 6. Configure I/O scheduler
 echo ""
@@ -123,9 +123,9 @@ cat > /etc/udev/rules.d/60-ioschedulers.rules <<EOF
 
 ACTION=="add|change", KERNEL=="sd[a-z]|mmcblk[0-9]*|nvme[0-9]*", ATTR{queue/scheduler}="kyber"
 EOF
-echo "  ✓ Created /etc/udev/rules.d/60-ioschedulers.rules"
+echo " Created /etc/udev/rules.d/60-ioschedulers.rules"
 udevadm control --reload-rules 2>/dev/null || echo "   udevadm control requires root"
-echo "  ✓ Reloaded udev rules"
+echo " Reloaded udev rules"
 
 # Done
 echo ""

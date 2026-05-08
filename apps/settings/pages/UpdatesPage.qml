@@ -63,7 +63,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Stable"
                     subtitle: "Tagged releases only"
-                    value: UpdateService.channel === "stable" ? "✓" : ""
+                    value: UpdateService.channel === "stable" ? "selected" : ""
                     onSettingClicked: UpdateService.setChannel("stable")
                     Accessible.name: "Stable channel" + (UpdateService.channel === "stable" ? ", selected" : "")
                 }
@@ -71,7 +71,7 @@ SettingsPageTemplate {
                 MSettingsListItem {
                     title: "Edge"
                     subtitle: "Includes pre-releases"
-                    value: UpdateService.channel === "edge" ? "✓" : ""
+                    value: UpdateService.channel === "edge" ? "selected" : ""
                     onSettingClicked: UpdateService.setChannel("edge")
                     Accessible.name: "Edge channel" + (UpdateService.channel === "edge" ? ", selected" : "")
                 }

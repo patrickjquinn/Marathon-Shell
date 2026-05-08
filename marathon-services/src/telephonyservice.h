@@ -57,7 +57,7 @@ class TelephonyService : public QObject {
     QString callStateFromModemManager(uint mmState);
     QString extractNumberFromPath(const QString &path);
 
-    // Per-call sleep block inhibitor — held while a call is in progress so
+    // Per-call sleep block inhibitor -- held while a call is in progress so
     // the system cannot suspend mid-call. Pattern lifted from Plasma-Dialer
     // (modem-daemon/src/call-manager.cpp) and GNOME Calls.
     void                    acquireCallInhibit();

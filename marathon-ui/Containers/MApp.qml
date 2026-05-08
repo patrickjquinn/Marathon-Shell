@@ -149,7 +149,7 @@ Item {
     signal requestUnregister(string appId)
 
     Component.onCompleted: {
-        console.log("━━━━━━━ MApp.onCompleted FIRED ━━━━━━━");
+        console.log("------- MApp.onCompleted FIRED -------");
         console.log("  appId:", appId);
         console.log("  appName:", appName);
         console.log("  appIcon:", appIcon);
@@ -170,7 +170,7 @@ Item {
             console.log("  ℹ  AppLifecycleManager not available, emitting requestRegister signal");
             requestRegister(appId, root);
         }
-        console.log("━━━━━━━ MApp.onCompleted COMPLETE ━━━━━━━");
+        console.log("------- MApp.onCompleted COMPLETE -------");
     }
 
     Component.onDestruction: {

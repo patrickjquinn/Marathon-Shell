@@ -485,7 +485,7 @@ Item {
 
         interval: 100
         onTriggered: {
-            // Prefer ScreenMetricsCpp.dpi when available — it honors the
+            // Prefer ScreenMetricsCpp.dpi when available -- it honors the
             // MARATHON_FORCE_DPI override used for QEMU validation. Fall
             // back to Qt's pixelDensity-derived DPI on real hardware where
             // the env stays unset.
@@ -708,7 +708,7 @@ Item {
         }
         onLongSwipeUp: {
             dismissPermissionPrompt();
-            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP RECEIVED ━━━━━━━");
+            Logger.info("NavBar", "------- LONG SWIPE UP RECEIVED -------");
             if (virtualKeyboard.active) {
                 Logger.info("NavBar", "Dismissing keyboard with long swipe up");
                 HapticManager.light();
@@ -719,21 +719,21 @@ Item {
                 "target": "activeFrames"
             });
             if (UIStore.appWindowOpen) {
-                Logger.info("NavBar", "📱 APP WINDOW OPEN - Minimizing to task switcher");
+                Logger.info("NavBar", "APP WINDOW OPEN - Minimizing to task switcher");
                 Logger.info("NavBar", "  UIStore.appWindowOpen: " + UIStore.appWindowOpen);
                 Logger.info("NavBar", "  UIStore.settingsOpen: " + UIStore.settingsOpen);
-                Logger.info("NavBar", "  🔄 Calling AppLifecycleManager.minimizeForegroundApp()");
+                Logger.info("NavBar", " Calling AppLifecycleManager.minimizeForegroundApp()");
                 var result = AppLifecycleManager.minimizeForegroundApp();
                 Logger.info("NavBar", "   AppLifecycleManager.minimizeForegroundApp() returned: " + result);
                 Logger.info("NavBar", "   Triggering snapIntoGridAnimation for smooth transition");
                 shell.isTransitioningToActiveFrames = true;
                 snapIntoGridAnimation.startWithVelocity(-1500);
             } else {
-                Logger.info("NavBar", "📍 No app open - just navigating to task switcher");
+                Logger.info("NavBar", "No app open - just navigating to task switcher");
                 pageView.currentIndex = 1;
                 Router.goToFrames();
             }
-            Logger.info("NavBar", "━━━━━━━ LONG SWIPE UP COMPLETE ━━━━━━━");
+            Logger.info("NavBar", "------- LONG SWIPE UP COMPLETE -------");
         }
         onStartPageTransition: {
             if ((UIStore.appWindowOpen || UIStore.settingsOpen) && pageView.currentIndex !== 1) {
@@ -823,7 +823,7 @@ Item {
                         Logger.info("Shell", "AppLaunchService is launching " + UIStore.currentAppId + " - skipping redundant show()");
                         return;
                     }
-                    Logger.info("Shell", "🔄 App ID changed, showing: " + UIStore.currentAppId);
+                    Logger.info("Shell", "App ID changed, showing: " + UIStore.currentAppId);
                     var task = TaskModel.getTaskByAppId(UIStore.currentAppId);
                     if (task && task.appType === "native") {
                         Logger.info("Shell", "Restoring native app from task switcher");

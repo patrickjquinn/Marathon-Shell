@@ -5,43 +5,43 @@ This document provides detailed technical information about how Marathon Shell r
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
+┌------------------------------------------------------------┐
 │                     Hardware Layer                          │
 │  Raspberry Pi CM5 (BCM2712 SoC, ARM Cortex-A76)             │
 │  GPU: VideoCore VII (OpenGL ES 3.1, Vulkan 1.3)             │
-└─────────────────────────────────────────────────────────────┘
+└------------------------------------------------------------┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
+┌------------------------------------------------------------┐
 │                   Linux Kernel (6.6+)                       │
 │  - DRM/KMS (Direct Rendering Manager)                       │
 │  - Wayland Protocol Support                                 │
 │  - Input Event Subsystem (evdev)                            │
-└─────────────────────────────────────────────────────────────┘
+└------------------------------------------------------------┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
+┌------------------------------------------------------------┐
 │                  systemd + LightDM                          │
 │  - Display Manager (LightDM)                                │
 │  - Session Management                                       │
 │  - User Login & Autologin                                   │
-└─────────────────────────────────────────────────────────────┘
+└------------------------------------------------------------┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
+┌------------------------------------------------------------┐
 │              Marathon Shell (Qt6 + QML)                     │
-│  ┌───────────────────────────────────────────────────────┐  │
+│  ┌-------------------------------------------------------┐  │
 │  │         Wayland Compositor (Marathon)                 │  │
 │  │  - Window Management                                  │  │
 │  │  - Surface Rendering                                  │  │
 │  │  - Input Handling (Touch, Mouse, Keyboard)            │  │
-│  └───────────────────────────────────────────────────────┘  │
+│  └-------------------------------------------------------┘  │
 │                          ↓                                  │
-│  ┌───────────────────────────────────────────────────────┐  │
+│  ┌-------------------------------------------------------┐  │
 │  │          Qt6 QPA Plugin (eglfs)                       │  │
 │  │  - Direct EGL/KMS Rendering                           │  │
 │  │  - No X11/Wayland Client Dependency                   │  │
 │  │  - Full GPU Acceleration                              │  │
-│  └───────────────────────────────────────────────────────┘  │
+│  └-------------------------------------------------------┘  │
 │                          ↓                                  │
-│  ┌───────────────────────────────────────────────────────┐  │
+│  ┌-------------------------------------------------------┐  │
 │  │         Marathon OS Components                        │  │
 │  │  - Shell UI (QML)                                     │  │
 │  │  - App Launcher                                       │  │
@@ -49,16 +49,16 @@ This document provides detailed technical information about how Marathon Shell r
 │  │  - Settings Manager                                   │  │
 │  │  - Session Manager                                    │  │
 │  │  - Lock Screen                                        │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+│  └-------------------------------------------------------┘  │
+└------------------------------------------------------------┘
                             ↓
-┌─────────────────────────────────────────────────────────────┐
+┌------------------------------------------------------------┐
 │                   Wayland Clients                           │
 │  (Apps running under Marathon Shell's compositor)           │
 │  - GTK4/Wayland Apps                                        │
 │  - Qt6/Wayland Apps                                         │
 │  - Native Marathon Apps                                     │
-└─────────────────────────────────────────────────────────────┘
+└------------------------------------------------------------┘
 ```
 
 ## Boot Sequence
@@ -273,15 +273,15 @@ Type=Application
 5. Presents buffers directly to the display controller
 
 **Advantages**:
-- ✅ Lowest latency
-- ✅ Highest performance
-- ✅ Direct GPU access
-- ✅ No intermediary display server
+-Lowest latency
+-Highest performance
+-Direct GPU access
+-No intermediary display server
 
 **Limitations**:
-- ❌ Only one application can use eglfs at a time (exclusive DRM access)
-- ❌ No window management (fullscreen only)
-- ❌ Cannot run alongside X11 or another Wayland compositor
+-Only one application can use eglfs at a time (exclusive DRM access)
+-No window management (fullscreen only)
+-Cannot run alongside X11 or another Wayland compositor
 
 ### wayland Platform Plugin
 

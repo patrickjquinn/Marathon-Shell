@@ -27,7 +27,7 @@ bool FreedesktopNotifications::registerService() {
                     "(desktop environment)";
 
         if (bus.registerService("org.marathon.Notifications")) {
-            qInfo() << "[FreedesktopNotifications] ✓ Registered fallback service: "
+            qInfo() << "[FreedesktopNotifications] Registered fallback service: "
                        "org.marathon.Notifications";
 
             if (!bus.registerObject("/org/freedesktop/Notifications", this,
@@ -52,7 +52,7 @@ bool FreedesktopNotifications::registerService() {
         return false;
     }
 
-    qInfo() << "[FreedesktopNotifications] ✓ Registered org.freedesktop.Notifications on D-Bus";
+    qInfo() << "[FreedesktopNotifications] Registered org.freedesktop.Notifications on D-Bus";
     return true;
 }
 

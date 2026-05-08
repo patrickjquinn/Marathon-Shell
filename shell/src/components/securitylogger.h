@@ -89,9 +89,9 @@ class SecurityLogger {
                 .arg(source, field, reason));
     }
 
-    // Audit trail for emergency dials. Logs metadata only — never call
+    // Audit trail for emergency dials. Logs metadata only -- never call
     // content / DTMF / audio. The dialed number is kept (it is, by design,
-    // an emergency number — these are public). Operator + emergencyOnly +
+    // an emergency number -- these are public). Operator + emergencyOnly +
     // gpsAvailable help debug field reports without dragging in coordinates.
     static void logEmergencyDial(const QString &number, const QString &modemPath,
                                  const QString &networkOperator, bool emergencyOnly,

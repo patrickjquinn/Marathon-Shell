@@ -97,7 +97,7 @@ See `shell/qml/components/VirtualKeyboard.qml` for a complete example of:
 The keyboard includes a C++ Input Method Engine for proper Qt integration:
 
 ```cpp
-#include <marathoninputmethodengine.h>
+# include <marathoninputmethodengine.h>
 
 // In your main.cpp:
 MarathonInputMethodEngine *ime = new MarathonInputMethodEngine(&app);

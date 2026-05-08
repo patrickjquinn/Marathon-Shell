@@ -116,7 +116,7 @@ MApp {
     appIcon: "assets/icon.svg"
     Component.onCompleted: {
         if (emergencyOnly)
-            Logger.warn("Phone", "Launched in EMERGENCY ONLY mode — contacts/history disabled");
+            Logger.warn("Phone", "Launched in EMERGENCY ONLY mode -- contacts/history disabled");
 
         if (TelephonyService.callState === "active") {
             var number = TelephonyService.activeNumber;
@@ -127,7 +127,7 @@ MApp {
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
         if (emergencyOnly)
-            // Skip contacts permission request — emergency mode never reads contacts.
+            // Skip contacts permission request -- emergency mode never reads contacts.
             return;
 
         if (PermissionManager.hasPermission(appId, "contacts")) {
@@ -619,7 +619,7 @@ MApp {
 
                 width: parent.width
                 activeTab: parent.currentIndex
-                // Emergency mode hides History/Contacts tabs entirely — only the
+                // Emergency mode hides History/Contacts tabs entirely -- only the
                 // dialer is reachable. The bar remains so the layout dimension
                 // is consistent with non-emergency launch.
                 visible: !phoneApp.emergencyOnly

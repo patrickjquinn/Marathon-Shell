@@ -254,7 +254,7 @@ MApp {
 
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "📷"
+                text: ""
                 font.pixelSize: 64
             }
 

@@ -16,7 +16,7 @@ class QNetworkReply;
 class ContactsManager;
 class DavCalendarStore;
 
-// One DAV account — stored in QSettings under "dav/accounts/<id>".
+// One DAV account -- stored in QSettings under "dav/accounts/<id>".
 struct DavAccount {
     QString           id;          // stable uuid
     QString           displayName; // user-facing
@@ -34,14 +34,14 @@ struct DavAccount {
     static DavAccount fromVariant(const QVariantMap &m);
 };
 
-// Sync state per collection — etag/sync-token for incremental updates.
+// Sync state per collection -- etag/sync-token for incremental updates.
 struct DavCollectionState {
     QString collectionUrl;
     QString syncToken;
     qint64  lastSyncMs = 0;
 };
 
-// CardDAV + CalDAV sync. Speaks DAV directly via QNetworkAccessManager —
+// CardDAV + CalDAV sync. Speaks DAV directly via QNetworkAccessManager --
 // no KDAV / Akonadi dependency. RFC 6764 discovery, RFC 6578 sync-collection,
 // RFC 6352 (CardDAV) + RFC 4791 (CalDAV). Validated against Nextcloud,
 // Fastmail, iCloud (app-password) and Radicale.
@@ -70,7 +70,7 @@ class DavSyncEngine : public QObject {
         return m_lastSyncMs;
     }
 
-    // Account management — exposed to QML so the Settings UI can add/edit/remove.
+    // Account management -- exposed to QML so the Settings UI can add/edit/remove.
     Q_INVOKABLE QVariantList listAccounts() const;
     Q_INVOKABLE QString      addAccount(const QString &displayName, const QString &baseUrl,
                                         const QString &username, const QString &secret,
@@ -78,7 +78,7 @@ class DavSyncEngine : public QObject {
     Q_INVOKABLE bool         removeAccount(const QString &id);
     Q_INVOKABLE void         enableAccount(const QString &id, bool enabled);
 
-    // Trigger discovery for one account — finds principal + home + collections.
+    // Trigger discovery for one account -- finds principal + home + collections.
     // Idempotent. Re-runs are cheap (PROPFIND with cached etag).
     Q_INVOKABLE void discover(const QString &accountId);
 
@@ -86,7 +86,7 @@ class DavSyncEngine : public QObject {
     // sync-collection REPORT with stored sync-token.
     Q_INVOKABLE void syncNow();
 
-    // Periodic sync timer — defaults to 15 minutes. Disable by setting 0.
+    // Periodic sync timer -- defaults to 15 minutes. Disable by setting 0.
     Q_INVOKABLE void setSyncIntervalMs(int ms);
     Q_INVOKABLE int  syncIntervalMs() const;
 

@@ -39,7 +39,7 @@ MmsManager::MmsManager(QObject *parent)
         // mmsd-tng is bus-activated, so first method call triggers spawn.
         // If the daemon isn't installed (e.g. desktop dev box), this stays
         // invalid and `available` reports false. Don't crash; just degrade.
-        qDebug() << "[MmsManager] org.ofono.mms not reachable —"
+        qDebug() << "[MmsManager] org.ofono.mms not reachable --"
                  << "MMS will be unavailable until mmsd-tng is installed";
         return;
     }
@@ -176,14 +176,14 @@ bool MmsManager::sendMms(const QStringList &recipients, const QString &text,
     argAtts.beginArray(qMetaTypeId<QString>());
     argAtts.endArray();
 
-    // For SMIL we pass an empty string variant — mmsd auto-generates with
+    // For SMIL we pass an empty string variant -- mmsd auto-generates with
     // AutoCreateSMIL=true (default in mmsd-tng).
     QVariant emptySmil = QVariant::fromValue(QString());
 
     // The a(sss) marshalling needs to be done via QDBusArgument. Build a
     // QList of (id, type, path) and let Qt convert with a registered type.
     // The simplest reliable approach is to use the QDBusMessage low-level
-    // path — register a tuple type and pass via QVariant::fromValue.
+    // path -- register a tuple type and pass via QVariant::fromValue.
     using AttTuple = std::tuple<QString, QString, QString>;
     QList<AttTuple> tuples;
     tuples.reserve(staged.size());
@@ -217,14 +217,14 @@ bool MmsManager::sendMms(const QStringList &recipients, const QString &text,
 void MmsManager::onMessageAdded(const QDBusObjectPath &path, const QVariantMap &props) {
     const QString status = props.value("Status").toString();
     if (status == QLatin1String("draft") || status == QLatin1String("sending")) {
-        return; // outgoing draft — nothing to surface
+        return; // outgoing draft -- nothing to surface
     }
     if (status == QLatin1String("sent")) {
         emit messageSent(path.path());
         return;
     }
 
-    // Received — assemble and emit.
+    // Received -- assemble and emit.
     const QString      sender    = props.value("Sender").toString();
     const QString      date      = props.value("Date").toString();
     const qint64       timestamp = QDateTime::fromString(date, Qt::ISODate).toMSecsSinceEpoch();

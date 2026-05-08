@@ -126,10 +126,10 @@ target_link_libraries(${APP_NAME}-plugin PRIVATE Qt6::Multimedia)
 
 **Create `apps/myapp/src/myplugin.h`:**
 ```cpp
-#pragma once
+# pragma once
 
-#include <QObject>
-#include <QQmlEngine>
+# include <QObject>
+# include <QQmlEngine>
 
 class MyEngine : public QObject {
     Q_OBJECT
@@ -147,7 +147,7 @@ signals:
 
 **Create `apps/myapp/src/myplugin.cpp`:**
 ```cpp
-#include "myplugin.h"
+# include "myplugin.h"
 
 MyEngine::MyEngine(QObject *parent) : QObject(parent) {}
 

@@ -70,7 +70,7 @@ bool ShellIpcServer::registerOnSessionBus() {
 
     qInfo() << "[ShellIpcServer] Registering DBus service org.marathonos.Shell…";
     if (qEnvironmentVariableIntValue("MARATHON_TEST_TRUSTED") != 0) {
-        qWarning() << "[ShellIpcServer] !!! MARATHON_TEST_TRUSTED is set — IPC caller "
+        qWarning() << "[ShellIpcServer] !!! MARATHON_TEST_TRUSTED is set -- IPC caller "
                       "verification is bypassed. Do NOT use in production.";
     }
     if (!bus.registerService("org.marathonos.Shell")) {

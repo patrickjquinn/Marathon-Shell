@@ -77,7 +77,7 @@ SettingsPageTemplate {
                         title: "Performance"
                         subtitle: "Maximum performance, higher battery usage"
                         showToggle: false
-                        value: (PowerManagerService.powerProfile === "performance") ? "✓" : ""
+                        value: (PowerManagerService.powerProfile === "performance") ? "selected" : ""
                         onSettingClicked: {
                             PowerManagerService.setPowerProfile("performance");
                             HapticService.light();
@@ -88,7 +88,7 @@ SettingsPageTemplate {
                         title: "Balanced"
                         subtitle: "Balance between performance and battery"
                         showToggle: false
-                        value: (PowerManagerService.powerProfile === "balanced") ? "✓" : ""
+                        value: (PowerManagerService.powerProfile === "balanced") ? "selected" : ""
                         onSettingClicked: {
                             PowerManagerService.setPowerProfile("balanced");
                             HapticService.light();
@@ -99,7 +99,7 @@ SettingsPageTemplate {
                         title: "Power Saver"
                         subtitle: "Optimize for battery life"
                         showToggle: false
-                        value: (PowerManagerService.powerProfile === "power-saver") ? "✓" : ""
+                        value: (PowerManagerService.powerProfile === "power-saver") ? "selected" : ""
                         onSettingClicked: {
                             PowerManagerService.setPowerProfile("power-saver");
                             HapticService.light();
