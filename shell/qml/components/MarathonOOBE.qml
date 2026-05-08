@@ -820,7 +820,7 @@ Item {
             }
         }
 
-        // Passcode page — sets the device unlock PIN via SecurityManager.
+        // Passcode page -- sets the device unlock PIN via SecurityManager.
         // This is the SHELL lock (not the system password). A phone never
         // ships with a system password; the device PIN is what protects the
         // user. Skippable, but recommended.

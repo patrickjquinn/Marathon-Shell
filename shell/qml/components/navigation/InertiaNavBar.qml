@@ -141,7 +141,7 @@ Rectangle {
                 }
             } else {
                 if (dragCurrentX > swipeThreshold || dragVelocityX > 500) {
-                    console.log("➡ SWIPE RIGHT detected!");
+                    console.log("SWIPE RIGHT detected!");
                     swipeRight();
                 } else if (dragCurrentX < -swipeThreshold || dragVelocityX < -500) {
                     console.log("⬅ SWIPE LEFT detected!");

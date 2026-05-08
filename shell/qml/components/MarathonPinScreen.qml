@@ -35,7 +35,7 @@ Item {
             HapticManager.heavy();
             return;
         }
-        Logger.info("PinScreen", "🔄 Starting authentication, showing spinner");
+        Logger.info("PinScreen", "Starting authentication, showing spinner");
         authenticating = true;
         if (SecurityManagerCpp.hasQuickPIN && !passwordMode) {
             SecurityManagerCpp.authenticateQuickPIN(pin);
@@ -57,7 +57,7 @@ Item {
             HapticManager.light();
             return;
         }
-        Logger.info("PinScreen", "🔄 Starting password authentication, showing spinner");
+        Logger.info("PinScreen", "Starting password authentication, showing spinner");
         authenticating = true;
         SecurityManagerCpp.authenticatePassword(password);
     }
@@ -116,7 +116,7 @@ Item {
         entryProgress = 1;
         passwordMode = false;
         forceActiveFocus();
-        Logger.info("PinScreen", "📱 PIN screen shown");
+        Logger.info("PinScreen", "PIN screen shown");
     }
 
     anchors.fill: parent
@@ -167,7 +167,7 @@ Item {
         }
 
         function onBiometricPrompt(message) {
-            Logger.info("PinScreen", "👆 Biometric prompt:", message);
+            Logger.info("PinScreen", "Biometric prompt:", message);
             error = message;
         }
 
@@ -175,7 +175,7 @@ Item {
             if (SecurityManagerCpp.isLockedOut) {
                 var secs = SecurityManagerCpp.lockoutSecondsRemaining;
                 error = "Locked for " + secs + "s";
-                Logger.warn("PinScreen", "🔒 Account locked for", secs, "seconds");
+                Logger.warn("PinScreen", "Account locked for", secs, "seconds");
             }
         }
 
@@ -637,7 +637,7 @@ Item {
             }
         }
 
-        // Emergency dial — required to be reachable from the lock screen
+        // Emergency dial -- required to be reachable from the lock screen
         // without authentication (FCC E911 / EU Article 109). Launches the
         // phone app in --emergency-only mode; the modem itself enforces
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).

@@ -88,7 +88,7 @@ Page {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: "✓"
+                                text: "selected"
                                 color: MColors.bb10Black
                                 font.pixelSize: 16
                                 font.weight: Font.Bold

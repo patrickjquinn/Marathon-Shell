@@ -21,7 +21,7 @@ Rectangle {
     width: parent ? parent.width : 0
     height: subtitle !== "" ? 72 : 56
     color: "transparent"
-    // Default a11y wiring — every settings row is announced as an interactive
+    // Default a11y wiring -- every settings row is announced as an interactive
     // list item with title + value/subtitle. Toggles get CheckBox role with
     // checked state so screen readers announce on/off.
     Accessible.role: showToggle ? Accessible.CheckBox : Accessible.ListItem

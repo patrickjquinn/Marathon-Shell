@@ -289,7 +289,7 @@ Item {
             Key {
                 width: row4.availableWidth * 0.08
                 text: "emoji"
-                displayText: "😀"
+                displayText: ""
                 isSpecial: true
                 fontFamily: "Noto Color Emoji"
                 onClicked: {

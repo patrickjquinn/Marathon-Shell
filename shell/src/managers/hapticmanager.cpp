@@ -25,7 +25,7 @@ HapticManager::HapticManager(QObject *parent)
     m_available = detectVibrator();
 
     if (m_available) {
-        qInfo() << "[HapticManager] ✓ Vibrator found at:" << m_vibratorPath;
+        qInfo() << "[HapticManager] Vibrator found at:" << m_vibratorPath;
     } else {
         qInfo() << "[HapticManager] No vibrator hardware detected";
     }

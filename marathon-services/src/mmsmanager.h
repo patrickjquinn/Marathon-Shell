@@ -9,7 +9,7 @@
 #include <QVariantMap>
 #include <QVariantList>
 
-// Thin client over mmsd-tng (org.ofono.mms) — the de-facto MMS daemon on
+// Thin client over mmsd-tng (org.ofono.mms) -- the de-facto MMS daemon on
 // Linux mobile, used by Plasma Mobile (Spacebar) and Phosh (Chatty).
 //
 // The daemon is D-Bus session-bus-activated; calling any method spins it up.

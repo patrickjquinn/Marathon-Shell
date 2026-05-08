@@ -17,9 +17,9 @@ class QNetworkReply;
 // All this class does is the version compare + the user-facing tile.
 //
 // Settings keys consumed (via SettingsManager):
-//   "updates/feedRepo"   — owner/repo, default "patrickjquinn/Marathon-Shell"
-//   "updates/channel"    — "stable" (release) or "edge" (pre-release allowed)
-//   "updates/autoCheck"  — bool, default true
+//   "updates/feedRepo"   -- owner/repo, default "patrickjquinn/Marathon-Shell"
+//   "updates/channel"    -- "stable" (release) or "edge" (pre-release allowed)
+//   "updates/autoCheck"  -- bool, default true
 class UpdateService : public QObject {
     Q_OBJECT
 

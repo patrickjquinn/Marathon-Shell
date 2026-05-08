@@ -169,10 +169,10 @@ void SecurityManager::authenticatePassword(const QString &password) {
     }
 
     // Reject re-entrant calls while a previous attempt is still in flight.
-    // Without this, replacing the watcher's future drops the in-flight result on the floor —
+    // Without this, replacing the watcher's future drops the in-flight result on the floor --
     // the lockout counter doesn't increment under rapid attempts, weakening rate limiting.
     if (m_passwordAuthWatcher && m_passwordAuthWatcher->isRunning()) {
-        qDebug() << "[SecurityManager] Auth already in flight — rejecting re-entrant attempt";
+        qDebug() << "[SecurityManager] Auth already in flight -- rejecting re-entrant attempt";
         emit authenticationFailed("Authentication already in progress");
         return;
     }
@@ -336,7 +336,7 @@ void SecurityManager::authenticateQuickPIN(const QString &pin) {
     }
 
     if (m_quickPINAuthWatcher && m_quickPINAuthWatcher->isRunning()) {
-        qDebug() << "[SecurityManager] Quick PIN auth already in flight — rejecting re-entrant";
+        qDebug() << "[SecurityManager] Quick PIN auth already in flight -- rejecting re-entrant";
         emit authenticationFailed("Authentication already in progress");
         return;
     }
@@ -393,7 +393,7 @@ void SecurityManager::setQuickPIN(const QString &pin, const QString &systemPassw
 }
 
 bool SecurityManager::setQuickPINFirstRun(const QString &pin) {
-    // Refuse if a PIN is already configured — prevents this entry point
+    // Refuse if a PIN is already configured -- prevents this entry point
     // being abused after OOBE to bypass the system-password check.
     if (m_hasQuickPIN) {
         qWarning() << "[SecurityManager] setQuickPINFirstRun rejected: PIN already set";

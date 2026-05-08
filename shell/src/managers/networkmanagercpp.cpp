@@ -76,7 +76,7 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
 
     if (m_nmInterface->isValid()) {
         m_hasNetworkManager = true;
-        qInfo() << "[NetworkManagerCpp] ✓ Connected to NetworkManager D-Bus";
+        qInfo() << "[NetworkManagerCpp] Connected to NetworkManager D-Bus";
 
         detectHardwareAvailability();
 
@@ -629,7 +629,7 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
 
                     emit connectionFailed(userError);
                 } else {
-                    qInfo() << "[NetworkManagerCpp] ✓ Successfully connected to:" << ssid;
+                    qInfo() << "[NetworkManagerCpp] Successfully connected to:" << ssid;
                     m_wifiSsid      = ssid;
                     m_wifiConnected = true;
                     emit wifiSsidChanged();
@@ -783,7 +783,7 @@ void NetworkManagerCpp::createHotspot(const QString &ssid, const QString &passwo
                 } else {
                     m_hotspotConnectionPath = reply.value().path();
                     m_hotspotActive         = true;
-                    qInfo() << "[NetworkManagerCpp] ✓ Hotspot active:" << ssid;
+                    qInfo() << "[NetworkManagerCpp] Hotspot active:" << ssid;
                     emit connectionSuccess();
                 }
 
@@ -806,7 +806,7 @@ void NetworkManagerCpp::stopHotspot() {
         QDBusReply<void> reply = m_nmInterface->call(
             "DeactivateConnection", QVariant::fromValue(QDBusObjectPath(m_hotspotConnectionPath)));
         if (reply.isValid()) {
-            qInfo() << "[NetworkManagerCpp] ✓ Hotspot stopped";
+            qInfo() << "[NetworkManagerCpp] Hotspot stopped";
         }
     }
 
@@ -878,7 +878,7 @@ void NetworkManagerCpp::connectVpn(const QString &connectionId) {
         QVariant::fromValue(QDBusObjectPath("/")), QVariant::fromValue(QDBusObjectPath("/")));
 
     if (reply.isValid()) {
-        qInfo() << "[NetworkManagerCpp] ✓ VPN activated";
+        qInfo() << "[NetworkManagerCpp]VPN activated";
     } else {
         qWarning() << "[NetworkManagerCpp] Failed to activate VPN:" << reply.error().message();
     }
@@ -911,7 +911,7 @@ void NetworkManagerCpp::disconnectVpn(const QString &connectionId) {
             QDBusReply<void> reply =
                 nmInterface.call("DeactivateConnection", QVariant::fromValue(path));
             if (reply.isValid()) {
-                qInfo() << "[NetworkManagerCpp] ✓ VPN disconnected";
+                qInfo() << "[NetworkManagerCpp]VPN disconnected";
             }
             return;
         }

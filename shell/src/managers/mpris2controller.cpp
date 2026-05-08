@@ -157,7 +157,7 @@ void MPRIS2Controller::connectToPlayer(const QString &busName) {
 
     qInfo() << "[MPRIS2Controller] App ID (DesktopEntry):" << m_desktopEntry;
 
-    qInfo() << "[MPRIS2Controller] ✓ Connected to" << m_playerName;
+    qInfo() << "[MPRIS2Controller] Connected to" << m_playerName;
 
     QDBusConnection::sessionBus().connect(
         busName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "PropertiesChanged",

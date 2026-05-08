@@ -42,7 +42,7 @@ if command -v gdbus >/dev/null 2>&1; then
         5000
         
     if [ $? -eq 0 ]; then
-        echo "✅ Notification sent via gdbus (fallback)"
+        echo "Notification sent via gdbus (fallback)"
         exit 0
     fi
 fi
@@ -51,10 +51,10 @@ fi
 if command -v notify-send >/dev/null 2>&1; then
     notify-send "$TITLE" "$BODY" -i "$ICON" -a "$APP_NAME"
     if [ $? -eq 0 ]; then
-        echo "✅ Notification sent via notify-send"
+        echo "Notification sent via notify-send"
         exit 0
     fi
 fi
 
-echo "❌ Failed to send notification. Neither gdbus nor notify-send were successful."
+echo "Failed to send notification. Neither gdbus nor notify-send were successful."
 exit 1

@@ -65,7 +65,7 @@ class SecurityManager : public QObject {
     Q_INVOKABLE void cancelAuthentication();
 
     Q_INVOKABLE void setQuickPIN(const QString &pin, const QString &systemPassword);
-    // First-run / OOBE entry — sets the Quick PIN WITHOUT requiring a system
+    // First-run / OOBE entry -- sets the Quick PIN WITHOUT requiring a system
     // password. Only succeeds while no Quick PIN is configured yet (i.e. true
     // first boot). Subsequent changes go through setQuickPIN which still
     // requires authentication.

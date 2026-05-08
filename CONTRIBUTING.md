@@ -211,7 +211,7 @@ If applicable, add unit tests for new C++ code:
 
 ```cpp
 // tests/test_myfeature.cpp
-#include <QtTest>
+# include <QtTest>
 
 class TestMyFeature : public QObject {
     Q_OBJECT
@@ -226,7 +226,7 @@ void TestMyFeature::testBasicFunctionality() {
 }
 
 QTEST_MAIN(TestMyFeature)
-#include "test_myfeature.moc"
+# include "test_myfeature.moc"
 ```
 
 ## Documentation

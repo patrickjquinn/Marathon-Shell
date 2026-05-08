@@ -62,7 +62,7 @@ void LanguageManager::nextLanguage() {
 
 QString LanguageManager::getFlag(const QString &languageId) const {
     const QVariant flag = m_languageFlags.value(languageId);
-    return flag.isValid() ? flag.toString() : QStringLiteral("🌐");
+    return flag.isValid() ? flag.toString() : QStringLiteral("");
 }
 
 QString LanguageManager::getName(const QString &languageId) const {

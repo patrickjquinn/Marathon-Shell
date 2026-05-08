@@ -108,7 +108,7 @@ void CrashHandler::signalHandler(int signum) {
             break;
     }
 
-    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    writeStr(STDERR_FILENO, "----------------------------------------\n");
     writeStr(STDERR_FILENO, "[CrashHandler] CRASH DETECTED!\n");
     writeStr(STDERR_FILENO, "[CrashHandler] Signal: ");
     writeStr(STDERR_FILENO, signame);
@@ -116,7 +116,7 @@ void CrashHandler::signalHandler(int signum) {
     writeStr(STDERR_FILENO, "[CrashHandler] Description: ");
     writeStr(STDERR_FILENO, description);
     writeStr(STDERR_FILENO, "\n");
-    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    writeStr(STDERR_FILENO, "----------------------------------------\n");
 
 #ifdef __GLIBC__
     void  *array[50];
@@ -127,9 +127,9 @@ void CrashHandler::signalHandler(int signum) {
     writeStr(STDERR_FILENO, "[CrashHandler] Backtrace not available (musl libc)\n");
 #endif
 
-    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    writeStr(STDERR_FILENO, "----------------------------------------\n");
     writeStr(STDERR_FILENO, "[CrashHandler] Shell will now exit (cannot safely continue)\n");
-    writeStr(STDERR_FILENO, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    writeStr(STDERR_FILENO, "----------------------------------------\n");
 
     signal(signum, SIG_DFL);
     raise(signum);

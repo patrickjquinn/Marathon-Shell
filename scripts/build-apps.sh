@@ -180,15 +180,15 @@ for app in "$INSTALL_DIR"/*; do
         appname=$(basename "$app")
         echo "  $appname/"
         if [ -f "$app/lib${appname}-plugin.dylib" ] || [ -f "$app/lib${appname}-plugin.so" ]; then
-            echo "    ✓ C++ plugin found"
+            echo "   C++ plugin found"
         else
             echo "    ○ Pure QML"
         fi
         if [ -f "$app/manifest.json" ]; then
-            echo "    ✓ manifest.json"
+            echo "   manifest.json"
         fi
         if [ -f "$app/qmldir" ]; then
-            echo "    ✓ qmldir"
+            echo "   qmldir"
         fi
     fi
 done

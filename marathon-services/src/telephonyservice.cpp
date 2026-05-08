@@ -113,11 +113,11 @@ void TelephonyService::dial(const QString &number) {
     emit callStateChanged("dialing");
     emit activeNumberChanged(number);
 
-    qInfo() << "[TelephonyService] ✓ Call started to:" << number;
+    qInfo() << "[TelephonyService] Call started to:" << number;
 }
 
 void TelephonyService::dialEmergency(const QString &number) {
-    // Audit the attempt regardless of outcome — emergency dials must always
+    // Audit the attempt regardless of outcome -- emergency dials must always
     // appear in the journal even when the modem rejects them. This is logged
     // BEFORE the dial path so the line lands even if the dial blocks/crashes.
     QString op;
@@ -144,7 +144,7 @@ void TelephonyService::answer() {
     if (m_activeCallPath.contains("simulate")) {
         m_callState = "active";
         emit callStateChanged("active");
-        qInfo() << "[TelephonyService] [SIMULATION] ✓ Call answered";
+        qInfo() << "[TelephonyService] [SIMULATION]Call answered";
         return;
     }
 
@@ -168,7 +168,7 @@ void TelephonyService::answer() {
     m_callState = "active";
     emit callStateChanged("active");
 
-    qInfo() << "[TelephonyService] ✓ Call answered";
+    qInfo() << "[TelephonyService] Call answered";
 }
 
 void TelephonyService::hangup() {
@@ -187,7 +187,7 @@ void TelephonyService::hangup() {
         emit callStateChanged("idle");
         emit activeNumberChanged("");
 
-        qInfo() << "[TelephonyService] [SIMULATION] ✓ Call hung up";
+        qInfo() << "[TelephonyService] [SIMULATION]Call hung up";
         return;
     }
 
@@ -213,7 +213,7 @@ void TelephonyService::hangup() {
     emit callStateChanged("idle");
     emit activeNumberChanged("");
 
-    qInfo() << "[TelephonyService] ✓ Call hung up";
+    qInfo() << "[TelephonyService] Call hung up";
 }
 
 void TelephonyService::sendDTMF(const QString &digit) {
@@ -244,7 +244,7 @@ void TelephonyService::sendDTMF(const QString &digit) {
         return;
     }
 
-    qDebug() << "[TelephonyService] ✓ DTMF sent:" << digit;
+    qDebug() << "[TelephonyService]DTMF sent:" << digit;
 }
 
 void TelephonyService::simulateIncomingCall(const QString &number) {
@@ -287,7 +287,7 @@ void TelephonyService::connectToModemManager() {
         return;
     }
 
-    qInfo() << "[TelephonyService] ✓ Connected to ModemManager";
+    qInfo() << "[TelephonyService] Connected to ModemManager";
 
     setupDBusConnections();
     checkModemStatus();
@@ -414,7 +414,7 @@ void TelephonyService::onCallAdded(const QDBusObjectPath &callPath) {
             emit callStateChanged("incoming");
             emit activeNumberChanged(number);
 
-            qInfo() << "[TelephonyService] ✓ Incoming call from:" << number;
+            qInfo() << "[TelephonyService] Incoming call from:" << number;
         }
     }
 }
@@ -453,7 +453,7 @@ void TelephonyService::onModemManagerPropertiesChanged(const QString     &interf
 
 void TelephonyService::acquireCallInhibit() {
     if (m_callInhibitFd.isValid())
-        return; // Already held — nothing to do.
+        return; // Already held -- nothing to do.
     QDBusInterface logind("org.freedesktop.login1", "/org/freedesktop/login1",
                           "org.freedesktop.login1.Manager", QDBusConnection::systemBus());
     if (!logind.isValid()) {

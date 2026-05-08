@@ -36,7 +36,7 @@ bool NotificationDatabase::initialize() {
         return false;
     }
 
-    qInfo() << "[NotificationDB] ✓ Initialized at" << m_dbPath;
+    qInfo() << "[NotificationDB] Initialized at" << m_dbPath;
     return true;
 }
 

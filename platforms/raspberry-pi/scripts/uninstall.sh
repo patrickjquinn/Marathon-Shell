@@ -12,10 +12,10 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e "${YELLOW}"
-echo "╔════════════════════════════════════════════════════════╗"
-echo "║   Marathon Shell - Uninstall                           ║"
-echo "║   Restore Raspberry Pi Desktop                         ║"
-echo "╚════════════════════════════════════════════════════════╝"
+echo "+--------------------------------------------------------+"
+echo "|   Marathon Shell - Uninstall                           |"
+echo "|   Restore Raspberry Pi Desktop                         |"
+echo "+--------------------------------------------------------+"
 echo -e "${NC}"
 
 echo -e "${RED}This will restore your Raspberry Pi to the default desktop environment.${NC}"
@@ -32,13 +32,13 @@ BACKUP=$(ls -t /etc/lightdm/lightdm.conf.backup.* 2>/dev/null | head -1)
 
 if [ -n "$BACKUP" ]; then
     sudo cp "$BACKUP" /etc/lightdm/lightdm.conf
-    echo "✓ Restored LightDM config from: $BACKUP"
+    echo "Restored LightDM config from: $BACKUP"
 else
     echo -e "${YELLOW}Warning: No backup found. Resetting to default Raspberry Pi session...${NC}"
     sudo sed -i 's/^user-session=marathon/user-session=LXDE-pi-wayfire/' /etc/lightdm/lightdm.conf
     sudo sed -i 's/^autologin-session=marathon/autologin-session=LXDE-pi-wayfire/' /etc/lightdm/lightdm.conf
     sudo sed -i 's/^greeter-session=lightdm-gtk-greeter/#greeter-session=lightdm-gtk-greeter/' /etc/lightdm/lightdm.conf
-    echo "✓ Reset to default session"
+    echo "Reset to default session"
 fi
 
 echo -e "\n${GREEN}=== Step 2: Keeping Marathon Shell files (optional removal) ===${NC}"
@@ -49,9 +49,9 @@ echo "  sudo rm /usr/local/bin/marathon-shell-session"
 echo "  sudo rm /usr/share/wayland-sessions/marathon.desktop"
 echo "  sudo rm /usr/bin/marathon-shell-bin"
 
-echo -e "\n${GREEN}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║            Uninstallation Complete!                    ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════╝${NC}"
+echo -e "\n${GREEN}+--------------------------------------------------------+${NC}"
+echo -e "${GREEN}|            Uninstallation Complete!                    |${NC}"
+echo -e "${GREEN}+--------------------------------------------------------+${NC}"
 
 echo -e "\n${YELLOW}Please reboot to return to the Raspberry Pi desktop:${NC}"
 echo -e "  ${GREEN}sudo reboot${NC}"

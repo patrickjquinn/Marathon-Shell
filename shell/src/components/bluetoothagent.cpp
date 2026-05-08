@@ -62,7 +62,7 @@ bool BluetoothAgent::registerAgent() {
     }
 
     m_registered = true;
-    qInfo() << "[BluetoothAgent] ✓ Successfully registered as Bluetooth pairing agent";
+    qInfo() << "[BluetoothAgent] Successfully registered as Bluetooth pairing agent";
     return true;
 }
 

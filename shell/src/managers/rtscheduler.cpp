@@ -22,19 +22,19 @@ void RTScheduler::detectKernelCapabilities() {
 #ifdef Q_OS_LINUX
     // Two independent capabilities matter here:
     //
-    //   (1) SCHED_FIFO permission — the shell needs CAP_SYS_NICE (or rtprio in
+    //   (1) SCHED_FIFO permission -- the shell needs CAP_SYS_NICE (or rtprio in
     //       /etc/security/limits.conf) to elevate its compositor/input threads
     //       to SCHED_FIFO. Without this we run on SCHED_OTHER and may drop
     //       frames under heavy CPU load. THIS is what we actually need.
     //
-    //   (2) PREEMPT_RT kernel — bounds worst-case latency for SCHED_FIFO
+    //   (2) PREEMPT_RT kernel -- bounds worst-case latency for SCHED_FIFO
     //       threads (~280 µs vs ~700 µs under load). For a 60–120 Hz touch UI
     //       with a 8–16 ms frame budget this is well below the noise floor.
     //       postmarketOS, Plasma Mobile, Phosh and Android all ship with
     //       CONFIG_PREEMPT (low-latency, not PREEMPT_RT). It's a nice-to-have
     //       primarily for hard-real-time audio paths.
 
-    // Detect the kernel preemption model — informational only.
+    // Detect the kernel preemption model -- informational only.
     QFile realtimeFile("/sys/kernel/realtime");
     if (realtimeFile.exists() && realtimeFile.open(QIODevice::ReadOnly)) {
         QTextStream stream(&realtimeFile);
@@ -54,7 +54,7 @@ void RTScheduler::detectKernelCapabilities() {
                    "PREEMPT_RT is not required for typical phone workloads.";
     }
 
-    // Probe RT-class permission — the actual requirement.
+    // Probe RT-class permission -- the actual requirement.
     // Use SCHED_RR (the policy the compositor will adopt) so the probe
     // matches reality. CAP_SYS_NICE / rtprio in limits.conf governs both
     // SCHED_FIFO and SCHED_RR identically.
@@ -68,7 +68,7 @@ void RTScheduler::detectKernelCapabilities() {
     } else {
         m_hasRTPermissions = false;
         const int err      = errno;
-        qWarning() << "[RTScheduler] Real-time scheduling not permitted — compositor and "
+        qWarning() << "[RTScheduler] Real-time scheduling not permitted -- compositor and "
                       "input threads will run on SCHED_OTHER. Frame pacing may suffer "
                       "under heavy CPU load (background browsers, app launches, etc.).";
         qWarning() << "[RTScheduler] Fix: sudo setcap cap_sys_nice+ep "
@@ -104,7 +104,7 @@ bool RTScheduler::setRealtimePriority(int priority) {
         return false;
     }
 
-    qInfo() << "[RTScheduler] ✓ Set thread RT priority:" << priority;
+    qInfo() << "[RTScheduler] Set thread RT priority:" << priority;
     return true;
 #else
     Q_UNUSED(priority);
@@ -139,7 +139,7 @@ bool RTScheduler::setThreadPriority(QThread *thread, int priority) {
         return false;
     }
 
-    qInfo() << "[RTScheduler] ✓ Set thread RT priority:" << priority;
+    qInfo() << "[RTScheduler] Set thread RT priority:" << priority;
     return true;
 #else
     Q_UNUSED(thread);

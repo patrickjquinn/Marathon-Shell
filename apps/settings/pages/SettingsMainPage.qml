@@ -209,7 +209,7 @@ Page {
 
                 MSettingsListItem {
                     title: "Accounts"
-                    subtitle: "CardDAV / CalDAV — sync contacts and calendar"
+                    subtitle: "CardDAV / CalDAV: sync contacts and calendar"
                     iconName: "users"
                     showChevron: true
                     onSettingClicked: {

@@ -134,8 +134,8 @@ apk add cmake samurai g++ pkgconf git \
 - Wayland display server support
 - D-Bus session bus
 - Linux kernel 5.10 or later
-- **Standard preemptible kernel (`CONFIG_PREEMPT=y`)** — what postmarketOS, Plasma Mobile, Phosh and Android all ship. The compositor uses `SCHED_FIFO` for its render thread, which only needs `CAP_SYS_NICE` (or `rtprio` in `limits.conf`) — NOT a `PREEMPT_RT` kernel.
-- **`PREEMPT_RT` kernel (optional)** — useful primarily if you need bounded worst-case latency for hard-real-time audio paths. For a 60–120 Hz touch UI on a 8–16 ms frame budget the difference is below the noise floor; the shell will not warn if it's missing.
+- **Standard preemptible kernel (`CONFIG_PREEMPT=y`)** -- what postmarketOS, Plasma Mobile, Phosh and Android all ship. The compositor uses `SCHED_FIFO` for its render thread, which only needs `CAP_SYS_NICE` (or `rtprio` in `limits.conf`) -- NOT a `PREEMPT_RT` kernel.
+- **`PREEMPT_RT` kernel (optional)** -- useful primarily if you need bounded worst-case latency for hard-real-time audio paths. For a 60–120 Hz touch UI on a 8–16 ms frame budget the difference is below the noise floor; the shell will not warn if it's missing.
 
 ### Optional Dependencies
 
@@ -152,7 +152,7 @@ apk add cmake samurai g++ pkgconf git \
 
 ## Building
 
-> **⚠️ Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
+> **Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
 
 ### Initial Setup
 
@@ -181,7 +181,7 @@ This builds:
 - MarathonUI to `~/.local/share/marathon-ui` (required for shell to run)
 - Marathon apps to `~/.local/share/marathon-apps` (required for bundled apps to appear)
 
-> **⚠️ IMPORTANT**: The `install` argument is **required** on first build. Without it, bundled apps (Settings, Browser, Calculator, etc.) won't appear in the shell. After the initial install, you can use `./run.sh` for incremental builds.
+> **IMPORTANT**: The `install` argument is **required** on first build. Without it, bundled apps (Settings, Browser, Calculator, etc.) won't appear in the shell. After the initial install, you can use `./run.sh` for incremental builds.
 
 ### Incremental Builds
 
@@ -229,7 +229,7 @@ cmake -B build-apps -S apps -DMARATHON_APPS_DIR=/usr/share/marathon-apps
 sudo cmake --install build-apps
 ```
 
-> **⚠️ CRITICAL**: Marathon Shell **requires MarathonUI to be installed** before it can run. If you see `module "MarathonUI.Theme" is not installed`, run `cmake --install build`.
+> **CRITICAL**: Marathon Shell **requires MarathonUI to be installed** before it can run. If you see `module "MarathonUI.Theme" is not installed`, run `cmake --install build`.
 
 > **Note**: Apps default to `~/.local/share/marathon-apps` to avoid permission issues during development. This ensures the build works out of the box without sudo, making it IDE-friendly.
 
@@ -244,7 +244,7 @@ sudo cmake --install build-apps
 
 ### First-Time System Setup (Required)
 
-> **⚠️ CRITICAL**: Marathon Shell requires system permissions and services for full mobile functionality. Run the setup script once before first use:
+> **CRITICAL**: Marathon Shell requires system permissions and services for full mobile functionality. Run the setup script once before first use:
 
 ```bash
 # One-time system setup (requires sudo)
@@ -273,7 +273,7 @@ MARATHON_DEBUG=1 ./run.sh
 
 ### PAM Authentication Setup (Required)
 
-> **⚠️ CRITICAL**: Marathon Shell requires a PAM configuration file to authenticate users. Without this file, password authentication will fail with "Authentication failure" errors.
+> **CRITICAL**: Marathon Shell requires a PAM configuration file to authenticate users. Without this file, password authentication will fail with "Authentication failure" errors.
 
 The shell uses PAM (Pluggable Authentication Modules) for system password authentication. Install the PAM configuration file:
 

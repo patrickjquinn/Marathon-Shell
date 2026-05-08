@@ -30,13 +30,13 @@ QT_QML_PATH="$(qmlplugindump -nonrelocatable -noinstantiateqmltypes -noncomposit
     
 # Check Marathon UI installation
 if [ ! -d "$MARATHON_UI_PATH" ]; then
-    echo -e "${RED}✗ Marathon UI not found at $MARATHON_UI_PATH${NC}"
+    echo -e "${RED}Marathon UI not found at $MARATHON_UI_PATH${NC}"
     echo "  Please rebuild Marathon UI first:"
     echo "  cd $PROJECT_ROOT && ./scripts/full-build.sh"
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Marathon UI found at $MARATHON_UI_PATH"
+echo -e "${GREEN}${NC} Marathon UI found at $MARATHON_UI_PATH"
 
 # Build comprehensive import paths
 IMPORT_PATHS="-I $MARATHON_UI_PATH"
@@ -89,7 +89,7 @@ for file in $QML_FILES; do
         grep "Cannot assign to non-existent property" || true)
     
     if [ -n "$CRITICAL_ERRORS" ] || [ -n "$PROPERTY_ERRORS" ]; then
-        echo -e " ${RED}✗${NC}"
+        echo -e " ${RED}${NC}"
         [ -n "$CRITICAL_ERRORS" ] && echo "$CRITICAL_ERRORS" | sed 's/^/    /'
         [ -n "$PROPERTY_ERRORS" ] && echo "$PROPERTY_ERRORS" | sed 's/^/    /'
         ERROR_COUNT=$((ERROR_COUNT + 1))
@@ -100,7 +100,7 @@ for file in $QML_FILES; do
             WARNING_COUNT=$((WARNING_COUNT + 1))
             echo -e " ${YELLOW}${NC}"
         else
-            echo -e " ${GREEN}✓${NC}"
+            echo -e " ${GREEN}${NC}"
         fi
     fi
     
@@ -114,7 +114,7 @@ echo "Warnings: $WARNING_COUNT"
 if [ "$ERROR_COUNT" -gt 0 ]; then
     echo -e "${RED}Errors: $ERROR_COUNT${NC}"
 echo ""
-    echo -e "${RED}✗ Validation failed with $ERROR_COUNT file(s) containing errors${NC}"
+    echo -e "${RED}Validation failed with $ERROR_COUNT file(s) containing errors${NC}"
     echo ""
     echo "These are REAL errors that will cause runtime failures:"
     echo "  - Missing imports (e.g. MarathonUI.Navigation for MActionBar)"

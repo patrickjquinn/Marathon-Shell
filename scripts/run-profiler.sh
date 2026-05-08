@@ -11,7 +11,7 @@ echo "Marathon Shell - QML Profiler Mode"
 echo "============================================"
 echo ""
 echo " Starting with QML profiler enabled..."
-echo "📊 Connect Qt Creator → Analyze → QML Profiler → Attach to Running Application"
+echo "Connect Qt Creator → Analyze → QML Profiler → Attach to Running Application"
 echo ""
 
 # Enable QML profiler on port 3768 (Qt Creator default)
@@ -21,7 +21,7 @@ export QSG_RENDER_LOOP=basic    # Optional: better profiling accuracy
 
 # Build first if needed
 if [ ! -f "build/shell/marathon-shell.app/Contents/MacOS/marathon-shell" ]; then
-    echo "🏗  Building Marathon Shell first..."
+    echo " Building Marathon Shell first..."
     ./scripts/build-all.sh
     echo ""
 fi

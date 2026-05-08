@@ -265,9 +265,9 @@ MApp {
             case 15:
                 autoRunTimer.stop();
                 autoRunning = false;
-                Logger.info("AutoTest", "══════════════════════════════════════════");
+                Logger.info("AutoTest", "------------------------------------------");
                 Logger.info("AutoTest", "  RESULTS: " + passedTests + " PASSED / " + failedTests + " FAILED / " + totalTests + " TOTAL");
-                Logger.info("AutoTest", "══════════════════════════════════════════");
+                Logger.info("AutoTest", "------------------------------------------");
                 if (failedTests === 0)
                     Logger.info("AutoTest", "  ALL TESTS PASSED");
                 else

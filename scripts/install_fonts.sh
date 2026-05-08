@@ -25,8 +25,8 @@ sudo fc-cache -fv
 # Verify installation
 echo "Verifying 'Slate' font..."
 if fc-list : family | grep -q "Slate"; then
-    echo "✅ Slate font installed successfully!"
+    echo "Slate font installed successfully!"
 else
-    echo "❌ Slate font NOT found in system cache."
+    echo "Slate font NOT found in system cache."
     exit 1
 fi

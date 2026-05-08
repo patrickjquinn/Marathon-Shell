@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
     // WaylandCompositor. See docs/RT_SCHEDULING.md for the full hierarchy.
     if (const int rc = marathon::rt::setCurrentThreadPriority(2); rc != 0) {
         qWarning() << "[MarathonShell] Main thread RT elevation failed:" << strerror(rc)
-                   << "— grant CAP_SYS_NICE or rtprio in /etc/security/limits.d/.";
+                   << "-- grant CAP_SYS_NICE or rtprio in /etc/security/limits.d/.";
     }
 #endif
 
@@ -318,14 +318,14 @@ int main(int argc, char *argv[]) {
     engine.addImageProvider("lunasvg", new LunaSvgImageProvider());
 
     engine.addImageProvider("lunasvgqrc", new LunaSvgImageProvider());
-    qInfo() << "[MarathonShell] ✓ LunaSVG image provider registered";
+    qInfo() << "[MarathonShell] LunaSVG image provider registered";
 
     auto *ctx = engine.rootContext();
 
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
     createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
-    qInfo() << "[MarathonShell] ✓ MPRIS2 media controller initialized";
+    qInfo() << "[MarathonShell]MPRIS2 media controller initialized";
 
     auto *settingsManager = createObject<SettingsManager>(ctx, "SettingsManagerCpp", &app);
     auto *wallpaperStore  = new WallpaperStore(settingsManager, &app);
@@ -474,17 +474,17 @@ int main(int argc, char *argv[]) {
                                  << "[MarathonShell] Audio playback stopped - released wakelock";
                          }
                      });
-    qInfo() << "[MarathonShell] ✓ Audio playback wakelock integration enabled";
+    qInfo() << "[MarathonShell] Audio playback wakelock integration enabled";
 
     auto *platform = createObject<PlatformCpp>(ctx, "Platform", &app);
     ctx->setContextProperty("PlatformCpp", platform);
     createObject<StatusBarIconServiceCpp>(ctx, "StatusBarIconService", &app);
-    qInfo() << "[MarathonShell] ✓ Security Manager initialized (PAM + fprintd)";
+    qInfo() << "[MarathonShell] Security Manager initialized (PAM + fprintd)";
 
     auto *wordEngine = createObject<WordEngine>(ctx, "WordEngine", &app);
     wordEngine->setLanguage("en_US");
     wordEngine->setEnabled(true);
-    qInfo() << "[MarathonShell] ✓ Word Engine initialized";
+    qInfo() << "[MarathonShell] Word Engine initialized";
     auto *emojiPredictor = new EmojiPredictor(&app);
     qmlRegisterSingletonInstance<EmojiPredictor>("MarathonOS.Shell", 1, 0, "EmojiPredictor",
                                                  emojiPredictor);
@@ -511,7 +511,7 @@ int main(int argc, char *argv[]) {
     if (!bus.isConnected()) {
         qCritical() << "[MarathonShell] Failed to connect to D-Bus session bus!";
     } else {
-        qInfo() << "[MarathonShell] ✓ Connected to D-Bus session bus";
+        qInfo() << "[MarathonShell] Connected to D-Bus session bus";
 
         NotificationDatabase *notifDb = new NotificationDatabase(&app);
         if (!notifDb->initialize()) {
@@ -523,7 +523,7 @@ int main(int argc, char *argv[]) {
         auto *freedesktopNotif = createObject<FreedesktopNotifications>(
             ctx, "FreedesktopNotifications", notifDb, notificationModel, powerManager, &app);
         if (freedesktopNotif->registerService()) {
-            qInfo() << "[MarathonShell]   ✓ org.freedesktop.Notifications registered";
+            qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
         }
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
@@ -534,10 +534,10 @@ int main(int argc, char *argv[]) {
 
     auto *permissionManager =
         createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
-    qInfo() << "[MarathonShell] ✓ Permission Manager initialized";
+    qInfo() << "[MarathonShell] Permission Manager initialized";
 
     createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
-    qInfo() << "[MarathonShell] ✓ App Store Service initialized";
+    qInfo() << "[MarathonShell] App Store Service initialized";
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
@@ -567,7 +567,7 @@ int main(int argc, char *argv[]) {
                              audioRoutingManager->stopCallAudio();
                          }
                      });
-    qInfo() << "[MarathonShell] ✓ Audio routing wired to telephony";
+    qInfo() << "[MarathonShell] Audio routing wired to telephony";
 
     auto *mediaLibraryManager = createObject<MediaLibraryManager>(ctx, "MediaLibraryManager", &app);
     createObject<MusicLibraryManager>(ctx, "MusicLibraryManager", &app);
@@ -618,7 +618,7 @@ int main(int argc, char *argv[]) {
 
                                  callHistoryManager->addCall(lastCalledNumber, callType,
                                                              callStartTime, duration);
-                                 qInfo() << "[MarathonShell] ✓ Call logged:" << callType
+                                 qInfo() << "[MarathonShell] Call logged:" << callType
                                          << lastCalledNumber << duration << "s";
 
                                  callStartTime = 0;
@@ -627,7 +627,7 @@ int main(int argc, char *argv[]) {
                              }
                          }
                      });
-    qInfo() << "[MarathonShell] ✓ Call history wired to telephony";
+    qInfo() << "[MarathonShell] Call history wired to telephony";
 
     appModel->loadFromRegistry(appRegistry);
 
@@ -690,7 +690,7 @@ int main(int argc, char *argv[]) {
         qCritical() << "";
 
     } else {
-        qInfo() << "[MarathonShell] ✓ MarathonUI modules found";
+        qInfo() << "[MarathonShell] MarathonUI modules found";
         if (themeCheck1.exists())
             qDebug() << "  - Using user-local installation";
         else if (themeCheck2.exists())

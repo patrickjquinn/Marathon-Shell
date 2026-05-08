@@ -26,7 +26,7 @@ Build artifacts are installed to these locations:
 ./build-apps/                    - App build artifacts (auto-generated)
 ```
 
-**Important:** Files in `~/.local/share/marathon-apps/` are overwritten on every build. Changes made to these files will be lost.
+Important: Files in `~/.local/share/marathon-apps/` are overwritten on every build. Changes made to these files will be lost.
 
 ---
 
@@ -279,8 +279,8 @@ qmllint apps/phone/pages/DialerPage.qml
 
 ### "App not found" after changes
 
-**Cause:** App not properly installed
-**Solution:**
+Cause: App not properly installed
+Solution:
 ```bash
 ./scripts/build-apps.sh
 # Check install
@@ -289,16 +289,16 @@ ls -la ~/.local/share/marathon-apps/
 
 ### Changes not appearing
 
-**Cause:** Edited installed files instead of source files
-**Solution:**
+Cause: Edited installed files instead of source files
+Solution:
 1. Discard changes in `~/.local/share/marathon-apps/`
 2. Make edits in `./apps/`
 3. Run `./scripts/build-apps.sh`
 
 ### Build errors after pulling changes
 
-**Cause:** Stale build artifacts or CMake cache
-**Solution:**
+Cause: Stale build artifacts or CMake cache
+Solution:
 ```bash
 # Clean rebuild
 CLEAN=1 ./run.sh
@@ -310,8 +310,8 @@ rm -rf build build-apps build-ui
 
 ### Wayland compositor crashes
 
-**Cause:** Various (compositor bugs, driver issues)
-**Debug:**
+Cause: Various (compositor bugs, driver issues)
+Debug:
 ```bash
 MARATHON_DEBUG=1 ./run.sh 2>&1 | tee crash.log
 # Check crash.log for stack trace

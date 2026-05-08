@@ -100,7 +100,7 @@ MApp {
 
                     MLabel {
                         width: parent.width
-                        text: "Mail wraps your existing webmail. Pick a provider — you can change this any time in Settings → Apps → Mail."
+                        text: "Mail wraps your existing webmail. Pick a provider; you can change this any time in Settings > Apps → Mail."
                         wrapMode: Text.WordWrap
                         variant: "secondary"
                     }
