@@ -14,20 +14,42 @@ WORK_DIR="$ROOT_DIR/build/rootless/work"
 PKGCACHE="$ROOT_DIR/build/rootless/pkgcache"
 
 WITH_MARATHON_SHELL="${WITH_MARATHON_SHELL:-0}"
-MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-/home/patrickquinn/Developer/Marathon-Shell}"
+# Default: pull Marathon-Shell from upstream GitHub at the alpha-1 branch.
+# Override MARATHON_SHELL_GIT / MARATHON_SHELL_REF for a fork or different branch,
+# or set MARATHON_SHELL_SRC to a local checkout to bypass git entirely.
+MARATHON_SHELL_GIT="${MARATHON_SHELL_GIT:-https://github.com/patrickjquinn/Marathon-Shell.git}"
+MARATHON_SHELL_REF="${MARATHON_SHELL_REF:-alpha-1}"
+MARATHON_SHELL_SRC="${MARATHON_SHELL_SRC:-}"
 
 mkdir -p "$OUT_DIR" "$WORK_DIR" "$PKGCACHE"
 
-echo "═══ stage 2 -- Marathon pmOS rootless build (systemd) ═══"
+echo "+-- stage 2 -- Marathon pmOS rootless build (systemd) --+"
 echo "WITH_MARATHON_SHELL=$WITH_MARATHON_SHELL"
+if [ "${WITH_MARATHON_SHELL}" = "1" ]; then
+    if [ -n "${MARATHON_SHELL_SRC}" ]; then
+        echo "shell source: local $MARATHON_SHELL_SRC"
+    else
+        echo "shell source: $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
+    fi
+fi
+
+# Build the volume args: only mount the local shell source if explicitly set,
+# otherwise the container clones from MARATHON_SHELL_GIT.
+SHELL_MOUNT_ARGS=()
+if [ -n "${MARATHON_SHELL_SRC}" ]; then
+    SHELL_MOUNT_ARGS=(-v "$MARATHON_SHELL_SRC:/shellsrc:Z,ro")
+fi
 
 podman run --rm -i \
     -e WITH_MARATHON_SHELL="$WITH_MARATHON_SHELL" \
+    -e MARATHON_SHELL_GIT="$MARATHON_SHELL_GIT" \
+    -e MARATHON_SHELL_REF="$MARATHON_SHELL_REF" \
+    -e USE_LOCAL_SHELL_SRC="$([ -n "$MARATHON_SHELL_SRC" ] && echo 1 || echo 0)" \
     -v "$ROOT_DIR:/src:Z" \
     -v "$OUT_DIR:/out:Z" \
     -v "$WORK_DIR:/work:Z" \
     -v "$PKGCACHE:/pkgcache:Z" \
-    -v "$MARATHON_SHELL_SRC:/shellsrc:Z,ro" \
+    "${SHELL_MOUNT_ARGS[@]}" \
     alpine:edge sh -s <<'CSCRIPT'
 set -euo pipefail
 apk add --no-cache --quiet \
@@ -58,13 +80,26 @@ if [ "${WITH_MARATHON_SHELL:-0}" = "1" ]; then
     echo "─ building marathon-shell (Qt6/QML/WebEngine, ~30min cold) ─"
     SHELL_VERSION=$(grep -E '^pkgver=' /work/aports/marathon-shell/APKBUILD | cut -d= -f2)
     mkdir -p /var/cache/distfiles /tmp/shellsrc-stage
-    # --checksum --no-times: see note above. Without this, edits made
-    # between rapid rebuilds can fail to propagate and the apk gets built
-    # against stale source.
-    rsync -a --checksum --no-times --delete \
-          --exclude='.git' --exclude='build' --exclude='build-apps' \
-          --exclude='build-ui' --exclude='.cache' \
-          /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
+
+    if [ "${USE_LOCAL_SHELL_SRC:-0}" = "1" ]; then
+        # Local-checkout path: rsync from the bind-mounted /shellsrc.
+        # --checksum --no-times: bind-mount mtime preservation under SELinux :Z
+        # relabel can leave stale content; let content drive the sync.
+        rsync -a --checksum --no-times --delete \
+              --exclude='.git' --exclude='build' --exclude='build-apps' \
+              --exclude='build-ui' --exclude='.cache' \
+              /shellsrc/ /tmp/shellsrc-stage/Marathon-Shell-main/
+    else
+        # Default: clone from upstream GitHub at the configured ref.
+        echo "  cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
+        apk add --no-cache --quiet git 2>&1 | tail -1
+        rm -rf /tmp/shellsrc-stage/Marathon-Shell-main
+        git clone --depth 1 --branch "$MARATHON_SHELL_REF" \
+            "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3
+        # Drop .git so the tarball matches a "release archive" layout
+        rm -rf /tmp/shellsrc-stage/Marathon-Shell-main/.git
+    fi
+
     ( cd /tmp/shellsrc-stage && tar -cf - Marathon-Shell-main ) | gzip -1 \
         > "/var/cache/distfiles/marathon-shell-${SHELL_VERSION}.tar.gz"
     [ ! -f /var/cache/distfiles/asyncfuture.tar.gz ] && \
