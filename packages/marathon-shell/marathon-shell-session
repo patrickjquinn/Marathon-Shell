@@ -139,12 +139,22 @@ export GSETTINGS_BACKEND=memory
 # dbus-run-session only if nothing else is around (e.g. systemd-less
 # distros).
 
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    if [ -S "$XDG_RUNTIME_DIR/bus" ]; then
-        export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
-    elif command -v dbus-run-session >/dev/null 2>&1; then
-        exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
-    fi
+# pam_systemd creates $XDG_RUNTIME_DIR/bus asynchronously after pam_open_session
+# returns, so greetd's session command can race ahead of the socket existing.
+# Poll briefly before deciding; the bus is usually up in under a second on
+# warm systems, slightly longer on first boot.
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -S "$XDG_RUNTIME_DIR/bus" ] && break
+    sleep 0.3
+done
+
+if [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    # systemd-managed user bus exists. Always set unconditionally -- greetd's
+    # PAM session may leave a stale DBUS_SESSION_BUS_ADDRESS in env that no
+    # longer points anywhere valid.
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+elif [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
+    exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
 fi
 
 # ---- Launch ------------------------------------------------------------------
