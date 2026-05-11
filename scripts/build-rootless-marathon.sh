@@ -199,6 +199,18 @@ virtio_pci
 virtio_gpu
 EOMOD
 
+# Re-tag QEMU virtio-tablet as a touchscreen for libinput. The device exposes
+# both REL and ABS axes; udev's input_id classifier sees REL_WHEEL and tags
+# ID_INPUT_MOUSE=1. Marathon Shell is mobile-first and only dispatches
+# touchscreen events, so taps would be dropped. No effect on real hardware --
+# the rule keys on the device name "QEMU Virtio Tablet".
+mkdir -p "$ROOTFS/etc/udev/rules.d"
+cat > "$ROOTFS/etc/udev/rules.d/99-virtio-input.rules" <<'EOUDV'
+SUBSYSTEM=="input", ATTRS{name}=="QEMU Virtio Tablet", \
+    ENV{ID_INPUT_MOUSE}="0", \
+    ENV{ID_INPUT_TOUCHSCREEN}="1"
+EOUDV
+
 # modules-load.d alone isn't sufficient: virtio_gpu pulls drm helper symbols
 # that don't resolve unless depmod is run with the rootfs's *actual* /lib/modules
 # layout (not the stale paths baked in by the apk's depmod). Run depmod -a at
