@@ -52,6 +52,7 @@ depends="
 	polkit
 	greetd
 	libcap
+	bubblewrap
 	ffmpeg
 	gst-plugins-base
 	gst-plugins-good
