@@ -63,6 +63,16 @@ if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_FORCE_DPI:-}" ]; then
     export MARATHON_FORCE_DPI=240
 fi
 
+# Skip the lock screen on startup under QEMU. We have no good way to drive
+# the swipe-to-unlock gesture from a virtio-tablet test harness, and the
+# point of the QEMU image is to validate the shell + apps -- not the
+# unlock pipeline that real phone hardware exercises every day. The env
+# is honored by SessionStore::reset(); on real phones it stays unset and
+# the shell boots locked as usual.
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_NO_INITIAL_LOCK:-}" ]; then
+    export MARATHON_NO_INITIAL_LOCK=1
+fi
+
 # ---- Qt-wide env -------------------------------------------------------------
 
 export QT_MEDIA_BACKEND=gstreamer
