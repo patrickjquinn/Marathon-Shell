@@ -1030,7 +1030,18 @@ void WaylandCompositor::setCompositorActive(bool active) {
 
     qDebug() << "[WaylandCompositor]" << (active ? "Resuming" : "Suspending")
              << "compositor window";
-    m_window->setVisible(active);
+
+    if (active) {
+        m_window->setVisible(true);
+        return;
+    }
+
+    // Suspending: hide first, then ask the scene graph to release its GL
+    // resources. Without this, the render thread keeps trying to flip into
+    // a soon-to-be DPMS-off CRTC and eglfs_kms wedges with EINVAL on
+    // virtio-gpu (the page-flip cannot land on a sleeping connector).
+    m_window->setVisible(false);
+    m_window->releaseResources();
 }
 
 void WaylandCompositor::setOutputOrientation(const QString &orientation) {

@@ -3,10 +3,12 @@
 #include "rotationmanager.h"
 #include "sensormanagercpp.h"
 #include "platform.h"
+#include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
 #include <QDir>
 #include <QTextStream>
+#include <QEventLoop>
 #include <QProcess>
 #include <QtMath>
 #include <QDBusConnection>
@@ -348,21 +350,41 @@ void DisplayManagerCpp::setNightLightSchedule(const QString &schedule) {
 }
 
 void DisplayManagerCpp::setScreenState(bool on) {
+    // Order matters. The Qt eglfs_kms backend does NOT inspect DPMS state
+    // before calling drmModePageFlip; if a flip is in flight when the
+    // platform screen goes to PowerStateOff, the flip lands on a sleeping
+    // CRTC and the driver returns EINVAL ("Could not queue DRM page flip on
+    // screen Virtual1 (Invalid argument)"). On virtio-gpu the wedge is
+    // permanent until DPMS turns back on, but Marathon's render loop will
+    // keep trying to flip into the dead CRTC every frame.
+    //
+    // Suspend the compositor's render thread before powering the CRTC down,
+    // and bring the CRTC back up before resuming the compositor.
+
 #if MARATHON_HAVE_QT_GUI_PRIVATE
     QPlatformScreen *platformScreen = QGuiApplication::primaryScreen()->handle();
 
-    if (platformScreen) {
-        platformScreen->setPowerState(on ? QPlatformScreen::PowerStateOn :
-                                           QPlatformScreen::PowerStateOff);
-
-        emit screenStateChanged(on);
-        qDebug() << "[DisplayManagerCpp] Screen" << (on ? "ON" : "OFF")
-                 << "via QPlatformScreen::setPowerState";
+    if (on) {
+        // CRTC must be live before the scene-graph queues its next flip.
+        if (platformScreen) {
+            platformScreen->setPowerState(QPlatformScreen::PowerStateOn);
+        }
+        emit screenStateChanged(true);
+        qDebug() << "[DisplayManagerCpp] Screen ON via QPlatformScreen::setPowerState";
     } else {
-        qDebug() << "[DisplayManagerCpp] No QPlatformScreen handle found!";
+        // Notify the compositor first so it can hide its window and release
+        // scene-graph resources, then drain any pending events on the GUI
+        // thread so the render thread has actually stopped before we cut
+        // the CRTC's power.
+        emit screenStateChanged(false);
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+        if (platformScreen) {
+            platformScreen->setPowerState(QPlatformScreen::PowerStateOff);
+        }
+        qDebug() << "[DisplayManagerCpp] Screen OFF via QPlatformScreen::setPowerState";
     }
 #else
-    Q_UNUSED(on);
+    emit screenStateChanged(on);
     qDebug() << "[DisplayManagerCpp] Screen power control disabled (Qt GuiPrivate not enabled)";
 #endif
 
