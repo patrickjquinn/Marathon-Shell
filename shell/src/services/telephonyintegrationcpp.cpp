@@ -213,6 +213,19 @@ void TelephonyIntegrationCpp::handleProximityChanged() {
     if (!m_hasActiveCall || !m_sensorManager || !m_displayManager)
         return;
 
+    // CRITICAL: only act on proximity if the sensor is actually present and
+    // running. On hardware without a proximity sensor (e.g. QEMU, mid-range
+    // devices), QtSensors may still synthesise readings from a default
+    // backend, and a stray "near" report will leave the user stuck with a
+    // dark screen during a call -- there's no way to re-wake without the
+    // sensor reporting "far". SensorManagerCpp clears proximityAvailable
+    // unless connectToBackend() AND start() both succeeded.
+    if (!m_sensorManager->proximityAvailable()) {
+        qDebug()
+            << "[TelephonyIntegration] Ignoring proximity event - no proximity sensor available";
+        return;
+    }
+
     if (m_sensorManager->proximityNear()) {
         qInfo() << "[TelephonyIntegration] Proximity near during call - screen off";
         m_displayManager->setScreenState(false);

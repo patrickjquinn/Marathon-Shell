@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 #include <QRegularExpression>
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -345,7 +346,90 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         env.insert("MARATHON_PERM_STORAGE", "1");
     }
 
-    QString cmd = QStringLiteral("%1 --app-id %2").arg(runnerPath, appId);
+    // Build the app command. If bubblewrap is present, wrap marathon-app-runner
+    // in a sandbox so an app process can no longer reach the shell's QSettings
+    // store, notifications.db, app-permissions.json, etc. through plain
+    // filesystem ops. Without bwrap, the app-runner runs unsandboxed (same UID
+    // as the shell) -- callers should still rely on the D-Bus permission gate
+    // for everything sensitive, but bwrap closes the obvious bypass.
+    //
+    // Policy summary (per app):
+    //   - read-only bind  : /usr, /etc, /lib, /lib64 (binaries + Qt + system config)
+    //   - read-only bind  : ~/.config/marathon-apps/<appId> (per-app config seed)
+    //   - read-write bind : XDG_DATA_HOME/marathon-apps/<appId>            (data)
+    //   - read-write bind : XDG_CACHE_HOME/marathon-apps/<appId>           (cache)
+    //   - pass through    : XDG_RUNTIME_DIR (Wayland + user D-Bus sockets)
+    //   - tmpfs           : everything else under /home, /tmp
+    //   - no network namespace unless "network" permission granted
+    //   - --die-with-parent so a hung sandbox can't outlive the shell
+    const QString bwrapPath = QStandardPaths::findExecutable("bwrap");
+    QString       cmd;
+    if (!bwrapPath.isEmpty() && !qEnvironmentVariableIsSet("MARATHON_DISABLE_SANDBOX")) {
+        const QString xdgRuntimeDir = qEnvironmentVariable("XDG_RUNTIME_DIR", "/run/user/1000");
+        const QString homeDir       = qEnvironmentVariable("HOME", "/home/user");
+        const QString xdgDataHome =
+            qEnvironmentVariable("XDG_DATA_HOME", QStringLiteral("%1/.local/share").arg(homeDir));
+        const QString xdgCacheHome =
+            qEnvironmentVariable("XDG_CACHE_HOME", QStringLiteral("%1/.cache").arg(homeDir));
+        const QString xdgConfigHome =
+            qEnvironmentVariable("XDG_CONFIG_HOME", QStringLiteral("%1/.config").arg(homeDir));
+
+        const QString appData   = QStringLiteral("%1/marathon-apps/%2").arg(xdgDataHome, appId);
+        const QString appCache  = QStringLiteral("%1/marathon-apps/%2").arg(xdgCacheHome, appId);
+        const QString appConfig = QStringLiteral("%1/marathon-apps/%2").arg(xdgConfigHome, appId);
+        QDir().mkpath(appData);
+        QDir().mkpath(appCache);
+        QDir().mkpath(appConfig);
+
+        QStringList bwrapArgs;
+        bwrapArgs << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session")
+                  << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
+                  << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
+                  << QStringLiteral("--unshare-user-try");
+
+        // Network namespace: only granted to apps with "network" permission.
+        if (!permissions.contains("network"))
+            bwrapArgs << QStringLiteral("--unshare-net");
+
+        bwrapArgs << QStringLiteral("--ro-bind") << QStringLiteral("/usr") << QStringLiteral("/usr")
+                  << QStringLiteral("--ro-bind") << QStringLiteral("/etc") << QStringLiteral("/etc")
+                  << QStringLiteral("--ro-bind-try") << QStringLiteral("/lib")
+                  << QStringLiteral("/lib") << QStringLiteral("--ro-bind-try")
+                  << QStringLiteral("/lib64") << QStringLiteral("/lib64")
+                  << QStringLiteral("--ro-bind-try") << QStringLiteral("/bin")
+                  << QStringLiteral("/bin") << QStringLiteral("--ro-bind-try")
+                  << QStringLiteral("/sbin") << QStringLiteral("/sbin")
+                  << QStringLiteral("--ro-bind-try") << QStringLiteral("/var/empty")
+                  << QStringLiteral("/var/empty") << QStringLiteral("--proc")
+                  << QStringLiteral("/proc") << QStringLiteral("--dev") << QStringLiteral("/dev")
+                  << QStringLiteral("--dev-bind-try") << QStringLiteral("/dev/dri")
+                  << QStringLiteral("/dev/dri") << QStringLiteral("--tmpfs")
+                  << QStringLiteral("/tmp") << QStringLiteral("--tmpfs") << homeDir
+                  << QStringLiteral("--ro-bind") << QStringLiteral("/usr/share/marathon-apps")
+                  << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
+                  << appConfig << appConfig << QStringLiteral("--bind") << appData << appData
+                  << QStringLiteral("--bind") << appCache << appCache << QStringLiteral("--bind")
+                  << xdgRuntimeDir << xdgRuntimeDir;
+
+        // Pass HOME as a tmpfs-mounted directory; apps can write to their
+        // per-app data/cache paths only.
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("HOME") << homeDir
+                  << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
+                  << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << xdgCacheHome
+                  << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME")
+                  << xdgConfigHome;
+
+        cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
+            runnerPath + QStringLiteral(" --app-id ") + appId;
+        env.insert("MARATHON_SANDBOXED", "1");
+        qInfo() << "[AppLaunchService] Launching" << appId << "in bubblewrap sandbox (network="
+                << (permissions.contains("network") ? "yes" : "no") << ")";
+    } else {
+        cmd = QStringLiteral("%1 --app-id %2").arg(runnerPath, appId);
+        qWarning() << "[AppLaunchService] Launching" << appId
+                   << "WITHOUT sandbox (bwrap missing or MARATHON_DISABLE_SANDBOX set)";
+    }
+
     if (!m_pendingRoute.isEmpty()) {
         // Quote the route so paths with spaces survive Wayland-side parsing
         // (the runner uses QCommandLineParser which handles quoted args).
