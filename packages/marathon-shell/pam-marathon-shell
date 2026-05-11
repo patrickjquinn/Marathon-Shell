@@ -1,19 +1,17 @@
 #%PAM-1.0
 #
 # Marathon Shell PAM Configuration
-# This file configures authentication for the Marathon mobile shell
 #
-# Security stack:
-# 1. Try fingerprint authentication first (if enrolled)
-# 2. Fall back to system password
-# 3. Rate limiting via pam_faillock
-# 4. Session integration with systemd-logind
+# Marathon's SecurityManager calls fprintd over D-Bus directly when biometric
+# auth is selected, so we do not include pam_fprintd here -- it would consume
+# the password token from the conversation function and break the fallback
+# path to pam_unix on systems without a fingerprint device.
 #
+# Rate limiting via pam_faillock; session integrated with systemd-logind.
 
-# Authentication: Fingerprint -> Password with rate limiting
-auth    [success=2 default=ignore]  pam_fprintd.so
+# Authentication: password (pam_unix) with rate limiting via faillock
 auth    required    pam_faillock.so preauth
-auth    sufficient  pam_unix.so try_first_pass nullok
+auth    sufficient  pam_unix.so nullok
 auth    [default=die] pam_faillock.so authfail
 auth    required    pam_deny.so
 auth    required    pam_faillock.so authsucc
