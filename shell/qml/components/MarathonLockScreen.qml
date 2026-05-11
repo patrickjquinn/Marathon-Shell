@@ -714,7 +714,12 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
 
                 SequentialAnimation on y {
-                    running: true
+                    // Only animate while the lock screen is actually visible.
+                    // Leaving this unconditionally running re-renders the scene
+                    // graph at the animation rate even when the lock screen is
+                    // hidden, which under software rasterization keeps all four
+                    // LLVMpipe threads + QSGRenderThread busy at idle.
+                    running: lockScreen.visible
                     loops: Animation.Infinite
 
                     NumberAnimation {
