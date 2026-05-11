@@ -53,8 +53,14 @@ fi
 # derives ~108 DPI for a phone-shaped 720x1440 canvas and the shell renders at
 # desktop scale. Inject the DPI override here (read by ScreenMetrics::computeDpi)
 # so QEMU validation matches phone-hardware proportions. Unset on real devices.
+#
+# 240 DPI (scaleFactor 1.5) corresponds to a 5" 720x1440 budget phone, which is
+# what the QEMU canvas actually approximates. Higher (e.g. 400 = 2.5x for a
+# OnePlus 6) over-fills the 720-wide canvas because the design assumes a
+# 1080-wide screen at that scale -- content collides with chrome on small
+# pages. Real phones with correct EDID don't need this override at all.
 if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_FORCE_DPI:-}" ]; then
-    export MARATHON_FORCE_DPI=400
+    export MARATHON_FORCE_DPI=240
 fi
 
 # ---- Qt-wide env -------------------------------------------------------------
