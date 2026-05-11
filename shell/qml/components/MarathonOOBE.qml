@@ -113,7 +113,11 @@ Item {
         anchors.topMargin: Constants.statusBarHeight
         anchors.leftMargin: MSpacing.xl
         anchors.rightMargin: MSpacing.xl
-        anchors.bottomMargin: Math.round(170 * Constants.scaleFactor)
+        // Reserve enough room at the bottom for the Back/Next row (height =
+        // touchTargetMedium ~70sf), the page-indicator row, the nav bar, plus
+        // margins. The old 170sf was tight at any scale and clipped cards on
+        // Gestures / Time & Date / Passcode at high DPI.
+        anchors.bottomMargin: Math.round(220 * Constants.scaleFactor)
         currentIndex: oobeRoot.currentPage
         interactive: false
         clip: true
@@ -1114,8 +1118,10 @@ Item {
     }
 
     MButton {
-        anchors.top: swipeView.top
-        anchors.topMargin: MSpacing.lg
+        // Anchor below the status bar (not against swipeView top) so the
+        // button never crashes into centered logo content on the first page.
+        anchors.top: statusBar.bottom
+        anchors.topMargin: MSpacing.sm
         anchors.right: parent.right
         anchors.rightMargin: MSpacing.xl
         text: "Skip"

@@ -83,8 +83,8 @@ Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: MSpacing.sm
         anchors.verticalCenter: parent.verticalCenter
-        width: 16
-        height: 16
+        width: Math.round(16 * Constants.scaleFactor)
+        height: Math.round(16 * Constants.scaleFactor)
         z: 300
         visible: !pinScreenMode
         opacity: pinScreenMode ? 0 : 1
@@ -104,7 +104,7 @@ Rectangle {
 
         Icon {
             name: "search"
-            size: 12
+            size: Math.round(12 * Constants.scaleFactor)
             color: navBar.searchActive ? MColors.accentBright : MColors.text
             anchors.centerIn: parent
             opacity: navBar.searchActive ? 1 : 0.6
@@ -138,8 +138,8 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: MSpacing.sm
         anchors.verticalCenter: parent.verticalCenter
-        width: 16
-        height: 16
+        width: Math.round(16 * Constants.scaleFactor)
+        height: Math.round(16 * Constants.scaleFactor)
         z: 300
 
         Rectangle {
@@ -157,7 +157,7 @@ Rectangle {
 
         Icon {
             name: "keyboard"
-            size: 12
+            size: Math.round(12 * Constants.scaleFactor)
             color: navBar.keyboardVisible ? MColors.accentBright : MColors.text
             anchors.centerIn: parent
             opacity: navBar.keyboardVisible ? 1 : 0.6
