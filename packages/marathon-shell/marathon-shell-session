@@ -128,10 +128,23 @@ export GIO_USE_VFS=local
 export GSETTINGS_BACKEND=memory
 
 # ---- D-Bus session bus -------------------------------------------------------
-# Prefer dbus-run-session (provided by the regular dbus package on Alpine).
+#
+# pam_systemd in greetd's PAM stack starts a per-user dbus-broker on
+# $XDG_RUNTIME_DIR/bus, but greetd's session command runs OUTSIDE the user's
+# systemd manager so it doesn't inherit DBUS_SESSION_BUS_ADDRESS. Without it,
+# marathon-shell-bin and marathon-app-runner can't register the
+# org.marathonos.Shell IPC and apps wedge on their first D-Bus call.
+#
+# Prefer the systemd-managed bus when its socket exists; fall back to
+# dbus-run-session only if nothing else is around (e.g. systemd-less
+# distros).
 
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
-    exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    if [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    elif command -v dbus-run-session >/dev/null 2>&1; then
+        exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
+    fi
 fi
 
 # ---- Launch ------------------------------------------------------------------
