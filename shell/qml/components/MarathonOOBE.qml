@@ -222,7 +222,13 @@ Item {
             ]
 
             Column {
-                anchors.centerIn: parent
+                // Anchor at top instead of centerIn -- the 7-radio list is
+                // taller than the swipeView area at higher scale factors, so
+                // centerIn would overflow upward and collide with the Skip
+                // button row.
+                anchors.top: parent.top
+                anchors.topMargin: Math.round(60 * Constants.scaleFactor)
+                anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width
                 spacing: MSpacing.xl
 
