@@ -343,7 +343,16 @@ int main(int argc, char *argv[]) {
 
     MarathonAppRegistry registry;
     MarathonAppScanner  scanner(&registry);
-    scanner.scanApplications();
+
+    // Fast path: only parse this app's manifest, not every installed app.
+    // Falling back to a full scan if the targeted parse fails preserves the
+    // previous behaviour for apps that ship in non-standard layouts (e.g.
+    // a future per-user install dir not yet on the search path).
+    if (!scanner.scanSingleApp(appId)) {
+        qWarning() << "[marathon-app-runner] Single-app scan miss for" << appId
+                   << "-- falling back to full scan";
+        scanner.scanApplications();
+    }
 
     MarathonAppRegistry::AppInfo *info = registry.getAppInfo(appId);
     if (!info) {
@@ -507,11 +516,27 @@ int main(int argc, char *argv[]) {
             info->permissions.end();
     };
 
+    // Construct only the IPC clients whose permissions the app actually
+    // declared. Each client constructor does a sync D-Bus introspect + a
+    // handful of signal subscriptions + an initial state refresh -- across
+    // ~13 clients that's ~50-150 round-trips on cold start, none of which a
+    // perm-less app like Calculator can use anyway (the shell rejects every
+    // call with AccessDenied).
+    //
+    // PermissionClient, NavigationClient and HapticClient are unconditional:
+    // every app uses back/close gestures (Navigation), Marathon UI hooks
+    // haptic feedback on standard buttons, and apps need PermissionClient to
+    // introspect their own grants.
     ctx->setContextProperty("PermissionManager", new PermissionClient(&app));
-    ctx->setContextProperty("ContactsManager", new ContactsClient(&app));
-    ctx->setContextProperty("CallHistoryManager", new CallHistoryClient(&app));
-    ctx->setContextProperty("TelephonyService", new TelephonyClient(appId, &app));
-    ctx->setContextProperty("SMSService", new SmsClient(appId, &app));
+
+    if (hasPerm("contacts"))
+        ctx->setContextProperty("ContactsManager", new ContactsClient(&app));
+    if (hasPerm("telephony") || hasPerm("phone"))
+        ctx->setContextProperty("CallHistoryManager", new CallHistoryClient(&app));
+    if (hasPerm("telephony") || hasPerm("phone"))
+        ctx->setContextProperty("TelephonyService", new TelephonyClient(appId, &app));
+    if (hasPerm("sms") || hasPerm("telephony"))
+        ctx->setContextProperty("SMSService", new SmsClient(appId, &app));
 
     if (hasPerm("storage"))
         ctx->setContextProperty("MediaLibraryManager", new MediaLibraryClient(appId, &app));
@@ -537,15 +562,24 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("NavigationService", navigationClient);
     ctx->setContextProperty("NavigationRouter", navigationClient);
     ctx->setContextProperty("HapticService", new HapticClient(&app));
-    auto *notificationClient = new NotificationClient(appId, &app);
-    ctx->setContextProperty("NativeNotificationService", notificationClient);
-    // Apps and the test suite consume this under the shorter name.
-    ctx->setContextProperty("NotificationService", notificationClient);
-    ctx->setContextProperty("SensorService", new SensorClient(&app));
-    ctx->setContextProperty("LocationService", new LocationClient(&app));
-    ctx->setContextProperty("AlarmService", new AlarmClient(&app));
-    ctx->setContextProperty("UpdateService", new UpdateClient(&app));
-    ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
+
+    NotificationClient *notificationClient = nullptr;
+    if (hasPerm("notifications")) {
+        notificationClient = new NotificationClient(appId, &app);
+        ctx->setContextProperty("NativeNotificationService", notificationClient);
+        // Apps and the test suite consume this under the shorter name.
+        ctx->setContextProperty("NotificationService", notificationClient);
+    }
+    if (hasPerm("sensors") || hasPerm("system"))
+        ctx->setContextProperty("SensorService", new SensorClient(&app));
+    if (hasPerm("location"))
+        ctx->setContextProperty("LocationService", new LocationClient(&app));
+    if (hasPerm("alarms") || hasPerm("system"))
+        ctx->setContextProperty("AlarmService", new AlarmClient(&app));
+    if (hasPerm("system"))
+        ctx->setContextProperty("UpdateService", new UpdateClient(&app));
+    if (hasPerm("storage"))
+        ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
 
     auto *systemStatusStore = new SystemStatusStoreClient(
         qobject_cast<PowerClient *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),
