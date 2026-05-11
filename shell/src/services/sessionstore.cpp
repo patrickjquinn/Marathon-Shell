@@ -1,5 +1,6 @@
 #include "sessionstore.h"
 
+#include <QByteArray>
 #include <QDateTime>
 
 SessionStore::SessionStore(QObject *parent)
@@ -94,8 +95,16 @@ void SessionStore::reset() {
     m_sessionValidUntil = 0;
     setIsAnimatingLock(false);
     setLockTransition(QString());
-    setShowLockScreen(true);
-    setIsLocked(true);
+
+    // MARATHON_NO_INITIAL_LOCK skips the lock-screen-on-startup state. Useful
+    // for headless / VM validation flows where there's no convenient way to
+    // drive a swipe-to-unlock gesture, and harmless on real phones where the
+    // env stays unset. Does not disable the lock screen at runtime -- it only
+    // affects the initial state after construction / explicit reset.
+    const bool skipInitialLock = !qgetenv("MARATHON_NO_INITIAL_LOCK").isEmpty();
+
+    setShowLockScreen(!skipInitialLock);
+    setIsLocked(!skipInitialLock);
     setIsOnLockScreen(false);
 }
 
