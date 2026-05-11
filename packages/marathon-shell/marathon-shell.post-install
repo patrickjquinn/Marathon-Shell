@@ -2,18 +2,17 @@
 # marathon-shell post-install
 #
 # - Refresh ld cache (Marathon ships extra .so libs under /usr/lib).
-# - Grant CAP_SYS_NICE to the shell binary so it can elevate the QSGRender
-#   thread to SCHED_RR/1 without sudo at runtime. The 99-marathon-rtprio
-#   limits.d entry is a fallback for app processes; the shell main thread
-#   uses the capability path. See docs/RT_SCHEDULING.md upstream.
 # - Reload udev so the 90-backlight.rules apply on the running system.
+#
+# RT scheduling: granted via /etc/security/limits.d/99-marathon-rtprio.conf
+# (pam_limits) rather than per-binary file capabilities. File caps mark the
+# binary as AT_SECURE, which causes glibc to drop "tainted" env vars and
+# breaks Qt's QDBusConnection::sessionBus() -- DBUS_SESSION_BUS_ADDRESS comes
+# from the environment, and without it the shell silently fails to register
+# org.marathonos.Shell, breaking every app's IPC. See docs/RT_SCHEDULING.md.
 
 if command -v ldconfig >/dev/null 2>&1; then
     ldconfig
-fi
-
-if command -v setcap >/dev/null 2>&1 && [ -x /usr/bin/marathon-shell-bin ]; then
-    setcap 'cap_sys_nice+ep' /usr/bin/marathon-shell-bin || true
 fi
 
 if command -v udevadm >/dev/null 2>&1; then

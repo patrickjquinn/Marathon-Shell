@@ -19,6 +19,7 @@ depends="
 	qt6-qtvirtualkeyboard
 	qt6-qtlocation
 	qt6-qtpositioning
+	qt6-qt5compat
 	hunspell
 	hunspell-en-us
 	libpulse
