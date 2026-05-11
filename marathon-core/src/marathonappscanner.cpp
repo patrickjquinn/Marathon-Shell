@@ -56,28 +56,6 @@ void MarathonAppScanner::scanApplications() {
     emit scanComplete(count);
 }
 
-bool MarathonAppScanner::scanSingleApp(const QString &appId) {
-    if (appId.isEmpty() || !m_registry)
-        return false;
-
-    for (const QString &searchPath : getSearchPaths()) {
-        const QString appDir       = searchPath + QStringLiteral("/") + appId;
-        const QString manifestPath = getManifestPath(appDir);
-        if (manifestPath.isEmpty())
-            continue;
-
-        MarathonAppRegistry::AppInfo info = parseManifest(manifestPath, appDir);
-        if (!validateManifest(info))
-            continue;
-        if (info.id != appId)
-            continue;
-
-        m_registry->registerAppInfo(info);
-        return true;
-    }
-    return false;
-}
-
 void MarathonAppScanner::scanApplicationsAsync() {
     qDebug() << "[MarathonAppScanner] Starting async app scan...";
     emit scanStarted();
