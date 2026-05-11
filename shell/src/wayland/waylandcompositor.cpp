@@ -686,6 +686,25 @@ void WaylandCompositor::handleXdgToplevelCreated(QWaylandXdgToplevel *toplevel,
     qInfo() << "[WaylandCompositor] New toplevel:" << surfaceId << toplevel->appId() << "-"
             << toplevel->title();
 
+    // Send an initial xdg_toplevel.configure as soon as the toplevel is created
+    // so the client can ack + commit its first content buffer. The QML side
+    // (WaylandShellSurfaceItem.sendSizeToApp) only fires after the surface item
+    // gets a non-zero size, which depends on layout/loader timing -- the
+    // surface can sit unconfigured for arbitrarily long, and Qt's qtwayland
+    // client decides "window inexposed" and stops painting. By sending the
+    // output size up-front, the client always gets a first configure within
+    // milliseconds of mapping and can proceed to attach + commit its buffer.
+    if (m_output && m_output->window()) {
+        const QSize outputSize = m_output->window()->size();
+        if (outputSize.width() > 0 && outputSize.height() > 0) {
+            QList<QWaylandXdgToplevel::State> states;
+            states << QWaylandXdgToplevel::ActivatedState << QWaylandXdgToplevel::MaximizedState;
+            toplevel->sendConfigure(outputSize, states);
+            qInfo() << "[WaylandCompositor] Sent initial configure" << outputSize << "for surfaceId"
+                    << surfaceId;
+        }
+    }
+
     emit                          surfaceCreated(surface, surfaceId, xdgSurface);
 
     QPointer<QWaylandXdgToplevel> safeToplevel(toplevel);

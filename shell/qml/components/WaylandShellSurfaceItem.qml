@@ -119,7 +119,11 @@ ShellSurfaceItem {
     }
 
     autoCreatePopupItems: true
-    opacity: hasSentInitialSize && hasFirstFrame ? 1 : 0
+    // Keep the surface item visible from when it's mapped. The compositor now
+    // sends an initial xdg_toplevel.configure from C++ (see handleXdgToplevelCreated
+    // in waylandcompositor.cpp) so the client can ack and commit its first buffer
+    // immediately. The splash overlay below covers the "no buffer yet" gap visually.
+    opacity: 1
     bufferLocked: isMinimized && hasFirstFrame
     shellSurface: {
         var xdg = _xdgSurfaceFromObj(surfaceObj);
