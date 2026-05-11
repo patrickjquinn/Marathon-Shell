@@ -4,6 +4,7 @@
 SensorManagerCpp::SensorManagerCpp(QObject *parent)
     : QObject(parent)
     , m_available(false)
+    , m_proximityAvailable(false)
     , m_proximityNear(false)
     , m_ambientLight(500) {
     qDebug() << "[SensorManagerCpp] Using QtSensors backend";
@@ -17,21 +18,30 @@ SensorManagerCpp::SensorManagerCpp(QObject *parent)
     m_available = ok1 || ok2;
     emit availableChanged();
 
-    if (ok1) {
+    if (ok1 && m_proximity->start()) {
         connect(m_proximity, &QProximitySensor::readingChanged, this,
                 &SensorManagerCpp::onProximityChanged);
-        m_proximity->start();
+        m_proximityAvailable = true;
+        emit proximityAvailableChanged();
         qInfo() << "[SensorManagerCpp] Proximity sensor active";
     } else {
-        qInfo() << "[SensorManagerCpp] No proximity sensor backend";
+        // Either no backend, or backend won't actually start a measurement.
+        // Without a working sensor we MUST NOT report any proximity events --
+        // callers (e.g. TelephonyIntegrationCpp) gate screen-off on this and
+        // will leave the user with a dark screen they can't recover from if
+        // we lie about "near".
+        if (ok1)
+            m_proximity->stop();
+        qInfo() << "[SensorManagerCpp] No working proximity sensor backend";
     }
 
-    if (ok2) {
+    if (ok2 && m_light->start()) {
         connect(m_light, &QLightSensor::readingChanged, this, &SensorManagerCpp::onLightChanged);
-        m_light->start();
         qInfo() << "[SensorManagerCpp] Ambient light sensor active";
     } else {
-        qInfo() << "[SensorManagerCpp] No ambient light backend";
+        if (ok2)
+            m_light->stop();
+        qInfo() << "[SensorManagerCpp] No working ambient light backend";
     }
 }
 
