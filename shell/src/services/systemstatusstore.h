@@ -152,7 +152,6 @@ class SystemStatusStore : public QObject {
     }
 
     Q_INVOKABLE void updateTime();
-    void             scheduleNextMinute();
     Q_INVOKABLE void addNotification(const QString &title, const QString &message,
                                      const QString &app);
     Q_INVOKABLE void removeNotification(int notificationId);

@@ -18,12 +18,6 @@ class MarathonAppScanner : public QObject {
     Q_INVOKABLE void    scanApplicationsAsync();
     Q_INVOKABLE QString getManifestPath(const QString &appPath);
 
-    // Single-app fast path: parse just <searchPath>/<appId>/manifest.json and
-    // register it. Returns true if the app was found and registered. Skips
-    // walking every other app directory, which is the bulk of cold-start cost
-    // for marathon-app-runner where the appId is already known.
-    Q_INVOKABLE bool scanSingleApp(const QString &appId);
-
   signals:
     void scanStarted();
     void appDiscovered(const QString &appId);
