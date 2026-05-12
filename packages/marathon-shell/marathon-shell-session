@@ -73,6 +73,16 @@ if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_NO_INITIAL_LOCK:-}" ]; then
     export MARATHON_NO_INITIAL_LOCK=1
 fi
 
+# Route GL through Zink (Vulkan) under virtio-gpu. Alpine's Mesa is built
+# without the virgl Gallium driver, so the default GL path falls back to
+# llvmpipe with "virtio_gpu: driver missing". Zink + mesa-vulkan-virtio
+# (Venus protocol) reaches the host GPU through virtio-gpu-gl-pci. Requires
+# QEMU launched with: -device virtio-gpu-gl-pci,hostmem=1G,blob=true,venus=true
+#                    -display egl-headless,rendernode=/dev/dri/renderD128
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MESA_LOADER_DRIVER_OVERRIDE:-}" ]; then
+    export MESA_LOADER_DRIVER_OVERRIDE=zink
+fi
+
 # ---- Qt-wide env -------------------------------------------------------------
 
 export QT_MEDIA_BACKEND=gstreamer
