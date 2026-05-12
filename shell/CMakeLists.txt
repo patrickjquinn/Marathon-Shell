@@ -28,6 +28,8 @@ set(SOURCES
     src/services/notificationservicecpp.cpp
     src/services/telephonyintegrationcpp.h
     src/services/telephonyintegrationcpp.cpp
+    src/services/unifiedpushdistributor.h
+    src/services/unifiedpushdistributor.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
