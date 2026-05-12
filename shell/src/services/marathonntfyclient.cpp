@@ -93,15 +93,24 @@ void MarathonNtfyClient::onRegistrationRemoved(const QString &token) {
     const auto it = m_subs.find(token);
     if (it == m_subs.end())
         return;
-    if (it->backoff) {
-        it->backoff->stop();
-        it->backoff->deleteLater();
-    }
-    if (it->socket) {
-        it->socket->abort();
-        it->socket->deleteLater();
-    }
+
+    // Detach the socket/timer pointers and remove the entry FIRST, because
+    // QWebSocket::abort() emits `disconnected` synchronously, which fires
+    // onSocketDisconnected on this same token. If the entry still exists at
+    // that moment, the disconnect handler dereferences the socket field we
+    // just nulled and corrupts the backoff timer we just deleted.
+    QWebSocket *sock = it->socket;
+    QTimer     *bo   = it->backoff;
     m_subs.erase(it);
+
+    if (bo) {
+        bo->stop();
+        bo->deleteLater();
+    }
+    if (sock) {
+        sock->abort();
+        sock->deleteLater();
+    }
 }
 
 void MarathonNtfyClient::openSocket(const QString &token) {
