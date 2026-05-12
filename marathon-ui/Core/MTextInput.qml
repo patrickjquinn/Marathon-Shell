@@ -12,7 +12,7 @@ Rectangle {
     // Optional screen-reader label distinct from placeholder; callers should
     // set this when the input's purpose isn't already obvious from a visible
     // label adjacent in the layout.
-    property string accessibleName: placeholderText
+    property string a11yName: placeholderText
 
     signal accepted
 
@@ -24,7 +24,7 @@ Rectangle {
     implicitHeight: MSpacing.touchTargetMin
 
     Accessible.role: Accessible.EditableText
-    Accessible.name: accessibleName
+    Accessible.name: a11yName
     Accessible.description: error ? qsTr("Invalid value") : ""
     Accessible.ignored: disabled
     Accessible.focusable: !disabled

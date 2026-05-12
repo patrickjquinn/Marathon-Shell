@@ -10,7 +10,7 @@ Rectangle {
     property bool disabled: false
     property bool error: false
     property int wrapMode: TextEdit.Wrap
-    property string accessibleName: placeholderText
+    property string a11yName: placeholderText
 
     signal accepted
 
@@ -23,7 +23,7 @@ Rectangle {
     implicitHeight: defaultHeight
 
     Accessible.role: Accessible.EditableText
-    Accessible.name: accessibleName
+    Accessible.name: a11yName
     Accessible.description: error ? qsTr("Invalid value") : ""
     Accessible.ignored: disabled
     Accessible.focusable: !disabled

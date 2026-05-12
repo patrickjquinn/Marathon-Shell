@@ -17,7 +17,7 @@ Item {
     // that show an icon-only button should set this to a verb ("Close", "Open
     // settings", "Decline call") so screen readers announce the action, not
     // the glyph.
-    property string accessibleName: iconName
+    property string a11yName: iconName
 
     signal clicked
 
@@ -31,7 +31,7 @@ Item {
     implicitHeight: MSpacing.touchTargetMedium
 
     Accessible.role: Accessible.Button
-    Accessible.name: accessibleName
+    Accessible.name: a11yName
     Accessible.ignored: disabled
     Accessible.onPressAction: if (!disabled)
         clicked()
