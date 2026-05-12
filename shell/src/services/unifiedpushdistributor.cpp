@@ -1,0 +1,186 @@
+#include "unifiedpushdistributor.h"
+
+#include <QDBusConnection>
+#include <QDBusError>
+#include <QDBusInterface>
+#include <QDBusReply>
+#include <QDebug>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QUuid>
+
+namespace {
+    constexpr const char *kBusName        = "org.unifiedpush.Distributor.marathon";
+    constexpr const char *kObjectPath     = "/org/unifiedpush/Distributor";
+    constexpr const char *kConnectorPath  = "/org/unifiedpush/Connector";
+    constexpr const char *kConnectorIface = "org.unifiedpush.Connector2";
+    constexpr const char *kSettingsGroup  = "unifiedpush";
+
+    QString               settingsPath() {
+        QString dir = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+        return dir + QStringLiteral("/unifiedpush.ini");
+    }
+} // namespace
+
+UnifiedPushDistributor::UnifiedPushDistributor(QObject *parent)
+    : QObject(parent) {
+    load();
+}
+
+UnifiedPushDistributor::~UnifiedPushDistributor() {
+    if (m_serviceOwned) {
+        QDBusConnection::sessionBus().unregisterService(QString::fromLatin1(kBusName));
+    }
+}
+
+bool UnifiedPushDistributor::registerService() {
+    QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.registerService(QString::fromLatin1(kBusName))) {
+        qInfo() << "[UnifiedPushDistributor]" << kBusName
+                << "already owned by another distributor; yielding";
+        return false;
+    }
+    m_serviceOwned = true;
+
+    if (!bus.registerObject(QString::fromLatin1(kObjectPath), this,
+                            QDBusConnection::ExportAllSlots)) {
+        qWarning() << "[UnifiedPushDistributor] registerObject failed:"
+                   << bus.lastError().message();
+        bus.unregisterService(QString::fromLatin1(kBusName));
+        m_serviceOwned = false;
+        return false;
+    }
+
+    qInfo() << "[UnifiedPushDistributor] Registered" << kBusName << "at" << kObjectPath;
+    return true;
+}
+
+QVariantMap UnifiedPushDistributor::Register(const QVariantMap &args) {
+    const QString service     = args.value(QStringLiteral("service")).toString();
+    const QString token       = args.value(QStringLiteral("token")).toString();
+    const QString description = args.value(QStringLiteral("description")).toString();
+
+    QVariantMap   out;
+    if (service.isEmpty() || token.isEmpty()) {
+        out.insert(QStringLiteral("success"), QStringLiteral("INVALID_ARGUMENTS"));
+        out.insert(QStringLiteral("reason"), QStringLiteral("service and token are required"));
+        return out;
+    }
+
+    AppRegistration &reg = m_registrations[token];
+    reg.service          = service;
+    reg.description      = description;
+    persist();
+
+    out.insert(QStringLiteral("success"), QStringLiteral("OK"));
+
+    // If we already have an endpoint for this token (re-register after restart),
+    // notify the connector immediately so the app can resume.
+    if (!reg.endpoint.isEmpty()) {
+        QVariantMap nep;
+        nep.insert(QStringLiteral("token"), token);
+        nep.insert(QStringLiteral("endpoint"), reg.endpoint);
+        callConnector(service, QStringLiteral("NewEndpoint"), nep);
+    }
+
+    qInfo() << "[UnifiedPushDistributor] Register" << service << "token" << token;
+    return out;
+}
+
+QVariantMap UnifiedPushDistributor::Unregister(const QVariantMap &args) {
+    const QString token = args.value(QStringLiteral("token")).toString();
+    if (token.isEmpty())
+        return {};
+
+    const auto it = m_registrations.constFind(token);
+    if (it == m_registrations.constEnd())
+        return {};
+
+    const QString service = it.value().service;
+    m_registrations.erase(it);
+    persist();
+
+    QVariantMap ureg;
+    ureg.insert(QStringLiteral("token"), token);
+    callConnector(service, QStringLiteral("Unregistered"), ureg);
+
+    qInfo() << "[UnifiedPushDistributor] Unregister token" << token;
+    return {};
+}
+
+void UnifiedPushDistributor::deliverEndpoint(const QString &token, const QString &endpoint) {
+    const auto it = m_registrations.find(token);
+    if (it == m_registrations.end()) {
+        qWarning() << "[UnifiedPushDistributor] deliverEndpoint for unknown token" << token;
+        return;
+    }
+    it->endpoint = endpoint;
+    persist();
+
+    QVariantMap args;
+    args.insert(QStringLiteral("token"), token);
+    args.insert(QStringLiteral("endpoint"), endpoint);
+    callConnector(it->service, QStringLiteral("NewEndpoint"), args);
+}
+
+void UnifiedPushDistributor::deliverMessage(const QString &token, const QByteArray &payload) {
+    const auto it = m_registrations.constFind(token);
+    if (it == m_registrations.constEnd()) {
+        qWarning() << "[UnifiedPushDistributor] deliverMessage for unknown token" << token;
+        return;
+    }
+
+    QVariantMap args;
+    args.insert(QStringLiteral("token"), token);
+    args.insert(QStringLiteral("message"), payload);
+    args.insert(QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces));
+    callConnector(it.value().service, QStringLiteral("Message"), args);
+}
+
+void UnifiedPushDistributor::callConnector(const QString &serviceBus, const QString &method,
+                                           const QVariantMap &args) {
+    QDBusInterface iface(serviceBus, QString::fromLatin1(kConnectorPath),
+                         QString::fromLatin1(kConnectorIface), QDBusConnection::sessionBus());
+    if (!iface.isValid()) {
+        qWarning() << "[UnifiedPushDistributor]" << serviceBus << "connector unreachable for"
+                   << method;
+        return;
+    }
+    iface.asyncCall(method, args);
+}
+
+void UnifiedPushDistributor::persist() const {
+    QSettings s(settingsPath(), QSettings::IniFormat);
+    s.beginGroup(QString::fromLatin1(kSettingsGroup));
+    s.remove(QString()); // wipe stale token entries before rewriting
+    s.beginWriteArray(QStringLiteral("registrations"), m_registrations.size());
+    int i = 0;
+    for (auto it = m_registrations.constBegin(); it != m_registrations.constEnd(); ++it, ++i) {
+        s.setArrayIndex(i);
+        s.setValue(QStringLiteral("token"), it.key());
+        s.setValue(QStringLiteral("service"), it.value().service);
+        s.setValue(QStringLiteral("description"), it.value().description);
+        s.setValue(QStringLiteral("endpoint"), it.value().endpoint);
+    }
+    s.endArray();
+    s.endGroup();
+}
+
+void UnifiedPushDistributor::load() {
+    QSettings s(settingsPath(), QSettings::IniFormat);
+    s.beginGroup(QString::fromLatin1(kSettingsGroup));
+    const int n = s.beginReadArray(QStringLiteral("registrations"));
+    for (int i = 0; i < n; ++i) {
+        s.setArrayIndex(i);
+        const QString token = s.value(QStringLiteral("token")).toString();
+        if (token.isEmpty())
+            continue;
+        AppRegistration reg;
+        reg.service            = s.value(QStringLiteral("service")).toString();
+        reg.description        = s.value(QStringLiteral("description")).toString();
+        reg.endpoint           = s.value(QStringLiteral("endpoint")).toString();
+        m_registrations[token] = reg;
+    }
+    s.endArray();
+    s.endGroup();
+}
