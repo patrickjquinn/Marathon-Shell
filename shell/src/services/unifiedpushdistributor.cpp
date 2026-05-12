@@ -2,7 +2,7 @@
 
 #include <QDBusConnection>
 #include <QDBusError>
-#include <QDBusInterface>
+#include <QDBusMessage>
 #include <QDBusReply>
 #include <QDebug>
 #include <QSettings>
@@ -156,14 +156,16 @@ void UnifiedPushDistributor::deliverMessage(const QString &token, const QByteArr
 
 void UnifiedPushDistributor::callConnector(const QString &serviceBus, const QString &method,
                                            const QVariantMap &args) {
-    QDBusInterface iface(serviceBus, QString::fromLatin1(kConnectorPath),
-                         QString::fromLatin1(kConnectorIface), QDBusConnection::sessionBus());
-    if (!iface.isValid()) {
-        qWarning() << "[UnifiedPushDistributor]" << serviceBus << "connector unreachable for"
-                   << method;
-        return;
-    }
-    iface.asyncCall(method, args);
+    // QDBusInterface::isValid() introspects the peer synchronously on
+    // construction; if that introspect roundtrip races or the peer's
+    // introspection xml omits the iface we want, the check fails false
+    // and the call gets skipped even though createCall() + asyncCall()
+    // would deliver. Build the message directly to skip the introspect.
+    QDBusMessage msg =
+        QDBusMessage::createMethodCall(serviceBus, QString::fromLatin1(kConnectorPath),
+                                       QString::fromLatin1(kConnectorIface), method);
+    msg.setArguments({QVariant::fromValue(args)});
+    QDBusConnection::sessionBus().asyncCall(msg);
 }
 
 void UnifiedPushDistributor::persist() const {
