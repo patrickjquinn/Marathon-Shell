@@ -267,6 +267,9 @@ void AudioRoutingManager::detectAudioDevices() {
 
     if (m_audioCardId.isEmpty()) {
         qWarning() << "[AudioRoutingManager] No audio card detected!";
+    } else if (m_deviceDetectionTimer && m_deviceDetectionTimer->isActive()) {
+        m_deviceDetectionTimer->stop();
+        qInfo() << "[AudioRoutingManager] Audio card detected; halting periodic pw-dump poll";
     }
 }
 
