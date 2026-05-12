@@ -1,7 +1,6 @@
 import "LucideGlyphs.js" as Lucide
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Effects
 
 Text {
     id: root
