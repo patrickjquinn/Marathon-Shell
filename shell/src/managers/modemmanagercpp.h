@@ -15,6 +15,10 @@ class ModemManagerCpp : public QObject {
     Q_PROPERTY(int signalStrength READ signalStrength NOTIFY signalStrengthChanged)
     Q_PROPERTY(bool registered READ registered NOTIFY registeredChanged)
     Q_PROPERTY(QString operatorName READ operatorName NOTIFY operatorNameChanged)
+    // 3GPP operator code (MCC + MNC concatenated, e.g. "23410" = O2 UK).
+    // Empty until the modem registers. Surfaced for MBPI-based APN
+    // auto-provisioning (see CarrierProvisioning).
+    Q_PROPERTY(QString operatorCode READ operatorCode NOTIFY operatorCodeChanged)
     Q_PROPERTY(QString networkType READ networkType NOTIFY networkTypeChanged)
     Q_PROPERTY(bool roaming READ roaming NOTIFY roamingChanged)
     Q_PROPERTY(bool simPresent READ simPresent NOTIFY simPresentChanged)
@@ -49,6 +53,9 @@ class ModemManagerCpp : public QObject {
     }
     QString operatorName() const {
         return m_operatorName;
+    }
+    QString operatorCode() const {
+        return m_operatorCode;
     }
     QString networkType() const {
         return m_networkType;
@@ -89,6 +96,7 @@ class ModemManagerCpp : public QObject {
     void signalStrengthChanged();
     void registeredChanged();
     void operatorNameChanged();
+    void operatorCodeChanged();
     void networkTypeChanged();
     void roamingChanged();
     void simPresentChanged();
@@ -118,6 +126,7 @@ class ModemManagerCpp : public QObject {
     int             m_signalStrength;
     bool            m_registered;
     QString         m_operatorName;
+    QString         m_operatorCode;
     QString         m_networkType;
     bool            m_roaming;
     bool            m_simPresent;

@@ -213,6 +213,12 @@ void ModemManagerCpp::queryModemState() {
             emit operatorNameChanged();
         }
 
+        QString opCode = modem3gpp.property("OperatorCode").toString();
+        if (m_operatorCode != opCode) {
+            m_operatorCode = opCode;
+            emit operatorCodeChanged();
+        }
+
         uint registrationState = modem3gpp.property("RegistrationState").toUInt();
         bool isRegistered      = (registrationState == 1 || registrationState == 5);
         if (m_registered != isRegistered) {

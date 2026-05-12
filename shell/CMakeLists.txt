@@ -32,6 +32,8 @@ set(SOURCES
     src/services/unifiedpushdistributor.cpp
     src/services/marathonntfyclient.h
     src/services/marathonntfyclient.cpp
+    src/services/carrierprovisioning.h
+    src/services/carrierprovisioning.cpp
     src/components/crashhandler.h
     src/components/crashhandler.cpp
     qml/keyboard/Data/WordEngine.h
