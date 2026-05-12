@@ -42,4 +42,8 @@ Text {
 
     font.family: MTypography.fontFamily
     font.weight: MTypography.weightNormal
+
+    Accessible.role: variant === "display" || variant === "xlarge" ? Accessible.Heading : Accessible.StaticText
+    Accessible.name: text
+    Accessible.readOnly: true
 }

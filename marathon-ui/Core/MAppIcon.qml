@@ -44,6 +44,10 @@ Item {
     width: size
     height: size
 
+    // Decorative: the interactive parent (tile, list item) carries the
+    // Accessible.name. Skip so screen readers don't double-announce.
+    Accessible.ignored: true
+
     Image {
         id: imageItem
 

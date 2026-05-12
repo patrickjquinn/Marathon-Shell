@@ -10,6 +10,7 @@ Rectangle {
     property bool disabled: false
     property bool error: false
     property int wrapMode: TextEdit.Wrap
+    property string accessibleName: placeholderText
 
     signal accepted
 
@@ -20,6 +21,14 @@ Rectangle {
 
     implicitWidth: parent ? parent.width : 240
     implicitHeight: defaultHeight
+
+    Accessible.role: Accessible.EditableText
+    Accessible.name: accessibleName
+    Accessible.description: error ? qsTr("Invalid value") : ""
+    Accessible.ignored: disabled
+    Accessible.focusable: !disabled
+    Accessible.editable: !disabled
+    Accessible.multiLine: true
 
     radius: MRadius.md
     color: MColors.bb10Surface
