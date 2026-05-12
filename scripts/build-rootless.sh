@@ -175,13 +175,40 @@ CONTAINER_SCRIPT
 
 cat > "$OUT_DIR/qemu-cmd" <<EOF
 #!/bin/bash
+# Marathon rootless QEMU launcher.
+#
+# GPU path: virtio-gpu-gl-pci (Venus capset) + egl-headless or gtk,gl=on so
+# the guest's Mesa Zink+Venus stack reaches the host GPU. Alpine builds Mesa
+# without virgl, so the default virtio-gpu-pci path falls back to llvmpipe.
+# See marathon-shell-session: MESA_LOADER_DRIVER_OVERRIDE=zink is exported
+# only when /sys/bus/pci/devices/*/uevent contains PCI_ID=1AF4:1050.
+#
+# Override display with MARATHON_QEMU_DISPLAY=...; default is gtk,gl=on if
+# a desktop session is detected, otherwise egl-headless with the host
+# rendernode.
+
+MARATHON_QEMU_DISPLAY="\${MARATHON_QEMU_DISPLAY:-}"
+if [ -z "\$MARATHON_QEMU_DISPLAY" ]; then
+    if [ -n "\${DISPLAY:-}\${WAYLAND_DISPLAY:-}" ]; then
+        MARATHON_QEMU_DISPLAY="gtk,gl=on"
+    else
+        RENDERNODE=\$(ls /dev/dri/renderD* 2>/dev/null | head -1)
+        if [ -n "\$RENDERNODE" ]; then
+            MARATHON_QEMU_DISPLAY="egl-headless,rendernode=\$RENDERNODE"
+        else
+            MARATHON_QEMU_DISPLAY="none"
+        fi
+    fi
+fi
+
 exec qemu-system-aarch64 \\
   -M virt -cpu cortex-a72 -m 2G -smp 4 \\
   -kernel "$OUT_DIR/kernel" \\
   -initrd "$OUT_DIR/initramfs" \\
   -drive if=virtio,file="$OUT_DIR/rootfs.img",format=raw \\
   -append "root=/dev/vda rw console=ttyAMA0 console=tty0 video=720x1440 systemd.show_status=true" \\
-  -device virtio-gpu-pci -display gtk,gl=off \\
+  -device virtio-gpu-gl-pci,hostmem=1G,blob=true,venus=true \\
+  -display "\$MARATHON_QEMU_DISPLAY" \\
   -nic user,model=virtio-net-pci,hostfwd=tcp::2222-:22 \\
   -serial stdio \\
   "\$@"
