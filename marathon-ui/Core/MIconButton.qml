@@ -13,6 +13,11 @@ Item {
     property bool disabled: false
     property string variant: "ghost"
     property string shape: "square"
+    // Optional accessible label override; defaults to the icon name. Callers
+    // that show an icon-only button should set this to a verb ("Close", "Open
+    // settings", "Decline call") so screen readers announce the action, not
+    // the glyph.
+    property string accessibleName: iconName
 
     signal clicked
 
@@ -24,6 +29,18 @@ Item {
 
     implicitWidth: MSpacing.touchTargetMedium
     implicitHeight: MSpacing.touchTargetMedium
+
+    Accessible.role: Accessible.Button
+    Accessible.name: accessibleName
+    Accessible.ignored: disabled
+    Accessible.onPressAction: if (!disabled)
+        clicked()
+
+    focus: true
+    Keys.onReturnPressed: if (!disabled)
+        clicked()
+    Keys.onSpacePressed: if (!disabled)
+        clicked()
 
     Rectangle {
         visible: variant === "primary"

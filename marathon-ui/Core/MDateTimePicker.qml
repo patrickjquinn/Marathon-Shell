@@ -16,6 +16,11 @@ Rectangle {
     implicitWidth: 200
     implicitHeight: MSpacing.touchTargetMin
 
+    Accessible.role: Accessible.Button
+    Accessible.name: label !== "" ? label : (mode === "time" ? qsTr("Select time") : qsTr("Select date"))
+    Accessible.description: Qt.formatDateTime(selectedDate, mode === "time" ? "hh:mm" : "yyyy-MM-dd")
+    Accessible.onPressAction: pickerSheet.visible = true
+
     color: MColors.bb10Surface
     radius: MRadius.md
     border.width: 1

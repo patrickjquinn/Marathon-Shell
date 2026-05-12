@@ -9,6 +9,10 @@ Rectangle {
     property alias placeholderText: placeholder.text
     property bool disabled: false
     property bool error: false
+    // Optional screen-reader label distinct from placeholder; callers should
+    // set this when the input's purpose isn't already obvious from a visible
+    // label adjacent in the layout.
+    property string accessibleName: placeholderText
 
     signal accepted
 
@@ -18,6 +22,13 @@ Rectangle {
 
     implicitWidth: parent ? parent.width : 240
     implicitHeight: MSpacing.touchTargetMin
+
+    Accessible.role: Accessible.EditableText
+    Accessible.name: accessibleName
+    Accessible.description: error ? qsTr("Invalid value") : ""
+    Accessible.ignored: disabled
+    Accessible.focusable: !disabled
+    Accessible.editable: !disabled
 
     radius: MRadius.md
     color: MColors.bb10Surface
