@@ -89,6 +89,8 @@ Rectangle {
                     font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
+                    Accessible.role: Accessible.Heading
+                    Accessible.name: text
                 }
 
                 Text {
@@ -96,6 +98,8 @@ Rectangle {
                     text: callNumber
                     font.pixelSize: MTypography.sizeLarge
                     color: MColors.textSecondary
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
                 }
 
                 Text {
@@ -103,6 +107,8 @@ Rectangle {
                     text: formatDuration(callDuration)
                     font.pixelSize: MTypography.sizeBody
                     color: MColors.accent
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: qsTr("Call duration %1").arg(text)
                 }
             }
         }
@@ -151,6 +157,7 @@ Rectangle {
                     width: Constants.touchTargetLarge * 1.2
 
                     Rectangle {
+                        id: callActionTile
                         width: Constants.touchTargetLarge
                         height: Constants.touchTargetLarge
                         radius: Constants.borderRadiusSharp
@@ -158,6 +165,14 @@ Rectangle {
                         border.width: Constants.borderWidthMedium
                         border.color: MColors.border
                         anchors.horizontalCenter: parent.horizontalCenter
+
+                        readonly property bool toggleActive: (modelData.action === "mute" && isMuted) || (modelData.action === "speaker" && isSpeakerOn)
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: modelData.label
+                        Accessible.checkable: modelData.action === "mute" || modelData.action === "speaker"
+                        Accessible.checked: toggleActive
+                        Accessible.onPressAction: callActionMouse.clicked(null)
 
                         Icon {
                             anchors.centerIn: parent
@@ -167,6 +182,7 @@ Rectangle {
                         }
 
                         MouseArea {
+                            id: callActionMouse
                             anchors.fill: parent
                             onPressed: {
                                 parent.scale = 0.9;
@@ -220,6 +236,13 @@ Rectangle {
             border.width: Constants.borderWidthThick
             border.color: "#C0392B"
             anchors.horizontalCenter: parent.horizontalCenter
+
+            Accessible.role: Accessible.Button
+            Accessible.name: qsTr("End call")
+            Accessible.onPressAction: {
+                TelephonyService.hangup();
+                hide();
+            }
 
             Icon {
                 anchors.centerIn: parent
