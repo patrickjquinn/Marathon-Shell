@@ -106,12 +106,14 @@ QVariantMap UnifiedPushDistributor::Unregister(const QVariantMap &args) {
     if (token.isEmpty())
         return {};
 
-    const auto it = m_registrations.constFind(token);
-    if (it == m_registrations.constEnd())
+    // QHash::take(key) folds find+erase into one call and returns a
+    // default-constructed value when the key is absent. Avoids the
+    // const_iterator -> erase() UB the previous constFind+erase shape hit.
+    const AppRegistration reg = m_registrations.take(token);
+    if (reg.service.isEmpty())
         return {};
 
-    const QString service = it.value().service;
-    m_registrations.erase(it);
+    const QString service = reg.service;
     persist();
     emit        registrationRemoved(token);
 

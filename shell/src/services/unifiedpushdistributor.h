@@ -21,6 +21,10 @@
 // and will arrive in a follow-up commit.
 class UnifiedPushDistributor : public QObject {
     Q_OBJECT
+    // Without this, Qt names the D-Bus interface after the C++ class
+    // ("local.UnifiedPushDistributor") and any spec-compliant client looking
+    // for org.unifiedpush.Distributor2 fails to find Register/Unregister.
+    Q_CLASSINFO("D-Bus Interface", "org.unifiedpush.Distributor2")
 
   public:
     explicit UnifiedPushDistributor(QObject *parent = nullptr);
