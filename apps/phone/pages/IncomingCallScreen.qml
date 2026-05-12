@@ -81,6 +81,8 @@ Rectangle {
                     font.pixelSize: MTypography.sizeSmall
                     font.weight: Font.Medium
                     color: MColors.textSecondary
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
                 }
 
                 Text {
@@ -89,6 +91,8 @@ Rectangle {
                     font.pixelSize: MTypography.sizeXLarge
                     font.weight: Font.Bold
                     color: MColors.text
+                    Accessible.role: Accessible.Heading
+                    Accessible.name: text
                 }
 
                 Text {
@@ -96,6 +100,8 @@ Rectangle {
                     text: callerNumber
                     font.pixelSize: MTypography.sizeLarge
                     color: MColors.textSecondary
+                    Accessible.role: Accessible.StaticText
+                    Accessible.name: text
                 }
             }
         }
@@ -111,6 +117,13 @@ Rectangle {
                 color: "#E74C3C"
                 border.width: Constants.borderWidthThick
                 border.color: "#C0392B"
+
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Decline call from %1").arg(callerName)
+                Accessible.onPressAction: {
+                    TelephonyService.hangup();
+                    hide();
+                }
 
                 Icon {
                     anchors.centerIn: parent
@@ -136,6 +149,13 @@ Rectangle {
                 color: "#27AE60"
                 border.width: Constants.borderWidthThick
                 border.color: "#229954"
+
+                Accessible.role: Accessible.Button
+                Accessible.name: qsTr("Answer call from %1").arg(callerName)
+                Accessible.onPressAction: {
+                    TelephonyService.answer();
+                    hide();
+                }
 
                 Icon {
                     anchors.centerIn: parent
