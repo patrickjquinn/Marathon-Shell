@@ -73,6 +73,7 @@ makedepends="
 	qt6-qtpositioning-dev
 	hunspell-dev
 	pulseaudio-dev
+	pipewire-dev
 	wayland-dev
 	wayland-protocols
 	mesa-dev
