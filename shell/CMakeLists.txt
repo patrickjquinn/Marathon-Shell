@@ -358,8 +358,10 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PULSEAUDIO REQUIRED libpulse)
+pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
 target_include_directories(marathon-shell PRIVATE
     ${PULSEAUDIO_INCLUDE_DIRS}
+    ${PIPEWIRE_INCLUDE_DIRS}
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/components
@@ -403,6 +405,7 @@ target_link_libraries(marathon-shell PRIVATE
     marathon-ui-modals
     marathon-ui-effects
     ${PULSEAUDIO_LIBRARIES}
+    ${PIPEWIRE_LIBRARIES}
     ${PAM_LIBRARY}
     lunasvg
 )
