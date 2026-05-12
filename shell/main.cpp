@@ -27,6 +27,7 @@
 #include "src/services/notificationhandlercpp.h"
 #include "src/services/notificationservicecpp.h"
 #include "src/services/unifiedpushdistributor.h"
+#include "src/services/marathonntfyclient.h"
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
@@ -532,6 +533,7 @@ int main(int argc, char *argv[]) {
         if (unifiedPush->registerService()) {
             qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
         }
+        createObject<MarathonNtfyClient>(ctx, "NtfyClient", unifiedPush, &app);
 
         qInfo() << "[MarathonShell] Service bus ready (6 services active)";
     }

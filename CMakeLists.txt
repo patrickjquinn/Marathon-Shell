@@ -119,6 +119,7 @@ find_package(Qt6 6.4...6.12 REQUIRED COMPONENTS
     Location
     Positioning
     Sensors
+    WebSockets
 )
 
 # Qt 6.5+ QML policies - must be AFTER find_package so Qt6_VERSION is defined

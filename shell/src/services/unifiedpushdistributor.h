@@ -47,6 +47,18 @@ class UnifiedPushDistributor : public QObject {
     void deliverEndpoint(const QString &token, const QString &endpoint);
     void deliverMessage(const QString &token, const QByteArray &payload);
 
+  signals:
+    // A token is now expected to have a backend subscription. Emitted for
+    // every Register call AND once per persisted registration at startup
+    // so backends can resume previously-opened subscriptions without a
+    // re-Register round trip. `endpoint` is empty for fresh registrations
+    // and populated for resumed ones (the backend should re-use the same
+    // endpoint URL rather than minting a new one).
+    void registrationActive(const QString &token, const QString &endpoint);
+
+    // The backend should drop the subscription for this token.
+    void registrationRemoved(const QString &token);
+
   private:
     struct AppRegistration {
         QString service;     // app's well-known D-Bus name (e.g. org.example.app)

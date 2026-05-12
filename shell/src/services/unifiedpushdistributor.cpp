@@ -25,6 +25,16 @@ namespace {
 UnifiedPushDistributor::UnifiedPushDistributor(QObject *parent)
     : QObject(parent) {
     load();
+    // Replay persisted registrations to whatever backend is listening so it can
+    // resume subscriptions without waiting for apps to re-Register on this boot.
+    for (auto it = m_registrations.constBegin(); it != m_registrations.constEnd(); ++it) {
+        QMetaObject::invokeMethod(
+            this,
+            [this, token = it.key(), endpoint = it.value().endpoint] {
+                emit registrationActive(token, endpoint);
+            },
+            Qt::QueuedConnection);
+    }
 }
 
 UnifiedPushDistributor::~UnifiedPushDistributor() {
@@ -74,6 +84,10 @@ QVariantMap UnifiedPushDistributor::Register(const QVariantMap &args) {
 
     out.insert(QStringLiteral("success"), QStringLiteral("OK"));
 
+    // Backend hears about every Register, fresh or repeat. It decides whether
+    // to mint a new endpoint or reuse a cached one for this token.
+    emit registrationActive(token, reg.endpoint);
+
     // If we already have an endpoint for this token (re-register after restart),
     // notify the connector immediately so the app can resume.
     if (!reg.endpoint.isEmpty()) {
@@ -99,6 +113,7 @@ QVariantMap UnifiedPushDistributor::Unregister(const QVariantMap &args) {
     const QString service = it.value().service;
     m_registrations.erase(it);
     persist();
+    emit        registrationRemoved(token);
 
     QVariantMap ureg;
     ureg.insert(QStringLiteral("token"), token);
