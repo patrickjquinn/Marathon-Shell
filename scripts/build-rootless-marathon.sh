@@ -123,6 +123,12 @@ fi
 echo "─ staging local apk repo ─"
 LOCAL_REPO=/work/local-apks
 mkdir -p "$LOCAL_REPO/aarch64"
+# Wipe stale apks from prior runs: each build generates a fresh abuild key, so
+# apks signed by previous runs' keys are untrusted under the current key and
+# `apk index` errors out with "UNTRUSTED signature" the moment it tries to
+# read them -- which used to die silently inside the subshell below and kill
+# stage 2 before the rootfs bootstrap ever ran.
+rm -f "$LOCAL_REPO/aarch64/"*.apk "$LOCAL_REPO/aarch64/APKINDEX.tar.gz"
 find /root/packages -name '*.apk' -exec cp {} "$LOCAL_REPO/aarch64/" \;
 ls "$LOCAL_REPO/aarch64/"
 ( cd "$LOCAL_REPO/aarch64" && \
