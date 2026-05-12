@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=17
+pkgrel=23
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -92,6 +92,7 @@ source="
 	pam-marathon-shell
 	90-backlight.rules
 	99-marathon-rtprio.conf
+	marathon-shell-tmpfiles.conf
 	"
 builddir="$srcdir/Marathon-Shell-main"
 options="!check"
@@ -187,17 +188,27 @@ package() {
 		"$pkgdir/usr/bin/marathon-shell-session"
 
 	# PAM stack -- required for screen unlock + biometric auth.
+	# Ships under /usr/share/factory/etc/... so Duranium-style immutable
+	# images (postmarketOS Duranium) keep /usr verifiable. A tmpfiles.d
+	# snippet symlinks the real path into /etc at first boot; on non-
+	# immutable images the same symlink exists and resolves through /usr.
 	install -Dm644 "$srcdir/pam-marathon-shell" \
-		"$pkgdir/etc/pam.d/marathon-shell"
+		"$pkgdir/usr/share/factory/etc/pam.d/marathon-shell"
 
 	# Backlight udev rule -- non-root brightness control.
 	install -Dm644 "$srcdir/90-backlight.rules" \
 		"$pkgdir/usr/lib/udev/rules.d/90-backlight.rules"
 
 	# rtprio limit so app render threads can elevate to SCHED_RR without
-	# requiring per-binary setcap. (limits.d/99-marathon.conf)
+	# requiring per-binary setcap. Also factory-symlinked into /etc.
 	install -Dm644 "$srcdir/99-marathon-rtprio.conf" \
-		"$pkgdir/etc/security/limits.d/99-marathon-rtprio.conf"
+		"$pkgdir/usr/share/factory/etc/security/limits.d/99-marathon-rtprio.conf"
+
+	# tmpfiles.d creates the /etc symlinks pointing at the factory files
+	# in /usr at first boot. Works identically on Duranium and standard
+	# postmarketOS images.
+	install -Dm644 "$srcdir/marathon-shell-tmpfiles.conf" \
+		"$pkgdir/usr/lib/tmpfiles.d/marathon-shell.conf"
 
 	# Qt6 auto-generates invalid plugin refs for pure-QML modules
 	for qmldir in "$pkgdir"/usr/lib/qt6/qml/MarathonUI/*/qmldir; do
@@ -215,4 +226,5 @@ SKIP  marathon-shell-session
 SKIP  pam-marathon-shell
 SKIP  90-backlight.rules
 SKIP  99-marathon-rtprio.conf
+SKIP  marathon-shell-tmpfiles.conf
 "
