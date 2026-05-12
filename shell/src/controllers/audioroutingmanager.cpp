@@ -339,11 +339,9 @@ void AudioRoutingManager::onPwGlobalAdded(quint32 id, const QString &type, const
 }
 
 void AudioRoutingManager::onPwGlobalRemoved(quint32 id) {
-    const auto it = m_pw->kinds.constFind(id);
-    if (it == m_pw->kinds.constEnd())
+    const QString kind = m_pw->kinds.take(id);
+    if (kind.isEmpty())
         return;
-    const QString kind = it.value();
-    m_pw->kinds.erase(it);
 
     if (kind == QStringLiteral("card")) {
         m_audioCardId.clear();

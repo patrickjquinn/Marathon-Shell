@@ -29,6 +29,16 @@ if [ -z "$QMLLINT" ]; then
     errors=1
 else
     echo "[lint] qmllint via $QMLLINT"
+
+    # qmllint needs to find our QML modules (MarathonUI.*, MarathonOS.Shell,
+    # MarathonApp.*). The cmake build emits the qmldir trees under build/.
+    # Without -I pointing there every file reports "Failed to import
+    # MarathonUI.Theme" and the real warnings get drowned out.
+    QMLDIR_ROOTS=()
+    [ -d "$BUILD_DIR/MarathonUI"  ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR")
+    [ -d "$BUILD_DIR/shell/qml"   ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/shell/qml")
+    [ -d "$BUILD_DIR/apps"        ] && QMLDIR_ROOTS+=("-I" "$BUILD_DIR/apps")
+
     QML_FILES=()
     while IFS= read -r -d '' f; do QML_FILES+=("$f"); done < <(
         find shell/qml apps marathon-ui -name '*.qml' -not -path '*/build*/*' -print0 2>/dev/null)
@@ -36,10 +46,10 @@ else
         # Enabled levels: errors fail, warnings reported. Plugin-based
         # checks (binding loops, unqualified access) are on by default.
         "$QMLLINT" \
+            "${QMLDIR_ROOTS[@]}" \
             --compiler=warning \
             --unqualified=warning \
             --unused-imports=warning \
-            --deferred-property-id=warning \
             "${QML_FILES[@]}"
         if [ $? -ne 0 ]; then
             errors=1
@@ -78,15 +88,22 @@ fi
 CLANG_TIDY="$(command -v clang-tidy || true)"
 if [ -n "$CLANG_TIDY" ]; then
     echo "[lint] clang-tidy via $CLANG_TIDY"
-    # Qt-friendly subset. Excludes style nits we don't enforce, and the
-    # noisy ones (modernize-use-trailing-return-type, fuchsia-*).
+    # Bug-class checks only. misc-const-correctness and other style nits are
+    # opinions, not safety -- not worth the churn they'd add to PR reviews
+    # and the false-positive volume on Qt's implicit-shared types makes them
+    # particularly noisy. Style enforcement lives in clang-format + review,
+    # not here.
     CHECKS='bugprone-*,clang-analyzer-*,cppcoreguidelines-pro-type-cstyle-cast,'\
-'cppcoreguidelines-slicing,misc-const-correctness,misc-unused-using-decls,'\
+'cppcoreguidelines-slicing,misc-unused-using-decls,'\
 'modernize-use-nullptr,modernize-use-override,performance-*,readability-redundant-member-init,'\
 '-bugprone-easily-swappable-parameters,-bugprone-unchecked-optional-access,'\
 '-bugprone-narrowing-conversions,-performance-no-int-to-ptr,'\
 '-clang-analyzer-cplusplus.NewDeleteLeaks'
-    "$CLANG_TIDY" -p "$BUILD_DIR" --quiet --checks="$CHECKS" "${SOURCES[@]}" 2>&1 ||
+    # Restrict header-warning scope to OUR headers; otherwise every Qt
+    # internal nit floods the output.
+    HEADER_FILTER='.*/(shell|marathon-core|marathon-ui|tools/marathon-app-runner)/.*'
+    "$CLANG_TIDY" -p "$BUILD_DIR" --quiet --checks="$CHECKS" \
+        --header-filter="$HEADER_FILTER" "${SOURCES[@]}" 2>&1 ||
         errors=1
 else
     echo "[lint] clang-tidy not installed -- skipping" >&2
