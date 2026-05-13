@@ -75,6 +75,15 @@ cd /work/aports/marathon-base-config
 abuild -F checksum >/dev/null 2>&1
 abuild -d -F 2>&1 | tail -2
 
+# ─ 1b. Build postmarketos-ui-marathon meta-package (file-only, fast) ─
+# UI meta-package: defines what a Marathon-shipping image installs at the
+# OS level. Mirrors how pmaports ships postmarketos-ui-{phosh,plasma-mobile,
+# sxmo}. Pulls in Flatpak + Flathub remote + xdg-desktop-portal.
+echo "─ building postmarketos-ui-marathon meta-package ─"
+cd /work/aports/postmarketos-ui-marathon
+abuild -F checksum >/dev/null 2>&1
+abuild -d -F 2>&1 | tail -2
+
 # Optional: marathon-shell -- heavy (Qt6 + WebEngine)
 if [ "${WITH_MARATHON_SHELL:-0}" = "1" ]; then
     echo "─ building marathon-shell (Qt6/QML/WebEngine, ~30min cold) ─"
@@ -146,7 +155,13 @@ rm -rf "$ROOTFS"; mkdir -p "$ROOTFS"
 #   pmOS extra-repos/systemd/master  -- systemd-targeting overrides
 #   local-apks             -- marathon-base-config (and marathon-shell)
 EXTRAS="postmarketos-base-systemd"
-[ "${WITH_MARATHON_SHELL:-0}" = "1" ] && EXTRAS="$EXTRAS marathon-shell"
+if [ "${WITH_MARATHON_SHELL:-0}" = "1" ]; then
+    EXTRAS="$EXTRAS marathon-shell postmarketos-ui-marathon"
+    # Flatpak + portals + a handful of mobile-friendly apps pre-installed
+    # via the OS apk repo. Flathub is registered at first boot for users
+    # who want more apps from the Linux ecosystem.
+    EXTRAS="$EXTRAS flatpak xdg-desktop-portal xdg-desktop-portal-gtk"
+fi
 
 apk.static \
     --root "$ROOTFS" --arch aarch64 --initdb \
