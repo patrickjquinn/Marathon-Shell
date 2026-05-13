@@ -1,6 +1,7 @@
 import MarathonUI.Controls
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell
 import QtQuick
 
 Rectangle {
@@ -18,8 +19,10 @@ Rectangle {
     signal settingClicked
     signal toggleChanged(bool value)
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
     width: parent ? parent.width : 0
-    height: subtitle !== "" ? 72 : 56
+    height: Math.round((subtitle !== "" ? 72 : 56) * scaleFactor)
     color: "transparent"
     // Default a11y wiring -- every settings row is announced as an interactive
     // list item with title + value/subtitle. Toggles get CheckBox role with
@@ -69,7 +72,7 @@ Rectangle {
 
             visible: iconName !== ""
             name: iconName
-            size: 24
+            size: Math.round(24 * root.scaleFactor)
             color: MColors.textPrimary
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
@@ -114,7 +117,7 @@ Rectangle {
 
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            width: showToggle ? 76 : showChevron ? (valueText.visible ? valueText.width + 36 : 20) : (valueText.visible ? valueText.width : 0)
+            width: showToggle ? Math.round(76 * root.scaleFactor) : showChevron ? (valueText.visible ? valueText.width + Math.round(36 * root.scaleFactor) : Math.round(20 * root.scaleFactor)) : (valueText.visible ? valueText.width : 0)
             height: parent.height
 
             MToggle {
@@ -147,7 +150,7 @@ Rectangle {
 
                 visible: showChevron && !showToggle
                 name: "chevron-down"
-                size: 16
+                size: Math.round(16 * root.scaleFactor)
                 color: MColors.textSecondary
                 rotation: -90
                 anchors.right: parent.right
@@ -160,7 +163,7 @@ Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: iconName !== "" ? 56 : MSpacing.md
+        anchors.leftMargin: iconName !== "" ? Math.round(56 * root.scaleFactor) : MSpacing.md
         height: 1
         color: Qt.rgba(1, 1, 1, 0.08)
         visible: root.showDivider

@@ -1,10 +1,13 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string title: ""
     property string subtitle: ""
@@ -17,7 +20,7 @@ Rectangle {
     signal clicked
 
     width: parent ? parent.width : 400
-    height: 56
+    height: Math.round(56 * scaleFactor)
     color: mouseArea.pressed ? MColors.highlightSubtle : "transparent"
     clip: true
 

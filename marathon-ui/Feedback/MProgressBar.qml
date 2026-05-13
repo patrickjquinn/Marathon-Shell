@@ -1,8 +1,11 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 
 Item {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property real value: 0.5
     property real from: 0.0
@@ -11,7 +14,7 @@ Item {
     property color color: MColors.marathonTeal
 
     implicitWidth: parent ? parent.width : 240
-    implicitHeight: 4
+    implicitHeight: Math.round(4 * scaleFactor)
 
     Rectangle {
         id: track

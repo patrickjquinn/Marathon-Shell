@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Modals
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property date selectedDate: new Date()
     property string mode: "date"
@@ -13,7 +16,7 @@ Rectangle {
 
     signal dateSelected(date date)
 
-    implicitWidth: 200
+    implicitWidth: Math.round(200 * scaleFactor)
     implicitHeight: MSpacing.touchTargetMin
 
     Accessible.role: Accessible.Button
@@ -48,7 +51,7 @@ Rectangle {
 
         Icon {
             name: root.mode === "date" ? "calendar" : "clock"
-            size: 24
+            size: Math.round(24 * scaleFactor)
             color: MColors.textSecondary
             anchors.verticalCenter: parent.verticalCenter
         }

@@ -1,6 +1,7 @@
 import QtQuick
 import MarathonUI.Theme
 import MarathonUI.Core
+import MarathonOS.Shell
 
 Rectangle {
     id: root
@@ -9,8 +10,9 @@ Rectangle {
 
     signal actionClicked(int index)
 
-    width: parent ? parent.width : 400
-    height: 72
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    width: parent ? parent.width : Math.round(400 * scaleFactor)
+    height: Math.round(72 * scaleFactor)
     color: MColors.bb10Elevated
     border.width: 1
     border.color: Qt.rgba(1, 1, 1, 0.08)

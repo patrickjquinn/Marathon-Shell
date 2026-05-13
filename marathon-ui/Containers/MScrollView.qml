@@ -4,6 +4,8 @@ import QtQuick.Controls
 Flickable {
     id: root
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
     default property alias content: contentContainer.data
 
     contentHeight: contentContainer.height
@@ -40,7 +42,7 @@ Flickable {
     ScrollBar.vertical: ScrollBar {
         id: vbar
         policy: ScrollBar.AsNeeded
-        width: 6
+        width: Math.round(6 * scaleFactor)
         active: root.moving || root.flicking || edgeScrollArea.containsMouse
     }
 
@@ -49,7 +51,7 @@ Flickable {
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 20
+        width: Math.round(20 * scaleFactor)
         hoverEnabled: true
         preventStealing: true
         z: 100

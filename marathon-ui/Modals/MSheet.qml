@@ -1,8 +1,11 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string title: ""
     property alias content: contentItem.data
@@ -92,8 +95,8 @@ Rectangle {
             anchors.top: parent.top
             anchors.topMargin: MSpacing.md
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 40
-            height: 4
+            width: Math.round(40 * scaleFactor)
+            height: Math.round(4 * scaleFactor)
             radius: 2
             color: MColors.textTertiary
         }
