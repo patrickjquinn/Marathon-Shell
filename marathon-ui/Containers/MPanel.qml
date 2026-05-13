@@ -1,10 +1,13 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string header: ""
     property alias content: panelContent.data
@@ -98,7 +101,7 @@ Rectangle {
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
-                    size: 18
+                    size: Math.round(18 * scaleFactor)
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.collapsed ? -90 : 0

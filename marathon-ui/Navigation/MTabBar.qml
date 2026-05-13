@@ -2,6 +2,7 @@ import QtQuick
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
+import MarathonOS.Shell
 
 Rectangle {
     id: root
@@ -11,7 +12,12 @@ Rectangle {
 
     signal tabSelected(int index)
 
-    height: 70
+    // Scaled to the system density so the tab bar matches MTopBar / shell
+    // chrome at any DPI. Was previously hardcoded 70px — at 2× user scale
+    // the bar stayed thin while everything else doubled, producing the
+    // "tiny tab bar under a giant top bar" mismatch.
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    height: Math.round(70 * scaleFactor)
     color: MColors.glassTabbar
 
     border.width: 1
@@ -64,7 +70,7 @@ Rectangle {
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    height: 3
+                    height: Math.max(2, Math.round(3 * root.scaleFactor))
 
                     gradient: Gradient {
                         GradientStop {
@@ -86,7 +92,7 @@ Rectangle {
                     anchors.horizontalCenter: indicatorRect.horizontalCenter
                     anchors.top: indicatorRect.bottom
                     width: indicatorRect.width
-                    height: 35
+                    height: Math.round(35 * root.scaleFactor)
                     visible: selected
                     opacity: 0.6
                     gradient: Gradient {
@@ -116,11 +122,11 @@ Rectangle {
                 Rectangle {
                     visible: selected
                     anchors.right: parent.right
-                    anchors.rightMargin: -8
+                    anchors.rightMargin: -Math.round(8 * root.scaleFactor)
                     anchors.top: parent.top
-                    anchors.topMargin: -2
+                    anchors.topMargin: -Math.round(2 * root.scaleFactor)
                     anchors.bottom: parent.bottom
-                    width: 12
+                    width: Math.round(12 * root.scaleFactor)
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
                         GradientStop {
@@ -141,11 +147,11 @@ Rectangle {
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: Math.round(6 * root.scaleFactor)
 
                     Icon {
                         name: modelData.icon || ""
-                        size: 20
+                        size: Math.round(20 * root.scaleFactor)
                         color: selected ? MColors.textPrimary : MColors.textSecondary
                         anchors.horizontalCenter: parent.horizontalCenter
 

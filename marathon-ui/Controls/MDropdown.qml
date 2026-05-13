@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Item {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property string label: ""
     property variant options: []
@@ -153,7 +156,7 @@ Item {
                 Icon {
                     id: chevronIcon
                     name: "chevron-down"
-                    size: 18
+                    size: Math.round(18 * scaleFactor)
                     color: MColors.textSecondary
                     anchors.verticalCenter: parent.verticalCenter
                     rotation: root.expanded ? 180 : 0
@@ -240,7 +243,7 @@ Item {
                 required property int index
 
                 width: listView.width
-                height: 44
+                height: Math.round(44 * scaleFactor)
                 color: {
                     if (index === root.selectedIndex)
                         return MColors.highlightMedium;
@@ -275,7 +278,7 @@ Item {
                     anchors.rightMargin: MSpacing.md
                     anchors.verticalCenter: parent.verticalCenter
                     name: "check"
-                    size: 16
+                    size: Math.round(16 * scaleFactor)
                     color: MColors.marathonTeal
                     visible: index === root.selectedIndex
                 }

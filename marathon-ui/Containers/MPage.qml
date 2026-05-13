@@ -1,5 +1,6 @@
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell
 import QtQuick
 
 Rectangle {
@@ -14,6 +15,13 @@ Rectangle {
     property alias bottomBarContent: bottomBarContainer.data
 
     signal backClicked
+
+    // Density factor — top bar / bottom bar / chevron size all scale with
+    // the system. Without this, at 2× user scale every page had a tiny
+    // chrome strip squeezing oversized children.
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+    readonly property real topBarHeight: Math.round(56 * scaleFactor)
+    readonly property real bottomBarHeight: Math.round(72 * scaleFactor)
 
     color: MColors.background
     // The page itself is a navigable region; Orca announces it as a Pane
@@ -30,7 +38,7 @@ Rectangle {
 
             visible: showTopBar
             width: parent.width
-            height: 56
+            height: root.topBarHeight
             color: MColors.elevated
             border.width: 1
             border.color: Qt.rgba(1, 1, 1, 0.08)
@@ -45,13 +53,13 @@ Rectangle {
                 Icon {
                     visible: showBackButton
                     name: "chevron-left"
-                    size: 24
+                    size: Math.round(24 * root.scaleFactor)
                     color: MColors.textPrimary
                     anchors.verticalCenter: parent.verticalCenter
 
                     MouseArea {
                         anchors.fill: parent
-                        anchors.margins: -12
+                        anchors.margins: -Math.round(12 * root.scaleFactor)
                         onClicked: root.backClicked()
                     }
                 }
@@ -71,7 +79,7 @@ Rectangle {
             id: scrollView
 
             width: parent.width
-            height: parent.height - (showTopBar ? 56 : 0) - (showBottomBar ? 72 : 0)
+            height: parent.height - (showTopBar ? root.topBarHeight : 0) - (showBottomBar ? root.bottomBarHeight : 0)
             contentHeight: contentContainer.height
             clip: true
             flickDeceleration: 5000
@@ -89,7 +97,7 @@ Rectangle {
 
             visible: showBottomBar
             width: parent.width
-            height: 72
+            height: root.bottomBarHeight
             color: MColors.elevated
             border.width: 1
             border.color: Qt.rgba(1, 1, 1, 0.08)

@@ -1,10 +1,13 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Core
 import MarathonUI.Effects
 
 Item {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property alias contentItem: contentContainer.data
     property list<QtObject> leftActions
@@ -18,7 +21,7 @@ Item {
     signal swipeFinished
 
     width: parent.width
-    height: 88
+    height: Math.round(88 * scaleFactor)
     clip: true
 
     Row {
@@ -33,14 +36,14 @@ Item {
             model: root.leftActions
 
             Rectangle {
-                width: 80
+                width: Math.round(80 * scaleFactor)
                 height: root.height
                 color: modelData.color || MColors.success
 
                 Icon {
                     anchors.centerIn: parent
                     name: modelData.icon || ""
-                    size: 24
+                    size: Math.round(24 * scaleFactor)
                     color: MColors.textOnAccent
                 }
 
@@ -70,14 +73,14 @@ Item {
             model: root.rightActions
 
             Rectangle {
-                width: 80
+                width: Math.round(80 * scaleFactor)
                 height: root.height
                 color: modelData.color || MColors.error
 
                 Icon {
                     anchors.centerIn: parent
                     name: modelData.icon || ""
-                    size: 24
+                    size: Math.round(24 * scaleFactor)
                     color: MColors.textOnAccent
                 }
 

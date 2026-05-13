@@ -1,10 +1,13 @@
 import QtQuick
 import MarathonUI.Feedback
 import MarathonUI.Theme
+import MarathonOS.Shell
 import MarathonUI.Effects
 
 Item {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property alias contentItem: contentFlickable
     property real threshold: 80
@@ -19,13 +22,13 @@ Item {
         id: indicator
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height + (contentFlickable.contentY < 0 ? Math.min(-contentFlickable.contentY, threshold) : 0)
-        width: 40
-        height: 40
+        width: Math.round(40 * scaleFactor)
+        height: Math.round(40 * scaleFactor)
         visible: contentFlickable.contentY < 0 || refreshing
 
         MActivityIndicator {
             anchors.centerIn: parent
-            size: 32
+            size: Math.round(32 * scaleFactor)
             running: root.refreshing
             color: MColors.marathonTeal
         }
@@ -33,8 +36,8 @@ Item {
         Rectangle {
             visible: !root.refreshing
             anchors.centerIn: parent
-            width: 32
-            height: 32
+            width: Math.round(32 * scaleFactor)
+            height: Math.round(32 * scaleFactor)
             radius: 16
             color: "transparent"
             border.width: 3

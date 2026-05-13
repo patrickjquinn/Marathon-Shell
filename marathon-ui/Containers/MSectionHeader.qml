@@ -1,12 +1,15 @@
 import QtQuick
 import MarathonUI.Theme
+import MarathonOS.Shell
 
 Rectangle {
     id: root
 
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
+
     property alias text: headerText.text
 
-    height: 44
+    height: Math.round(44 * scaleFactor)
     color: MColors.glassHeader
 
     border.width: 1

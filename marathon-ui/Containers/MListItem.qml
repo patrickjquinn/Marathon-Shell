@@ -1,9 +1,12 @@
 import QtQuick
 import QtQuick.Effects
 import MarathonUI.Theme
+import MarathonOS.Shell
 
 Rectangle {
     id: root
+
+    readonly property real scaleFactor: Constants.scaleFactor || 1.0
 
     property alias thumb: thumbRect
     required property string title
@@ -15,7 +18,7 @@ Rectangle {
     signal clicked
 
     width: parent.width
-    height: 88
+    height: Math.round(88 * scaleFactor)
     color: pressed ? MColors.highlightSubtle : "transparent"
 
     property bool pressed: false
@@ -126,8 +129,8 @@ Rectangle {
         Rectangle {
             id: thumbRect
             anchors.verticalCenter: parent.verticalCenter
-            width: 72
-            height: 72
+            width: Math.round(72 * scaleFactor)
+            height: Math.round(72 * scaleFactor)
             radius: MRadius.lg
             gradient: Gradient {
                 GradientStop {
@@ -164,7 +167,7 @@ Rectangle {
         Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - thumbRect.width - MSpacing.lg - timeText.width - MSpacing.lg
-            spacing: 4
+            spacing: Math.round(4 * scaleFactor)
 
             Text {
                 id: titleText
