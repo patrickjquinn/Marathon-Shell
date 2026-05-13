@@ -27,3 +27,9 @@ shell_perf.log
 
 # AI assistant guidance (local only)
 CLAUDE.md
+
+# Local build trees produced by scripts/build-all.sh, podman-build/build.sh, etc.
+build-podman/
+
+# Claude Code tooling/project state
+.claude/
