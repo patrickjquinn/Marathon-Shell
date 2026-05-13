@@ -120,6 +120,8 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
                     out["type"] = a->type();
                 if (out.value("exec").toString().isEmpty())
                     out["exec"] = a->exec();
+                if (out.value("permissions").toStringList().isEmpty())
+                    out["permissions"] = a->permissions();
             }
         }
         return out;
@@ -147,7 +149,7 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
         if (App *a = m_appModel->getApp(appId)) {
             return {
                 {"id", a->id()},     {"name", a->name()}, {"icon", a->icon()},
-                {"type", a->type()}, {"exec", a->exec()},
+                {"type", a->type()}, {"exec", a->exec()}, {"permissions", a->permissions()},
             };
         }
 
@@ -167,15 +169,27 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
     }
 
     if (QObject *obj = app.value<QObject *>()) {
-        QVariantMap    out;
-        const QVariant id = obj->property("id");
-        out["id"]         = id;
-        out["name"]       = obj->property("name");
-        out["icon"]       = obj->property("icon");
-        out["type"]       = obj->property("type");
-        out["exec"]       = obj->property("exec");
+        QVariantMap   out;
+        const QString appId = obj->property("id").toString();
+        out["id"]           = appId;
+        out["name"]         = obj->property("name");
+        out["icon"]         = obj->property("icon");
+        out["type"]         = obj->property("type");
+        out["exec"]         = obj->property("exec");
 
-        const QString appId = out.value("id").toString();
+        // Permissions: a QML object literal's `permissions` property arrives
+        // as QVariantList (JS array), not QStringList. Convert explicitly so
+        // downstream `toStringList()` doesn't return empty and reinstate
+        // --unshare-net on an app that legitimately declared 'network'.
+        const QVariant rawPerms = obj->property("permissions");
+        QStringList    perms;
+        if (rawPerms.canConvert<QStringList>()) {
+            perms = rawPerms.toStringList();
+        } else if (rawPerms.canConvert<QVariantList>()) {
+            for (const QVariant &v : rawPerms.toList())
+                perms << v.toString();
+        }
+
         if (!appId.isEmpty() && m_appModel) {
             if (App *a = m_appModel->getApp(appId)) {
                 if (out.value("name").toString().isEmpty())
@@ -186,8 +200,11 @@ QVariantMap AppLaunchService::resolveAppObject(const QVariant &app) const {
                     out["type"] = a->type();
                 if (out.value("exec").toString().isEmpty())
                     out["exec"] = a->exec();
+                if (perms.isEmpty())
+                    perms = a->permissions();
             }
         }
+        out["permissions"] = perms;
 
         if (!out.value("id").isValid() || out.value("name").toString().isEmpty())
             return {};

@@ -13,16 +13,19 @@ class App : public QObject {
     Q_PROPERTY(QString icon READ icon CONSTANT)
     Q_PROPERTY(QString type READ type CONSTANT)
     Q_PROPERTY(QString exec READ exec CONSTANT)
+    Q_PROPERTY(QStringList permissions READ permissions CONSTANT)
 
   public:
     explicit App(const QString &id, const QString &name, const QString &icon, const QString &type,
-                 const QString &exec = QString(), QObject *parent = nullptr)
+                 const QString &exec = QString(), const QStringList &permissions = QStringList(),
+                 QObject *parent = nullptr)
         : QObject(parent)
         , m_id(id)
         , m_name(name)
         , m_icon(icon)
         , m_type(type)
-        , m_exec(exec) {}
+        , m_exec(exec)
+        , m_permissions(permissions) {}
 
     QString id() const {
         return m_id;
@@ -39,13 +42,17 @@ class App : public QObject {
     QString exec() const {
         return m_exec;
     }
+    QStringList permissions() const {
+        return m_permissions;
+    }
 
   private:
-    QString m_id;
-    QString m_name;
-    QString m_icon;
-    QString m_type;
-    QString m_exec;
+    QString     m_id;
+    QString     m_name;
+    QString     m_icon;
+    QString     m_type;
+    QString     m_exec;
+    QStringList m_permissions;
 };
 
 class AppModel : public QAbstractListModel {
@@ -75,7 +82,8 @@ class AppModel : public QAbstractListModel {
     Q_INVOKABLE App    *getApp(const QString &appId);
     Q_INVOKABLE App    *getAppAtIndex(int index);
     Q_INVOKABLE void    addApp(const QString &id, const QString &name, const QString &icon,
-                               const QString &type, const QString &exec = QString());
+                               const QString &type, const QString &exec = QString(),
+                               const QStringList &permissions = QStringList());
     Q_INVOKABLE void    addApps(const QVariantList &apps);
     Q_INVOKABLE void    removeApp(const QString &appId);
     Q_INVOKABLE void    clear();
