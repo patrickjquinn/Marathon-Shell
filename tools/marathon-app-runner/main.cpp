@@ -511,6 +511,21 @@ int main(int argc, char *argv[]) {
     ctx->setContextProperty("MARATHON_APP_ROUTE", launchRoute);
     ctx->setContextProperty("MARATHON_APP_ROUTE_PARAMS", launchRouteParams);
 
+    // The shell forwards its current user scale factor and detected DPI in
+    // env vars so the app can size in lockstep with shell chrome. Without
+    // this, Constants.scaleFactor inside the sandbox always evaluates to
+    // 1.0 (no SettingsManagerCpp / ScreenMetricsCpp inside the bwrap), so
+    // the status bar can be 2x while app content stays at 1x.
+    {
+        bool         ok        = false;
+        const double envScale  = qEnvironmentVariable("MARATHON_USER_SCALE", "1.0").toDouble(&ok);
+        const double userScale = (ok && envScale > 0) ? envScale : 1.0;
+        const double envDpi    = qEnvironmentVariable("MARATHON_DPI", "160.0").toDouble(&ok);
+        const double dpi       = (ok && envDpi > 0) ? envDpi : 160.0;
+        ctx->setContextProperty("MARATHON_USER_SCALE", userScale);
+        ctx->setContextProperty("MARATHON_DPI", dpi);
+    }
+
     const auto hasPerm = [&](const QString &perm) -> bool {
         return std::find(info->permissions.begin(), info->permissions.end(), perm) !=
             info->permissions.end();
