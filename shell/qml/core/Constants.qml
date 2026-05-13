@@ -11,9 +11,16 @@ QtObject {
     property real screenWidth: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.width : 0
     property real screenHeight: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp) ? ScreenMetricsCpp.height : 0
     readonly property real screenDiagonal: Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight)
-    property real dpi: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : baseDPI
+    // DPI source order: shell's ScreenMetricsCpp (full device probe) →
+    // marathon-app-runner's MARATHON_DPI context property (forwarded from
+    // the shell at launch) → baseDPI. Without the app-runner fallback the
+    // sandbox always rendered at 1× while the shell rendered at DPI/baseDPI.
+    property real dpi: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : (typeof MARATHON_DPI !== "undefined" && MARATHON_DPI > 0) ? MARATHON_DPI : baseDPI
     readonly property real baseDPI: 160
-    property real userScaleFactor: 1
+    // userScaleFactor source order: shell's SettingsManagerCpp (live binding
+    // below) → marathon-app-runner's MARATHON_USER_SCALE context property →
+    // 1.0 default.
+    property real userScaleFactor: (typeof MARATHON_USER_SCALE !== "undefined" && MARATHON_USER_SCALE > 0) ? MARATHON_USER_SCALE : 1
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
     property Binding userScaleFactorBinding
     readonly property real baseHeight: 800

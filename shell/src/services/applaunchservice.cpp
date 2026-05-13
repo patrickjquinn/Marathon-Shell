@@ -10,6 +10,9 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QSettings>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QRegularExpression>
@@ -435,6 +438,28 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << xdgCacheHome
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME")
                   << xdgConfigHome;
+
+        // Propagate the shell's user scale factor and detected DPI into the
+        // sandbox. Apps don't get SettingsManagerCpp or ScreenMetricsCpp
+        // (those are shell-only singletons), so without this they always
+        // render at scaleFactor = 1.0 while shell chrome scales by DPI. The
+        // resulting size mismatch is visible as tiny status bar / huge app
+        // (or vice-versa) the moment the user picks a non-default scale.
+        {
+            QSettings    shellSettings(QSettings::IniFormat, QSettings::UserScope,
+                                       QStringLiteral("marathon-os"),
+                                       QStringLiteral("Marathon Shell"));
+            const double userScale =
+                shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_USER_SCALE")
+                      << QString::number(userScale, 'f', 3);
+        }
+        {
+            const QScreen *screen = QGuiApplication::primaryScreen();
+            const double   dpi    = screen ? screen->logicalDotsPerInch() : 160.0;
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
+                      << QString::number(dpi, 'f', 1);
+        }
 
         cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
             runnerPath + QStringLiteral(" --app-id ") + appId;
