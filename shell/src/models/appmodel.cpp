@@ -53,7 +53,7 @@ App *AppModel::getAppAtIndex(int index) {
 }
 
 void AppModel::addApp(const QString &id, const QString &name, const QString &icon,
-                      const QString &type, const QString &exec) {
+                      const QString &type, const QString &exec, const QStringList &permissions) {
 
     if (m_appIndex.contains(id)) {
         qDebug() << "[AppModel] App already exists:" << id;
@@ -76,7 +76,7 @@ void AppModel::addApp(const QString &id, const QString &name, const QString &ico
     }
 
     beginInsertRows(QModelIndex(), m_apps.count(), m_apps.count());
-    App *app = new App(id, name, icon, type, exec, this);
+    App *app = new App(id, name, icon, type, exec, permissions, this);
     m_apps.append(app);
     m_appIndex[id] = app;
     endInsertRows();
@@ -107,7 +107,8 @@ void AppModel::addApps(const QVariantList &apps) {
         if (m_appIndex.contains(id))
             continue;
 
-        newApps.append(new App(id, name, icon, type, exec, this));
+        const QStringList perms = appMap.value("permissions").toStringList();
+        newApps.append(new App(id, name, icon, type, exec, perms, this));
     }
 
     if (newApps.isEmpty())
@@ -208,13 +209,15 @@ void AppModel::loadFromRegistry(QObject *registryObj) {
             icon = "file://" + icon;
         }
 
+        const QStringList permissions = appInfo.value("permissions").toStringList();
+
         if (m_appIndex.contains(id)) {
             qDebug() << "[AppModel] Updating app from registry:" << id;
 
             removeApp(id);
-            addApp(id, name, icon, type);
+            addApp(id, name, icon, type, QString(), permissions);
         } else {
-            addApp(id, name, icon, type);
+            addApp(id, name, icon, type, QString(), permissions);
             qDebug() << "[AppModel] Added app from registry:" << id;
         }
     }
