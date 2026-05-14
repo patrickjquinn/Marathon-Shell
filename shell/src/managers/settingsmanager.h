@@ -265,8 +265,8 @@ class SettingsManager : public QObject {
     void                    setSearchNativeApps(bool enabled);
     void                    setShowNotificationBadges(bool enabled);
     void                    setAppNotificationSettings(const QVariantMap &settings);
-    bool                    isNotificationsEnabledForApp(const QString &appId) const;
-    void                    setNotificationsEnabledForApp(const QString &appId, bool enabled);
+    Q_INVOKABLE bool        isNotificationsEnabledForApp(const QString &appId) const;
+    Q_INVOKABLE void        setNotificationsEnabledForApp(const QString &appId, bool enabled);
     void                    setShowFrequentApps(bool enabled);
     void                    setDefaultApps(const QVariantMap &apps);
 
