@@ -5,6 +5,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QPointer>
+#include <qqml.h>
 
 class NotificationModel;
 class SettingsManager;
@@ -13,6 +14,8 @@ class HapticManager;
 
 class NotificationServiceCpp : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(NotificationService)
+    QML_SINGLETON
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY notificationsChanged)
     Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
     Q_PROPERTY(bool notificationsEnabled READ notificationsEnabled WRITE setNotificationsEnabled

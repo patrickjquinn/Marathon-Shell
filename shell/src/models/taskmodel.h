@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QImage>
 #include <QPointer>
+#include <qqml.h>
 
 class Task : public QObject {
     Q_OBJECT
@@ -108,6 +109,8 @@ class Task : public QObject {
 
 class TaskModel : public QAbstractListModel {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(int taskCount READ taskCount NOTIFY taskCountChanged)
 
   public:

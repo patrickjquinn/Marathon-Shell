@@ -7,9 +7,12 @@
 #include <QDBusConnection>
 #include <QDBusReply>
 #include <QTimer>
+#include <qqml.h>
 
 class NetworkManagerCpp : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(bool wifiEnabled READ wifiEnabled NOTIFY wifiEnabledChanged)
     Q_PROPERTY(bool wifiConnected READ wifiConnected NOTIFY wifiConnectedChanged)
     Q_PROPERTY(QString wifiSsid READ wifiSsid NOTIFY wifiSsidChanged)

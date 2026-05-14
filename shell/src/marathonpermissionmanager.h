@@ -5,9 +5,12 @@
 #include <QStringList>
 #include <QMap>
 #include <QVariantMap>
+#include <qqml.h>
 
 class MarathonPermissionManager : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(PermissionManager)
+    QML_SINGLETON
     Q_PROPERTY(bool promptActive READ promptActive NOTIFY promptActiveChanged)
     Q_PROPERTY(QString currentAppId READ currentAppId NOTIFY currentRequestChanged)
     Q_PROPERTY(QString currentPermission READ currentPermission NOTIFY currentRequestChanged)

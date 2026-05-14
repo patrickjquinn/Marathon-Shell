@@ -1,4 +1,5 @@
 import "../UI"
+import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme

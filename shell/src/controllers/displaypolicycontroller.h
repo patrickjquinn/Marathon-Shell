@@ -1,12 +1,15 @@
 #pragma once
 
 #include <QObject>
+#include <qqml.h>
 
 class DisplayManagerCpp;
 class SettingsManager;
 
 class DisplayPolicyController : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(DisplayPolicyControllerCpp)
+    QML_SINGLETON
     Q_PROPERTY(int screenTimeoutMs READ screenTimeoutMs WRITE setScreenTimeoutMs NOTIFY
                    screenTimeoutMsChanged)
     Q_PROPERTY(QString screenTimeoutString READ screenTimeoutString NOTIFY screenTimeoutMsChanged)

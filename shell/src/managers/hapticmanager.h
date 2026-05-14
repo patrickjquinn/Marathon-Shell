@@ -4,9 +4,12 @@
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+#include <qqml.h>
 
 class HapticManager : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
 

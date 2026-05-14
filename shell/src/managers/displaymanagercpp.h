@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <qqml.h>
 
 class PowerManagerCpp;
 class RotationManager;
@@ -10,6 +11,8 @@ class SensorManagerCpp;
 
 class DisplayManagerCpp : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(bool autoBrightnessEnabled READ autoBrightnessEnabled WRITE setAutoBrightness NOTIFY
                    autoBrightnessEnabledChanged)

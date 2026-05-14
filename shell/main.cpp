@@ -331,11 +331,15 @@ int main(int argc, char *argv[]) {
 
     createObject<ScreenMetrics>(ctx, "ScreenMetricsCpp", &app);
 
-    createObject<MPRIS2Controller>(ctx, "MPRIS2Controller", &app);
+    auto *mpris2Controller = new MPRIS2Controller(&app);
+    qmlRegisterSingletonInstance<MPRIS2Controller>("MarathonOS.Shell", 1, 0, "MPRIS2Controller",
+                                                   mpris2Controller);
     qInfo() << "[MarathonShell]MPRIS2 media controller initialized";
 
-    auto *settingsManager = createObject<SettingsManager>(ctx, "SettingsManagerCpp", &app);
-    auto *wallpaperStore  = new WallpaperStore(settingsManager, &app);
+    auto *settingsManager = new SettingsManager(&app);
+    qmlRegisterSingletonInstance<SettingsManager>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
+                                                  settingsManager);
+    auto *wallpaperStore = new WallpaperStore(settingsManager, &app);
     qmlRegisterSingletonInstance<WallpaperStore>("MarathonOS.Shell", 1, 0, "WallpaperStore",
                                                  wallpaperStore);
 
@@ -368,37 +372,52 @@ int main(int argc, char *argv[]) {
     createObject<MarathonInputMethodEngine>(ctx, "InputMethodEngine", &app);
     qInfo() << "Input Method Engine initialized";
 
-    auto *appModel          = createObject<AppModel>(ctx, "AppModel", &app);
-    auto *taskModel         = createObject<TaskModel>(ctx, "TaskModel", &app);
-    auto *notificationModel = createObject<NotificationModel>(ctx, "NotificationModel", &app);
-    auto *navigationRouter  = createObject<NavigationRouterCpp>(ctx, "NavigationRouter", &app);
+    auto *appModel  = createObject<AppModel>(ctx, "AppModel", &app);
+    auto *taskModel = new TaskModel(&app);
+    qmlRegisterSingletonInstance<TaskModel>("MarathonOS.Shell", 1, 0, "TaskModel", taskModel);
+    auto *notificationModel = new NotificationModel(&app);
+    qmlRegisterSingletonInstance<NotificationModel>("MarathonOS.Shell", 1, 0, "NotificationModel",
+                                                    notificationModel);
+    auto *navigationRouter = createObject<NavigationRouterCpp>(ctx, "NavigationRouter", &app);
     createObject<StateManagerCpp>(ctx, "StateManager", &app);
 
     qmlRegisterUncreatableMetaObject(NotificationModel::staticMetaObject, "MarathonOS.Shell", 1, 0,
                                      "NotificationRoles", "Cannot create NotificationRoles enum");
 
-    auto *networkManager  = createObject<NetworkManagerCpp>(ctx, "NetworkManagerCpp", &app);
-    auto *powerManager    = createObject<PowerManagerCpp>(ctx, "PowerManagerService", &app);
+    auto *networkManager = new NetworkManagerCpp(&app);
+    qmlRegisterSingletonInstance<NetworkManagerCpp>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
+                                                    networkManager);
+    auto *powerManager = new PowerManagerCpp(&app);
+    qmlRegisterSingletonInstance<PowerManagerCpp>("MarathonOS.Shell", 1, 0, "PowerManagerService",
+                                                  powerManager);
     auto *rotationManager = createObject<RotationManager>(ctx, "RotationManager", &app);
-    auto *displayManager  = createObject<DisplayManagerCpp>(ctx, "DisplayManagerCpp", powerManager,
-                                                            rotationManager, &app);
-    auto *audioManager    = createObject<AudioManagerCpp>(ctx, "AudioManagerCpp", &app);
-    auto *modemManager    = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
-    auto *sensorManager   = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
+    auto *displayManager  = new DisplayManagerCpp(powerManager, rotationManager, &app);
+    qmlRegisterSingletonInstance<DisplayManagerCpp>("MarathonOS.Shell", 1, 0, "DisplayManagerCpp",
+                                                    displayManager);
+    auto *audioManager = new AudioManagerCpp(&app);
+    qmlRegisterSingletonInstance<AudioManagerCpp>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
+                                                  audioManager);
+    auto *modemManager  = createObject<ModemManagerCpp>(ctx, "ModemManagerCpp", &app);
+    auto *sensorManager = createObject<SensorManagerCpp>(ctx, "SensorManagerCpp", &app);
     displayManager->setSensorManager(sensorManager);
     auto *bluetoothManager = createObject<BluetoothManager>(ctx, "BluetoothManagerCpp", &app);
     auto *locationManager  = createObject<LocationManager>(ctx, "LocationManager", &app);
-    auto *hapticManager    = createObject<HapticManager>(ctx, "HapticManager", &app);
+    auto *hapticManager    = new HapticManager(&app);
+    qmlRegisterSingletonInstance<HapticManager>("MarathonOS.Shell", 1, 0, "HapticManager",
+                                                hapticManager);
     createObject<ClipboardManagerCpp>(ctx, "ClipboardManagerCpp", settingsManager, &app);
     auto *alarmManager = createObject<AlarmManagerCpp>(
         ctx, "AlarmManagerCpp", settingsManager, powerManager, audioManager, hapticManager, &app);
     auto *flashlightManager = createObject<FlashlightManagerCpp>(ctx, "FlashlightManagerCpp", &app);
     auto *audioRoutingManager =
         createObject<AudioRoutingManager>(ctx, "AudioRoutingManagerCpp", &app);
-    auto *securityManager = createObject<SecurityManager>(ctx, "SecurityManagerCpp", &app);
+    auto *securityManager = new SecurityManager(&app);
+    qmlRegisterSingletonInstance<SecurityManager>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
+                                                  securityManager);
 
-    auto *appLaunchService =
-        createObject<AppLaunchService>(ctx, "AppLaunchService", appModel, taskModel, &app);
+    auto *appLaunchService = new AppLaunchService(appModel, taskModel, &app);
+    qmlRegisterSingletonInstance<AppLaunchService>("MarathonOS.Shell", 1, 0, "AppLaunchService",
+                                                   appLaunchService);
     createObject<UnifiedSearchServiceCpp>(ctx, "UnifiedSearchService", appModel, appRegistry,
                                           appScanner, settingsManager, navigationRouter,
                                           appLaunchService, &app);
@@ -424,32 +443,35 @@ int main(int argc, char *argv[]) {
     }
 
     auto *appLifecycleManager = new AppLifecycleManager(taskModel, appLaunchService, &app);
-    ctx->setContextProperty("AppLifecycleManager", appLifecycleManager);
-
-    auto *hapticsObj =
-        qobject_cast<HapticManager *>(ctx->contextProperty("HapticManager").value<QObject *>());
+    qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
+                                                      "AppLifecycleManager", appLifecycleManager);
 
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
-    ctx->setContextProperty("PowerPolicyControllerCpp", powerPolicyController);
+    qmlRegisterSingletonInstance<PowerPolicyController>(
+        "MarathonOS.Shell", 1, 0, "PowerPolicyControllerCpp", powerPolicyController);
 
     auto *displayPolicyController =
         new DisplayPolicyController(displayManager, settingsManager, &app);
-    ctx->setContextProperty("DisplayPolicyControllerCpp", displayPolicyController);
+    qmlRegisterSingletonInstance<DisplayPolicyController>(
+        "MarathonOS.Shell", 1, 0, "DisplayPolicyControllerCpp", displayPolicyController);
     createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
-                                         displayPolicyController, displayManager, hapticsObj, &app);
+                                         displayPolicyController, displayManager, hapticManager,
+                                         &app);
     auto *audioPolicyController =
-        new AudioPolicyController(audioManager, settingsManager, hapticsObj, &app);
-    ctx->setContextProperty("AudioPolicyControllerCpp", audioPolicyController);
-    auto *notificationService = createObject<NotificationServiceCpp>(
-        ctx, "NotificationService", notificationModel, settingsManager, audioPolicyController,
-        hapticsObj, &app);
+        new AudioPolicyController(audioManager, settingsManager, hapticManager, &app);
+    qmlRegisterSingletonInstance<AudioPolicyController>(
+        "MarathonOS.Shell", 1, 0, "AudioPolicyControllerCpp", audioPolicyController);
+    auto *notificationService = new NotificationServiceCpp(
+        notificationModel, settingsManager, audioPolicyController, hapticManager, &app);
+    qmlRegisterSingletonInstance<NotificationServiceCpp>(
+        "MarathonOS.Shell", 1, 0, "NotificationService", notificationService);
     auto *systemStatusStore =
         new SystemStatusStore(powerManager, networkManager, bluetoothManager, modemManager,
                               notificationService, settingsManager, &app);
     qmlRegisterSingletonInstance<SystemStatusStore>("MarathonOS.Shell", 1, 0, "SystemStatusStore",
                                                     systemStatusStore);
     auto *screenshotService = createObject<ScreenshotServiceCpp>(
-        ctx, "ScreenshotService", audioPolicyController, hapticsObj, notificationService, &app);
+        ctx, "ScreenshotService", audioPolicyController, hapticManager, notificationService, &app);
     auto *systemControlStore = new SystemControlStore(
         networkManager, bluetoothManager, displayManager, flashlightManager, modemManager,
         settingsManager, alarmManager, locationManager, hapticManager, powerManager, audioManager,
@@ -548,8 +570,9 @@ int main(int argc, char *argv[]) {
         qDebug() << "[Profiler] DBus Services initialized:" << timer.elapsed() << "ms";
     }
 
-    auto *permissionManager =
-        createObject<MarathonPermissionManager>(ctx, "PermissionManager", &app);
+    auto *permissionManager = new MarathonPermissionManager(&app);
+    qmlRegisterSingletonInstance<MarathonPermissionManager>("MarathonOS.Shell", 1, 0,
+                                                            "PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] Permission Manager initialized";
 
     createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
@@ -587,7 +610,7 @@ int main(int argc, char *argv[]) {
                                          navigationRouter, telephonyService, smsService, &app);
     createObject<TelephonyIntegrationCpp>(
         ctx, "TelephonyIntegration", contactsManager, notificationService, powerPolicyController,
-        powerManager, displayPolicyController, displayManager, audioPolicyController, hapticsObj,
+        powerManager, displayPolicyController, displayManager, audioPolicyController, hapticManager,
         telephonyService, smsService, sensorManager, &app);
 
     callHistoryManager->setContactsManager(contactsManager);
@@ -610,7 +633,7 @@ int main(int argc, char *argv[]) {
         auto *ipc = new ShellIpcServer(
             permissionManager, contactsManager, callHistoryManager, telephonyService, smsService,
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
-            audioManager, audioPolicyController, networkManager, hapticsObj, securityManager,
+            audioManager, audioPolicyController, networkManager, hapticManager, securityManager,
             sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
             davSyncEngine, appLaunchService, &app);
         if (!ipc->registerOnSessionBus()) {

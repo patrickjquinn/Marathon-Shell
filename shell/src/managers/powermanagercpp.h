@@ -10,9 +10,12 @@
 #include <QSet>
 
 #include <QDBusContext>
+#include <qqml.h>
 
 class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_OBJECT
+    QML_NAMED_ELEMENT(PowerManagerService)
+    QML_SINGLETON
 
     Q_PROPERTY(int batteryLevel READ batteryLevel NOTIFY batteryLevelChanged)
 

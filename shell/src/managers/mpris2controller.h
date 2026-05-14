@@ -9,9 +9,12 @@
 #include <QTimer>
 #include <QMap>
 #include <QVariantMap>
+#include <qqml.h>
 
 class MPRIS2Controller : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
 
     Q_PROPERTY(bool hasActivePlayer READ hasActivePlayer NOTIFY activePlayerChanged)
     Q_PROPERTY(QString playerName READ playerName NOTIFY activePlayerChanged)

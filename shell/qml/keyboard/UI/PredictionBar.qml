@@ -1,3 +1,4 @@
+import MarathonOS.Shell 1.0
 import QtQuick
 
 Rectangle {

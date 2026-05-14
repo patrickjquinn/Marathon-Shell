@@ -344,6 +344,40 @@ qt6_add_qml_module(marathon-shell
         src/services/autocorrect.h
         src/services/inputcontext.cpp
         src/services/inputcontext.h
+        src/managers/hapticmanager.cpp
+        src/managers/hapticmanager.h
+        src/managers/settingsmanager.cpp
+        src/managers/settingsmanager.h
+        src/managers/mpris2controller.cpp
+        src/managers/mpris2controller.h
+        src/marathonpermissionmanager.cpp
+        src/marathonpermissionmanager.h
+        src/models/notificationmodel.cpp
+        src/models/notificationmodel.h
+        src/models/taskmodel.cpp
+        src/models/taskmodel.h
+        src/managers/networkmanagercpp.cpp
+        src/managers/networkmanagercpp.h
+        src/managers/powermanagercpp.cpp
+        src/managers/powermanagercpp.h
+        src/managers/displaymanagercpp.cpp
+        src/managers/displaymanagercpp.h
+        src/managers/audiomanagercpp.cpp
+        src/managers/audiomanagercpp.h
+        src/managers/securitymanager.cpp
+        src/managers/securitymanager.h
+        src/services/applaunchservice.cpp
+        src/services/applaunchservice.h
+        src/services/applifecyclemanager.cpp
+        src/services/applifecyclemanager.h
+        src/services/notificationservicecpp.cpp
+        src/services/notificationservicecpp.h
+        src/controllers/powerpolicycontroller.cpp
+        src/controllers/powerpolicycontroller.h
+        src/controllers/displaypolicycontroller.cpp
+        src/controllers/displaypolicycontroller.h
+        src/controllers/audiopolicycontroller.cpp
+        src/controllers/audiopolicycontroller.h
     RESOURCES ${JSON_FILES}
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/shell/qml/MarathonOS/Shell
 )
