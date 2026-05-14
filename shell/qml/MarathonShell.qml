@@ -1,6 +1,7 @@
 import "./components" as Comp
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Window
@@ -117,6 +118,7 @@ Item {
     }
     Component.onCompleted: {
         shell.forceActiveFocus();
+        MHaptics.backend = HapticManager;
         compositor = shellInitialization.initialize(shell, shellWindow);
         AppLaunchService.compositor = compositor;
         AppLaunchService.appWindow = appWindow;
