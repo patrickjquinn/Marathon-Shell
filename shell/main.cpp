@@ -12,6 +12,9 @@
 #include <QInputDevice>
 #include <QDBusMetaType>
 #include <QElapsedTimer>
+#include <QFileSystemWatcher>
+#include <QSet>
+#include <QTimer>
 
 #include "util/rtprio.h"
 #include <cstring>
@@ -799,6 +802,45 @@ int main(int argc, char *argv[]) {
 #else
         appScanner->scanApplications();
 #endif
+
+            QStringList flatpakDirs;
+            for (const QString &p :
+                 {QStringLiteral("/var/lib/flatpak/exports/share/applications"),
+                  QDir::homePath() +
+                      QStringLiteral("/.local/share/flatpak/exports/share/applications")}) {
+                if (QDir(p).exists())
+                    flatpakDirs.append(p);
+            }
+            if (!flatpakDirs.isEmpty()) {
+                auto *flatpakWatcher = new QFileSystemWatcher(&app);
+                flatpakWatcher->addPaths(flatpakDirs);
+
+                auto *debounce = new QTimer(&app);
+                debounce->setSingleShot(true);
+                debounce->setInterval(500);
+
+                QObject::connect(flatpakWatcher, &QFileSystemWatcher::directoryChanged, debounce,
+                                 qOverload<>(&QTimer::start));
+
+                QObject::connect(
+                    debounce, &QTimer::timeout, &app, [appModel, flatpakDirs, filterMobile]() {
+                        DesktopFileParser  parser;
+                        const QVariantList apps =
+                            parser.scanApplications(flatpakDirs, filterMobile);
+
+                        QSet<QString> seen;
+                        for (const QVariant &v : apps)
+                            seen.insert(v.toMap().value(QStringLiteral("id")).toString());
+
+                        const QStringList existing =
+                            appModel->appIdsByType(QStringLiteral("flatpak"));
+                        for (const QString &id : existing) {
+                            if (!seen.contains(id))
+                                appModel->removeApp(id);
+                        }
+                        appModel->addApps(apps);
+                    });
+            }
         });
 
     qDebug() << "Marathon OS Shell started";

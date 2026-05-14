@@ -241,6 +241,15 @@ void AppModel::cleanupMissingApps(const QStringList &registryAppIds) {
     }
 }
 
+QStringList AppModel::appIdsByType(const QString &type) const {
+    QStringList ids;
+    for (const App *app : m_apps) {
+        if (app->type() == type)
+            ids.append(app->id());
+    }
+    return ids;
+}
+
 void AppModel::sortAppsByName() {
     qDebug() << "[AppModel] Sorting all apps alphabetically by name...";
 

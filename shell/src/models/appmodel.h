@@ -79,20 +79,21 @@ class AppModel : public QAbstractListModel {
         return m_apps.count();
     }
 
-    Q_INVOKABLE App    *getApp(const QString &appId);
-    Q_INVOKABLE App    *getAppAtIndex(int index);
-    Q_INVOKABLE void    addApp(const QString &id, const QString &name, const QString &icon,
-                               const QString &type, const QString &exec = QString(),
-                               const QStringList &permissions = QStringList());
-    Q_INVOKABLE void    addApps(const QVariantList &apps);
-    Q_INVOKABLE void    removeApp(const QString &appId);
-    Q_INVOKABLE void    clear();
-    Q_INVOKABLE QString getAppName(const QString &appId);
-    Q_INVOKABLE QString getAppIcon(const QString &appId);
-    Q_INVOKABLE bool    isNativeApp(const QString &appId);
-    Q_INVOKABLE void    sortAppsByName();
+    Q_INVOKABLE App        *getApp(const QString &appId);
+    Q_INVOKABLE App        *getAppAtIndex(int index);
+    Q_INVOKABLE void        addApp(const QString &id, const QString &name, const QString &icon,
+                                   const QString &type, const QString &exec = QString(),
+                                   const QStringList &permissions = QStringList());
+    Q_INVOKABLE void        addApps(const QVariantList &apps);
+    Q_INVOKABLE void        removeApp(const QString &appId);
+    Q_INVOKABLE void        clear();
+    Q_INVOKABLE QString     getAppName(const QString &appId);
+    Q_INVOKABLE QString     getAppIcon(const QString &appId);
+    Q_INVOKABLE bool        isNativeApp(const QString &appId);
+    Q_INVOKABLE void        sortAppsByName();
+    Q_INVOKABLE QStringList appIdsByType(const QString &type) const;
 
-    Q_INVOKABLE void    loadFromRegistry(QObject *registryObj);
+    Q_INVOKABLE void        loadFromRegistry(QObject *registryObj);
 
   signals:
     void countChanged();
