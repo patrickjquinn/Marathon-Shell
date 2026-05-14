@@ -112,19 +112,25 @@ Item {
                         width: Constants.appIconSize
                         height: Constants.appIconSize
 
+                        // Press halo — soft teal glow at 18% beneath the
+                        // icon. Per DS Elevation · 'Active card' shadow,
+                        // the system uses a subtle bloom rather than a
+                        // hard fill on press. Squircle-radius matches
+                        // the app-icon shape rather than a full circle.
                         Rectangle {
                             anchors.centerIn: parent
-                            width: parent.width * 1.2
-                            height: parent.height * 1.2
-                            radius: width / 2
-                            color: MColors.accentBright
-                            opacity: iconMouseArea.pressed ? 0.2 : 0
+                            width: parent.width * 1.15
+                            height: parent.height * 1.15
+                            radius: MRadius.squircle
+                            color: MColors.tealHalo
+                            opacity: iconMouseArea.pressed ? 1 : 0
                             visible: iconMouseArea.pressed
                             z: 0
 
                             Behavior on opacity {
                                 NumberAnimation {
-                                    duration: 100
+                                    duration: MMotion.quick
+                                    easing.type: Easing.OutCubic
                                 }
                             }
                         }
@@ -148,6 +154,11 @@ Item {
                             z: 2
                         }
 
+                        // Notification badge — tealBright per DS Badges
+                        // spec (ds-components.jsx). Marathon DS uses
+                        // teal-on-black for counts; the previous red was
+                        // off-brand. The 2 px black ring sits the badge
+                        // off the icon edge cleanly.
                         Rectangle {
                             anchors.top: parent.top
                             anchors.right: parent.right
@@ -156,9 +167,9 @@ Item {
                             width: 20
                             height: 20
                             radius: 10
-                            color: MColors.error
+                            color: MColors.marathonTealBright
                             border.width: 2
-                            border.color: MColors.background
+                            border.color: MColors.elev0
                             visible: {
                                 if (!appData || !SettingsManagerCpp.showNotificationBadges)
                                     return false;
@@ -174,27 +185,34 @@ Item {
                                     var count = NotificationService.getNotificationCountForApp(appData.id);
                                     return count > 9 ? "9+" : count.toString();
                                 }
-                                color: MColors.text
-                                font.pixelSize: 10
-                                font.weight: Font.Bold
+                                color: MColors.textOnAccent
                                 font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeEyebrow
+                                font.weight: MTypography.weightDemiBold
+                                font.features: ({
+                                        "tnum": 1
+                                    })
                                 anchors.centerIn: parent
                             }
                         }
                     }
 
+                    // App label — Caption 12 / 500 per DS list-row caption
+                    // spec. textPrimary on dark wallpapers; Text.Outline
+                    // dropped since the DS dark-first surface doesn't
+                    // need it (icons sit on glass or aurora-tinted
+                    // wallpaper, both dark enough for primary-tint text).
                     Text {
                         width: parent.parent.width
                         horizontalAlignment: Text.AlignHCenter
                         text: appData ? appData.name : ""
-                        color: WallpaperStore.isDark ? MColors.text : "#000000"
-                        font.pixelSize: MTypography.sizeSmall
+                        color: MColors.textPrimary
                         font.family: MTypography.fontFamily
-                        font.weight: Font.DemiBold
+                        font.pixelSize: MTypography.sizeCaption
+                        font.weight: MTypography.weightMedium
+                        font.letterSpacing: MTypography.trackingCaption
                         elide: Text.ElideRight
                         maximumLineCount: 1
-                        style: Text.Outline
-                        styleColor: Qt.rgba(0, 0, 0, 0.6)
                     }
                 }
 
