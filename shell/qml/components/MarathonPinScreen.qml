@@ -287,6 +287,8 @@ Item {
                     model: 6
 
                     Rectangle {
+                        required property int index
+
                         width: Math.round(14 * Constants.scaleFactor)
                         height: Math.round(14 * Constants.scaleFactor)
                         radius: Math.round(7 * Constants.scaleFactor)
@@ -405,6 +407,7 @@ Item {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
                     delegate: Item {
+                        required property string modelData
                         property string digit: modelData
 
                         width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)

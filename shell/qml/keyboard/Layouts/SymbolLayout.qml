@@ -36,6 +36,8 @@ Item {
                 model: row1Keys
 
                 Key {
+                    required property string modelData
+
                     width: row1.keyWidth
                     text: modelData
                     displayText: modelData
@@ -61,6 +63,8 @@ Item {
                 model: row2Keys
 
                 Key {
+                    required property string modelData
+
                     width: row2.keyWidth
                     text: modelData
                     displayText: modelData
@@ -96,6 +100,8 @@ Item {
                 model: row3Keys
 
                 Key {
+                    required property string modelData
+
                     width: row3.availableWidth * 0.075
                     text: modelData
                     displayText: modelData

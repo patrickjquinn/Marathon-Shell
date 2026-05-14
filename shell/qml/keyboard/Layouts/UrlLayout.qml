@@ -32,6 +32,8 @@ Item {
                 model: ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"]
 
                 Key {
+                    required property string modelData
+
                     width: row1.keyWidth
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
@@ -59,6 +61,8 @@ Item {
                 model: ["a", "s", "d", "f", "g", "h", "j", "k", "l", "/"]
 
                 Key {
+                    required property string modelData
+
                     width: row2.keyWidth
                     text: modelData
                     displayText: (modelData === "/" || !layout.shifted) ? modelData : modelData.toUpperCase()
@@ -94,6 +98,8 @@ Item {
                 model: ["z", "x", "c", "v", "b", "n", "m"]
 
                 Key {
+                    required property string modelData
+
                     width: Math.round(55 * Constants.scaleFactor)
                     text: modelData
                     displayText: layout.shifted ? modelData.toUpperCase() : modelData
