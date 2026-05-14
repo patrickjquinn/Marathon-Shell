@@ -187,6 +187,7 @@ set(QML_FILES
     qml/MarathonShell.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonLockShortcuts.qml
+    qml/components/MarathonActiveFramesHome.qml
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonNavBar.qml
     qml/components/MarathonStatusBar.qml
