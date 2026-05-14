@@ -14,6 +14,26 @@ QtObject {
     readonly property color marathonTealBright: "#1de9b6"
     readonly property color marathonTealGlow: "#5dffdc"
 
+    // 35% / 55% teal at 18% halo — used on focus rings, primary glow.
+    readonly property color tealBorder: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
+    readonly property color tealBorderHover: Qt.rgba(0, 191 / 255, 165 / 255, 0.55)
+    readonly property color tealHalo: Qt.rgba(0, 191 / 255, 165 / 255, 0.18)
+
+    // ── Secondary muted palette ─────────────────────────────────
+    // Used ONLY where colour carries semantic meaning, never decoration.
+    //   secBlue   — Maps water, Sleep focus, message identity
+    //   secGreen  — Maps parks, Move ring, signal-good
+    //   secAmber  — Camera permission, "use caution"
+    //   secRose   — Mic permission, Activity stand ring, Health
+    //   secViolet — Mentions, Linear, categorical chip
+    // Each held at saturation ~40 so it sits calmly beside teal.
+    readonly property color secBlue: "#3a6b9c"
+    readonly property color secBlueD: "#1f3a5c"
+    readonly property color secGreen: "#4a8a5e"
+    readonly property color secAmber: "#c89545"
+    readonly property color secRose: "#a85968"
+    readonly property color secViolet: "#6b5d8f"
+
     readonly property color textPrimary: "#f5f5f5"
     readonly property color textSecondary: "#6a6a6a"
     readonly property color textTertiary: "#4a4a4a"

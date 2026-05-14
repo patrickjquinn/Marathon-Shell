@@ -429,6 +429,18 @@ Item {
     ]
 
     FontLoader {
+        id: soraVariable
+
+        source: "qrc:/fonts/Sora.ttf"
+    }
+
+    FontLoader {
+        id: jetbrainsMono
+
+        source: "qrc:/fonts/JetBrainsMono-Medium.ttf"
+    }
+
+    FontLoader {
         id: slateLight
 
         source: "qrc:/fonts/Slate-Light.ttf"
