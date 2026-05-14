@@ -19,6 +19,7 @@ qt6_add_qml_module(marathon-ui-containers
         MListTile.qml
         MPanel.qml
         MSettingsListItem.qml
+        MNowBar.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Containers
 )
 
@@ -47,6 +48,7 @@ if(QMLLINT_AVAILABLE)
         MListTile.qml
         MPanel.qml
         MSettingsListItem.qml
+        MNowBar.qml
     )
 endif()
 
@@ -77,5 +79,6 @@ install(FILES
     MListTile.qml
     MPanel.qml
     MSettingsListItem.qml
+    MNowBar.qml
     DESTINATION ${MARATHON_UI_DIR}/Containers
 )
