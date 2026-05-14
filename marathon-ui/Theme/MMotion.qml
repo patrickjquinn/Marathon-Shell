@@ -55,4 +55,23 @@ QtObject {
     readonly property int flickVelocityMax: 5000
     readonly property int touchFlickDeceleration: 25000
     readonly property int touchFlickVelocity: 8000
+
+    // ── Reduce motion ─────────────────────────────────────────
+    // Bound at app startup from a platform signal:
+    //   GNOME Mobile:  gsettings get org.gnome.desktop.interface enable-animations
+    //   Plasma Mobile: kdeglobals.KAccessibilityCommon.skipFancyEffects
+    // Components MUST go through dur()/ease() so the preference
+    // is honoured uniformly. Per CODING_RULES C8 spirit:
+    // motion is functional, not decorative — if the user turned
+    // it off, the system stays still.
+    property bool reduceMotion: false
+
+    function dur(token) {
+        return reduceMotion ? micro : token;
+    }
+    function ease(token) {
+        // OutBack (Easing.Bezier-spring) overshoots — feels jarring
+        // when motion is reduced. Fall back to a gentle OutQuad.
+        return reduceMotion ? Easing.OutQuad : token;
+    }
 }

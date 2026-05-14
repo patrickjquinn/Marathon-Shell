@@ -96,6 +96,8 @@
     </qresource>
 
     <qresource prefix="/fonts">
+        <file alias="Sora.ttf">resources/fonts/Sora[wght].ttf</file>
+        <file alias="JetBrainsMono-Medium.ttf">resources/fonts/JetBrainsMono-Medium.ttf</file>
         <file alias="Slate-Light.ttf">resources/fonts/SlateLight.TTF</file>
         <file alias="Slate-LightItalic.ttf">resources/fonts/SlateLightIt.TTF</file>
         <file alias="Slate-Book.ttf">resources/fonts/SlateBook.TTF</file>
