@@ -32,6 +32,7 @@
 #include "src/services/unifiedpushdistributor.h"
 #include "src/services/marathonntfyclient.h"
 #include "src/services/carrierprovisioning.h"
+#include "src/services/flatpakmanager.h"
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
@@ -553,6 +554,8 @@ int main(int argc, char *argv[]) {
 
     createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";
+
+    createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);
