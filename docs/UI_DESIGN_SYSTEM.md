@@ -1,951 +1,313 @@
 # Marathon UI Design System
 
+The visual language of Marathon Shell: a BB10-inspired, OLED-first dark theme optimised for 60fps on ARM embedded hardware (Pi 4, HackBerry Pi, Droidian phones).
+
+This document mirrors the code in `marathon-ui/`. Where it disagrees with the code, the code wins; update this file.
+
 ## Philosophy
 
-Marathon UI is a **performance-first, BB10-inspired design system** optimized for embedded systems (Raspberry Pi 4). It emphasizes:
+- **OLED-black background, near-black surfaces.** Pure `#040404` (`bb10Black`) at the floor, six steps up to `#353536`.
+- **Teal accent.** `#00bfa5` (`marathonTeal`) plus a dark/bright/glow ladder. Used sparingly — primary action, focus indicator, active tab.
+- **Depth from borders, not shadows.** Every elevated surface has an outer dark border (shadow edge) and inner light border (highlight). FBO-based drop shadows are banned per the performance rules below.
+- **Sharp by default.** Border radius is 2–8px scaled. 999 reserved for pills/circles.
+- **Spring physics over linear curves** for press/hover state changes; explicit Bezier curves elsewhere.
+- **Opaque rendering.** Alpha-blended pixels are 2–3× more expensive on the target GPUs. Translucency is the exception (overlays, ripples, hover tints).
 
-- **Black background with dark grey cards** - Pure OLED-friendly aesthetic
-- **Teal accent palette** - Dark teal to bright teal gradient
-- **Depth through layers** - Dual-border technique + dynamic elevation
-- **Sharp, squared-off aesthetics** with minimal rounded corners (0-4px radius)
-- **Spring physics motion** - Natural, fluid animations
-- **Opaque-first rendering** for maximum GPU efficiency
-- **60fps target** on ARM embedded hardware
+## Layering
 
----
+The codebase has two color systems that coexist, intentionally:
 
-## Design Tokens
+- **`MColors`** — semantic names (`background`, `surface`, `elevated`, `accent`, `text`, `border…`, glass tints). What apps use day-to-day.
+- **`MElevation`** — numeric `getSurface(0–5)` / `getBorderOuter(0–5)` / `getBorderInner(0–5)` for components that take an `elevation:` prop and need to interpolate.
 
-### Colors (`MColors.qml`)
+Components that nest may use either — `MCard`, `MLayer`, `MSettingsListItem` go through `MElevation`; everything else picks a `MColors` semantic surface. They are not interchangeable: `MColors.surface` (`#0d0d0e`) is between `MElevation` levels 1 and 2.
 
-**Background:**
-```qml
-background: "#000000"         // Pure black (OLED-friendly)
-```
+## Design tokens
 
-**Surface Elevation (Dark Grey Cards):**
-```qml
-surface0: "#0A0A0A"          // Sunken (inset fields)
-surface1: "#1A1A1A"          // Base cards
-surface2: "#242424"          // Raised elements
-surface3: "#2E2E2E"          // Modals, sheets
-surface4: "#383838"          // Floating menus
-surface5: "#424242"          // Highest elevation
-```
+All values are from `marathon-ui/Theme/`. `MSpacing`, `MRadius`, `MTypography` multiply their base by `Constants.scaleFactor` (singleton in `MarathonOS.Shell`), so the numbers below are the base before scaling.
 
-**Teal Accent Palette:**
-```qml
-accent: "#14B8A6"            // Primary teal
-accentBright: "#2DD4BF"      // Bright teal (borders)
-accentDim: "#0D9488"         // Dark teal (muted)
-accentHover: "#0F766E"       // Hover state
-accentPressed: "#0A5F56"     // Pressed state
-accentLight: "#5EEAD4"       // Light emphasis
-accentSubtle: rgba(0.078, 0.722, 0.651, 0.1)  // 10% tint
-```
+### Colors (`Theme/MColors.qml`)
+
+**Base palette (BB10 grays):**
+
+| Token | Hex |
+|---|---|
+| `bb10Black` | `#040404` |
+| `bb10Deep` | `#070707` |
+| `bb10Surface` | `#0d0d0e` |
+| `bb10Elevated` | `#161718` |
+| `bb10Card` | `#1a1b1c` |
+
+**Semantic aliases:** `background = bb10Black`, `surface = bb10Surface`, `elevated = bb10Elevated`, `backgroundLight = bb10Elevated`, `textInverse = bb10Black`.
+
+**Accent (teal ladder):**
+
+| Token | Hex |
+|---|---|
+| `marathonTealDarkest` | `#006b5d` |
+| `marathonTealDark` | `#00897b` |
+| `marathonTeal` (= `accent`) | `#00bfa5` |
+| `marathonTealBright` (= `accentBright`) | `#1de9b6` |
+| `marathonTealGlow` | `#5dffdc` |
+
+Plus tinted overlays for hover/press/glow gradients (`marathonTealHoverGradient` 3%, `marathonTealPressGradient` 12%, `marathonTealGlowTop/Mid/Bottom` 18/10/2%, `marathonTealBorder` 35%, `marathonTealBorderHover` 40%).
 
 **Text:**
-```qml
-text: "#FFFFFF"              // Primary (white)
-textSecondary: "#A0A0A0"     // Secondary (light grey)
-textTertiary: "#707070"      // Tertiary (medium grey)
-textOnAccent: "#000000"      // Text on teal (black)
-```
 
-**Semantic Colors:**
-```qml
-success: "#10B981"  successDim: "#059669"  successBright: "#34D399"
-warning: "#F59E0B"  warningDim: "#D97706"  warningBright: "#FBBF24"
-error: "#EF4444"    errorDim: "#DC2626"    errorBright: "#F87171"
-info: "#3B82F6"     infoDim: "#2563EB"     infoBright: "#60A5FA"
-```
+| Token | Hex |
+|---|---|
+| `textPrimary` (= `text`) | `#f5f5f5` |
+| `textSecondary` | `#6a6a6a` |
+| `textTertiary` | `#4a4a4a` |
+| `textHint` | `#2a2a2a` |
+| `textOnAccent` | `#ffffff` |
 
-### Motion (`MMotion.qml`)
+**Status:**
 
-**Duration Tokens:**
-```qml
-instant: 0
-micro: 100          // Hover, ripple start
-quick: 200          // Button press, toggle
-moderate: 300       // Card animations, sheets
-slow: 400           // Modals, page transitions
-slower: 600         // Complex choreography
-```
+| Token | Hex |
+|---|---|
+| `success` / `successDim` | `#10B981` / `#059669` |
+| `warning` / `warningDim` | `#F59E0B` / `#D97706` |
+| `error` / `errorDim` | `#EF4444` / `#DC2626` |
+| `info` / `infoDim` | `#3B82F6` / `#2563EB` |
 
-**Spring Physics:**
-```qml
-springLight: 1.5    dampingLight: 0.15     // Bouncy (cards, buttons)
-springMedium: 2.0   dampingMedium: 0.25    // Balanced (sheets, modals)
-springHeavy: 3.0    dampingHeavy: 0.4      // Firm (toggles, sliders)
-```
+**Glass surfaces** (high-opacity translucents used for system chrome):
 
-**Easing Curves:**
-```qml
-easingStandard: Easing.OutCubic       // Default smooth
-easingDecelerate: Easing.OutQuint     // Heavy deceleration
-easingAccelerate: Easing.InQuint      // Heavy acceleration
-easingEmphasized: Easing.OutExpo      // Dramatic emphasis
-easingSharp: Easing.InOutQuad         // BB10-like precision
-```
+| Token | Value |
+|---|---|
+| `glassTitlebar` | `rgba(13,13,14, 0.72)` |
+| `glassTabbar` | `rgba(16,16,17, 0.78)` |
+| `glassActionbar` | `rgba(11,11,12, 0.82)` |
+| `glassHeader` | `rgba(18,18,19, 0.85)` |
 
-**Choreography (Staggered Delays):**
-```qml
-staggerMicro: 20      // Tight sequence (list items)
-staggerShort: 50      // Standard sequence (card grid)
-staggerMedium: 80     // Relaxed sequence
-staggerLong: 120      // Dramatic reveal
-```
+**Borders / interaction:**
 
----
+| Token | Value |
+|---|---|
+| `borderGlass` (= `border`) | `rgba(1,1,1, 0.08)` |
+| `borderSubtle` | `rgba(1,1,1, 0.05)` |
+| `borderDark` | `rgba(0,0,0, 0.7)` |
+| `highlightSubtle` / `highlightMedium` | `rgba(1,1,1, 0.03)` / `0.06` |
+| `hover` | `rgba(1,1,1, 0.04)` |
+| `pressed` | `rgba(0,0,0, 0.1)` |
+| `ripple` | `rgba(0, 0.749, 0.647, 0.12)` (teal-tinted, not white) |
+| `overlay` / `overlayLight` | `rgba(0,0,0, 0.85)` / `0.7` |
+| `shadowDefault` / `shadowStrong` / `shadowHeavy` | `rgba(0,0,0, 0.4)` / `0.6` / `0.7` |
 
-## Component Library
+There are also numbered overlay helpers (`whiteOverlay02…40`, `blackOverlay15/40`) for cases where you'd otherwise inline `Qt.rgba`.
 
-### MButton - Primary Interactive Element
+### Elevation (`Theme/MElevation.qml`)
 
-**Variants:**
-- `primary` - Teal background with white text
-- `secondary` - Dark grey card with border
-- `tertiary` - Transparent with border
-- `ghost` - Transparent, borderless
-- `danger` - Red background
-- `success` - Green background
+Functions, not constants — pass a level 0–5.
 
-**States:**
-- `default` - Normal state
-- `loading` - Spinner replaces content
-- `success` - Checkmark animation
-- `error` - X icon animation
+| Level | `getSurface` | `getBorderOuter` | `getBorderInner` | Use |
+|---|---|---|---|---|
+| 0 | `#040404` | `rgba(0,0,0,0.90)` | `rgba(1,1,1,0.00)` | Background, base |
+| 1 | `#0a0a0b` | `rgba(0,0,0,1.00)` | `rgba(1,1,1,0.04)` | Cards, panels |
+| 2 | `#121213` | `rgba(0,0,0,1.00)` | `rgba(1,1,1,0.06)` | Raised cards |
+| 3 | `#1c1c1d` | `rgba(0,0,0,0.95)` | `rgba(1,1,1,0.09)` | Modals, sheets |
+| 4 | `#282829` | `rgba(0,0,0,0.90)` | `rgba(1,1,1,0.12)` | Floating menus |
+| 5 | `#353536` | `rgba(0,0,0,0.85)` | `rgba(1,1,1,0.15)` | Tooltips, popovers |
 
-**Example:**
-```qml
-import MarathonUI.Core
+Default fallback (any other level) returns level-2 values.
 
-MButton {
-    text: "Save Changes"
-    variant: "primary"
-    size: "medium"
-    iconName: "check"
-    state: "default"  // or "loading", "success", "error"
-    onClicked: {
-        state = "loading"
-        // ...do async work...
-        state = "success"
-    }
-}
-```
+### Motion (`Theme/MMotion.qml`)
 
-**Features:**
--  Spring physics press animation (scale: 0.98)
--  Ripple effect on touch
--  Loading/success/error states
--  Dual-border depth
--  Teal accent colors
+**Duration tokens (ms):**
 
-### MIconButton - Icon-Only Buttons
+| Token | ms | Aliases |
+|---|---|---|
+| `instant` | 0 | — |
+| `fast` | 150 | `xs` |
+| `normal` | 200 | `sm` |
+| `slow` | 300 | `md` |
+| `slower` | 400 | `lg` |
+| `micro` | 80 | — |
+| `quick` | 160 | — |
+| `moderate` | 240 | — |
 
-```qml
-MIconButton {
-    iconName: "settings"
-    variant: "ghost"       // ghost, primary, secondary
-    shape: "circular"      // circular, square
-    size: Constants.touchTargetMedium
-    onClicked: { }
-}
-```
+**Spring physics:**
 
-**Features:**
--  Spring physics press animation
--  Ripple effect
--  Circular or square shapes
--  Consistent with MButton
+| Token | Spring / Damping | Use |
+|---|---|---|
+| Light | `1.5` / `0.15` | Bouncy — cards, buttons |
+| Medium | `2.0` / `0.25` | Balanced — sheets, modals |
+| Heavy | `3.0` / `0.4` | Firm — toggles, sliders |
 
-### MCard - Elevated Containers
+`epsilon: 0.01` for spring stopping threshold.
 
-```qml
-import MarathonUI.Containers
+**Easing (Bezier control points):**
 
-MCard {
-    elevation: 1
-    elevationHover: 2
-    elevationPressed: 0
-    interactive: true  // Enables hover/press states
-  
-    onClicked: { }
-  
-    content: [
-        Text {
-            text: "Card content"
-            color: MColors.text
-        }
-    ]
-}
-```
+| Token | Curve |
+|---|---|
+| `easingStandard` | `[0.2, 0, 0.2, 1]` |
+| `easingDecelerate` | `[0, 0, 0.2, 1]` |
+| `easingAccelerate` | `[0.4, 0, 1, 1]` |
+| `easingSpring` | `[0.34, 1.56, 0.64, 1]` |
 
-**Features:**
--  Dynamic elevation (changes on hover/press)
--  Spring physics scale animation
--  Dual-border depth technique
--  Interactive mode for clickable cards
+Each is exposed as a pair (`easing<Name>` = `Easing.Bezier` enum, `easing<Name>Curve` = `[c1, c2, c3, c4]`) for `Behavior on … { NumberAnimation { easing.type: …; easing.bezierCurve: … } }`.
 
-### MRipple - Touch Feedback
+**Stagger (ms between siblings):** `staggerMicro 20`, `staggerShort 50`, `staggerMedium 80`, `staggerLong 120`.
 
-```qml
-import MarathonUI.Effects
+**Page transitions:** `pageParallaxOffset 0.3`, `pageScaleOut 0.92`.
 
-Rectangle {
-    // ... your component ...
-  
-    MRipple {
-        id: ripple
-        rippleColor: MColors.ripple
-    }
-  
-    MouseArea {
-        anchors.fill: parent
-        onPressed: function(mouse) {
-            ripple.trigger(Qt.point(mouse.x, mouse.y))
-        }
-    }
-}
-```
+**Ripple:** `rippleDuration = slow (300)`, `rippleMaxRadius 2.5`, `rippleOpacity 0.12`.
 
-**Features:**
--  Expands from touch point
--  Fades out naturally
--  Configurable color
--  Performance-optimized
+**Flick physics:** `flickDecelerationFast 8000`, `flickVelocityMax 5000`, `touchFlickDeceleration 25000`, `touchFlickVelocity 8000`.
 
-### MNavigationPane - Page Transitions
+### Spacing (`Theme/MSpacing.qml`) — base × `Constants.scaleFactor`
 
-```qml
-import MarathonUI.Navigation
+| Token | px (base) |
+|---|---|
+| `xs` | 5 |
+| `sm` | 10 |
+| `md` | 16 |
+| `lg` | 20 |
+| `xl` | 32 |
+| `xxl` | 40 |
 
-MNavigationPane {
-    initialPage: homePage
-  
-    onPagePushed: function(page) { }
-    onPagePopped: function(page) { }
-}
-```
+**Touch targets** (HIG-aligned, scaled): `touchTargetMin 45`, `touchTargetSmall 60`, `touchTargetMedium 70`, `touchTargetLarge 90`.
 
-**Features:**
--  Parallax depth (background page shifts 30%)
--  Scale animations (0.95 → 1.0, 1.0 → 0.92)
--  Smooth fade transitions
--  Emphasized easing curves
--  iOS-inspired feel
+### Radius (`Theme/MRadius.qml`) — scaled
 
----
+`none 0`, `sm 2`, `md 4`, `lg 6`, `xl 8`, `pill 999` (= `circle` = `full`).
 
-## Depth & Layers
+Default for most components is `md` (4). Pills (badges, page indicators) use 999.
 
-### Dual-Border Technique
+### Typography (`Theme/MTypography.qml`) — scaled
 
-All elevated components use a two-border system for depth:
+- **Families:** `fontFamily = "Slate"`, `fontFamilyMono = "JetBrains Mono"` (alias `fontMonospace`).
+- **Sizes:** `XSmall 12`, `Small 14`, `Body 16`, `Large 18`, `XLarge 24`, `XXLarge 32`, `Display 40`, `Huge 48`, `Gigantic 96`.
+- **Weights:** `Light`, `Regular/Normal`, `Medium`, `DemiBold`, `Bold`, `Black` (mapped to `Font.*`).
+
+### Responsiveness (`Core/MBreakpoints.qml`, `Core/MResponsive.qml`)
+
+`MBreakpoints` (singleton) defines breakpoints in pixels — **not scaled**, since they describe physical/viewport dimensions:
+
+| Token | px | Helpers |
+|---|---|---|
+| `xs` | 320 | `isXS()`, `atLeastXS()` |
+| `sm` | 576 | `isSM()`, `atLeastSM()` |
+| `md` | 768 | `isMD()`, `atLeastMD()` |
+| `lg` | 1024 | `isLG()`, `atLeastLG()` |
+| `xl` | 1280 | `isXL()`, `atLeastXL()` |
+| `xxl` | 1536 | `isXXL()`, `atLeastXXL()` |
+
+`MResponsive` is a non-singleton wrapper instantiated per screen/page. Set `screenWidth`, read `currentBreakpoint`, `isMobile/isTablet/isDesktop`, or call `value({xs: a, sm: b, ...})` / `columns({...})` for token-picking.
+
+## Module map
+
+QML modules registered via `qt6_add_qml_module` under `marathon-ui/`:
+
+| URI | Contents |
+|---|---|
+| `MarathonUI.Theme` | `MColors`, `MElevation`, `MMotion`, `MSpacing`, `MRadius`, `MTypography` (all singletons) |
+| `MarathonUI.Core` | `MButton`, `MIconButton`, `MCircularIconButton`, `MImageButton`, `MLabel`, `MTextInput`, `MTextArea`, `MContainer`, `MAppIcon`, `Icon`, `MDateTimePicker`, `MEmptyState`, `MGrid`, `MBreakpoints` (singleton), `MResponsive` |
+| `MarathonUI.Containers` | `MApp`, `MCard`, `MFormCard`, `MFormField`, `MLayer`, `MListItem`, `MListTile`, `MPage`, `MPanel`, `MPullToRefresh`, `MScrollView`, `MSection`, `MSectionHeader`, `MSettingsListItem`, `MSwipeDelegate` |
+| `MarathonUI.Controls` | `MCheckbox`, `MComboBox`, `MDropdown`, `MRadioButton`, `MRadioGroup`, `MSlider`, `MToggle` |
+| `MarathonUI.Effects` | `MHaptics`, `MRipple` |
+| `MarathonUI.Feedback` | `MActivityIndicator`, `MBadge`, `MProgressBar` |
+| `MarathonUI.Lists` | `MDivider` |
+| `MarathonUI.Modals` | `MConfirmDialog`, `MModal`, `MSheet` |
+| `MarathonUI.Navigation` | `MActionBar`, `MAppRouter`, `MBottomBar`, `MNavigationPane`, `MPageIndicator`, `MSwipeView`, `MTabBar`, `MTopBar` |
+
+`MarathonUI.Theme` is self-contained. `Core`/`Containers`/etc. import both `MarathonUI.Theme` and `MarathonOS.Shell` (for `Constants.scaleFactor`); MarathonUI is not usable standalone without the shell's `Constants` singleton on the QML import path.
+
+`MAppRouter` is in `MarathonUI.Navigation` despite being non-visual: it's a `StackView`-driven route controller (`pushRoute(name, props)` / `popRoute()`, `routeMap`, deep-link integration with `NavigationRouter`). The location follows platform convention — iOS UIKit groups `UINavigationController` under Navigation, AndroidX puts the Navigation Component under `androidx.navigation` — so "routing primitive belongs in Navigation" is the canonical reading, not a misfile.
+
+### Press feedback (state-of-the-art reference)
+
+The scale + spring + haptic pattern below is consistent with **Material 3 Expressive** (Google I/O 2025), which moved away from flat color-only press states to springy scale + haptic rumble across primary controls, and with iOS HIG's long-standing scale-on-press for buttons. Earlier Marathon documentation suggested "color-only, no scale, BB10-strict" — that guidance is **deprecated**; the BB10 aesthetic is preserved via sharp corners, dual-border depth, the teal palette, and OLED-black surfaces, not by removing motion.
+
+## Component conventions
+
+### Press feedback
+
+Marathon UI buttons / cards / interactive surfaces use **scale + color shift + haptic + (sometimes) ripple**. The typical pattern:
 
 ```qml
-// Outer border (shadow edge)
-border.color: MColors.borderOuter  // Pure black
-
-// Inner border (highlight edge)
-Rectangle {
-    anchors.fill: parent
-    anchors.margins: 1
-    border.color: MColors.borderInner  // Subtle white (rgba 5%)
-}
-```
-
-### Dynamic Elevation
-
-Components respond to interaction:
-
-```qml
-// At rest: elevation 1
-// On hover: elevation 2 (lift up)
-// On press: elevation 0 (push down)
-
-currentElevation: pressed ? 0 : (hovered ? 2 : 1)
-```
-
----
-
-## Motion Design Principles
-
-### 1. Spring Physics Over Linear
-
- **Bad:**
-```qml
+scale: pressed ? 0.96 : 1.0
 Behavior on scale {
-    NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+    SpringAnimation { spring: MMotion.springMedium; damping: MMotion.dampingMedium; epsilon: MMotion.epsilon }
 }
+onPressed: MHaptics.light()
 ```
 
- **Good:**
-```qml
-Behavior on scale {
-    SpringAnimation { 
-        spring: MMotion.springMedium
-        damping: MMotion.dampingMedium
-        epsilon: MMotion.epsilon
-    }
-}
-```
+Press-scale conventions used in current code:
 
-### 2. Unified Press States
+| Component | Scale on press |
+|---|---|
+| `MButton`, `MCircularIconButton`, `MImageButton`, `MCard`, `MActionBar`, `MTabBar` action | 0.96 |
+| `MIconButton`, `MCheckbox`, `MRadioButton` | 0.92 |
+| `MSlider` handle | 1.15 (grows on grab) |
+| `MModal`, `MConfirmDialog`, `MSheet`, `MComboBox`/`MDropdown` menu | enter at 0.9–0.95, spring to 1.0 |
 
-All interactive components follow the same pattern:
+### Depth (dual border)
 
-```qml
-scale: pressed ? 0.98 : 1.0  // Slight push down
-color: pressed ? darkerColor : normalColor
-```
-
-### 3. Ripple Feedback
-
-Every touch interaction triggers a ripple:
-
-```qml
-onPressed: function(mouse) {
-    rippleEffect.trigger(Qt.point(mouse.x, mouse.y))
-    HapticService.light()
-}
-```
-
-### 4. State Transitions
-
-State changes are animated, not instant:
-
-```qml
-Icon {
-    visible: state === "success"
-    scale: state === "success" ? 1 : 0
-  
-    Behavior on scale {
-        SpringAnimation { 
-            spring: MMotion.springLight
-            damping: MMotion.dampingLight
-        }
-    }
-}
-```
-
----
-
-## Performance Principles
-
-### 1. Opaque Rendering First
-
-All UI elements use fully opaque colors (alpha = 1.0) unless absolutely necessary.
-
-**Exceptions:**
-- Overlay backgrounds: `MColors.overlay` (85% opacity)
-- Glass effects: `MColors.glass` (97% opacity)
-- Ripple effects: `MColors.ripple` (12% opacity)
-- Accent tints: `MColors.accentSubtle` (10% opacity)
-
-### 2. No layer.enabled (Except Icons)
-
-`layer.enabled` creates expensive framebuffer objects. Only used for icon colorization.
-
-### 3. Minimal Clipping
-
-Avoid `clip: true` unless absolutely required.
-
-### 4. No Blur Effects
-
-Never use `FastBlur`, `GaussianBlur`, etc. Use subtle opacity or darker backgrounds instead.
-
-### 5. Spring Physics Performance
-
-Spring animations are CPU-bound but provide natural motion. Use sparingly:
--  Buttons, cards, modals
--  Large lists, rapid-fire interactions
-
----
-
-## Migration Guide
-
-### Old vs New Components
-
-| Old | New | Changes |
-|-----|-----|---------|
-| `Constants.animationFast` | `MMotion.quick` | Spring physics available |
-| `MColors.surface` | `MColors.surface1` | Clearer elevation naming |
-| Scale animations | Spring animations | Natural motion |
-| Static elevation | Dynamic elevation | Responds to interaction |
-| Color-only press | Scale + ripple | Richer feedback |
-
-### Example Migration
-
-**Before:**
 ```qml
 Rectangle {
-    color: mouseArea.pressed ? "#1A1A1A" : "#0F0F0F"
-  
-    Behavior on color {
-        ColorAnimation { duration: 150 }
+    color: MElevation.getSurface(elevation)
+    border.color: MElevation.getBorderOuter(elevation); border.width: 1
+    Rectangle {
+        anchors.fill: parent; anchors.margins: 1
+        color: "transparent"
+        border.color: MElevation.getBorderInner(elevation); border.width: 1
     }
 }
 ```
 
-**After:**
+### Haptics
+
+`MHaptics` (singleton in `MarathonUI.Effects`) is the QML entry point used by `marathon-ui` components, which must not depend on shell-specific types. It exposes `light()`, `medium()`, `heavy()`, `selection()`, `success()`, `error()`, `warning()`, `impact(intensity, duration)`, and forwards everything to its `backend` property — a `QtObject` injected once by the shell at startup. Use `light()` for taps, `medium()` for swipe thresholds, `heavy()` / `error()` for destructive confirmations.
+
+The backend is the C++ `HapticManager`, registered as a QML singleton on `MarathonOS.Shell 1.0` (per CODING_RULES C11 — no context properties). Shell-side QML can call `HapticManager.light()` directly; reusable `marathon-ui` components must go through `MHaptics` so they stay decoupled from the shell module.
+
+### Ripple
+
+`MRipple` is an opt-in overlay. `MCard` uses it; buttons typically don't (scale + haptic is sufficient and cheaper). Trigger from the touch point:
+
 ```qml
-import MarathonUI.Theme
-import MarathonUI.Effects
-
-Rectangle {
-    color: mouseArea.pressed ? MColors.surface2 : MColors.surface1
-    scale: mouseArea.pressed ? 0.98 : 1.0
-  
-    Behavior on color {
-        ColorAnimation { duration: MMotion.quick }
-    }
-  
-    Behavior on scale {
-        SpringAnimation { 
-            spring: MMotion.springMedium
-            damping: MMotion.dampingMedium
-        }
-    }
-  
-    MRipple { id: ripple }
-  
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        onPressed: function(mouse) {
-            ripple.trigger(Qt.point(mouse.x, mouse.y))
-            HapticService.light()
-        }
-    }
-}
+MRipple { id: ripple }
+TapHandler { onTapped: (e) => ripple.trigger(Qt.point(e.position.x, e.position.y)) }
 ```
 
----
+## Performance rules
+
+These are the rules the rendering pipeline depends on. Violating them is detected at review.
+
+1. **Opaque first.** All fills are fully opaque except for: modal overlays (`MColors.overlay`, 85%), glass chrome (`glass*` tokens, 72–85%), ripple (12%), accent tints. Don't introduce new 90–95% alpha "for the look."
+2. **No `layer.enabled`** except for SVG colorisation in `Icon.qml`. No `FastBlur` / `GaussianBlur` anywhere. `MultiEffect` is permitted **only on transient popup surfaces** — `MModal`, `MSheet`, `MConfirmDialog`, `MComboBox` / `MDropdown` menus. Rationale: Qt 6.5+'s `MultiEffect` combines multiple effects into a single shader pass (unlike the chained-FBO `QtGraphicalEffects` of Qt 5) and is the official replacement; for a dropdown that mounts for ~200ms and unmounts, one shader pass is acceptable. Everywhere else (cards, status bar, app grid, list rows, lock screen, anything persistent), depth uses the dual-border technique.
+3. **No `clip: true` unless overflow is real.** Stencil ops are expensive on Mali/Broadcom GPUs.
+4. **No infinite animations on hidden items.** Gate `running` on visibility (`running: lockScreen.visible`). See `CODING_RULES.md` C8 — this is a regression we paid for once.
+5. **Spring animations on `scale`/`opacity` only**, not on `width`/`height` (triggers layout recalculation).
+6. **ListView delegates use `cacheBuffer` and `reuseItems`.** Anything longer than ~20 items must be a delegate-recycling view, not a `Column`/`Row`.
+7. **Tokens, never inline hex.** Per `CODING_RULES.md` C12: colors, fonts, spacings, radii, durations live in the theme singletons. No inline `#1A1A1A` in 30 components.
+
+## Migration notes
+
+For files predating this design system you may see:
+
+- `import "../components/ui"` and `Button { … }` — migrate to `import MarathonUI.Core` and `MButton { … }`.
+- `Constants.animationFast` — equivalent to `MMotion.fast`. Prefer `MMotion` going forward.
+- Inline `#0F0F0F` / `#1A1A1A` — these match neither `MColors` nor `MElevation`. Replace with the nearest `MColors.surface*` or `MElevation.getSurface(level)`.
 
 ## Testing
 
-### Visual Testing
-
-1.  Black background everywhere
-2.  Dark grey cards with clear hierarchy (surface1-5)
-3.  Teal accent colors pop against dark background
-4.  Depth perception through dual-borders
-5.  Spring animations feel natural, not robotic
-6.  Ripple effects visible on all interactions
-7.  Page transitions smooth with parallax
-
-### Performance Testing
-
 ```bash
-# Run with QML profiler
-QML_PROFILER=1 ./marathon-shell
+# Run with QML profiler attached
+QML_PROFILER=1 ./build/shell/marathon-shell-bin
 
-# Monitor FPS
-QSG_VISUALIZE=overdraw ./marathon-shell
-QSG_VISUALIZE=batches ./marathon-shell
+# Overdraw + batches visualisers (catch alpha-stacking and tiny draws)
+QSG_VISUALIZE=overdraw ./run.sh
+QSG_VISUALIZE=batches  ./run.sh
+
+# Texture memory + scene-graph info
+QSG_INFO=1 ./run.sh
 ```
 
-### Motion Testing
+Targets: 60fps on Pi 4, <100ms gesture response, <500ms QML app launch, <1s native app launch, <100MB RSS for the UI process.
 
-- Press buttons: Should scale to 0.98 with bounce
-- Hover cards: Should lift (elevation increase)
-- Page navigation: Should parallax with depth
-- State changes: Should animate, not snap
+## Status
 
----
-
-## Future Enhancements
-
-1. **Shared element transitions** - Hero animations between pages
-2. **Pull-to-refresh** - Spring physics momentum
-3. **Rubber-band overscroll** - Bounce at scroll limits
-4. **Context menus** - Right-click/long-press menus with choreography
-5. **Toast notifications** - Slide-in from bottom with stagger
-6. **Dark mode variants** - Lighter theme option
-7. **Accessibility** - Screen reader, high contrast, larger targets
-
----
-
-**Version**: 2.0
-**Last Updated**: October 18, 2025
-**Target**: Raspberry Pi 4 (ARM Cortex-A72)
-**Status**: Production Ready 
-
-
-## Performance Principles
-
-### 1. Opaque Rendering First
-
-**Rule**: All UI elements must use fully opaque colors (alpha = 1.0) unless absolutely necessary.
-
-**Why**: Alpha blending is 2-3x more expensive on embedded GPUs. Every translucent pixel requires reading the background, blending, and writing back.
-
-**Exceptions**:
-- Overlay backgrounds: `Qt.rgba(0, 0, 0, 0.8)` - acceptable for modal overlays
-- Glass effects (minimal): `Qt.rgba(0.05, 0.05, 0.05, 0.97)` - 97%+ opacity only
-- Icon colorization: Icons use `layer.enabled` for SVG tinting (acceptable, small textures)
-
-```qml
-//  GOOD - Fully opaque
-Rectangle {
-    color: "#1A1A1A"  // or MColors.surface
-}
-
-//  BAD - Unnecessary alpha
-Rectangle {
-    color: Qt.rgba(0.1, 0.1, 0.1, 0.95)
-}
-
-//  ACCEPTABLE - Modal overlay only
-Rectangle {
-    color: MColors.overlay  // Qt.rgba(0, 0, 0, 0.8)
-}
-```
-
-### 2. No layer.enabled (With Exceptions)
-
-**Rule**: Never use `layer.enabled` except for icon colorization.
-
-**Why**: `layer.enabled` creates an offscreen framebuffer object (FBO), which:
-- Allocates texture memory (width × height × 4 bytes)
-- Requires rendering to texture, then compositing
-- Extremely expensive on RPi4 (limited VRAM)
-
-**Only Exception**: `Icon.qml` for SVG colorization
-```qml
-//  ONLY ACCEPTABLE USE
-Image {
-    layer.enabled: true
-    layer.effect: MultiEffect {
-        colorization: 1.0
-        colorizationColor: icon.color
-    }
-}
-```
-
-**Alternatives**:
-```qml
-//  BAD - Creates FBO for shadow
-Rectangle {
-    layer.enabled: true
-    layer.effect: MultiEffect {
-        shadowEnabled: true
-    }
-}
-
-//  GOOD - Use dual-border technique instead
-Rectangle {
-    color: MColors.surface
-    border.width: 1
-    border.color: MColors.borderOuter
-  
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        color: "transparent"
-        border.width: 1
-        border.color: MColors.borderInner
-    }
-}
-```
-
-### 3. Minimal Clipping
-
-**Rule**: Avoid `clip: true` unless absolutely required.
-
-**Why**: Clipping forces the renderer to use stencil buffers, which are expensive on embedded GPUs.
-
-```qml
-//  BAD - Unnecessary clip
-ListView {
-    clip: true  // Not needed if content doesn't overflow
-}
-
-//  GOOD - Only clip when necessary
-ListView {
-    clip: model.count > visibleItems  // Conditional
-}
-```
-
-### 4. No Blur Effects
-
-**Rule**: Never use blur effects (`FastBlur`, `GaussianBlur`, etc.).
-
-**Why**: Blur requires multiple texture samples per pixel. A 16px blur radius requires ~256 samples per pixel on RPi4.
-
-**Alternative**: Use subtle opacity or darker backgrounds.
-
-```qml
-//  BAD - Extremely expensive
-Rectangle {
-    layer.enabled: true
-    layer.effect: FastBlur {
-        radius: 32
-    }
-}
-
-//  GOOD - Subtle opacity
-Rectangle {
-    color: MColors.glass  // Qt.rgba(0.05, 0.05, 0.05, 0.97)
-}
-```
-
-## Elevation System
-
-Marathon UI uses a **border-based elevation system** instead of shadows.
-
-### Elevation Levels (0-5)
-
-```qml
-import MarathonOS.Shell
-
-Rectangle {
-    property int elevation: 2
-  
-    color: MElevation.getSurface(elevation)  // Lighter surface at higher elevation
-    border.width: Constants.borderWidthThin
-    border.color: MElevation.getBorderOuter(elevation)
-  
-    // Inner highlight border
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        color: "transparent"
-        border.width: 1
-        border.color: MElevation.getBorderInner(elevation)
-    }
-}
-```
-
-### Elevation Colors
-
-| Level | Surface | Border Outer | Border Inner | Use Case |
-|-------|---------|--------------|--------------|----------|
-| 0 | `#0A0A0A` | `#000000` | `rgba(1,1,1,0)` | Background |
-| 1 | `#0F0F0F` | `#000000` | `rgba(1,1,1,0.03)` | Cards, panels |
-| 2 | `#141414` | `#000000` | `rgba(1,1,1,0.05)` | Raised elements |
-| 3 | `#1A1A1A` | `#000000` | `rgba(1,1,1,0.08)` | Modals, dialogs |
-| 4 | `#1E1E1E` | `#000000` | `rgba(1,1,1,0.10)` | Floating menus |
-| 5 | `#222222` | `#000000` | `rgba(1,1,1,0.12)` | Tooltips, popovers |
-
-## Component Library
-
-### MCard
-
-Elevated card container with dual-border depth.
-
-```qml
-import MarathonUI.Containers
-
-MCard {
-    elevation: 2
-    pressed: mouseArea.pressed
-  
-    content: [
-        Text {
-            text: "Card content"
-            color: MColors.text
-        }
-    ]
-}
-```
-
-**Properties**:
-- `elevation: int` - Elevation level (0-5)
-- `pressed: bool` - Shows pressed state
-- `content: alias` - Child items
-
-### MButton
-
-Sharp, BB10-inspired button with inset press state.
-
-```qml
-import MarathonUI.Core
-
-MButton {
-    text: "Click Me"
-    variant: "primary"  // primary, secondary, danger
-    size: "medium"  // small, medium, large
-    iconName: "check"
-    onClicked: console.log("Clicked")
-}
-```
-
-**Variants**:
-- `primary` - Accent color background
-- `secondary` - Transparent with border
-- `danger` - Error color background
-
-**Press Behavior**: Colors shift (no scale animation - not BB10-like).
-
-### MLayer
-
-Generic elevated container.
-
-```qml
-import MarathonUI.Containers
-
-MLayer {
-    elevation: 3
-  
-    content: [
-        Column {
-            spacing: Constants.spacingMedium
-            // Your content here
-        }
-    ]
-}
-```
-
-### MInset / MOutset
-
-Border-based depth effects.
-
-```qml
-import MarathonUI.Effects
-
-MInset {
-    width: 200
-    height: 40
-  
-    content: [
-        Text {
-            text: "Inset input field"
-            anchors.centerIn: parent
-        }
-    ]
-}
-```
-
-## Animations
-
-### Performance Mode
-
-```qml
-// In Constants.qml
-property bool performanceMode: false
-readonly property bool enableAnimations: !performanceMode
-
-// In your component
-Behavior on color {
-    enabled: Constants.enableAnimations
-    ColorAnimation { duration: Constants.animationFast }
-}
-```
-
-**Auto-detection** (future): Detect frame drops and enable performance mode automatically.
-
-### Animation Guidelines
-
-1. **Limit concurrent animations**: Max 2-3 at once
-2. **Use ColorAnimation**: Fastest for color changes
-3. **Avoid NumberAnimation on size/position**: Triggers layout recalculation
-4. **Use SmoothedAnimation**: Better frame pacing than NumberAnimation
-
-```qml
-//  GOOD - Color animation
-Behavior on color {
-    ColorAnimation { duration: 150 }
-}
-
-//  BAD - Scale animation triggers layout
-Behavior on scale {
-    NumberAnimation { duration: 100 }
-}
-
-//  GOOD - Opacity animation
-Behavior on opacity {
-    NumberAnimation { duration: 150 }
-}
-```
-
-## Memory Management
-
-### No Manual Garbage Collection
-
-```qml
-//  BAD - Blocks GUI thread
-gc()
-
-//  GOOD - Let Qt handle it automatically
-```
-
-### Loader Pattern
-
-```qml
-//  GOOD - Explicit control
-Loader {
-    id: dynamicContent
-    active: false  // Load explicitly
-    asynchronous: true
-  
-    onStatusChanged: {
-        if (status === Loader.Error) {
-            console.error("Failed to load")
-        }
-    }
-}
-
-// To reload:
-dynamicContent.active = false
-Qt.callLater(() => dynamicContent.active = true)
-```
-
-### ListView Optimization
-
-```qml
-ListView {
-    cacheBuffer: height * 2  // Cache 2 screens worth
-    reuseItems: true  // Reuse delegate instances
-    clip: model.count > visibleItems  // Only clip if needed
-}
-```
-
-## Color System
-
-### Surface Colors
-
-```qml
-MColors.surface0  // #0A0A0A - Darkest
-MColors.surface1  // #0F0F0F
-MColors.surface2  // #141414
-MColors.surface3  // #1A1A1A
-MColors.surface4  // #1E1E1E
-MColors.surface5  // #222222 - Lightest
-```
-
-### Border Colors
-
-```qml
-MColors.borderOuter     // #000000 - Outer shadow
-MColors.borderInner     // rgba(1,1,1,0.05) - Inner highlight
-MColors.borderHighlight // rgba(1,1,1,0.10) - Brighter highlight
-MColors.borderShadow    // rgba(0,0,0,1.0) - Pure black
-```
-
-### Glass Effects
-
-```qml
-MColors.glass      // rgba(0.05, 0.05, 0.05, 0.97) - Minimal glass
-MColors.glassLight // rgba(0.08, 0.08, 0.08, 0.98) - Lighter glass
-MColors.glassBorder // rgba(1,1,1,0.12) - Glass border
-```
-
-## Border Radii
-
-Marathon UI uses **sharp corners** for BB10 authenticity:
-
-```qml
-Constants.borderRadiusSharp  // 2px - Default
-Constants.borderRadiusSmall  // 4px - Slightly rounded
-Constants.borderRadiusMedium // 8px - Cards
-Constants.borderRadiusLarge  // 12px - Modals
-```
-
-## Migration Guide
-
-### From components/ui to MarathonUI
-
-| Old Component | New Component | Import |
-|---------------|---------------|--------|
-| `ui/Button` | `MButton` | `import MarathonUI.Core` |
-| `ui/Input` | `MTextInput` | `import MarathonUI.Core` |
-| `ui/Modal` | `MModal` | `import MarathonUI.Modals` |
-| `ui/ConfirmDialog` | `MConfirmDialog` | `import MarathonUI.Modals` |
-| `MarathonCard` | `MCard` | `import MarathonUI.Containers` |
-
-### Example Migration
-
-**Before**:
-```qml
-import "../components/ui"
-
-Button {
-    text: "Click"
-    onClicked: console.log("Clicked")
-}
-```
-
-**After**:
-```qml
-import MarathonUI.Core
-
-MButton {
-    text: "Click"
-    variant: "primary"
-    size: "medium"
-    onClicked: console.log("Clicked")
-}
-```
-
-## Performance Targets
-
-### Raspberry Pi 4 (4GB RAM)
-
-- **Frame rate**: 60fps (16.67ms per frame)
-- **Memory**: <100MB for UI system
-- **Startup**: <2s to first frame
-- **App launch**: <500ms
-
-### Optimization Checklist
-
-- [ ] All colors fully opaque (except overlays/glass)
-- [ ] No `layer.enabled` (except Icon.qml)
-- [ ] No blur effects
-- [ ] Minimal `clip: true` usage
-- [ ] Animations respect `Constants.enableAnimations`
-- [ ] ListView uses `cacheBuffer` and `reuseItems`
-- [ ] No manual `gc()` calls
-- [ ] Borders use plain Rectangle, not effects
-
-## Testing
-
-### Visual Testing
-
-1. Check depth perception with dual-border technique
-2. Verify sharp corners (2px radius)
-3. Ensure consistent elevation across components
-4. Test pressed states (color shift, not scale)
-
-### Performance Testing
-
-```bash
-# Run with QML profiler
-QML_PROFILER=1 ./marathon-shell
-
-# Monitor FPS
-QSG_VISUALIZE=overdraw ./marathon-shell
-QSG_VISUALIZE=batches ./marathon-shell
-```
-
-### Memory Testing
-
-```bash
-# Monitor memory usage
-/usr/bin/time -v ./marathon-shell
-
-# Check texture memory
-QSG_INFO=1 ./marathon-shell
-```
-
-## Future Enhancements
-
-1. **Auto-performance mode**: Detect <30fps and disable animations
-2. **Adaptive quality**: Reduce border complexity on slow hardware
-3. **Hardware detection**: Auto-tune for RPi3, RPi4, RPi5
-4. **Theme variants**: Light mode, high contrast mode
-5. **Accessibility**: Screen reader support, larger touch targets
-
-## Resources
-
-- Qt Performance Tips: https://doc.qt.io/qt-6/qtquick-performance.html
-- Qt Quick Best Practices: https://doc.qt.io/qt-6/qtquick-bestpractices.html
-- Marathon Shell Repo: [Add link]
-
----
-
-**Version**: 1.0
-**Last Updated**: October 16, 2025
-**Target**: Raspberry Pi 4 (ARM Cortex-A72)
-
+- Target hardware: Raspberry Pi 4 (ARM Cortex-A72), HackBerry Pi, Droidian phones.
+- Source of truth: `marathon-ui/Theme/*.qml`. Update this doc whenever those files change.
