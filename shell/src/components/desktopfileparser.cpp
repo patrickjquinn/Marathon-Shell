@@ -126,6 +126,8 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
         } else if (key == "X-KDE-FormFactors") {
 
             app["kdeFormFactors"] = value.split(';', Qt::SkipEmptyParts);
+        } else if (key == "X-Flatpak") {
+            app["flatpakRef"] = value;
         }
     }
 
@@ -140,6 +142,18 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
 
     if (app.value("exec").toString().startsWith(QStringLiteral("FLATPAK:"))) {
         app["type"] = "flatpak";
+
+        if (!app.contains("flatpakRef")) {
+            // Older flatpak exports omit X-Flatpak; the ref is the last
+            // non-option token of the Exec line.
+            const QStringList tokens = app["exec"].toString().split(' ', Qt::SkipEmptyParts);
+            for (auto it = tokens.crbegin(); it != tokens.crend(); ++it) {
+                if (!it->startsWith('-') && it->contains('.')) {
+                    app["flatpakRef"] = *it;
+                    break;
+                }
+            }
+        }
     }
 
     file.close();

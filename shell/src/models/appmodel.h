@@ -14,18 +14,20 @@ class App : public QObject {
     Q_PROPERTY(QString type READ type CONSTANT)
     Q_PROPERTY(QString exec READ exec CONSTANT)
     Q_PROPERTY(QStringList permissions READ permissions CONSTANT)
+    Q_PROPERTY(QString flatpakRef READ flatpakRef CONSTANT)
 
   public:
     explicit App(const QString &id, const QString &name, const QString &icon, const QString &type,
                  const QString &exec = QString(), const QStringList &permissions = QStringList(),
-                 QObject *parent = nullptr)
+                 const QString &flatpakRef = QString(), QObject *parent = nullptr)
         : QObject(parent)
         , m_id(id)
         , m_name(name)
         , m_icon(icon)
         , m_type(type)
         , m_exec(exec)
-        , m_permissions(permissions) {}
+        , m_permissions(permissions)
+        , m_flatpakRef(flatpakRef) {}
 
     QString id() const {
         return m_id;
@@ -45,6 +47,9 @@ class App : public QObject {
     QStringList permissions() const {
         return m_permissions;
     }
+    QString flatpakRef() const {
+        return m_flatpakRef;
+    }
 
   private:
     QString     m_id;
@@ -53,6 +58,7 @@ class App : public QObject {
     QString     m_type;
     QString     m_exec;
     QStringList m_permissions;
+    QString     m_flatpakRef;
 };
 
 class AppModel : public QAbstractListModel {
@@ -65,7 +71,8 @@ class AppModel : public QAbstractListModel {
         NameRole,
         IconRole,
         TypeRole,
-        ExecRole
+        ExecRole,
+        FlatpakRefRole
     };
 
     explicit AppModel(QObject *parent = nullptr);
@@ -83,7 +90,8 @@ class AppModel : public QAbstractListModel {
     Q_INVOKABLE App        *getAppAtIndex(int index);
     Q_INVOKABLE void        addApp(const QString &id, const QString &name, const QString &icon,
                                    const QString &type, const QString &exec = QString(),
-                                   const QStringList &permissions = QStringList());
+                                   const QStringList &permissions = QStringList(),
+                                   const QString     &flatpakRef  = QString());
     Q_INVOKABLE void        addApps(const QVariantList &apps);
     Q_INVOKABLE void        removeApp(const QString &appId);
     Q_INVOKABLE void        clear();
