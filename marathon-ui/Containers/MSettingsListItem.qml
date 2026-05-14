@@ -65,50 +65,67 @@ Rectangle {
 
     Item {
         anchors.fill: parent
-        anchors.margins: MSpacing.md
+        anchors.leftMargin: MSpacing.md
+        anchors.rightMargin: MSpacing.md
 
-        Icon {
-            id: iconImage
+        // DS Row spec — icon container is a 32 × 32 elev-3 fill
+        // (ds-components.jsx Cards & list rows · 'Icon container').
+        // The previous treatment was a bare icon flat against the
+        // text which lost the carded-row visual rhythm.
+        Rectangle {
+            id: iconBay
 
             visible: iconName !== ""
-            name: iconName
-            size: Math.round(24 * root.scaleFactor)
-            color: MColors.textPrimary
+            width: Math.round(32 * root.scaleFactor)
+            height: Math.round(32 * root.scaleFactor)
+            radius: MRadius.md
+            color: MColors.elev3
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
+
+            Icon {
+                id: iconImage
+                anchors.centerIn: parent
+                name: iconName
+                size: Math.round(18 * root.scaleFactor)
+                color: MColors.textPrimary
+            }
         }
 
         Column {
             id: titleColumn
 
-            anchors.left: iconImage.visible ? iconImage.right : parent.left
-            anchors.leftMargin: iconImage.visible ? MSpacing.md : 0
+            anchors.left: iconBay.visible ? iconBay.right : parent.left
+            anchors.leftMargin: iconBay.visible ? Math.round(14 * root.scaleFactor) : 0
             anchors.right: rightContent.left
             anchors.rightMargin: MSpacing.md
             anchors.verticalCenter: parent.verticalCenter
-            spacing: MSpacing.xs
+            spacing: 2
 
+            // Title — Subhead 15 / 500 per DS Row spec.
             Text {
                 text: title
                 color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeBody
-                font.weight: MTypography.weightDemiBold
                 font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeSubhead
+                font.weight: MTypography.weightMedium
+                font.letterSpacing: MTypography.trackingSubhead
                 elide: Text.ElideRight
                 width: parent.width
             }
 
+            // Subtitle — Footnote 13 / 400 / secondary per DS.
             Text {
                 visible: subtitle !== ""
                 text: subtitle
                 color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeSmall
                 font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeFootnote
+                font.weight: MTypography.weightRegular
                 elide: Text.ElideRight
                 width: parent.width
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
-                opacity: 0.7
             }
         }
 
@@ -132,14 +149,19 @@ Rectangle {
                 }
             }
 
+            // Value — Body 14 / 400 / secondary / tabular per DS.
             Text {
                 id: valueText
 
                 visible: value !== "" && !showToggle
                 text: value
-                color: MColors.textTertiary
-                font.pixelSize: MTypography.sizeSmall
+                color: MColors.textSecondary
                 font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeFootnote
+                font.weight: MTypography.weightRegular
+                font.features: ({
+                        "tnum": 1
+                    })
                 anchors.right: chevronIcon.visible ? chevronIcon.left : parent.right
                 anchors.rightMargin: chevronIcon.visible ? MSpacing.md : 0
                 anchors.verticalCenter: parent.verticalCenter
@@ -149,23 +171,25 @@ Rectangle {
                 id: chevronIcon
 
                 visible: showChevron && !showToggle
-                name: "chevron-down"
-                size: Math.round(16 * root.scaleFactor)
-                color: MColors.textSecondary
-                rotation: -90
+                name: "chevron-right"
+                size: Math.round(18 * root.scaleFactor)
+                color: MColors.textTertiary
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
     }
 
+    // Divider — w-04 hairline indented past the icon column,
+    // per DS Cards & list rows · 'Divider: 1px var(--w-04)
+    // between siblings only'.
     Rectangle {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: iconName !== "" ? Math.round(56 * root.scaleFactor) : MSpacing.md
+        anchors.leftMargin: iconName !== "" ? Math.round((16 + 32 + 14) * root.scaleFactor) : MSpacing.md
         height: 1
-        color: Qt.rgba(1, 1, 1, 0.08)
+        color: MColors.whiteOverlay04
         visible: root.showDivider
     }
 
