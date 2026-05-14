@@ -30,6 +30,9 @@ Item {
     signal pinnedAppLaunched(string appId)
 
     // ── Now Bar ──────────────────────────────────────────────
+    // Surfaces the active MPRIS2 player as a 36 px live-activity
+    // strip. Hidden when nothing is playing — empty/idle state per
+    // the brief; the design doesn't show a fake feed.
     MNowBar {
         id: nowBar
         anchors.left: parent.left
@@ -37,13 +40,12 @@ Item {
         anchors.top: parent.top
         anchors.leftMargin: 12
         anchors.rightMargin: 12
-        // Sample music feed for now. Wires into the real
-        // LiveActivityManager / MPRIS2 in a follow-up commit.
+        visible: MPRIS2Controller && MPRIS2Controller.hasActivePlayer
         variant: "music"
         iconName: "music"
-        label: "Modular Tides"
-        sublabel: "Avior · 1:48"
-        playing: true
+        label: MPRIS2Controller && MPRIS2Controller.trackTitle ? MPRIS2Controller.trackTitle : ""
+        sublabel: MPRIS2Controller && MPRIS2Controller.trackArtist ? MPRIS2Controller.trackArtist : ""
+        playing: MPRIS2Controller ? MPRIS2Controller.isPlaying : false
     }
 
     // ── Greeting block (home mode) ───────────────────────────
@@ -325,9 +327,19 @@ Item {
     Component {
         id: musicWidget
         Item {
+            readonly property bool hasMedia: MPRIS2Controller && MPRIS2Controller.hasActivePlayer
+            readonly property real progressFraction: {
+                if (!MPRIS2Controller || !MPRIS2Controller.trackLength)
+                    return 0;
+                const len = MPRIS2Controller.trackLength;
+                const pos = MPRIS2Controller.position || 0;
+                return Math.max(0, Math.min(1, pos / len));
+            }
+
             Row {
                 anchors.fill: parent
                 spacing: 12
+
                 Rectangle {
                     width: 44
                     height: 44
@@ -346,6 +358,7 @@ Item {
                     border.width: 1
                     border.color: MColors.whiteOverlay08
                     anchors.verticalCenter: parent.verticalCenter
+
                     Icon {
                         anchors.centerIn: parent
                         name: "music"
@@ -353,14 +366,18 @@ Item {
                         color: MColors.marathonTealBright
                     }
                 }
+
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - 56
                     spacing: 4
+
                     Text {
                         width: parent.width
-                        text: "Modular Tides"
-                        color: MColors.textPrimary
+                        // Title text bound to MPRIS2; idle state shows
+                        // the DS-design 'Nothing playing' placeholder.
+                        text: hasMedia ? (MPRIS2Controller.trackTitle || "Untitled") : "Nothing playing"
+                        color: hasMedia ? MColors.textPrimary : MColors.textSecondary
                         font.family: MTypography.fontFamily
                         font.pixelSize: 11
                         font.weight: MTypography.weightDemiBold
@@ -368,7 +385,7 @@ Item {
                     }
                     Text {
                         width: parent.width
-                        text: "Avior"
+                        text: hasMedia ? (MPRIS2Controller.trackArtist || "Unknown artist") : "Tap Music to start"
                         color: MColors.textSecondary
                         font.family: MTypography.fontFamily
                         font.pixelSize: 10
@@ -379,11 +396,13 @@ Item {
                         height: 3
                         radius: 1.5
                         color: MColors.whiteOverlay08
+
                         Rectangle {
-                            width: parent.width * 0.42
+                            width: parent.width * progressFraction
                             height: parent.height
                             radius: parent.radius
                             color: MColors.marathonTealBright
+                            visible: hasMedia
                         }
                     }
                 }
