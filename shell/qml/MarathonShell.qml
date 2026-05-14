@@ -238,7 +238,6 @@ Item {
             PropertyChanges {
                 lockScreen.visible: true
                 lockScreen.enabled: true
-                lockScreen.expandedCategory: ""
             }
 
             StateChangeScript {
