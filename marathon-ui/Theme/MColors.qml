@@ -100,6 +100,8 @@ QtObject {
     readonly property color whiteOverlay10: Qt.rgba(1, 1, 1, 0.10)
     readonly property color whiteOverlay12: Qt.rgba(1, 1, 1, 0.12)
     readonly property color whiteOverlay15: Qt.rgba(1, 1, 1, 0.15)
+    readonly property color whiteOverlay16: Qt.rgba(1, 1, 1, 0.16)
+    readonly property color whiteOverlay24: Qt.rgba(1, 1, 1, 0.24)
     readonly property color whiteOverlay30: Qt.rgba(1, 1, 1, 0.30)
     readonly property color whiteOverlay40: Qt.rgba(1, 1, 1, 0.40)
 

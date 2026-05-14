@@ -1,552 +1,289 @@
 import MarathonOS.Shell 1.0
+import MarathonUI.Containers
 import MarathonUI.Controls
 import MarathonUI.Core
-import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Controls
 
+// Marathon DS · Quick Settings panel (§08).
+//
+// Pulled down from the top edge. Glass overlay over the wallpaper.
+// Layout, top to bottom:
+//   • Header — Marathon lockup + date right
+//   • Sliders block — brightness + volume (MQSSlider)
+//   • Tile grid — 2 cols × N rows of MQSTile (split-bay)
+//   • Page indicator — teal bar for active, dim circles for others
+//   • Music strip — MNowBar variant (only when something is playing)
+//   • Drag handle — 44 × 4 bar centred at bottom
 Rectangle {
     id: quickSettings
-
-    readonly property int gridColumns: Constants.screenWidth < 800 ? 2 : (Constants.screenWidth < 1200 ? 3 : 4)
-    readonly property real tileHeight: Constants.hubHeaderHeight
-    readonly property real reservedHeight: 50 + 160 + Constants.spacingMedium * 4 + Constants.spacingLarge * 2 + 80
-    readonly property real availableGridHeight: Math.max(tileHeight * 3, height - reservedHeight)
-    readonly property int maxGridRows: Math.max(3, Math.min(5, Math.floor(availableGridHeight / (tileHeight + Constants.spacingSmall))))
-    readonly property int tilesPerPage: gridColumns * maxGridRows
-    readonly property real calculatedGridHeight: (tileHeight * maxGridRows) + (Constants.spacingSmall * (maxGridRows - 1))
-    property string networkSubtitle: SystemStatusStore.ethernetConnected ? (NetworkManagerCpp.ethernetConnectionName || "Wired") : (SystemStatusStore.wifiNetwork || "Not connected")
-    property string networkIcon: SystemStatusStore.ethernetConnected ? "plug-zap" : "wifi"
-    property string networkLabel: SystemStatusStore.ethernetConnected ? "Ethernet" : "Wi-Fi"
-    property string cellularSubtitle: ModemManagerCpp.operatorName || "No service"
-    property string batterySubtitle: "Battery " + SystemStatusStore.batteryLevel + "%"
-    property int updateTrigger: 0
-    property var allTiles: [
-        {
-            "id": "settings",
-            "icon": "settings",
-            "label": "Settings",
-            "active": false,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "lock",
-            "icon": "lock",
-            "label": "Lock device",
-            "active": false,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "power",
-            "icon": "power",
-            "label": "Power menu",
-            "active": false,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "rotation",
-            "icon": "rotate-ccw",
-            "label": "Rotation lock",
-            "active": SystemControlStore.isRotationLocked,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "wifi",
-            "icon": networkIcon,
-            "label": networkLabel,
-            "active": SystemControlStore.isWifiOn || SystemStatusStore.ethernetConnected,
-            "available": true,
-            "subtitle": networkSubtitle,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "bluetooth",
-            "icon": "bluetooth",
-            "label": "Bluetooth",
-            "active": SystemControlStore.isBluetoothOn,
-            "available": BluetoothManagerCpp.available,
-            "subtitle": SystemControlStore.isBluetoothOn ? (SystemStatusStore.bluetoothConnectedDevicesCount > 0 ? SystemStatusStore.bluetoothConnectedDevicesCount + " devices" : "On") : "Off",
-            "trigger": updateTrigger
-        },
-        {
-            "id": "flight",
-            "icon": "plane",
-            "label": "Flight mode",
-            "active": SystemControlStore.isAirplaneModeOn,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "cellular",
-            "icon": "signal-high",
-            "label": "Mobile network",
-            "active": SystemControlStore.isCellularOn,
-            "available": ModemManagerCpp.modemAvailable,
-            "subtitle": cellularSubtitle,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "hotspot",
-            "icon": "router",
-            "label": "Hotspot",
-            "active": SystemControlStore.isHotspotOn,
-            "available": NetworkManagerCpp.hotspotSupported,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "vibration",
-            "icon": "smartphone",
-            "label": "Vibration",
-            "active": SystemControlStore.isVibrationOn,
-            "available": HapticManager.available,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "nightlight",
-            "icon": "moon",
-            "label": "Night Light",
-            "active": SystemControlStore.isNightLightOn,
-            "available": DisplayManagerCpp.available,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "torch",
-            "icon": "flashlight",
-            "label": "Torch",
-            "active": SystemControlStore.isFlashlightOn,
-            "available": FlashlightManagerCpp.available,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "screenshot",
-            "icon": "camera",
-            "label": "Screenshot",
-            "active": false,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "alarm",
-            "icon": "clock",
-            "label": "Alarm",
-            "active": SystemControlStore.isAlarmOn,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "battery",
-            "icon": "battery",
-            "label": "Battery saving",
-            "active": SystemControlStore.isLowPowerMode,
-            "available": true,
-            "trigger": updateTrigger
-        },
-        {
-            "id": "monitor",
-            "icon": "info",
-            "label": "Device monitor",
-            "active": false,
-            "available": true,
-            "subtitle": batterySubtitle,
-            "trigger": updateTrigger
-        }
-    ]
-    property var visibleTiles: {
-        updateTrigger;
-        var enabled = SettingsManagerCpp.enabledQuickSettingsTiles;
-        var order = SettingsManagerCpp.quickSettingsTileOrder;
-        var result = [];
-        for (var i = 0; i < order.length; i++) {
-            var tileId = order[i];
-            if (enabled.indexOf(tileId) !== -1) {
-                var tile = null;
-                for (var j = 0; j < allTiles.length; j++) {
-                    if (allTiles[j].id === tileId) {
-                        tile = allTiles[j];
-                        break;
-                    }
-                }
-                if (tile)
-                    result.push(tile);
-            }
-        }
-        for (var k = 0; k < allTiles.length; k++) {
-            if (order.indexOf(allTiles[k].id) === -1 && enabled.indexOf(allTiles[k].id) !== -1)
-                result.push(allTiles[k]);
-        }
-        return result;
-    }
 
     signal closed
     signal launchApp(var app)
 
-    function handleToggleTap(toggleId) {
-        Logger.info("QuickSettings", "Toggle tapped: " + toggleId);
-        if (toggleId === "wifi") {
-            SystemControlStore.toggleWifi();
-        } else if (toggleId === "bluetooth") {
-            SystemControlStore.toggleBluetooth();
-        } else if (toggleId === "flight") {
-            SystemControlStore.toggleAirplaneMode();
-        } else if (toggleId === "rotation") {
-            SystemControlStore.toggleRotationLock();
-        } else if (toggleId === "torch") {
-            SystemControlStore.toggleFlashlight();
-        } else if (toggleId === "autobrightness") {
-            SystemControlStore.toggleAutoBrightness();
-        } else if (toggleId === "location") {
-            SystemControlStore.toggleLocation();
-        } else if (toggleId === "hotspot") {
-            SystemControlStore.toggleHotspot();
-        } else if (toggleId === "vibration") {
-            SystemControlStore.toggleVibration();
-        } else if (toggleId === "nightlight") {
-            SystemControlStore.toggleNightLight();
-        } else if (toggleId === "screenshot") {
-            SystemControlStore.captureScreenshot();
-            UIStore.closeQuickSettings();
-        } else if (toggleId === "alarm") {
-            UIStore.closeQuickSettings();
-            Qt.callLater(function () {
-                var app = {
-                    "id": "clock",
-                    "name": "Clock",
-                    "icon": "qrc:/images/clock.svg",
-                    "type": "marathon"
-                };
-                launchApp(app);
-            });
-        } else if (toggleId === "battery") {
-            SystemControlStore.toggleLowPowerMode();
-        } else if (toggleId === "settings") {
-            UIStore.closeQuickSettings();
-            Qt.callLater(function () {
-                var app = {
-                    "id": "settings",
-                    "name": "Settings",
-                    "icon": "settings",
-                    "type": "marathon"
-                };
-                launchApp(app);
-            });
-        } else if (toggleId === "lock") {
-            UIStore.closeQuickSettings();
-            Qt.callLater(function () {
-                SessionStore.lock();
-            });
-        } else if (toggleId === "power") {
-            UIStore.closeQuickSettings();
-            Qt.callLater(function () {
-                shell.showPowerMenu();
-            });
-        } else if (toggleId === "cellular")
-            SystemControlStore.toggleCellular();
-        else if (toggleId === "notifications")
-            SystemControlStore.toggleDndMode();
-        else if (toggleId === "monitor")
-            Logger.info("QuickSettings", "Device monitor - info only, no action");
-    }
+    // Container: glass over wallpaper.
+    color: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.95)
+    border.width: 0
 
-    function handleLongPress(toggleId) {
-        Logger.info("QuickSettings", "Toggle long-pressed: " + toggleId);
-        if (toggleId === "settings" || toggleId === "lock" || toggleId === "power" || toggleId === "monitor")
-            return;
+    // Tile state. Wired to SystemControlStore / SystemStatusStore.
+    readonly property var tiles: [
+        {
+            id: "wifi",
+            icon: "wifi",
+            label: "Wi-Fi",
+            on: SystemStatusStore.isWifiOn,
+            sub: SystemStatusStore.wifiNetwork || "Off"
+        },
+        {
+            id: "bluetooth",
+            icon: "bluetooth",
+            label: "Bluetooth",
+            on: SystemStatusStore.isBluetoothOn,
+            sub: SystemStatusStore.isBluetoothOn ? "On" : "Off"
+        },
+        {
+            id: "cellular",
+            icon: "signal-high",
+            label: "Mobile data",
+            on: !SystemStatusStore.isAirplaneMode,
+            sub: ModemManagerCpp.operatorName || "Off"
+        },
+        {
+            id: "airplane",
+            icon: "plane",
+            label: "Flight mode",
+            on: SystemStatusStore.isAirplaneMode,
+            sub: SystemStatusStore.isAirplaneMode ? "On" : "Off"
+        },
+        {
+            id: "dnd",
+            icon: "bell-off",
+            label: "Do Not Disturb",
+            on: SystemStatusStore.isDndMode,
+            sub: SystemStatusStore.isDndMode ? "On" : "Off"
+        },
+        {
+            id: "torch",
+            icon: "flashlight",
+            label: "Torch",
+            on: FlashlightManagerCpp.on,
+            sub: FlashlightManagerCpp.on ? "On" : "Off"
+        },
+    ]
 
-        var deepLinkMap = {
-            "wifi": "marathon://settings/wifi",
-            "bluetooth": "marathon://settings/bluetooth",
-            "cellular": "marathon://settings/cellular",
-            "flight": "marathon://settings/cellular",
-            "rotation": "marathon://settings/display",
-            "torch": "marathon://settings/display",
-            "alarm": "marathon://settings/sound",
-            "notifications": "marathon://settings/notifications",
-            "battery": "marathon://settings/power",
-            "settings": "marathon://settings"
-        };
-        var deepLink = deepLinkMap[toggleId];
-        if (deepLink) {
-            Logger.info("QuickSettings", "Navigating to deep link: " + deepLink);
-            NavigationRouter.navigate(deepLink);
-            UIStore.closeQuickSettings();
-        }
-    }
+    Column {
+        id: content
 
-    color: MColors.background
-    opacity: 0.98
-    Component.onCompleted: {
-        Logger.info("QuickSettings", "Grid layout: " + gridColumns + " cols × " + maxGridRows + " rows (screen: " + Constants.screenWidth + "px)");
-        var enabled = SettingsManagerCpp.enabledQuickSettingsTiles || [];
-        var knownIds = {};
-        for (var j = 0; j < allTiles.length; j++)
-            knownIds[allTiles[j].id] = true;
-        var cleaned = [];
-        var seen = {};
-        var unknownCount = 0;
-        for (var i = 0; i < enabled.length; i++) {
-            var id = enabled[i];
-            if (seen[id])
-                continue;
-
-            seen[id] = true;
-            if (knownIds[id])
-                cleaned.push(id);
-            else
-                unknownCount++;
-        }
-        if (unknownCount > 0) {
-            Logger.warn("QuickSettings", "Removed " + unknownCount + " stale tile IDs from saved settings");
-            SettingsManagerCpp.enabledQuickSettingsTiles = cleaned;
-        }
-        Logger.info("QuickSettings", "Enabled tiles: " + cleaned.length + " of " + allTiles.length);
-    }
-
-    Connections {
-        function onIsWifiOnChanged() {
-            updateTrigger++;
-        }
-
-        function onIsBluetoothOnChanged() {
-            updateTrigger++;
-        }
-
-        function onIsAirplaneModeOnChanged() {
-            updateTrigger++;
-        }
-
-        function onIsCellularOnChanged() {
-            updateTrigger++;
-        }
-
-        target: SystemControlStore
-    }
-
-    Connections {
-        function onWifiNetworkChanged() {
-            updateTrigger++;
-        }
-
-        function onEthernetConnectedChanged() {
-            updateTrigger++;
-        }
-
-        function onBatteryLevelChanged() {
-            updateTrigger++;
-        }
-
-        target: SystemStatusStore
-    }
-
-    Connections {
-        function onEthernetConnectionNameChanged() {
-            updateTrigger++;
-        }
-
-        target: NetworkManagerCpp
-    }
-
-    Connections {
-        function onEnabledQuickSettingsTilesChanged() {
-            updateTrigger++;
-        }
-
-        function onQuickSettingsTileOrderChanged() {
-            updateTrigger++;
-        }
-
-        target: SettingsManagerCpp
-    }
-
-    Item {
         anchors.fill: parent
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        anchors.topMargin: 14
+        spacing: 14
 
-        Item {
-            id: contentContainer
+        // ── Header — Marathon lockup + date ──────────────────
+        Row {
+            width: parent.width
+            spacing: 10
 
-            anchors.centerIn: parent
-            width: Constants.screenWidth <= 1080 ? parent.width : Math.min(parent.width, 800)
-            height: parent.height
-
-            Flickable {
-                id: scrollView
-
-                anchors.fill: parent
-                anchors.topMargin: MSpacing.lg
-                anchors.leftMargin: MSpacing.md
-                anchors.rightMargin: MSpacing.md
-                anchors.bottomMargin: 80
-                contentHeight: contentColumn.height
-                clip: true
-                flickDeceleration: 5000
-                maximumFlickVelocity: 2500
-
-                Column {
-                    id: contentColumn
-
-                    width: parent.width
-                    spacing: MSpacing.md
-
-                    MLabel {
-                        text: SystemStatusStore.dateString
-                        variant: "body"
-                        anchors.left: parent.left
+            Rectangle {
+                width: 18
+                height: 18
+                radius: 3
+                anchors.verticalCenter: parent.verticalCenter
+                gradient: Gradient {
+                    GradientStop {
+                        position: 0
+                        color: MColors.marathonTealBright
                     }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.md
-
-                        SwipeView {
-                            id: toggleSwipeView
-
-                            width: parent.width
-                            height: calculatedGridHeight
-                            clip: true
-                            interactive: count > 1
-
-                            Repeater {
-                                model: Math.ceil(visibleTiles.length / tilesPerPage)
-
-                                Item {
-                                    required property int index
-
-                                    width: toggleSwipeView.width
-                                    height: toggleSwipeView.height
-
-                                    Grid {
-                                        anchors.fill: parent
-                                        columns: gridColumns
-                                        columnSpacing: MSpacing.sm
-                                        rowSpacing: MSpacing.sm
-
-                                        Repeater {
-                                            model: {
-                                                var startIdx = index * tilesPerPage;
-                                                var endIdx = Math.min(startIdx + tilesPerPage, visibleTiles.length);
-                                                return visibleTiles.slice(startIdx, endIdx);
-                                            }
-
-                                            delegate: QuickSettingsTile {
-                                                tileWidth: (toggleSwipeView.width - (MSpacing.sm * (gridColumns - 1))) / gridColumns
-                                                toggleData: modelData
-                                                onTapped: handleToggleTap(modelData.id)
-                                                onLongPressed: handleLongPress(modelData.id)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        MPageIndicator {
-                            count: toggleSwipeView.count
-                            currentIndex: toggleSwipeView.currentIndex
-                            anchors.horizontalCenter: parent.horizontalCenter
-                        }
+                    GradientStop {
+                        position: 1
+                        color: MColors.marathonTealDark
                     }
+                }
+                border.width: 1
+                border.color: MColors.tealBorder
 
-                    MediaPlaybackManager {
-                        id: mediaPlayer
+                Text {
+                    anchors.centerIn: parent
+                    text: "M"
+                    color: "#000000"
+                    font.family: MTypography.fontFamily
+                    font.pixelSize: 12
+                    font.weight: MTypography.weightBlack
+                }
+            }
+            Text {
+                text: "MARATHON"
+                color: MColors.textSecondary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeCaption
+                font.weight: MTypography.weightBold
+                font.letterSpacing: 2
+                font.capitalization: Font.AllUppercase
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            // Spacer
+            Item {
+                width: parent.width - 24 - 90 - 110
+                height: 1
+            }
+            Text {
+                text: SystemStatusStore.dateString + " · " + SystemStatusStore.timeString
+                color: MColors.textSecondary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeFootnote
+                font.features: ({
+                        "tnum": 1
+                    })
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
 
-                        width: parent.width
-                    }
+        // ── Sliders ──────────────────────────────────────────
+        Rectangle {
+            width: parent.width
+            height: brightness.height + volume.height + slidersDivider.height + 24
+            radius: MRadius.md
+            color: MColors.bb10Elevated
+            border.width: 1
+            border.color: MColors.whiteOverlay04
 
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MLabel {
-                            text: "Brightness"
-                            variant: "body"
-                            font.weight: Font.Medium
-                        }
-
-                        MSlider {
-                            id: brightnessSlider
-
-                            width: parent.width
-                            from: 0
-                            to: 100
-                            Component.onCompleted: value = SystemControlStore.brightness
-                            onMoved: {
-                                brightnessDebounce.restart();
-                            }
-                            onReleased: {
-                                brightnessDebounce.stop();
-                                SystemControlStore.setBrightness(brightnessSlider.value);
-                            }
-
-                            Timer {
-                                id: brightnessDebounce
-
-                                interval: 150
-                                onTriggered: SystemControlStore.setBrightness(brightnessSlider.value)
-                            }
-
-                            Connections {
-                                function onBrightnessChanged() {
-                                    if (!brightnessSlider.pressed)
-                                        brightnessSlider.value = SystemControlStore.brightness;
-                                }
-
-                                target: SystemControlStore
-                            }
-                        }
-                    }
-
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.sm
-
-                        MLabel {
-                            text: "Volume"
-                            variant: "body"
-                            font.weight: Font.Medium
-                        }
-
-                        MSlider {
-                            id: volumeSlider
-
-                            width: parent.width
-                            from: 0
-                            to: 100
-                            Component.onCompleted: value = SystemControlStore.volume
-                            onMoved: {
-                                volumeDebounce.restart();
-                            }
-                            onReleased: {
-                                volumeDebounce.stop();
-                                SystemControlStore.setVolume(volumeSlider.value);
-                            }
-
-                            Timer {
-                                id: volumeDebounce
-
-                                interval: 150
-                                onTriggered: SystemControlStore.setVolume(volumeSlider.value)
-                            }
-
-                            Connections {
-                                function onVolumeChanged() {
-                                    if (!volumeSlider.pressed)
-                                        volumeSlider.value = SystemControlStore.volume;
-                                }
-
-                                target: SystemControlStore
-                            }
-                        }
-                    }
-
-                    Item {
-                        height: Constants.navBarHeight
+            MQSSlider {
+                id: brightness
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.topMargin: 12
+                iconName: "sun"
+                label: "Brightness"
+                value: SettingsManagerCpp.userBrightness !== undefined ? SettingsManagerCpp.userBrightness : 62
+                onMoved: function (v) {
+                    if (SettingsManagerCpp.userBrightness !== undefined) {
+                        SettingsManagerCpp.userBrightness = v;
                     }
                 }
             }
+            Rectangle {
+                id: slidersDivider
+                anchors.top: brightness.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.topMargin: 10
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                height: 1
+                color: MColors.whiteOverlay04
+            }
+            MQSSlider {
+                id: volume
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: slidersDivider.bottom
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                anchors.topMargin: 10
+                iconName: "volume-2"
+                label: "Volume"
+                value: SystemControlStore.volume !== undefined ? SystemControlStore.volume : 40
+                onMoved: function (v) {
+                    SystemControlStore.setVolume(v);
+                }
+            }
+        }
+
+        // ── Tile grid (2 cols) ───────────────────────────────
+        Grid {
+            id: tileGrid
+            width: parent.width
+            columns: 2
+            rowSpacing: 8
+            columnSpacing: 8
+            readonly property real cellWidth: (width - columnSpacing) / 2
+
+            Repeater {
+                model: quickSettings.tiles
+                delegate: MQSTile {
+                    required property int index
+                    required property var modelData
+                    width: tileGrid.cellWidth
+                    iconName: modelData.icon || "square"
+                    label: modelData.label || ""
+                    sublabel: modelData.sub || ""
+                    on: modelData.on === true
+                    onToggled: quickSettings.toggle(modelData.id)
+                }
+            }
+        }
+
+        // ── Page indicator (single page for now) ─────────────
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 6
+            Rectangle {
+                width: 18
+                height: 4
+                radius: 2
+                color: MColors.marathonTealBright
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Repeater {
+                model: 2
+                delegate: Rectangle {
+                    required property int index
+                    width: 4
+                    height: 4
+                    radius: 2
+                    color: MColors.whiteOverlay24
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+        }
+
+        // ── Now-playing strip (visible when something playing) ──
+        MNowBar {
+            width: parent.width
+            visible: MPRIS2Controller.isPlaying
+            variant: "music"
+            iconName: "music"
+            label: MPRIS2Controller.title || ""
+            sublabel: MPRIS2Controller.artist || ""
+            playing: MPRIS2Controller.isPlaying
+        }
+    }
+
+    // ── Drag handle ─────────────────────────────────────────
+    Rectangle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 14
+        width: 44
+        height: 4
+        radius: 2
+        color: MColors.whiteOverlay12
+    }
+
+    // ── Behaviour hooks ─────────────────────────────────────
+    function toggle(id) {
+        switch (id) {
+        case "wifi":
+            SystemControlStore.setWifi(!SystemStatusStore.isWifiOn);
+            break;
+        case "bluetooth":
+            SystemControlStore.setBluetooth(!SystemStatusStore.isBluetoothOn);
+            break;
+        case "airplane":
+            SystemControlStore.setAirplaneMode(!SystemStatusStore.isAirplaneMode);
+            break;
+        case "dnd":
+            SystemControlStore.setDndMode(!SystemStatusStore.isDndMode);
+            break;
+        case "torch":
+            FlashlightManagerCpp.toggle();
+            break;
+        case "cellular":  /* TODO: data toggle via ModemManager */
+            break;
         }
     }
 }

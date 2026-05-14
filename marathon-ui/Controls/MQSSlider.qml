@@ -42,13 +42,19 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 
-            // Label row.
-            Row {
+            // Label row — Item with absolute positioning. Row would
+            // forbid the right-anchored value text; we want the label
+            // on the left and the value on the right.
+            Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.topMargin: 0
+                height: labelText.implicitHeight
+
                 Text {
+                    id: labelText
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
                     text: root.label
                     color: MColors.textSecondary
                     font.family: MTypography.fontFamily
@@ -57,11 +63,9 @@ Item {
                     font.capitalization: Font.AllUppercase
                     font.letterSpacing: MTypography.trackingEyebrow
                 }
-                Item {
-                    width: 6
-                    height: 1
-                }
                 Text {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
                     text: Math.round(root.value)
                     color: MColors.textPrimary
                     font.family: MTypography.fontFamily
@@ -70,7 +74,6 @@ Item {
                     font.features: ({
                             "tnum": 1
                         })
-                    anchors.right: parent.right
                 }
             }
 
