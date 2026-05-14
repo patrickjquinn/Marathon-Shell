@@ -1,5 +1,7 @@
 #include "unifiedpushdistributor.h"
 
+#include "notificationservicecpp.h"
+
 #include <QDBusConnection>
 #include <QDBusError>
 #include <QDBusMessage>
@@ -22,8 +24,10 @@ namespace {
     }
 } // namespace
 
-UnifiedPushDistributor::UnifiedPushDistributor(QObject *parent)
-    : QObject(parent) {
+UnifiedPushDistributor::UnifiedPushDistributor(NotificationServiceCpp *notificationSink,
+                                               QObject                *parent)
+    : QObject(parent)
+    , m_notificationSink(notificationSink) {
     load();
     // Replay persisted registrations to whatever backend is listening so it can
     // resume subscriptions without waiting for apps to re-Register on this boot.
@@ -152,6 +156,25 @@ void UnifiedPushDistributor::deliverMessage(const QString &token, const QByteArr
     args.insert(QStringLiteral("message"), payload);
     args.insert(QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces));
     callConnector(it.value().service, QStringLiteral("Message"), args);
+
+    if (m_fallbackEnabled && m_notificationSink) {
+        // Payloads are opaque (often end-to-end encrypted) so the body is
+        // a fixed placeholder; the receiving app is the one with the keys.
+        const QString title =
+            it.value().description.isEmpty() ? it.value().service : it.value().description;
+        QVariantMap opts;
+        opts.insert(QStringLiteral("category"), QStringLiteral("push"));
+        opts.insert(QStringLiteral("priority"), QStringLiteral("normal"));
+        m_notificationSink->sendNotification(it.value().service, title,
+                                             QStringLiteral("New push notification"), opts);
+    }
+}
+
+void UnifiedPushDistributor::setFallbackNotificationsEnabled(bool enabled) {
+    if (m_fallbackEnabled == enabled)
+        return;
+    m_fallbackEnabled = enabled;
+    emit fallbackNotificationsEnabledChanged();
 }
 
 void UnifiedPushDistributor::callConnector(const QString &serviceBus, const QString &method,

@@ -3,8 +3,11 @@
 
 #include <QObject>
 #include <QHash>
+#include <QPointer>
 #include <QString>
 #include <QVariantMap>
+
+class NotificationServiceCpp;
 
 // UnifiedPush distributor (server side, per spec v2). Apps call Register/
 // Unregister on us via D-Bus; when a push backend delivers a message we
@@ -25,10 +28,18 @@ class UnifiedPushDistributor : public QObject {
     // ("local.UnifiedPushDistributor") and any spec-compliant client looking
     // for org.unifiedpush.Distributor2 fails to find Register/Unregister.
     Q_CLASSINFO("D-Bus Interface", "org.unifiedpush.Distributor2")
+    Q_PROPERTY(bool fallbackNotificationsEnabled READ fallbackNotificationsEnabled WRITE
+                   setFallbackNotificationsEnabled NOTIFY fallbackNotificationsEnabledChanged)
 
   public:
-    explicit UnifiedPushDistributor(QObject *parent = nullptr);
+    explicit UnifiedPushDistributor(NotificationServiceCpp *notificationSink,
+                                    QObject                *parent = nullptr);
     ~UnifiedPushDistributor() override;
+
+    bool fallbackNotificationsEnabled() const {
+        return m_fallbackEnabled;
+    }
+    void setFallbackNotificationsEnabled(bool enabled);
 
     // Acquire org.unifiedpush.Distributor.marathon on the session bus and
     // export this object at /org/unifiedpush/Distributor. Returns false if
@@ -63,6 +74,8 @@ class UnifiedPushDistributor : public QObject {
     // The backend should drop the subscription for this token.
     void registrationRemoved(const QString &token);
 
+    void fallbackNotificationsEnabledChanged();
+
   private:
     struct AppRegistration {
         QString service;     // app's well-known D-Bus name (e.g. org.example.app)
@@ -74,8 +87,10 @@ class UnifiedPushDistributor : public QObject {
     void persist() const;
     void load();
 
-    QHash<QString, AppRegistration> m_registrations; // token -> reg
-    bool                            m_serviceOwned = false;
+    QHash<QString, AppRegistration>  m_registrations; // token -> reg
+    QPointer<NotificationServiceCpp> m_notificationSink;
+    bool                             m_serviceOwned    = false;
+    bool                             m_fallbackEnabled = false;
 };
 
 #endif

@@ -532,8 +532,8 @@ int main(int argc, char *argv[]) {
             qInfo() << "[MarathonShell]  org.freedesktop.Notifications registered";
         }
 
-        auto *unifiedPush =
-            createObject<UnifiedPushDistributor>(ctx, "UnifiedPushDistributor", &app);
+        auto *unifiedPush = createObject<UnifiedPushDistributor>(ctx, "UnifiedPushDistributor",
+                                                                 notificationService, &app);
         if (unifiedPush->registerService()) {
             qInfo() << "[MarathonShell]  org.unifiedpush.Distributor.marathon registered";
         }
