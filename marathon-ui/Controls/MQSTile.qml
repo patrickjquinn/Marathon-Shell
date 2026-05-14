@@ -21,10 +21,10 @@ Rectangle {
 
     signal toggled
 
-    // Card base.
+    // Card base. DS uses elev-2 for the tile fill.
     implicitHeight: 64
     radius: MRadius.md
-    color: MColors.bb10Elevated
+    color: MColors.elev2
     border.width: 1
     border.color: on ? MColors.tealBorder : MColors.whiteOverlay04
     clip: true
@@ -82,12 +82,15 @@ Rectangle {
                 anchors.rightMargin: 14
                 spacing: 2
 
+                // Title — 13/600 in both on + off per JSX QSTile().
+                // Only the colour shifts on toggle.
                 Text {
                     text: tile.label
                     color: tile.on ? MColors.textPrimary : MColors.textSecondary
                     font.family: MTypography.fontFamily
                     font.pixelSize: MTypography.sizeFootnote
-                    font.weight: tile.on ? MTypography.weightDemiBold : MTypography.weightMedium
+                    font.weight: MTypography.weightDemiBold
+                    font.letterSpacing: -0.1
                     elide: Text.ElideRight
                     width: parent.width
                 }
