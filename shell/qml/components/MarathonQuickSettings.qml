@@ -31,44 +31,44 @@ Rectangle {
             id: "wifi",
             icon: "wifi",
             label: "Wi-Fi",
-            on: SystemStatusStore.isWifiOn,
+            on: SystemControlStore.isWifiOn,
             sub: SystemStatusStore.wifiNetwork || "Off"
         },
         {
             id: "bluetooth",
             icon: "bluetooth",
             label: "Bluetooth",
-            on: SystemStatusStore.isBluetoothOn,
-            sub: SystemStatusStore.isBluetoothOn ? "On" : "Off"
+            on: SystemControlStore.isBluetoothOn,
+            sub: SystemControlStore.isBluetoothOn ? "On" : "Off"
         },
         {
             id: "cellular",
             icon: "signal-high",
             label: "Mobile data",
-            on: !SystemStatusStore.isAirplaneMode,
+            on: SystemControlStore.isCellularDataOn,
             sub: ModemManagerCpp.operatorName || "Off"
         },
         {
             id: "airplane",
             icon: "plane",
             label: "Flight mode",
-            on: SystemStatusStore.isAirplaneMode,
-            sub: SystemStatusStore.isAirplaneMode ? "On" : "Off"
+            on: SystemControlStore.isAirplaneModeOn,
+            sub: SystemControlStore.isAirplaneModeOn ? "On" : "Off"
         },
         {
             id: "dnd",
             icon: "bell-off",
             label: "Do Not Disturb",
-            on: SystemStatusStore.isDndMode,
-            sub: SystemStatusStore.isDndMode ? "On" : "Off"
+            on: SystemControlStore.isDndMode,
+            sub: SystemControlStore.isDndMode ? "On" : "Off"
         },
         {
             id: "torch",
             icon: "flashlight",
             label: "Torch",
-            on: FlashlightManagerCpp.on,
-            sub: FlashlightManagerCpp.on ? "On" : "Off"
-        },
+            on: SystemControlStore.isFlashlightOn,
+            sub: SystemControlStore.isFlashlightOn ? "On" : "Off"
+        }
     ]
 
     Column {
@@ -158,11 +158,9 @@ Rectangle {
                 anchors.topMargin: 12
                 iconName: "sun"
                 label: "Brightness"
-                value: SettingsManagerCpp.userBrightness !== undefined ? SettingsManagerCpp.userBrightness : 62
+                value: SystemControlStore.brightness
                 onMoved: function (v) {
-                    if (SettingsManagerCpp.userBrightness !== undefined) {
-                        SettingsManagerCpp.userBrightness = v;
-                    }
+                    SystemControlStore.setBrightness(v);
                 }
             }
             Rectangle {
@@ -186,7 +184,7 @@ Rectangle {
                 anchors.topMargin: 10
                 iconName: "volume-2"
                 label: "Volume"
-                value: SystemControlStore.volume !== undefined ? SystemControlStore.volume : 40
+                value: SystemControlStore.volume
                 onMoved: function (v) {
                     SystemControlStore.setVolume(v);
                 }
@@ -247,8 +245,8 @@ Rectangle {
             visible: MPRIS2Controller.isPlaying
             variant: "music"
             iconName: "music"
-            label: MPRIS2Controller.title || ""
-            sublabel: MPRIS2Controller.artist || ""
+            label: MPRIS2Controller.trackTitle || ""
+            sublabel: MPRIS2Controller.trackArtist || ""
             playing: MPRIS2Controller.isPlaying
         }
     }
@@ -268,21 +266,22 @@ Rectangle {
     function toggle(id) {
         switch (id) {
         case "wifi":
-            SystemControlStore.setWifi(!SystemStatusStore.isWifiOn);
+            SystemControlStore.toggleWifi();
             break;
         case "bluetooth":
-            SystemControlStore.setBluetooth(!SystemStatusStore.isBluetoothOn);
+            SystemControlStore.toggleBluetooth();
+            break;
+        case "cellular":
+            SystemControlStore.toggleCellularData();
             break;
         case "airplane":
-            SystemControlStore.setAirplaneMode(!SystemStatusStore.isAirplaneMode);
+            SystemControlStore.toggleAirplaneMode();
             break;
         case "dnd":
-            SystemControlStore.setDndMode(!SystemStatusStore.isDndMode);
+            SystemControlStore.toggleDndMode();
             break;
         case "torch":
-            FlashlightManagerCpp.toggle();
-            break;
-        case "cellular":  /* TODO: data toggle via ModemManager */
+            SystemControlStore.toggleFlashlight();
             break;
         }
     }

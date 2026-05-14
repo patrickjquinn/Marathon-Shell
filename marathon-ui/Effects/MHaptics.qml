@@ -4,7 +4,12 @@ import QtQuick
 QtObject {
     id: root
 
-    property QtObject backend: null
+    // Backend is the C++ HapticManager singleton (from MarathonOS.Shell),
+    // injected by the shell at startup. Typed as `var` rather than
+    // QtObject so qmllint doesn't flag every duck-typed call — this is
+    // deliberate cross-module layering: marathon-ui must not import
+    // MarathonOS.Shell. The contract is documented here.
+    property var backend: null
 
     readonly property bool enabled: backend ? backend.enabled : false
 
