@@ -13,6 +13,7 @@ qt6_add_qml_module(marathon-ui-controls
         MComboBox.qml
         MQSTile.qml
         MQSSlider.qml
+        MFilterChip.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Controls
 )
 
@@ -33,6 +34,7 @@ if(QMLLINT_AVAILABLE)
         MComboBox.qml
         MQSTile.qml
         MQSSlider.qml
+        MFilterChip.qml
     )
 endif()
 
@@ -57,5 +59,6 @@ install(FILES
     MComboBox.qml
     MQSTile.qml
     MQSSlider.qml
+    MFilterChip.qml
     DESTINATION ${MARATHON_UI_DIR}/Controls
 )
