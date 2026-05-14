@@ -154,6 +154,11 @@ Rectangle {
     }
 
     // ── List ────────────────────────────────────────────────
+    // JSX HubScreen() shows 'Today' / 'Yesterday' section bands
+    // between rows (HubGroup component). That would require an
+    // ageGroup role on NotificationModel — deferred until the C++
+    // model exposes it. For now the rows render in
+    // newest-first order without grouping.
     ListView {
         id: list
         anchors.left: parent.left
@@ -163,7 +168,10 @@ Rectangle {
         clip: true
         model: NotificationModel
         spacing: 0
-        cacheBuffer: height * 2
+        // cacheBuffer must be non-negative — the height transition
+        // through 0 during peek expand briefly produces an
+        // intermediate that Qt complains about. Clamp to 0.
+        cacheBuffer: Math.max(0, height * 2)
         reuseItems: true
 
         delegate: MHubRow {
