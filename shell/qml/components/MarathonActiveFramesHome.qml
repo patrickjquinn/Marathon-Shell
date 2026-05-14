@@ -67,7 +67,7 @@ Item {
             font.letterSpacing: MTypography.trackingEyebrow
         }
         Text {
-            text: greetingFor(SystemStatusStore.hour, SettingsManagerCpp.deviceName || "Avery")
+            text: greetingFor(SystemStatusStore.timeString, SettingsManagerCpp.deviceName || "Avery")
             color: MColors.textPrimary
             font.family: MTypography.fontFamily
             font.pixelSize: 26
@@ -76,8 +76,21 @@ Item {
         }
     }
 
-    function greetingFor(hour, who) {
-        const h = parseInt(hour, 10);
+    // Parse hour out of "HH:MM AM/PM" or "HH:MM" — derives a 0-23
+    // hour for the greeting. The store has no exposed `hour` property,
+    // and adding one would touch C++ for two callsites; this parse is
+    // local and harmless.
+    function greetingFor(timeStr, who) {
+        if (!timeStr)
+            return "Hello, " + who;
+        const m = /^(\d+):/.exec(timeStr);
+        if (!m)
+            return "Hello, " + who;
+        let h = parseInt(m[1], 10);
+        if (/PM/i.test(timeStr) && h !== 12)
+            h += 12;
+        if (/AM/i.test(timeStr) && h === 12)
+            h = 0;
         var part;
         if (isNaN(h))
             part = "Hello";
