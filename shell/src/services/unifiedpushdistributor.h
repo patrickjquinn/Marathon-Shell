@@ -8,6 +8,7 @@
 #include <QVariantMap>
 
 class NotificationServiceCpp;
+class SettingsManager;
 
 // UnifiedPush distributor (server side, per spec v2). Apps call Register/
 // Unregister on us via D-Bus; when a push backend delivers a message we
@@ -33,12 +34,10 @@ class UnifiedPushDistributor : public QObject {
 
   public:
     explicit UnifiedPushDistributor(NotificationServiceCpp *notificationSink,
-                                    QObject                *parent = nullptr);
+                                    SettingsManager *settings, QObject *parent = nullptr);
     ~UnifiedPushDistributor() override;
 
-    bool fallbackNotificationsEnabled() const {
-        return m_fallbackEnabled;
-    }
+    bool fallbackNotificationsEnabled() const;
     void setFallbackNotificationsEnabled(bool enabled);
 
     // Acquire org.unifiedpush.Distributor.marathon on the session bus and
@@ -89,8 +88,8 @@ class UnifiedPushDistributor : public QObject {
 
     QHash<QString, AppRegistration>  m_registrations; // token -> reg
     QPointer<NotificationServiceCpp> m_notificationSink;
-    bool                             m_serviceOwned    = false;
-    bool                             m_fallbackEnabled = false;
+    QPointer<SettingsManager>        m_settings;
+    bool                             m_serviceOwned = false;
 };
 
 #endif
