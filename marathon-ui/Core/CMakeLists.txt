@@ -17,6 +17,7 @@ set(CORE_QML_FILES
     MContainer.qml
     LucideGlyphs.js
     MAppIcon.qml
+    MHaloedDisplay.qml
 )
 
 # Mark singleton
