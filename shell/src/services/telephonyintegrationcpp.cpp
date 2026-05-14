@@ -139,10 +139,11 @@ void TelephonyIntegrationCpp::handleMessageReceived(const QString &sender, const
         actions.append(QVariantMap{{"id", "reply"}, {"label", "Reply"}});
         actions.append(QVariantMap{{"id", "mark_read"}, {"label", "Mark Read"}});
         QVariantMap options;
-        options["icon"]     = "message-circle";
-        options["category"] = "message";
-        options["priority"] = "high";
-        options["actions"]  = actions;
+        options["icon"]        = "message-circle";
+        options["category"]    = "message";
+        options["priority"]    = "high";
+        options["actions"]     = actions;
+        options["replyTarget"] = sender;
         m_notificationService->sendNotification("messages", contactName, text, options);
     }
 

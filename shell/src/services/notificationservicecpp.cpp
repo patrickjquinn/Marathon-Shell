@@ -73,6 +73,7 @@ int NotificationServiceCpp::sendNotification(const QString &appId, const QString
     meta.insert("priority", options.value("priority", "normal"));
     meta.insert("actions", options.value("actions", QVariantList()));
     meta.insert("persistent", options.value("persistent", false));
+    meta.insert("replyTarget", options.value("replyTarget", QString()));
     m_notificationMeta.insert(id, meta);
 
     return id;
@@ -262,11 +263,13 @@ NotificationServiceCpp::buildNotificationMapFromModel(Notification *notification
         map.insert("priority", meta.value("priority"));
         map.insert("actions", meta.value("actions"));
         map.insert("persistent", meta.value("persistent"));
+        map.insert("replyTarget", meta.value("replyTarget"));
     } else {
         map.insert("category", "message");
         map.insert("priority", "normal");
         map.insert("actions", QVariantList());
         map.insert("persistent", false);
+        map.insert("replyTarget", QString());
     }
     return map;
 }
