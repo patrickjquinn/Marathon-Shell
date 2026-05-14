@@ -2,15 +2,18 @@
 
 #include "navigationroutercpp.h"
 #include "notificationservicecpp.h"
+#include "smsservice.h"
 #include "telephonyservice.h"
 
 NotificationHandlerCpp::NotificationHandlerCpp(NotificationServiceCpp *notifications,
                                                NavigationRouterCpp    *router,
-                                               TelephonyService *telephony, QObject *parent)
+                                               TelephonyService *telephony, SMSService *sms,
+                                               QObject *parent)
     : QObject(parent)
     , m_notifications(notifications)
     , m_router(router)
-    , m_telephony(telephony) {}
+    , m_telephony(telephony)
+    , m_sms(sms) {}
 
 void NotificationHandlerCpp::handleNotificationClick(int id) {
     const QVariantMap notification = findNotification(id);
@@ -53,6 +56,28 @@ void NotificationHandlerCpp::handleNotificationAction(int id, const QString &act
                 m_notifications->dismissNotification(id);
         }
     }
+}
+
+bool NotificationHandlerCpp::handleNotificationReply(int id, const QString &text) {
+    if (text.isEmpty())
+        return false;
+
+    const QVariantMap notification = findNotification(id);
+    if (notification.isEmpty())
+        return false;
+
+    const QString appId  = notification.value("appId").toString();
+    const QString target = notification.value("replyTarget").toString();
+
+    if (appId == "messages" && !target.isEmpty() && m_sms) {
+        m_sms->sendMessage(target, text);
+        if (m_notifications)
+            m_notifications->dismissNotification(id);
+        return true;
+    }
+
+    emit replyUnhandled(id, appId, text);
+    return false;
 }
 
 QVariantMap NotificationHandlerCpp::findNotification(int id) const {
