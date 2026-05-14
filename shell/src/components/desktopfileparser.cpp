@@ -138,6 +138,10 @@ QVariantMap DesktopFileParser::parseDesktopFile(const QString &filePath) {
     QString   id = fileInfo.completeBaseName();
     app["id"]    = id;
 
+    if (app.value("exec").toString().startsWith(QStringLiteral("FLATPAK:"))) {
+        app["type"] = "flatpak";
+    }
+
     file.close();
     return app;
 }

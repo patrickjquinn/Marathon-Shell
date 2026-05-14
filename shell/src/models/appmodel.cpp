@@ -70,7 +70,7 @@ void AppModel::addApp(const QString &id, const QString &name, const QString &ico
         return;
     }
 
-    if (type != "native" && type != "marathon" && type != "system") {
+    if (type != "native" && type != "marathon" && type != "system" && type != "flatpak") {
         qWarning() << "[AppModel] Invalid app type:" << type << "for ID:" << id;
         return;
     }
@@ -102,7 +102,7 @@ void AppModel::addApps(const QVariantList &apps) {
 
         if (id.isEmpty() || name.isEmpty() || icon.isEmpty())
             continue;
-        if (type != "native" && type != "marathon" && type != "system")
+        if (type != "native" && type != "marathon" && type != "system" && type != "flatpak")
             continue;
         if (m_appIndex.contains(id))
             continue;
