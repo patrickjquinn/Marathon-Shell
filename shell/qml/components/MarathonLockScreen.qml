@@ -668,30 +668,39 @@ Item {
             }
         }
 
-        MarathonBottomBar {
+        // Lock-screen bottom row — phone (teal) + camera (dim) +
+        // center unlock affordance. Matches the JSX LockScreen
+        // chevron + 'Swipe up to unlock' pattern, but keeps the
+        // legacy phone/camera shortcuts (per usability — phone
+        // access from lock is a near-universal pattern). The
+        // shortcuts live in MarathonLockShortcuts (squircle bay
+        // + teal accent on Phone, dim on Camera) instead of the
+        // full MarathonBottomBar chrome (no page-indicator on
+        // lock per the design).
+        MarathonLockShortcuts {
             id: lockScreenBottomBar
 
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            showPageIndicators: false
+            anchors.bottomMargin: Math.round(8 * Constants.scaleFactor)
             z: 10
-            onAppLaunched: app => {
-                if (app.id === "phone") {
-                    HapticManager.medium();
-                    Logger.info("LockScreen", "Phone quick action tapped");
-                    phoneLaunched();
-                } else if (app.id === "camera") {
-                    HapticManager.medium();
-                    Logger.info("LockScreen", "Camera quick action tapped");
-                    cameraLaunched();
-                }
+            onPhoneActivated: {
+                HapticManager.medium();
+                Logger.info("LockScreen", "Phone quick action tapped");
+                phoneLaunched();
+            }
+            onCameraActivated: {
+                HapticManager.medium();
+                Logger.info("LockScreen", "Camera quick action tapped");
+                cameraLaunched();
             }
         }
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: lockScreenBottomBar.verticalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Math.round(24 * Constants.scaleFactor)
             spacing: Math.round(4 * Constants.scaleFactor)
             opacity: 0.7
             z: 11
