@@ -261,6 +261,8 @@ Item {
                         model: scalePage.scaleOptions
 
                         Rectangle {
+                            required property var modelData
+
                             width: parent.width
                             height: Constants.touchTargetMedium
                             radius: Constants.borderRadiusSmall
@@ -449,6 +451,8 @@ Item {
                             model: NetworkManagerCpp.availableNetworks
 
                             MCard {
+                                required property var modelData
+
                                 width: parent.parent.width
                                 height: MSpacing.touchTargetMedium
                                 elevation: 2
@@ -778,6 +782,8 @@ Item {
                         ]
 
                         MCard {
+                            required property var modelData
+
                             width: parent.width
                             height: MSpacing.touchTargetLarge + MSpacing.md
                             elevation: 2
@@ -1113,6 +1119,8 @@ Item {
             model: oobeRoot.pages.length
 
             Rectangle {
+                required property int index
+
                 width: oobeRoot.currentPage === index ? Math.round(20 * Constants.scaleFactor) : Math.round(12 * Constants.scaleFactor)
                 height: oobeRoot.currentPage === index ? Math.round(20 * Constants.scaleFactor) : Math.round(12 * Constants.scaleFactor)
                 radius: oobeRoot.currentPage === index ? Math.round(10 * Constants.scaleFactor) : Math.round(6 * Constants.scaleFactor)

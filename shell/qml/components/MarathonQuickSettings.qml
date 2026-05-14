@@ -413,6 +413,8 @@ Rectangle {
                                 model: Math.ceil(visibleTiles.length / tilesPerPage)
 
                                 Item {
+                                    required property int index
+
                                     width: toggleSwipeView.width
                                     height: toggleSwipeView.height
 

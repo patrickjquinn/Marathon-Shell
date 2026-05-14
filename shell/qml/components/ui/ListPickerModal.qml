@@ -20,6 +20,9 @@ Modal {
             model: options
 
             Rectangle {
+                required property int index
+                required property var modelData
+
                 width: parent.width
                 height: Constants.listItemHeight
                 color: "transparent"

@@ -190,6 +190,7 @@ Item {
             Rectangle {
                 id: pageIndicator
 
+                required property int index
                 property int pageIndex: index
 
                 width: index === bottomBar.currentPage ? Constants.pageIndicatorSizeActive : Constants.pageIndicatorSizeInactive
