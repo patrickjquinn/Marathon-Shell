@@ -28,17 +28,19 @@ QVariant AppModel::data(const QModelIndex &index, int role) const {
         case IconRole: return app->icon();
         case TypeRole: return app->type();
         case ExecRole: return app->exec();
+        case FlatpakRefRole: return app->flatpakRef();
         default: return QVariant();
     }
 }
 
 QHash<int, QByteArray> AppModel::roleNames() const {
     QHash<int, QByteArray> roles;
-    roles[IdRole]   = "id";
-    roles[NameRole] = "name";
-    roles[IconRole] = "icon";
-    roles[TypeRole] = "type";
-    roles[ExecRole] = "exec";
+    roles[IdRole]         = "id";
+    roles[NameRole]       = "name";
+    roles[IconRole]       = "icon";
+    roles[TypeRole]       = "type";
+    roles[ExecRole]       = "exec";
+    roles[FlatpakRefRole] = "flatpakRef";
     return roles;
 }
 
@@ -53,7 +55,8 @@ App *AppModel::getAppAtIndex(int index) {
 }
 
 void AppModel::addApp(const QString &id, const QString &name, const QString &icon,
-                      const QString &type, const QString &exec, const QStringList &permissions) {
+                      const QString &type, const QString &exec, const QStringList &permissions,
+                      const QString &flatpakRef) {
 
     if (m_appIndex.contains(id)) {
         qDebug() << "[AppModel] App already exists:" << id;
@@ -76,7 +79,7 @@ void AppModel::addApp(const QString &id, const QString &name, const QString &ico
     }
 
     beginInsertRows(QModelIndex(), m_apps.count(), m_apps.count());
-    App *app = new App(id, name, icon, type, exec, permissions, this);
+    App *app = new App(id, name, icon, type, exec, permissions, flatpakRef, this);
     m_apps.append(app);
     m_appIndex[id] = app;
     endInsertRows();
@@ -108,7 +111,8 @@ void AppModel::addApps(const QVariantList &apps) {
             continue;
 
         const QStringList perms = appMap.value("permissions").toStringList();
-        newApps.append(new App(id, name, icon, type, exec, perms, this));
+        const QString     ref   = appMap.value("flatpakRef").toString();
+        newApps.append(new App(id, name, icon, type, exec, perms, ref, this));
     }
 
     if (newApps.isEmpty())
