@@ -87,18 +87,19 @@ Item {
         Logger.debug("Peek", "Visibility changed: " + visible);
     }
 
+    // Scrim — darkens the surface behind the sliding hub panel so
+    // the panel reads as elevated. elev0 (deeper than the wallpaper
+    // black) gives a quiet dim without competing with the panel.
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
+        color: MColors.elev0
         opacity: peekProgress * 0.6
         visible: peekProgress > 0
 
         MouseArea {
             anchors.fill: parent
             enabled: peekProgress > 0
-            onClicked: {
-                closePeek();
-            }
+            onClicked: closePeek()
         }
     }
 
@@ -174,16 +175,29 @@ Item {
                                     anchors.centerIn: parent
                                 }
 
+                                // DS unread indicator (ds-components.jsx
+                                // Badges · 'unread indicator'): teal-bright
+                                // dot with a teal-glow halo, no number.
                                 Rectangle {
                                     visible: !model.isRead
                                     anchors.right: parent.right
                                     anchors.top: parent.top
                                     anchors.rightMargin: -2
                                     anchors.topMargin: -2
-                                    width: 10
-                                    height: 10
-                                    radius: 5
-                                    color: MColors.marathonTeal
+                                    width: 8
+                                    height: 8
+                                    radius: 4
+                                    color: MColors.marathonTealBright
+
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 16
+                                        height: 16
+                                        radius: 8
+                                        color: MColors.marathonTealGlow
+                                        opacity: 0.18
+                                        z: -1
+                                    }
                                 }
 
                                 Behavior on scale {
