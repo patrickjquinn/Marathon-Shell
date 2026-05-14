@@ -1,6 +1,7 @@
 #ifndef FLATPAKMANAGER_H
 #define FLATPAKMANAGER_H
 
+#include <QHash>
 #include <QObject>
 #include <QString>
 #include <QVariantList>
@@ -9,6 +10,8 @@
 class FlatpakManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ available CONSTANT)
+    Q_PROPERTY(QVariantList installedApps READ installedApps NOTIFY installedAppsChanged)
+    Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
 
   public:
     explicit FlatpakManager(QObject *parent = nullptr);
@@ -16,47 +19,62 @@ class FlatpakManager : public QObject {
     bool available() const {
         return m_available;
     }
+    QVariantList installedApps() const {
+        return m_installed;
+    }
+    bool loading() const {
+        return m_pendingOps > 0;
+    }
 
-    // Reads `flatpak list --app`. Each entry: {ref, branch, arch, installation}.
-    Q_INVOKABLE QVariantList installedApps();
+    // Kicks off `flatpak list --app`; emits installedAppsChanged on success.
+    Q_INVOKABLE void refresh();
 
-    // `flatpak info --show-permissions <ref>` parsed into nested map.
-    // Top-level keys mirror section names (e.g. "Context", "Session Bus Policy").
-    // Values for "Context" are themselves dicts (shared/sockets/devices/...).
-    // Values for the bus-policy sections map name -> "talk"|"own"|"none".
-    Q_INVOKABLE QVariantMap permissions(const QString &ref);
+    // Async fetch of effective permissions (flatpak info --show-permissions).
+    // Result delivered via permissionsReady(ref, perms). Cached -- second call
+    // for the same ref reuses the cache; call refresh() then requestPermissions()
+    // to force a re-read.
+    Q_INVOKABLE void requestPermissions(const QString &ref);
 
-    // Just the user override file at ~/.local/share/flatpak/overrides/<ref>.
-    // Same shape as permissions() but only contains keys the user has changed.
-    Q_INVOKABLE QVariantMap userOverrides(const QString &ref);
+    // Reads the user override file under ~/.local/share/flatpak/overrides/<ref>.
+    // Result delivered via userOverridesReady(ref, overrides). Fast (small file)
+    // but async-shaped for API consistency.
+    Q_INVOKABLE void requestUserOverrides(const QString &ref);
 
-    // `policy` is one of "allow" (talk), "own", or "none" (revoke).
-    // Empty policy resets the entry, letting the app's manifest default apply.
-    Q_INVOKABLE bool setTalkPolicy(const QString &ref, const QString &busName,
+    // `policy`: "allow" / "talk" -> --talk-name, "own" -> --own-name,
+    // "" or "none" -> --no-talk-name (revoke). Result via overrideApplied.
+    Q_INVOKABLE void setTalkPolicy(const QString &ref, const QString &busName,
                                    const QString &policy);
 
-    // `mode` is "rw", "ro", "create", or empty to remove a previously granted
-    // filesystem path. Path can be xdg-* token or absolute path.
-    Q_INVOKABLE bool setFilesystemPolicy(const QString &ref, const QString &path,
+    // `mode`: "rw" / "ro" / "create" -> --filesystem=path[:mode];
+    // "" -> --nofilesystem=path (revoke). Path can be xdg-* token or absolute.
+    Q_INVOKABLE void setFilesystemPolicy(const QString &ref, const QString &path,
                                          const QString &mode);
 
-    // Removes all user overrides for the app.
-    Q_INVOKABLE bool resetOverrides(const QString &ref);
+    // `flatpak override --user --reset <ref>` then emit overrideApplied.
+    Q_INVOKABLE void resetOverrides(const QString &ref);
 
-    // Invalidates the cached installedApps list so the next call re-shells.
-    Q_INVOKABLE void refresh();
+    // Whatever permissions() has fetched for this ref so far; empty if never.
+    Q_INVOKABLE QVariantMap cachedPermissions(const QString &ref) const;
 
   signals:
     void installedAppsChanged();
-    void overridesChanged(const QString &ref);
+    void loadingChanged();
+    void permissionsReady(const QString &ref, const QVariantMap &perms);
+    void userOverridesReady(const QString &ref, const QVariantMap &overrides);
+    void overrideApplied(const QString &ref, bool success);
 
   private:
-    bool         runFlatpak(const QStringList &args, QByteArray *stdOut = nullptr) const;
-    QVariantMap  parsePermissionsIni(const QString &iniText) const;
+    void                        startProcess(const QStringList                                   &args,
+                                             const std::function<void(bool, const QByteArray &)> &done);
+    QVariantMap                 parsePermissionsIni(const QString &iniText) const;
+    void                        beginOp();
+    void                        endOp();
+    void                        parseInstalled(const QByteArray &out);
 
-    QVariantList m_installedCache;
-    bool         m_installedCached = false;
-    bool         m_available;
+    QVariantList                m_installed;
+    QHash<QString, QVariantMap> m_permCache;
+    int                         m_pendingOps = 0;
+    bool                        m_available;
 };
 
 #endif
