@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QUrl>
+#include <qqml.h>
 
 class AudioManagerCpp;
 class HapticManager;
@@ -13,6 +14,8 @@ class QMediaPlayer;
 
 class AudioPolicyController : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(AudioPolicyControllerCpp)
+    QML_SINGLETON
 
   public:
     explicit AudioPolicyController(AudioManagerCpp *audioManager, SettingsManager *settings,

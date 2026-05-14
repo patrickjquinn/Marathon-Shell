@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QString>
 #include <QDateTime>
+#include <qqml.h>
 
 class Notification : public QObject {
     Q_OBJECT
@@ -72,6 +73,8 @@ class Notification : public QObject {
 
 class NotificationModel : public QAbstractListModel {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 

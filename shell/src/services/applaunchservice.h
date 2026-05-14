@@ -5,6 +5,7 @@
 #include <QVariantMap>
 #include <QPointer>
 #include <QHash>
+#include <qqml.h>
 
 class AppModel;
 class TaskModel;
@@ -16,6 +17,8 @@ class QWaylandXdgSurface;
 
 class AppLaunchService : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
 
     Q_PROPERTY(QObject *compositor READ compositor WRITE setCompositor NOTIFY compositorChanged)
     Q_PROPERTY(QObject *appWindow READ appWindow WRITE setAppWindow NOTIFY appWindowChanged)

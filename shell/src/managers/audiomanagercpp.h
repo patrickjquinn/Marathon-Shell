@@ -6,6 +6,7 @@
 #include <QTimer>
 
 #include <pulse/pulseaudio.h>
+#include <qqml.h>
 
 struct AudioStream {
     int     id;
@@ -44,6 +45,8 @@ class AudioStreamModel : public QAbstractListModel {
 
 class AudioManagerCpp : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
     Q_PROPERTY(bool available READ available NOTIFY availableChanged)
     Q_PROPERTY(double volume READ volume NOTIFY volumeChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY mutedChanged)

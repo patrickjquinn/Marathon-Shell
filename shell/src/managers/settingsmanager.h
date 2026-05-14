@@ -4,9 +4,12 @@
 #include <QSettings>
 #include <QVariant>
 #include <QStringList>
+#include <qqml.h>
 
 class SettingsManager : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(SettingsManagerCpp)
+    QML_SINGLETON
 
     Q_PROPERTY(qreal userScaleFactor READ userScaleFactor WRITE setUserScaleFactor NOTIFY
                    userScaleFactorChanged)

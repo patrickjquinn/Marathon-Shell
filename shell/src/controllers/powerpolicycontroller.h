@@ -2,12 +2,15 @@
 
 #include <QObject>
 #include <QVariantList>
+#include <qqml.h>
 
 class PowerManagerCpp;
 class DisplayManagerCpp;
 
 class PowerPolicyController : public QObject {
     Q_OBJECT
+    QML_NAMED_ELEMENT(PowerPolicyControllerCpp)
+    QML_SINGLETON
     Q_PROPERTY(int wakeLockCount READ wakeLockCount NOTIFY wakeLockCountChanged)
     Q_PROPERTY(bool hasActiveCalls READ hasActiveCalls WRITE setHasActiveCalls NOTIFY
                    hasActiveCallsChanged)

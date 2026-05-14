@@ -6,12 +6,15 @@
 #include <QSet>
 #include <QStringList>
 #include <QVariantMap>
+#include <qqml.h>
 
 class TaskModel;
 class AppLaunchService;
 
 class AppLifecycleManager : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_SINGLETON
 
   public:
     explicit AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
