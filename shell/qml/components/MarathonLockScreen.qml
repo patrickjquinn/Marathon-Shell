@@ -11,7 +11,6 @@ Item {
     id: lockScreen
 
     property real swipeProgress: 0
-    property string expandedCategory: ""
     property int idleTimeoutMs: 30000
     readonly property int roleIsRead: roleId("isRead")
     readonly property int roleAppId: roleId("appId")
@@ -20,6 +19,10 @@ Item {
     readonly property int roleTitle: roleId("title")
     readonly property int roleBody: roleId("body")
     readonly property int roleTimestamp: roleId("timestamp")
+    // Max notification cards shown directly; remainder collapse
+    // into the 'N more notifications · earlier today' card per
+    // the JSX LockScreen design.
+    readonly property int maxNotificationsShown: 2
 
     signal unlockRequested
     signal cameraLaunched
@@ -38,38 +41,55 @@ Item {
             idleTimer.restart();
     }
 
-    function updateCategories() {
-        var cats = {};
-        for (var i = 0; i < NotificationModel.rowCount(); i++) {
-            var idx = NotificationModel.index(i, 0);
-            var isRead = NotificationModel.data(idx, roleIsRead) || false;
-            if (isRead)
-                continue;
-
-            var appId = NotificationModel.data(idx, roleAppId) || "other";
-            var icon = NotificationModel.data(idx, roleIcon) || "bell";
-            if (!cats[appId])
-                cats[appId] = {
-                    "appId": appId,
-                    "icon": icon,
-                    "count": 0
-                };
-
-            cats[appId].count++;
-        }
-        categoriesModel.clear();
-        for (var cat in cats) {
-            categoriesModel.append(cats[cat]);
-        }
-        Logger.info("LockScreen", "Updated categories. Count: " + categoriesModel.count);
+    // Relative-time formatter for notification cards.
+    // Returns 'now' / 'Nm' / 'Nh' / clock-time for older today.
+    function relativeTime(ts) {
+        if (!ts)
+            return "";
+        const now = Date.now();
+        const diff = now - ts;
+        if (diff < 60 * 1000)
+            return "now";
+        if (diff < 60 * 60 * 1000)
+            return Math.floor(diff / 60000) + "m";
+        if (diff < 24 * 60 * 60 * 1000)
+            return Math.floor(diff / 3600000) + "h";
+        return Qt.formatTime(new Date(ts), "h:mm AP");
     }
+
+    // Rebuilds the visible-notifications model from the global
+    // NotificationModel — keeps only the first `maxNotificationsShown`
+    // unread items so the lock surface stays calm. The remainder are
+    // surfaced via the 'N more · earlier today' card.
+    function refreshNotifications() {
+        unreadModel.clear();
+        let unread = 0;
+        for (let i = 0; i < NotificationModel.rowCount(); i++) {
+            const idx = NotificationModel.index(i, 0);
+            if (NotificationModel.data(idx, roleIsRead))
+                continue;
+            if (unread < maxNotificationsShown) {
+                unreadModel.append({
+                    "notifId": NotificationModel.data(idx, roleIdValue) || 0,
+                    "appId": NotificationModel.data(idx, roleAppId) || "other",
+                    "icon": NotificationModel.data(idx, roleIcon) || "bell",
+                    "title": NotificationModel.data(idx, roleTitle) || "",
+                    "body": NotificationModel.data(idx, roleBody) || "",
+                    "timestamp": NotificationModel.data(idx, roleTimestamp) || 0
+                });
+            }
+            unread++;
+        }
+        moreCount = Math.max(0, unread - maxNotificationsShown);
+    }
+
+    property int moreCount: 0
 
     anchors.fill: parent
     visible: opacity > 0.01
     onVisibleChanged: {
         if (visible) {
-            Logger.info("LockScreen", "Lock screen visible - refreshing categories");
-            lockScreen.updateCategories();
+            lockScreen.refreshNotifications();
             SessionStore.isOnLockScreen = true;
         } else {
             SessionStore.isOnLockScreen = false;
@@ -77,10 +97,9 @@ Item {
     }
     Component.onCompleted: {
         if (visible) {
-            Logger.info("LockScreen", "Lock screen created visible - setting initial state");
             console.log("[LockScreen] SessionStore.isLocked =", SessionStore.isLocked);
             SessionStore.isOnLockScreen = true;
-            lockScreen.updateCategories();
+            lockScreen.refreshNotifications();
         }
     }
     layer.enabled: true
@@ -106,14 +125,11 @@ Item {
     Connections {
         function onNotificationReceived(notification) {
             if (lockScreen.visible) {
-                Logger.info("LockScreen", "New notification while on lock screen: " + notification.title);
-                if (!DisplayPolicyControllerCpp.screenOn) {
+                Logger.info("LockScreen", "New notification: " + notification.title);
+                if (!DisplayPolicyControllerCpp.screenOn)
                     DisplayPolicyControllerCpp.turnScreenOn();
-                }
-                var appId = notification.appId || "other";
-                expandedCategory = appId;
                 resetIdleTimer();
-                Logger.info("LockScreen", "Auto-expanded category: " + appId);
+                lockScreen.refreshNotifications();
             }
         }
 
@@ -134,13 +150,20 @@ Item {
         target: DisplayManagerCpp
     }
 
+    // Visible-cards model — populated by refreshNotifications().
     ListModel {
-        id: categoriesModel
+        id: unreadModel
     }
 
     Connections {
         function onCountChanged() {
-            lockScreen.updateCategories();
+            lockScreen.refreshNotifications();
+        }
+        function onModelReset() {
+            lockScreen.refreshNotifications();
+        }
+        function onDataChanged() {
+            lockScreen.refreshNotifications();
         }
 
         target: NotificationModel
@@ -155,17 +178,6 @@ Item {
 
         WallpaperSlateAurora {
             anchors.fill: parent
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            z: 1
-            enabled: expandedCategory !== ""
-            onClicked: {
-                expandedCategory = "";
-                resetIdleTimer();
-                Logger.info("LockScreen", "Notifications dismissed");
-            }
         }
 
         MarathonStatusBar {
@@ -245,402 +257,136 @@ Item {
                     }
                 }
             }
-
-            states: State {
-                name: "hasNotifications"
-                when: categoriesModel.count > 0
-
-                AnchorChanges {
-                    target: clockColumn
-                    anchors.verticalCenter: undefined
-                    anchors.top: parent.top
-                }
-
-                PropertyChanges {
-                    clockColumn.anchors.topMargin: Math.round(80 * Constants.scaleFactor)
-                    clockColumn.anchors.verticalCenterOffset: 0
-                }
-            }
-
-            transitions: Transition {
-                AnchorAnimation {
-                    duration: 300
-                    easing.type: Easing.OutCubic
-                }
-
-                NumberAnimation {
-                    properties: "anchors.topMargin,anchors.verticalCenterOffset"
-                    duration: 300
-                    easing.type: Easing.OutCubic
-                }
-            }
         }
 
-        Item {
-            id: notificationContainer
+        // ── Notification stack ──────────────────────────────
+        // Per screens-shell.jsx:84-147 LockScreen() — at top:420 in the
+        // 844-tall canvas, anchored 18 left/right. 2-3 most-recent
+        // unread cards stacked at 8 px gap. If unread > maxShown, an
+        // 'N more · earlier today' collapse card sits at the bottom.
+        Column {
+            id: notificationStack
 
-            anchors.top: clockColumn.bottom
-            anchors.topMargin: Constants.spacingMedium
-            anchors.bottom: parent.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            visible: categoriesModel.count > 0
+            anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.top: parent.top
+            anchors.topMargin: Math.round(420 * Constants.scaleFactor)
+            spacing: 8
+            visible: unreadModel.count > 0 || lockScreen.moreCount > 0
             z: 10
-            onYChanged: Logger.debug("LockScreen", "NotificationContainer Y changed to: " + y)
 
-            Column {
-                id: categoryIcons
+            Repeater {
+                model: unreadModel
 
-                anchors.left: parent.left
-                anchors.leftMargin: Constants.spacingMedium
-                anchors.top: categoriesModel.count <= 3 ? parent.top : undefined
-                anchors.topMargin: categoriesModel.count <= 3 ? Math.round(20 * Constants.scaleFactor) : 0
-                anchors.verticalCenter: categoriesModel.count > 3 ? parent.verticalCenter : undefined
-                spacing: Constants.spacingLarge
-                z: 100
+                delegate: Rectangle {
+                    required property int index
+                    required property int notifId
+                    required property string appId
+                    required property string icon
+                    required property string title
+                    required property string body
+                    required property var timestamp
 
-                Repeater {
-                    model: categoriesModel
-
-                    delegate: Item {
-                        property string category: model.appId
-                        property bool isActive: expandedCategory === category
-
-                        width: Math.round(56 * Constants.scaleFactor)
-                        height: Math.round(56 * Constants.scaleFactor)
-
-                        Rectangle {
-                            id: categoryIconBg
-
-                            width: Math.round(48 * Constants.scaleFactor)
-                            height: Math.round(48 * Constants.scaleFactor)
-                            radius: Math.round(24 * Constants.scaleFactor)
-                            color: isActive ? MColors.elevated : MColors.surface
-                            border.width: 1
-                            border.color: isActive ? MColors.accent : "#3A3A3A"
-                            anchors.centerIn: parent
-                            antialiasing: true
-                            layer.enabled: true
-
-                            Icon {
-                                name: model.icon
-                                size: 24
-                                color: MColors.textPrimary
-                                anchors.centerIn: parent
-                            }
-
-                            Rectangle {
-                                visible: model.count > 0
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.rightMargin: Math.round(-4 * Constants.scaleFactor)
-                                anchors.topMargin: Math.round(-4 * Constants.scaleFactor)
-                                width: Math.round(20 * Constants.scaleFactor)
-                                height: Math.round(20 * Constants.scaleFactor)
-                                radius: Math.round(10 * Constants.scaleFactor)
-                                color: MColors.accent
-                                border.width: 2
-                                border.color: MColors.background
-                                antialiasing: true
-
-                                Text {
-                                    text: model.count
-                                    color: "white"
-                                    font.pixelSize: MTypography.sizeXSmall
-                                    font.weight: Font.Bold
-                                    anchors.centerIn: parent
-                                    renderType: Text.NativeRendering
-                                }
-                            }
-
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#000000"
-                                shadowOpacity: 0.5
-                                shadowBlur: 0.5
-                                shadowVerticalOffset: 2
-                                shadowHorizontalOffset: 1
-                            }
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 200
-                                }
-                            }
-
-                            Behavior on border.color {
-                                ColorAnimation {
-                                    duration: 200
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                HapticManager.light();
-                                resetIdleTimer();
-                                if (expandedCategory === category) {
-                                    expandedCategory = "";
-                                    Logger.info("LockScreen", "Collapsed category: " + category);
-                                } else {
-                                    expandedCategory = category;
-                                    Logger.info("LockScreen", "Expanded category: " + category);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Item {
-                id: lineAndChevron
-
-                function calculateChevronY() {
-                    var activeIndex = -1;
-                    for (var i = 0; i < categoriesModel.count; i++) {
-                        if (categoriesModel.get(i).appId === expandedCategory) {
-                            activeIndex = i;
-                            break;
-                        }
-                    }
-                    if (activeIndex === -1)
-                        activeIndex = 0;
-
-                    var itemHeight = Math.round(56 * Constants.scaleFactor);
-                    var itemSpacing = Math.round(20 * Constants.scaleFactor);
-                    var yPos = activeIndex * (itemHeight + itemSpacing) + Math.round(20 * Constants.scaleFactor);
-                    Logger.info("LockScreen", "Chevron Y calculated: " + yPos + " for category: " + expandedCategory + " at index: " + activeIndex);
-                    return yPos;
-                }
-
-                visible: expandedCategory !== ""
-                anchors.left: categoryIcons.right
-                anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-                anchors.top: categoryIcons.top
-                anchors.bottom: categoryIcons.bottom
-                width: Math.round(24 * Constants.scaleFactor)
-                z: 50
-
-                Connections {
-                    function onExpandedCategoryChanged() {
-                        chevronCanvas.y = lineAndChevron.calculateChevronY();
-                        topLineSegment.height = chevronCanvas.y;
-                        bottomLineSegment.anchors.topMargin = chevronCanvas.y + Math.round(16 * Constants.scaleFactor);
-                    }
-
-                    target: lockScreen
-                }
-
-                Rectangle {
-                    id: topLineSegment
-
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    width: Math.round(2 * Constants.scaleFactor)
-                    height: Math.round(20 * Constants.scaleFactor)
-                    color: "white"
-                    opacity: 0.6
-                    layer.enabled: true
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-                }
-
-                Canvas {
-                    id: chevronCanvas
-
-                    anchors.right: topLineSegment.horizontalCenter
-                    y: Math.round(20 * Constants.scaleFactor)
-                    width: Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(16 * Constants.scaleFactor)
-                    layer.enabled: true
-                    onYChanged: {
-                        Logger.info("LockScreen", "Chevron Y changed to: " + y);
-                        requestPaint();
-                    }
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-                        ctx.strokeStyle = "white";
-                        ctx.lineWidth = 2;
-                        ctx.globalAlpha = 0.6;
-                        ctx.beginPath();
-                        ctx.moveTo(width, 0);
-                        ctx.lineTo(0, height / 2);
-                        ctx.lineTo(width, height);
-                        ctx.stroke();
-                    }
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-                }
-
-                Rectangle {
-                    id: bottomLineSegment
-
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.topMargin: Math.round(36 * Constants.scaleFactor)
-                    anchors.bottom: parent.bottom
-                    width: Math.round(2 * Constants.scaleFactor)
-                    color: "white"
-                    opacity: 0.6
-                    layer.enabled: true
-
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: "#000000"
-                        shadowOpacity: 0.6
-                        shadowBlur: 0.4
-                        shadowVerticalOffset: 1
-                        shadowHorizontalOffset: 1
-                    }
-                }
-            }
-
-            ListView {
-                id: notificationList
-
-                function updateFilteredNotifications() {
-                    filteredNotificationsModel.clear();
-                    if (expandedCategory === "")
-                        return;
-
-                    for (var i = 0; i < NotificationModel.rowCount(); i++) {
-                        var idx = NotificationModel.index(i, 0);
-                        var isRead = NotificationModel.data(idx, roleIsRead) || false;
-                        if (isRead)
-                            continue;
-
-                        var appId = NotificationModel.data(idx, roleAppId) || "other";
-                        if (appId === expandedCategory)
-                            filteredNotificationsModel.append({
-                                "notifId": NotificationModel.data(idx, roleIdValue),
-                                "title": NotificationModel.data(idx, roleTitle),
-                                "body": NotificationModel.data(idx, roleBody),
-                                "timestamp": NotificationModel.data(idx, roleTimestamp)
-                            });
-                    }
-                }
-
-                visible: expandedCategory !== ""
-                anchors.left: lineAndChevron.right
-                anchors.leftMargin: Math.round(4 * Constants.scaleFactor)
-                anchors.right: parent.right
-                anchors.rightMargin: Math.round(16 * Constants.scaleFactor)
-                anchors.top: categoryIcons.top
-                anchors.topMargin: Math.round(-8 * Constants.scaleFactor)
-                height: Math.min(count * Math.round(80 * Constants.scaleFactor), parent.height * 0.5)
-                spacing: Constants.spacingSmall
-                clip: true
-                z: 40
-                onVisibleChanged: {
-                    if (visible)
-                        updateFilteredNotifications();
-                }
-
-                Connections {
-                    function onExpandedCategoryChanged() {
-                        notificationList.updateFilteredNotifications();
-                    }
-
-                    target: lockScreen
-                }
-
-                Connections {
-                    function onCountChanged() {
-                        if (notificationList.visible)
-                            notificationList.updateFilteredNotifications();
-                    }
-
-                    target: NotificationModel
-                }
-
-                model: ListModel {
-                    id: filteredNotificationsModel
-                }
-
-                delegate: Item {
-                    width: notificationList.width
-                    height: Math.round(70 * Constants.scaleFactor)
+                    width: notificationStack.width
+                    height: Math.max(60, cardContent.implicitHeight + 24)
+                    radius: MRadius.md   // 4 — DS default
+                    color: MColors.bb10Elevated   // elev-2
+                    border.width: 1
+                    border.color: MColors.whiteOverlay08
 
                     Row {
+                        id: cardContent
                         anchors.fill: parent
-                        anchors.margins: Constants.spacingMedium
-                        spacing: 0
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 14
+                        anchors.topMargin: 12
+                        anchors.bottomMargin: 12
+                        spacing: 12
 
-                        Column {
-                            width: parent.width - timestampText.width - Constants.spacingMedium
+                        // Icon container — 32 × 32, radius 4. Calendar uses
+                        // a tealBorder variant per the JSX; default is a
+                        // quiet two-stop neutral gradient.
+                        Rectangle {
+                            id: iconBay
+                            width: 32
+                            height: 32
+                            radius: MRadius.md
+                            border.width: 1
+                            border.color: appId === "calendar" ? MColors.tealBorder : MColors.whiteOverlay08
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: Math.round(4 * Constants.scaleFactor)
 
-                            Text {
-                                text: model.title || ""
-                                color: "white"
-                                font.pixelSize: MTypography.sizeBody
-                                font.weight: Font.Bold
-                                font.family: MTypography.fontFamily
-                                elide: Text.ElideRight
-                                width: parent.width
-                                renderType: Text.NativeRendering
-                                layer.enabled: true
-
-                                layer.effect: MultiEffect {
-                                    shadowEnabled: true
-                                    shadowColor: "#80000000"
-                                    shadowBlur: 0.4
-                                    shadowVerticalOffset: 2
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0
+                                    color: appId === "calendar" ? MColors.bb10Surface : MColors.bb10Elevated
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: MColors.bb10Card
                                 }
                             }
 
-                            Text {
-                                text: model.body || ""
-                                color: "#E0FFFFFF"
-                                font.pixelSize: MTypography.sizeSmall
-                                font.family: MTypography.fontFamily
-                                elide: Text.ElideRight
-                                width: parent.width
-                                renderType: Text.NativeRendering
-                                layer.enabled: true
-
-                                layer.effect: MultiEffect {
-                                    shadowEnabled: true
-                                    shadowColor: "#80000000"
-                                    shadowBlur: 0.3
-                                    shadowVerticalOffset: 1
-                                }
+                            Icon {
+                                anchors.centerIn: parent
+                                name: icon
+                                size: 16
+                                color: appId === "calendar" ? MColors.marathonTealBright : MColors.textPrimary
                             }
                         }
 
-                        Text {
-                            id: timestampText
-
-                            text: Qt.formatTime(new Date(model.timestamp), "h:mm AP")
-                            color: "#B0FFFFFF"
-                            font.pixelSize: MTypography.sizeSmall
-                            font.family: MTypography.fontFamily
+                        // Content column — title row + body text. Layout
+                        // mirrors the JSX exactly (name 13/600 + time 11
+                        // /secondary on the same row, body 13/primary
+                        // below).
+                        Column {
                             anchors.verticalCenter: parent.verticalCenter
-                            renderType: Text.NativeRendering
-                            layer.enabled: true
+                            width: parent.width - iconBay.width - parent.spacing
+                            spacing: 2
 
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true
-                                shadowColor: "#80000000"
-                                shadowBlur: 0.3
-                                shadowVerticalOffset: 1
+                            Item {
+                                width: parent.width
+                                height: nameText.implicitHeight
+
+                                Text {
+                                    id: nameText
+                                    anchors.left: parent.left
+                                    anchors.right: timeText.left
+                                    anchors.rightMargin: 8
+                                    text: title
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.weight: MTypography.weightDemiBold
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    id: timeText
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: nameText.verticalCenter
+                                    text: lockScreen.relativeTime(timestamp)
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.weight: MTypography.weightMedium
+                                    font.features: ({
+                                            "tnum": 1
+                                        })
+                                }
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: body
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                font.weight: MTypography.weightRegular
+                                elide: Text.ElideRight
+                                maximumLineCount: 2
+                                wrapMode: Text.WordWrap
+                                visible: text.length > 0
                             }
                         }
                     }
@@ -649,20 +395,65 @@ Item {
                         anchors.fill: parent
                         onClicked: {
                             HapticManager.light();
-                            resetIdleTimer();
-                            Logger.info("LockScreen", "Notification tapped: " + model.title);
-                            var notifId = model.notifId || 0;
-                            var appId = "";
-                            for (var i = 0; i < NotificationModel.rowCount(); i++) {
-                                var idx = NotificationModel.index(i, 0);
-                                var id = NotificationModel.data(idx, roleIdValue);
-                                if (id === notifId) {
-                                    appId = NotificationModel.data(idx, roleAppId) || "";
-                                    break;
-                                }
-                            }
-                            notificationTapped(notifId, appId, model.title);
+                            lockScreen.notificationTapped(notifId, appId, title);
                         }
+                    }
+                }
+            }
+
+            // 'N more notifications · earlier today' collapse card —
+            // shown when more unread exist than the stack displays.
+            Rectangle {
+                width: notificationStack.width
+                height: 44
+                radius: MRadius.md
+                color: MColors.bb10Elevated
+                border.width: 1
+                border.color: MColors.whiteOverlay08
+                visible: lockScreen.moreCount > 0
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    spacing: 12
+
+                    Rectangle {
+                        width: 28
+                        height: 28
+                        radius: MRadius.md
+                        color: MColors.bb10Card
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "bell"
+                            size: 14
+                            color: MColors.textPrimary
+                        }
+                    }
+
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 28 - parent.spacing - 18
+                        height: collapseLabel.implicitHeight
+
+                        Text {
+                            id: collapseLabel
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeCaption
+                            textFormat: Text.RichText
+                            text: '<span style="color: ' + MColors.textPrimary + '">' + lockScreen.moreCount + ' more notification' + (lockScreen.moreCount === 1 ? '' : 's') + '</span>' + ' · earlier today'
+                        }
+                    }
+
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "chevron-down"
+                        size: 14
+                        color: MColors.textTertiary
                     }
                 }
             }
@@ -800,7 +591,6 @@ Item {
                     unlockTimer.start();
                 } else {
                     swipeProgress = 0;
-                    expandedCategory = "";
                 }
             } else {
                 Logger.info("LockScreen", "Tap detected (no drag), x=" + mouse.x + ", y=" + mouse.y);
