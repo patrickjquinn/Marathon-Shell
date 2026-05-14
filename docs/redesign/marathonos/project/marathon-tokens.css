@@ -1,0 +1,603 @@
+/* ============================================================
+   MARATHON OS — design tokens
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@100;200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Surface ramp (BlackBerry-10 lineage) */
+  --bb10-black:    #040404;
+  --bb10-deep:     #070707;
+  --bb10-surface:  #0d0d0e;
+  --bb10-elevated: #161718;
+  --bb10-card:     #1a1b1c;
+
+  /* Elevation steps */
+  --elev-0: #040404;
+  --elev-1: #0a0a0b;
+  --elev-2: #121213;
+  --elev-3: #1c1c1d;
+  --elev-4: #282829;
+  --elev-5: #353536;
+
+  /* Teal — the only accent */
+  --teal-darkest: #006b5d;
+  --teal-dark:    #00897b;
+  --teal:         #00bfa5;
+  --teal-bright:  #1de9b6;
+  --teal-glow:    #5dffdc;
+
+  --teal-border:        rgba(0, 191, 165, 0.35);
+  --teal-border-hover:  rgba(0, 191, 165, 0.55);
+  --teal-halo:          rgba(0, 191, 165, 0.18);
+
+  /* Primary button gradient */
+  --teal-gradient: linear-gradient(180deg, #1de9b6 0%, #00bfa5 50%, #00897b 100%);
+
+  /* Text */
+  --text-primary:    #f5f5f5;
+  --text-secondary:  #6a6a6a;
+  --text-tertiary:   #4a4a4a;
+  --text-hint:       #2a2a2a;
+  --text-on-accent:  #000000;
+
+  /* Glass */
+  --glass-titlebar:  rgba(13, 13, 14, 0.72);
+  --glass-tabbar:    rgba(16, 16, 17, 0.78);
+  --glass-actionbar: rgba(11, 11, 12, 0.82);
+  --glass-header:    rgba(18, 18, 19, 0.85);
+
+  --border-glass:        rgba(255, 255, 255, 0.06);
+  --border-glass-strong: rgba(255, 255, 255, 0.10);
+  --border-dark:         rgba(0, 0, 0, 1);
+
+  /* Semantic — used sparingly.
+     Reserved palette:
+     • --error: ONLY for destructive UI (Decline call, delete confirmations).
+       Not a tint, not a status accent. Use teal for accents.
+     • Brand has no warning/success/info hues — surface those states with
+       neutrals + the teal accent. */
+  --error:       #EF4444;
+  --error-dim:   #B91C1C;
+
+  /* Secondary muted palette — used SPARINGLY where color is functional, not
+     decorative. Each hue stays heavily desaturated (S~40, L~50) so it sits
+     calmly alongside the teal brand and never competes. Examples of right use:
+       • Maps: water + parks need real-world signifier hues
+       • Health rings: three rings must be distinguishable at a glance
+       • Privacy/permissions: camera/mic/location are SAFETY semantics
+       • Avatar variety: monograms read faster with subtle hue cues
+     Never use these for product chrome, hover states, or accents. */
+  --sec-blue:   #3a6b9c;   /* maps water, info, "Sleep" focus */
+  --sec-blue-d: #1f3a5c;
+  --sec-green:  #4a8a5e;   /* maps parks, Move ring, signal-good */
+  --sec-amber:  #c89545;   /* camera permission, "use caution" */
+  --sec-rose:   #a85968;   /* mic permission, Activity stand ring */
+  --sec-violet: #6b5d8f;   /* mentions, Linear, categorical chip */
+
+  /* White / black overlays */
+  --w-02: rgba(255, 255, 255, 0.02);
+  --w-04: rgba(255, 255, 255, 0.04);
+  --w-06: rgba(255, 255, 255, 0.06);
+  --w-08: rgba(255, 255, 255, 0.08);
+  --w-12: rgba(255, 255, 255, 0.12);
+  --w-16: rgba(255, 255, 255, 0.16);
+  --w-24: rgba(255, 255, 255, 0.24);
+  --w-40: rgba(255, 255, 255, 0.40);
+  --k-15: rgba(0, 0, 0, 0.15);
+  --k-40: rgba(0, 0, 0, 0.40);
+  --k-70: rgba(0, 0, 0, 0.70);
+
+  /* Spacing — five point grid */
+  --xs:  5px;
+  --sm:  10px;
+  --md:  16px;
+  --lg:  20px;
+  --xl:  32px;
+  --xxl: 40px;
+
+  --touch-min:    45px;
+  --touch-small:  60px;
+  --touch-med:    70px;
+  --touch-large:  90px;
+
+/* ============================================================
+   TYPE SCALE — 2026 best-practice rebuild
+   2-tier hierarchy, generous line-height, tabular numerics.
+   Map roughly: iOS Body 17 / Subhead 15 / Footnote 13 / Caption 12.
+   ============================================================ */
+  /* Type scale — exposed as tokens so screens can refer to the same
+     values documented in the design system. Match the DS Type spec:
+     Display 96 · Title L 48 · Title 1 34 · Title 2 28 · Title 3 22
+     Headline 17 · Body 17 · Callout 16 · Subhead 15 · Footnote 13
+     Caption 12 · Eyebrow 11 · Mono 13 */
+  --type-display:  96px;
+  --type-title-l:  48px;
+  --type-title-1:  34px;
+  --type-title-2:  28px;
+  --type-title-3:  22px;
+  --type-headline: 17px;
+  --type-body:     17px;
+  --type-callout:  16px;
+  --type-subhead:  15px;
+  --type-footnote: 13px;
+  --type-caption:  12px;
+  --type-eyebrow:  11px;
+  --type-mono:     13px;
+
+  /* canonical text sizes (legacy aliases — kept for backward compat) */
+  --t-caption:  12px;
+  --t-footnote: 13px;
+  --t-subhead:  15px;
+  --t-body:     17px;
+  --t-callout:  16px;
+  --t-headline: 17px;
+  --t-title3:   20px;
+  --t-title2:   22px;
+  --t-title1:   28px;
+  --t-title-l:  34px;
+  --t-display:  40px;
+  --t-gigantic: 96px;
+
+  /* Radius — sharp! */
+  --r-none: 0;
+  --r-sm:   2px;
+  --r-md:   4px;
+  --r-lg:   6px;
+  --r-xl:   8px;
+  --r-full: 999px;
+
+  /* Motion */
+  --t-micro:    80ms;
+  --t-quick:    160ms;
+  --t-mod:      240ms;
+  --ease-std:   cubic-bezier(0.2, 0, 0.2, 1);
+  --ease-dec:   cubic-bezier(0, 0, 0.2, 1);
+  --ease-acc:   cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Font stacks */
+  --font-ui:   'Sora', 'Helvetica Neue', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ---------- Reset within each phone artboard ---------- */
+.phone, .phone * {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   PHONE FRAME — the artboard surface
+   ============================================================ */
+.phone {
+  width: 390px;
+  height: 844px;
+  background: var(--bb10-black);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--t-body);
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+  user-select: none;
+}
+
+/* signature subtle diagonal wallpaper streaks visible on lock + home */
+.phone-wallpaper {
+  position: absolute;
+  inset: 0;
+  background:
+    /* bottom-left glow */
+    radial-gradient(ellipse 380px 280px at -10% 105%, rgba(0,137,123,0.28), transparent 60%),
+    /* top-right faint glow */
+    radial-gradient(ellipse 200px 180px at 110% 0%, rgba(0,137,123,0.10), transparent 70%),
+    /* diagonal slashes */
+    linear-gradient(115deg, transparent 18%, rgba(255,255,255,0.025) 18.2%, transparent 19%),
+    linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.018) 35.2%, transparent 36%),
+    linear-gradient(115deg, transparent 62%, rgba(255,255,255,0.022) 62.2%, transparent 63%),
+    linear-gradient(115deg, transparent 80%, rgba(255,255,255,0.015) 80.2%, transparent 81%),
+    var(--bb10-black);
+  pointer-events: none;
+}
+
+/* ============================================================
+   STATUS BAR
+   ============================================================ */
+.status-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: var(--glass-titlebar);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-glass);
+  z-index: 50;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
+}
+.status-bar .sb-left, .status-bar .sb-right {
+  display: flex; align-items: center; gap: 8px;
+  line-height: 1;
+}
+.status-bar .sb-center {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 400;
+  font-feature-settings: 'tnum';
+}
+.status-bar svg { display: block; }
+
+/* ============================================================
+   HOME INDICATOR
+   ============================================================ */
+.home-indicator {
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 4px;
+  background: var(--w-40);
+  border-radius: var(--r-full);
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* ============================================================
+   DOCK (bottom edge — like the BB10 dock w/ phone + camera)
+   ============================================================ */
+.dock {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px 16px;
+  z-index: 40;
+  color: var(--text-primary);
+}
+.dock-side { display: flex; align-items: center; gap: 10px; }
+.dock-icon {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dock-center {
+  display: flex; align-items: center; gap: 18px;
+}
+.dock-center .dot { width: 6px; height: 6px; border-radius: var(--r-full); background: var(--w-24); }
+.dock-center .dot.active { background: #fff; width: 24px; height: 24px; border-radius: var(--r-full); display:flex; align-items:center; justify-content:center; color: #000; font-size: 11px; font-weight: 600;}
+
+/* ============================================================
+   TOP BAR — larger, more breathing room (iOS large-title style)
+   ============================================================ */
+.top-bar {
+  position: relative;
+  height: 96px;
+  padding: 0 20px 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  background: var(--glass-titlebar);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border-glass);
+  z-index: 10;
+}
+.top-bar::after {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0;
+  height: 1px;
+  background: var(--w-04);
+  pointer-events: none;
+}
+.top-bar .title {
+  font-size: 34px;
+  font-weight: 200;
+  letter-spacing: -0.8px;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.top-bar .actions { display: flex; gap: 14px; align-items: center; color: var(--text-secondary); }
+
+/* ============================================================
+   TAB BAR — bottom app navigation (anchored to phone bottom)
+   ============================================================ */
+.tab-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 70px;
+  display: flex;
+  align-items: stretch;
+  background: var(--glass-tabbar);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border-glass);
+  z-index: 5;
+}
+.tab {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  position: relative;
+  transition: color var(--t-quick) var(--ease-std);
+}
+.tab.active { color: var(--text-primary); }
+.tab.active::before {
+  content: '';
+  position: absolute; top: 0; left: 12%; right: 12%;
+  height: 2px;
+  background: var(--teal-gradient);
+}
+.tab.active::after {
+  content: '';
+  position: absolute; top: 2px; left: 20%; right: 20%;
+  height: 28px;
+  background: radial-gradient(ellipse at center top, rgba(29,233,182,0.28), transparent 70%);
+  pointer-events: none;
+}
+
+/* ============================================================
+   BUTTON — primary, secondary, ghost
+   ============================================================ */
+.m-btn {
+  height: 45px;
+  padding: 0 18px;
+  border-radius: var(--r-md);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform var(--t-quick) var(--ease-spring), filter var(--t-quick);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.m-btn:active { transform: scale(0.96); }
+
+.m-btn.primary {
+  background: var(--teal-gradient);
+  color: #000;
+  border-color: var(--teal-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 0 0 1px var(--teal-border),
+    0 8px 24px -8px rgba(0,191,165,0.5);
+}
+.m-btn.secondary {
+  background: var(--bb10-surface);
+  color: var(--text-primary);
+  border-color: var(--w-08);
+  box-shadow: inset 0 1px 0 var(--w-04);
+}
+.m-btn.ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--w-08);
+}
+.m-btn.danger {
+  background: var(--bb10-surface);
+  color: var(--error);
+  border-color: rgba(239,68,68,0.3);
+}
+
+/* ============================================================
+   CARD — milled glass with double-edge stroke
+   ============================================================ */
+.m-card {
+  background: var(--elev-2);
+  border-radius: var(--r-md);
+  position: relative;
+  box-shadow:
+    0 0 0 1px var(--border-dark),
+    inset 0 1px 0 var(--w-06),
+    0 6px 18px -8px rgba(0,0,0,0.6);
+}
+.m-card.elev-3 { background: var(--elev-3); }
+.m-card.elev-4 { background: var(--elev-4); }
+
+/* ============================================================
+   LIST ROW — cleaner, touch-target compliant (≥60px)
+   ============================================================ */
+.m-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  min-height: 60px;
+  position: relative;
+  cursor: pointer;
+  transition: background var(--t-quick);
+}
+.m-row + .m-row { border-top: 1px solid var(--w-04); }
+.m-row:hover { background: var(--w-02); }
+.m-row .row-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r-md);
+  background: var(--elev-3);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.m-row .row-text { flex: 1; min-width: 0; }
+.m-row .row-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+  letter-spacing: -0.1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.m-row .row-subtitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: 0.1px;
+}
+.m-row .row-value {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1px;
+}
+.m-row .row-chev {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  display: flex; align-items: center;
+}
+
+/* ============================================================
+   TOGGLE
+   ============================================================ */
+.m-toggle {
+  width: 44px; height: 26px;
+  border-radius: var(--r-full);
+  background: var(--elev-3);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid var(--w-04);
+  transition: background var(--t-quick);
+}
+.m-toggle::after {
+  content: '';
+  position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: var(--r-full);
+  background: #d0d0d0;
+  transition: transform var(--t-quick) var(--ease-std), background var(--t-quick);
+}
+.m-toggle.on {
+  background: var(--teal);
+  border-color: var(--teal-border);
+  box-shadow: 0 0 12px var(--teal-halo);
+}
+.m-toggle.on::after {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+/* ============================================================
+   BADGES / CHIPS
+   ============================================================ */
+.m-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  background: var(--teal-bright);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: var(--r-md);
+  letter-spacing: 0.2px;
+}
+.m-chip.muted { background: var(--elev-3); color: var(--text-primary); }
+.m-chip.danger { background: var(--error); color: #fff; }
+
+.m-badge {
+  min-width: 18px; height: 18px;
+  padding: 0 6px;
+  border-radius: var(--r-full);
+  background: var(--teal-bright);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+.m-input {
+  width: 100%;
+  height: 45px;
+  background: var(--bb10-surface);
+  border: 1px solid var(--w-04);
+  border-radius: var(--r-md);
+  padding: 0 14px;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  box-shadow: inset 0 1px 0 var(--w-02);
+}
+.m-input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px var(--teal-halo), inset 0 1px 0 var(--w-02);
+}
+.m-input::placeholder { color: var(--text-hint); }
+
+/* ============================================================
+   APP ICON helpers (for home grid)
+   ============================================================ */
+.app-icon {
+  width: 64px; height: 64px;
+  border-radius: 14px;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 28px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.15),
+    0 8px 16px -6px rgba(0,0,0,0.7);
+}
+.app-tile {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px;
+  width: 78px;
+}
+.app-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: center;
+  letter-spacing: 0.1px;
+}
+
+/* ============================================================
+   SCREEN HEADING (the airy XXLarge weight-light look)
+   ============================================================ */
+.screen-heading {
+  font-size: 34px;
+  font-weight: 200;
+  letter-spacing: -0.8px;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* monospaced */
+.mono { font-family: var(--font-mono); }
+
+/* utility hides scrollbars (artboards are static) */
+.no-scroll { overflow: hidden; }
+
+/* divider line */
+.hr {
+  height: 1px;
+  background: var(--w-04);
+  border: 0;
+  margin: 0;
+}
