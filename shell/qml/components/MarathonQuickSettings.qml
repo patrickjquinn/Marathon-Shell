@@ -85,9 +85,13 @@ Rectangle {
             width: parent.width
             spacing: 10
 
+            // Marathon lockup — 20 px teal-gradient bay + black M
+            // glyph per JSX QuickSettings(). Bay radius is 3 (one step
+            // off the squircle 14 to read more like a glyph than an
+            // app tile).
             Rectangle {
-                width: 18
-                height: 18
+                width: 20
+                height: 20
                 radius: 3
                 anchors.verticalCenter: parent.verticalCenter
                 gradient: Gradient {
@@ -106,17 +110,20 @@ Rectangle {
                 Text {
                     anchors.centerIn: parent
                     text: "M"
-                    color: "#000000"
+                    color: MColors.elev0
                     font.family: MTypography.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     font.weight: MTypography.weightBlack
                 }
             }
+            // 'MARATHON' eyebrow — DS Eyebrow role (11/700/+2 tracking,
+            // textPrimary on this surface since the lockup is the
+            // brand). Was sizeCaption (12) which is one role too large.
             Text {
                 text: "MARATHON"
-                color: MColors.textSecondary
+                color: MColors.textPrimary
                 font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeCaption
+                font.pixelSize: MTypography.sizeEyebrow
                 font.weight: MTypography.weightBold
                 font.letterSpacing: 2
                 font.capitalization: Font.AllUppercase
@@ -140,11 +147,13 @@ Rectangle {
         }
 
         // ── Sliders ──────────────────────────────────────────
+        // DS-spec card: elev-2 fill, whiteOverlay04 border + inner
+        // highlight, 4 px radius, padding 12 14.
         Rectangle {
             width: parent.width
             height: brightness.height + volume.height + slidersDivider.height + 24
             radius: MRadius.md
-            color: MColors.bb10Elevated
+            color: MColors.elev2
             border.width: 1
             border.color: MColors.whiteOverlay04
 
@@ -215,10 +224,18 @@ Rectangle {
             }
         }
 
-        // ── Page indicator (single page for now) ─────────────
+        // ── Page indicator ──────────────────────────────────
+        // Matches the JSX QuickSettings() spec: an 18 × 4 tealBright
+        // pill for the active page + N - 1 dim 4 × 4 dots for the
+        // remaining pages. Currently the tile array holds a single
+        // page's worth of tiles (6), so only the active pill shows —
+        // when a second page lands the indicator grows automatically.
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 6
+
+            readonly property int pages: 1   // bump when tile pages > 1
+
             Rectangle {
                 width: 18
                 height: 4
@@ -227,7 +244,7 @@ Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
             }
             Repeater {
-                model: 2
+                model: Math.max(0, parent.pages - 1)
                 delegate: Rectangle {
                     required property int index
                     width: 4
