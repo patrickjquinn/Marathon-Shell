@@ -555,7 +555,23 @@ int main(int argc, char *argv[]) {
     createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";
 
-    createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
+    auto *flatpakManager = createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
+    if (debugEnabled && flatpakManager->available()) {
+        QObject::connect(flatpakManager, &FlatpakManager::installedAppsChanged, &app,
+                         [flatpakManager]() {
+                             const QVariantList apps = flatpakManager->installedApps();
+                             qInfo() << "[FlatpakManager] installed:" << apps.size();
+                             if (!apps.isEmpty())
+                                 flatpakManager->requestPermissions(
+                                     apps.first().toMap().value("ref").toString());
+                         });
+        QObject::connect(flatpakManager, &FlatpakManager::permissionsReady, &app,
+                         [](const QString &ref, const QVariantMap &perms) {
+                             qInfo() << "[FlatpakManager] perms for" << ref
+                                     << "sections=" << perms.keys();
+                         });
+        flatpakManager->refresh();
+    }
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);

@@ -4,12 +4,11 @@
 #include <QDir>
 #include <QFile>
 #include <QProcess>
-#include <QSettings>
 #include <QStandardPaths>
-#include <QTextStream>
+#include <QTimer>
 
 namespace {
-    constexpr int kFlatpakTimeoutMs = 4000;
+    constexpr int kFlatpakTimeoutMs = 8000;
 
     QString       flatpakBinary() {
         return QStringLiteral("flatpak");
@@ -28,40 +27,65 @@ FlatpakManager::FlatpakManager(QObject *parent)
         qInfo() << "[FlatpakManager] flatpak binary not found; manager will return empty results";
 }
 
-bool FlatpakManager::runFlatpak(const QStringList &args, QByteArray *stdOut) const {
-    if (!m_available)
-        return false;
-
-    QProcess proc;
-    proc.start(flatpakBinary(), args);
-    if (!proc.waitForFinished(kFlatpakTimeoutMs)) {
-        qWarning() << "[FlatpakManager] timed out:" << args;
-        proc.kill();
-        return false;
-    }
-    if (stdOut)
-        *stdOut = proc.readAllStandardOutput();
-    if (proc.exitStatus() != QProcess::NormalExit || proc.exitCode() != 0) {
-        qWarning() << "[FlatpakManager]" << args << "failed exit=" << proc.exitCode()
-                   << proc.readAllStandardError();
-        return false;
-    }
-    return true;
+void FlatpakManager::beginOp() {
+    if (m_pendingOps++ == 0)
+        emit loadingChanged();
 }
 
-QVariantList FlatpakManager::installedApps() {
-    if (m_installedCached)
-        return m_installedCache;
+void FlatpakManager::endOp() {
+    if (--m_pendingOps == 0)
+        emit loadingChanged();
+}
 
-    QByteArray out;
-    if (!runFlatpak({QStringLiteral("list"), QStringLiteral("--app"),
-                     QStringLiteral("--columns=application,branch,arch,installation")},
-                    &out)) {
-        m_installedCache.clear();
-        m_installedCached = true;
-        return m_installedCache;
+void FlatpakManager::startProcess(const QStringList                                   &args,
+                                  const std::function<void(bool, const QByteArray &)> &done) {
+    if (!m_available) {
+        done(false, {});
+        return;
     }
 
+    auto *proc = new QProcess(this);
+    beginOp();
+
+    auto *watchdog = new QTimer(proc);
+    watchdog->setSingleShot(true);
+    watchdog->setInterval(kFlatpakTimeoutMs);
+    connect(watchdog, &QTimer::timeout, proc, [proc, args]() {
+        qWarning() << "[FlatpakManager] timeout, killing:" << args;
+        proc->kill();
+    });
+
+    connect(proc, &QProcess::finished, this,
+            [this, proc, args, done](int code, QProcess::ExitStatus status) {
+                endOp();
+                const bool ok = (status == QProcess::NormalExit && code == 0);
+                if (!ok)
+                    qWarning() << "[FlatpakManager]" << args << "failed exit=" << code
+                               << proc->readAllStandardError();
+                done(ok, proc->readAllStandardOutput());
+                proc->deleteLater();
+            });
+
+    connect(proc, &QProcess::errorOccurred, this, [proc, args](QProcess::ProcessError err) {
+        qWarning() << "[FlatpakManager] error" << err << "on" << args;
+    });
+
+    proc->start(flatpakBinary(), args);
+    watchdog->start();
+}
+
+void FlatpakManager::refresh() {
+    startProcess({QStringLiteral("list"), QStringLiteral("--app"),
+                  QStringLiteral("--columns=application,branch,arch,installation")},
+                 [this](bool ok, const QByteArray &out) {
+                     if (!ok)
+                         return;
+                     parseInstalled(out);
+                     emit installedAppsChanged();
+                 });
+}
+
+void FlatpakManager::parseInstalled(const QByteArray &out) {
     QVariantList apps;
     const auto   lines = QString::fromUtf8(out).split('\n', Qt::SkipEmptyParts);
     for (const QString &line : lines) {
@@ -75,31 +99,55 @@ QVariantList FlatpakManager::installedApps() {
         entry.insert(QStringLiteral("installation"), cols.at(3));
         apps.append(entry);
     }
-
-    m_installedCache  = apps;
-    m_installedCached = true;
-    return m_installedCache;
+    m_installed = apps;
 }
 
-QVariantMap FlatpakManager::permissions(const QString &ref) {
+void FlatpakManager::requestPermissions(const QString &ref) {
     if (ref.isEmpty())
-        return {};
-    QByteArray out;
-    if (!runFlatpak({QStringLiteral("info"), QStringLiteral("--show-permissions"), ref}, &out))
-        return {};
-    return parsePermissionsIni(QString::fromUtf8(out));
+        return;
+
+    const auto cached = m_permCache.constFind(ref);
+    if (cached != m_permCache.constEnd()) {
+        const QVariantMap copy = cached.value();
+        QMetaObject::invokeMethod(
+            this, [this, ref, copy]() { emit permissionsReady(ref, copy); }, Qt::QueuedConnection);
+        return;
+    }
+
+    startProcess({QStringLiteral("info"), QStringLiteral("--show-permissions"), ref},
+                 [this, ref](bool ok, const QByteArray &out) {
+                     if (!ok) {
+                         emit permissionsReady(ref, {});
+                         return;
+                     }
+                     const QVariantMap perms = parsePermissionsIni(QString::fromUtf8(out));
+                     m_permCache.insert(ref, perms);
+                     emit permissionsReady(ref, perms);
+                 });
 }
 
-QVariantMap FlatpakManager::userOverrides(const QString &ref) {
+void FlatpakManager::requestUserOverrides(const QString &ref) {
     if (ref.isEmpty())
-        return {};
-    const QString path = overridesFilePath(ref);
-    QFile         f(path);
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
-        return {};
-    const QString text = QString::fromUtf8(f.readAll());
-    f.close();
-    return parsePermissionsIni(text);
+        return;
+
+    QMetaObject::invokeMethod(
+        this,
+        [this, ref]() {
+            const QString path = overridesFilePath(ref);
+            QFile         f(path);
+            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                emit userOverridesReady(ref, {});
+                return;
+            }
+            const QString text = QString::fromUtf8(f.readAll());
+            f.close();
+            emit userOverridesReady(ref, parsePermissionsIni(text));
+        },
+        Qt::QueuedConnection);
+}
+
+QVariantMap FlatpakManager::cachedPermissions(const QString &ref) const {
+    return m_permCache.value(ref);
 }
 
 QVariantMap FlatpakManager::parsePermissionsIni(const QString &iniText) const {
@@ -134,10 +182,12 @@ QVariantMap FlatpakManager::parsePermissionsIni(const QString &iniText) const {
     return result;
 }
 
-bool FlatpakManager::setTalkPolicy(const QString &ref, const QString &busName,
+void FlatpakManager::setTalkPolicy(const QString &ref, const QString &busName,
                                    const QString &policy) {
-    if (ref.isEmpty() || busName.isEmpty())
-        return false;
+    if (ref.isEmpty() || busName.isEmpty()) {
+        emit overrideApplied(ref, false);
+        return;
+    }
 
     QStringList args = {QStringLiteral("override"), QStringLiteral("--user")};
     if (policy == QLatin1String("allow") || policy == QLatin1String("talk"))
@@ -148,57 +198,58 @@ bool FlatpakManager::setTalkPolicy(const QString &ref, const QString &busName,
         args << QStringLiteral("--no-talk-name=") + busName;
     else {
         qWarning() << "[FlatpakManager] unknown talk policy:" << policy;
-        return false;
+        emit overrideApplied(ref, false);
+        return;
     }
     args << ref;
 
-    if (!runFlatpak(args))
-        return false;
-    emit overridesChanged(ref);
-    return true;
+    startProcess(args, [this, ref](bool ok, const QByteArray &) {
+        if (ok)
+            m_permCache.remove(ref);
+        emit overrideApplied(ref, ok);
+    });
 }
 
-bool FlatpakManager::setFilesystemPolicy(const QString &ref, const QString &path,
+void FlatpakManager::setFilesystemPolicy(const QString &ref, const QString &path,
                                          const QString &mode) {
-    if (ref.isEmpty() || path.isEmpty())
-        return false;
+    if (ref.isEmpty() || path.isEmpty()) {
+        emit overrideApplied(ref, false);
+        return;
+    }
 
     QStringList args = {QStringLiteral("override"), QStringLiteral("--user")};
 
-    QString     suffix = path;
-    if (mode == QLatin1String("ro") || mode == QLatin1String("rw") ||
-        mode == QLatin1String("create"))
-        suffix += QLatin1Char(':') + mode;
-    else if (!mode.isEmpty()) {
-        qWarning() << "[FlatpakManager] unknown filesystem mode:" << mode;
-        return false;
-    }
-
-    if (mode.isEmpty())
+    if (mode.isEmpty()) {
         args << QStringLiteral("--nofilesystem=") + path;
-    else
-        args << QStringLiteral("--filesystem=") + suffix;
+    } else if (mode == QLatin1String("ro") || mode == QLatin1String("rw") ||
+               mode == QLatin1String("create")) {
+        args << QStringLiteral("--filesystem=") + path + QLatin1Char(':') + mode;
+    } else {
+        qWarning() << "[FlatpakManager] unknown filesystem mode:" << mode;
+        emit overrideApplied(ref, false);
+        return;
+    }
 
     args << ref;
 
-    if (!runFlatpak(args))
-        return false;
-    emit overridesChanged(ref);
-    return true;
+    startProcess(args, [this, ref](bool ok, const QByteArray &) {
+        if (ok)
+            m_permCache.remove(ref);
+        emit overrideApplied(ref, ok);
+    });
 }
 
-bool FlatpakManager::resetOverrides(const QString &ref) {
-    if (ref.isEmpty())
-        return false;
-    if (!runFlatpak(
-            {QStringLiteral("override"), QStringLiteral("--user"), QStringLiteral("--reset"), ref}))
-        return false;
-    emit overridesChanged(ref);
-    return true;
-}
+void FlatpakManager::resetOverrides(const QString &ref) {
+    if (ref.isEmpty()) {
+        emit overrideApplied(ref, false);
+        return;
+    }
 
-void FlatpakManager::refresh() {
-    m_installedCached = false;
-    m_installedCache.clear();
-    emit installedAppsChanged();
+    startProcess(
+        {QStringLiteral("override"), QStringLiteral("--user"), QStringLiteral("--reset"), ref},
+        [this, ref](bool ok, const QByteArray &) {
+            if (ok)
+                m_permCache.remove(ref);
+            emit overrideApplied(ref, ok);
+        });
 }
