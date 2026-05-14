@@ -1,6 +1,7 @@
 #include "unifiedpushdistributor.h"
 
 #include "notificationservicecpp.h"
+#include "settingsmanager.h"
 
 #include <QDBusConnection>
 #include <QDBusError>
@@ -25,9 +26,14 @@ namespace {
 } // namespace
 
 UnifiedPushDistributor::UnifiedPushDistributor(NotificationServiceCpp *notificationSink,
-                                               QObject                *parent)
+                                               SettingsManager *settings, QObject *parent)
     : QObject(parent)
-    , m_notificationSink(notificationSink) {
+    , m_notificationSink(notificationSink)
+    , m_settings(settings) {
+    if (m_settings) {
+        connect(m_settings, &SettingsManager::unifiedPushFallbackEnabledChanged, this,
+                &UnifiedPushDistributor::fallbackNotificationsEnabledChanged);
+    }
     load();
     // Replay persisted registrations to whatever backend is listening so it can
     // resume subscriptions without waiting for apps to re-Register on this boot.
@@ -157,7 +163,7 @@ void UnifiedPushDistributor::deliverMessage(const QString &token, const QByteArr
     args.insert(QStringLiteral("id"), QUuid::createUuid().toString(QUuid::WithoutBraces));
     callConnector(it.value().service, QStringLiteral("Message"), args);
 
-    if (m_fallbackEnabled && m_notificationSink) {
+    if (fallbackNotificationsEnabled() && m_notificationSink) {
         // Payloads are opaque (often end-to-end encrypted) so the body is
         // a fixed placeholder; the receiving app is the one with the keys.
         const QString title =
@@ -170,11 +176,14 @@ void UnifiedPushDistributor::deliverMessage(const QString &token, const QByteArr
     }
 }
 
+bool UnifiedPushDistributor::fallbackNotificationsEnabled() const {
+    return m_settings && m_settings->unifiedPushFallbackEnabled();
+}
+
 void UnifiedPushDistributor::setFallbackNotificationsEnabled(bool enabled) {
-    if (m_fallbackEnabled == enabled)
+    if (!m_settings)
         return;
-    m_fallbackEnabled = enabled;
-    emit fallbackNotificationsEnabledChanged();
+    m_settings->setUnifiedPushFallbackEnabled(enabled);
 }
 
 void UnifiedPushDistributor::callConnector(const QString &serviceBus, const QString &method,

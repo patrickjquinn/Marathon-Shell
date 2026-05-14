@@ -91,6 +91,9 @@ class SettingsManager : public QObject {
     Q_PROPERTY(QString keyboardLanguage READ keyboardLanguage WRITE setKeyboardLanguage NOTIFY
                    keyboardLanguageChanged)
 
+    Q_PROPERTY(bool unifiedPushFallbackEnabled READ unifiedPushFallbackEnabled WRITE
+                   setUnifiedPushFallbackEnabled NOTIFY unifiedPushFallbackEnabledChanged)
+
   public:
     explicit SettingsManager(QObject *parent = nullptr);
     ~SettingsManager() override = default;
@@ -230,6 +233,10 @@ class SettingsManager : public QObject {
         return m_keyboardLanguage;
     }
 
+    bool unifiedPushFallbackEnabled() const {
+        return m_unifiedPushFallbackEnabled;
+    }
+
     void                    setUserScaleFactor(qreal factor);
     void                    setWallpaperPath(const QString &path);
 
@@ -282,6 +289,8 @@ class SettingsManager : public QObject {
     void                    setKeyboardPredictiveSpacing(bool enabled);
     void                    setKeyboardHapticStrength(const QString &strength);
     void                    setKeyboardLanguage(const QString &language);
+
+    void                    setUnifiedPushFallbackEnabled(bool enabled);
 
     Q_INVOKABLE QStringList availableRingtones();
     Q_INVOKABLE QStringList availableNotificationSounds();
@@ -349,6 +358,8 @@ class SettingsManager : public QObject {
     void keyboardHapticStrengthChanged();
     void keyboardLanguageChanged();
 
+    void unifiedPushFallbackEnabledChanged();
+
   private:
     void        load();
     void        save();
@@ -405,4 +416,6 @@ class SettingsManager : public QObject {
     bool        m_keyboardPredictiveSpacing;
     QString     m_keyboardHapticStrength;
     QString     m_keyboardLanguage;
+
+    bool        m_unifiedPushFallbackEnabled;
 };

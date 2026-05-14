@@ -45,7 +45,8 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_keyboardWordFling(true)
     , m_keyboardPredictiveSpacing(false)
     , m_keyboardHapticStrength("medium")
-    , m_keyboardLanguage("en_US") {
+    , m_keyboardLanguage("en_US")
+    , m_unifiedPushFallbackEnabled(false) {
     load();
 }
 
@@ -226,6 +227,9 @@ void SettingsManager::load() {
     m_keyboardHapticStrength    = m_settings.value("keyboard/hapticStrength", "medium").toString();
     m_keyboardLanguage          = m_settings.value("keyboard/language", "en_US").toString();
 
+    m_unifiedPushFallbackEnabled =
+        m_settings.value("notifications/unifiedPushFallback", false).toBool();
+
     qDebug() << "[SettingsManager] Loaded: userScaleFactor =" << m_userScaleFactor;
     qDebug() << "[SettingsManager] Loaded: wallpaperPath =" << m_wallpaperPath;
     qDebug() << "[SettingsManager] Loaded: firstRunComplete =" << m_firstRunComplete;
@@ -297,8 +301,18 @@ void SettingsManager::save() {
     m_settings.setValue("keyboard/hapticStrength", m_keyboardHapticStrength);
     m_settings.setValue("keyboard/language", m_keyboardLanguage);
 
+    m_settings.setValue("notifications/unifiedPushFallback", m_unifiedPushFallbackEnabled);
+
     m_settings.sync();
     qDebug() << "[SettingsManager] Saved settings";
+}
+
+void SettingsManager::setUnifiedPushFallbackEnabled(bool enabled) {
+    if (m_unifiedPushFallbackEnabled == enabled)
+        return;
+    m_unifiedPushFallbackEnabled = enabled;
+    save();
+    emit unifiedPushFallbackEnabledChanged();
 }
 
 void SettingsManager::setUserScaleFactor(qreal factor) {
