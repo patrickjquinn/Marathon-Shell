@@ -13,6 +13,7 @@ class StatusBarIconServiceCpp : public QObject {
 
     Q_INVOKABLE QString getBatteryIcon(int level, bool isCharging) const;
     Q_INVOKABLE QString getBatteryColor(int level, bool isCharging) const;
+    Q_INVOKABLE QString getBatterySemanticColor(int level, bool isCharging) const;
     Q_INVOKABLE QString getSignalIcon(int strength) const;
     Q_INVOKABLE qreal   getSignalOpacity(int strength) const;
     Q_INVOKABLE QString getWifiIcon(bool isEnabled, int strength, bool isConnected) const;
