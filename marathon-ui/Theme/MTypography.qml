@@ -53,14 +53,15 @@ QtObject {
     //   Body/Callout/Footnote   400
     //   Subhead/Caption/Mono    500
     //   Eyebrow                 700 + uppercase
-    readonly property int weightThin: 100
-    readonly property int weightLight: 200
-    readonly property int weightRegular: 400
-    readonly property int weightNormal: 400
-    readonly property int weightMedium: 500
-    readonly property int weightDemiBold: 600
-    readonly property int weightBold: 700
-    readonly property int weightBlack: 800
+    readonly property int weightThin: 100         // Lock clock variant
+    readonly property int weightLight: 200        // Display, Title L, Title 1
+    readonly property int weightUltraLight: 300   // Title 2 (Music now-playing track name)
+    readonly property int weightRegular: 400      // Body, Callout, Footnote
+    readonly property int weightNormal: 400       // alias
+    readonly property int weightMedium: 500       // Title 3, Subhead, Caption, Mono
+    readonly property int weightDemiBold: 600     // Headline
+    readonly property int weightBold: 700         // Eyebrow (UPPERCASE)
+    readonly property int weightBlack: 800        // reserved
 
     // ── Legacy aliases (kept while components migrate) ───────
     // Map old abstract sizes to the nearest semantic role.
