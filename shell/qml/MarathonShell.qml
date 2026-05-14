@@ -23,6 +23,11 @@ Item {
     property var pendingLaunch: null
     property bool volumeUpPressed: false
     property bool powerButtonPressed: false
+    // Toggle: BB10 Active Frames home (DS 2026) vs legacy 4×4 app grid.
+    // Default true while the redesign is rolling out — set false to
+    // fall back to MarathonPageView with the legacy AppGrid + task
+    // switcher gestures, until those land in the new system.
+    property bool useActiveFramesHome: true
 
     function handleBackKey() {
         if (PermissionManager.promptActive) {
@@ -143,7 +148,12 @@ Item {
         if (Constants.screenHeight > 0)
             resizeDebounceTimer.restart();
     }
-    state: SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home"
+    // Pass --skip-lock on the command line to force shell straight to
+    // "home" state — used during the Active Frames home redesign while
+    // the lock+unlock interaction is being revisited. Production paths
+    // (no flag) are unchanged.
+    readonly property bool _skipLock: Qt.application.arguments.indexOf("--skip-lock") >= 0
+    state: _skipLock ? "home" : (SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home")
     Keys.onPressed: event => {
         if (event.key === Qt.Key_VolumeUp) {
             volumeUpPressed = true;
@@ -577,6 +587,7 @@ Item {
 
                 anchors.fill: parent
                 z: Constants.zIndexMainContent + 10
+                visible: !shell.useActiveFramesHome
                 isGestureActive: navBar.isAppOpen && shell.isTransitioningToActiveFrames
                 compositor: shell.compositor
                 onCurrentPageChanged: {
@@ -599,6 +610,23 @@ Item {
                 }
                 Component.onCompleted: {
                     shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16));
+                }
+            }
+
+            // BB10-lineage Active Frames home + task switcher (unified
+            // per DS §04/07). Gated behind a settings flag while the
+            // legacy MarathonPageView still owns app launch and the
+            // window state machine. Toggle to true to preview the
+            // redesigned home.
+            MarathonActiveFramesHome {
+                anchors.fill: parent
+                z: Constants.zIndexMainContent + 10
+                visible: shell.useActiveFramesHome
+                onPinnedAppLaunched: function (appId) {
+                    AppLaunchService.launchApp(appId, shell.compositor, appWindow);
+                }
+                onFrameActivated: function (appId) {
+                    AppLaunchService.launchApp(appId, shell.compositor, appWindow);
                 }
             }
 
