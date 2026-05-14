@@ -2,6 +2,20 @@ pragma Singleton
 import QtQuick
 
 QtObject {
+    // ── Surface ramp · canonical DS Theme (engineering doc) ─────
+    // Six near-blacks. Cards stack one step lighter than their parent;
+    // there is no light theme. Match dev.marathon.UI Theme.elev0..5 in
+    // ds-engineering.jsx and marathon-tokens.css :root.
+    readonly property color elev0: "#040404"   // black
+    readonly property color elev1: "#0a0a0b"
+    readonly property color elev2: "#121213"
+    readonly property color elev3: "#1c1c1d"
+    readonly property color elev4: "#282829"
+    readonly property color elev5: "#353536"
+
+    // BB10-lineage surface tokens — kept for backward compat with
+    // existing consumers. New code should prefer elev0..5 above.
+    // Values intentionally differ from the DS ramp (more subtle).
     readonly property color bb10Black: "#040404"
     readonly property color bb10Deep: "#070707"
     readonly property color bb10Surface: "#0d0d0e"
@@ -38,14 +52,21 @@ QtObject {
     readonly property color textSecondary: "#6a6a6a"
     readonly property color textTertiary: "#4a4a4a"
     readonly property color textHint: "#2a2a2a"
-    readonly property color textOnAccent: "#ffffff"
+    // Black on teal — DS rule. The teal-bright accent is intentionally
+    // light enough that black gives high-contrast labels on primary
+    // buttons. (Previously #ffffff which failed WCAG against
+    // tealBright.)
+    readonly property color textOnAccent: "#000000"
 
     readonly property color glassTitlebar: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.72)
     readonly property color glassTabbar: Qt.rgba(16 / 255, 16 / 255, 17 / 255, 0.78)
     readonly property color glassActionbar: Qt.rgba(11 / 255, 11 / 255, 12 / 255, 0.82)
     readonly property color glassHeader: Qt.rgba(18 / 255, 18 / 255, 19 / 255, 0.85)
 
-    readonly property color borderGlass: Qt.rgba(1, 1, 1, 0.08)
+    // Glass dividers — under chrome / over content. Match
+    // --border-glass and --border-glass-strong in marathon-tokens.css.
+    readonly property color borderGlass: Qt.rgba(1, 1, 1, 0.06)
+    readonly property color borderGlassStrong: Qt.rgba(1, 1, 1, 0.10)
     readonly property color borderSubtle: Qt.rgba(1, 1, 1, 0.05)
     readonly property color borderDark: Qt.rgba(0, 0, 0, 0.7)
 
@@ -59,12 +80,20 @@ QtObject {
     readonly property color overlay: Qt.rgba(0, 0, 0, 0.85)
     readonly property color overlayLight: Qt.rgba(0, 0, 0, 0.7)
 
+    // Marathon DS reserves only --error for destructive UI (decline
+    // call, delete confirmations). No warning/success/info hues —
+    // those states are surfaced with neutrals + teal accent per
+    // ds-foundations.jsx 'Semantic' rule.
+    readonly property color error: "#EF4444"
+    readonly property color errorDim: "#B91C1C"
+
+    // Legacy semantic tokens — used by older surfaces (status pills,
+    // toasts). New code should NOT use these; surface state via
+    // neutrals + teal accent or labelled chips instead.
     readonly property color success: "#10B981"
     readonly property color successDim: "#059669"
     readonly property color warning: "#F59E0B"
     readonly property color warningDim: "#D97706"
-    readonly property color error: "#EF4444"
-    readonly property color errorDim: "#DC2626"
     readonly property color info: "#3B82F6"
     readonly property color infoDim: "#2563EB"
 
