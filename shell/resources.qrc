@@ -15,6 +15,7 @@
         <file alias="notes.svg">resources/images/notes.svg</file>
     </qresource>
     <qresource prefix="/wallpapers">
+        <file alias="slate-aurora.svg">resources/wallpapers/slate-aurora.svg</file>
         <file alias="wallpaper.jpg">resources/wallpapers/wallpaper.jpg</file>
         <file alias="wallpaper2.jpg">resources/wallpapers/wallpaper2.jpg</file>
         <file alias="wallpaper3.jpg">resources/wallpapers/wallpaper3.jpg</file>

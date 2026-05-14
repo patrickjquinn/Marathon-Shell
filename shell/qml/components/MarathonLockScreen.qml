@@ -2,6 +2,7 @@ import "./ui"
 import MarathonOS.Shell 1.0
 import MarathonOS.Shell 1.0 as Shell
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
@@ -152,16 +153,8 @@ Item {
         z: 1
         opacity: 1 - Math.pow(swipeProgress, 0.7)
 
-        Image {
+        WallpaperSlateAurora {
             anchors.fill: parent
-            source: WallpaperStore.path
-            sourceSize: Qt.size(width, height)
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            cache: true
-            smooth: true
-            layer.enabled: true
-            layer.smooth: true
         }
 
         MouseArea {
@@ -194,39 +187,25 @@ Item {
             layer.enabled: true
             layer.smooth: true
 
-            Text {
+            MHaloedDisplay {
                 text: SystemStatusStore.timeString
-                color: MColors.text
-                font.pixelSize: Constants.fontSizeGigantic
-                font.weight: Font.Thin
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeDisplay
+                font.weight: MTypography.weightLight
+                font.letterSpacing: MTypography.trackingDisplay
+                color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.NativeRendering
-                layer.enabled: true
-
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: "#80000000"
-                    shadowBlur: 0.3
-                    shadowVerticalOffset: 2
-                }
             }
 
             Text {
                 text: SystemStatusStore.dateString
-                color: MColors.text
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Normal
+                color: MColors.textSecondary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeSubhead
+                font.weight: MTypography.weightMedium
+                font.letterSpacing: MTypography.trackingSubhead
                 anchors.horizontalCenter: parent.horizontalCenter
-                opacity: 0.9
                 renderType: Text.NativeRendering
-                layer.enabled: true
-
-                layer.effect: MultiEffect {
-                    shadowEnabled: true
-                    shadowColor: "#80000000"
-                    shadowBlur: 0.3
-                    shadowVerticalOffset: 2
-                }
             }
 
             Item {

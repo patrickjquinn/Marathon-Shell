@@ -18,6 +18,8 @@ qt6_add_qml_module(marathon-ui-theme
     URI MarathonUI.Theme
     VERSION 2.0
     QML_FILES ${THEME_QML_FILES}
+    RESOURCES
+        halo-teal.svg
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Theme
 )
 
