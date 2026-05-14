@@ -22,6 +22,7 @@ qt6_add_qml_module(marathon-ui-containers
         MNowBar.qml
         MActiveFrame.qml
         MFramesView.qml
+        MHubRow.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Containers
 )
 
@@ -53,6 +54,7 @@ if(QMLLINT_AVAILABLE)
         MNowBar.qml
         MActiveFrame.qml
         MFramesView.qml
+        MHubRow.qml
     )
 endif()
 
@@ -86,5 +88,6 @@ install(FILES
     MNowBar.qml
     MActiveFrame.qml
     MFramesView.qml
+    MHubRow.qml
     DESTINATION ${MARATHON_UI_DIR}/Containers
 )
