@@ -190,23 +190,30 @@ Item {
             layer.enabled: true
             layer.smooth: true
 
+            // Lock-clock variant of the Display role per screens-shell.jsx
+            // LockScreen() — 84 px, weight 100 (Thin), -2 tracking. Quieter
+            // than the DS Display token (96/200/-3) so it sits at top:190
+            // on a 390-wide canvas without dominating.
             MHaloedDisplay {
                 text: SystemStatusStore.timeString
                 font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeDisplay
-                font.weight: MTypography.weightLight
-                font.letterSpacing: MTypography.trackingDisplay
+                font.pixelSize: Math.round(84 * Constants.scaleFactor)
+                font.weight: MTypography.weightThin
+                font.letterSpacing: -2
                 color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
             }
 
+            // Date — Subhead 15/500 per JSX, but tracking is +0.3 (the
+            // lock screen overrides Subhead's default -0.1 to give the
+            // date a quieter, lightly tracked feel).
             Text {
                 text: SystemStatusStore.dateString
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeSubhead
                 font.weight: MTypography.weightMedium
-                font.letterSpacing: MTypography.trackingSubhead
+                font.letterSpacing: 0.3
                 anchors.horizontalCenter: parent.horizontalCenter
                 renderType: Text.NativeRendering
             }

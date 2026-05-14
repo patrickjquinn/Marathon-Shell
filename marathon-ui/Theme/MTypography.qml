@@ -53,6 +53,7 @@ QtObject {
     //   Body/Callout/Footnote   400
     //   Subhead/Caption/Mono    500
     //   Eyebrow                 700 + uppercase
+    readonly property int weightThin: 100
     readonly property int weightLight: 200
     readonly property int weightRegular: 400
     readonly property int weightNormal: 400
