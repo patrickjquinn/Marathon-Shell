@@ -67,9 +67,11 @@ QtObject {
     property bool debugMode: typeof MARATHON_DEBUG_ENABLED !== 'undefined' ? MARATHON_DEBUG_ENABLED : false
     readonly property int peekThreshold: 40
     readonly property int commitThreshold: 100
-    readonly property real statusBarHeight: Math.round(44 * scaleFactor)
-    readonly property real navBarHeight: Math.round(20 * scaleFactor)
-    readonly property real bottomBarHeight: Math.round(100 * scaleFactor)
+    // Marathon DS 2026: 28px status bar, 96px top bar, 70px tab bar,
+    // 64px dock, 36px Now Bar. See docs/redesign/ANALYSIS.md §4.
+    readonly property real statusBarHeight: Math.round(28 * scaleFactor)
+    readonly property real navBarHeight: Math.round(64 * scaleFactor)
+    readonly property real bottomBarHeight: Math.round(70 * scaleFactor)
     readonly property real safeAreaTop: statusBarHeight
     readonly property real safeAreaBottom: navBarHeight
     readonly property real safeAreaLeft: 0

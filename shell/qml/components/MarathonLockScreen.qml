@@ -178,11 +178,14 @@ Item {
         Column {
             id: clockColumn
 
+            // DS spec: lock clock anchors near top — top:190 in the source.
+            // Top-anchored composition; the swipe-up state machine below
+            // overrides this anchor when the lock screen is being dragged.
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingSmall
             width: parent.width * 0.9
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.verticalCenterOffset: Math.round(-80 * Constants.scaleFactor)
+            anchors.top: parent.top
+            anchors.topMargin: Math.round(190 * Constants.scaleFactor)
             onYChanged: Logger.debug("LockScreen", "ClockColumn Y changed to: " + y)
             layer.enabled: true
             layer.smooth: true
