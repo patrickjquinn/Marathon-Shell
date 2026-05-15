@@ -106,40 +106,39 @@ MApp {
                     id: tabBar
 
                     width: parent.width
-                    activeTab: calendarApp.currentView
+                    // Map four UI tabs onto the two pages we ship for now.
+                    // Day → list page (page 1), Month → grid page (page 0),
+                    // Year/Search defer to Month until those panes ship.
+                    activeTab: calendarApp.currentView === 1 ? 0 : 1
                     tabs: [
+                        {
+                            "label": "Day",
+                            "icon": "clock"
+                        },
                         {
                             "label": "Month",
                             "icon": "calendar"
                         },
                         {
-                            "label": "List",
-                            "icon": "list"
+                            "label": "Year",
+                            "icon": "archive"
+                        },
+                        {
+                            "label": "Search",
+                            "icon": "search"
                         }
                     ]
                     onTabSelected: index => {
                         HapticService.light();
-                        calendarApp.currentView = index;
+                        // Day=0 → list pane (index 1 in our StackLayout)
+                        // Month=1 → grid pane (index 0)
+                        // Year/Search default to grid until panes land.
+                        calendarApp.currentView = (index === 0) ? 1 : 0;
                     }
                 }
             }
-
-            MIconButton {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: MSpacing.lg
-                iconName: "plus"
-                iconSize: 28
-                variant: "primary"
-                shape: "circular"
-                onClicked: {
-                    stackView.push("pages/EventCreationPage.qml", {
-                        "onSave": event => {
-                            calendarApp.createEvent(event.title, event.date, event.time, event.allDay, event.recurring);
-                        }
-                    });
-                }
-            }
+            // FAB removed — compose now lives in the page header (JSX
+            // ref-calendar moves the action up to the title bar).
         }
 
         pushEnter: Transition {
