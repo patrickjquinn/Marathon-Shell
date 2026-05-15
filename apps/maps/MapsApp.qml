@@ -19,6 +19,40 @@ MApp {
     // results). Drives the bottom place card per JSX ref-maps.
     property var selectedPlace: null
 
+    // Geoclue2 fix from the shell's LocationManager arrives via the
+    // LocationService DBus client. We prefer it over QtPositioning's
+    // PositionSource on Linux because (a) it's already aware of the
+    // AGPS XEP from cellular networks (NetworkManager/ModemManager
+    // assist), (b) it's the single shared fix the rest of the system
+    // sees, and (c) on desktop dev Geoclue often resolves via IP/WiFi
+    // when QtPositioning would otherwise return nothing.
+    readonly property bool geoclueAvailable: (typeof LocationService !== "undefined" && LocationService !== null) ? (LocationService.available === true) : false
+    readonly property bool geoclueValid: geoclueAvailable && LocationService.latitude !== 0.0 && LocationService.longitude !== 0.0
+
+    // Best-known fix: Geoclue if we have one, else QtPositioning, else
+    // a sensible default (San Francisco) so the map renders something
+    // before the first reply lands.
+    readonly property var bestCoord: {
+        if (geoclueValid)
+            return QtPositioning.coordinate(LocationService.latitude, LocationService.longitude);
+        if (positionSource.position.valid)
+            return positionSource.position.coordinate;
+        return QtPositioning.coordinate(37.7749, -122.419);
+    }
+    readonly property bool bestCoordValid: geoclueValid || positionSource.position.valid
+
+    // Resolved file:// URL pointing at the installed tile-providers
+    // manifest. MARATHON_APP_PATH is the app's install root (set by
+    // marathon-app-runner). The app-runner already passes this in for
+    // every Marathon app, so the fallback below is just a safety net
+    // for unsandboxed direct-QML runs.
+    readonly property string providersUrl: {
+        const root = (typeof MARATHON_APP_PATH !== "undefined" && MARATHON_APP_PATH) ? String(MARATHON_APP_PATH) : "";
+        if (root.length > 0)
+            return "file://" + root + "/resources/tile-providers.json";
+        return "file:///home/" + (typeof userName !== "undefined" ? userName : "") + "/.local/share/marathon-apps/maps/resources/tile-providers.json";
+    }
+
     function searchLocation(query) {
         if (query.length === 0) {
             searchResults = [];
@@ -86,6 +120,11 @@ MApp {
                 Logger.info("Maps", "Location permission granted");
                 hasLocationPermission = true;
                 positionSource.active = true;
+                // Kick off the shell-side Geoclue fix via the IPC
+                // client. The fix arrives asynchronously and updates
+                // `bestCoord` reactively.
+                if (typeof LocationService !== "undefined" && LocationService)
+                    LocationService.start();
             }
         }
 
@@ -97,6 +136,19 @@ MApp {
         }
 
         target: PermissionManager
+    }
+
+    // Recentre the map whenever the Geoclue fix updates — but only
+    // before the user has manually moved or selected a place. After
+    // that point we leave the camera where they put it.
+    Connections {
+        function onLocationChanged() {
+            if (mapsApp.mapObject && !mapsApp.selectedPlace && mapsApp.geoclueValid) {
+                mapsApp.mapObject.center = QtPositioning.coordinate(LocationService.latitude, LocationService.longitude);
+                Logger.info("Maps", "Geoclue fix → " + LocationService.latitude + "," + LocationService.longitude + " ±" + LocationService.accuracy + "m");
+            }
+        }
+        target: mapsApp.geoclueAvailable ? LocationService : null
     }
 
     Timer {
@@ -147,13 +199,14 @@ MApp {
                 id: map
 
                 anchors.fill: parent
-                center: positionSource.position.valid ? positionSource.position.coordinate : QtPositioning.coordinate(37.7749, -122.419)
+                center: mapsApp.bestCoord
                 zoomLevel: 14
 
                 MapQuickItem {
                     id: userLocationMarker
 
-                    coordinate: positionSource.position.valid ? positionSource.position.coordinate : map.center
+                    visible: mapsApp.bestCoordValid
+                    coordinate: mapsApp.bestCoord
                     anchorPoint.x: locationDot.width / 2
                     anchorPoint.y: locationDot.height / 2
 
@@ -177,8 +230,51 @@ MApp {
                     }
                 }
 
+                // Qt 6 dropped osm.mapping.custom.host in favour of
+                // pointing the OSM plugin at a tile_providers manifest.
+                // We ship apps/maps/resources/tile-providers.json which
+                // registers CARTO Dark Matter as the only basemap —
+                // free, no-key, dark OSM raster that matches the
+                // Marathon DS map palette. The QtLocation plugin
+                // fetches the manifest via QNetworkAccessManager, which
+                // is registered for qrc:// URLs, so the bundled JSON
+                // works without any HTTP server.
+                //
+                // Future migration: maplibre-native-qt + OpenFreeMap
+                // dark vector tiles (see docs/maps-future.md). The
+                // plugin name swaps to "maplibre" and the manifest is
+                // replaced with a MapLibre style URL; no other QML
+                // changes needed (MapQuickItem etc are QtLocation
+                // primitives the maplibre plugin also implements).
+                // QtLocation's OSM plugin loads its tile_providers
+                // manifest via QNetworkAccessManager from the URL passed
+                // to osm.mapping.providersrepository.address. We resolve
+                // it to a file:// URL pointing at the installed copy of
+                // resources/tile-providers.json (see apps/CMakeLists.txt
+                // for the install rule). That manifest registers CARTO
+                // Dark Matter as the only basemap so the map paints
+                // dark out of the box, matching the JSX ref-maps
+                // palette.
+                //
+                // The MARATHON_APP_PATH env var is set by the
+                // marathon-app-runner to the app's install root, e.g.
+                // /home/patrickquinn/.local/share/marathon-apps/maps/.
+                // We fall back to the literal path if that's missing so
+                // direct QML runs still resolve.
                 plugin: Plugin {
                     name: "osm"
+                    PluginParameter {
+                        name: "osm.useragent"
+                        value: "MarathonOS/1.0"
+                    }
+                    PluginParameter {
+                        name: "osm.mapping.providersrepository.address"
+                        value: mapsApp.providersUrl
+                    }
+                    PluginParameter {
+                        name: "osm.mapping.highdpi_tiles"
+                        value: true
+                    }
                 }
             }
         }
@@ -476,12 +572,16 @@ MApp {
             variant: "primary"
             onClicked: {
                 HapticService.medium();
-                if (positionSource.position.valid && mapsApp.mapObject) {
-                    mapsApp.mapObject.center = positionSource.position.coordinate;
+                if (mapsApp.bestCoordValid && mapsApp.mapObject) {
+                    mapsApp.mapObject.center = mapsApp.bestCoord;
                     mapsApp.mapObject.zoomLevel = 15;
-                    Logger.info("Maps", "Centered on current location");
+                    Logger.info("Maps", "Centered on current location (" + (mapsApp.geoclueValid ? "Geoclue" : "QtPositioning") + ")");
                 } else {
                     Logger.warn("Maps", "Position not available");
+                    // Re-arm Geoclue in case the user denied earlier or
+                    // the daemon dropped its client.
+                    if (typeof LocationService !== "undefined" && LocationService)
+                        LocationService.start();
                 }
             }
         }

@@ -171,6 +171,14 @@ function(add_marathon_app APP_NAME)
   if(EXISTS "${APP_DIR}/assets")
     install(DIRECTORY "${APP_DIR}/assets" DESTINATION "${INSTALL_DIR}")
   endif()
+  # Apps with a resources/ directory get it installed alongside assets.
+  # Maps uses this for tile-providers.json — QtLocation's OSM plugin
+  # honours file:// URLs for osm.mapping.providersrepository.address but
+  # qrc:// URLs don't always survive QNAM in the plugin context, so the
+  # JSON has to land on disk.
+  if(EXISTS "${APP_DIR}/resources")
+    install(DIRECTORY "${APP_DIR}/resources" DESTINATION "${INSTALL_DIR}")
+  endif()
 endfunction()
 
 
