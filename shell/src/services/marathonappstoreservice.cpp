@@ -54,36 +54,56 @@ QString MarathonAppStoreService::getDownloadCachePath() {
 }
 
 void MarathonAppStoreService::loadCachedCatalog() {
-    QString cachePath = getCatalogCachePath();
-    QFile   file(cachePath);
+    const QString cachePath = getCatalogCachePath();
 
-    if (!file.exists()) {
-        qDebug() << "[MarathonAppStoreService] No cached catalog found";
-        return;
+    // Try the on-disk cache first (populated by handleCatalogReply).
+    QFile cached(cachePath);
+    if (cached.exists()) {
+        if (cached.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QJsonParseError error;
+            QJsonDocument   doc = QJsonDocument::fromJson(cached.readAll(), &error);
+            cached.close();
+            if (error.error == QJsonParseError::NoError && doc.isArray()) {
+                m_catalog       = doc.array().toVariantList();
+                m_catalogLoaded = true;
+                emit catalogLoadedChanged();
+                qDebug() << "[MarathonAppStoreService] Loaded cached catalog with"
+                         << m_catalog.size() << "apps";
+                return;
+            }
+            qWarning() << "[MarathonAppStoreService] Failed to parse cached catalog:"
+                       << error.errorString();
+        } else {
+            qWarning() << "[MarathonAppStoreService] Failed to open cached catalog";
+        }
+    } else {
+        qDebug() << "[MarathonAppStoreService] No cached catalog found, falling back to bundled";
     }
 
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "[MarathonAppStoreService] Failed to open cached catalog";
+    // Cache missing or corrupt — fall back to the bundled catalog that
+    // ships in the shell's Qt resources. Gives a brand-new device
+    // something to render the very first time the Store is opened,
+    // before any network refresh has landed. handleCatalogReply()
+    // will overwrite this once the real catalog server is reachable.
+    QFile bundled(":/qt/qml/MarathonOS/Shell/resources/store-catalog-fallback.json");
+    if (!bundled.open(QIODevice::ReadOnly)) {
+        qWarning()
+            << "[MarathonAppStoreService] Bundled fallback catalog not found at qrc resource";
         return;
     }
-
     QJsonParseError error;
-    QJsonDocument   doc = QJsonDocument::fromJson(file.readAll(), &error);
-    file.close();
-
-    if (error.error != QJsonParseError::NoError) {
-        qWarning() << "[MarathonAppStoreService] Failed to parse cached catalog:"
+    QJsonDocument   doc = QJsonDocument::fromJson(bundled.readAll(), &error);
+    bundled.close();
+    if (error.error != QJsonParseError::NoError || !doc.isArray()) {
+        qWarning() << "[MarathonAppStoreService] Failed to parse bundled fallback catalog:"
                    << error.errorString();
         return;
     }
-
-    if (doc.isArray()) {
-        m_catalog       = doc.array().toVariantList();
-        m_catalogLoaded = true;
-        emit catalogLoadedChanged();
-        qDebug() << "[MarathonAppStoreService] Loaded cached catalog with" << m_catalog.size()
-                 << "apps";
-    }
+    m_catalog       = doc.array().toVariantList();
+    m_catalogLoaded = true;
+    emit catalogLoadedChanged();
+    qDebug() << "[MarathonAppStoreService] Loaded bundled fallback catalog with" << m_catalog.size()
+             << "apps";
 }
 
 void MarathonAppStoreService::saveCatalogCache() {
@@ -323,8 +343,18 @@ void MarathonAppStoreService::handleDownloadFinished() {
 }
 
 QVariantList MarathonAppStoreService::getAvailableUpdates() {
-
+    // An app reports a pending update when its catalog entry sets
+    // `updateAvailable: true` (catalog-source-of-truth: the server
+    // already knows whether the device's installed version is older
+    // than the one in the catalog). A full implementation would
+    // cross-check against locally-installed versions reported by
+    // MarathonAppRegistry; the catalog flag is the v1 of that.
     QVariantList updates;
+    for (const QVariant &item : m_catalog) {
+        QVariantMap app = item.toMap();
+        if (app.value("updateAvailable").toBool())
+            updates.append(app);
+    }
     return updates;
 }
 
