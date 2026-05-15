@@ -98,57 +98,134 @@ Rectangle {
         target: SMSService
     }
 
+    function contactMonogram() {
+        const n = (conversation && conversation.contactName) || (conversation && conversation.contactNumber) || "?";
+        const parts = n.split(/\s+/).filter(p => p.length > 0);
+        if (parts.length === 0)
+            return "·";
+        if (parts.length === 1)
+            return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+
     Column {
         anchors.fill: parent
         spacing: 0
 
-        MActionBar {
+        // ── Header — glass-titlebar w/ back + avatar + name+typing
+        //              + phone + more (screens-apps-1.jsx:MessagesThread).
+        Rectangle {
             id: header
-
             width: parent.width
-            showBack: true
-            onBackClicked: {
-                HapticService.light();
-                chatPage.navigateBack();
+            height: 88
+            color: MColors.glassTitlebar
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: 1
+                color: MColors.borderGlass
             }
 
             Row {
                 anchors.left: parent.left
-                anchors.leftMargin: header.showBack ? 92 : MSpacing.md
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: MSpacing.md
+                anchors.leftMargin: 16
+                anchors.right: parent.right
+                anchors.rightMargin: 16
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 12
+                spacing: 14
+
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "chevron-left"
+                    size: 24
+                    color: MColors.textSecondary
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -10
+                        onClicked: {
+                            HapticService.light();
+                            chatPage.navigateBack();
+                        }
+                    }
+                }
 
                 Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 40
-                    height: 40
-                    radius: 20
-                    color: MColors.marathonTeal
+                    width: 36
+                    height: 36
+                    radius: width / 2
+                    color: "#3a6b9c"     // tint per contact (stub)
+                    border.width: 1
+                    border.color: MColors.whiteOverlay08
 
-                    MLabel {
+                    Text {
                         anchors.centerIn: parent
-                        text: (conversation && conversation.contactName) ? conversation.contactName.charAt(0).toUpperCase() : "?"
-                        color: MColors.textInverse
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: MTypography.weightBold
+                        text: chatPage.contactMonogram()
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 13
+                        font.weight: Font.DemiBold
                     }
                 }
 
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2
+                    width: parent.width - 24 - 36 - 20 - 22 - parent.spacing * 4
+                    spacing: 0
 
-                    MLabel {
+                    Text {
                         text: (conversation && conversation.contactName) || (conversation && conversation.contactNumber) || ""
-                        variant: "primary"
-                        font.pixelSize: MTypography.sizeBody
-                        font.weight: MTypography.weightBold
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 17
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
+                        width: parent.width
                     }
+                    // Presence subtitle — "typing…" teal-bright when the
+                    // contact is composing. Falls back to last-seen text
+                    // when wiring lands; stays hidden when unknown.
+                    Text {
+                        text: (conversation && conversation.isTyping) ? "typing…" : ""
+                        color: MColors.marathonTealBright
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Medium
+                        visible: text.length > 0
+                    }
+                }
 
-                    MLabel {
-                        text: (conversation && conversation.contactNumber) || ""
-                        variant: "tertiary"
-                        font.pixelSize: MTypography.sizeXSmall
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "phone"
+                    size: 20
+                    color: MColors.textPrimary
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        onClicked: {
+                            HapticService.light();
+                            // Hand off to Phone app once TelephonyService
+                            // supports cross-app launch.
+                        }
+                    }
+                }
+
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "ellipsis-vertical"
+                    size: 22
+                    color: MColors.textSecondary
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -8
+                        onClicked: HapticService.light()
                     }
                 }
             }
