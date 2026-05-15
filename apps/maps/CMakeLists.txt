@@ -12,11 +12,19 @@ set(SOURCES
     # Future: src/geocoder.cpp
 )
 
+# Tile-providers manifest — drives the QtLocation OSM plugin to
+# CARTO Dark Matter tiles instead of the default Thunderforest
+# (keyed) ones. See apps/maps/resources/tile-providers.json.
+set(MAPS_RESOURCES
+    resources/tile-providers.json
+)
+
 add_marathon_app(${APP_NAME}
     URI "MarathonApp.Maps"
     VERSION "1.0"
     QML_FILES ${QML_FILES}
     SOURCES ${SOURCES}
+    RESOURCES ${MAPS_RESOURCES}
 )
 
 # Link Positioning for GPS/location
