@@ -575,7 +575,8 @@ int main(int argc, char *argv[]) {
                                                             "PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] Permission Manager initialized";
 
-    createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
+    auto *appStoreService =
+        createObject<MarathonAppStoreService>(ctx, "AppStoreService", appInstaller, &app);
     qInfo() << "[MarathonShell] App Store Service initialized";
 
     auto *flatpakManager = createObject<FlatpakManager>(ctx, "FlatpakManager", &app);
@@ -635,7 +636,7 @@ int main(int argc, char *argv[]) {
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
             audioManager, audioPolicyController, networkManager, hapticManager, securityManager,
             sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
-            davSyncEngine, appLaunchService, &app);
+            davSyncEngine, appStoreService, appLaunchService, &app);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

@@ -3123,3 +3123,98 @@ void DavClient::enableAccount(const QString &id, bool enabled) {
 void DavClient::syncNow() {
     m_iface.call("SyncNow");
 }
+
+// === AppStoreClient =========================================================
+
+AppStoreClient::AppStoreClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+              "org.marathonos.Shell.AppStore1", QDBusConnection::sessionBus(), this) {
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "StateChanged", this,
+                                          SLOT(onStateChanged(QVariantMap)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "CatalogRefreshed",
+                                          this, SIGNAL(catalogRefreshed()));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "DownloadProgress",
+                                          this, SIGNAL(downloadProgress(QString, qint64, qint64)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "DownloadComplete",
+                                          this, SIGNAL(downloadComplete(QString, QString)));
+    QDBusConnection::sessionBus().connect("org.marathonos.Shell", "/org/marathonos/Shell/AppStore",
+                                          "org.marathonos.Shell.AppStore1", "DownloadFailed", this,
+                                          SIGNAL(downloadFailed(QString, QString)));
+    refresh();
+}
+
+void AppStoreClient::refresh() {
+    QDBusReply<QVariantMap> r = m_iface.call("GetState");
+    if (r.isValid()) {
+        m_state = r.value();
+        emit stateChanged();
+    }
+}
+
+void AppStoreClient::onStateChanged(const QVariantMap &state) {
+    m_state = state;
+    emit stateChanged();
+}
+
+void AppStoreClient::refreshCatalog() {
+    m_iface.call("RefreshCatalog");
+}
+
+// Each catalog entry arrives as a QVariantList<QDBusArgument>; QML's
+// JS engine can't see the inner QVariantMap keys until we qdbus_cast
+// them back. We pull the raw reply via QDBusReply<QVariantList> (so
+// QDBus does the type coercion) and then run the result through
+// normalizeListDeep — same path ContactsClient.setContacts uses for
+// the same problem. Without this, every modelData.name read in QML
+// came back undefined even though the row count was correct.
+QVariantList AppStoreClient::searchApps(const QString &query) {
+    QDBusReply<QVariantList> r = m_iface.call("SearchApps", query);
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+QVariantMap AppStoreClient::getApp(const QString &appId) {
+    QDBusReply<QVariantMap> r = m_iface.call("GetApp", appId);
+    if (!r.isValid())
+        return {};
+    return normalizeMapDeep(r.value());
+}
+
+QVariantList AppStoreClient::getFeaturedApps() {
+    QDBusReply<QVariantList> r = m_iface.call("GetFeaturedApps");
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+QVariantList AppStoreClient::getAppsByCategory(const QString &category) {
+    QDBusReply<QVariantList> r = m_iface.call("GetAppsByCategory", category);
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+QVariantList AppStoreClient::getAvailableUpdates() {
+    QDBusReply<QVariantList> r = m_iface.call("GetAvailableUpdates");
+    if (!r.isValid())
+        return {};
+    return normalizeListDeep(r.value());
+}
+
+void AppStoreClient::checkForUpdates() {
+    m_iface.call("CheckForUpdates");
+}
+
+void AppStoreClient::downloadApp(const QString &appId) {
+    m_iface.call("DownloadApp", appId);
+}
+
+void AppStoreClient::cancelDownload(const QString &appId) {
+    m_iface.call("CancelDownload", appId);
+}
