@@ -43,11 +43,15 @@ Rectangle {
     }
 
     // ── Header (glass) ──────────────────────────────────────
+    // JSX HubScreen() positions the header at top: 28 so the status bar
+    // (28 px) stays visible above. Without this offset the "Hub" title
+    // is clipped by the status-bar overlay.
     Item {
         id: header
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
+        anchors.topMargin: Constants.statusBarHeight
         height: 132
 
         Rectangle {
@@ -85,7 +89,7 @@ Rectangle {
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
                         font.pixelSize: 32
-                        font.weight: MTypography.weightLight
+                        font.weight: MTypography.weightExtraLight   // 200 per DS
                         font.letterSpacing: -0.6
                     }
                     Text {
@@ -131,21 +135,25 @@ Rectangle {
                 }
                 MFilterChip {
                     label: "Messages"
+                    count: String(hub.countForCategory("messages"))
                     active: hub.selectedCategory === "messages"
                     onActivated: hub.selectedCategory = "messages"
                 }
                 MFilterChip {
                     label: "Mail"
+                    count: String(hub.countForCategory("mail"))
                     active: hub.selectedCategory === "mail"
                     onActivated: hub.selectedCategory = "mail"
                 }
                 MFilterChip {
                     label: "Work"
+                    count: String(hub.countForCategory("work"))
                     active: hub.selectedCategory === "work"
                     onActivated: hub.selectedCategory = "work"
                 }
                 MFilterChip {
                     label: "Calls"
+                    count: String(hub.countForCategory("call"))
                     active: hub.selectedCategory === "call"
                     onActivated: hub.selectedCategory = "call"
                 }
@@ -256,8 +264,12 @@ Rectangle {
             return "Phone";
         case "github":
             return "GitHub";
+        case "calendar":
+            return "Calendar";
+        case "work":
+            return "Work";
         default:
-            return appId;
+            return appId.charAt(0).toUpperCase() + appId.slice(1);
         }
     }
 
@@ -273,6 +285,31 @@ Rectangle {
         if (hub.selectedCategory === "call")
             return appId === "phone" || appId === "call";
         return false;
+    }
+
+    function appIdInCategory(appId, category) {
+        if (category === "messages")
+            return appId === "messages" || appId === "imessage";
+        if (category === "mail")
+            return appId === "mail";
+        if (category === "work")
+            return appId === "linear" || appId === "github" || appId === "work";
+        if (category === "call")
+            return appId === "phone" || appId === "call";
+        return false;
+    }
+
+    function countForCategory(category) {
+        if (!NotificationModel.count)
+            return 0;
+        let n = 0;
+        for (let i = 0; i < NotificationModel.count; ++i) {
+            const idx = NotificationModel.index(i, 0);
+            const appId = NotificationModel.data(idx, NotificationModel.roleId("appId"));
+            if (hub.appIdInCategory(appId, category))
+                n += 1;
+        }
+        return n;
     }
 
     function relativeTime(ts) {
