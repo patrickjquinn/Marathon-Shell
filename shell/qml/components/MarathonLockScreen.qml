@@ -216,8 +216,12 @@ Item {
                 const num = TelephonyService.activeNumber || "";
                 if (!num)
                     return "Unknown";
-                if (typeof ContactsService !== "undefined" && ContactsService) {
-                    const c = ContactsService.getContactByNumber(num);
+                // Shell-process callers use ContactsManager directly;
+                // app-runner clients see the same data via ContactsService
+                // (the IPC wrapper). Try both — whichever is defined wins.
+                const svc = (typeof ContactsService !== "undefined" && ContactsService) ? ContactsService : (typeof ContactsManager !== "undefined" && ContactsManager) ? ContactsManager : null;
+                if (svc && svc.getContactByNumber) {
+                    const c = svc.getContactByNumber(num);
                     if (c && c.name)
                         return c.name;
                 }

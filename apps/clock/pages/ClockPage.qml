@@ -126,6 +126,20 @@ Item {
             width: dialFrame.dialSize
             height: width
 
+            // Outer ring — thin teal-bright circle sitting just inside
+            // the tick markers, per the JSX ref-clock outline. Mirrors
+            // the dial's outer edge so the ticks read as ring-mounted
+            // strokes rather than free-floating lines.
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 8
+                radius: width / 2
+                color: "transparent"
+                border.width: 1
+                border.color: MColors.marathonTealBright
+                opacity: 0.45
+            }
+
             // Tick marks — 60 thin teal-bright strokes; hour ticks at
             // every 5th are thicker and slightly longer.
             Repeater {
