@@ -2,24 +2,30 @@ import MarathonOS.Shell
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
+import QtQuick.Effects
 
+// Marathon DS · Toggle (ds-components.jsx:DSInputs · "Toggle").
+//
+// 44 × 26. Thumb 20 px. Slides 18 px on toggle. Per the "Adapt to
+// ambient light" reference shot, the ON state shows:
+//   - Solid teal-bright pill (no gradient — matches the reference)
+//   - 1 px teal-border outer ring
+//   - White thumb pushed right
+//   - Soft teal-halo bloom around the WHOLE pill via MultiEffect
+//     (the entire control glows, not just the thumb)
+// OFF state: bb10-surface fill, w-08 border, white thumb on left,
+// no glow.
 Item {
     id: root
 
     property bool checked: false
     property bool disabled: false
+
     readonly property real scaleFactor: Constants.scaleFactor || 1
-    readonly property real borderWidth: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real borderWidthThick: Math.max(1, Math.round(2 * scaleFactor))
-    readonly property real thumbWidth: Math.round(26 * scaleFactor)
-    readonly property real thumbHeight: Math.round(26 * scaleFactor)
-    readonly property real thumbInnerWidth: Math.round(22 * scaleFactor)
-    readonly property real thumbInnerHeight: Math.round(22 * scaleFactor)
-    readonly property real thumbOffset: Math.max(1, Math.round(3 * scaleFactor))
-    readonly property real innerMargin: Math.max(1, Math.round(1 * scaleFactor))
-    readonly property real shadowMargin: Math.max(1, Math.round(2 * scaleFactor))
-    readonly property real toggleWidth: Math.round(76 * scaleFactor)
-    readonly property real toggleHeight: Math.round(32 * scaleFactor)
+    readonly property real trackWidth: Math.round(44 * scaleFactor)
+    readonly property real trackHeight: Math.round(26 * scaleFactor)
+    readonly property real thumbSize: Math.round(20 * scaleFactor)
+    readonly property real thumbInset: Math.round(3 * scaleFactor)
 
     signal toggled
 
@@ -31,8 +37,9 @@ Item {
         }
     }
 
-    implicitWidth: Math.max(toggleWidth, parent ? Math.min(parent.width, toggleWidth) : toggleWidth)
-    implicitHeight: toggleHeight
+    implicitWidth: trackWidth
+    implicitHeight: trackHeight
+
     Accessible.role: Accessible.CheckBox
     Accessible.name: "Toggle switch"
     Accessible.checked: checked
@@ -56,132 +63,62 @@ Item {
 
     Rectangle {
         id: track
-
         anchors.fill: parent
-        radius: MRadius.md
-        color: root.checked ? MColors.marathonTeal : MColors.bb10Surface
-        border.width: borderWidth
-        border.color: root.checked ? MColors.marathonTealBright : MColors.borderGlass
-        layer.enabled: false
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.topMargin: shadowMargin
-            anchors.leftMargin: -innerMargin
-            anchors.rightMargin: -innerMargin
-            anchors.bottomMargin: -shadowMargin
-            z: -1
-            radius: parent.radius
-            color: Qt.rgba(0, 0, 0, 0.4)
-            opacity: 0.3
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: innerMargin
-            radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
-            color: "transparent"
-            border.width: borderWidth
-            border.color: root.checked ? Qt.rgba(0, 191 / 255, 165 / 255, 0.3) : MColors.borderSubtle
-
-            Behavior on border.color {
-                ColorAnimation {
-                    duration: MMotion.md
-                }
-            }
-        }
-
-        Rectangle {
-            visible: root.checked
-            anchors.fill: parent
-            anchors.margins: shadowMargin
-            radius: parent.radius > shadowMargin ? parent.radius - shadowMargin : 0
-            opacity: 0.6
-
-            gradient: Gradient {
-                GradientStop {
-                    position: 0
-                    color: Qt.rgba(0, 191 / 255, 165 / 255, 0.15)
-                }
-
-                GradientStop {
-                    position: 1
-                    color: "transparent"
-                }
-            }
-        }
+        radius: height / 2
+        color: root.checked ? MColors.marathonTealBright : MColors.bb10Surface
+        border.width: 1
+        border.color: root.checked ? MColors.tealBorder : MColors.whiteOverlay08
 
         Behavior on color {
             ColorAnimation {
                 duration: MMotion.quick
             }
         }
-
         Behavior on border.color {
             ColorAnimation {
-                duration: MMotion.md
+                duration: MMotion.quick
             }
+        }
+
+        // Outer teal halo — only renders when on, drawn via MultiEffect
+        // drop shadow on the track for a real soft glow (no hard ring).
+        layer.enabled: root.checked
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowBlur: 1.0
+            shadowVerticalOffset: 0
+            shadowHorizontalOffset: 0
+            shadowColor: Qt.rgba(0, 191 / 255, 165 / 255, 0.55)
+            shadowOpacity: 0.85
+            shadowScale: 1.10
         }
     }
 
+    // Top-edge inset highlight per JSX (toggles in Settings carry a
+    // subtle "lit from above" stripe across the top so the pill reads
+    // as raised, not pasted on).
     Rectangle {
-        id: thumbOuter
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: 2
+        anchors.rightMargin: 2
+        anchors.topMargin: 1
+        height: 1
+        color: root.checked ? Qt.rgba(1, 1, 1, 0.32) : Qt.rgba(1, 1, 1, 0.06)
+    }
 
+    // Thumb — white 20 px disc.
+    Rectangle {
+        id: thumb
         anchors.verticalCenter: parent.verticalCenter
-        x: root.checked ? parent.width - width - thumbOffset : thumbOffset
-        width: thumbWidth
-        height: thumbHeight
-        radius: MRadius.md
-        color: "transparent"
-
-        border.width: borderWidthThick
-        border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
-
-        Rectangle {
-            anchors.centerIn: parent
-            width: thumbInnerWidth
-            height: thumbInnerHeight
-            radius: MRadius.md > innerMargin ? MRadius.md - innerMargin : 0
-            color: Qt.rgba(0, 0, 0, 0.35)
-            opacity: 0.25
-            anchors.verticalCenterOffset: 2 * scaleFactor
-            z: -1
-        }
-
-        Rectangle {
-            id: thumb
-
-            anchors.centerIn: parent
-            width: thumbInnerWidth
-            height: thumbInnerHeight
-            radius: MRadius.md > innerMargin ? MRadius.md - innerMargin : 0
-
-            border.width: borderWidth
-            border.color: Qt.rgba(0, 0, 0, 0.15)
-
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: innerMargin
-                radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
-                color: "transparent"
-                border.width: borderWidth
-                border.color: Qt.rgba(1, 1, 1, 0.4)
-            }
-
-            gradient: Gradient {
-                orientation: Gradient.Vertical
-
-                GradientStop {
-                    position: 0
-                    color: Qt.rgba(1, 1, 1, 1)
-                }
-
-                GradientStop {
-                    position: 1
-                    color: Qt.rgba(0.92, 0.92, 0.92, 1)
-                }
-            }
-        }
+        x: root.checked ? parent.width - width - thumbInset : thumbInset
+        width: thumbSize
+        height: thumbSize
+        radius: width / 2
+        color: "#FFFFFF"
+        border.width: 1
+        border.color: Qt.rgba(0, 0, 0, 0.18)
 
         Behavior on x {
             SpringAnimation {

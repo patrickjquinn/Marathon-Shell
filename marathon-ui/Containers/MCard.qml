@@ -80,23 +80,21 @@ Rectangle {
         }
     }
 
+    // Inner highlight — DS prescribes an asymmetric "lit from above"
+    // edge treatment: a single 1 px bright stroke on the TOP edge of the
+    // card, not a full 4-sided ring. Matches the m-card CSS spec
+    // `inset 0 1px 0 var(--w-06)` and lines up with how buttons, keys,
+    // and toggles all share the same "highlight on top, shadow on
+    // bottom" reading from the reference shots.
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: shadowMargin1
-        radius: root.radius > shadowMargin1 ? root.radius - shadowMargin1 : 0
-        color: "transparent"
-        border.width: borderWidth
-        border.color: MElevation.getBorderInner(elevation)
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: shadowMargin2
-        radius: root.radius > shadowMargin2 ? root.radius - shadowMargin2 : 0
-        color: "transparent"
-        border.width: borderWidth
-        border.color: Qt.rgba(1, 1, 1, 0.02)
-        opacity: elevation >= 2 ? 1 : 0
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: shadowMargin1
+        anchors.rightMargin: shadowMargin1
+        anchors.topMargin: shadowMargin1
+        height: borderWidth
+        color: MElevation.getBorderInner(elevation)
     }
 
     Item {
