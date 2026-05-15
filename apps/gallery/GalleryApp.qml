@@ -291,6 +291,7 @@ MApp {
                         }
                         MEmptyState {
                             anchors.centerIn: parent
+                            width: parent.width - 48
                             visible: galleryApp.albums.length === 0
                             iconName: "folder"
                             iconSize: 64
@@ -403,6 +404,7 @@ MApp {
 
                     MEmptyState {
                         anchors.centerIn: parent
+                        width: parent.width - 48
                         visible: galleryApp.photos.length === 0
                         iconName: "image"
                         iconSize: 64

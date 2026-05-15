@@ -234,7 +234,7 @@ Page {
 
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 20
+                            anchors.leftMargin: 16
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 8
                             text: "PINNED"
@@ -321,7 +321,7 @@ Page {
                         height: 36
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 20
+                            anchors.leftMargin: 16
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 8
                             text: "TODAY"
@@ -448,7 +448,7 @@ Page {
                         height: 36
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 20
+                            anchors.leftMargin: 16
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 8
                             text: "FOLDERS"
@@ -724,7 +724,7 @@ Page {
                         height: 36
                         Text {
                             anchors.left: parent.left
-                            anchors.leftMargin: 20
+                            anchors.leftMargin: 16
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 8
                             text: "TASKS"
