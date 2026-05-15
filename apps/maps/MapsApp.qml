@@ -15,6 +15,9 @@ MApp {
     property bool mapLoaded: false
     property bool hasLocationPermission: false
     property Map mapObject: null
+    // Currently-selected place (set after the user picks from search
+    // results). Drives the bottom place card per JSX ref-maps.
+    property var selectedPlace: null
 
     function searchLocation(query) {
         if (query.length === 0) {
@@ -213,54 +216,129 @@ MApp {
             }
         }
 
-        Row {
+        // ── Floating search bar (JSX ref-maps top chrome) ─────
+        // Glass-titlebar fill, 1 px tealBorder outer + w-04 inner. Holds
+        // a magnifier, the search input (or selected-place title when a
+        // pin is active), and a 36 px circle avatar/clear toggle.
+        Rectangle {
             id: searchBar
 
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.margins: MSpacing.md
-            height: Constants.touchTargetLarge
-            spacing: MSpacing.sm
+            anchors.margins: 12
+            height: 56
+            radius: MRadius.md
+            color: MColors.glassTitlebar
+            border.width: 1
+            border.color: mapsApp.selectedPlace ? MColors.tealBorder : MColors.whiteOverlay08
             z: 100
 
-            Icon {
-                anchors.verticalCenter: parent.verticalCenter
-                name: isSearching ? "loader" : "search"
-                size: Constants.iconSizeMedium
-                color: MColors.textSecondary
-
-                RotationAnimation on rotation {
-                    running: isSearching
-                    loops: Animation.Infinite
-                    from: 0
-                    to: 360
-                    duration: 1000
-                }
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: parent.radius - 1
+                color: "transparent"
+                border.width: 1
+                border.color: MColors.whiteOverlay04
             }
 
-            MTextInput {
-                id: searchInput
-
+            Row {
+                anchors.left: parent.left
+                anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - parent.spacing * 3 - Constants.iconSizeMedium * 2
-                placeholderText: "Search for places..."
-                onTextChanged: {
-                    showSearch = text.length > 0;
-                    if (text.length > 2)
-                        searchTimer.restart();
+                anchors.leftMargin: 14
+                anchors.rightMargin: 8
+                spacing: 12
+
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: isSearching ? "loader" : "search"
+                    size: 20
+                    color: MColors.textSecondary
+                    RotationAnimation on rotation {
+                        running: isSearching
+                        loops: Animation.Infinite
+                        from: 0
+                        to: 360
+                        duration: 1000
+                    }
                 }
-            }
 
-            MIconButton {
-                anchors.verticalCenter: parent.verticalCenter
-                iconName: "x"
-                iconSize: 20
-                variant: "secondary"
-                visible: searchInput.text.length > 0
-                onClicked: {
-                    searchInput.text = "";
-                    showSearch = false;
+                // When a place is selected, show its name + address as a
+                // static label. The input only shows while typing.
+                Column {
+                    visible: mapsApp.selectedPlace !== null
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 20 - 36 - parent.spacing * 2
+                    spacing: 2
+                    Text {
+                        width: parent.width
+                        text: mapsApp.selectedPlace ? mapsApp.selectedPlace.name : ""
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeSubhead
+                        font.weight: Font.Medium
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        width: parent.width
+                        text: mapsApp.selectedPlace ? mapsApp.selectedPlace.address : ""
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        elide: Text.ElideRight
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.light();
+                            mapsApp.selectedPlace = null;
+                            searchInput.forceActiveFocus();
+                        }
+                    }
+                }
+
+                MTextInput {
+                    id: searchInput
+
+                    visible: mapsApp.selectedPlace === null
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 20 - 36 - parent.spacing * 2
+                    placeholderText: "Search Maps"
+                    onTextChanged: {
+                        showSearch = text.length > 0;
+                        if (text.length > 2)
+                            searchTimer.restart();
+                    }
+                }
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 36
+                    height: 36
+                    radius: width / 2
+                    color: MColors.elev3
+                    border.width: 1
+                    border.color: MColors.whiteOverlay08
+                    Icon {
+                        anchors.centerIn: parent
+                        name: searchInput.text.length > 0 || mapsApp.selectedPlace ? "x" : "user"
+                        size: 16
+                        color: MColors.textSecondary
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.light();
+                            if (mapsApp.selectedPlace) {
+                                mapsApp.selectedPlace = null;
+                                return;
+                            }
+                            searchInput.text = "";
+                            showSearch = false;
+                        }
+                    }
                 }
             }
         }
@@ -309,6 +387,8 @@ MApp {
                         onClicked: {
                             HapticService.light();
                             Logger.info("Maps", "Selected: " + modelData.name);
+                            mapsApp.selectedPlace = modelData;
+                            showSearch = false;
                             goToLocation(modelData.lat, modelData.lon);
                         }
 
@@ -388,7 +468,7 @@ MApp {
             id: locateButton
 
             anchors.right: parent.right
-            anchors.bottom: parent.bottom
+            anchors.bottom: placeCard.visible ? placeCard.top : parent.bottom
             anchors.margins: MSpacing.md
             iconName: "navigation"
             iconSize: 24
@@ -402,6 +482,169 @@ MApp {
                     Logger.info("Maps", "Centered on current location");
                 } else {
                     Logger.warn("Maps", "Position not available");
+                }
+            }
+        }
+
+        // ── Place card (JSX ref-maps bottom chrome) ───────────
+        // Visible only when a search result is selected. 64×64 teal
+        // gradient bay + place name + meta (address) + ★rating +
+        // four-action row: Directions (teal accent) · Call · Share · Save.
+        Rectangle {
+            id: placeCard
+            visible: mapsApp.selectedPlace !== null
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: 12
+            height: 168
+            radius: MRadius.md
+            color: MColors.elev2
+            border.width: 1
+            border.color: MColors.whiteOverlay04
+            z: 90
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: parent.radius - 1
+                color: "transparent"
+                border.width: 1
+                border.color: MColors.whiteOverlay04
+            }
+
+            Row {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.topMargin: 16
+                anchors.leftMargin: 16
+                anchors.rightMargin: 16
+                spacing: 14
+
+                // 64 × 64 squircle bay with map-pin glyph.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 64
+                    height: 64
+                    radius: MRadius.squircle
+                    border.width: 1
+                    border.color: MColors.tealBorder
+                    gradient: Gradient {
+                        GradientStop {
+                            position: 0
+                            color: Qt.rgba(0, 89 / 255, 77 / 255, 0.55)
+                        }
+                        GradientStop {
+                            position: 1
+                            color: Qt.rgba(4 / 255, 4 / 255, 4 / 255, 0.85)
+                        }
+                    }
+                    Icon {
+                        anchors.centerIn: parent
+                        name: "map-pin"
+                        size: 28
+                        color: MColors.marathonTealBright
+                    }
+                }
+
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 64 - parent.spacing
+                    spacing: 4
+
+                    Text {
+                        width: parent.width
+                        text: mapsApp.selectedPlace ? mapsApp.selectedPlace.name : ""
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 20
+                        font.weight: Font.Medium
+                        font.letterSpacing: -0.3
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        width: parent.width
+                        text: mapsApp.selectedPlace ? mapsApp.selectedPlace.address : ""
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                    }
+                    // ★ rating / price line — placeholder until Nominatim
+                    // results include richer business metadata. Empty when
+                    // no data so the row collapses cleanly.
+                    Row {
+                        spacing: 8
+                        visible: mapsApp.selectedPlace && mapsApp.selectedPlace.type
+                        Text {
+                            text: (mapsApp.selectedPlace && mapsApp.selectedPlace.type) ? mapsApp.selectedPlace.type : ""
+                            color: MColors.textTertiary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeFootnote
+                            font.capitalization: Font.Capitalize
+                        }
+                    }
+                }
+            }
+
+            // Action row — Directions (teal accent) · Call · Share · Save.
+            Row {
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottomMargin: 14
+
+                Repeater {
+                    model: [
+                        {
+                            label: "Directions",
+                            icon: "navigation",
+                            accent: true
+                        },
+                        {
+                            label: "Call",
+                            icon: "phone",
+                            accent: false
+                        },
+                        {
+                            label: "Share",
+                            icon: "share-2",
+                            accent: false
+                        },
+                        {
+                            label: "Save",
+                            icon: "star",
+                            accent: false
+                        }
+                    ]
+                    delegate: Item {
+                        width: parent.width / 4
+                        height: 48
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 4
+                            Icon {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                name: modelData.icon
+                                size: 20
+                                color: modelData.accent ? MColors.marathonTealBright : MColors.textSecondary
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: modelData.label
+                                color: modelData.accent ? MColors.marathonTealBright : MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeEyebrow
+                                font.weight: Font.Medium
+                            }
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: HapticService.light()
+                        }
+                    }
                 }
             }
         }
