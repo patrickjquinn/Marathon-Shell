@@ -54,56 +54,43 @@ QString MarathonAppStoreService::getDownloadCachePath() {
 }
 
 void MarathonAppStoreService::loadCachedCatalog() {
+    // This service is the in-process catalog cache for any C++ code
+    // that wants a Marathon-format manifest list (mapp packages, not
+    // flatpaks). The QML Store app reads flathub.org directly via
+    // XHR — see apps/store/StoreApp.qml. Apart from refreshCatalog()
+    // wiring, this method just rehydrates whatever the last
+    // refreshCatalog() reply wrote to disk; it doesn't fall back to
+    // a bundled stub.
     const QString cachePath = getCatalogCachePath();
+    QFile         file(cachePath);
 
-    // Try the on-disk cache first (populated by handleCatalogReply).
-    QFile cached(cachePath);
-    if (cached.exists()) {
-        if (cached.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QJsonParseError error;
-            QJsonDocument   doc = QJsonDocument::fromJson(cached.readAll(), &error);
-            cached.close();
-            if (error.error == QJsonParseError::NoError && doc.isArray()) {
-                m_catalog       = doc.array().toVariantList();
-                m_catalogLoaded = true;
-                emit catalogLoadedChanged();
-                qDebug() << "[MarathonAppStoreService] Loaded cached catalog with"
-                         << m_catalog.size() << "apps";
-                return;
-            }
-            qWarning() << "[MarathonAppStoreService] Failed to parse cached catalog:"
-                       << error.errorString();
-        } else {
-            qWarning() << "[MarathonAppStoreService] Failed to open cached catalog";
-        }
-    } else {
-        qDebug() << "[MarathonAppStoreService] No cached catalog found, falling back to bundled";
-    }
-
-    // Cache missing or corrupt — fall back to the bundled catalog that
-    // ships in the shell's Qt resources. Gives a brand-new device
-    // something to render the very first time the Store is opened,
-    // before any network refresh has landed. handleCatalogReply()
-    // will overwrite this once the real catalog server is reachable.
-    QFile bundled(":/qt/qml/MarathonOS/Shell/resources/store-catalog-fallback.json");
-    if (!bundled.open(QIODevice::ReadOnly)) {
-        qWarning()
-            << "[MarathonAppStoreService] Bundled fallback catalog not found at qrc resource";
+    if (!file.exists()) {
+        qDebug() << "[MarathonAppStoreService] No cached catalog found";
         return;
     }
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "[MarathonAppStoreService] Failed to open cached catalog";
+        return;
+    }
+
     QJsonParseError error;
-    QJsonDocument   doc = QJsonDocument::fromJson(bundled.readAll(), &error);
-    bundled.close();
-    if (error.error != QJsonParseError::NoError || !doc.isArray()) {
-        qWarning() << "[MarathonAppStoreService] Failed to parse bundled fallback catalog:"
+    QJsonDocument   doc = QJsonDocument::fromJson(file.readAll(), &error);
+    file.close();
+
+    if (error.error != QJsonParseError::NoError) {
+        qWarning() << "[MarathonAppStoreService] Failed to parse cached catalog:"
                    << error.errorString();
         return;
     }
-    m_catalog       = doc.array().toVariantList();
-    m_catalogLoaded = true;
-    emit catalogLoadedChanged();
-    qDebug() << "[MarathonAppStoreService] Loaded bundled fallback catalog with" << m_catalog.size()
-             << "apps";
+
+    if (doc.isArray()) {
+        m_catalog       = doc.array().toVariantList();
+        m_catalogLoaded = true;
+        emit catalogLoadedChanged();
+        qDebug() << "[MarathonAppStoreService] Loaded cached catalog with" << m_catalog.size()
+                 << "apps";
+    }
 }
 
 void MarathonAppStoreService::saveCatalogCache() {

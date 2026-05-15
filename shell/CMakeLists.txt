@@ -265,7 +265,6 @@ set(JSON_FILES
     qml/keyboard/Layouts/languages/ar_SA.json
     qml/keyboard/Layouts/languages/zh_CN.json
     qml/keyboard/Layouts/languages/ja_JP.json
-    resources/store-catalog-fallback.json
 )
 
 # Find PAM library for authentication
