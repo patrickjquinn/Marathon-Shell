@@ -315,6 +315,51 @@ MApp {
         return out;
     }
 
+    // Returns a human-readable category for a trending entry.
+    // Collection responses don't include categories per-hit, so we
+    // opportunistically fetch the appstream payload for each trending
+    // app — the category lands ~150 ms after first paint and the
+    // tile re-renders. `_categoryTick` is bumped on each cache write
+    // so QML re-evaluates the binding.
+    property int _categoryTick: 0
+    property var _categoryFor: ({})
+
+    function categoryForApp(app) {
+        const _ = root._categoryTick;
+        if (!app)
+            return "App";
+        const id = app.app_id || app.id || "";
+        if (root._categoryFor[id])
+            return root._categoryFor[id];
+        // Fall back to in-band metadata if the collection endpoint
+        // happened to include it (it usually doesn't).
+        if (app.categories && app.categories.length > 0)
+            return app.categories[0];
+        // Lazy-fetch the appstream and cache the result.
+        if (id && !root._categoryFor["__inflight__" + id]) {
+            const next = Object.assign({}, root._categoryFor);
+            next["__inflight__" + id] = true;
+            root._categoryFor = next;
+            root.loadAppstream(id, function (full) {
+                if (!full)
+                    return;
+                let cat = "App";
+                if (full.categories && full.categories.length > 0)
+                    cat = full.categories[0];
+                else if (full.main_categories && full.main_categories.length > 0)
+                    cat = full.main_categories[0];
+                else if (full.project_group)
+                    cat = full.project_group;
+                const after = Object.assign({}, root._categoryFor);
+                after[id] = cat;
+                delete after["__inflight__" + id];
+                root._categoryFor = after;
+                root._categoryTick = root._categoryTick + 1;
+            });
+        }
+        return "App";
+    }
+
     Timer {
         id: stateRefreshTimer
         interval: 1500
@@ -808,7 +853,7 @@ MApp {
                                         anchors.left: parent.left
                                         width: parent.width
                                         text: {
-                                            const cat = modelData.categories ? (modelData.categories[0] || "App") : "App";
+                                            const cat = root.categoryForApp(modelData);
                                             const installs = modelData.installs_last_month;
                                             if (typeof installs === "number" && installs > 0)
                                                 return cat + " · ★ " + (installs > 1000 ? (Math.round(installs / 1000)) + "k" : installs);

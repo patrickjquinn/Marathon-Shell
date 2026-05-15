@@ -175,6 +175,15 @@ Item {
             if (seedCall) {
                 // Fake an active call so the lock-screen NowBar renders
                 // for visual validation. Production paths never hit this.
+                // Seed a matching contact first so the NowBar resolves to
+                // "Maya Chen" rather than the raw number — the contact-
+                // lookup path runs against ContactsManager via
+                // PhoneApp.resolveContactName.
+                if (typeof ContactsManager !== "undefined" && ContactsManager) {
+                    const existing = ContactsManager.getContactByNumber ? ContactsManager.getContactByNumber("+1 415 555 0142") : null;
+                    if (!existing || !existing.id)
+                        ContactsManager.addContact("Maya Chen", "+1 415 555 0142", "maya@example.com");
+                }
                 TelephonyService.simulateIncomingCall("+1 415 555 0142");
                 TelephonyService.simulateCallStateChange("active");
             }
