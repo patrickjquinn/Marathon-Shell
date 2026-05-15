@@ -5,6 +5,12 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 
+// Marathon DS · Thread bubble (screens-apps-1.jsx:ThreadBubble).
+//
+// Incoming: elev-2 fill, w-04 hairline border, 16 px radius.
+// Outgoing: teal-bright gradient fill, black text, inset white highlight.
+// Status (✓ / ✓✓ READ / ✓✓ DELIVERED) sits on a row beneath the last
+// outgoing bubble — eyebrow size, secondary tint, tabular nums.
 Item {
     id: root
 
@@ -14,90 +20,119 @@ Item {
     property bool isFirstInGroup: false
     property bool isLastInGroup: false
 
-    function formatMessageTime(timestamp) {
-        if (!timestamp)
+    function statusText() {
+        if (!message)
             return "";
-
-        var date = new Date(timestamp);
-        return date.toLocaleTimeString(Qt.locale(), "h:mm AP");
+        if (message.isFailed)
+            return "FAILED";
+        if (message.isRead)
+            return "READ";
+        if (message.isDelivered)
+            return "DELIVERED";
+        return "SENT";
     }
 
-    function getStatusIcon() {
+    function statusGlyph() {
         if (!message)
             return "check";
-
         if (message.isFailed)
             return "x";
-
-        if (message.isRead)
+        if (message.isRead || message.isDelivered)
             return "check-check";
-
-        if (message.isDelivered)
-            return "check-check";
-
         return "check";
     }
 
-    width: parent.width
-    height: bubbleContainer.height + MSpacing.xs
+    width: parent ? parent.width : 0
+    height: bubbleContainer.height + (statusRow.visible ? statusRow.height + 4 : 0) + 4
 
-    Column {
+    Item {
         id: bubbleContainer
-
         anchors.left: isOutgoing ? undefined : parent.left
         anchors.right: isOutgoing ? parent.right : undefined
-        anchors.leftMargin: MSpacing.md
-        anchors.rightMargin: MSpacing.md
-        spacing: MSpacing.xs
+        anchors.leftMargin: 14
+        anchors.rightMargin: 14
+        width: bubble.width
+        height: bubble.height
 
         Rectangle {
             id: bubble
 
-            width: Math.min(bubbleText.contentWidth + MSpacing.md * 2, root.width * 0.75)
-            height: bubbleText.contentHeight + MSpacing.md * 2
-            radius: MRadius.lg
-            color: isOutgoing ? MColors.marathonTeal : MColors.elevated
+            width: Math.min(bubbleText.contentWidth + 28, root.width * 0.78)
+            height: bubbleText.contentHeight + 24
+            radius: 16
+            color: "transparent"
             border.width: isOutgoing ? 0 : 1
-            border.color: MColors.border
+            border.color: MColors.whiteOverlay04
 
-            MLabel {
-                id: bubbleText
-
-                anchors.fill: parent
-                anchors.margins: MSpacing.md
-                text: (message && message.text) || ""
-                variant: "primary"
-                font.pixelSize: MTypography.sizeBody
-                color: isOutgoing ? MColors.textPrimary : MColors.textPrimary
-                wrapMode: Text.Wrap
-            }
-
-            Row {
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.rightMargin: MSpacing.xs
-                anchors.bottomMargin: MSpacing.xs
-                spacing: MSpacing.xs
-                visible: isOutgoing
-
-                Icon {
-                    name: getStatusIcon()
-                    size: 12
-                    color: isOutgoing ? MColors.textSecondary : MColors.textTertiary
-                    anchors.verticalCenter: parent.verticalCenter
+            // Outgoing: teal-bright gradient. Incoming: elev-2 fill.
+            gradient: isOutgoing ? outgoingGradient : null
+            Gradient {
+                id: outgoingGradient
+                GradientStop {
+                    position: 0
+                    color: MColors.marathonTealBright
+                }
+                GradientStop {
+                    position: 1
+                    color: MColors.marathonTealDark
                 }
             }
+            // Use plain color for incoming rather than gradient.
+            Component.onCompleted: if (!isOutgoing)
+                color = MColors.elev2
+
+            // Inner inset highlight — only visible on the outgoing tint.
+            Rectangle {
+                visible: isOutgoing
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: parent.radius - 1
+                color: "transparent"
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.2)
+            }
+
+            Text {
+                id: bubbleText
+                anchors.fill: parent
+                anchors.margins: 14
+                anchors.topMargin: 12
+                anchors.bottomMargin: 12
+                text: (message && message.text) || ""
+                color: isOutgoing ? "#000000" : MColors.textPrimary
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.weight: Font.Regular
+                wrapMode: Text.Wrap
+            }
         }
+    }
 
-        MLabel {
-            id: timestampLabel
+    // Status row — only under last outgoing bubble.
+    Row {
+        id: statusRow
+        anchors.right: parent.right
+        anchors.rightMargin: 14
+        anchors.top: bubbleContainer.bottom
+        anchors.topMargin: 4
+        spacing: 4
+        visible: isOutgoing && root.isLastInGroup && root.showTimestamp
 
-            visible: showTimestamp
-            text: formatMessageTime(message && message.timestamp)
-            variant: "tertiary"
-            font.pixelSize: MTypography.sizeXSmall
-            anchors.left: isOutgoing ? undefined : parent.left
-            anchors.right: isOutgoing ? parent.right : undefined
+        Icon {
+            anchors.verticalCenter: parent.verticalCenter
+            name: root.statusGlyph()
+            size: 10
+            color: MColors.textSecondary
+        }
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.statusText()
+            color: MColors.textSecondary
+            font.family: MTypography.fontFamily
+            font.pixelSize: MTypography.sizeEyebrow
+            font.weight: Font.Medium
+            font.letterSpacing: MTypography.trackingEyebrow
+            font.capitalization: Font.AllUppercase
         }
     }
 }
