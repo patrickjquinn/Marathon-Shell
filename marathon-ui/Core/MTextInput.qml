@@ -38,7 +38,7 @@ Rectangle {
             return MColors.error;
         if (textInput.activeFocus)
             return MColors.marathonTeal;
-        return MColors.borderGlass;
+        return MColors.whiteOverlay08;
     }
 
     Behavior on border.color {
@@ -47,13 +47,29 @@ Rectangle {
         }
     }
 
+    // Focus halo — 2 px teal-halo ring outside the border, only on
+    // focus per DS Inputs · "focus = 1 px teal border + 2 px teal halo".
+    Rectangle {
+        visible: textInput.activeFocus
+        anchors.fill: parent
+        anchors.margins: -2
+        radius: parent.radius + 2
+        color: "transparent"
+        border.width: 2
+        border.color: MColors.tealHalo
+        opacity: 0.55
+        z: -1
+    }
+
+    // Inset white highlight — w-02 on focus per DS focus spec; falls
+    // back to the subtle frame on default state.
     Rectangle {
         anchors.fill: parent
         anchors.margins: innerMargin
         radius: parent.radius > innerMargin ? parent.radius - innerMargin : 0
         color: "transparent"
         border.width: borderWidth
-        border.color: textInput.activeFocus ? Qt.rgba(0, 191 / 255, 165 / 255, 0.15) : MColors.borderSubtle
+        border.color: textInput.activeFocus ? Qt.rgba(1, 1, 1, 0.02) : MColors.borderSubtle
 
         Behavior on border.color {
             ColorAnimation {

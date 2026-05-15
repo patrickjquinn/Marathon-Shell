@@ -52,7 +52,7 @@ Item {
         color: MColors.textPrimary
         font.family: MTypography.fontFamily
         font.pixelSize: MTypography.sizeDisplay
-        font.weight: MTypography.weightLight
+        font.weight: MTypography.weightExtraLight   // 200 — the comment said 200, the constant now matches
         font.letterSpacing: MTypography.trackingDisplay
         renderType: Text.NativeRendering
     }
