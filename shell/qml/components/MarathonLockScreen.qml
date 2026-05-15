@@ -187,6 +187,197 @@ Item {
             z: 5
         }
 
+        // ── Call NowBar (screens-modern.jsx:LockNowBar) ─────
+        // Live activity strip pinned 70 px from the top whenever
+        // TelephonyService has an active or ringing call. The card
+        // shows a teal-bright phone avatar, an eyebrow with caller
+        // name + call duration, and a red end-call button.
+        //
+        // Caller name resolves through ContactsService when granted,
+        // falling back to the raw activeNumber otherwise.
+        Item {
+            id: lockNowBar
+
+            readonly property bool callActive: TelephonyService.callState === "active" || TelephonyService.callState === "ringing"
+            // Wall-clock timestamp of the most recent "active" transition.
+            // Reset to 0 whenever the call leaves the active state so the
+            // duration eyebrow flips back to "00:00".
+            property double callStartedAt: 0
+            property int callElapsed: 0
+
+            function fmtElapsed() {
+                const total = Math.max(0, callElapsed);
+                const m = Math.floor(total / 60);
+                const s = total % 60;
+                return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+            }
+
+            function callerLabel() {
+                const num = TelephonyService.activeNumber || "";
+                if (!num)
+                    return "Unknown";
+                if (typeof ContactsService !== "undefined" && ContactsService) {
+                    const c = ContactsService.getContactByNumber(num);
+                    if (c && c.name)
+                        return c.name;
+                }
+                return num;
+            }
+
+            visible: callActive
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: statusBar.bottom
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.topMargin: 42
+            height: 72
+            z: 6
+
+            Connections {
+                target: TelephonyService
+                function onCallStateChanged() {
+                    if (TelephonyService.callState === "active") {
+                        lockNowBar.callStartedAt = Date.now();
+                        lockNowBar.callElapsed = 0;
+                    } else {
+                        lockNowBar.callStartedAt = 0;
+                        lockNowBar.callElapsed = 0;
+                    }
+                }
+            }
+
+            Timer {
+                interval: 1000
+                running: lockNowBar.visible && lockNowBar.callStartedAt > 0
+                repeat: true
+                onTriggered: {
+                    lockNowBar.callElapsed = Math.floor((Date.now() - lockNowBar.callStartedAt) / 1000);
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: MRadius.md
+                color: MColors.glassTitlebar
+                border.width: 1
+                border.color: MColors.borderGlassStrong
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.width: 1
+                    border.color: MColors.whiteOverlay06
+                }
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    anchors.topMargin: 14
+                    anchors.bottomMargin: 14
+                    spacing: 14
+
+                    // 44 × 44 teal-outlined phone avatar.
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 44
+                        height: 44
+                        radius: width / 2
+                        border.width: 1
+                        border.color: MColors.marathonTealBright
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0
+                                color: "#1a4a3e"
+                            }
+                            GradientStop {
+                                position: 1
+                                color: "#0d2620"
+                            }
+                        }
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "phone"
+                            size: 20
+                            color: MColors.marathonTealBright
+                        }
+                        // Outer teal halo ring at low alpha.
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.margins: -4
+                            radius: width / 2
+                            color: "transparent"
+                            border.width: 1
+                            border.color: MColors.marathonTealBright
+                            opacity: 0.4
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 44 - 36 - parent.spacing * 2
+                        spacing: 2
+
+                        Text {
+                            text: "CALL · " + lockNowBar.fmtElapsed()
+                            color: MColors.marathonTealBright
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeEyebrow
+                            font.weight: Font.DemiBold
+                            font.letterSpacing: 0.8
+                            font.features: ({
+                                    "tnum": 1
+                                })
+                        }
+                        Text {
+                            width: parent.width
+                            text: lockNowBar.callerLabel()
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeSubhead
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    // 36 × 36 red end-call button.
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 36
+                        height: 36
+                        radius: width / 2
+                        color: MColors.error
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "phone"
+                            size: 14
+                            color: "#FFFFFF"
+                            rotation: 135
+                        }
+                        scale: endCallArea.pressed ? 0.94 : 1.0
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 100
+                                easing.type: Easing.OutBack
+                            }
+                        }
+                        MouseArea {
+                            id: endCallArea
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            onClicked: {
+                                HapticManager.medium();
+                                TelephonyService.hangup();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Clock cluster ───────────────────────────────────
         // Two layouts per the JSX: LockScreen() puts the clock at
         // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
