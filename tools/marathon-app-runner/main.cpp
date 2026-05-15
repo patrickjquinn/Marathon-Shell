@@ -253,14 +253,32 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
 
     const QString tmpBase =
         QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/marathon-app-runner";
-    QString tmpRoot = tmpBase + QString("/shell-qmldir-%1").arg(QCoreApplication::applicationPid());
+    // Suffix the tmp root with a hash of the source path so multiple
+    // calls within one process (e.g. dev build + a stale install)
+    // each land in their own staging dir. Reusing a single
+    // pid-keyed dir across sources would let the second call's
+    // qmldir replace the first while keeping the first call's
+    // files, leaving orphan type declarations behind.
+    const quint64 srcHash =
+        qHash(importRoot + ":" + moduleRelDir, qHash(QByteArray("marathon-app-runner")));
+    QString tmpRoot = tmpBase +
+        QString("/shell-qmldir-%1-%2")
+            .arg(QCoreApplication::applicationPid())
+            .arg(srcHash, 16, 16, QChar('0'));
     const QString tmpModuleDir = QDir(tmpRoot).filePath(moduleRelDir);
 
     QDir().mkpath(tmpModuleDir);
 
-    QString           patched;
-    QTextStream       out(&patched);
+    QString     patched;
+    QTextStream out(&patched);
 
+    // Type declarations in qmldir look like "Name 1.0 path/file.qml"
+    // or "singleton Name 1.0 path/file.qml". If the referenced file
+    // doesn't exist alongside the patched qmldir we drop the line —
+    // stale installs accrue orphan declarations (we hit this with
+    // an AlarmManager singleton that survived deletion of its .qml)
+    // and Qt's resolver chases the orphan into a `Type X
+    // unavailable` cascade.
     const QStringList lines = qmldirText.split('\n');
     for (const QString &raw : lines) {
         const QString line = raw.trimmed();
@@ -269,6 +287,19 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
 
         if (line.startsWith("prefer "))
             continue;
+
+        const QStringList parts = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        const bool        looksLikeTypeDecl = parts.size() >= 3 && parts.last().endsWith(".qml") &&
+            !line.startsWith("module ") && !line.startsWith("plugin ") &&
+            !line.startsWith("classname ") && !line.startsWith("typeinfo ") &&
+            !line.startsWith("depends ") && !line.startsWith("import ") &&
+            !line.startsWith("linktarget ");
+        if (looksLikeTypeDecl) {
+            const QString relTarget = parts.last();
+            const QString srcCheck  = QDir(moduleAbsDir).filePath(relTarget);
+            if (!QFileInfo::exists(srcCheck))
+                continue;
+        }
 
         out << line << '\n';
     }
@@ -494,39 +525,64 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // MarathonOS.Shell resolution.
+    //
+    // We've hit a stale-install footgun in the past: an old
+    // /usr/local/lib/qt6/qml/MarathonOS/Shell/ left over from a
+    // prior packaging run declared `singleton AlarmManager 1.0
+    // qml/services/AlarmManager.qml` in its qmldir, but the
+    // corresponding .qml file had already been removed from the
+    // source tree. Because the MarathonUI fallback loop above
+    // adds /usr/local/lib/qt6/qml to the engine's import paths
+    // (and Qt searches first-added-first), the stale install
+    // would win lookup over the development build, every app
+    // that imported MarathonOS.Shell would inherit the broken
+    // AlarmManager declaration, and Settings would refuse to
+    // load with `Type AlarmManager unavailable` chasing up the
+    // type-resolution chain.
+    //
+    // We patch this on two axes:
+    //   1. Re-walk all candidate roots even when
+    //      MARATHON_SHELL_QML_IMPORT_PATH is set, so a stale
+    //      install also gets visited by the patcher (which now
+    //      drops qmldir entries whose target files don't exist
+    //      on disk — see createPatchedQmldirWithoutPrefer).
+    //   2. Prepend the dev build's patched root to the engine's
+    //      import path list so it wins resolution over any
+    //      install path that the MarathonUI loop already added.
+    QStringList shellImportPaths;
+    auto        considerShellRoot = [&](const QString &cand) {
+        if (cand.isEmpty() || !QDir(cand).exists())
+            return;
+        if (!QDir(cand + "/MarathonOS/Shell").exists())
+            return;
+        const QString patched = createPatchedQmldirWithoutPrefer(cand, "MarathonOS/Shell");
+        shellImportPaths.append(patched.isEmpty() ? cand : patched);
+    };
+
     const QByteArray shellQmlEnv = qgetenv("MARATHON_SHELL_QML_IMPORT_PATH").trimmed();
-    if (!shellQmlEnv.isEmpty()) {
-        const QString p = QString::fromLocal8Bit(shellQmlEnv);
-        if (QDir(p).exists()) {
-            const QString patchedRoot = createPatchedQmldirWithoutPrefer(p, "MarathonOS/Shell");
-            if (!patchedRoot.isEmpty())
-                engine->addImportPath(patchedRoot);
-            else
-                engine->addImportPath(p);
-        }
-    } else {
+    if (!shellQmlEnv.isEmpty())
+        considerShellRoot(QString::fromLocal8Bit(shellQmlEnv));
+
+    {
         const QDir        binDir(QCoreApplication::applicationDirPath());
-
-        const QString     p1         = binDir.filePath("../../shell/qml");
-        const QString     p2         = binDir.filePath("../shell/qml");
-        const QString     p3         = binDir.filePath("shell/qml");
-        const QString     p4         = "/usr/local/lib/qt6/qml";
-        const QString     p5         = "/usr/lib/qt6/qml";
-        const QString     p6         = "/usr/lib64/qt6/qml";
-        const QStringList candidates = {p1, p2, p3, p4, p5, p6};
-        for (const QString &cand : candidates) {
-            if (!QDir(cand).exists())
-                continue;
-
-            const QString patchedRoot = createPatchedQmldirWithoutPrefer(cand, "MarathonOS/Shell");
-            if (!patchedRoot.isEmpty()) {
-
-                engine->addImportPath(patchedRoot);
-            } else {
-                engine->addImportPath(cand);
-            }
-        }
+        const QStringList candidates = {
+            binDir.filePath("../../shell/qml"),
+            binDir.filePath("../shell/qml"),
+            binDir.filePath("shell/qml"),
+            "/usr/local/lib/qt6/qml",
+            "/usr/lib/qt6/qml",
+            "/usr/lib64/qt6/qml",
+        };
+        for (const QString &cand : candidates)
+            considerShellRoot(cand);
     }
+
+    // Reorder: shell roots first (dev build/env winning over
+    // anything the MarathonUI loop added). QQmlEngine's import
+    // search is first-added-first.
+    const QStringList existing = engine->importPathList();
+    engine->setImportPathList(shellImportPaths + existing);
 
     engine->addImportPath("qrc:/");
     engine->addImportPath(":/");
