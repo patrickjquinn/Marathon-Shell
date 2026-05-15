@@ -999,12 +999,18 @@ MApp {
                 }
             }
 
+            // URL + control combo (Safari-style, anchored to the bottom
+            // edge per product direction — JSX shows top URL bar but we
+            // stay bottom-attached for thumb reach). Re-tokened to the DS
+            // chrome: glass-titlebar fill, w-04 border, top inset highlight.
+            // Loading progress bar still renders as a teal hairline along
+            // the bottom edge.
             Rectangle {
                 id: urlBar
 
                 width: parent.width
                 height: Constants.touchTargetMedium + MSpacing.sm
-                color: isPrivateMode ? Qt.rgba(0.5, 0, 0.5, 0.3) : MColors.surface
+                color: isPrivateMode ? Qt.rgba(0.45, 0, 0.45, 0.6) : MColors.glassTitlebar
 
                 Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -1037,11 +1043,23 @@ MApp {
                     }
                 }
 
+                // Top divider — w-04 hairline, the DS standard for
+                // glass-bar attachments. Then a 1 px lighter inset
+                // highlight just below it so the bar reads "lit from
+                // above" matching every other bar in the system.
                 Rectangle {
                     anchors.top: parent.top
                     width: parent.width
-                    height: Constants.borderWidthThin
-                    color: MColors.border
+                    height: 1
+                    color: MColors.borderGlass
+                }
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.topMargin: 1
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    height: 1
+                    color: MColors.whiteOverlay06
                 }
 
                 Rectangle {
@@ -1147,10 +1165,10 @@ MApp {
                         Layout.fillWidth: true
                         Layout.preferredHeight: parent.height - MSpacing.sm * 2
                         Layout.alignment: Qt.AlignVCenter
-                        radius: Constants.borderRadiusSmall
-                        color: MColors.elevated
-                        border.width: Constants.borderWidthThin
-                        border.color: urlInput.activeFocus ? MColors.accent : MColors.border
+                        radius: MRadius.md
+                        color: MColors.elev2
+                        border.width: 1
+                        border.color: urlInput.activeFocus ? MColors.marathonTealBright : MColors.whiteOverlay08
                         clip: true
 
                         MouseArea {
