@@ -1,5 +1,6 @@
 import MarathonApp.Clock
 import MarathonOS.Shell
+import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Navigation
 import MarathonUI.Theme
@@ -102,15 +103,22 @@ Item {
     }
 
     // ── Analog dial ─────────────────────────────────────────
+    // The dial is laid out inside a frame sized to the dial itself
+    // (plus a small breathing margin) rather than a full-width
+    // square. Reserving width × width pushed the World Clocks card
+    // off the bottom of the content area on 540 × 1140; matching
+    // dialFrame.height to dialSize keeps the layout vertically
+    // honest and leaves the card a clear ~80 px of headroom above
+    // the tab bar.
     Item {
         id: dialFrame
         anchors.top: topBar.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.topMargin: 18
-        height: width
+        height: dialSize + 24
 
-        readonly property real dialSize: Math.min(parent.width * 0.78, height - 36)
+        readonly property real dialSize: Math.round(parent.width * 0.72)
 
         Item {
             id: dial
@@ -141,11 +149,14 @@ Item {
                 }
             }
 
-            // Hour numerals — 12 / 3 / 6 / 9 only per JSX.
+            // Hour numerals — 12 / 3 / 6 / 9 only per JSX. Numeral inset
+            // = tick-edge inset (10) + tick-length (12) + breathing room
+            // (~16) so glyphs sit clearly inside the tick ring instead of
+            // grazing the inner end of the hour ticks.
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: 26
+                anchors.topMargin: 38
                 text: "12"
                 color: MColors.marathonTealBright
                 font.family: MTypography.fontFamily
@@ -154,7 +165,7 @@ Item {
             }
             Text {
                 anchors.right: parent.right
-                anchors.rightMargin: 22
+                anchors.rightMargin: 38
                 anchors.verticalCenter: parent.verticalCenter
                 text: "3"
                 color: MColors.marathonTealBright
@@ -165,7 +176,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 26
+                anchors.bottomMargin: 38
                 text: "6"
                 color: MColors.marathonTealBright
                 font.family: MTypography.fontFamily
@@ -174,7 +185,7 @@ Item {
             }
             Text {
                 anchors.left: parent.left
-                anchors.leftMargin: 22
+                anchors.leftMargin: 38
                 anchors.verticalCenter: parent.verticalCenter
                 text: "9"
                 color: MColors.marathonTealBright
@@ -294,16 +305,26 @@ Item {
     }
 
     // ── WORLD CLOCKS card ───────────────────────────────────
+    //
+    // Lays out the card with the same gutters the rest of Marathon
+    // uses: 16 px outer page padding, an eyebrow aligned to the card
+    // edge (not extra-indented), and an MCard so the surface picks
+    // up the DS elev-3 / top-only highlight treatment instead of
+    // a flat elev-2 rectangle. Row height is 72 px with full-bleed
+    // dividers; previously rows were 60 px and labels crowded the
+    // teal-bright clock readout on the right.
     Item {
+        id: worldSection
         anchors.top: dialFrame.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: 14
+        anchors.leftMargin: 16
+        anchors.rightMargin: 16
+        anchors.topMargin: 18
 
         Text {
             id: worldEyebrow
             anchors.left: parent.left
-            anchors.leftMargin: 20
             text: "WORLD CLOCKS"
             color: MColors.textSecondary
             font.family: MTypography.fontFamily
@@ -312,28 +333,28 @@ Item {
             font.letterSpacing: MTypography.trackingEyebrow
         }
 
-        Rectangle {
+        MCard {
             id: worldCard
             anchors.top: worldEyebrow.bottom
             anchors.left: parent.left
             anchors.right: parent.right
-            anchors.leftMargin: 16
-            anchors.rightMargin: 16
-            anchors.topMargin: 10
-            height: 4 * 60
-            radius: MRadius.md
-            color: MColors.elev2
-            border.width: 1
-            border.color: MColors.whiteOverlay04
+            anchors.topMargin: 12
+            elevation: 3
+            height: 4 * 64 + 16
 
             Column {
                 anchors.fill: parent
+                anchors.topMargin: -8
+                anchors.bottomMargin: -8
+                anchors.leftMargin: -8
+                anchors.rightMargin: -8
                 spacing: 0
 
                 Repeater {
                     // City list with IANA tz identifiers. Offset + weekday
                     // are computed live from clockPage.nowDate via
-                    // Intl.DateTimeFormat — DST-correct, no string math.
+                    // WorldClockHelper (QTimeZone, DST-correct) so no
+                    // string math fights the DST boundaries.
                     model: [
                         {
                             city: "New York",
@@ -353,16 +374,16 @@ Item {
                         }
                     ]
                     delegate: Item {
-                        width: worldCard.width
-                        height: 60
+                        width: parent.width
+                        height: 72
 
                         readonly property var resolved: clockPage.timeIn(modelData.tz)
 
                         Column {
                             anchors.left: parent.left
-                            anchors.leftMargin: 16
+                            anchors.leftMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 2
+                            spacing: 4
 
                             Text {
                                 text: resolved.offsetLabel
@@ -382,16 +403,16 @@ Item {
 
                         Column {
                             anchors.right: parent.right
-                            anchors.rightMargin: 16
+                            anchors.rightMargin: 20
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 2
+                            spacing: 4
 
                             Text {
                                 anchors.right: parent.right
                                 text: resolved.time
                                 color: MColors.textPrimary
                                 font.family: MTypography.fontFamily
-                                font.pixelSize: 20
+                                font.pixelSize: 22
                                 font.weight: Font.Light
                                 font.features: ({
                                         "tnum": 1
@@ -413,9 +434,9 @@ Item {
                             visible: index < 3
                             anchors.bottom: parent.bottom
                             anchors.left: parent.left
-                            anchors.leftMargin: 16
+                            anchors.leftMargin: 20
                             anchors.right: parent.right
-                            anchors.rightMargin: 16
+                            anchors.rightMargin: 20
                             height: 1
                             color: MColors.whiteOverlay04
                         }
