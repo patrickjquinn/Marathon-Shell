@@ -26,13 +26,27 @@ Rectangle {
     border.width: 0
 
     // Tile state. Wired to SystemControlStore / SystemStatusStore.
+    // Helper: descriptive sublabels per JSX QuickSettings — show meaningful
+    // state when on (SSID, "5G · 87%", profile name), simple "Off" otherwise.
+    function mobileDataSub() {
+        if (!SystemControlStore.isCellularDataOn)
+            return "Off";
+        const tech = ModemManagerCpp.networkType || "";
+        const signal = ModemManagerCpp.signalStrength;
+        const op = ModemManagerCpp.operatorName;
+        if (tech && signal > 0)
+            return tech + " · " + signal + "%";
+        if (op)
+            return op;
+        return "On";
+    }
     readonly property var tiles: [
         {
             id: "wifi",
             icon: "wifi",
             label: "Wi-Fi",
             on: SystemControlStore.isWifiOn,
-            sub: SystemStatusStore.wifiNetwork || "Off"
+            sub: SystemControlStore.isWifiOn ? (SystemStatusStore.wifiNetwork || "On") : "Off"
         },
         {
             id: "bluetooth",
@@ -46,7 +60,7 @@ Rectangle {
             icon: "signal-high",
             label: "Mobile data",
             on: SystemControlStore.isCellularDataOn,
-            sub: ModemManagerCpp.operatorName || "Off"
+            sub: mobileDataSub()
         },
         {
             id: "airplane",
@@ -134,8 +148,11 @@ Rectangle {
                 width: parent.width - 24 - 90 - 110
                 height: 1
             }
+            // Short "Fri · 7:08 PM" per JSX QuickSettings — long form
+            // dateString ("Thursday, May 14") overflows the right edge on
+            // 540 px canvases. Recompute from a local timer-driven clock.
             Text {
-                text: SystemStatusStore.dateString + " · " + SystemStatusStore.timeString
+                text: Qt.formatDateTime(new Date(), "ddd · h:mm AP")
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeFootnote
