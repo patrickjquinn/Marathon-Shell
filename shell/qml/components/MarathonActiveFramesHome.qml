@@ -60,8 +60,10 @@ Item {
         spacing: 4
         visible: root.mode === "home"
 
+        // "FRIDAY · DECEMBER 5" — JSX uses a middle dot, not comma. Build
+        // from formatDate parts so the separator is reliable across locales.
         Text {
-            text: SystemStatusStore.dateString.toUpperCase()
+            text: Qt.formatDateTime(new Date(), "dddd · MMMM d").toUpperCase()
             color: MColors.textSecondary
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeEyebrow
@@ -73,7 +75,7 @@ Item {
             color: MColors.textPrimary
             font.family: MTypography.fontFamily
             font.pixelSize: 26
-            font.weight: MTypography.weightLight
+            font.weight: MTypography.weightExtraLight   // 200 per DS Title 1
             font.letterSpacing: -0.6
         }
     }
