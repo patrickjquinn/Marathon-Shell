@@ -152,89 +152,156 @@ MApp {
                 height: parent.height - tabBar.height
                 currentIndex: parent.currentView
 
+                // Marathon DS · Music Now Playing (screens-shell.jsx:MusicNowPlaying).
+                //
+                // Top eyebrow row · square album bay with stripe-pattern
+                // placeholder · 32/Bold title + artist·album subtitle ·
+                // halo'd teal scrubber + tnum times · 5-button transport
+                // (shuffle · prev · big play circle · next · heart).
                 Rectangle {
                     color: MColors.background
 
                     Column {
                         anchors.fill: parent
-                        anchors.margins: MSpacing.xl
-                        anchors.bottomMargin: Constants.navBarHeight + MSpacing.xl
-                        spacing: MSpacing.lg
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 20
+                        anchors.topMargin: 8
+                        anchors.bottomMargin: Constants.navBarHeight + 20
+                        spacing: 14
 
+                        // ── Eyebrow row — chevron + PLAYING FROM + more ──
                         Item {
-                            height: MSpacing.lg
-                        }
-
-                        Rectangle {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: Math.min(parent.width, parent.height * 0.5)
-                            height: width
-                            radius: Constants.borderRadiusSharp
-                            color: MColors.surface
-                            border.width: Constants.borderWidthThick
-                            border.color: MColors.border
-                            antialiasing: Constants.enableAntialiasing
+                            width: parent.width
+                            height: 40
 
                             Icon {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "chevron-down"
+                                size: 22
+                                color: MColors.textSecondary
+                            }
+
+                            Column {
                                 anchors.centerIn: parent
-                                name: "music-2"
-                                size: Constants.iconSizeXLarge * 2
-                                color: MColors.marathonTeal
+                                spacing: 1
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "PLAYING FROM"
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.weight: Font.Bold
+                                    font.letterSpacing: MTypography.trackingEyebrow
+                                }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: currentTrack && currentTrack.album ? currentTrack.album : "Library"
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeSubhead
+                                    font.weight: Font.Medium
+                                }
                             }
 
-                            RotationAnimation on rotation {
-                                from: 0
-                                to: 360
-                                duration: 10000
-                                loops: Animation.Infinite
-                                running: isPlaying
+                            Icon {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                name: "ellipsis-vertical"
+                                size: 22
+                                color: MColors.textSecondary
                             }
                         }
 
-                        Item {
-                            height: MSpacing.md
+                        // ── Album bay — square, gradient + stripe pattern ──
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: Math.min(parent.width - 4, 320)
+                            height: width
+                            radius: MRadius.md
+                            border.width: 1
+                            border.color: MColors.tealBorder
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0
+                                    color: Qt.rgba(0, 89 / 255, 77 / 255, 0.65)
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: Qt.rgba(4 / 255, 4 / 255, 4 / 255, 0.85)
+                                }
+                            }
+                            clip: true
+
+                            // Vertical-stripe texture per JSX: ~16 thin teal
+                            // strokes spaced across the bay, low-alpha.
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 14
+                                anchors.rightMargin: 14
+                                spacing: (width - 28 - 16) / 15
+                                Repeater {
+                                    model: 16
+                                    Rectangle {
+                                        anchors.top: parent.top
+                                        anchors.bottom: parent.bottom
+                                        width: 1
+                                        color: MColors.marathonTealBright
+                                        opacity: 0.18 + (index % 3) * 0.06
+                                    }
+                                }
+                            }
+
+                            // Centred wave glyph — replaces the rotating
+                            // music note. Per the JSX album-bay glyph (an
+                            // 80 px teal-bright tilde wave).
+                            Text {
+                                anchors.centerIn: parent
+                                text: "∿"
+                                color: MColors.marathonTealBright
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: 96
+                                font.weight: Font.Light
+                            }
                         }
 
+                        // ── Title + artist · album ────────────────────
                         Column {
                             width: parent.width
-                            spacing: MSpacing.sm
+                            spacing: 2
 
-                            MLabel {
+                            Text {
                                 width: parent.width
                                 text: currentTrack ? currentTrack.title : "No Track"
-                                variant: "primary"
-                                font.pixelSize: MTypography.sizeXLarge
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: 28
                                 font.weight: Font.Bold
-                                horizontalAlignment: Text.AlignHCenter
+                                font.letterSpacing: -0.4
                                 elide: Text.ElideRight
                             }
 
-                            MLabel {
+                            Text {
                                 width: parent.width
-                                text: currentTrack ? currentTrack.artist : "Select a track"
-                                variant: "secondary"
-                                font.pixelSize: MTypography.sizeLarge
-                                horizontalAlignment: Text.AlignHCenter
-                                elide: Text.ElideRight
-                            }
-
-                            MLabel {
-                                width: parent.width
-                                text: currentTrack ? currentTrack.album : ""
-                                variant: "tertiary"
-                                font.pixelSize: MTypography.sizeBody
-                                horizontalAlignment: Text.AlignHCenter
+                                text: {
+                                    if (!currentTrack)
+                                        return "Select a track";
+                                    const a = currentTrack.artist || "";
+                                    const b = currentTrack.album || "";
+                                    return (a && b) ? a + " · " + b : (a || b);
+                                }
+                                color: MColors.textSecondary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeSubhead
+                                font.weight: Font.Regular
                                 elide: Text.ElideRight
                             }
                         }
 
-                        Item {
-                            height: MSpacing.md
-                        }
-
+                        // ── Scrubber + tnum timestamps ─────────────────
                         Column {
                             width: parent.width
-                            spacing: MSpacing.sm
+                            spacing: 6
 
                             MSlider {
                                 width: parent.width
@@ -247,101 +314,196 @@ MApp {
                                 }
                             }
 
-                            Row {
+                            Item {
                                 width: parent.width
+                                height: 16
 
-                                MLabel {
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.verticalCenter: parent.verticalCenter
                                     text: formatTime(currentTrack ? currentTrack.position : 0)
-                                    variant: "secondary"
-                                    font.pixelSize: MTypography.sizeSmall
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.features: ({
+                                            "tnum": 1
+                                        })
                                 }
-
-                                Item {
-                                    width: parent.width - parent.children[0].width - parent.children[2].width
-                                    height: 1
-                                }
-
-                                MLabel {
+                                Text {
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
                                     text: formatTime(currentTrack ? currentTrack.duration : 0)
-                                    variant: "secondary"
-                                    font.pixelSize: MTypography.sizeSmall
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.features: ({
+                                            "tnum": 1
+                                        })
                                 }
                             }
                         }
 
-                        Item {
-                            height: MSpacing.md
-                        }
-
+                        // ── Transport row — shuffle · prev · play · next · heart ──
                         Row {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: MSpacing.lg
+                            spacing: 18
 
-                            MIconButton {
+                            // Shuffle — accent icon, no bay.
+                            Item {
                                 anchors.verticalCenter: parent.verticalCenter
-                                iconName: "shuffle"
-                                iconSize: Constants.iconSizeMedium
-                                variant: shuffle ? "primary" : "secondary"
-                                onClicked: {
-                                    HapticService.light();
-                                    shuffle = !shuffle;
+                                width: 32
+                                height: 32
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "shuffle"
+                                    size: 20
+                                    color: shuffle ? MColors.marathonTealBright : MColors.textTertiary
                                 }
-                            }
-
-                            MIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: "skip-back"
-                                iconSize: Constants.iconSizeMedium
-                                variant: "secondary"
-                                onClicked: {
-                                    HapticService.light();
-                                    playPrevious();
-                                }
-                            }
-
-                            MCircularIconButton {
-                                anchors.verticalCenter: parent.verticalCenter
-                                iconName: isPlaying ? "pause" : "play"
-                                iconSize: Constants.iconSizeLarge
-                                buttonSize: Constants.touchTargetLarge
-                                variant: "primary"
-                                onClicked: {
-                                    HapticService.medium();
-                                    if (isPlaying) {
-                                        audioPlayer.pause();
-                                    } else {
-                                        if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
-                                            audioPlayer.source = currentTrack.path;
-
-                                        audioPlayer.play();
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticService.light();
+                                        shuffle = !shuffle;
                                     }
                                 }
                             }
 
-                            MIconButton {
+                            // Previous — 42 dark circle.
+                            Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                iconName: "skip-forward"
-                                iconSize: Constants.iconSizeMedium
-                                variant: "secondary"
-                                onClicked: {
-                                    HapticService.light();
-                                    playNext();
+                                width: 42
+                                height: 42
+                                radius: width / 2
+                                color: prevArea.pressed ? MColors.bb10Card : MColors.elev2
+                                border.width: 1
+                                border.color: MColors.whiteOverlay04
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "skip-back"
+                                    size: 18
+                                    color: MColors.textPrimary
+                                }
+                                MouseArea {
+                                    id: prevArea
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticService.light();
+                                        playPrevious();
+                                    }
+                                }
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 80
+                                    }
                                 }
                             }
 
-                            MIconButton {
+                            // Play / pause — 64 teal-gradient with halo.
+                            Rectangle {
                                 anchors.verticalCenter: parent.verticalCenter
-                                iconName: repeatMode === "one" ? "repeat-1" : "repeat"
-                                iconSize: Constants.iconSizeMedium
-                                variant: repeatMode !== "off" ? "primary" : "secondary"
-                                onClicked: {
-                                    HapticService.light();
-                                    if (repeatMode === "off")
-                                        repeatMode = "all";
-                                    else if (repeatMode === "all")
-                                        repeatMode = "one";
-                                    else
-                                        repeatMode = "off";
+                                width: 64
+                                height: 64
+                                radius: width / 2
+                                border.width: 1
+                                border.color: MColors.tealBorder
+                                gradient: Gradient {
+                                    GradientStop {
+                                        position: 0
+                                        color: MColors.marathonTealBright
+                                    }
+                                    GradientStop {
+                                        position: 1
+                                        color: MColors.marathonTealDark
+                                    }
+                                }
+
+                                Rectangle {
+                                    anchors.fill: parent
+                                    anchors.margins: 1
+                                    radius: width / 2
+                                    color: "transparent"
+                                    border.width: 1
+                                    border.color: Qt.rgba(1, 1, 1, 0.3)
+                                }
+
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: isPlaying ? "pause" : "play"
+                                    size: 26
+                                    color: "#000000"
+                                }
+
+                                scale: playArea.pressed ? 0.94 : 1.0
+                                Behavior on scale {
+                                    NumberAnimation {
+                                        duration: 120
+                                        easing.type: Easing.OutBack
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: playArea
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticService.medium();
+                                        if (isPlaying) {
+                                            audioPlayer.pause();
+                                        } else {
+                                            if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
+                                                audioPlayer.source = currentTrack.path;
+                                            audioPlayer.play();
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Next — 42 dark circle.
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 42
+                                height: 42
+                                radius: width / 2
+                                color: nextArea.pressed ? MColors.bb10Card : MColors.elev2
+                                border.width: 1
+                                border.color: MColors.whiteOverlay04
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "skip-forward"
+                                    size: 18
+                                    color: MColors.textPrimary
+                                }
+                                MouseArea {
+                                    id: nextArea
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        HapticService.light();
+                                        playNext();
+                                    }
+                                }
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 80
+                                    }
+                                }
+                            }
+
+                            // Heart — accent icon, no bay. JSX puts heart
+                            // here in place of repeat; repeat stays
+                            // available via a long-press of the scrubber
+                            // (TBD).
+                            Item {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 32
+                                height: 32
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: currentTrack && currentTrack.favorited ? "heart" : "heart"
+                                    size: 20
+                                    color: (currentTrack && currentTrack.favorited) ? MColors.marathonTealBright : MColors.textTertiary
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: HapticService.light()
                                 }
                             }
                         }
