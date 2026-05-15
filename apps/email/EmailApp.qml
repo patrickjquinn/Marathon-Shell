@@ -10,6 +10,29 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtWebEngine
 
+// ─────────────────────────────────────────────────────────────────────
+//  Mail — current state vs DS target
+// ─────────────────────────────────────────────────────────────────────
+//
+//  This file ships a webmail-provider PICKER that wraps a QtWebEngine
+//  view around Gmail / Outlook / Fastmail / etc. It is intentionally
+//  NOT the inbox surface shown in the Marathon DS (screens-apps-1.jsx:
+//  MailInbox), which is a native list of messages with sender avatars,
+//  preview rows, swipe-to-archive, and folder filter chips.
+//
+//  Bringing the JSX inbox to life requires a real backend:
+//    • IMAP (RFC 9051) for fetch / sync, and / or
+//    • JMAP (RFC 8620 + 8621) for modern push-based clients,
+//    • plus account management UI + secrets storage (SecretService).
+//
+//  Per direction, that work is queued — we'll ship a real open-standards
+//  mail client (IMAP + JMAP) and at that point this picker collapses
+//  into either the first-run account setup or is removed entirely.
+//
+//  Until then the picker keeps DS chrome (tokens, MTopBar, list rows)
+//  but the inbox redesign is deferred.
+// ─────────────────────────────────────────────────────────────────────
+
 MApp {
     id: emailApp
 

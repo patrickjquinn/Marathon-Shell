@@ -5,6 +5,26 @@ import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 
+// ─────────────────────────────────────────────────────────────────────
+//  App Store — current state vs DS target
+// ─────────────────────────────────────────────────────────────────────
+//
+//  StoreFrontPage matches the JSX layout (screens-apps-2.jsx:StoreDiscover):
+//  MTopBar + avatar, Editors' Pick hero card, Trending-now 3-up tiles,
+//  Updates-available rows, Discover / Apps / Installed / Account tabs.
+//
+//  HOWEVER all surface content (featured pick, trending apps, updates
+//  list) is currently HARDCODED in StoreFrontPage.qml — there is no
+//  app-discovery backend yet. A real Store needs:
+//    • Catalog API (signed manifests, screenshots, ratings, versions)
+//    • Featured / Editorial pipeline
+//    • Update check + delta-package distribution
+//    • Sandboxed install hooks (already partially in MarathonAppInstaller)
+//
+//  Treat this file as a visual specimen until that infra lands. The DS
+//  chrome is right; the data is placeholder.
+// ─────────────────────────────────────────────────────────────────────
+
 MApp {
     id: root
 
