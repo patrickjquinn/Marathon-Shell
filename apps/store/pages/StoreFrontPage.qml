@@ -157,7 +157,7 @@ Rectangle {
 
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: 20
+                        anchors.leftMargin: 16
                         text: "Trending now"
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
@@ -167,7 +167,7 @@ Rectangle {
                     }
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: 20
+                        anchors.leftMargin: 16
                         text: "Top picks from across the system"
                         color: MColors.textSecondary
                         font.family: MTypography.fontFamily
@@ -248,7 +248,7 @@ Rectangle {
 
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: 20
+                        anchors.leftMargin: 16
                         text: "Updates available · 2"
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
