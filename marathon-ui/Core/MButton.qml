@@ -65,6 +65,33 @@ Item {
     Keys.onSpacePressed: if (!disabled && state === "default")
         clicked()
 
+    // ── Outer teal halo (primary only) ─────────────────────────
+    // We render the halo as a separate visible-false Rectangle
+    // fed through a sibling MultiEffect, instead of putting
+    // layer.effect on buttonRect. Layering a Rectangle that has
+    // a gradient drops the gradient fill in Qt 6.10 — the button
+    // becomes invisible. This split keeps the gradient intact and
+    // limits the MultiEffect blur to a solid teal source so the
+    // halo reads as a clean bloom around the button edge.
+    Rectangle {
+        id: haloSource
+        anchors.fill: buttonRect
+        anchors.margins: -2
+        radius: MRadius.md + 1
+        color: MColors.marathonTealBright
+        visible: false
+        layer.enabled: root.isPrimary && !root.disabled
+    }
+    MultiEffect {
+        anchors.fill: haloSource
+        source: haloSource
+        visible: root.isPrimary && !root.disabled
+        blurEnabled: true
+        blur: 1.0
+        blurMax: 24
+        opacity: 0.55
+    }
+
     Rectangle {
         id: buttonRect
         anchors.fill: parent
@@ -191,19 +218,7 @@ Item {
             }
         }
 
-        // MultiEffect-rendered teal halo only on primary buttons. Real
-        // box-shadow at 8px blur, 0px offset, teal-halo colour — gives
-        // the "lit from within" outer bloom from the JSX reference.
-        layer.enabled: root.isPrimary && !root.disabled
-        layer.effect: MultiEffect {
-            shadowEnabled: true
-            shadowBlur: 1.0
-            shadowVerticalOffset: 0
-            shadowHorizontalOffset: 0
-            shadowColor: Qt.rgba(0, 191 / 255, 165 / 255, 0.55)
-            shadowOpacity: 0.9
-            shadowScale: 1.05
-        }
+        // (Halo lives on the sibling haloSource + MultiEffect above.)
 
         MouseArea {
             id: mouseArea
