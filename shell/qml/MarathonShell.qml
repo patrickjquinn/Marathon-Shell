@@ -157,15 +157,27 @@ Item {
                 if (!startOnTimer.running)
                     startOnTimer.start();
             }
+            if (a === "--demo-call") {
+                startOnTimer.seedCall = true;
+                if (!startOnTimer.running)
+                    startOnTimer.start();
+            }
         }
     }
     Timer {
         id: startOnTimer
         property string surface: ""
         property bool seedDemo: false
+        property bool seedCall: false
         interval: 600
         repeat: false
         onTriggered: {
+            if (seedCall) {
+                // Fake an active call so the lock-screen NowBar renders
+                // for visual validation. Production paths never hit this.
+                TelephonyService.simulateIncomingCall("+1 415 555 0142");
+                TelephonyService.simulateCallStateChange("active");
+            }
             if (seedDemo) {
                 NotificationModel.addNotification("imessage", "Maya Chen", "Heading out, see you at 8 — saved a spot near the back.", "message");
                 NotificationModel.addNotification("calendar", "Design review", "Studio B · in 22m", "calendar");

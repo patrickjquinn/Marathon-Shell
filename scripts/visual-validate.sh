@@ -124,6 +124,16 @@ capture_lock_no_media() {
   kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
 }
 
+capture_lock_with_call() {
+  echo "→ lock-with-call"
+  local pid wid
+  pid=$(launch_shell --demo-call)
+  sleep 4
+  wid=$(wait_for_window) || { echo "no window"; kill -9 "$pid"; return 1; }
+  capture "$wid" "$VDIR/lock-with-call.png"
+  kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
+}
+
 capture_home() {
   echo "→ home (active frames)"
   local pid wid
@@ -176,6 +186,7 @@ capture_app() {
 
 case "${1:-help}" in
   lock-no-media)   capture_lock_no_media ;;
+  lock-with-call)  capture_lock_with_call ;;
   home)            capture_home ;;
   hub)             capture_hub ;;
   quicksettings)   capture_quicksettings ;;
