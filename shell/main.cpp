@@ -33,6 +33,7 @@
 #include "src/services/marathonntfyclient.h"
 #include "src/services/carrierprovisioning.h"
 #include "src/services/flatpakmanager.h"
+#include "src/services/motiondaemon.h"
 #include "src/managers/networkmanagercpp.h"
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
@@ -596,6 +597,13 @@ int main(int argc, char *argv[]) {
                          });
         flatpakManager->refresh();
     }
+
+    // Activity Rings backend — feeds the lock-screen Activity NowBar
+    // and the Active Frames Health frame off IIO accelerometer samples
+    // through the vendored Oxford C-Step-Counter. Falls back to a
+    // demo generator on hardware without an IIO accel device or when
+    // MARATHON_MOTION_DEMO=1.
+    createObject<MotionDaemon>(ctx, "ActivityService", &app);
 
     auto *contactsManager    = createObject<ContactsManager>(ctx, "ContactsManager", &app);
     auto *telephonyService   = createObject<TelephonyService>(ctx, "TelephonyService", &app);

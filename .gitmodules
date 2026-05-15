@@ -1,0 +1,4 @@
+[submodule "thirdparty/maplibre-native-qt"]
+	path = thirdparty/maplibre-native-qt
+	url = https://github.com/maplibre/maplibre-native-qt.git
+	shallow = true
