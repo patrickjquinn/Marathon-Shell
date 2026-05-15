@@ -49,6 +49,9 @@ Rectangle {
         Text {
             text: chip.count
             visible: chip.count.length > 0
+            // Per JSX HubScreen — count is slightly faded on the active
+            // teal pill (0.65 alpha) so the label reads first.
+            opacity: chip.active ? 0.65 : 1.0
             color: chip.active ? "#000000" : MColors.textSecondary
             font.family: MTypography.fontFamily
             font.pixelSize: MTypography.sizeEyebrow
