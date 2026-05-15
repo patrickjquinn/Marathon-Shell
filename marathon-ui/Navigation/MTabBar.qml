@@ -4,6 +4,18 @@ import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonOS.Shell
 
+// Marathon DS · Tab bar (ds-components.jsx:DSBars · marathon-tokens.css).
+//
+// 70 px tall, glass-tabbar over a 14 px blur, 1 px border-glass top
+// edge + 1 px inner highlight. Up to 4 tabs, equal-width, flex
+// column layout (icon 20 + 4 gap + label 12/500).
+//
+// Active state:
+//   • top indicator: 2 px teal-gradient bar inset 12 % from each
+//     side of the cell (not edge-to-edge).
+//   • soft halo: 28 px tall radial-gradient ellipse at top, teal
+//     at 0.28 alpha fading to transparent.
+//   • color shifts: secondary → primary text + glyph.
 Rectangle {
     id: root
 
@@ -12,26 +24,26 @@ Rectangle {
 
     signal tabSelected(int index)
 
-    // Scaled to the system density so the tab bar matches MTopBar / shell
-    // chrome at any DPI. Was previously hardcoded 70px — at 2× user scale
-    // the bar stayed thin while everything else doubled, producing the
-    // "tiny tab bar under a giant top bar" mismatch.
     readonly property real scaleFactor: Constants.scaleFactor || 1.0
     height: Math.round(70 * scaleFactor)
     color: MColors.glassTabbar
 
-    border.width: 1
-    border.color: MColors.borderGlass
-
+    // Top hairline divider per DS.
     Rectangle {
-        anchors.fill: parent
-        anchors.topMargin: -1
-        anchors.leftMargin: -1
-        anchors.rightMargin: -1
-        color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.05)
-        z: 1
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 1
+        color: MColors.borderGlass
+    }
+    // Inner highlight.
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: 1
+        height: 1
+        color: Qt.rgba(1, 1, 1, 0.05)
     }
 
     Row {
@@ -41,22 +53,14 @@ Rectangle {
         Repeater {
             id: tabRepeater
 
-            Rectangle {
+            Item {
                 id: tabButton
                 width: root.width / tabRepeater.count
                 height: parent.height
-                color: index === root.activeTab ? Qt.rgba(1, 1, 1, 0.04) : "transparent"
 
                 property bool selected: index === root.activeTab
 
                 scale: tabMouseArea.pressed ? 0.96 : 1.0
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: MMotion.sm
-                    }
-                }
-
                 Behavior on scale {
                     SpringAnimation {
                         spring: MMotion.springMedium
@@ -65,114 +69,103 @@ Rectangle {
                     }
                 }
 
+                // Active indicator — 2 px teal-gradient bar, inset 12 %
+                // from each side per marathon-tokens.css .tab.active::before.
                 Rectangle {
-                    id: indicatorRect
+                    visible: tabButton.selected
                     anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: Math.max(2, Math.round(3 * root.scaleFactor))
-
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.0
-                            color: selected ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: selected ? MColors.marathonTeal : Qt.rgba(1, 1, 1, 0.12)
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: selected ? MColors.marathonTealDark : Qt.rgba(1, 1, 1, 0.12)
-                        }
-                    }
-                }
-
-                Rectangle {
-                    anchors.horizontalCenter: indicatorRect.horizontalCenter
-                    anchors.top: indicatorRect.bottom
-                    width: indicatorRect.width
-                    height: Math.round(35 * root.scaleFactor)
-                    visible: selected
-                    opacity: 0.6
-                    gradient: Gradient {
-                        GradientStop {
-                            position: 0.0
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.18)
-                        }
-                        GradientStop {
-                            position: 0.25
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.10)
-                        }
-                        GradientStop {
-                            position: 0.5
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.05)
-                        }
-                        GradientStop {
-                            position: 0.75
-                            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.02)
-                        }
-                        GradientStop {
-                            position: 1.0
-                            color: "transparent"
-                        }
-                    }
-                }
-
-                Rectangle {
-                    visible: selected
-                    anchors.right: parent.right
-                    anchors.rightMargin: -Math.round(8 * root.scaleFactor)
-                    anchors.top: parent.top
-                    anchors.topMargin: -Math.round(2 * root.scaleFactor)
-                    anchors.bottom: parent.bottom
-                    width: Math.round(12 * root.scaleFactor)
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width * 0.76
+                    height: Math.max(2, Math.round(2 * root.scaleFactor))
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
                         GradientStop {
                             position: 0.0
-                            color: Qt.rgba(0, 0, 0, 0.4)
+                            color: MColors.marathonTealDark
                         }
                         GradientStop {
                             position: 0.5
-                            color: Qt.rgba(0, 0, 0, 0.15)
+                            color: MColors.marathonTealBright
                         }
                         GradientStop {
                             position: 1.0
-                            color: "transparent"
+                            color: MColors.marathonTealDark
                         }
                     }
-                    opacity: 0.4
+                }
+
+                // Active halo — radial-gradient ellipse anchored at the
+                // top centre, fading to transparent. JSX/CSS spec:
+                //   radial-gradient(ellipse at center top,
+                //                   rgba(29,233,182,0.28), transparent 70%)
+                //
+                // Implemented with a Canvas so the falloff is a real
+                // ellipse and not a stack of rectangles. The Canvas only
+                // exists while the tab is selected, so the runtime cost
+                // is one paint when activeTab changes.
+                Canvas {
+                    id: glowCanvas
+                    visible: tabButton.selected
+                    anchors.top: parent.top
+                    anchors.topMargin: 2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: parent.width
+                    height: Math.round(32 * root.scaleFactor)
+                    onWidthChanged: requestPaint()
+                    onHeightChanged: requestPaint()
+                    onVisibleChanged: if (visible)
+                        requestPaint()
+                    onPaint: {
+                        const ctx = getContext("2d");
+                        ctx.clearRect(0, 0, width, height);
+                        // Build an elliptical radial gradient by scaling
+                        // the y axis. Canvas only supports circular
+                        // radial gradients natively; the scale trick
+                        // gives a horizontal ellipse rooted at the top.
+                        ctx.save();
+                        const cx = width / 2;
+                        const cy = 0;                  // origin at top centre
+                        const rx = width * 0.55;       // ellipse half-width
+                        const ry = height;             // ellipse half-height
+                        ctx.translate(cx, cy);
+                        ctx.scale(rx / ry, 1);
+                        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+                        grad.addColorStop(0.0, "rgba(29, 233, 182, 0.28)");
+                        grad.addColorStop(0.70, "rgba(29, 233, 182, 0)");
+                        grad.addColorStop(1.0, "rgba(29, 233, 182, 0)");
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(-ry, 0, ry * 2, ry);
+                        ctx.restore();
+                    }
                 }
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: Math.round(6 * root.scaleFactor)
+                    spacing: Math.round(4 * root.scaleFactor)
 
                     Icon {
+                        anchors.horizontalCenter: parent.horizontalCenter
                         name: modelData.icon || ""
                         size: Math.round(20 * root.scaleFactor)
-                        color: selected ? MColors.textPrimary : MColors.textSecondary
-                        anchors.horizontalCenter: parent.horizontalCenter
-
+                        color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
                         Behavior on color {
                             ColorAnimation {
-                                duration: MMotion.sm
+                                duration: MMotion.quick
                             }
                         }
                     }
 
                     Text {
-                        text: modelData.label || ""
-                        color: selected ? MColors.textPrimary : MColors.textSecondary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.weight: Font.Normal
-                        font.family: MTypography.fontFamily
                         anchors.horizontalCenter: parent.horizontalCenter
+                        text: modelData.label || ""
+                        color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
 
                         Behavior on color {
                             ColorAnimation {
-                                duration: MMotion.sm
+                                duration: MMotion.quick
                             }
                         }
                     }
@@ -181,7 +174,6 @@ Rectangle {
                 MouseArea {
                     id: tabMouseArea
                     anchors.fill: parent
-
                     onPressed: MHaptics.lightImpact()
                     onClicked: {
                         root.activeTab = index;
