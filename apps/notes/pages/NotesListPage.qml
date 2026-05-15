@@ -2,303 +2,344 @@ import MarathonApp.Notes
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Navigation
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
 
+// Marathon DS · Notes list (screens-apps-2.jsx:NotesApp).
+//
+// MTopBar with search + 36×36 teal+ compose. Optional "PINNED"
+// section above "TODAY" — pinned cards get a star, teal eyebrow
+// title, body preview, edited-at + word count meta. Regular rows
+// use a 32×32 file-icon bay + title + snippet + #tag on the right.
+// Bottom tabs: Notes · Folders · Tasks.
 Page {
     id: listPage
 
     signal createNewNote
     signal openNote(int noteId)
 
+    property string selectedTab: "notes"
+
     function formatTimestamp(timestamp) {
-        var date = new Date(timestamp);
-        var now = new Date();
-        var diff = now - date;
-        if (diff < 60000) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        if (diff < 60000)
             return "Just now";
-        } else if (diff < 3.6e+06) {
-            var mins = Math.floor(diff / 60000);
-            return mins + "m ago";
-        } else if (diff < 8.64e+07) {
-            var hours = Math.floor(diff / 3.6e+06);
-            return hours + "h ago";
-        } else if (diff < 6.048e+08) {
-            var days = Math.floor(diff / 8.64e+07);
-            return days + "d ago";
-        } else {
-            return Qt.formatDate(date, "MMM d");
-        }
+        if (diff < 3.6e+06)
+            return Math.floor(diff / 60000) + "m";
+        if (diff < 8.64e+07)
+            return Math.floor(diff / 3.6e+06) + "h";
+        if (diff < 6.048e+08)
+            return Math.floor(diff / 8.64e+07) + "d";
+        return Qt.formatDate(date, "MMM d");
+    }
+    function snippetOf(text) {
+        if (!text)
+            return "";
+        const flat = text.replace(/\s+/g, " ").trim();
+        return flat.length > 80 ? flat.substring(0, 80) + "…" : flat;
+    }
+    function pinnedNotes() {
+        return notesApp.notes.filter(n => n.pinned === true);
+    }
+    function regularNotes() {
+        return notesApp.notes.filter(n => n.pinned !== true);
     }
 
-    MScrollView {
-        id: scrollView
+    background: Rectangle {
+        color: MColors.background
+    }
 
+    Column {
         anchors.fill: parent
-        contentHeight: notesContent.height + 40
+        spacing: 0
 
-        Column {
-            id: notesContent
-
+        // ── Header ───────────────────────────────────────────
+        MTopBar {
+            id: topBar
             width: parent.width
-            spacing: MSpacing.xl
-            leftPadding: 24
-            rightPadding: 24
-            topPadding: 24
-            bottomPadding: 24
-
-            Text {
-                text: "Notes"
-                color: MColors.text
-                font.pixelSize: MTypography.sizeXLarge
-                font.weight: Font.Bold
-                font.family: MTypography.fontFamily
-            }
-
-            Row {
-                width: parent.width - 48
-                spacing: MSpacing.sm
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "Sort:"
-                    font.pixelSize: MTypography.sizeSmall
+            title: "Notes"
+            actions: [
+                Icon {
+                    name: "search"
+                    size: 22
                     color: MColors.textSecondary
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -10
+                        onClicked: HapticService.light()
+                    }
+                },
+                Rectangle {
+                    width: 36
+                    height: 36
+                    radius: MRadius.md
+                    border.width: 1
+                    border.color: MColors.tealBorder
+                    gradient: Gradient {
+                        GradientStop {
+                            position: 0
+                            color: MColors.marathonTealBright
+                        }
+                        GradientStop {
+                            position: 1
+                            color: MColors.marathonTealDark
+                        }
+                    }
+                    Icon {
+                        anchors.centerIn: parent
+                        name: "plus"
+                        size: 20
+                        color: "#000000"
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticService.medium();
+                            listPage.createNewNote();
+                        }
+                    }
                 }
+            ]
+        }
 
+        ListView {
+            id: listView
+            width: parent.width
+            height: parent.height - topBar.height - tabBar.height
+            clip: true
+            spacing: 0
+            model: notesApp.notes
+            header: Column {
+                width: ListView.view.width
+                spacing: 0
+
+                // PINNED section
+                Item {
+                    visible: listPage.pinnedNotes().length > 0
+                    width: parent.width
+                    height: visible ? 36 : 0
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 20
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 8
+                        text: "PINNED"
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Bold
+                        font.letterSpacing: MTypography.trackingEyebrow
+                    }
+                }
                 Repeater {
-                    model: [
-                        {
-                            "label": "Newest",
-                            "value": "newest"
-                        },
-                        {
-                            "label": "Oldest",
-                            "value": "oldest"
-                        },
-                        {
-                            "label": "A-Z",
-                            "value": "alphabetical"
-                        }
-                    ]
-
-                    Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: Constants.touchTargetMedium * 1.2
-                        height: Constants.touchTargetMedium * 0.7
-                        radius: Constants.borderRadiusSharp
-                        color: notesApp.sortMode === modelData.value ? MColors.accent : MColors.surface
-                        border.width: Constants.borderWidthThin
-                        border.color: notesApp.sortMode === modelData.value ? MColors.accentDark : MColors.border
-
-                        Text {
-                            anchors.centerIn: parent
-                            text: modelData.label
-                            font.pixelSize: MTypography.sizeXSmall
-                            color: MColors.text
-                        }
-
-                        MouseArea {
+                    model: listPage.pinnedNotes()
+                    delegate: Item {
+                        width: listView.width
+                        height: 156
+                        Rectangle {
                             anchors.fill: parent
-                            onClicked: {
-                                notesApp.sortMode = modelData.value;
-                                notesApp.sortNotes();
-                                HapticService.light();
+                            anchors.leftMargin: 16
+                            anchors.rightMargin: 16
+                            anchors.topMargin: 4
+                            anchors.bottomMargin: 12
+                            radius: MRadius.md
+                            color: MColors.elev2
+                            border.width: 1
+                            border.color: MColors.whiteOverlay04
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.leftMargin: 16
+                                anchors.rightMargin: 16
+                                anchors.topMargin: 14
+                                spacing: 6
+
+                                Row {
+                                    spacing: 8
+                                    Icon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        name: "star"
+                                        size: 14
+                                        color: MColors.marathonTealBright
+                                    }
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: (modelData.title || "Untitled").toUpperCase()
+                                        color: MColors.marathonTealBright
+                                        font.family: MTypography.fontFamily
+                                        font.pixelSize: MTypography.sizeEyebrow
+                                        font.weight: Font.Bold
+                                        font.letterSpacing: MTypography.trackingEyebrow
+                                    }
+                                }
+                                Text {
+                                    width: parent.width
+                                    text: listPage.snippetOf(modelData.content)
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: 3
+                                    elide: Text.ElideRight
+                                }
+                                Text {
+                                    text: "edited " + listPage.formatTimestamp(modelData.timestamp) + " · " + (modelData.content ? modelData.content.split(/\s+/).length : 0) + " words"
+                                    color: MColors.textTertiary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.weight: Font.Medium
+                                }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    HapticService.light();
+                                    listPage.openNote(modelData.id);
+                                }
                             }
                         }
                     }
                 }
+
+                // TODAY section header
+                Item {
+                    width: parent.width
+                    height: 36
+                    Text {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 20
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: 8
+                        text: "TODAY"
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Bold
+                        font.letterSpacing: MTypography.trackingEyebrow
+                    }
+                }
             }
 
-            MSection {
-                title: "Your Notes"
-                subtitle: notesApp.notes.length + " note" + (notesApp.notes.length === 1 ? "" : "s")
-                width: parent.width - 48
-                visible: notesApp.notes.length > 0
+            delegate: Item {
+                visible: !modelData.pinned
+                width: listView.width
+                height: visible ? 70 : 0
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.sm
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    anchors.topMargin: 14
+                    anchors.bottomMargin: 14
+                    spacing: 12
 
-                    Repeater {
-                        model: notesApp.notes
-
-                        Rectangle {
-                            width: parent.width
-                            height: Constants.touchTargetLarge + MSpacing.lg
-                            color: "transparent"
-
-                            Rectangle {
-                                id: deleteButton
-
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.bottom: parent.bottom
-                                anchors.margins: MSpacing.sm
-                                width: Constants.touchTargetLarge
-                                color: "#E74C3C"
-                                radius: Constants.borderRadiusSharp
-                                visible: noteItem.x < -20
-
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "trash"
-                                    size: Constants.iconSizeMedium
-                                    color: "white"
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        notesApp.deleteNote(modelData.id);
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                id: noteItem
-
-                                anchors.fill: parent
-                                anchors.margins: MSpacing.sm
-                                color: MColors.surface
-                                radius: Constants.borderRadiusSharp
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.margins: MSpacing.md
-                                    spacing: MSpacing.md
-
-                                    Icon {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        name: "file-text"
-                                        size: Constants.iconSizeMedium
-                                        color: MColors.accent
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2
-                                        spacing: MSpacing.xs
-
-                                        Text {
-                                            width: parent.width
-                                            text: modelData.title || "Untitled"
-                                            font.pixelSize: MTypography.sizeBody
-                                            font.weight: Font.DemiBold
-                                            color: MColors.text
-                                            elide: Text.ElideRight
-                                        }
-
-                                        Text {
-                                            width: parent.width
-                                            text: modelData.content.substring(0, 100) + (modelData.content.length > 100 ? "..." : "")
-                                            font.pixelSize: MTypography.sizeSmall
-                                            color: MColors.textSecondary
-                                            elide: Text.ElideRight
-                                            wrapMode: Text.NoWrap
-                                        }
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: MSpacing.xs
-
-                                        Text {
-                                            text: formatTimestamp(modelData.timestamp)
-                                            font.pixelSize: MTypography.sizeXSmall
-                                            color: MColors.textTertiary
-                                            horizontalAlignment: Text.AlignRight
-                                        }
-
-                                        Icon {
-                                            anchors.right: parent.right
-                                            name: "chevron-right"
-                                            size: Constants.iconSizeSmall
-                                            color: MColors.textTertiary
-                                        }
-                                    }
-                                }
-
-                                MouseArea {
-                                    property real startX: 0
-
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        startX = mouse.x;
-                                        noteItem.color = MColors.elevated;
-                                        HapticService.light();
-                                    }
-                                    onReleased: {
-                                        noteItem.color = MColors.surface;
-                                        if (noteItem.x < -100)
-                                            notesApp.deleteNote(modelData.id);
-                                        else
-                                            noteItem.x = 0;
-                                    }
-                                    onCanceled: {
-                                        noteItem.color = MColors.surface;
-                                        noteItem.x = 0;
-                                    }
-                                    onPositionChanged: {
-                                        if (pressed) {
-                                            var delta = mouse.x - startX;
-                                            if (delta < 0)
-                                                noteItem.x = Math.max(delta, -120);
-                                        }
-                                    }
-                                    onClicked: {
-                                        if (noteItem.x === 0)
-                                            openNote(modelData.id);
-                                        else
-                                            noteItem.x = 0;
-                                    }
-                                }
-
-                                Behavior on x {
-                                    NumberAnimation {
-                                        duration: 200
-                                        easing.type: Easing.OutQuad
-                                    }
-                                }
-                            }
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 32
+                        height: 32
+                        radius: MRadius.md
+                        color: MColors.elev3
+                        Icon {
+                            anchors.centerIn: parent
+                            name: "file-text"
+                            size: 16
+                            color: MColors.textSecondary
                         }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width - 32 - 12 - tagText.width - parent.spacing * 2
+                        spacing: 2
+                        Text {
+                            width: parent.width
+                            text: modelData.title || "Untitled"
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeSubhead
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            width: parent.width
+                            text: listPage.snippetOf(modelData.content)
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeFootnote
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                        }
+                    }
+
+                    Text {
+                        id: tagText
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: modelData.tag ? "#" + modelData.tag : ""
+                        color: MColors.marathonTealBright
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        font.weight: Font.Medium
+                        visible: text.length > 0
+                    }
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.left: parent.left
+                    anchors.leftMargin: 16 + 32 + 12
+                    anchors.right: parent.right
+                    anchors.rightMargin: 16
+                    height: 1
+                    color: MColors.whiteOverlay04
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        HapticService.light();
+                        listPage.openNote(modelData.id);
                     }
                 }
             }
 
             MEmptyState {
-                width: parent.width - 48
-                height: 400
+                anchors.centerIn: parent
                 visible: notesApp.notes.length === 0
+                width: parent.width - 48
                 iconName: "file-text"
-                iconSize: 96
+                iconSize: 64
                 title: "No Notes Yet"
-                message: "Tap the + button below to create your first note"
-            }
-
-            Item {
-                height: 40
+                message: "Tap the + in the header to write your first note"
             }
         }
-    }
 
-    MIconButton {
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: MSpacing.lg
-        iconName: "plus"
-        iconSize: 28
-        variant: "primary"
-        shape: "circular"
-        onClicked: {
-            listPage.createNewNote();
+        MTabBar {
+            id: tabBar
+            width: parent.width
+            activeTab: listPage.selectedTab === "notes" ? 0 : listPage.selectedTab === "folders" ? 1 : 2
+            tabs: [
+                {
+                    "label": "Notes",
+                    "icon": "file-text"
+                },
+                {
+                    "label": "Folders",
+                    "icon": "archive"
+                },
+                {
+                    "label": "Tasks",
+                    "icon": "check"
+                }
+            ]
+            onTabSelected: index => {
+                HapticService.light();
+                listPage.selectedTab = ["notes", "folders", "tasks"][index];
+            }
         }
-    }
-
-    background: Rectangle {
-        color: MColors.background
     }
 }
