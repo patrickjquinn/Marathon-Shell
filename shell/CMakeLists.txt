@@ -87,6 +87,8 @@ set(SOURCES
     src/services/marathonappstoreservice.cpp
     src/services/updateservice.h
     src/services/updateservice.cpp
+    src/services/motiondaemon.h
+    src/services/motiondaemon.cpp
     # (Contacts/SMS/Telephony/Media/Music moved to MarathonServices)
 
     src/managers/mpris2controller.h
@@ -454,6 +456,11 @@ target_link_libraries(marathon-shell PRIVATE
     ${PAM_LIBRARY}
     lunasvg
 )
+
+# MotionDaemon needs the vendored Oxford step-counting algorithm.
+if(TARGET oxford-step-counter)
+    target_link_libraries(marathon-shell PRIVATE oxford-step-counter)
+endif()
 
 # Link additional conditional dependencies
 

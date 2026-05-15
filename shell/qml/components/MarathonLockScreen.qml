@@ -437,6 +437,134 @@ Item {
             }
         }
 
+        // ── Activity NowBar ─────────────────────────────────
+        // Per screens-modern.jsx:LockNowBar — a second activity strip
+        // beneath the time, showing Move / Stand ring progress. Bound
+        // to ActivityService (MotionDaemon → Oxford C-Step-Counter).
+        // Hidden when no media card is up and no rings are closed yet,
+        // so a brand-new device doesn't crowd the lock with zero-state
+        // chrome.
+        Item {
+            id: activityBar
+
+            readonly property bool serviceUp: typeof ActivityService !== "undefined" && ActivityService !== null && ActivityService.available
+            readonly property int moveP: serviceUp ? Math.round(ActivityService.movePercent * 100) : 0
+            readonly property int exerciseP: serviceUp ? Math.round(ActivityService.exercisePercent * 100) : 0
+            readonly property int standP: serviceUp ? Math.round(ActivityService.standPercent * 100) : 0
+            readonly property int ringsLeft: {
+                let n = 0;
+                if (moveP < 100)
+                    n++;
+                if (exerciseP < 100)
+                    n++;
+                if (standP < 100)
+                    n++;
+                return n;
+            }
+            readonly property int rawSteps: serviceUp ? ActivityService.stepsToday : 0
+            readonly property bool anyProgress: rawSteps > 0 || moveP > 0 || exerciseP > 0 || standP > 0
+
+            visible: serviceUp && anyProgress && !lockScreenMediaPlayer.hasMedia
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.top: clockColumn.bottom
+            anchors.topMargin: Math.round(28 * Constants.scaleFactor)
+            height: 68
+
+            Rectangle {
+                anchors.fill: parent
+                radius: MRadius.md
+                color: MColors.elev2
+                border.width: 1
+                border.color: MColors.whiteOverlay04
+            }
+            // Top inset highlight per DS "lit from above".
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: 1
+                anchors.rightMargin: 1
+                anchors.topMargin: 1
+                height: 1
+                color: Qt.rgba(1, 1, 1, 0.06)
+            }
+
+            Row {
+                anchors.fill: parent
+                anchors.leftMargin: 14
+                anchors.rightMargin: 14
+                spacing: 12
+
+                // 44 × 44 squircle with three concentric activity rings.
+                // The arc widths are constants; ring fill is communicated
+                // by the percentages above instead of redrawing arcs each
+                // frame.
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 44
+                    height: 44
+                    radius: width / 2
+                    color: "transparent"
+                    border.width: 3
+                    border.color: Qt.rgba(255 / 255, 59 / 255, 71 / 255, activityBar.moveP > 0 ? 0.9 : 0.25)
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width - 9
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 3
+                        border.color: Qt.rgba(165 / 255, 255 / 255, 132 / 255, activityBar.exerciseP > 0 ? 0.9 : 0.25)
+                    }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width - 18
+                        height: width
+                        radius: width / 2
+                        color: "transparent"
+                        border.width: 3
+                        border.color: Qt.rgba(0 / 255, 191 / 255, 255 / 255, activityBar.standP > 0 ? 0.9 : 0.25)
+                    }
+                }
+
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 44 - parent.spacing
+                    spacing: 2
+
+                    Text {
+                        text: "ACTIVITY"
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeEyebrow
+                        font.weight: Font.Bold
+                        font.letterSpacing: MTypography.trackingEyebrow
+                    }
+                    Text {
+                        width: parent.width
+                        text: "Move " + activityBar.moveP + "% · Stand " + activityBar.standP + "%"
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeSubhead
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        width: parent.width
+                        text: activityBar.ringsLeft === 0 ? "All rings closed today" : activityBar.ringsLeft + " ring" + (activityBar.ringsLeft === 1 ? "" : "s") + " left to close before bed"
+                        color: MColors.textTertiary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        elide: Text.ElideRight
+                    }
+                }
+            }
+        }
+
         // ── Media card (LockMedia variant) ──────────────────
         // Per screens-shell.jsx:188-240 LockMedia(): absolute
         // positioned at top:360, left/right:18. Visible only when
