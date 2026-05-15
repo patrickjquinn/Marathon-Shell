@@ -1,0 +1,70 @@
+[
+  {
+    "id": "com.curlybrace.SlateEditor",
+    "name": "Slate Editor — for writing that doesn't fight back",
+    "author": "Curlybrace Labs",
+    "category": "Productivity",
+    "description": "A focused markdown editor with collab cursors, an outliner, and zero ads.",
+    "iconName": "file-text",
+    "featured": true,
+    "rating": 4.9,
+    "pricing": "Free with in-app pro tier",
+    "version": "2.4.1"
+  },
+  {
+    "id": "io.lattice.Lattice",
+    "name": "Lattice",
+    "author": "Lattice Inc",
+    "category": "Tasks",
+    "description": "Keyboard-first task management with outlines, deadlines, and recurring lists.",
+    "iconName": "check",
+    "rating": 4.8,
+    "version": "1.7.0"
+  },
+  {
+    "id": "com.sigil.Password",
+    "name": "Sigil",
+    "author": "Sigil Security",
+    "category": "Password",
+    "description": "Encrypted password vault that syncs over WebDAV.",
+    "iconName": "shield",
+    "rating": 4.5,
+    "version": "3.1.2"
+  },
+  {
+    "id": "fm.tide.Sleep",
+    "name": "Tide",
+    "author": "Tide Studio",
+    "category": "Sleep",
+    "description": "Soundscapes and sleep tracking that respect your time.",
+    "iconName": "moon",
+    "rating": 4.7,
+    "version": "2.0.4"
+  },
+  {
+    "id": "marathon.browser",
+    "name": "Browser",
+    "author": "Marathon OS",
+    "category": "Web",
+    "description": "The system browser.",
+    "iconName": "globe",
+    "rating": 4.6,
+    "version": "1.2.0",
+    "latestVersion": "1.3.0",
+    "updateAvailable": true,
+    "updateNotes": "Faster tab switcher, fixes 12 bugs."
+  },
+  {
+    "id": "com.slate.Notes",
+    "name": "Slate Notes",
+    "author": "Curlybrace Labs",
+    "category": "Notes",
+    "description": "Companion app to Slate Editor for capture-on-the-go.",
+    "iconName": "file-text",
+    "rating": 4.7,
+    "version": "0.9.3",
+    "latestVersion": "1.0.0",
+    "updateAvailable": true,
+    "updateNotes": "New outliner, sync redesign."
+  }
+]

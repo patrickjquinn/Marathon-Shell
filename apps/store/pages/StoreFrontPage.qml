@@ -13,11 +13,96 @@ import QtQuick.Controls
 // row (icon + name + rating). "Updates available · N" rows with
 // Update buttons. Bottom tabs handled by parent (Discover / Apps /
 // Installed / Account).
+//
+// All content is sourced from AppStoreService over DBus
+// (MarathonAppStoreService in the shell). The previous version of
+// this file shipped hard-coded JSON for the featured / trending /
+// updates lists; that masked the fact that there was a real catalog
+// backend behind the IPC boundary the whole time. Empty states cover
+// "no catalog yet" so the layout doesn't collapse on a cold device.
 Rectangle {
     id: page
 
     anchors.fill: parent
     color: MColors.background
+
+    // Reactive arrays — bound to the AppStoreService catalog state via
+    // a `_tick` property that flips on catalogRefreshed signals. Every
+    // *Apps property re-evaluates when _tick advances, pulling the
+    // latest data out of the live service. Using a tick (rather than
+    // function calls in bindings) is the same pattern Notes uses for
+    // its folders/tasks derivations — QML can't track function-call
+    // dependencies otherwise.
+    property int _tick: 0
+
+    readonly property bool serviceAvailable: typeof AppStoreService !== "undefined" && AppStoreService !== null
+    readonly property bool catalogReady: serviceAvailable && AppStoreService.catalogLoaded
+    readonly property bool catalogLoading: serviceAvailable && AppStoreService.loading
+
+    readonly property var featuredApps: {
+        const _ = page._tick;
+        if (!serviceAvailable)
+            return [];
+        return AppStoreService.getFeaturedApps() || [];
+    }
+    readonly property var availableUpdates: {
+        const _ = page._tick;
+        if (!serviceAvailable)
+            return [];
+        return AppStoreService.getAvailableUpdates() || [];
+    }
+    // Trending = first 3 catalog entries that aren't featured. Avoids
+    // duplicating the hero card in the trending row.
+    readonly property var trendingApps: {
+        const _ = page._tick;
+        if (!serviceAvailable)
+            return [];
+        const all = AppStoreService.searchApps("") || [];
+        const featured = page.featuredApps;
+        const featuredIds = {};
+        for (let i = 0; i < featured.length; i++)
+            featuredIds[featured[i].id] = true;
+        const out = [];
+        for (let i = 0; i < all.length && out.length < 3; i++) {
+            if (!featuredIds[all[i].id])
+                out.push(all[i]);
+        }
+        return out;
+    }
+    readonly property var heroApp: featuredApps.length > 0 ? featuredApps[0] : null
+    readonly property bool showEmptyState: featuredApps.length === 0 && trendingApps.length === 0 && availableUpdates.length === 0
+
+    Component.onCompleted: {
+        if (serviceAvailable && !AppStoreService.catalogLoaded)
+            AppStoreService.refreshCatalog();
+    }
+
+    Connections {
+        function onCatalogRefreshed() {
+            page._tick = page._tick + 1;
+        }
+        function onStateChanged() {
+            page._tick = page._tick + 1;
+        }
+        target: page.serviceAvailable ? AppStoreService : null
+    }
+
+    // Empty-state overlay sits on top of the page Rectangle so its
+    // anchors resolve against the full page area rather than the
+    // Flickable contentItem. Visible only while there's nothing in
+    // the catalog to show.
+    MEmptyState {
+        anchors.fill: parent
+        anchors.topMargin: 96
+        anchors.bottomMargin: 16
+        anchors.leftMargin: 24
+        anchors.rightMargin: 24
+        visible: page.showEmptyState
+        iconName: page.catalogLoading ? "refresh-cw" : "download-cloud"
+        iconSize: 64
+        title: page.catalogLoading ? "Loading catalog…" : "No Apps Available"
+        message: page.catalogLoading ? "Talking to " + (page.serviceAvailable ? AppStoreService.repositoryUrl : "the Marathon catalog") : "The Marathon catalog couldn't be reached. Try again once you're online."
+    }
 
     Column {
         anchors.fill: parent
@@ -50,11 +135,12 @@ Rectangle {
             ]
         }
 
-        // ── Scrollable content ─────────────────────────────
         Flickable {
+            id: scrollArea
             width: parent.width
             height: parent.height - topBar.height
             clip: true
+            visible: !page.showEmptyState
             contentHeight: contentCol.height
             contentWidth: width
 
@@ -64,6 +150,7 @@ Rectangle {
                 spacing: 18
                 topPadding: 16
                 bottomPadding: 20
+                visible: page.featuredApps.length > 0 || page.trendingApps.length > 0 || page.availableUpdates.length > 0
 
                 // ── Editors' Pick hero ──
                 Rectangle {
@@ -71,13 +158,13 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.leftMargin: 16
                     anchors.rightMargin: 16
+                    visible: page.heroApp !== null
                     height: 160
                     radius: MRadius.md
                     color: MColors.elev2
                     border.width: 1
                     border.color: MColors.tealBorder
 
-                    // Soft teal glow in top-right corner.
                     Rectangle {
                         anchors.top: parent.top
                         anchors.right: parent.right
@@ -98,7 +185,6 @@ Rectangle {
                         anchors.bottomMargin: 14
                         spacing: 8
 
-                        // EDITORS' PICK eyebrow chip.
                         Rectangle {
                             width: pickText.implicitWidth + 16
                             height: 22
@@ -117,7 +203,7 @@ Rectangle {
                         }
 
                         Text {
-                            text: "Slate Editor — for writing that doesn't fight back"
+                            text: page.heroApp ? (page.heroApp.name || page.heroApp.id || "") : ""
                             color: MColors.textPrimary
                             font.family: MTypography.fontFamily
                             font.pixelSize: 18
@@ -125,13 +211,23 @@ Rectangle {
                             font.letterSpacing: -0.2
                             wrapMode: Text.WordWrap
                             width: parent.width
+                            maximumLineCount: 2
+                            elide: Text.ElideRight
                         }
 
                         Text {
-                            text: "Curlybrace Labs · Free with in-app pro tier"
+                            text: {
+                                if (!page.heroApp)
+                                    return "";
+                                const author = page.heroApp.author || "Unknown";
+                                const pricing = page.heroApp.price === 0 || page.heroApp.price === "0" || !page.heroApp.price ? "Free" : page.heroApp.price;
+                                return author + " · " + pricing;
+                            }
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeFootnote
+                            elide: Text.ElideRight
+                            width: parent.width
                         }
 
                         Row {
@@ -140,6 +236,10 @@ Rectangle {
                                 text: "Get"
                                 variant: "primary"
                                 size: "compact"
+                                onClicked: {
+                                    if (page.heroApp && page.serviceAvailable)
+                                        AppStoreService.downloadApp(page.heroApp.id);
+                                }
                             }
                             MButton {
                                 text: "Preview"
@@ -154,6 +254,7 @@ Rectangle {
                 Column {
                     width: parent.width
                     spacing: 10
+                    visible: page.trendingApps.length > 0
 
                     Text {
                         anchors.left: parent.left
@@ -168,7 +269,7 @@ Rectangle {
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: 16
-                        text: "Top picks from across the system"
+                        text: "Top picks from across the catalog"
                         color: MColors.textSecondary
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeFootnote
@@ -183,58 +284,59 @@ Rectangle {
                         spacing: 10
 
                         Repeater {
-                            model: [
-                                {
-                                    name: "Lattice",
-                                    sub: "Tasks · 4.8",
-                                    glyph: "check",
-                                    primary: true
-                                },
-                                {
-                                    name: "Sigil",
-                                    sub: "Password · 4.5",
-                                    glyph: "shield"
-                                },
-                                {
-                                    name: "Tide",
-                                    sub: "Sleep · 4.7",
-                                    glyph: "moon"
-                                }
-                            ]
+                            model: page.trendingApps
                             delegate: Column {
                                 width: (parent.width - parent.spacing * 2) / 3
                                 spacing: 6
+
+                                readonly property bool highlightFirst: index === 0
 
                                 Rectangle {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: parent.width
                                     height: width
                                     radius: MRadius.squircle
-                                    color: modelData.primary ? MColors.marathonTealBright : MColors.elev3
+                                    color: highlightFirst ? MColors.marathonTealBright : MColors.elev3
                                     border.width: 1
-                                    border.color: modelData.primary ? MColors.tealBorder : MColors.whiteOverlay08
+                                    border.color: highlightFirst ? MColors.tealBorder : MColors.whiteOverlay08
                                     Icon {
                                         anchors.centerIn: parent
-                                        name: modelData.glyph
+                                        name: modelData.iconName || modelData.icon || "package"
                                         size: 32
-                                        color: modelData.primary ? "#000000" : MColors.textPrimary
+                                        color: highlightFirst ? "#000000" : MColors.textPrimary
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: HapticService.light()
                                     }
                                 }
 
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.name
+                                    text: modelData.name || modelData.id || ""
                                     color: MColors.textPrimary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeFootnote
                                     font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
                                 }
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    text: modelData.sub
+                                    text: {
+                                        const cat = modelData.category || "App";
+                                        const rating = modelData.rating;
+                                        if (rating && rating > 0)
+                                            return cat + " · " + Number(rating).toFixed(1);
+                                        return cat;
+                                    }
                                     color: MColors.textSecondary
                                     font.family: MTypography.fontFamily
                                     font.pixelSize: MTypography.sizeEyebrow
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
                                 }
                             }
                         }
@@ -245,11 +347,12 @@ Rectangle {
                 Column {
                     width: parent.width
                     spacing: 10
+                    visible: page.availableUpdates.length > 0
 
                     Text {
                         anchors.left: parent.left
                         anchors.leftMargin: 16
-                        text: "Updates available · 2"
+                        text: "Updates available · " + page.availableUpdates.length
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
                         font.pixelSize: 18
@@ -258,16 +361,7 @@ Rectangle {
                     }
 
                     Repeater {
-                        model: [
-                            {
-                                name: "Browser",
-                                desc: "Faster tab switcher, fixes 12 bugs"
-                            },
-                            {
-                                name: "Slate Notes",
-                                desc: "New outliner, sync redesign"
-                            }
-                        ]
+                        model: page.availableUpdates
                         delegate: Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
@@ -289,7 +383,7 @@ Rectangle {
                                     border.color: MColors.whiteOverlay08
                                     Icon {
                                         anchors.centerIn: parent
-                                        name: index === 0 ? "globe" : "file-text"
+                                        name: modelData.iconName || modelData.icon || "package"
                                         size: 18
                                         color: MColors.textSecondary
                                     }
@@ -300,7 +394,7 @@ Rectangle {
                                     width: parent.width - 40 - 80 - parent.spacing * 2
                                     spacing: 2
                                     Text {
-                                        text: modelData.name
+                                        text: modelData.name || modelData.id || ""
                                         color: MColors.textPrimary
                                         font.family: MTypography.fontFamily
                                         font.pixelSize: MTypography.sizeSubhead
@@ -308,7 +402,7 @@ Rectangle {
                                     }
                                     Text {
                                         width: parent.width
-                                        text: modelData.desc
+                                        text: modelData.updateNotes || modelData.description || ("Version " + (modelData.latestVersion || modelData.version || ""))
                                         color: MColors.textSecondary
                                         font.family: MTypography.fontFamily
                                         font.pixelSize: MTypography.sizeFootnote
@@ -321,6 +415,10 @@ Rectangle {
                                     text: "Update"
                                     variant: "primary"
                                     size: "compact"
+                                    onClicked: {
+                                        if (page.serviceAvailable)
+                                            AppStoreService.downloadApp(modelData.id);
+                                    }
                                 }
                             }
                         }
