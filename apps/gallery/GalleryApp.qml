@@ -20,6 +20,7 @@ MApp {
 
     property var albums: MediaLibraryManager.albums
     property var photos: []
+    property var videos: []
     property string selectedAlbum: ""
     property int currentView: 1            // start on Photos per JSX
     property alias photoViewerLoader: photoViewerLoader
@@ -27,7 +28,74 @@ MApp {
     function refreshAllPhotos() {
         Qt.callLater(function () {
             photos = MediaLibraryManager.getAllPhotos();
+            videos = MediaLibraryManager.getVideos ? MediaLibraryManager.getVideos() : [];
         });
+    }
+
+    // Memory clusters — calendar-anniversary throwbacks. We treat a
+    // photo as a candidate if today (month + day) sits within ±3
+    // days of the photo's date in any prior year. The ±3 window
+    // catches the common "took photos all weekend" case without
+    // diluting the cluster into a generic this-month bucket.
+    //
+    // We use a property binding (not a function call) so QML tracks
+    // the dependency on photos/videos and re-evaluates on refresh.
+    readonly property var memoryClusters: {
+        const now = new Date();
+        const buckets = {};
+        const order = [];
+        const consider = (item, isVideo) => {
+            if (!item || !item.timestamp)
+                return;
+            const ts = new Date(item.timestamp);
+            const yearsDiff = now.getFullYear() - ts.getFullYear();
+            if (yearsDiff < 1)
+                return;
+            // ±3-day window around today's calendar date in any prior
+            // year. Sufficient for "took photos all weekend last
+            // year" without bleeding into adjacent weeks.
+            const sameYearProbe = new Date(now.getFullYear(), ts.getMonth(), ts.getDate());
+            const dayDiff = Math.abs((sameYearProbe - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+            if (dayDiff > 3)
+                return;
+            const key = "y" + yearsDiff;
+            if (!buckets[key]) {
+                buckets[key] = {
+                    "yearsDiff": yearsDiff,
+                    "title": yearsDiff === 1 ? "One year ago" : yearsDiff + " years ago",
+                    "items": [],
+                    "photoCount": 0,
+                    "videoCount": 0,
+                    "cover": null
+                };
+                order.push(key);
+            }
+            const bucket = buckets[key];
+            bucket.items.push(item);
+            if (isVideo)
+                bucket.videoCount++;
+            else
+                bucket.photoCount++;
+            if (!bucket.cover && (item.thumbnailPath || item.path))
+                bucket.cover = item;
+        };
+        for (let i = 0; i < photos.length; i++)
+            consider(photos[i], false);
+        for (let i = 0; i < videos.length; i++)
+            consider(videos[i], true);
+        order.sort((a, b) => buckets[a].yearsDiff - buckets[b].yearsDiff);
+        return order.map(k => buckets[k]);
+    }
+
+    function memorySubtitle(m) {
+        if (!m)
+            return "";
+        const parts = [];
+        if (m.photoCount > 0)
+            parts.push(m.photoCount + (m.photoCount === 1 ? " photo" : " photos"));
+        if (m.videoCount > 0)
+            parts.push(m.videoCount + (m.videoCount === 1 ? " video" : " videos"));
+        return parts.join(" · ");
     }
 
     // Group photos into date sections. Falls back to a single "TODAY"
@@ -343,16 +411,156 @@ MApp {
                     }
                 }
 
-                // ── 2: Memories — placeholder until cluster API lands ─
-                Item {
+                // ── 2: Memories — anniversary clusters from photos+videos ─
+                // Per ref-gallery: section eyebrow + 2:1 hero cards with
+                // a title/subtitle overlay anchored bottom-left. We render
+                // one card per cluster, full-width — the JSX's adjacent
+                // 1fr peek tile only carries a thumbnail and adds no info,
+                // so a stacked list of full-width hero cards reads better
+                // when the library has several throwbacks at once.
+                ListView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    clip: true
+                    topMargin: 12
+                    bottomMargin: 16
+                    spacing: 12
+                    model: galleryApp.memoryClusters
+                    header: Item {
+                        width: ListView.view.width
+                        height: 36
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 20
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: 8
+                            text: "MEMORIES"
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeEyebrow
+                            font.weight: Font.Bold
+                            font.letterSpacing: MTypography.trackingEyebrow
+                        }
+                    }
+
+                    delegate: Item {
+                        width: ListView.view.width
+                        height: cardWidth / 2 + 4
+
+                        readonly property real cardWidth: width - 32
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 16
+                            anchors.rightMargin: 16
+                            height: parent.cardWidth / 2
+                            radius: MRadius.md
+                            color: MColors.elev2
+                            border.width: 1
+                            border.color: MColors.whiteOverlay04
+                            clip: true
+
+                            // Cover image — first photo/video thumbnail.
+                            // Falls back to a teal-tinted gradient on
+                            // missing thumbs so the layout still reads.
+                            Image {
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                source: modelData.cover ? (modelData.cover.thumbnailPath || modelData.cover.path || "") : ""
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: true
+                                visible: source.toString().length > 0
+                                sourceSize.width: Math.round(width)
+                                sourceSize.height: Math.round(height)
+                            }
+                            Rectangle {
+                                anchors.fill: parent
+                                anchors.margins: 1
+                                visible: !modelData.cover
+                                gradient: Gradient {
+                                    orientation: Gradient.Vertical
+                                    GradientStop {
+                                        position: 0
+                                        color: Qt.rgba(29 / 255, 233 / 255, 182 / 255, 0.18)
+                                    }
+                                    GradientStop {
+                                        position: 1
+                                        color: Qt.rgba(0, 0, 0, 1)
+                                    }
+                                }
+                            }
+
+                            // Bottom scrim so the title stays legible on
+                            // any cover image.
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                height: 72
+                                gradient: Gradient {
+                                    orientation: Gradient.Vertical
+                                    GradientStop {
+                                        position: 0
+                                        color: Qt.rgba(0, 0, 0, 0)
+                                    }
+                                    GradientStop {
+                                        position: 1
+                                        color: Qt.rgba(0, 0, 0, 0.72)
+                                    }
+                                }
+                            }
+
+                            Column {
+                                anchors.left: parent.left
+                                anchors.bottom: parent.bottom
+                                anchors.leftMargin: 14
+                                anchors.bottomMargin: 10
+                                spacing: 2
+                                Text {
+                                    text: modelData.title
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: 18
+                                    font.weight: Font.DemiBold
+                                    font.letterSpacing: -0.2
+                                }
+                                Text {
+                                    text: galleryApp.memorySubtitle(modelData)
+                                    color: MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.weight: Font.Medium
+                                }
+                            }
+
+                            // Tap opens the cover photo in the viewer.
+                            // A full memory-grid viewer would be a
+                            // separate page; deferring until the cluster
+                            // grid pattern is approved.
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    if (!modelData.cover)
+                                        return;
+                                    HapticService.light();
+                                    photoViewerLoader.active = true;
+                                    if (photoViewerLoader.item)
+                                        photoViewerLoader.item.show(modelData.cover);
+                                }
+                            }
+                        }
+                    }
+
                     MEmptyState {
                         anchors.centerIn: parent
+                        width: parent.width - 48
+                        visible: galleryApp.memoryClusters.length === 0
                         iconName: "sparkles"
                         iconSize: 64
                         title: "No Memories Yet"
-                        message: "Memories will appear as your library grows."
+                        message: "Anniversary throwbacks will appear here as your library grows over the years."
                     }
                 }
 
