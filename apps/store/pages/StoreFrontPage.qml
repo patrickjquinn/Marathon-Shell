@@ -153,36 +153,79 @@ Rectangle {
                 visible: page.featuredApps.length > 0 || page.trendingApps.length > 0 || page.availableUpdates.length > 0
 
                 // ── Editors' Pick hero ──
-                Rectangle {
+                // JSX ref: linear-gradient(135deg, #1a4a3e 0%, #040404 70%)
+                // dark teal → black diagonal, with a top-right radial
+                // glow at ~35% teal-bright fading to transparent. The
+                // gradient gives the hero card weight; without it the
+                // pick read as just another secondary card.
+                Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.leftMargin: 16
                     anchors.rightMargin: 16
                     visible: page.heroApp !== null
-                    height: 160
-                    radius: MRadius.md
-                    color: MColors.elev2
-                    border.width: 1
-                    border.color: MColors.tealBorder
-
+                    height: 200
+                    clip: true
+                    // Underlying gradient surface.
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: MRadius.md
+                        border.width: 1
+                        border.color: MColors.tealBorder
+                        gradient: Gradient {
+                            orientation: Gradient.Vertical
+                            GradientStop {
+                                position: 0
+                                color: "#1a4a3e"
+                            }
+                            GradientStop {
+                                position: 0.7
+                                color: "#040404"
+                            }
+                        }
+                    }
+                    // Top-right radial glow — generously sized so the
+                    // teal bleeds into the upper third of the card per
+                    // the JSX spec rather than sitting in just a corner.
                     Rectangle {
                         anchors.top: parent.top
                         anchors.right: parent.right
-                        anchors.topMargin: -20
-                        anchors.rightMargin: -20
-                        width: 140
-                        height: 140
+                        anchors.topMargin: -60
+                        anchors.rightMargin: -60
+                        width: 220
+                        height: 220
                         radius: width / 2
-                        color: MColors.marathonTealBright
-                        opacity: 0.10
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop {
+                                position: 0
+                                color: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
+                            }
+                            GradientStop {
+                                position: 1
+                                color: Qt.rgba(0, 191 / 255, 165 / 255, 0.0)
+                            }
+                        }
+                    }
+                    // Top-edge inset highlight per DS "lit from above"
+                    // treatment — matches buttons + cards.
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.leftMargin: 1
+                        anchors.rightMargin: 1
+                        anchors.topMargin: 1
+                        height: 1
+                        color: Qt.rgba(1, 1, 1, 0.10)
                     }
 
                     Column {
                         anchors.fill: parent
-                        anchors.leftMargin: 16
-                        anchors.rightMargin: 16
-                        anchors.topMargin: 14
-                        anchors.bottomMargin: 14
+                        anchors.leftMargin: 18
+                        anchors.rightMargin: 18
+                        anchors.topMargin: 16
+                        anchors.bottomMargin: 16
                         spacing: 8
 
                         Rectangle {
@@ -206,28 +249,38 @@ Rectangle {
                             text: page.heroApp ? (page.heroApp.name || page.heroApp.id || "") : ""
                             color: MColors.textPrimary
                             font.family: MTypography.fontFamily
-                            font.pixelSize: 18
+                            font.pixelSize: 22
                             font.weight: Font.Medium
-                            font.letterSpacing: -0.2
+                            font.letterSpacing: -0.3
+                            lineHeight: 1.15
                             wrapMode: Text.WordWrap
                             width: parent.width
                             maximumLineCount: 2
                             elide: Text.ElideRight
                         }
 
+                        // Author · pricing line. `pricing` is the
+                        // human-friendly string ("Free with in-app pro
+                        // tier"); we fall back to "Free" when the field
+                        // is missing.
                         Text {
                             text: {
                                 if (!page.heroApp)
                                     return "";
                                 const author = page.heroApp.author || "Unknown";
-                                const pricing = page.heroApp.price === 0 || page.heroApp.price === "0" || !page.heroApp.price ? "Free" : page.heroApp.price;
+                                const pricing = page.heroApp.pricing ? page.heroApp.pricing : (page.heroApp.price && page.heroApp.price !== 0 ? page.heroApp.price : "Free");
                                 return author + " · " + pricing;
                             }
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
+                            font.pixelSize: 13
                             elide: Text.ElideRight
                             width: parent.width
+                        }
+
+                        Item {
+                            width: parent.width
+                            height: 6
                         }
 
                         Row {
@@ -243,7 +296,7 @@ Rectangle {
                             }
                             MButton {
                                 text: "Preview"
-                                variant: "secondary"
+                                variant: "ghost"
                                 size: "compact"
                             }
                         }
@@ -285,25 +338,53 @@ Rectangle {
 
                         Repeater {
                             model: page.trendingApps
+                            // Each tile is a stylized app-icon mockup:
+                            // a coloured squircle with the app's Lucide
+                            // glyph centered inside. Background +
+                            // foreground colors come from the catalog
+                            // entry (iconBackground / iconForeground)
+                            // so tiles read as distinct apps rather
+                            // than identical placeholders. Defaults
+                            // are elev-3 + textPrimary for entries
+                            // that didn't ship a tint.
                             delegate: Column {
                                 width: (parent.width - parent.spacing * 2) / 3
-                                spacing: 6
+                                spacing: 8
 
-                                readonly property bool highlightFirst: index === 0
+                                readonly property string tileBg: modelData.iconBackground || MColors.elev3
+                                readonly property string tileFg: modelData.iconForeground || MColors.textPrimary
 
+                                // Icon tile with the DS "lit from
+                                // above" treatment: bottom shadow
+                                // (1 px black at 60%) on the outer
+                                // edge, 1 px white-15 inset highlight
+                                // along the top — matches the JSX
+                                // boxShadow: 0 0 0 1px rgba(0,0,0,0.6),
+                                //   inset 0 1px 0 rgba(255,255,255,0.15)
                                 Rectangle {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     width: parent.width
                                     height: width
-                                    radius: MRadius.squircle
-                                    color: highlightFirst ? MColors.marathonTealBright : MColors.elev3
+                                    radius: 4
+                                    color: tileBg
                                     border.width: 1
-                                    border.color: highlightFirst ? MColors.tealBorder : MColors.whiteOverlay08
+                                    border.color: Qt.rgba(0, 0, 0, 0.6)
                                     Icon {
                                         anchors.centerIn: parent
                                         name: modelData.iconName || modelData.icon || "package"
-                                        size: 32
-                                        color: highlightFirst ? "#000000" : MColors.textPrimary
+                                        size: 38
+                                        color: tileFg
+                                    }
+                                    // Top-edge inset highlight only.
+                                    Rectangle {
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.leftMargin: 1
+                                        anchors.rightMargin: 1
+                                        anchors.topMargin: 1
+                                        height: 1
+                                        color: Qt.rgba(1, 1, 1, 0.15)
                                     }
                                     MouseArea {
                                         anchors.fill: parent
@@ -312,31 +393,34 @@ Rectangle {
                                 }
 
                                 Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.left: parent.left
                                     text: modelData.name || modelData.id || ""
                                     color: MColors.textPrimary
                                     font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeFootnote
-                                    font.weight: Font.Medium
+                                    font.pixelSize: 13
+                                    font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                     width: parent.width
-                                    horizontalAlignment: Text.AlignHCenter
                                 }
                                 Text {
-                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.left: parent.left
+                                    // "Category · ★ rating" per JSX —
+                                    // the star prefix on the rating
+                                    // sells the subhead as a real app
+                                    // store metric rather than just a
+                                    // number trailing the category.
                                     text: {
                                         const cat = modelData.category || "App";
                                         const rating = modelData.rating;
                                         if (rating && rating > 0)
-                                            return cat + " · " + Number(rating).toFixed(1);
+                                            return cat + " · ★ " + Number(rating).toFixed(1);
                                         return cat;
                                     }
                                     color: MColors.textSecondary
                                     font.family: MTypography.fontFamily
-                                    font.pixelSize: MTypography.sizeEyebrow
+                                    font.pixelSize: 11
                                     elide: Text.ElideRight
                                     width: parent.width
-                                    horizontalAlignment: Text.AlignHCenter
                                 }
                             }
                         }
@@ -360,64 +444,121 @@ Rectangle {
                         font.letterSpacing: -0.2
                     }
 
-                    Repeater {
-                        model: page.availableUpdates
-                        delegate: Item {
+                    // Updates rows live inside an MCard so the
+                    // group reads as a single surface, with row
+                    // dividers between entries (matches the JSX
+                    // Card-wrapping-m-row layout). Each row uses
+                    // the catalog's iconBackground + iconForeground
+                    // for the row-icon bay so the apps stay
+                    // visually distinct.
+                    MCard {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        elevation: 2
+                        height: rowsCol.height + 4
+
+                        Column {
+                            id: rowsCol
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.leftMargin: 16
-                            anchors.rightMargin: 16
-                            height: 60
+                            anchors.leftMargin: -10
+                            anchors.rightMargin: -10
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 0
 
-                            Row {
-                                anchors.fill: parent
-                                spacing: 12
+                            Repeater {
+                                model: page.availableUpdates
+                                delegate: Item {
+                                    width: parent.width
+                                    height: 62
 
-                                Rectangle {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 40
-                                    height: 40
-                                    radius: MRadius.squircle
-                                    color: MColors.elev3
-                                    border.width: 1
-                                    border.color: MColors.whiteOverlay08
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: modelData.iconName || modelData.icon || "package"
-                                        size: 18
-                                        color: MColors.textSecondary
+                                    readonly property string rowIconBg: modelData.iconBackground || MColors.elev3
+                                    readonly property string rowIconFg: modelData.iconForeground || MColors.textSecondary
+
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 14
+                                        anchors.rightMargin: 14
+                                        spacing: 12
+
+                                        Rectangle {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: 38
+                                            height: 38
+                                            radius: 4
+                                            color: rowIconBg
+                                            border.width: 1
+                                            border.color: Qt.rgba(0, 0, 0, 0.6)
+                                            Icon {
+                                                anchors.centerIn: parent
+                                                name: modelData.iconName || modelData.icon || "package"
+                                                size: 18
+                                                color: rowIconFg
+                                            }
+                                            Rectangle {
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                anchors.leftMargin: 1
+                                                anchors.rightMargin: 1
+                                                anchors.topMargin: 1
+                                                height: 1
+                                                color: Qt.rgba(1, 1, 1, 0.15)
+                                            }
+                                        }
+
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 38 - 92 - parent.spacing * 2
+                                            spacing: 2
+                                            Text {
+                                                text: modelData.name || modelData.id || ""
+                                                color: MColors.textPrimary
+                                                font.family: MTypography.fontFamily
+                                                font.pixelSize: MTypography.sizeSubhead
+                                                font.weight: Font.Medium
+                                            }
+                                            Text {
+                                                width: parent.width
+                                                // "Notes · 24.6 MB" — JSX spec
+                                                // pairs the release notes with the
+                                                // download size on a single line so
+                                                // users see both at a glance.
+                                                text: {
+                                                    const notes = modelData.updateNotes || modelData.description || ("Version " + (modelData.latestVersion || modelData.version || ""));
+                                                    const size = modelData.downloadSize || "";
+                                                    return size ? (notes + " · " + size) : notes;
+                                                }
+                                                color: MColors.textSecondary
+                                                font.family: MTypography.fontFamily
+                                                font.pixelSize: MTypography.sizeFootnote
+                                                elide: Text.ElideRight
+                                            }
+                                        }
+
+                                        MButton {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            text: "Update"
+                                            variant: "primary"
+                                            size: "compact"
+                                            onClicked: {
+                                                if (page.serviceAvailable)
+                                                    AppStoreService.downloadApp(modelData.id);
+                                            }
+                                        }
                                     }
-                                }
 
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 40 - 80 - parent.spacing * 2
-                                    spacing: 2
-                                    Text {
-                                        text: modelData.name || modelData.id || ""
-                                        color: MColors.textPrimary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeSubhead
-                                        font.weight: Font.Medium
-                                    }
-                                    Text {
-                                        width: parent.width
-                                        text: modelData.updateNotes || modelData.description || ("Version " + (modelData.latestVersion || modelData.version || ""))
-                                        color: MColors.textSecondary
-                                        font.family: MTypography.fontFamily
-                                        font.pixelSize: MTypography.sizeFootnote
-                                        elide: Text.ElideRight
-                                    }
-                                }
-
-                                MButton {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "Update"
-                                    variant: "primary"
-                                    size: "compact"
-                                    onClicked: {
-                                        if (page.serviceAvailable)
-                                            AppStoreService.downloadApp(modelData.id);
+                                    Rectangle {
+                                        visible: index < page.availableUpdates.length - 1
+                                        anchors.bottom: parent.bottom
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.leftMargin: 14 + 38 + 12
+                                        anchors.rightMargin: 14
+                                        height: 1
+                                        color: MColors.whiteOverlay04
                                     }
                                 }
                             }
