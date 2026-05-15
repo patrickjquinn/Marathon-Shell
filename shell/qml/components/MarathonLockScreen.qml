@@ -187,76 +187,77 @@ Item {
             z: 5
         }
 
+        // ── Clock cluster ───────────────────────────────────
+        // Two layouts per the JSX: LockScreen() puts the clock at
+        // top:190 / 84 px / -2 tracking; LockMedia() shifts it up
+        // to top:170 / 76 px / -1.5 tracking so the media card at
+        // top:360 has breathing room. Switches automatically when
+        // MPRIS2Controller.hasActivePlayer flips.
         Column {
             id: clockColumn
 
-            // DS spec: lock clock anchors near top — top:190 in the source.
-            // Top-anchored composition; the swipe-up state machine below
-            // overrides this anchor when the lock screen is being dragged.
+            readonly property bool mediaActive: lockScreenMediaPlayer.hasMedia
+
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: Constants.spacingSmall
             width: parent.width * 0.9
             anchors.top: parent.top
-            anchors.topMargin: Math.round(190 * Constants.scaleFactor)
-            onYChanged: Logger.debug("LockScreen", "ClockColumn Y changed to: " + y)
+            anchors.topMargin: Math.round((mediaActive ? 170 : 190) * Constants.scaleFactor)
             layer.enabled: true
             layer.smooth: true
 
-            // Lock-clock variant of the Display role per screens-shell.jsx
-            // LockScreen() — 84 px, weight 100 (Thin), -2 tracking. Quieter
-            // than the DS Display token (96/200/-3) so it sits at top:190
-            // on a 390-wide canvas without dominating.
+            Behavior on anchors.topMargin {
+                NumberAnimation {
+                    duration: MMotion.moderate
+                    easing.type: Easing.OutCubic
+                }
+            }
+
             MHaloedDisplay {
                 text: SystemStatusStore.timeString
                 font.family: MTypography.fontFamily
-                font.pixelSize: Math.round(84 * Constants.scaleFactor)
+                font.pixelSize: Math.round((clockColumn.mediaActive ? 76 : 84) * Constants.scaleFactor)
                 font.weight: MTypography.weightThin
-                font.letterSpacing: -2
+                font.letterSpacing: clockColumn.mediaActive ? -1.5 : -2
                 color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
+
+                Behavior on font.pixelSize {
+                    NumberAnimation {
+                        duration: MMotion.moderate
+                        easing.type: Easing.OutCubic
+                    }
+                }
             }
 
-            // Date — Subhead 15/500 per JSX, but tracking is +0.3 (the
-            // lock screen overrides Subhead's default -0.1 to give the
-            // date a quieter, lightly tracked feel).
             Text {
                 text: SystemStatusStore.dateString
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeSubhead
+                font.pixelSize: clockColumn.mediaActive ? Math.round(14 * Constants.scaleFactor) : MTypography.sizeSubhead
                 font.weight: MTypography.weightMedium
                 font.letterSpacing: 0.3
                 anchors.horizontalCenter: parent.horizontalCenter
                 renderType: Text.NativeRendering
             }
+        }
 
-            Item {
-                width: parent.width
-                height: Constants.spacingMedium
-                visible: lockScreenMediaPlayer.visible
-            }
+        // ── Media card (LockMedia variant) ──────────────────
+        // Per screens-shell.jsx:188-240 LockMedia(): absolute
+        // positioned at top:360, left/right:18. Visible only when
+        // MPRIS reports an active player — no card when nothing is
+        // playing (the LockScreen variant takes over).
+        MediaPlaybackManager {
+            id: lockScreenMediaPlayer
 
-            MediaPlaybackManager {
-                id: lockScreenMediaPlayer
-
-                width: Math.min(parent.width, 400 * Constants.scaleFactor)
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: hasMedia
-                border.width: Constants.borderWidthThin
-                border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.3)
-
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: Qt.rgba(0, 191 / 255, 165 / 255, 0.15)
-                    }
-
-                    GradientStop {
-                        position: 1
-                        color: Qt.rgba(0, 0, 0, 0.2)
-                    }
-                }
-            }
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.rightMargin: Math.round(18 * Constants.scaleFactor)
+            anchors.top: parent.top
+            anchors.topMargin: Math.round(360 * Constants.scaleFactor)
+            visible: hasMedia
+            z: 8
         }
 
         // ── Notification stack ──────────────────────────────
