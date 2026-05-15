@@ -1,0 +1,115 @@
+#!/bin/bash
+# Marathon App Store URL-scheme handler.
+#
+# Invoked via xdg-open marathon-store://<verb>/<arg>. The verb-arg pairs are
+# strictly enumerated; anything else is rejected before we touch flatpak.
+#
+# Security:
+#   - Refs match a strict RDN regex (Flathub appstream-id shape) and reject any
+#     '..' substring to defeat path-traversal in the state file name.
+#   - The only remote we talk to is 'flathub'.
+#   - flatpak is invoked via exec with a fixed argv — no user input ever reaches
+#     a shell. State files are written atomically (write-then-rename).
+#   - Per-appid state files prevent concurrent installs from racing each other.
+set -euo pipefail
+
+REF_RE='^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9][A-Za-z0-9_-]*)+$'
+REMOTE=flathub
+RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+STATE_DIR="$RUNTIME_DIR/marathon-store-state"
+mkdir -p "$STATE_DIR"
+
+url=${1:-}
+verb=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://\([^/]*\)/.*|\1|p')
+arg=$(printf '%s\n' "$url" | sed -n 's|^marathon-store://[^/]*/\(.*\)$|\1|p')
+
+if [ -z "$verb" ]; then
+    printf 'marathon-store-handler: bad url: %s\n' "$url" >&2
+    exit 2
+fi
+
+case "$verb" in
+    install|update|uninstall|open|refresh-state|update-all) ;;
+    *)
+        printf 'marathon-store-handler: unknown verb: %s\n' "$verb" >&2
+        exit 2
+        ;;
+esac
+
+if [ "$verb" != "refresh-state" ] && [ "$verb" != "update-all" ]; then
+    case "$arg" in
+        *..*)
+            printf 'marathon-store-handler: rejecting traversal: %s\n' "$arg" >&2
+            exit 3
+            ;;
+    esac
+    if ! printf '%s' "$arg" | grep -qE "$REF_RE"; then
+        printf 'marathon-store-handler: rejecting ref: %s\n' "$arg" >&2
+        exit 3
+    fi
+fi
+
+write_state() {
+    local appid=$1 state=$2 pct=$3
+    local target="$STATE_DIR/install-progress-${appid}.json"
+    local tmp
+    tmp=$(mktemp "${target}.XXXXXX")
+    printf '{"appId":"%s","state":"%s","percent":%s,"ts":%s}\n' \
+        "$appid" "$state" "$pct" "$(date +%s)" > "$tmp"
+    mv "$tmp" "$target"
+}
+
+run_flatpak_progress() {
+    local op=$1 appid=$2
+    write_state "$appid" pending -1
+    # --ostree-verbose unlocks the 'Receiving N%' progress lines. flatpak emits
+    # carriage-return-overwritten progress, so we tr \r -> \n to make it line-
+    # oriented before grepping percentages. PIPESTATUS[0] is the flatpak rc;
+    # we use bash so this is reliable.
+    flatpak --ostree-verbose --user "$op" -y --noninteractive "$REMOTE" "$appid" 2>&1 \
+        | tr '\r' '\n' \
+        | while IFS= read -r line; do
+            pct=$(printf '%s\n' "$line" | sed -n 's/.* \([0-9]\{1,3\}\)%.*/\1/p' | head -1)
+            case "$line" in
+                *Receiving*)              write_state "$appid" downloading "${pct:--1}" ;;
+                *Installing*|*Updating*)  write_state "$appid" downloading "${pct:--1}" ;;
+                *Deploying*|*Pulling*)    write_state "$appid" deploying "${pct:--1}" ;;
+                *Already*installed*)      write_state "$appid" done 100 ;;
+            esac
+        done
+    rc=${PIPESTATUS[0]}
+    if [ "$rc" = "0" ]; then
+        write_state "$appid" done 100
+    else
+        write_state "$appid" failed -1
+    fi
+    /usr/libexec/marathon-store-refresh-state || true
+}
+
+case "$verb" in
+    install)
+        # Detach so xdg-open returns immediately. No terminal window pops up;
+        # the QML polls per-appid state files for progress. arg has already
+        # been validated against REF_RE so no shell-meaningful characters
+        # can survive into this exec.
+        (run_flatpak_progress install "$arg" </dev/null >/dev/null 2>&1 &)
+        ;;
+    update)
+        (run_flatpak_progress update "$arg" </dev/null >/dev/null 2>&1 &)
+        ;;
+    uninstall)
+        flatpak --user uninstall -y "$arg" >/dev/null 2>&1 || true
+        write_state "$arg" done 0
+        /usr/libexec/marathon-store-refresh-state || true
+        ;;
+    update-all)
+        flatpak --user update -y --noninteractive >/dev/null 2>&1 || true
+        /usr/libexec/marathon-store-refresh-state || true
+        ;;
+    refresh-state)
+        exec /usr/libexec/marathon-store-refresh-state
+        ;;
+    open)
+        exec flatpak --user run "$arg"
+        ;;
+esac
