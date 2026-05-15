@@ -106,7 +106,11 @@ Item {
     Item {
         id: hubPanelContainer
 
-        width: parent.width * 0.85
+        // 0.85 parent.width during partial peek (so the surface beneath
+        // remains visible on the right). Ramp to parent.width over the
+        // last 15 % of progress so a fully-opened Hub covers the
+        // screen edge-to-edge.
+        width: parent.width * (0.85 + 0.15 * Math.max(0, Math.min(1, (peekProgress - 0.85) / 0.15)))
         height: parent.height
         x: {
             if (peekProgress === 0)
