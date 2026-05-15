@@ -1352,3 +1352,54 @@ class DavClient : public QObject {
     QVariantList   m_accounts;
     QVariantMap    m_state;
 };
+
+// AppStoreClient — wraps org.marathonos.Shell.AppStore1 so the Store app
+// can browse the catalog and request downloads. Read methods are
+// synchronous DBus calls; download methods are fire-and-forget with
+// progress / completion signals routed back via DBus signals so the UI
+// can wire a Connections {} block to update progress bars and update
+// rows live.
+class AppStoreClient : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool catalogLoaded READ catalogLoaded NOTIFY stateChanged)
+    Q_PROPERTY(bool loading READ loading NOTIFY stateChanged)
+    Q_PROPERTY(QString repositoryUrl READ repositoryUrl NOTIFY stateChanged)
+
+  public:
+    explicit AppStoreClient(QObject *parent = nullptr);
+
+    bool catalogLoaded() const {
+        return m_state.value("catalogLoaded").toBool();
+    }
+    bool loading() const {
+        return m_state.value("loading").toBool();
+    }
+    QString repositoryUrl() const {
+        return m_state.value("repositoryUrl").toString();
+    }
+
+    Q_INVOKABLE void         refreshCatalog();
+    Q_INVOKABLE QVariantList searchApps(const QString &query = QString());
+    Q_INVOKABLE QVariantMap  getApp(const QString &appId);
+    Q_INVOKABLE QVariantList getFeaturedApps();
+    Q_INVOKABLE QVariantList getAppsByCategory(const QString &category);
+    Q_INVOKABLE QVariantList getAvailableUpdates();
+    Q_INVOKABLE void         checkForUpdates();
+    Q_INVOKABLE void         downloadApp(const QString &appId);
+    Q_INVOKABLE void         cancelDownload(const QString &appId);
+    Q_INVOKABLE void         refresh();
+
+  signals:
+    void stateChanged();
+    void catalogRefreshed();
+    void downloadProgress(const QString &appId, qint64 bytesReceived, qint64 bytesTotal);
+    void downloadComplete(const QString &appId, const QString &packagePath);
+    void downloadFailed(const QString &appId, const QString &error);
+
+  private slots:
+    void onStateChanged(const QVariantMap &state);
+
+  private:
+    QDBusInterface m_iface;
+    QVariantMap    m_state;
+};

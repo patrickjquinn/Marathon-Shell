@@ -695,6 +695,8 @@ int main(int argc, char *argv[]) {
         ctx->setContextProperty("UpdateService", new UpdateClient(&app));
     if (hasPerm("storage"))
         ctx->setContextProperty("DavSyncEngine", new DavClient(&app));
+    if (hasPerm("system"))
+        ctx->setContextProperty("AppStoreService", new AppStoreClient(&app));
 
     auto *systemStatusStore = new SystemStatusStoreClient(
         qobject_cast<PowerClient *>(ctx->contextProperty("PowerManagerService").value<QObject *>()),

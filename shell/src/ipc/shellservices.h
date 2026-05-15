@@ -675,3 +675,46 @@ class DavObject : public IpcPermissionedService {
 
     DavSyncEngine *m_engine = nullptr;
 };
+
+class MarathonAppStoreService;
+
+// Surfaces MarathonAppStoreService over D-Bus so the Store app (running
+// in the app-runner process) can query the catalog and ask the shell
+// to download apps. Catalog reads gate on the lighter "system" perm;
+// downloads gate on "system" too because they trigger MarathonAppInstaller
+// in the shell with elevated rights.
+class AppStoreObject : public IpcPermissionedService {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppStore1")
+
+  public:
+    AppStoreObject(MarathonAppStoreService *appStore, MarathonPermissionManager *permissions,
+                   AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    QVariantMap  GetState();
+    void         RefreshCatalog();
+    QVariantList SearchApps(const QString &query);
+    QVariantMap  GetApp(const QString &appId);
+    QVariantList GetFeaturedApps();
+    QVariantList GetAppsByCategory(const QString &category);
+    QVariantList GetAvailableUpdates();
+    void         CheckForUpdates();
+    void         DownloadApp(const QString &appId);
+    void         CancelDownload(const QString &appId);
+
+  signals:
+    void StateChanged(const QVariantMap &state);
+    void CatalogRefreshed();
+    void DownloadProgress(const QString &appId, qint64 bytesReceived, qint64 bytesTotal);
+    void DownloadComplete(const QString &appId, const QString &packagePath);
+    void DownloadFailed(const QString &appId, const QString &error);
+
+  private:
+    bool requireSystem() {
+        return requirePermission("AppStore", {"system"});
+    }
+    QVariantMap              buildState() const;
+
+    MarathonAppStoreService *m_appStore = nullptr;
+};

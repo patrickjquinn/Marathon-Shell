@@ -24,6 +24,7 @@
 #include "telephonyservice.h"
 #include "medialibrarymanager.h"
 #include "../services/updateservice.h"
+#include "../services/marathonappstoreservice.h"
 #include "davsyncengine.h"
 
 #include <QDBusConnection>
@@ -1914,4 +1915,107 @@ QVariantMap DavObject::GetState() {
         {"lastError", m_engine->lastError()},
         {"lastSyncMs", m_engine->lastSyncMs()},
     };
+}
+
+// === AppStoreObject ========================================================
+//
+// Thin DBus passthrough to MarathonAppStoreService — the shell holds the
+// service so the catalog cache, network access manager, and download
+// machinery all stay in one process while the Store app (running in
+// app-runner) reads via IPC. State change signals re-broadcast catalog
+// load + download progress so the Store's UI can stay live.
+
+AppStoreObject::AppStoreObject(MarathonAppStoreService   *appStore,
+                               MarathonPermissionManager *permissions,
+                               AppLaunchService *launchService, QObject *parent)
+    : IpcPermissionedService(permissions, launchService, parent)
+    , m_appStore(appStore) {
+    if (m_appStore) {
+        connect(m_appStore, &MarathonAppStoreService::catalogLoadedChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+        connect(m_appStore, &MarathonAppStoreService::loadingChanged, this,
+                [this]() { emit StateChanged(buildState()); });
+        connect(m_appStore, &MarathonAppStoreService::catalogRefreshed, this,
+                [this]() { emit CatalogRefreshed(); });
+        connect(m_appStore, &MarathonAppStoreService::downloadProgress, this,
+                &AppStoreObject::DownloadProgress);
+        connect(m_appStore, &MarathonAppStoreService::downloadComplete, this,
+                &AppStoreObject::DownloadComplete);
+        connect(m_appStore, &MarathonAppStoreService::downloadFailed, this,
+                &AppStoreObject::DownloadFailed);
+    }
+}
+
+QVariantMap AppStoreObject::buildState() const {
+    if (!m_appStore)
+        return {};
+    return {
+        {"catalogLoaded", m_appStore->catalogLoaded()},
+        {"loading", m_appStore->loading()},
+        {"repositoryUrl", m_appStore->repositoryUrl()},
+    };
+}
+
+QVariantMap AppStoreObject::GetState() {
+    if (!requireSystem())
+        return {};
+    return buildState();
+}
+
+void AppStoreObject::RefreshCatalog() {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->refreshCatalog();
+}
+
+QVariantList AppStoreObject::SearchApps(const QString &query) {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->searchApps(query) : QVariantList{};
+}
+
+QVariantMap AppStoreObject::GetApp(const QString &appId) {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getApp(appId) : QVariantMap{};
+}
+
+QVariantList AppStoreObject::GetFeaturedApps() {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getFeaturedApps() : QVariantList{};
+}
+
+QVariantList AppStoreObject::GetAppsByCategory(const QString &category) {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getAppsByCategory(category) : QVariantList{};
+}
+
+QVariantList AppStoreObject::GetAvailableUpdates() {
+    if (!requireSystem())
+        return {};
+    return m_appStore ? m_appStore->getAvailableUpdates() : QVariantList{};
+}
+
+void AppStoreObject::CheckForUpdates() {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->checkForUpdates();
+}
+
+void AppStoreObject::DownloadApp(const QString &appId) {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->downloadApp(appId);
+}
+
+void AppStoreObject::CancelDownload(const QString &appId) {
+    if (!requireSystem())
+        return;
+    if (m_appStore)
+        m_appStore->cancelDownload(appId);
 }
