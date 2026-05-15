@@ -974,6 +974,10 @@ MApp {
                     anchors.topMargin: 8
                     clip: true
                     spacing: 0
+                    // Leave clearance for the tab bar's halo + home
+                    // indicator so the last list item's Get button
+                    // doesn't crowd the active-tab radial glow.
+                    bottomMargin: 16
                     model: root.collections["popular"] || []
                     visible: model.length > 0
 
@@ -1242,21 +1246,13 @@ MApp {
                     anchors.fill: parent
                     spacing: 0
 
+                    // No back-chevron in `actions:` — Marathon apps use
+                    // the shell's swipe-back gesture (root.backPressed
+                    // → navStack.pop()) for consistency with Settings,
+                    // Phone, Notes, etc.
                     MTopBar {
                         width: parent.width
                         title: displayApp ? (displayApp.name || appId) : appId
-                        actions: [
-                            Icon {
-                                name: "chevron-left"
-                                size: 22
-                                color: MColors.textSecondary
-                                MouseArea {
-                                    anchors.fill: parent
-                                    anchors.margins: -10
-                                    onClicked: navStack.pop()
-                                }
-                            }
-                        ]
                     }
 
                     Flickable {
