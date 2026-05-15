@@ -201,46 +201,110 @@ MApp {
             anchors.fill: parent
             spacing: 0
 
+            // App header — "Phone" title + search · menu actions per JSX
+            // screens-apps-1.jsx:PhoneDialer (TopBar).
+            MTopBar {
+                width: parent.width
+                title: "Phone"
+                actions: [
+                    Icon {
+                        name: "search"
+                        size: 22
+                        color: MColors.textSecondary
+                    },
+                    Icon {
+                        name: "ellipsis-vertical"
+                        size: 22
+                        color: MColors.textSecondary
+                    }
+                ]
+            }
+
             StackLayout {
                 width: parent.width
-                height: parent.height - tabBar.height
+                height: parent.height - tabBar.height - 88
                 currentIndex: parent.currentIndex
 
+                // DS Phone · Dialer (screens-apps-1.jsx:171).
+                // 36/Light dialed number + teal contact-match subtitle.
+                // 3×4 grid of 68 px elev-2 circles. Bottom action row:
+                // user-icon · 64 px teal-gradient call circle · backspace x.
                 Rectangle {
+                    id: dialerPane
                     color: MColors.background
+
+                    // Resolve a contact from the dialed number via the
+                    // ContactsManager IPC client. Falls back to empty when
+                    // no contact matches or the client isn't available.
+                    function lookupContact(num) {
+                        if (!num || num.length < 3)
+                            return "";
+                        if (typeof ContactsManager === "undefined")
+                            return "";
+                        const c = ContactsManager.getContactByNumber(num);
+                        if (!c || !c.name)
+                            return "";
+                        // Default label is "Mobile" — when the contact model
+                        // grows to support multiple labelled numbers per
+                        // entry, this should use the matched number's label.
+                        return c.name + " · Mobile";
+                    }
+                    readonly property string contactMatch: lookupContact(dialedNumber)
 
                     Column {
                         anchors.fill: parent
-                        anchors.margins: MSpacing.lg
-                        spacing: MSpacing.lg
+                        anchors.leftMargin: 24
+                        anchors.rightMargin: 24
+                        anchors.topMargin: 20
+                        spacing: 0
 
-                        Rectangle {
+                        // Display: dialed number + contact match
+                        Item {
                             width: parent.width
-                            height: Constants.touchTargetLarge
-                            color: MColors.surface
-                            radius: Constants.borderRadiusSharp
-                            border.width: Constants.borderWidthThin
-                            border.color: MColors.border
-                            antialiasing: Constants.enableAntialiasing
+                            height: 110
 
-                            Text {
+                            Column {
                                 anchors.centerIn: parent
-                                text: dialedNumber || "Enter number"
-                                font.pixelSize: MTypography.sizeLarge
-                                font.weight: Font.DemiBold
-                                color: dialedNumber ? MColors.text : MColors.textSecondary
-                                horizontalAlignment: Text.AlignHCenter
+                                spacing: 6
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: dialedNumber.length > 0 ? dialedNumber : ""
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: 36
+                                    font.weight: MTypography.weightExtraLight   // 200 per JSX
+                                    font.letterSpacing: 1
+                                }
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: dialerPane.contactMatch
+                                    color: MColors.marathonTealBright
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: 14
+                                    font.weight: Font.Medium
+                                    visible: text.length > 0
+                                }
                             }
                         }
 
                         Grid {
                             id: dialPadGrid
 
-                            width: parent.width
-                            height: parent.height - Constants.touchTargetLarge - Constants.touchTargetLarge - MSpacing.lg * 3
+                            // Key diameter scales with the available width
+                            // (parent column width minus 24 px side padding
+                            // minus 2 × 18 px gaps). JSX shows ~92 px keys at
+                            // 390 px canvas; mapped to 540 px that's ~127 px.
+                            // Clamped to 110 to leave breathing room for the
+                            // bottom action row.
+                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), Math.round(110 * Constants.scaleFactor))
+
+                            anchors.horizontalCenter: parent.horizontalCenter
                             columns: 3
-                            rows: 4
-                            spacing: MSpacing.sm
+                            rowSpacing: 14
+                            columnSpacing: 18
+                            topPadding: 8
+                            bottomPadding: 8
 
                             Repeater {
                                 model: [
@@ -295,47 +359,72 @@ MApp {
                                 ]
 
                                 Rectangle {
-                                    width: (dialPadGrid.width - dialPadGrid.spacing * 2) / 3
-                                    height: (dialPadGrid.height - dialPadGrid.spacing * 3) / 4
-                                    color: "transparent"
-                                    border.width: Constants.borderWidthThin
-                                    border.color: MColors.border
-                                    radius: Constants.borderRadiusSharp
-                                    antialiasing: Constants.enableAntialiasing
+                                    required property var modelData
+
+                                    width: dialPadGrid.cellSize
+                                    height: dialPadGrid.cellSize
+                                    radius: width / 2
+                                    // JSX dialer keys are darker than the
+                                    // default elev-2 card — they sit on the
+                                    // background as soft pucks. elev-1
+                                    // (#0a0a0b) reads correctly against the
+                                    // pure-black canvas; pressed state lifts
+                                    // to bb10-card.
+                                    color: keyArea.pressed ? MColors.bb10Card : MColors.elev1
+                                    border.width: 1
+                                    border.color: MColors.whiteOverlay04
+
+                                    // Top-only inset highlight — circular
+                                    // version of the asymmetric DS edge
+                                    // treatment. A 1-px-thick arc at the
+                                    // top of the key reads as "lit from
+                                    // above" without breaking the round
+                                    // silhouette.
+                                    Rectangle {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 2
+                                        width: parent.width * 0.55
+                                        height: 1
+                                        color: Qt.rgba(1, 1, 1, 0.10)
+                                        radius: 0.5
+                                    }
 
                                     Column {
                                         anchors.centerIn: parent
-                                        spacing: MSpacing.xs
+                                        spacing: 2
 
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.digit
-                                            font.pixelSize: MTypography.sizeXLarge
-                                            font.weight: Font.Bold
-                                            color: MColors.text
+                                            color: MColors.textPrimary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: Math.round(dialPadGrid.cellSize * 0.32)
+                                            font.weight: MTypography.weightLight    // 300
                                         }
-
                                         Text {
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             text: modelData.letters
-                                            font.pixelSize: MTypography.sizeSmall
                                             color: MColors.textSecondary
+                                            font.family: MTypography.fontFamily
+                                            font.pixelSize: Math.round(dialPadGrid.cellSize * 0.11)
+                                            font.weight: Font.Medium
+                                            font.letterSpacing: 1.5
+                                            visible: text.length > 0
+                                        }
+                                    }
+
+                                    Behavior on color {
+                                        ColorAnimation {
+                                            duration: 80
                                         }
                                     }
 
                                     MouseArea {
+                                        id: keyArea
                                         anchors.fill: parent
-                                        onPressed: {
-                                            parent.color = MColors.surface;
-                                            HapticService.light();
-                                        }
-                                        onReleased: {
-                                            parent.color = "transparent";
-                                        }
-                                        onCanceled: {
-                                            parent.color = "transparent";
-                                        }
                                         onClicked: {
+                                            HapticService.light();
                                             addDigit(modelData.digit);
                                         }
                                     }
@@ -343,80 +432,110 @@ MApp {
                             }
                         }
 
-                        Row {
+                        // Spacer pushes the action row to the bottom.
+                        Item {
                             width: parent.width
-                            spacing: MSpacing.lg
+                            height: Math.max(0, parent.parent.parent.height - 110 - dialPadGrid.height - 76 - 20)
+                        }
 
-                            Rectangle {
-                                width: (parent.width - parent.spacing) / 2
-                                height: Constants.touchTargetLarge
-                                color: "transparent"
-                                border.width: Constants.borderWidthThin
-                                border.color: MColors.border
-                                radius: Constants.borderRadiusSharp
-                                antialiasing: Constants.enableAntialiasing
+                        // Action row — contacts shortcut · call · backspace.
+                        Item {
+                            width: parent.width
+                            height: 76
 
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "delete"
-                                    size: Constants.iconSizeLarge
-                                    color: MColors.text
-                                }
+                            Row {
+                                anchors.fill: parent
+                                anchors.bottomMargin: 12
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.color = MColors.surface;
-                                        HapticService.light();
+                                Item {
+                                    width: parent.width / 3
+                                    height: parent.height
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "user"
+                                        size: 22
+                                        color: MColors.textTertiary
                                     }
-                                    onReleased: {
-                                        parent.color = "transparent";
-                                    }
-                                    onCanceled: {
-                                        parent.color = "transparent";
-                                    }
-                                    onClicked: {
-                                        deleteDigit();
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                width: (parent.width - parent.spacing) / 2
-                                height: Constants.touchTargetLarge
-                                color: MColors.accent
-                                border.width: Constants.borderWidthMedium
-                                border.color: MColors.accentDark
-                                radius: Constants.borderRadiusSharp
-                                antialiasing: Constants.enableAntialiasing
-
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "phone"
-                                    size: Constants.iconSizeLarge
-                                    color: MColors.text
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onPressed: {
-                                        parent.scale = 0.9;
-                                        HapticService.medium();
-                                    }
-                                    onReleased: {
-                                        parent.scale = 1;
-                                    }
-                                    onCanceled: {
-                                        parent.scale = 1;
-                                    }
-                                    onClicked: {
-                                        makeCall();
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        onClicked: parent.parent.parent.parent.parent.parent.parent.parent.parent.currentIndex = 2
                                     }
                                 }
 
-                                Behavior on scale {
-                                    NumberAnimation {
-                                        duration: 100
+                                Item {
+                                    width: parent.width / 3
+                                    height: parent.height
+                                    Rectangle {
+                                        id: callButton
+                                        anchors.centerIn: parent
+                                        width: 64
+                                        height: 64
+                                        radius: width / 2
+                                        border.width: 1
+                                        border.color: MColors.tealBorder
+                                        gradient: Gradient {
+                                            GradientStop {
+                                                position: 0
+                                                color: MColors.marathonTealBright
+                                            }
+                                            GradientStop {
+                                                position: 1
+                                                color: MColors.marathonTealDark
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            anchors.margins: 1
+                                            radius: width / 2
+                                            color: "transparent"
+                                            border.width: 1
+                                            border.color: Qt.rgba(1, 1, 1, 0.3)
+                                        }
+
+                                        Icon {
+                                            anchors.centerIn: parent
+                                            name: "phone"
+                                            size: 28
+                                            color: "#000000"
+                                        }
+
+                                        scale: callArea.pressed ? 0.94 : 1.0
+                                        Behavior on scale {
+                                            NumberAnimation {
+                                                duration: 120
+                                                easing.type: Easing.OutBack
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            id: callArea
+                                            anchors.fill: parent
+                                            enabled: dialedNumber.length > 0
+                                            onClicked: {
+                                                HapticService.medium();
+                                                makeCall();
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Item {
+                                    width: parent.width / 3
+                                    height: parent.height
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "x"
+                                        size: 22
+                                        color: dialedNumber.length > 0 ? MColors.textSecondary : MColors.textTertiary
+                                    }
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        enabled: dialedNumber.length > 0
+                                        onClicked: {
+                                            HapticService.light();
+                                            deleteDigit();
+                                        }
                                     }
                                 }
                             }
@@ -614,6 +733,36 @@ MApp {
                 }
             }
 
+            // Favorites — empty state until contact pinning is wired.
+            Rectangle {
+                color: MColors.background
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 14
+                    Icon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        name: "star"
+                        size: 36
+                        color: MColors.textTertiary
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "No favorites yet"
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeSubhead
+                        font.weight: Font.Medium
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "Star a contact to pin it here"
+                        color: MColors.textSecondary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                    }
+                }
+            }
+
             MTabBar {
                 id: tabBar
 
@@ -634,12 +783,16 @@ MApp {
                         "icon": "phone"
                     },
                     {
-                        "label": "History",
+                        "label": "Recents",
                         "icon": "clock"
                     },
                     {
                         "label": "Contacts",
-                        "icon": "users"
+                        "icon": "user"
+                    },
+                    {
+                        "label": "Favorites",
+                        "icon": "star"
                     }
                 ]
                 onTabSelected: index => {
