@@ -357,6 +357,32 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     QVariantMap env;
     env.insert("QT_NO_XDG_DESKTOP_PORTAL", "1");
 
+    // Always forward DPI + user-scale through the env map — bwrap's
+    // --setenv (below) handles the sandboxed case, but unsandboxed
+    // launches need the values too so Constants.scaleFactor in the app
+    // matches the shell.
+    {
+        bool             ok     = false;
+        const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
+        double           dpi    = 160.0;
+        if (!forced.isEmpty()) {
+            const double v = forced.toDouble(&ok);
+            if (ok && v > 0)
+                dpi = v;
+        }
+        if (!ok) {
+            const QScreen *screen = QGuiApplication::primaryScreen();
+            dpi                   = screen ? screen->logicalDotsPerInch() : 160.0;
+        }
+        env.insert("MARATHON_DPI", QString::number(dpi, 'f', 1));
+
+        QSettings    shellSettings(QSettings::IniFormat, QSettings::UserScope,
+                                   QStringLiteral("marathon-os"), QStringLiteral("Marathon Shell"));
+        const double userScale =
+            shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
+        env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
+    }
+
     QStringList permissions = app.value("permissions").toStringList();
 
     if (permissions.contains("network")) {
@@ -455,8 +481,23 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                       << QString::number(userScale, 'f', 3);
         }
         {
-            const QScreen *screen = QGuiApplication::primaryScreen();
-            const double   dpi    = screen ? screen->logicalDotsPerInch() : 160.0;
+            // Honour MARATHON_FORCE_DPI in the parent shell — that is the
+            // value ScreenMetricsCpp uses for Constants.scaleFactor in the
+            // shell, so apps must see the same number or chrome and app
+            // content scale at different rates (e.g. 1.0 shell vs 1.2 app
+            // on a dev host with EDID DPI 192).
+            const QByteArray forced = qgetenv("MARATHON_FORCE_DPI");
+            double           dpi    = 160.0;
+            bool             ok     = false;
+            if (!forced.isEmpty()) {
+                const double v = forced.toDouble(&ok);
+                if (ok && v > 0)
+                    dpi = v;
+            }
+            if (!ok) {
+                const QScreen *screen = QGuiApplication::primaryScreen();
+                dpi                   = screen ? screen->logicalDotsPerInch() : 160.0;
+            }
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
                       << QString::number(dpi, 'f', 1);
         }
