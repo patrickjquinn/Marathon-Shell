@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Marathon Store Handler
+Comment=Handle marathon-store:// URLs (install/update/uninstall/open via flatpak)
+Exec=marathon-store-handler %u
+NoDisplay=true
+Categories=System;
+MimeType=x-scheme-handler/marathon-store;
