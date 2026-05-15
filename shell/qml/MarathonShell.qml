@@ -139,6 +139,64 @@ Item {
             compositor.systemHomeTriggered.connect(handleHomeKey);
             compositor.userActivity.connect(PowerManagerService.updateActivity);
         }
+        // --start-on=<surface> for visual-validation harness only.
+        // Honoured alongside --skip-lock; no-op without it.
+        // --demo-notifications seeds five canonical notifications matching
+        // the JSX reference (Maya, Calendar, Linear, Cassandra, Missed call)
+        // so lock + hub captures aren't empty in dev.
+        const args = Qt.application.arguments;
+        for (let i = 0; i < args.length; ++i) {
+            const a = args[i];
+            if (a.indexOf("--start-on=") === 0) {
+                const surface = a.substring("--start-on=".length);
+                startOnTimer.surface = surface;
+                startOnTimer.start();
+            }
+            if (a === "--demo-notifications") {
+                startOnTimer.seedDemo = true;
+                if (!startOnTimer.running)
+                    startOnTimer.start();
+            }
+        }
+    }
+    Timer {
+        id: startOnTimer
+        property string surface: ""
+        property bool seedDemo: false
+        interval: 600
+        repeat: false
+        onTriggered: {
+            if (seedDemo) {
+                NotificationModel.addNotification("imessage", "Maya Chen", "Heading out, see you at 8 — saved a spot near the back.", "message");
+                NotificationModel.addNotification("calendar", "Design review", "Studio B · in 22m", "calendar");
+                NotificationModel.addNotification("linear", "Linear", "Devon assigned: investigate compositor frame timing when keyboard is shown over video.", "briefcase");
+                NotificationModel.addNotification("mail", "Cassandra Reyes", "Q4 retro — agenda + pre-reads attached. Lmk what you think.", "mail");
+                NotificationModel.addNotification("phone", "Missed call · Devon", "No voicemail left", "phone");
+                // Toast subscribes to NotificationModel.notificationAdded →
+                // NotificationServiceCpp.notificationReceived, so seeding
+                // fires the toast queue. Suppress it for validation.
+                notificationToast.toastQueue = [];
+                notificationToast.currentToast = null;
+                notificationToast.visible = false;
+            }
+            // Force-unlock so peekFlow / quickSettings overlays become
+            // visible (their gates are `!SessionStore.isLocked`).
+            if (surface) {
+                SessionStore.unlock();
+                if (surface === "hub") {
+                    peekFlow.openPeek();
+                } else if (surface === "quicksettings") {
+                    UIStore.openQuickSettings();
+                } else if (surface.indexOf("app:") === 0) {
+                    const appId = surface.substring(4);
+                    const app = AppModel.findById ? AppModel.findById(appId) : null;
+                    const appName = app && app.name ? app.name : appId;
+                    const appIcon = app && app.icon ? app.icon : "";
+                    UIStore.openApp(appId, appName, appIcon);
+                }
+                Logger.info("Shell", "start-on=" + surface + " triggered");
+            }
+        }
     }
     onWidthChanged: {
         if (Constants.screenWidth > 0)
@@ -441,6 +499,14 @@ Item {
         id: soraVariable
 
         source: "qrc:/fonts/Sora.ttf"
+        Component.onCompleted: {
+            const map = ["Null", "Ready", "Loading", "Error"];
+            console.warn("[Fonts] Sora @ load -> status=" + map[status] + " family='" + name + "'");
+        }
+        onStatusChanged: {
+            const map = ["Null", "Ready", "Loading", "Error"];
+            console.warn("[Fonts] Sora statusChanged -> status=" + map[status] + " family='" + name + "'");
+        }
     }
 
     FontLoader {
