@@ -20,6 +20,8 @@ qt6_add_qml_module(marathon-ui-theme
     QML_FILES ${THEME_QML_FILES}
     RESOURCES
         halo-teal.svg
+        fonts/Sora.ttf
+        fonts/JetBrainsMono-Medium.ttf
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Theme
 )
 
@@ -41,4 +43,10 @@ install(FILES
 
 install(FILES ${THEME_QML_FILES}
     DESTINATION ${MARATHON_UI_DIR}/Theme
+)
+
+install(FILES
+    fonts/Sora.ttf
+    fonts/JetBrainsMono-Medium.ttf
+    DESTINATION ${MARATHON_UI_DIR}/Theme/fonts
 )
