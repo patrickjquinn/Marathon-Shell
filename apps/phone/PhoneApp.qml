@@ -702,11 +702,33 @@ MApp {
                                         }
                                     }
 
-                                    Icon {
+                                    Item {
                                         anchors.verticalCenter: parent.verticalCenter
-                                        name: modelData.favorite ? "star" : "star-off"
-                                        size: 20
-                                        color: modelData.favorite ? MColors.accent : MColors.textTertiary
+                                        width: 36
+                                        height: 36
+
+                                        Icon {
+                                            anchors.centerIn: parent
+                                            name: "star"
+                                            size: 20
+                                            color: modelData.favorite ? MColors.marathonTealBright : MColors.textTertiary
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: {
+                                                // Tap doesn't bubble to the card's onClicked (we'd
+                                                // open the editor instead of toggling). Persist via
+                                                // ContactsManager so the favorite carries across
+                                                // sessions; ContactsManager emits contactsChanged
+                                                // and the `contacts` alias refreshes the GridView.
+                                                HapticService.light();
+                                                if (modelData && typeof ContactsManager !== "undefined")
+                                                    ContactsManager.updateContact(modelData.id, {
+                                                        "favorite": !modelData.favorite
+                                                    });
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -733,32 +755,134 @@ MApp {
                 }
             }
 
-            // Favorites — empty state until contact pinning is wired.
+            // Favorites — 3-col grid of starred contacts. Tap-to-call.
+            // The empty state holds the line until at least one contact
+            // is starred via the Contacts list star toggle.
             Rectangle {
+                id: favoritesPane
                 color: MColors.background
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 14
-                    Icon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        name: "star"
-                        size: 36
-                        color: MColors.textTertiary
+
+                readonly property var favoriteContacts: phoneApp.contacts.filter(c => c && c.favorite === true)
+
+                Item {
+                    anchors.fill: parent
+                    visible: favoritesPane.favoriteContacts.length === 0
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 14
+                        Icon {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            name: "star"
+                            size: 36
+                            color: MColors.textTertiary
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "No favorites yet"
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeSubhead
+                            font.weight: Font.Medium
+                        }
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            text: "Star a contact in Contacts to pin it here"
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeFootnote
+                        }
                     }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "No favorites yet"
-                        color: MColors.textPrimary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeSubhead
-                        font.weight: Font.Medium
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Star a contact to pin it here"
-                        color: MColors.textSecondary
-                        font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeFootnote
+                }
+
+                GridView {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    anchors.topMargin: 16
+                    visible: favoritesPane.favoriteContacts.length > 0
+                    clip: true
+                    cellWidth: width / 3
+                    cellHeight: cellWidth + 18
+                    model: favoritesPane.favoriteContacts
+
+                    delegate: Item {
+                        width: GridView.view.cellWidth
+                        height: GridView.view.cellHeight
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: parent.parent.width * 0.78
+                                height: width
+                                radius: width / 2
+                                color: MColors.elev3
+                                border.width: 1
+                                border.color: MColors.tealBorder
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: {
+                                        const n = modelData.name || "?";
+                                        const parts = n.split(/\s+/).filter(p => p.length > 0);
+                                        if (parts.length === 0)
+                                            return "·";
+                                        if (parts.length === 1)
+                                            return parts[0].substring(0, 2).toUpperCase();
+                                        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+                                    }
+                                    color: MColors.textPrimary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: 20
+                                    font.weight: Font.DemiBold
+                                }
+
+                                Rectangle {
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.topMargin: 2
+                                    anchors.rightMargin: 2
+                                    width: 18
+                                    height: 18
+                                    radius: width / 2
+                                    color: MColors.marathonTealBright
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        name: "star"
+                                        size: 10
+                                        color: "#000000"
+                                    }
+                                }
+                            }
+
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: modelData.name || ""
+                                color: MColors.textPrimary
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                                font.weight: Font.Medium
+                                elide: Text.ElideRight
+                                width: parent.parent.width - 8
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                HapticService.medium();
+                                if (modelData.phone) {
+                                    dialedNumber = modelData.phone;
+                                    TelephonyService.dial(modelData.phone);
+                                    if (activeCallPageRef)
+                                        activeCallPageRef.show(modelData.phone, modelData.name);
+                                }
+                            }
+                        }
                     }
                 }
             }
