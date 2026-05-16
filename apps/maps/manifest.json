@@ -12,6 +12,7 @@
   "handlesUriSchemes": ["geo"],
   "defaultFor": [],
   "searchKeywords": ["maps", "navigation", "location", "directions", "places"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "backgroundCapabilities": ["active-navigation", "location-tracking"]
 }
 

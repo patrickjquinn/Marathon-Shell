@@ -12,6 +12,7 @@
   "handlesUriSchemes": ["tel", "callto"],
   "defaultFor": ["dialer"],
   "searchKeywords": ["phone", "dialer", "calls", "contacts", "voicemail"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "backgroundCapabilities": ["active-call"]
 }
 

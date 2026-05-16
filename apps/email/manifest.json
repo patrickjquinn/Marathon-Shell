@@ -21,5 +21,6 @@
     "messages",
     "compose"
   ],
-  "deepLinks": {}
+  "deepLinks": {},
+  "backgroundCapabilities": ["download", "periodic-sync"]
 }

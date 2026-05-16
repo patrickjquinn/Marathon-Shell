@@ -230,6 +230,11 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
         info.defaultFor.append(value.toString());
     }
 
+    QJsonArray bgCapArray = obj.value("backgroundCapabilities").toArray();
+    for (const QJsonValue &value : bgCapArray) {
+        info.backgroundCapabilities.append(value.toString());
+    }
+
     qDebug() << "[MarathonAppScanner] Deep links for" << info.id << ":" << info.deepLinksJson;
 
     qDebug() << "[MarathonAppScanner] Parsed manifest:"

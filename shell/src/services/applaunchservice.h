@@ -121,13 +121,19 @@ class AppLaunchService : public QObject {
 
   public:
     Q_INVOKABLE QString appIdForPid(qint64 pid) const;
+    Q_INVOKABLE qint64  pidForAppId(const QString &appId) const;
 
     void                registerPidForAppId(qint64 pid, const QString &appId);
 
-    Q_INVOKABLE bool    isMarathonAppId(const QString &appId) const;
+  signals:
+    void pidRegistered(qint64 pid, const QString &appId);
+    void pidUnregistered(qint64 pid, const QString &appId);
 
-    Q_INVOKABLE bool    sendBackToRunner(const QString &appId);
-    Q_INVOKABLE bool    sendForwardToRunner(const QString &appId);
+  public:
+    Q_INVOKABLE bool isMarathonAppId(const QString &appId) const;
+
+    Q_INVOKABLE bool sendBackToRunner(const QString &appId);
+    Q_INVOKABLE bool sendForwardToRunner(const QString &appId);
 
   private:
     QHash<qint64, QString> m_pidToAppId;

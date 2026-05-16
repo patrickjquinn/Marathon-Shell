@@ -108,7 +108,6 @@ endif()
 find_package(Qt6 6.4...6.12 REQUIRED COMPONENTS
     Core
     Gui
-    Widgets
     Qml
     Quick
     QuickControls2

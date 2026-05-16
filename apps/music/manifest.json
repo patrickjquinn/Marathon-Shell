@@ -12,6 +12,7 @@
   "handlesUriSchemes": [],
   "defaultFor": ["music"],
   "searchKeywords": ["music", "audio", "songs", "player", "playlist"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "backgroundCapabilities": ["audio-playback"]
 }
 

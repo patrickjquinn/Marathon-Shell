@@ -46,6 +46,9 @@ class MPRIS2Controller : public QObject {
     QString playerName() const {
         return m_playerName;
     }
+    QString currentBusName() const {
+        return m_currentBusName;
+    }
     QString playbackStatus() const {
         return m_playbackStatus;
     }

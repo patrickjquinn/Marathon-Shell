@@ -12,6 +12,7 @@
   "minShellVersion": "1.0.0",
   "protected": true,
   "searchKeywords": ["apps", "install", "download", "software", "store"],
-  "categories": ["System"]
+  "categories": ["System"],
+  "backgroundCapabilities": ["download"]
 }
 

@@ -10,6 +10,8 @@ set(SOURCES
     src/services/applaunchservice.cpp
     src/services/applifecyclemanager.h
     src/services/applifecyclemanager.cpp
+    src/services/backgroundtaskobserver.h
+    src/services/backgroundtaskobserver.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
     src/ipc/shellservices.h
@@ -430,7 +432,6 @@ endif()
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
