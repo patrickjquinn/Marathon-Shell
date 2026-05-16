@@ -478,10 +478,12 @@ endif()
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
 
-if(HAVE_WEBENGINE)
-    target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)
-    target_compile_definitions(marathon-shell PRIVATE HAVE_WEBENGINE)
-endif()
+# WebEngine is intentionally NOT linked into the shell. The shell sets
+# Qt::AA_ShareOpenGLContexts explicitly in main.cpp (which is the
+# only attribute QtWebEngineQuick::initialize() set as a side effect).
+# Apps that need WebEngine link it themselves; the marathon-app-runner
+# subprocess calls QtWebEngineQuick::initialize() before constructing
+# QGuiApplication. Saves ~50 MB Pss_File in the shell process.
 
 # Link Hunspell for spell-checking
 pkg_check_modules(HUNSPELL hunspell)
