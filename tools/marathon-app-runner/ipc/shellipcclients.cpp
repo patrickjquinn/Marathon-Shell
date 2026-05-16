@@ -2881,19 +2881,33 @@ LocationClient::LocationClient(QObject *parent)
 }
 
 void LocationClient::refresh() {
-    if (m_iface.isValid()) {
-        bool avail  = m_iface.property("available").toBool();
-        bool active = m_iface.property("active").toBool();
+    if (!m_iface.isValid())
+        return;
 
-        if (avail != m_available) {
-            m_available = avail;
-            emit availableChanged();
-        }
-        if (active != m_active) {
-            m_active = active;
-            emit activeChanged();
-        }
-        updateLocation(m_iface.call("GetLocation").arguments().at(0).value<QVariantMap>());
+    // The shell-side service exposes availability/active state as
+    // methods (IsAvailable/IsActive), not DBus properties, so a
+    // m_iface.property("available") read silently returns an invalid
+    // QVariant and we'd never know the fix landed.
+    const auto availArgs  = m_iface.call("IsAvailable").arguments();
+    const auto activeArgs = m_iface.call("IsActive").arguments();
+    const bool avail      = !availArgs.isEmpty() ? availArgs.at(0).toBool() : false;
+    const bool active     = !activeArgs.isEmpty() ? activeArgs.at(0).toBool() : false;
+
+    if (avail != m_available) {
+        m_available = avail;
+        emit availableChanged();
+    }
+    if (active != m_active) {
+        m_active = active;
+        emit activeChanged();
+    }
+    const auto locArgs = m_iface.call("GetLocation").arguments();
+    if (!locArgs.isEmpty()) {
+        // a{sv} arrives as a QDBusArgument blob inside the QVariant;
+        // normalize through the same demarshal helpers other Marathon
+        // IPC clients use so we get a real QVariantMap.
+        const QVariantMap loc = normalizeDbusVariantDeep(locArgs.at(0)).toMap();
+        updateLocation(loc);
     }
 }
 
@@ -2913,6 +2927,10 @@ void LocationClient::updateLocation(const QVariantMap &loc) {
 
 void LocationClient::start() {
     m_iface.call("Start");
+    // Re-pull state after Start so a freshly-active fix shows up
+    // immediately instead of waiting for the next LocationChanged
+    // signal (which can be a 25 s Geoclue heartbeat).
+    refresh();
 }
 
 void LocationClient::stop() {
