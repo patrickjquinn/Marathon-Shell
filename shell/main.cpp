@@ -27,6 +27,7 @@
 #include "src/services/applaunchservice.h"
 #include "src/services/applifecyclemanager.h"
 #include "src/services/backgroundtaskobserver.h"
+#include "src/services/memorypressuremonitor.h"
 #include "src/models/notificationmodel.h"
 #include "src/services/notificationhandlercpp.h"
 #include "src/services/notificationservicecpp.h"
@@ -631,6 +632,19 @@ int main(int argc, char *argv[]) {
     // capability are kept warm (BackgroundActive) and never frozen.
     new BackgroundTaskObserver(appLifecycleManager, appLaunchService, mpris2Controller,
                                telephonyService, &app);
+
+    // PSI memory pressure monitor (observe-only in this phase). On
+    // High/Critical we drop the broadcastLowMemory() hint to apps and let
+    // systemd-oomd handle the actual reclamation. A targeted kill of the
+    // oldest Frozen app is a follow-up once the duranium boot test
+    // confirms freezing works end-to-end.
+    auto *pressureMonitor = new MemoryPressureMonitor(&app);
+    QObject::connect(pressureMonitor, &MemoryPressureMonitor::pressureLevelChanged,
+                     appLifecycleManager,
+                     [appLifecycleManager](MemoryPressureMonitor::PressureLevel level, double) {
+                         if (level >= MemoryPressureMonitor::High)
+                             appLifecycleManager->broadcastLowMemory();
+                     });
 
     QObject::connect(telephonyService, &TelephonyService::callStateChanged, audioRoutingManager,
                      [audioRoutingManager](const QString &state) {
