@@ -3236,3 +3236,39 @@ void AppStoreClient::downloadApp(const QString &appId) {
 void AppStoreClient::cancelDownload(const QString &appId) {
     m_iface.call("CancelDownload", appId);
 }
+
+AppLifecycleClient::AppLifecycleClient(QObject *parent)
+    : QObject(parent)
+    , m_iface("org.marathonos.Shell", "/org/marathonos/Shell/AppLifecycle",
+              "org.marathonos.Shell.AppLifecycle1", QDBusConnection::sessionBus()) {
+    if (!m_iface.isValid())
+        qWarning() << "[AppLifecycleClient] DBus interface invalid:"
+                   << m_iface.lastError().message();
+}
+
+quint32 AppLifecycleClient::beginBackgroundTask(const QString &category, const QString &reason) {
+    QDBusReply<quint32> r = m_iface.call("BeginBackgroundTask", category, reason);
+    if (!r.isValid()) {
+        qWarning() << "[AppLifecycleClient] BeginBackgroundTask(" << category
+                   << ") failed:" << r.error().message();
+        return 0;
+    }
+    return r.value();
+}
+
+bool AppLifecycleClient::endBackgroundTask(quint32 handle) {
+    QDBusReply<bool> r = m_iface.call("EndBackgroundTask", handle);
+    if (!r.isValid()) {
+        qWarning() << "[AppLifecycleClient] EndBackgroundTask(" << handle
+                   << ") failed:" << r.error().message();
+        return false;
+    }
+    return r.value();
+}
+
+QStringList AppLifecycleClient::currentCapabilities() {
+    QDBusReply<QStringList> r = m_iface.call("GetMyCapabilities");
+    if (!r.isValid())
+        return {};
+    return r.value();
+}

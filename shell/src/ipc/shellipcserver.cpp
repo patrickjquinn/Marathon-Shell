@@ -38,7 +38,9 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
                                AudioRoutingManager *audioRoutingManager,
                                UpdateService *updateService, DavSyncEngine *davSyncEngine,
                                MarathonAppStoreService *appStoreService,
-                               AppLaunchService *appLaunchService, QObject *parent)
+                               AppLaunchService        *appLaunchService,
+                               AppLifecycleManager     *lifecycleManager,
+                               MarathonAppRegistry *appRegistry, QObject *parent)
     : QObject(parent)
     , m_permissions(permissions)
     , m_contacts(contacts)
@@ -62,7 +64,9 @@ ShellIpcServer::ShellIpcServer(MarathonPermissionManager *permissions, ContactsM
     , m_updateService(updateService)
     , m_davSyncEngine(davSyncEngine)
     , m_appStoreService(appStoreService)
-    , m_appLaunchService(appLaunchService) {}
+    , m_appLaunchService(appLaunchService)
+    , m_lifecycleManager(lifecycleManager)
+    , m_appRegistry(appRegistry) {}
 
 bool ShellIpcServer::registerOnSessionBus() {
     auto bus = QDBusConnection::sessionBus();
@@ -111,6 +115,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     auto *davObj     = new DavObject(m_davSyncEngine, m_permissions, m_appLaunchService, this);
     auto *appStoreObj =
         new AppStoreObject(m_appStoreService, m_permissions, m_appLaunchService, this);
+    auto *lifecycleObj =
+        new AppLifecycleObject(m_lifecycleManager, m_appRegistry, m_appLaunchService, this);
 
     bool ok = true;
     ok &= bus.registerObject("/org/marathonos/Shell/Permissions", permObj,
@@ -154,6 +160,8 @@ bool ShellIpcServer::registerOnSessionBus() {
     ok &= bus.registerObject("/org/marathonos/Shell/Dav", davObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
     ok &= bus.registerObject("/org/marathonos/Shell/AppStore", appStoreObj,
+                             QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
+    ok &= bus.registerObject("/org/marathonos/Shell/AppLifecycle", lifecycleObj,
                              QDBusConnection::ExportAllSlots | QDBusConnection::ExportAllSignals);
 
     if (!ok) {

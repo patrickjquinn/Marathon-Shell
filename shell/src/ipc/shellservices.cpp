@@ -25,6 +25,8 @@
 #include "medialibrarymanager.h"
 #include "../services/updateservice.h"
 #include "../services/marathonappstoreservice.h"
+#include "../services/applifecyclemanager.h"
+#include "marathonappregistry.h"
 #include "davsyncengine.h"
 
 #include <QDBusConnection>
@@ -2018,4 +2020,71 @@ void AppStoreObject::CancelDownload(const QString &appId) {
         return;
     if (m_appStore)
         m_appStore->cancelDownload(appId);
+}
+
+AppLifecycleObject::AppLifecycleObject(AppLifecycleManager *lifecycle,
+                                       MarathonAppRegistry *appRegistry,
+                                       AppLaunchService *launchService, QObject *parent)
+    : QObject(parent)
+    , m_lifecycle(lifecycle)
+    , m_appRegistry(appRegistry)
+    , m_launchService(launchService) {}
+
+quint32 AppLifecycleObject::BeginBackgroundTask(const QString &category, const QString &reason) {
+    Q_UNUSED(reason);
+    if (!m_lifecycle || !m_appRegistry || !m_launchService) {
+        sendErrorReply(QDBusError::Failed, "AppLifecycle backend not ready");
+        return 0;
+    }
+    if (!checkRateLimit(*this, QStringLiteral("BeginBackgroundTask"))) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
+        return 0;
+    }
+    const QString appId = dbusCallerAppIdOrEmpty(*this, m_launchService);
+    if (appId.isEmpty()) {
+        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
+        return 0;
+    }
+    // Manifest gate: the app must have declared this category at install
+    // time. Apps can't widen their privileges at runtime.
+    const QStringList declared = m_appRegistry->getBackgroundCapabilities(appId);
+    if (!declared.contains(category)) {
+        SecurityLogger::logPermissionDenied(appId, "background:" + category);
+        sendErrorReply(QDBusError::AccessDenied,
+                       QStringLiteral("Category '%1' not declared in manifest").arg(category));
+        return 0;
+    }
+    const quint32 handle = m_nextHandle++;
+    m_handles.insert(handle, ActiveTask{appId, category});
+    m_lifecycle->addCapability(appId, category);
+    return handle;
+}
+
+bool AppLifecycleObject::EndBackgroundTask(quint32 handle) {
+    auto it = m_handles.find(handle);
+    if (it == m_handles.end())
+        return false;
+    const ActiveTask task = it.value();
+    m_handles.erase(it);
+    // Refcount semantics: only release the capability when this was the
+    // last outstanding handle holding (appId, category).
+    bool stillHeld = false;
+    for (auto h = m_handles.cbegin(); h != m_handles.cend(); ++h) {
+        if (h->appId == task.appId && h->category == task.category) {
+            stillHeld = true;
+            break;
+        }
+    }
+    if (!stillHeld && m_lifecycle)
+        m_lifecycle->removeCapability(task.appId, task.category);
+    return true;
+}
+
+QStringList AppLifecycleObject::GetMyCapabilities() {
+    if (!m_lifecycle || !m_launchService)
+        return {};
+    const QString appId = dbusCallerAppIdOrEmpty(*this, m_launchService);
+    if (appId.isEmpty())
+        return {};
+    return m_lifecycle->activeCapabilities(appId);
 }

@@ -1403,3 +1403,37 @@ class AppStoreClient : public QObject {
     QDBusInterface m_iface;
     QVariantMap    m_state;
 };
+
+// Client for org.marathonos.Shell.AppLifecycle1 — lets the app declare
+// active background work (turn-by-turn navigation, recording, downloads)
+// so the shell's lifecycle layer keeps the runner warm. The category must
+// be listed in the app's manifest backgroundCapabilities or the shell
+// rejects the claim.
+//
+// Usage from QML:
+//   property int navHandle: 0
+//   onActiveNavigationChanged: {
+//     if (activeNavigation && navHandle === 0)
+//       navHandle = AppLifecycle.beginBackgroundTask("active-navigation", "route XYZ")
+//     else if (!activeNavigation && navHandle !== 0) {
+//       AppLifecycle.endBackgroundTask(navHandle); navHandle = 0
+//     }
+//   }
+class AppLifecycleClient : public QObject {
+    Q_OBJECT
+
+  public:
+    explicit AppLifecycleClient(QObject *parent = nullptr);
+
+    // Returns a handle (>0) on accept, 0 on rejection (category not in
+    // manifest, shell unreachable). The handle must be passed back to
+    // endBackgroundTask when the work finishes — otherwise the capability
+    // stays held until the runner exits, and the shell will refuse to
+    // freeze even when the app is genuinely idle.
+    Q_INVOKABLE quint32     beginBackgroundTask(const QString &category, const QString &reason);
+    Q_INVOKABLE bool        endBackgroundTask(quint32 handle);
+    Q_INVOKABLE QStringList currentCapabilities();
+
+  private:
+    QDBusInterface m_iface;
+};

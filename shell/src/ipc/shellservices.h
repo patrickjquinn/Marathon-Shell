@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QDBusContext>
 #include <QDBusVariant>
@@ -8,6 +9,8 @@
 
 class MarathonPermissionManager;
 class AppLaunchService;
+class AppLifecycleManager;
+class MarathonAppRegistry;
 
 class ContactsManager;
 class CallHistoryManager;
@@ -717,4 +720,44 @@ class AppStoreObject : public IpcPermissionedService {
     QVariantMap              buildState() const;
 
     MarathonAppStoreService *m_appStore = nullptr;
+};
+
+// Lets apps (via marathon-app-runner) declare active background work like
+// turn-by-turn navigation, recording, large downloads, periodic sync. The
+// MPRIS2 + Telephony observers cover audio playback and active calls
+// automatically; everything else needs the app to claim explicitly so the
+// shell knows not to freeze it.
+//
+// Caller is identified by DBus PID resolution (the same trusted path the
+// rest of shellservices uses); the manifest's `backgroundCapabilities`
+// gates which categories are accepted.
+class AppLifecycleObject : public QObject, protected QDBusContext {
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "org.marathonos.Shell.AppLifecycle1")
+
+  public:
+    AppLifecycleObject(AppLifecycleManager *lifecycle, MarathonAppRegistry *appRegistry,
+                       AppLaunchService *launchService, QObject *parent = nullptr);
+
+  public slots:
+    // Returns a non-zero handle on success, 0 on rejection (unknown
+    // caller, category not declared in manifest, lifecycle unavailable).
+    // Multiple Begin calls for the same category from one app are
+    // refcounted — the capability lifts only after the matching number of
+    // End calls.
+    quint32     BeginBackgroundTask(const QString &category, const QString &reason);
+    bool        EndBackgroundTask(quint32 handle);
+    QStringList GetMyCapabilities();
+
+  private:
+    struct ActiveTask {
+        QString appId;
+        QString category;
+    };
+
+    AppLifecycleManager       *m_lifecycle     = nullptr;
+    MarathonAppRegistry       *m_appRegistry   = nullptr;
+    AppLaunchService          *m_launchService = nullptr;
+    quint32                    m_nextHandle    = 1;
+    QHash<quint32, ActiveTask> m_handles;
 };
