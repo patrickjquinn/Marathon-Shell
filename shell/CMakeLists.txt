@@ -430,7 +430,9 @@ endif()
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
-    Qt6::Widgets
+    # Qt6::Widgets intentionally NOT linked. The shell uses
+    # QGuiApplication (no widgets) — switching saves ~20 MB of
+    # libQt6Widgets + Qt6PrintSupport mappings in the shell process.
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
@@ -478,10 +480,10 @@ endif()
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
 
-if(HAVE_WEBENGINE)
-    target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)
-    target_compile_definitions(marathon-shell PRIVATE HAVE_WEBENGINE)
-endif()
+# WebEngine intentionally NOT linked into the shell. Apps that need it
+# (Maps, Browser) link it themselves and the marathon-app-runner
+# process calls QtWebEngineQuick::initialize(). Keeping it out of the
+# shell saves ~50 MB RSS in the shell process's address space.
 
 # Link Hunspell for spell-checking
 pkg_check_modules(HUNSPELL hunspell)

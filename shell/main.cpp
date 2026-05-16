@@ -1,4 +1,4 @@
-#include <QApplication>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QDebug>
@@ -109,9 +109,10 @@
 #include <QWaylandXdgShell>
 #endif
 
-#ifdef HAVE_WEBENGINE
-#include <QtWebEngineQuick/QtWebEngineQuick>
-#endif
+// WebEngine init moved to marathon-app-runner so the shell process
+// doesn't pay for QtWebEngineCore + chromium .so mappings (~50 MB)
+// when no app is using WebEngine. Only the Maps app currently links
+// it, and Maps runs in its own marathon-app-runner subprocess.
 
 template <typename T, typename... Args>
 static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
@@ -207,22 +208,22 @@ int main(int argc, char *argv[]) {
     const QString profileEnv  = qgetenv("MARATHON_PROFILE");
     const bool    profileMode = (profileEnv == "1" || profileEnv.toLower() == "true");
 
-    QApplication::setApplicationName("Marathon Shell");
-    QApplication::setOrganizationName("Marathon OS");
+    QGuiApplication::setApplicationName("Marathon Shell");
+    QGuiApplication::setOrganizationName("Marathon OS");
 
-#ifdef HAVE_WEBENGINE
-    QtWebEngineQuick::initialize();
-#endif
+    // QtWebEngineQuick::initialize() was here; moved to
+    // tools/marathon-app-runner so the shell process no longer maps
+    // libQt6WebEngineCore + chromium .so's (~50 MB RSS savings).
 
-    QApplication::setHighDpiScaleFactorRoundingPolicy(
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
     QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
 
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
 
-    // Logging filter rules must go AFTER QApplication: the QApplication
+    // Logging filter rules must go AFTER QGuiApplication: the QGuiApplication
     // constructor processes QT_LOGGING_RULES and Qt config-file rules,
     // which can override anything set earlier in main.
     if (debugEnabled) {

@@ -14,6 +14,13 @@ find_package(Qt6 REQUIRED COMPONENTS
     DBus
 )
 
+# WebEngine init moved from shell to runner so the shell process
+# doesn't map ~50 MB of WebEngine/chromium .so's. Apps that import
+# QtWebEngine link it themselves (see apps/maps/CMakeLists.txt); the
+# runner just needs the headers + symbol so it can call
+# QtWebEngineQuick::initialize() before constructing QGuiApplication.
+find_package(Qt6 6.4 COMPONENTS WebEngineQuick)
+
 set(SOURCES
     main.cpp
     ipc/shellipcclients.cpp
@@ -36,6 +43,11 @@ target_link_libraries(marathon-app-runner PRIVATE
     Qt6::DBus
     MarathonCore
 )
+
+if(TARGET Qt6::WebEngineQuick)
+    target_link_libraries(marathon-app-runner PRIVATE Qt6::WebEngineQuick)
+    target_compile_definitions(marathon-app-runner PRIVATE HAVE_WEBENGINE)
+endif()
 
 install(TARGETS marathon-app-runner
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
