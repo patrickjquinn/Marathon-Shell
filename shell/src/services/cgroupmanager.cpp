@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QLoggingCategory>
 #include <QTextStream>
+#include <QThread>
 
 Q_LOGGING_CATEGORY(lcCgroup, "marathon.lifecycle.cgroup")
 
@@ -27,52 +28,86 @@ bool CgroupManager::initRootPath() {
     // legacy + deprecated).
     QFile typeProbe(QStringLiteral("/sys/fs/cgroup/cgroup.controllers"));
     if (!typeProbe.exists()) {
-        qCDebug(lcCgroup) << "cgroup v2 not mounted at /sys/fs/cgroup";
+        qCInfo(lcCgroup) << "cgroup v2 not mounted at /sys/fs/cgroup";
         return false;
     }
 
     const QString shellPath = readShellCgroupPath();
     if (shellPath.isEmpty()) {
-        qCDebug(lcCgroup) << "couldn't read /proc/self/cgroup";
+        qCInfo(lcCgroup) << "couldn't read /proc/self/cgroup";
         return false;
     }
 
-    const QString shellAbs = QStringLiteral("/sys/fs/cgroup") + shellPath;
-    m_appsRoot             = shellAbs + QStringLiteral("/marathon-apps");
+    // We want marathon-apps as a SIBLING of the shell's own scope, both
+    // under the delegated marathon.slice. Putting it as a child of the
+    // shell's scope hits two problems: the scope's ACL chown happens
+    // asynchronously after systemd-run returns (transient EACCES at boot),
+    // and the no-internal-processes rule blocks controller enablement
+    // when the scope has both processes (the shell) and children.
+    //
+    // Find marathon.slice in the path: it's always the immediate parent
+    // of the marathon-shell-*.scope component when launched via
+    // marathon-shell-session's systemd-run wrapper.
+    QString   parentPath = shellPath;
+    const int scopeIdx   = parentPath.lastIndexOf(QStringLiteral("/marathon-shell-"));
+    if (scopeIdx <= 0 || !parentPath.endsWith(QStringLiteral(".scope"))) {
+        qCInfo(lcCgroup) << "shell not inside marathon-shell-*.scope (cgroup:" << shellPath
+                         << ") — running unwrapped? freeze will be log-only";
+        return false;
+    }
+    const QString slicePath = parentPath.left(scopeIdx); // .../marathon.slice
+    const QString sliceAbs  = QStringLiteral("/sys/fs/cgroup") + slicePath;
+    m_appsRoot              = sliceAbs + QStringLiteral("/marathon-apps");
 
-    QDir parent(shellAbs);
+    QDir parent(sliceAbs);
     if (!parent.exists()) {
-        qCDebug(lcCgroup) << "shell cgroup dir missing:" << shellAbs;
+        qCInfo(lcCgroup) << "marathon.slice cgroup dir missing:" << sliceAbs;
         return false;
     }
-    if (!parent.mkpath(QStringLiteral("marathon-apps"))) {
-        qCDebug(lcCgroup) << "couldn't create marathon-apps under" << shellAbs
-                          << "(no Delegate=yes on shell unit?)";
+
+    // Retry mkdir with backoff: systemd's delegate-chown of marathon.slice
+    // is async after the user manager creates the scope. We may hit EACCES
+    // for a few hundred ms after boot. Five attempts at 150 ms apart cover
+    // the typical lag without burning real time.
+    bool made = false;
+    for (int attempt = 0; attempt < 5; ++attempt) {
+        if (parent.exists(QStringLiteral("marathon-apps")) ||
+            parent.mkdir(QStringLiteral("marathon-apps"))) {
+            made = true;
+            break;
+        }
+        QThread::msleep(150);
+    }
+    if (!made) {
+        qCInfo(lcCgroup) << "mkdir" << m_appsRoot << "failed after retries —"
+                         << "marathon.slice not delegated to user? freeze will be log-only";
         return false;
     }
+
     // Enable the controllers we want children of marathon-apps to see.
-    // This must be writable; if not, freeze still works (it's part of the
-    // core cgroup v2 API, not a separately-enabled controller) but memory
-    // accounting won't. Failure here is non-fatal.
+    // Best-effort: cgroup.freeze itself is in the v2 core (not a
+    // controller) so this isn't load-bearing.
     QFile subtree(m_appsRoot + QStringLiteral("/cgroup.subtree_control"));
     if (subtree.open(QIODevice::WriteOnly)) {
-        subtree.write("+memory +cpu");
+        subtree.write("+memory +pids");
         subtree.close();
     }
     return true;
 }
 
 QString CgroupManager::readShellCgroupPath() {
+    // /proc/self/cgroup stats as size 0; QTextStream(QIODevice::Text) can
+    // see 0 bytes and report eof immediately. Use readAll() on the raw
+    // file, which the kernel populates inline.
     QFile f(QStringLiteral("/proc/self/cgroup"));
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+    if (!f.open(QIODevice::ReadOnly))
         return {};
-    QTextStream in(&f);
-    while (!in.atEnd()) {
-        const QString line = in.readLine();
-        // Format on cgroup v2: "0::/user.slice/user-1000.slice/..."
-        if (line.startsWith(QStringLiteral("0::"))) {
-            return line.mid(3);
-        }
+    const QByteArray data = f.readAll();
+    f.close();
+    for (const QByteArray &line : data.split('\n')) {
+        // cgroup v2 unified hierarchy: a single line starting "0::/...".
+        if (line.startsWith("0::"))
+            return QString::fromUtf8(line.mid(3)).trimmed();
     }
     return {};
 }
@@ -99,14 +134,22 @@ QString CgroupManager::placeAppPid(qint64 pid, const QString &appId) {
     QDir          appsRoot(m_appsRoot);
     if (!appsRoot.exists(QStringLiteral("marathon-app-") + appId)) {
         if (!appsRoot.mkdir(QStringLiteral("marathon-app-") + appId)) {
-            qCDebug(lcCgroup) << "mkdir" << appPath << "failed";
+            qCInfo(lcCgroup) << "mkdir" << appPath << "failed";
             return {};
         }
+    } else {
+        // An existing cgroup dir may be left over from a previous instance
+        // of this app and could be in a Frozen state. Migrating the new
+        // PID into a frozen cgroup would freeze the new process at birth
+        // before AppLifecycleManager has a chance to set its state. Thaw
+        // pre-emptively; AppLifecycleManager will re-freeze later if the
+        // state machine asks for it.
+        writeFile(appPath + QStringLiteral("/cgroup.freeze"), QByteArrayLiteral("0"));
     }
     if (!writeFile(appPath + QStringLiteral("/cgroup.procs"), QByteArray::number(pid))) {
-        // PID may not be ours anymore (race with exit). Tear down so we
-        // don't leak empty cgroup dirs.
-        QDir(appPath).removeRecursively();
+        // PID may not be ours anymore (race with exit). Don't recursive-
+        // remove though — there may be other PIDs of the same appId still
+        // in the cgroup (e.g. background runner instance still running).
         return {};
     }
     m_appPaths.insert(appId, appPath);
