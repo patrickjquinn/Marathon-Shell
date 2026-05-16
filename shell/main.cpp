@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
+#include <QQuickWindow>
+#include <QSGRendererInterface>
 #include <QDebug>
 #include <QQmlContext>
 #include <QDir>
@@ -212,28 +214,34 @@ int main(int argc, char *argv[]) {
     QApplication::setApplicationName("Marathon Shell");
     QApplication::setOrganizationName("Marathon OS");
 
-    // CRITICAL: must be set before QApplication constructor.
+    // CRITICAL: both calls below must run before QApplication is
+    // constructed.
     //
-    // The shell is a multi-window Qt app: it owns the root QQuickWindow
-    // *and* spawns a separate QQuickWindow per attached Wayland surface
-    // (via QtWaylandCompositor's WaylandQuickItem) plus per-output
-    // windows for the lock screen, peek shade, HUD, etc. With
-    // QSG_RENDER_LOOP=threaded (set by marathon-shell-session) each
-    // window gets its own QSGRenderThread. Those render threads MUST
-    // share an OpenGL context so they can sample each other's textures
-    // (e.g. lock screen wallpaper sampling the system blur) — otherwise
-    // the first cross-window texture access SEGVs in the GL driver.
+    // QtWebEngineQuick::initialize() used to be called here as a
+    // side-effecting helper that did THREE things behind our back:
+    //   1. Set Qt::AA_ShareOpenGLContexts (needed because the shell
+    //      is multi-window — root + per-Wayland-surface windows + lock
+    //      screen + peek + HUD — and QSG_RENDER_LOOP=threaded gives
+    //      each one its own QSGRenderThread).
+    //   2. Set QQuickWindow::setGraphicsApi(OpenGL). Required because
+    //      QtWaylandCompositor only supports OpenGL/EGL for client
+    //      buffer sharing. On Qt 6.11+ with mesa-vulkan-virtio (or any
+    //      working Vulkan ICD) present, RHI auto-picks Vulkan and the
+    //      Wayland compositor surface-sharing path SEGVs.
+    //   3. Scheduled Chromium pre-init. Only needed by apps that use
+    //      WebEngineView — which run in marathon-app-runner
+    //      subprocesses, not in the shell.
     //
-    // QtWebEngineQuick::initialize() used to set this attribute as a
-    // side effect, which masked the requirement. Now we set it
-    // explicitly so the shell can run without linking WebEngine — the
-    // single largest contributor to shell process RSS (~50 MB of
-    // libQt6WebEngineCore + chromium .so mappings). Apps that need
-    // WebEngine link it themselves and the marathon-app-runner
-    // subprocess does the WebEngine init when those apps start.
+    // Setting (1) and (2) explicitly lets us drop the
+    // Qt6::WebEngineQuick link from the shell (~50 MB of
+    // libQt6WebEngineCore + chromium .so mappings out of the shell
+    // address space). The runner takes responsibility for (3) when
+    // its launched app actually imports QtWebEngine.
     //
     // See: https://doc.qt.io/qt-6/qtwebenginequick.html#initialize
+    // and qtwebengine/src/webenginequick/api/qtwebenginequickglobal.cpp
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
