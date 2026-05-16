@@ -109,11 +109,9 @@
 #include <QWaylandXdgShell>
 #endif
 
-// QtWebEngineQuick::initialize() is no longer called here — the shell
-// doesn't link Qt6::WebEngineQuick. The attribute that used to set
-// (Qt::AA_ShareOpenGLContexts) is set explicitly in main() below.
-// Apps that need WebEngine link it themselves; the marathon-app-runner
-// subprocess calls QtWebEngineQuick::initialize() at its own startup.
+#ifdef HAVE_WEBENGINE
+#include <QtWebEngineQuick/QtWebEngineQuick>
+#endif
 
 template <typename T, typename... Args>
 static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
@@ -212,28 +210,9 @@ int main(int argc, char *argv[]) {
     QApplication::setApplicationName("Marathon Shell");
     QApplication::setOrganizationName("Marathon OS");
 
-    // CRITICAL: must be set before QApplication constructor.
-    //
-    // The shell is a multi-window Qt app: it owns the root QQuickWindow
-    // *and* spawns a separate QQuickWindow per attached Wayland surface
-    // (via QtWaylandCompositor's WaylandQuickItem) plus per-output
-    // windows for the lock screen, peek shade, HUD, etc. With
-    // QSG_RENDER_LOOP=threaded (set by marathon-shell-session) each
-    // window gets its own QSGRenderThread. Those render threads MUST
-    // share an OpenGL context so they can sample each other's textures
-    // (e.g. lock screen wallpaper sampling the system blur) — otherwise
-    // the first cross-window texture access SEGVs in the GL driver.
-    //
-    // QtWebEngineQuick::initialize() used to set this attribute as a
-    // side effect, which masked the requirement. Now we set it
-    // explicitly so the shell can run without linking WebEngine — the
-    // single largest contributor to shell process RSS (~50 MB of
-    // libQt6WebEngineCore + chromium .so mappings). Apps that need
-    // WebEngine link it themselves and the marathon-app-runner
-    // subprocess does the WebEngine init when those apps start.
-    //
-    // See: https://doc.qt.io/qt-6/qtwebenginequick.html#initialize
-    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+#ifdef HAVE_WEBENGINE
+    QtWebEngineQuick::initialize();
+#endif
 
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
