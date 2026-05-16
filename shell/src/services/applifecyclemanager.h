@@ -11,6 +11,7 @@
 
 class TaskModel;
 class AppLaunchService;
+class CgroupManager;
 
 class AppLifecycleManager : public QObject {
     Q_OBJECT
@@ -105,6 +106,7 @@ class AppLifecycleManager : public QObject {
 
     QPointer<TaskModel>               m_taskModel;
     QPointer<AppLaunchService>        m_appLaunchService;
+    CgroupManager                    *m_cgroup = nullptr;
 
     QHash<QString, QPointer<QObject>> m_appRegistry;
     QHash<QString, AppState>          m_appStates;

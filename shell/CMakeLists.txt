@@ -12,6 +12,10 @@ set(SOURCES
     src/services/applifecyclemanager.cpp
     src/services/backgroundtaskobserver.h
     src/services/backgroundtaskobserver.cpp
+    src/services/cgroupmanager.h
+    src/services/cgroupmanager.cpp
+    src/services/memorypressuremonitor.h
+    src/services/memorypressuremonitor.cpp
     src/ipc/shellipcserver.h
     src/ipc/shellipcserver.cpp
     src/ipc/shellservices.h

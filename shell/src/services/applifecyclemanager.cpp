@@ -1,6 +1,7 @@
 #include "applifecyclemanager.h"
 
 #include "applaunchservice.h"
+#include "cgroupmanager.h"
 #include "taskmodel.h"
 
 #include <QDateTime>
@@ -15,17 +16,26 @@ AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService 
                                          QObject *parent)
     : QObject(parent)
     , m_taskModel(taskModel)
-    , m_appLaunchService(appLaunchService) {
-    // Apply oom_score bias as soon as a PID becomes known. Without the PID
-    // we cannot write /proc/<pid>/oom_score_adj, and runner PIDs land
-    // asynchronously after registerApp() runs.
+    , m_appLaunchService(appLaunchService)
+    , m_cgroup(new CgroupManager(this)) {
+    // Apply oom_score bias + cgroup placement as soon as a PID becomes
+    // known. Both are best-effort on the dev box (procfs and cgroup writes
+    // may be denied) but reliable on the duranium image.
     if (m_appLaunchService) {
         connect(m_appLaunchService, &AppLaunchService::pidRegistered, this,
                 [this](qint64 pid, const QString &appId) {
-                    Q_UNUSED(pid);
                     if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
                         writeOomScoreAdj(appId, it->state);
                     }
+                    if (m_cgroup && m_cgroup->isAvailable()) {
+                        m_cgroup->placeAppPid(pid, appId);
+                    }
+                });
+        connect(m_appLaunchService, &AppLaunchService::pidUnregistered, this,
+                [this](qint64 pid, const QString &appId) {
+                    Q_UNUSED(pid);
+                    if (m_cgroup)
+                        m_cgroup->removeAppCgroup(appId);
                 });
     }
 }
@@ -418,9 +428,21 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
     qCInfo(lcLifecycle) << appId << ":" << static_cast<int>(old) << "→"
                         << static_cast<int>(newState);
     writeOomScoreAdj(appId, newState);
+
+    // Cgroup freeze/thaw on the transition boundary. The state machine
+    // never freezes an app that's actively holding a capability — the
+    // BackgroundActive ↔ BackgroundIdle distinction is what protects
+    // music/calls/nav. Any non-Frozen state thaws (cheap to call when
+    // already thawed).
+    if (m_cgroup && m_cgroup->isAvailable()) {
+        if (newState == Frozen) {
+            m_cgroup->setAppFrozen(appId, true);
+        } else if (old == Frozen) {
+            m_cgroup->setAppFrozen(appId, false);
+        }
+    }
+
     emit stateChanged(appId, static_cast<int>(old), static_cast<int>(newState));
-    // Phase B will write /sys/fs/cgroup/.../cgroup.freeze here when
-    // transitioning to/from Frozen. Today this is logged only.
 }
 
 int AppLifecycleManager::oomScoreForState(LifecycleState state) {
