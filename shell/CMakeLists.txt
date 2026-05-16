@@ -430,12 +430,9 @@ endif()
 target_link_libraries(marathon-shell PRIVATE
     Qt6::Core
     Qt6::Gui
-    # Qt6::Widgets is kept because QtVirtualKeyboard's plugin loader
-    # (which the marathon-shell-session script's Wayland-input path
-    # depends on at boot) requires QApplication. Switching to
-    # QGuiApplication crashes the shell at first paint under greetd.
-    # The ~10 MB of libQt6Widgets mappings are an acceptable cost.
-    Qt6::Widgets
+    # Qt6::Widgets intentionally NOT linked. The shell uses
+    # QGuiApplication (no widgets) — switching saves ~20 MB of
+    # libQt6Widgets + Qt6PrintSupport mappings in the shell process.
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
