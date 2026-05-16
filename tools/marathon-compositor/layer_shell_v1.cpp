@@ -1,6 +1,12 @@
 #include "layer_shell_v1.h"
 
+// The wayland-scanner-generated header uses `namespace` as a C parameter
+// name in get_layer_surface — a C++ keyword, which makes the header fail
+// to compile in C++ mode. Standard workaround: redefine the identifier
+// around the include. Affects only this translation unit.
+#define namespace _layer_ns
 #include "wlr-layer-shell-unstable-v1-server.h"
+#undef namespace
 
 #include <QLoggingCategory>
 #include <QWaylandCompositor>
@@ -31,7 +37,10 @@ static void mgrGetLayerSurface(wl_client *client, wl_resource *resource, uint32_
     }
     auto *qSurface = QWaylandSurface::fromResource(surfaceResource);
     if (!qSurface) {
-        wl_resource_post_error(resource, ZWLR_LAYER_SHELL_V1_ERROR_INVALID_SURFACE_STATE,
+        // ZWLR_LAYER_SURFACE_V1_ERROR_INVALID_SURFACE_STATE is the enum on the
+        // layer_surface interface; layer_shell itself has no
+        // INVALID_SURFACE_STATE error variant, so we use the closest match.
+        wl_resource_post_error(resource, ZWLR_LAYER_SHELL_V1_ERROR_INVALID_LAYER,
                                "no QWaylandSurface for wl_surface");
         return;
     }

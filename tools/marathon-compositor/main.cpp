@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("MarathonCompositor",
                                              QVariant::fromValue(&compositor));
-    engine.loadFromModule("MarathonCompositor", "compositor");
+    engine.loadFromModule("MarathonCompositor", "Compositor");
     if (engine.rootObjects().isEmpty()) {
         qCCritical(lcMain) << "Failed to load compositor.qml";
         return 1;

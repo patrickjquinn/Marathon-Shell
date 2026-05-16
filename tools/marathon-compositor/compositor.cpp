@@ -29,9 +29,7 @@ MarathonCompositor::MarathonCompositor(QObject *parent)
     setSocketName(sock);
     qCInfo(lcComp) << "socket:" << sock;
 
-    m_xdgShell = new QWaylandXdgShell(this);
-    setExtensionContainer(this);
-
+    m_xdgShell   = new QWaylandXdgShell(this);
     m_viewporter = new QWaylandViewporter(this);
 
     m_textInputV2 = new QWaylandTextInputManager(this);
