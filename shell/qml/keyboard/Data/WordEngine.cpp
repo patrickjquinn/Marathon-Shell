@@ -39,7 +39,14 @@ class Hunspell {
 
 class WordEngine::Private {
   public:
-    bool          enabled  = true;
+    // Default to disabled so the hunspell English dictionary (~15-20 MB
+    // resident) doesn't load until the keyboard is actually shown. The
+    // VirtualKeyboard.qml Loader becomes active on first input focus,
+    // which constructs MarathonKeyboard, which calls Dictionary which
+    // calls setEnabled(true) — at which point the worker thread queues
+    // the dict load. Idle users (lock screen, Active Frames, no typing)
+    // never pay this cost.
+    bool          enabled  = false;
     QString       language = "en_US";
     QSet<QString> ignoredWords;
 };

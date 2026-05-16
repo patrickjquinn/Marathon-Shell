@@ -15,11 +15,25 @@ Dictionary::Dictionary(WordEngine *wordEngine, EmojiPredictor *emojiPredictor,
     }
 }
 
+// Enable WordEngine on first use. WordEngine ships with enabled=false to
+// keep the hunspell English dictionary (~15-20 MB resident) out of the
+// shell's idle heap. The first predict/hasWord/learnWord call flips the
+// flag and queues the actual dict load on WordEngine's worker thread.
+void Dictionary::ensureWordEngineReady() {
+    if (m_wordEngine && !m_wordEngine->enabled()) {
+        m_wordEngine->setEnabled(true);
+    }
+}
+
 QStringList Dictionary::predict(const QString &prefix) {
     if (prefix.isEmpty()) {
         return {};
     }
-    if (!m_wordEngine || !m_wordEngine->enabled()) {
+    if (!m_wordEngine) {
+        return {};
+    }
+    ensureWordEngineReady();
+    if (!m_wordEngine->enabled()) {
         return {};
     }
     if (m_lastPredictionPrefix != prefix) {
@@ -45,7 +59,11 @@ QStringList Dictionary::getPhraseCompletions(const QString &context) const {
 }
 
 void Dictionary::learnWord(const QString &word) {
-    if (!m_wordEngine || !m_wordEngine->enabled()) {
+    if (!m_wordEngine) {
+        return;
+    }
+    ensureWordEngineReady();
+    if (!m_wordEngine->enabled()) {
         return;
     }
     if (word.size() < 2) {
@@ -55,10 +73,14 @@ void Dictionary::learnWord(const QString &word) {
 }
 
 bool Dictionary::hasWord(const QString &word) const {
-    if (!m_wordEngine || !m_wordEngine->enabled()) {
+    if (!m_wordEngine || word.isEmpty()) {
         return false;
     }
-    if (word.isEmpty()) {
+    // const_cast: ensureWordEngineReady toggles a member. The intent is
+    // still semantically const for the caller (whether or not we know
+    // about a word).
+    const_cast<Dictionary *>(this)->ensureWordEngineReady();
+    if (!m_wordEngine->enabled()) {
         return false;
     }
     return m_wordEngine->hasWord(word);
