@@ -1,10 +1,12 @@
+import MarathonApp.Maps
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
-import QtLocation
 import QtPositioning
 import QtQuick
+import QtWebChannel
+import QtWebEngine
 
 MApp {
     id: mapsApp
@@ -14,10 +16,54 @@ MApp {
     property bool isSearching: false
     property bool mapLoaded: false
     property bool hasLocationPermission: false
-    property Map mapObject: null
+    // Reference to the WebEngineView running MapLibre GL JS. Commands
+    // are issued via runJavaScript() against the window.MarathonMaps
+    // facade defined in apps/maps/web/maps.html. Inbound events arrive
+    // through the MapsBridge instance declared below (id: mapsBridge).
+    property var mapsView: null
+    // True once MapLibre's style.load has fired and the QWebChannel
+    // handshake has completed. Bridge cmds before this point are no-ops.
+    property bool mapsReady: false
     // Currently-selected place (set after the user picks from search
     // results). Drives the bottom place card per JSX ref-maps.
     property var selectedPlace: null
+
+    // Routing state machine. Drives which bottom-overlay surface is
+    // visible:
+    //   "idle"    — search bar + place card (or empty map)
+    //   "preview" — route summary card (ETA, distance, Start)
+    //   "active"  — top maneuver banner + slim collapsed card
+    property string routingMode: "idle"
+    property var currentRoute: null  // QVariantMap from ValhallaRoutingClient
+    property int currentManeuverIndex: 0
+    property string currentMode: "auto"  // "auto" | "pedestrian" | "bicycle"
+
+    // Map command facade. Calling `mapCall("setCenter", lat, lon)`
+    // resolves to runJavaScript("window.MarathonMaps.setCenter(lat,lon)")
+    // — but only after mapsReady. Pre-ready calls queue (replaying once
+    // the bridge fires its ready() signal) so the first
+    // setUserLocation/setCenter that fires before MapLibre boots
+    // doesn't silently disappear.
+    property var _pendingCalls: []
+    function mapCall(method) {
+        if (!mapsView)
+            return;
+        const args = Array.prototype.slice.call(arguments, 1);
+        const payload = args.map(a => JSON.stringify(a)).join(",");
+        const js = "if(window.MarathonMaps&&window.MarathonMaps." + method + ")" + "window.MarathonMaps." + method + "(" + payload + ");";
+        if (mapsReady) {
+            mapsView.runJavaScript(js);
+        } else {
+            _pendingCalls.push(js);
+        }
+    }
+    function _flushPending() {
+        if (!mapsView || !mapsReady)
+            return;
+        for (let i = 0; i < _pendingCalls.length; i++)
+            mapsView.runJavaScript(_pendingCalls[i]);
+        _pendingCalls = [];
+    }
 
     // Geoclue2 fix from the shell's LocationManager arrives via the
     // LocationService DBus client. We prefer it over QtPositioning's
@@ -39,19 +85,7 @@ MApp {
             return positionSource.position.coordinate;
         return QtPositioning.coordinate(37.7749, -122.419);
     }
-    readonly property bool bestCoordValid: geoclueValid || positionSource.position.valid
-
-    // Resolved file:// URL pointing at the installed tile-providers
-    // manifest. MARATHON_APP_PATH is the app's install root (set by
-    // marathon-app-runner). The app-runner already passes this in for
-    // every Marathon app, so the fallback below is just a safety net
-    // for unsandboxed direct-QML runs.
-    readonly property string providersUrl: {
-        const root = (typeof MARATHON_APP_PATH !== "undefined" && MARATHON_APP_PATH) ? String(MARATHON_APP_PATH) : "";
-        if (root.length > 0)
-            return "file://" + root + "/resources/tile-providers.json";
-        return "file:///home/" + (typeof userName !== "undefined" ? userName : "") + "/.local/share/marathon-apps/maps/resources/tile-providers.json";
-    }
+    readonly property bool bestCoordValid: geoclueValid || (typeof positionSource !== "undefined" && positionSource.position && positionSource.position.valid === true)
 
     function searchLocation(query) {
         if (query.length === 0) {
@@ -93,11 +127,8 @@ MApp {
     }
 
     function goToLocation(lat, lon) {
-        if (mapsApp.mapObject) {
-            mapsApp.mapObject.center = QtPositioning.coordinate(lat, lon);
-            mapsApp.mapObject.zoomLevel = 15;
-            showSearch = false;
-        }
+        mapCall("setCenter", lat, lon, 15);
+        showSearch = false;
     }
 
     appId: "maps"
@@ -143,8 +174,10 @@ MApp {
     // that point we leave the camera where they put it.
     Connections {
         function onLocationChanged() {
-            if (mapsApp.mapObject && !mapsApp.selectedPlace && mapsApp.geoclueValid) {
-                mapsApp.mapObject.center = QtPositioning.coordinate(LocationService.latitude, LocationService.longitude);
+            if (mapsApp.geoclueValid) {
+                mapCall("setUserLocation", LocationService.latitude, LocationService.longitude);
+                if (!mapsApp.selectedPlace)
+                    mapCall("setCenter", LocationService.latitude, LocationService.longitude);
                 Logger.info("Maps", "Geoclue fix → " + LocationService.latitude + "," + LocationService.longitude + " ±" + LocationService.accuracy + "m");
             }
         }
@@ -163,12 +196,14 @@ MApp {
     PositionSource {
         id: positionSource
 
-        active: mapLoaded && hasLocationPermission
+        active: mapLoaded && hasLocationPermission && !mapsApp.geoclueValid
         updateInterval: 5000
         onPositionChanged: {
-            if (position.latitudeValid && position.longitudeValid && mapsApp.mapObject) {
-                mapsApp.mapObject.center = position.coordinate;
-                Logger.info("Maps", "Position updated: " + position.coordinate);
+            if (position.latitudeValid && position.longitudeValid) {
+                const c = position.coordinate;
+                mapCall("setUserLocation", c.latitude, c.longitude);
+                if (!mapsApp.selectedPlace)
+                    mapCall("setCenter", c.latitude, c.longitude);
             }
         }
         onSourceErrorChanged: {
@@ -177,105 +212,138 @@ MApp {
         }
     }
 
+    // ── Routing & voice clients ────────────────────────────────
+    // ValhallaRoutingClient (C++/QML_ELEMENT) POSTs to the public
+    // valhalla1.openstreetmap.de endpoint and decodes the response
+    // into a GeoJSON polyline + maneuver list. The polyline is handed
+    // to the WebEngineView's window.MarathonMaps.setRouteGeoJSON()
+    // facade; the maneuver list drives the active-nav banner UI.
+    ValhallaRoutingClient {
+        id: routingService
+        onRouteReady: (geojson, maneuvers, durationSec, distanceM, summary) => {
+            mapsApp.currentRoute = {
+                "geojson": geojson,
+                "maneuvers": maneuvers,
+                "duration": durationSec,
+                "distance": distanceM,
+                "summary": summary
+            };
+            mapsApp.currentManeuverIndex = 0;
+            mapsApp.routingMode = "preview";
+            mapCall("setRouteGeoJSON", geojson);
+            if (summary)
+                mapCall("fitBounds", summary.minLon, summary.minLat, summary.maxLon, summary.maxLat, 80);
+            Logger.info("Maps", "Route ready: " + Math.round(distanceM / 1000) + " km, " + Math.round(durationSec / 60) + " min, " + maneuvers.length + " maneuvers");
+        }
+        onRouteFailed: err => {
+            Logger.warn("Maps", "Route failed: " + err);
+        }
+    }
+
+    function startNavigation() {
+        if (!mapsApp.currentRoute || !mapsApp.currentRoute.maneuvers)
+            return;
+        mapsApp.routingMode = "active";
+        mapsApp.currentManeuverIndex = 0;
+        const m = mapsApp.currentRoute.maneuvers[0];
+        if (m && voiceClient && voiceClient.available && !voiceClient.muted)
+            voiceClient.speak(m.verbalPre && m.verbalPre.length > 0 ? m.verbalPre : m.instruction);
+    }
+
+    function endNavigation() {
+        mapsApp.routingMode = "idle";
+        mapsApp.currentRoute = null;
+        mapsApp.currentManeuverIndex = 0;
+        mapCall("setRouteGeoJSON", {
+            "type": "FeatureCollection",
+            "features": []
+        });
+        if (voiceClient && voiceClient.available)
+            voiceClient.stop();
+    }
+
+    // VoiceClient is QML_ELEMENT-registered ONLY when Qt6::TextToSpeech
+    // is found at configure time (MAPS_HAS_VOICE). On the dev rig
+    // without qt6-qtspeech installed the type isn't registered, so we
+    // can't reference `VoiceClient { }` at parse time — Qt would
+    // refuse to load MapsApp.qml entirely. Instead we createQmlObject
+    // at startup which fails gracefully if the type is missing.
+    property var voiceClient: null
+    Component.onCompleted: {
+        try {
+            voiceClient = Qt.createQmlObject("import MarathonApp.Maps; VoiceClient {}", mapsApp, "VoiceClientDynamic");
+        } catch (e) {
+            Logger.info("Maps", "VoiceClient unavailable (qt6-qtspeech not installed); nav cues will be silent");
+            voiceClient = null;
+        }
+    }
+
     content: Rectangle {
         anchors.fill: parent
         color: MColors.background
 
-        Loader {
-            id: mapLoader
+        // MapLibre GL JS host. The basemap, vector tile rendering,
+        // route polylines, and pins all live inside this WebEngineView;
+        // every surrounding QML overlay (search bar, place card, nav
+        // banner) is layered on top via z-order. The HTML harness +
+        // MapLibre bundle + Marathon Dark style JSON ship under the
+        // app's install root (web/).
+        //
+        // MARATHON_APP_PATH is the app-runner-supplied install root;
+        // empty for direct-QML runs, where we fall back to the dev
+        // user-local install path.
+        MapsBridge {
+            id: mapsBridge
+
+            WebChannel.id: "marathonBridge"
+            onReady: {
+                mapsApp.mapsReady = true;
+                mapsApp._flushPending();
+                if (mapsApp.geoclueValid)
+                    mapCall("setUserLocation", LocationService.latitude, LocationService.longitude);
+                mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 14);
+            }
+            onMapClicked: (lat, lon) => {
+                Logger.info("Maps", "JS mapClicked " + lat + "," + lon);
+            }
+            onPinTapped: id => {
+                Logger.info("Maps", "JS pinTapped " + id);
+            }
+        }
+
+        WebChannel {
+            id: webChannel
+
+            registeredObjects: [mapsBridge]
+        }
+
+        WebEngineView {
+            id: webMap
 
             anchors.fill: parent
-            active: mapLoaded
-            asynchronous: true
-            onLoaded: {
-                mapsApp.mapObject = item;
+            visible: mapLoaded
+            webChannel: webChannel
+            backgroundColor: "#0a1814"
+            settings.javascriptEnabled: true
+            settings.localContentCanAccessFileUrls: true
+            settings.localContentCanAccessRemoteUrls: true
+            settings.allowRunningInsecureContent: false
+            settings.errorPageEnabled: false
+            settings.showScrollBars: false
+            url: {
+                const root = (typeof MARATHON_APP_PATH !== "undefined" && MARATHON_APP_PATH) ? String(MARATHON_APP_PATH) : "";
+                if (root.length > 0)
+                    return "file://" + root + "/web/maps.html";
+                return "file:///home/" + (typeof userName !== "undefined" ? userName : "") + "/.local/share/marathon-apps/maps/web/maps.html";
             }
-            onActiveChanged: {
-                if (!active)
-                    mapsApp.mapObject = null;
+            onJavaScriptConsoleMessage: (level, message, lineNumber, source) => {
+                if (level >= WebEngineView.WarningMessageLevel)
+                    Logger.warn("Maps:WebJS", source + ":" + lineNumber + " " + message);
+                else
+                    Logger.info("Maps:WebJS", message);
             }
-
-            sourceComponent: Map {
-                id: map
-
-                anchors.fill: parent
-                center: mapsApp.bestCoord
-                zoomLevel: 14
-
-                MapQuickItem {
-                    id: userLocationMarker
-
-                    visible: mapsApp.bestCoordValid
-                    coordinate: mapsApp.bestCoord
-                    anchorPoint.x: locationDot.width / 2
-                    anchorPoint.y: locationDot.height / 2
-
-                    sourceItem: Rectangle {
-                        id: locationDot
-
-                        width: MSpacing.lg
-                        height: MSpacing.lg
-                        radius: width / 2
-                        color: MColors.marathonTeal
-                        border.width: Constants.borderWidthThick
-                        border.color: "white"
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: parent.width * 0.4
-                            height: parent.height * 0.4
-                            radius: width / 2
-                            color: "white"
-                        }
-                    }
-                }
-
-                // Qt 6 dropped osm.mapping.custom.host in favour of
-                // pointing the OSM plugin at a tile_providers manifest.
-                // We ship apps/maps/resources/tile-providers.json which
-                // registers CARTO Dark Matter as the only basemap —
-                // free, no-key, dark OSM raster that matches the
-                // Marathon DS map palette. The QtLocation plugin
-                // fetches the manifest via QNetworkAccessManager, which
-                // is registered for qrc:// URLs, so the bundled JSON
-                // works without any HTTP server.
-                //
-                // Future migration: maplibre-native-qt + OpenFreeMap
-                // dark vector tiles (see docs/maps-future.md). The
-                // plugin name swaps to "maplibre" and the manifest is
-                // replaced with a MapLibre style URL; no other QML
-                // changes needed (MapQuickItem etc are QtLocation
-                // primitives the maplibre plugin also implements).
-                // QtLocation's OSM plugin loads its tile_providers
-                // manifest via QNetworkAccessManager from the URL passed
-                // to osm.mapping.providersrepository.address. We resolve
-                // it to a file:// URL pointing at the installed copy of
-                // resources/tile-providers.json (see apps/CMakeLists.txt
-                // for the install rule). That manifest registers CARTO
-                // Dark Matter as the only basemap so the map paints
-                // dark out of the box, matching the JSX ref-maps
-                // palette.
-                //
-                // The MARATHON_APP_PATH env var is set by the
-                // marathon-app-runner to the app's install root, e.g.
-                // /home/patrickquinn/.local/share/marathon-apps/maps/.
-                // We fall back to the literal path if that's missing so
-                // direct QML runs still resolve.
-                plugin: Plugin {
-                    name: "osm"
-                    PluginParameter {
-                        name: "osm.useragent"
-                        value: "MarathonOS/1.0"
-                    }
-                    PluginParameter {
-                        name: "osm.mapping.providersrepository.address"
-                        value: mapsApp.providersUrl
-                    }
-                    PluginParameter {
-                        name: "osm.mapping.highdpi_tiles"
-                        value: true
-                    }
-                }
+            Component.onCompleted: {
+                mapsApp.mapsView = webMap;
             }
         }
 
@@ -527,61 +595,47 @@ MApp {
             }
         }
 
-        Column {
-            anchors.right: parent.right
-            anchors.bottom: locateButton.top
-            anchors.margins: MSpacing.md
-            anchors.bottomMargin: MSpacing.sm
-            spacing: MSpacing.sm
-            z: 100
-
-            MCircularIconButton {
-                iconName: "plus"
-                iconSize: 20
-                buttonSize: 48
-                variant: "secondary"
-                onClicked: {
-                    HapticService.light();
-                    if (mapsApp.mapObject)
-                        mapsApp.mapObject.zoomLevel = Math.min(mapsApp.mapObject.zoomLevel + 1, mapsApp.mapObject.maximumZoomLevel);
-                }
-            }
-
-            MCircularIconButton {
-                iconName: "minus"
-                iconSize: 20
-                buttonSize: 48
-                variant: "secondary"
-                onClicked: {
-                    HapticService.light();
-                    if (mapsApp.mapObject)
-                        mapsApp.mapObject.zoomLevel = Math.max(mapsApp.mapObject.zoomLevel - 1, mapsApp.mapObject.minimumZoomLevel);
-                }
-            }
-        }
-
-        MCircularIconButton {
+        // ── Recenter button (JSX ref-maps right-side glass square) ──
+        // 42×42 glass-titlebar square, 4 px radius, 14 px from the right
+        // edge, vertical position 200 px from the top. Tap returns the
+        // camera to the live Geoclue fix at zoom 15. MapLibre handles
+        // pinch zoom natively so no zoom +/- buttons (per JSX spec).
+        Rectangle {
             id: locateButton
 
             anchors.right: parent.right
-            anchors.bottom: placeCard.visible ? placeCard.top : parent.bottom
-            anchors.margins: MSpacing.md
-            iconName: "navigation"
-            iconSize: 24
-            buttonSize: 56
-            variant: "primary"
-            onClicked: {
-                HapticService.medium();
-                if (mapsApp.bestCoordValid && mapsApp.mapObject) {
-                    mapsApp.mapObject.center = mapsApp.bestCoord;
-                    mapsApp.mapObject.zoomLevel = 15;
-                    Logger.info("Maps", "Centered on current location (" + (mapsApp.geoclueValid ? "Geoclue" : "QtPositioning") + ")");
-                } else {
-                    Logger.warn("Maps", "Position not available");
-                    // Re-arm Geoclue in case the user denied earlier or
-                    // the daemon dropped its client.
-                    if (typeof LocationService !== "undefined" && LocationService)
-                        LocationService.start();
+            anchors.rightMargin: 14
+            y: 200
+            width: 42
+            height: 42
+            radius: MRadius.md
+            color: MColors.glassTitlebar
+            border.width: 1
+            border.color: MColors.whiteOverlay08
+            z: 100
+
+            Icon {
+                anchors.centerIn: parent
+                name: "navigation"
+                size: 20
+                color: MColors.marathonTeal
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    HapticService.medium();
+                    if (mapsApp.bestCoordValid) {
+                        mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 15);
+                        Logger.info("Maps", "Centered on current location (" + (mapsApp.geoclueValid ? "Geoclue" : "QtPositioning") + ")");
+                    } else {
+                        Logger.warn("Maps", "Position not available");
+                        // Re-arm Geoclue in case the user denied earlier or
+                        // the daemon dropped its client.
+                        if (typeof LocationService !== "undefined" && LocationService)
+                            LocationService.start();
+                    }
                 }
             }
         }
@@ -592,7 +646,7 @@ MApp {
         // four-action row: Directions (teal accent) · Call · Share · Save.
         Rectangle {
             id: placeCard
-            visible: mapsApp.selectedPlace !== null
+            visible: mapsApp.selectedPlace !== null && mapsApp.routingMode === "idle"
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
@@ -742,10 +796,433 @@ MApp {
                         }
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: HapticService.light()
+                            onClicked: {
+                                HapticService.light();
+                                if (modelData.label === "Directions" && mapsApp.selectedPlace && mapsApp.bestCoordValid) {
+                                    routingService.requestRoute(mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, mapsApp.selectedPlace.lat, mapsApp.selectedPlace.lon, mapsApp.currentMode);
+                                }
+                            }
                         }
                     }
                 }
+            }
+        }
+
+        // ── Route preview card ─────────────────────────────────
+        // Visible while routingMode === "preview". Replaces the place
+        // card with an ETA + distance summary, mode toggle, and a
+        // primary "Start" button to enter active navigation.
+        Rectangle {
+            id: previewCard
+            visible: mapsApp.routingMode === "preview"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: 12
+            height: 196
+            radius: MRadius.md
+            color: MColors.elev2
+            border.width: 1
+            border.color: MColors.tealBorder
+            z: 95
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: 16
+                spacing: 12
+
+                Row {
+                    width: parent.width
+                    spacing: 16
+                    Column {
+                        width: parent.width - 100
+                        spacing: 2
+                        Text {
+                            text: {
+                                if (!mapsApp.currentRoute)
+                                    return "";
+                                const m = Math.round(mapsApp.currentRoute.duration / 60);
+                                if (m < 60)
+                                    return m + " min";
+                                const h = Math.floor(m / 60);
+                                return h + "h " + (m % 60) + "m";
+                            }
+                            color: MColors.marathonTealBright
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: 28
+                            font.weight: Font.Medium
+                            font.letterSpacing: -0.5
+                        }
+                        Text {
+                            text: mapsApp.currentRoute ? (mapsApp.currentRoute.distance / 1000).toFixed(1) + " km · via " + (mapsApp.currentRoute.maneuvers && mapsApp.currentRoute.maneuvers.length > 1 ? (mapsApp.currentRoute.maneuvers[1].streetNames || "fastest route") : "fastest route") : ""
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeFootnote
+                            elide: Text.ElideRight
+                            width: parent.width
+                        }
+                    }
+                    Item {
+                        width: 80
+                        height: 56
+                        anchors.verticalCenter: parent.verticalCenter
+                        Icon {
+                            anchors.centerIn: parent
+                            name: mapsApp.currentMode === "pedestrian" ? "user" : mapsApp.currentMode === "bicycle" ? "bicycle" : "navigation"
+                            size: 48
+                            color: MColors.marathonTeal
+                            opacity: 0.55
+                        }
+                    }
+                }
+
+                // Mode toggle row — auto / pedestrian / bicycle
+                Row {
+                    spacing: 8
+                    Repeater {
+                        model: [
+                            {
+                                mode: "auto",
+                                label: "Drive",
+                                icon: "navigation"
+                            },
+                            {
+                                mode: "pedestrian",
+                                label: "Walk",
+                                icon: "user"
+                            },
+                            {
+                                mode: "bicycle",
+                                label: "Bike",
+                                icon: "bicycle"
+                            }
+                        ]
+                        delegate: Rectangle {
+                            width: 100
+                            height: 36
+                            radius: MRadius.md
+                            color: mapsApp.currentMode === modelData.mode ? MColors.marathonTealGlow : MColors.glassTitlebar
+                            border.width: 1
+                            border.color: mapsApp.currentMode === modelData.mode ? MColors.tealBorder : MColors.whiteOverlay08
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 6
+                                Icon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    name: modelData.icon
+                                    size: 14
+                                    color: mapsApp.currentMode === modelData.mode ? MColors.marathonTealBright : MColors.textSecondary
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData.label
+                                    color: mapsApp.currentMode === modelData.mode ? MColors.marathonTealBright : MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.weight: Font.Medium
+                                }
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    HapticService.light();
+                                    mapsApp.currentMode = modelData.mode;
+                                    if (mapsApp.selectedPlace && mapsApp.bestCoordValid)
+                                        routingService.requestRoute(mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, mapsApp.selectedPlace.lat, mapsApp.selectedPlace.lon, mapsApp.currentMode);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Primary Start button + secondary Cancel
+                Row {
+                    width: parent.width
+                    spacing: 8
+                    Rectangle {
+                        width: (parent.width - 8) * 0.7
+                        height: 48
+                        radius: MRadius.md
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0
+                                color: Qt.rgba(0, 191 / 255, 165 / 255, 1.0)
+                            }
+                            GradientStop {
+                                position: 1
+                                color: Qt.rgba(0, 138 / 255, 119 / 255, 1.0)
+                            }
+                        }
+                        border.width: 1
+                        border.color: MColors.tealBorder
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 8
+                            Icon {
+                                name: "navigation"
+                                size: 18
+                                color: "#040404"
+                            }
+                            Text {
+                                text: "Start"
+                                color: "#040404"
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeBody
+                                font.weight: Font.Medium
+                            }
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                HapticService.medium();
+                                mapsApp.startNavigation();
+                            }
+                        }
+                    }
+                    Rectangle {
+                        width: parent.width * 0.3 - 8
+                        height: 48
+                        radius: MRadius.md
+                        color: MColors.glassTitlebar
+                        border.width: 1
+                        border.color: MColors.whiteOverlay08
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Cancel"
+                            color: MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeBody
+                            font.weight: Font.Medium
+                        }
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                HapticService.light();
+                                mapsApp.endNavigation();
+                                mapsApp.selectedPlace = null;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Active navigation banner ───────────────────────────
+        // Top-of-screen glass banner that replaces the search bar
+        // during turn-by-turn. Big distance + maneuver icon on the
+        // left, instruction text on the right. Tap to expand the full
+        // maneuver list sheet.
+        Rectangle {
+            id: navBanner
+            visible: mapsApp.routingMode === "active"
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.margins: 12
+            height: 84
+            radius: MRadius.md
+            color: MColors.glassTitlebar
+            border.width: 1
+            border.color: MColors.tealBorder
+            z: 110
+
+            Row {
+                anchors.fill: parent
+                anchors.margins: 14
+                spacing: 14
+                Item {
+                    width: 56
+                    height: 56
+                    anchors.verticalCenter: parent.verticalCenter
+                    Icon {
+                        anchors.centerIn: parent
+                        name: {
+                            if (!mapsApp.currentRoute || !mapsApp.currentRoute.maneuvers)
+                                return "navigation";
+                            const m = mapsApp.currentRoute.maneuvers[mapsApp.currentManeuverIndex];
+                            if (!m)
+                                return "navigation";
+                            // Valhalla maneuver type codes:
+                            // 10 = right, 15 = left, 20 = sharp right, 11 = slight right, etc.
+                            const t = m.type;
+                            if (t === 10 || t === 11 || t === 20)
+                                return "corner-up-right";
+                            if (t === 15 || t === 16 || t === 19)
+                                return "corner-up-left";
+                            if (t === 4 || t === 5 || t === 6)
+                                return "flag";  // arrival
+                            return "navigation";
+                        }
+                        size: 36
+                        color: MColors.marathonTealBright
+                    }
+                }
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - 56 - parent.spacing
+                    spacing: 4
+                    Text {
+                        text: {
+                            if (!mapsApp.currentRoute || !mapsApp.currentRoute.maneuvers)
+                                return "";
+                            const m = mapsApp.currentRoute.maneuvers[mapsApp.currentManeuverIndex];
+                            if (!m)
+                                return "";
+                            const meters = Math.round((m.length || 0) * 1000);
+                            if (meters < 30)
+                                return "Now";
+                            if (meters < 1000)
+                                return meters + " m";
+                            return (meters / 1000).toFixed(1) + " km";
+                        }
+                        color: MColors.marathonTealBright
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: 22
+                        font.weight: Font.Medium
+                        font.letterSpacing: -0.3
+                    }
+                    Text {
+                        text: {
+                            if (!mapsApp.currentRoute || !mapsApp.currentRoute.maneuvers)
+                                return "";
+                            const m = mapsApp.currentRoute.maneuvers[mapsApp.currentManeuverIndex];
+                            return m ? m.instruction : "";
+                        }
+                        color: MColors.textPrimary
+                        font.family: MTypography.fontFamily
+                        font.pixelSize: MTypography.sizeFootnote
+                        elide: Text.ElideRight
+                        width: parent.width
+                    }
+                }
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: maneuverSheet.visible = true
+            }
+        }
+
+        // End-nav pill, bottom-right while in active mode
+        Rectangle {
+            visible: mapsApp.routingMode === "active"
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: 16
+            width: 88
+            height: 44
+            radius: MRadius.md
+            color: Qt.rgba(0.95, 0.25, 0.25, 0.85)
+            border.width: 1
+            border.color: Qt.rgba(1, 0.4, 0.4, 0.5)
+            z: 105
+            Text {
+                anchors.centerIn: parent
+                text: "End"
+                color: "white"
+                font.family: MTypography.fontFamily
+                font.pixelSize: MTypography.sizeBody
+                font.weight: Font.Medium
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    HapticService.medium();
+                    mapsApp.endNavigation();
+                }
+            }
+        }
+
+        // Full maneuver list sheet — tap the nav banner to bring up.
+        Rectangle {
+            id: maneuverSheet
+            visible: false
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.85)
+            z: 200
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                height: parent.height * 0.7
+                radius: MRadius.md
+                color: MColors.elev2
+                border.width: 1
+                border.color: MColors.whiteOverlay08
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 16
+                    spacing: 8
+                    Row {
+                        width: parent.width
+                        Text {
+                            text: "Directions"
+                            color: MColors.textPrimary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: 20
+                            font.weight: Font.Medium
+                            width: parent.width - 60
+                        }
+                        Rectangle {
+                            width: 60
+                            height: 32
+                            radius: MRadius.md
+                            color: "transparent"
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Close"
+                                color: MColors.marathonTealBright
+                                font.family: MTypography.fontFamily
+                                font.pixelSize: MTypography.sizeFootnote
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: maneuverSheet.visible = false
+                            }
+                        }
+                    }
+                    ListView {
+                        width: parent.width
+                        height: parent.height - 48
+                        clip: true
+                        model: mapsApp.currentRoute ? mapsApp.currentRoute.maneuvers : []
+                        delegate: Item {
+                            width: parent.width
+                            height: 56
+                            Row {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 12
+                                Text {
+                                    width: 60
+                                    text: modelData.length < 1 ? Math.round(modelData.length * 1000) + " m" : modelData.length.toFixed(1) + " km"
+                                    color: MColors.marathonTealBright
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.weight: Font.Medium
+                                    verticalAlignment: Text.AlignVCenter
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                                Text {
+                                    width: parent.width - 60 - parent.spacing
+                                    text: modelData.instruction
+                                    color: index === mapsApp.currentManeuverIndex ? MColors.textPrimary : MColors.textSecondary
+                                    font.family: MTypography.fontFamily
+                                    font.pixelSize: MTypography.sizeBody
+                                    font.weight: index === mapsApp.currentManeuverIndex ? Font.Medium : Font.Normal
+                                    wrapMode: Text.WordWrap
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            MouseArea {
+                anchors.fill: parent
+                z: -1
+                onClicked: maneuverSheet.visible = false
             }
         }
     }
