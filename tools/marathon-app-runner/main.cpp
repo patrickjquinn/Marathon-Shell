@@ -651,6 +651,12 @@ int main(int argc, char *argv[]) {
 
     ctx->setContextProperty("PermissionManager", new PermissionClient(&app));
 
+    // Lifecycle client is unconditional — any app might need to declare
+    // an active background task. Whether the claim is accepted depends on
+    // the manifest's backgroundCapabilities (gated shell-side), so it's
+    // safe to expose without a permission probe.
+    ctx->setContextProperty("AppLifecycle", new AppLifecycleClient(&app));
+
     if (hasPerm("contacts"))
         ctx->setContextProperty("ContactsManager", new ContactsClient(&app));
     if (hasPerm("telephony") || hasPerm("phone"))

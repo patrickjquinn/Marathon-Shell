@@ -27,6 +27,8 @@ class AudioRoutingManager;
 class UpdateService;
 class DavSyncEngine;
 class MarathonAppStoreService;
+class AppLifecycleManager;
+class MarathonAppRegistry;
 
 class ShellIpcServer : public QObject {
     Q_OBJECT
@@ -43,7 +45,9 @@ class ShellIpcServer : public QObject {
                             LocationManager *locationManager, AlarmManagerCpp *alarmManager,
                             AudioRoutingManager *audioRoutingManager, UpdateService *updateService,
                             DavSyncEngine *davSyncEngine, MarathonAppStoreService *appStoreService,
-                            AppLaunchService *appLaunchService, QObject *parent = nullptr);
+                            AppLaunchService    *appLaunchService,
+                            AppLifecycleManager *lifecycleManager, MarathonAppRegistry *appRegistry,
+                            QObject *parent = nullptr);
 
     bool registerOnSessionBus();
 
@@ -71,4 +75,6 @@ class ShellIpcServer : public QObject {
     DavSyncEngine             *m_davSyncEngine       = nullptr;
     MarathonAppStoreService   *m_appStoreService     = nullptr;
     AppLaunchService          *m_appLaunchService    = nullptr;
+    AppLifecycleManager       *m_lifecycleManager    = nullptr;
+    MarathonAppRegistry       *m_appRegistry         = nullptr;
 };

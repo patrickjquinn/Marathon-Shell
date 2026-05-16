@@ -665,7 +665,8 @@ int main(int argc, char *argv[]) {
             mediaLibraryManager, settingsManager, bluetoothManager, displayManager, powerManager,
             audioManager, audioPolicyController, networkManager, hapticManager, securityManager,
             sensorManager, locationManager, alarmManager, audioRoutingManager, updateService,
-            davSyncEngine, appStoreService, appLaunchService, &app);
+            davSyncEngine, appStoreService, appLaunchService, appLifecycleManager, appRegistry,
+            &app);
         if (!ipc->registerOnSessionBus()) {
             qCritical()
                 << "[MarathonShell] Failed to register app IPC on DBus (org.marathonos.Shell)";

@@ -38,6 +38,24 @@ MApp {
     property int currentManeuverIndex: 0
     property string currentMode: "auto"  // "auto" | "pedestrian" | "bicycle"
 
+    // Active-navigation lifecycle claim. While routingMode === "active" the
+    // app holds the shell-side "active-navigation" capability so the
+    // backgrounded runner is kept warm (BackgroundActive, never frozen).
+    // The handle is released the moment routingMode leaves "active" — by
+    // arrival, cancel, or any other path.
+    property int _navTaskHandle: 0
+    onRoutingModeChanged: {
+        if (typeof AppLifecycle === "undefined")
+            return;
+        if (routingMode === "active") {
+            if (_navTaskHandle === 0)
+                _navTaskHandle = AppLifecycle.beginBackgroundTask("active-navigation", "turn-by-turn route");
+        } else if (_navTaskHandle !== 0) {
+            AppLifecycle.endBackgroundTask(_navTaskHandle);
+            _navTaskHandle = 0;
+        }
+    }
+
     // Map command facade. Calling `mapCall("setCenter", lat, lon)`
     // resolves to runJavaScript("window.MarathonMaps.setCenter(lat,lon)")
     // — but only after mapsReady. Pre-ready calls queue (replaying once
