@@ -26,9 +26,6 @@
 #include <QDBusError>
 #include <atomic>
 #include <cstring>
-#ifdef HAVE_WEBENGINE
-#include <QtWebEngineQuick/QtWebEngineQuick>
-#endif
 
 // Tiny QObject helper that exposes QTimeZone to QML. Qt's QML JS engine
 // silently ignores the `timeZone` option on Date.toLocaleString, so apps
@@ -382,17 +379,6 @@ static QString findAppQmldirPath(const QString &appAbsolutePath, const QString &
 }
 
 int main(int argc, char *argv[]) {
-#ifdef HAVE_WEBENGINE
-    // QtWebEngineQuick::initialize() MUST be called before any
-    // QGuiApplication is constructed. It used to live in the shell so
-    // every app got "free" WebEngine init, but that pulled
-    // ~50 MB of libQt6WebEngineCore + chromium .so mappings into the
-    // shell process even when no app used WebEngine. Moving it here
-    // means only app-runner processes that actually import QtWebEngine
-    // pay that cost — and only the ones whose QML references it
-    // (the runner skips this when WebEngine isn't linked).
-    QtWebEngineQuick::initialize();
-#endif
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-app-runner");
     QCoreApplication::setOrganizationName("Marathon OS");
