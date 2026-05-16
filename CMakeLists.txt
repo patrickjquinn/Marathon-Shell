@@ -211,6 +211,12 @@ add_subdirectory(tools/marathon-dev)
 add_subdirectory(tools/marathon-app-runner)
 add_subdirectory(tools/marathon-sandbox)
 
+# Marathon compositor — standalone Wayland compositor host (Phase C+).
+# Built when Qt6::WaylandCompositor is available; same find_package above.
+if(TARGET Qt6::WaylandCompositor)
+    add_subdirectory(tools/marathon-compositor)
+endif()
+
 message(STATUS "=== Marathon OS ===")
 message(STATUS "Qt version: ${Qt6_VERSION}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
