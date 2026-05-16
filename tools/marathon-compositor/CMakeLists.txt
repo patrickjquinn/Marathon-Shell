@@ -67,11 +67,18 @@ marathon_wayland_protocol(marathon-compositor
     "${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-layer-shell-unstable-v1.xml")
 marathon_wayland_protocol(marathon-compositor
     "${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml")
+# wlr-layer-shell references xdg_popup_interface from xdg-shell. Qt links
+# its own private copy that doesn't expose the C symbol, so we generate
+# the xdg-shell server stub ourselves to satisfy the reference. Symbol is
+# wire-compatible across all xdg-shell consumers; only used as a vtable
+# anchor here for get_popup.
+marathon_wayland_protocol(marathon-compositor
+    "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml")
 
 qt6_add_qml_module(marathon-compositor
     URI MarathonCompositor
     VERSION 1.0
-    QML_FILES compositor.qml
+    QML_FILES Compositor.qml
     RESOURCE_PREFIX /qt/qml
 )
 

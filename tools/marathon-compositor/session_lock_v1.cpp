@@ -62,19 +62,6 @@ void ExtSessionLockManagerV1::bind(wl_client *client, void *data, uint32_t versi
     wl_resource_set_implementation(res, &managerImpl, mgr, nullptr);
 }
 
-void ExtSessionLockManagerV1::destroyManager(wl_client *, wl_resource *resource) {
-    wl_resource_destroy(resource);
-}
-
-void ExtSessionLockManagerV1::requestLock(wl_client *client, wl_resource *resource, uint32_t id) {
-    // Unused — kept in the header for API symmetry; the actual handler is
-    // the file-scope `mgrLock` above. The interface struct only takes free
-    // functions so we route through `mgrLock`.
-    Q_UNUSED(client);
-    Q_UNUSED(resource);
-    Q_UNUSED(id);
-}
-
 void ExtSessionLockManagerV1::setActiveLock(ExtSessionLockV1 *lock, bool nowLocked) {
     m_activeLock = lock;
     if (m_isLocked != nowLocked) {
@@ -183,9 +170,12 @@ void ExtSessionLockV1::resourceDestroyed(wl_resource *resource) {
     // NOT clearing m_isLocked here — the compositor stays in the locked
     // state until the next boot, exactly per the protocol contract.
     if (self->m_manager) {
-        // Leave m_isLocked = true; only clear the activeLock pointer so
-        // the rest of the compositor doesn't try to call a freed object.
-        self->m_manager->m_activeLock = nullptr;
+        // Leave m_isLocked = true (per protocol — session must stay locked
+        // if the lock client disconnects abruptly). Clear only the
+        // activeLock pointer so the rest of the compositor doesn't call
+        // a freed object. We use setActiveLock(nullptr, /*nowLocked=*/true)
+        // which preserves the locked state but drops the dangling reference.
+        self->m_manager->setActiveLock(nullptr, true);
     }
     self->deleteLater();
     qCWarning(lcLock) << "lock client disconnected — session remains locked per protocol";

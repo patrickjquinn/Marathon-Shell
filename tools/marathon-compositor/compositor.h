@@ -1,7 +1,6 @@
 #pragma once
 
 #include <QObject>
-#include <QPointer>
 #include <QWaylandCompositor>
 #include <QWaylandIdleInhibitManagerV1>
 #include <QWaylandQuickOutput>
@@ -9,10 +8,14 @@
 #include <QWaylandViewporter>
 #include <QWaylandXdgShell>
 
+// Full headers (not forward declarations) — Qt's MOC-generated metatype
+// registration for Q_PROPERTY pointer types static_asserts that the
+// pointed-to class is fully defined. Forward decls fail that check.
+#include "layer_shell_v1.h"
+#include "session_lock_v1.h"
+#include "textinputv3.h"
+
 class QQuickWindow;
-class TextInputManagerV3;
-class WlrLayerShellV1;
-class ExtSessionLockManagerV1;
 
 // The standalone Marathon compositor. Owns the QWaylandCompositor + every
 // server-side protocol extension Marathon apps and the marathon-shell layer-
