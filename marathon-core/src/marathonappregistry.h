@@ -31,7 +31,8 @@ class MarathonAppRegistry : public QAbstractListModel {
         DeepLinksRole,
         CategoriesRole,
         HandlesUriSchemesRole,
-        DefaultForRole
+        DefaultForRole,
+        BackgroundCapabilitiesRole
     };
 
     struct AppInfo {
@@ -49,6 +50,7 @@ class MarathonAppRegistry : public QAbstractListModel {
         QStringList categories;
         QStringList handlesUriSchemes;
         QStringList defaultFor;
+        QStringList backgroundCapabilities;
 
         AppInfo() = default;
         AppInfo(const QString &id, const QString &name, const QString &icon, AppType type,
@@ -84,6 +86,7 @@ class MarathonAppRegistry : public QAbstractListModel {
     Q_INVOKABLE bool        isProtected(const QString &appId) const;
     Q_INVOKABLE bool        hasApp(const QString &appId) const;
     Q_INVOKABLE QStringList getAllAppIds() const;
+    Q_INVOKABLE QStringList getBackgroundCapabilities(const QString &appId) const;
 
     void                    registerAppInfo(const AppInfo &info);
     AppInfo                *getAppInfo(const QString &appId);

@@ -12,6 +12,7 @@
   "handlesUriSchemes": [],
   "defaultFor": ["camera"],
   "searchKeywords": ["camera", "photo", "video", "capture", "picture"],
-  "deepLinks": {}
+  "deepLinks": {},
+  "backgroundCapabilities": ["recording"]
 }
 

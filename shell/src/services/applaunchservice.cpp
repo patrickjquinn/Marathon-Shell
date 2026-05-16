@@ -632,8 +632,10 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
     const PendingLaunch &p = it.value();
     m_activeByPid.erase(it);
     m_pidToAppId.remove(pid);
-    if (m_appIdToPid.value(p.appId) == pid)
+    if (m_appIdToPid.value(p.appId) == pid) {
         m_appIdToPid.remove(p.appId);
+        emit pidUnregistered(pid, p.appId);
+    }
 
     if (m_taskModel) {
         if (Task *t = m_taskModel->getTaskByAppId(p.appId)) {
@@ -652,11 +654,16 @@ QString AppLaunchService::appIdForPid(qint64 pid) const {
     return m_pidToAppId.value(pid, QString());
 }
 
+qint64 AppLaunchService::pidForAppId(const QString &appId) const {
+    return m_appIdToPid.value(appId, -1);
+}
+
 void AppLaunchService::registerPidForAppId(qint64 pid, const QString &appId) {
     if (pid <= 0 || appId.isEmpty())
         return;
     m_pidToAppId.insert(pid, appId);
     m_appIdToPid.insert(appId, pid);
+    emit pidRegistered(pid, appId);
 }
 
 bool AppLaunchService::isMarathonAppId(const QString &appId) const {

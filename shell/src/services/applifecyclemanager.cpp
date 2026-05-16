@@ -4,14 +4,31 @@
 #include "taskmodel.h"
 
 #include <QDateTime>
+#include <QFile>
+#include <QLoggingCategory>
 #include <QMetaObject>
 #include <QVariant>
+
+Q_LOGGING_CATEGORY(lcLifecycle, "marathon.lifecycle")
 
 AppLifecycleManager::AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
                                          QObject *parent)
     : QObject(parent)
     , m_taskModel(taskModel)
-    , m_appLaunchService(appLaunchService) {}
+    , m_appLaunchService(appLaunchService) {
+    // Apply oom_score bias as soon as a PID becomes known. Without the PID
+    // we cannot write /proc/<pid>/oom_score_adj, and runner PIDs land
+    // asynchronously after registerApp() runs.
+    if (m_appLaunchService) {
+        connect(m_appLaunchService, &AppLaunchService::pidRegistered, this,
+                [this](qint64 pid, const QString &appId) {
+                    Q_UNUSED(pid);
+                    if (auto it = m_appStates.find(appId); it != m_appStates.end()) {
+                        writeOomScoreAdj(appId, it->state);
+                    }
+                });
+    }
+}
 
 void AppLifecycleManager::registerApp(const QString &appId, QObject *appInstance) {
     if (appId.isEmpty() || !appInstance)
@@ -20,9 +37,12 @@ void AppLifecycleManager::registerApp(const QString &appId, QObject *appInstance
     m_appRegistry.insert(appId, appInstance);
     emit appRegistered(appId, appInstance);
 
-    if (!m_appStates.contains(appId)) {
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end()) {
         AppState st;
-        st.launchTimeMs = QDateTime::currentMSecsSinceEpoch();
+        st.launchTimeMs   = QDateTime::currentMSecsSinceEpoch();
+        st.stateEnteredMs = st.launchTimeMs;
+        st.state          = BackgroundIdle;
         m_appStates.insert(appId, st);
     }
 
@@ -41,6 +61,17 @@ void AppLifecycleManager::unregisterApp(const QString &appId) {
     if (m_taskModel) {
         if (Task *task = m_taskModel->getTaskByAppId(appId)) {
             m_taskModel->closeTask(task->id());
+        }
+    }
+
+    cancelIdleFreezeDebounce(appId);
+
+    if (m_appStates.contains(appId)) {
+        const LifecycleState old = m_appStates[appId].state;
+        if (old != Killed) {
+            m_appStates[appId].state          = Killed;
+            m_appStates[appId].stateEnteredMs = QDateTime::currentMSecsSinceEpoch();
+            emit stateChanged(appId, old, Killed);
         }
     }
 
@@ -74,16 +105,14 @@ void AppLifecycleManager::bringToForeground(const QString &appId) {
     if (appId.isEmpty())
         return;
 
+    // Demote the prior foreground app: BackgroundActive if it holds a
+    // capability (music playing, call active, nav running), else BgIdle.
     if (!m_foregroundAppId.isEmpty() && m_foregroundAppId != appId) {
         if (QObject *prev = m_appRegistry.value(m_foregroundAppId)) {
             invokeVoid(prev, "pause");
             invokeVoid(prev, "stop");
         }
-        if (m_appStates.contains(m_foregroundAppId)) {
-            auto &st    = m_appStates[m_foregroundAppId];
-            st.isActive = false;
-            st.isPaused = true;
-        }
+        onForegroundExit(m_foregroundAppId);
     }
 
     if (QObject *app = m_appRegistry.value(appId)) {
@@ -98,9 +127,10 @@ void AppLifecycleManager::bringToForeground(const QString &appId) {
             st.isMinimized  = false;
             st.lastActiveMs = QDateTime::currentMSecsSinceEpoch();
         }
+        cancelIdleFreezeDebounce(appId);
+        transitionTo(appId, Foreground);
         ensureTaskExists(appId);
     } else {
-
         if (!m_pendingForegroundApps.contains(appId))
             m_pendingForegroundApps.push_back(appId);
     }
@@ -133,13 +163,11 @@ bool AppLifecycleManager::handleSystemBack() {
 
     const bool isNative = app->property("isNative").toBool();
     if (isNative) {
-
         if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
             return m_appLaunchService->sendBackToRunner(m_foregroundAppId);
         }
         QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
         if (compositor) {
-
             if (invokeInjectKey(compositor, 0x01000000, 0, true) &&
                 invokeInjectKey(compositor, 0x01000000, 0, false)) {
                 return true;
@@ -168,7 +196,6 @@ bool AppLifecycleManager::handleSystemForward() {
         }
         QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
         if (compositor) {
-
             if (invokeInjectKey(compositor, 0x01000014, 0x08000000, true) &&
                 invokeInjectKey(compositor, 0x01000014, 0x08000000, false)) {
                 return true;
@@ -201,6 +228,7 @@ bool AppLifecycleManager::minimizeForegroundApp() {
     }
 
     m_foregroundAppId.clear();
+    onForegroundExit(appId);
     return true;
 }
 
@@ -242,11 +270,14 @@ QVariantMap AppLifecycleManager::getAppState(const QString &appId) const {
     const auto &st = m_appStates[appId];
     return {
         {"appId", appId},
+        {"state", static_cast<int>(st.state)},
         {"isActive", st.isActive},
         {"isPaused", st.isPaused},
         {"isMinimized", st.isMinimized},
         {"launchTime", st.launchTimeMs},
         {"lastActiveTime", st.lastActiveMs},
+        {"stateEnteredTime", st.stateEnteredMs},
+        {"capabilities", QStringList(st.capabilities.cbegin(), st.capabilities.cend())},
     };
 }
 
@@ -256,6 +287,172 @@ bool AppLifecycleManager::isAppRunning(const QString &appId) const {
 
 QString AppLifecycleManager::getForegroundAppId() const {
     return m_foregroundAppId.isEmpty() ? QString() : m_foregroundAppId;
+}
+
+int AppLifecycleManager::lifecycleState(const QString &appId) const {
+    if (!m_appStates.contains(appId))
+        return static_cast<int>(Unregistered);
+    return static_cast<int>(m_appStates[appId].state);
+}
+
+QStringList AppLifecycleManager::activeCapabilities(const QString &appId) const {
+    if (!m_appStates.contains(appId))
+        return {};
+    const auto &caps = m_appStates[appId].capabilities;
+    return QStringList(caps.cbegin(), caps.cend());
+}
+
+void AppLifecycleManager::addCapability(const QString &appId, const QString &capability) {
+    if (appId.isEmpty() || capability.isEmpty())
+        return;
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end())
+        return;
+    if (it->capabilities.contains(capability))
+        return;
+    it->capabilities.insert(capability);
+    qCInfo(lcLifecycle) << "capability +" << capability << "for" << appId << "now:"
+                        << QStringList(it->capabilities.cbegin(), it->capabilities.cend());
+    emit capabilitiesChanged(appId);
+
+    // A backgrounded app that just gained a capability shouldn't freeze.
+    // Promote it from BgIdle → BgActive and cancel any pending freeze.
+    if (it->state == BackgroundIdle) {
+        cancelIdleFreezeDebounce(appId);
+        transitionTo(appId, BackgroundActive);
+    }
+}
+
+void AppLifecycleManager::removeCapability(const QString &appId, const QString &capability) {
+    if (appId.isEmpty() || capability.isEmpty())
+        return;
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end())
+        return;
+    if (!it->capabilities.remove(capability))
+        return;
+    qCInfo(lcLifecycle) << "capability -" << capability << "for" << appId << "now:"
+                        << QStringList(it->capabilities.cbegin(), it->capabilities.cend());
+    emit capabilitiesChanged(appId);
+
+    // Last capability cleared while backgrounded → drop to BgIdle and arm
+    // the freeze debounce. Foreground apps are unaffected (they don't
+    // freeze regardless of caps).
+    if (it->state == BackgroundActive && it->capabilities.isEmpty()) {
+        transitionTo(appId, BackgroundIdle);
+        startIdleFreezeDebounce(appId);
+    }
+}
+
+void AppLifecycleManager::setIdleFreezeDebounceMs(int ms) {
+    m_idleFreezeDebounceMs = qMax(0, ms);
+}
+
+void AppLifecycleManager::onForegroundExit(const QString &appId) {
+    if (appId.isEmpty())
+        return;
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end())
+        return;
+    it->isActive = false;
+    it->isPaused = true;
+
+    // Capability set decides the demotion target: any active capability ⇒
+    // BackgroundActive (never frozen); otherwise BackgroundIdle + debounce.
+    if (!it->capabilities.isEmpty()) {
+        transitionTo(appId, BackgroundActive);
+    } else {
+        transitionTo(appId, BackgroundIdle);
+        startIdleFreezeDebounce(appId);
+    }
+}
+
+void AppLifecycleManager::startIdleFreezeDebounce(const QString &appId) {
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end())
+        return;
+    cancelIdleFreezeDebounce(appId);
+
+    if (m_idleFreezeDebounceMs <= 0)
+        return;
+
+    QTimer *timer = new QTimer(this);
+    timer->setSingleShot(true);
+    timer->setInterval(m_idleFreezeDebounceMs);
+    const QString capturedAppId = appId;
+    connect(timer, &QTimer::timeout, this, [this, capturedAppId, timer]() {
+        auto state = m_appStates.find(capturedAppId);
+        if (state == m_appStates.end())
+            return;
+        if (state->idleFreezeTimer == timer)
+            state->idleFreezeTimer = nullptr;
+        timer->deleteLater();
+        if (state->state == BackgroundIdle) {
+            transitionTo(capturedAppId, Frozen);
+        }
+    });
+    it->idleFreezeTimer = timer;
+    timer->start();
+}
+
+void AppLifecycleManager::cancelIdleFreezeDebounce(const QString &appId) {
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end())
+        return;
+    if (it->idleFreezeTimer) {
+        it->idleFreezeTimer->stop();
+        it->idleFreezeTimer->deleteLater();
+        it->idleFreezeTimer = nullptr;
+    }
+}
+
+void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newState) {
+    auto it = m_appStates.find(appId);
+    if (it == m_appStates.end())
+        return;
+    const LifecycleState old = it->state;
+    if (old == newState)
+        return;
+    it->state          = newState;
+    it->stateEnteredMs = QDateTime::currentMSecsSinceEpoch();
+    qCInfo(lcLifecycle) << appId << ":" << static_cast<int>(old) << "→"
+                        << static_cast<int>(newState);
+    writeOomScoreAdj(appId, newState);
+    emit stateChanged(appId, static_cast<int>(old), static_cast<int>(newState));
+    // Phase B will write /sys/fs/cgroup/.../cgroup.freeze here when
+    // transitioning to/from Frozen. Today this is logged only.
+}
+
+int AppLifecycleManager::oomScoreForState(LifecycleState state) {
+    // Per docs/PERF_LIFECYCLE.md. oom_score_adj range is [-1000, 1000].
+    // Negative values bias against being killed; positive values bias for.
+    switch (state) {
+        case Foreground: return -100;
+        case BackgroundActive: return -50;
+        case BackgroundIdle: return 0;
+        case Frozen: return 200;
+        case Killed: return 0;
+        case Unregistered: return 0;
+    }
+    return 0;
+}
+
+void AppLifecycleManager::writeOomScoreAdj(const QString &appId, LifecycleState state) {
+    if (!m_appLaunchService)
+        return;
+    const qint64 pid = m_appLaunchService->pidForAppId(appId);
+    if (pid <= 0)
+        return;
+    const int score = oomScoreForState(state);
+    QFile     f(QStringLiteral("/proc/%1/oom_score_adj").arg(pid));
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qCDebug(lcLifecycle) << "oom_score_adj write skipped for" << appId << "pid" << pid
+                             << "(open failed:" << f.errorString() << ")";
+        return;
+    }
+    f.write(QByteArray::number(score));
+    f.close();
+    qCDebug(lcLifecycle) << "oom_score_adj=" << score << "for" << appId << "pid" << pid;
 }
 
 bool AppLifecycleManager::ensureTaskExists(const QString &appId) {
