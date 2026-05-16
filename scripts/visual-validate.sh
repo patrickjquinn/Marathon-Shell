@@ -171,15 +171,36 @@ capture_quicksettings() {
 capture_app() {
   local app_id="$1"
   echo "→ app:$app_id"
-  local pid wid
-  pid=$(launch_shell --skip-lock --start-on=app:"$app_id")
-  # 5 s for shell init + 600 ms for the start-on timer + ~5 s for the
-  # external QML app process to spawn and render its first frame past
-  # the "Loading…" splash.
-  sleep 12
-  wid=$(wait_for_window) || { echo "no window"; kill -9 "$pid"; return 1; }
-  capture "$wid" "$VDIR/app-$app_id.png"
+  # We use the shell's own QQuickWindow::grabWindow() path
+  # (--screenshot-after / --screenshot-to) because:
+  #   (a) it captures the COMPOSITED frame — including any embedded
+  #       WebEngineView surfaces from app processes (e.g. Maps'
+  #       MapLibre GL JS basemap, which renders into the maps app's
+  #       Wayland surface that the shell composites);
+  #   (b) it bypasses host-compositor screenshot policy (GNOME
+  #       Wayland requires user consent via xdg-portal each time);
+  #   (c) it's race-free — the shell waits for first paint and only
+  #       then writes the PNG.
+  local pid out
+  out="$VDIR/app-$app_id.png"
+  rm -f "$out"
+  pid=$(launch_shell --skip-lock \
+                     --start-on=app:"$app_id" \
+                     --screenshot-after=10 \
+                     --screenshot-to="$out")
+  # Wait for the shell to write the PNG and exit gracefully.
+  local tries=80
+  while [ $tries -gt 0 ] && [ ! -s "$out" ]; do
+    sleep 0.2
+    tries=$((tries - 1))
+  done
   kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
+  if [ -s "$out" ]; then
+    echo "  captured → $out ($(identify -format '%wx%h' "$out"))"
+  else
+    echo "  FAILED: no screenshot written (see /tmp/marathon-shell.log)"
+    return 1
+  fi
 }
 
 # --- Driver ---------------------------------------------------------------

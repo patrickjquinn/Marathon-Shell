@@ -129,7 +129,12 @@ Item {
         AppLaunchService.appWindow = appWindow;
         AppLaunchService.uiStore = UIStore;
         AppLaunchService.appLifecycleManager = AppLifecycleManager;
-        ScreenshotService.shellWindow = shell;
+        // Wire the *actual* QQuickWindow (not the root Item) so the
+        // synchronous saveScreenshotTo() path works. Existing call
+        // sites still pass `shell` explicitly when they want a frame
+        // capture, which falls through to the Item.grabToImage() async
+        // path inside captureScreen().
+        ScreenshotService.shellWindow = shellWindow;
         SessionStore.reset();
         showPinScreen = false;
         pinScreen.reset();
@@ -144,7 +149,15 @@ Item {
         // --demo-notifications seeds five canonical notifications matching
         // the JSX reference (Maya, Calendar, Linear, Cassandra, Missed call)
         // so lock + hub captures aren't empty in dev.
+        // --screenshot-after=N --screenshot-to=PATH grabs the composited
+        // shell window (including any embedded WebEngine surfaces) after
+        // N seconds and writes a PNG, then quits. The shell IS the
+        // Wayland compositor, so this captures everything its
+        // QQuickWindow has painted — bypassing the host compositor's
+        // screenshot policy (GNOME requires portal consent).
         const args = Qt.application.arguments;
+        let screenshotPath = "";
+        let screenshotAfterMs = 0;
         for (let i = 0; i < args.length; ++i) {
             const a = args[i];
             if (a.indexOf("--start-on=") === 0) {
@@ -162,8 +175,49 @@ Item {
                 if (!startOnTimer.running)
                     startOnTimer.start();
             }
+            if (a.indexOf("--screenshot-after=") === 0) {
+                const secs = parseFloat(a.substring("--screenshot-after=".length));
+                if (!isNaN(secs) && secs > 0)
+                    screenshotAfterMs = Math.round(secs * 1000);
+            }
+            if (a.indexOf("--screenshot-to=") === 0) {
+                screenshotPath = a.substring("--screenshot-to=".length);
+            }
+        }
+        if (screenshotPath.length > 0 && screenshotAfterMs > 0) {
+            screenshotTimer.path = screenshotPath;
+            screenshotTimer.interval = screenshotAfterMs;
+            screenshotTimer.start();
         }
     }
+    Timer {
+        id: screenshotTimer
+        property string path: ""
+        repeat: false
+        onTriggered: {
+            if (!path) {
+                Qt.quit();
+                return;
+            }
+            if (typeof ScreenshotService !== "undefined" && ScreenshotService) {
+                // ScreenshotService.shellWindow was already set on
+                // root Component.onCompleted (see line ~132), so the
+                // C++ side knows which QQuickWindow to grab. The grab
+                // captures every layer the shell is rendering,
+                // including embedded WebEngineView surfaces from app
+                // processes.
+                const ok = ScreenshotService.saveScreenshotTo(path);
+                if (!ok)
+                    Logger.warn("Shell", "saveScreenshotTo returned false for " + path);
+            } else {
+                Logger.warn("Shell", "ScreenshotService unavailable for headless capture");
+            }
+            // Give the file write a beat before quitting so the harness
+            // doesn't race the truncated file.
+            Qt.callLater(() => Qt.callLater(() => Qt.quit()));
+        }
+    }
+
     Timer {
         id: startOnTimer
         property string surface: ""
