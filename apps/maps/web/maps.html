@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Marathon Maps</title>
+<link rel="stylesheet" href="maplibre-gl.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0a1814; overflow: hidden; font-family: Sora, sans-serif; }
+  #map { position: absolute; inset: 0; }
+  /* Hide default MapLibre attribution + ctrl chrome — Marathon overlays its own */
+  .maplibregl-ctrl-bottom-right, .maplibregl-ctrl-bottom-left { display: none !important; }
+  /* Style the "you are here" dot to match JSX: 16 px teal w/ 3 px white border + radial halo */
+  .marathon-user-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #00bfa5;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 0 30px rgba(0,191,165,0.65);
+    cursor: default;
+    position: relative;
+  }
+  .marathon-user-dot::after {
+    content: ""; position: absolute; inset: -22px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,191,165,0.25), transparent 65%);
+    pointer-events: none;
+  }
+  /* Destination pin (teal SVG, dark center hole) */
+  .marathon-pin { width: 34px; height: 44px; display: block; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="maplibre-gl.js"></script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script>
+  "use strict";
+
+  // ──────────────────────────────────────────────────────────────────
+  // MapLibre map setup using the Marathon Dark style we author beside.
+  // ──────────────────────────────────────────────────────────────────
+  const map = new maplibregl.Map({
+    container: "map",
+    style: "marathon-dark.json",
+    center: [-6.1778, 53.3015],   // Dublin until QML sets a real fix
+    zoom: 13,
+    pitch: 0,
+    bearing: 0,
+    attributionControl: false,
+    cooperativeGestures: false,
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
+    fadeDuration: 200
+  });
+
+  // Route layer + pin marker bookkeeping. Created lazily once style is
+  // loaded so we never race the layer-add against the GL context.
+  let routeAdded = false;
+  const pins = new Map();      // id → maplibregl.Marker
+  let userMarker = null;
+
+  function ensureRouteLayer() {
+    if (routeAdded) return;
+    map.addSource("marathon-route", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] }
+    });
+    map.addLayer({
+      id: "marathon-route-casing",
+      type: "line",
+      source: "marathon-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#0d2620",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 12]
+      }
+    });
+    map.addLayer({
+      id: "marathon-route-line",
+      type: "line",
+      source: "marathon-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#00bfa5",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 16, 6]
+      }
+    });
+    routeAdded = true;
+  }
+
+  map.on("style.load", () => {
+    ensureRouteLayer();
+    if (window.MarathonBridge) window.MarathonBridge.notifyReady();
+  });
+
+  map.on("click", (e) => {
+    if (window.MarathonBridge && window.MarathonBridge.onMapClicked)
+      window.MarathonBridge.onMapClicked(e.lngLat.lat, e.lngLat.lng);
+  });
+
+  // ──────────────────────────────────────────────────────────────────
+  // Bridge surface exposed BACK to QML. We attach it as window methods
+  // so QML can call them via runJavaScript directly. The
+  // QWebChannel-published `marathonBridge` object is the inbound
+  // (QML→JS) signal path; this side is the outbound (JS→QML) path.
+  // ──────────────────────────────────────────────────────────────────
+  window.MarathonMaps = {
+    setCenter(lat, lon, zoom) {
+      const opts = { center: [lon, lat] };
+      if (typeof zoom === "number" && !Number.isNaN(zoom)) opts.zoom = zoom;
+      map.flyTo({ ...opts, speed: 1.2, curve: 1.4 });
+    },
+
+    setUserLocation(lat, lon) {
+      if (!userMarker) {
+        const el = document.createElement("div");
+        el.className = "marathon-user-dot";
+        userMarker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([lon, lat])
+          .addTo(map);
+      } else {
+        userMarker.setLngLat([lon, lat]);
+      }
+    },
+
+    addPin(id, lat, lon, kind /* "destination" | "result" */) {
+      this.removePin(id);
+      const el = document.createElement("div");
+      el.innerHTML = `
+        <svg class="marathon-pin" viewBox="0 0 34 44">
+          <path d="M17 0a14 14 0 0 1 14 14c0 11-14 28-14 28S3 25 3 14A14 14 0 0 1 17 0z"
+                fill="#1de9b6" stroke="#040404" stroke-width="1.5"/>
+          <circle cx="17" cy="14" r="5" fill="#040404"/>
+        </svg>`;
+      el.style.cursor = "pointer";
+      el.addEventListener("click", () => {
+        if (window.MarathonBridge && window.MarathonBridge.onPinTapped)
+          window.MarathonBridge.onPinTapped(id);
+      });
+      const m = new maplibregl.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([lon, lat])
+        .addTo(map);
+      pins.set(id, m);
+    },
+
+    removePin(id) {
+      const m = pins.get(id);
+      if (m) { m.remove(); pins.delete(id); }
+    },
+
+    clearPins() {
+      for (const m of pins.values()) m.remove();
+      pins.clear();
+    },
+
+    setRouteGeoJSON(json) {
+      ensureRouteLayer();
+      const src = map.getSource("marathon-route");
+      if (src) src.setData(typeof json === "string" ? JSON.parse(json) : json);
+    },
+
+    fitBounds(west, south, east, north, padding) {
+      map.fitBounds([[west, south], [east, north]], { padding: padding || 60, duration: 600 });
+    },
+
+    setBearing(deg) { map.setBearing(deg || 0); },
+    setPitch(deg)   { map.setPitch(deg || 0); }
+  };
+
+  // ──────────────────────────────────────────────────────────────────
+  // Wire QWebChannel. The QML side registers an object named
+  // "marathonBridge" — we get a JS proxy with the same signal/method
+  // surface. Outbound (JS→QML) calls go through the proxy's signals;
+  // inbound (QML→JS) calls hit window.MarathonMaps.* via runJavaScript.
+  // ──────────────────────────────────────────────────────────────────
+  new QWebChannel(qt.webChannelTransport, function(channel) {
+    window.MarathonBridge = channel.objects.marathonBridge;
+    if (map.isStyleLoaded() && window.MarathonBridge && window.MarathonBridge.notifyReady)
+      window.MarathonBridge.notifyReady();
+  });
+</script>
+</body>
+</html>
