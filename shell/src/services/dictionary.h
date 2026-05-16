@@ -39,6 +39,7 @@ class Dictionary : public QObject {
     void lastPredictionPrefixChanged();
 
   private:
+    void             ensureWordEngineReady();
     void             setCachedPredictions(const QStringList &predictions);
     void             setLastPredictionPrefix(const QString &prefix);
     void             onPredictionsReady(const QString &prefix, const QStringList &predictions);
