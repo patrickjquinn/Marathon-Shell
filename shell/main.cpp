@@ -65,6 +65,7 @@
 #include "src/wayland/waylandcompositormanager.h"
 #include "src/wayland/foreigntoplevelclient.h"
 #include "src/wayland/screencopyclient.h"
+#include "src/wayland/sessionlockclient.h"
 #include "src/managers/marathoninputmethodengine.h"
 #include "src/managers/rtscheduler.h"
 #include "src/managers/cursormanager.h"
@@ -535,6 +536,18 @@ int main(int argc, char *argv[]) {
                      [taskModel](const QString &tag, const QImage &image) {
                          taskModel->updateTaskSnapshot(tag, image);
                      });
+
+    // ext_session_lock_v1 client: ask the compositor to enter the
+    // locked state when SessionStore flips, and release it on unlock.
+    // The compositor stops drawing app surfaces while locked; the
+    // shell's own MarathonLockScreen continues to render on the
+    // layer-shell overlay.
+    auto *sessionLock = new SessionLockClient(&app);
+    QObject::connect(
+        sessionStore, &SessionStore::isLockedChanged, sessionLock,
+        [sessionLock, sessionStore]() { sessionLock->setLocked(sessionStore->isLocked()); });
+    if (sessionStore->isLocked())
+        sessionLock->setLocked(true);
 
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
     qmlRegisterSingletonInstance<PowerPolicyController>(
