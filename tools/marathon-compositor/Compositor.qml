@@ -4,41 +4,64 @@ import QtQuick.Window
 import QtWayland.Compositor
 import QtWayland.Compositor.XdgShell
 
-// Single-window, single-output Marathon compositor scene.
-//
-// Phase C-1 ships an empty black scene — the wayland globals are present
-// so clients can bind them, but nothing renders yet. Apps that connect
-// will hold xdg-shell handles whose surfaces aren't drawn (compositor
-// silently accepts the buffers but doesn't show anything). This is
-// intentional: C-2 will introduce a real app-surface presenter once the
-// shell is a Wayland client itself.
-Window {
-    id: rootWindow
+// Marathon compositor scene. Built around the Qt-blessed pattern for
+// standalone QtQuick compositors: the WaylandCompositor IS the root,
+// the WaylandOutput is declared as a QML child of the Window with
+// `compositor:` and `window:` as set-once bindings honoured during
+// componentComplete. Doing this wiring from C++ after the QML engine
+// has loaded triggers a threaded-render-loop race that segfaults on
+// LLVMpipe/virtio-gpu (see docs/C7_STATUS.md for the rabbit hole).
+MarathonCompositor {
+    id: comp
 
-    width: 540
-    height: 1140
-    visible: true
-    color: "black"
-    title: "Marathon Compositor"
+    Window {
+        id: outputWindow
 
-    Rectangle {
-        anchors.fill: parent
-        color: "#000000"
-        Text {
-            anchors.centerIn: parent
-            color: "#444"
-            font.family: "monospace"
-            font.pixelSize: 12
-            text: "marathon-compositor (Phase C-1 scaffold)\n" + "socket: " + MarathonCompositor.socketName + "\n" + "waiting for shell + app clients…"
+        width: 540
+        height: 1140
+        visible: true
+        color: "black"
+        title: "Marathon Compositor"
+
+        WaylandOutput {
+            id: marathonOutput
+            compositor: comp
+            window: outputWindow
+            sizeFollowsWindow: true
+
+            Component.onCompleted: comp.setupOutput(marathonOutput)
         }
-    }
 
-    // Per-XDG-toplevel rendering will be wired in C-2.
-    Repeater {
-        model: MarathonCompositor.xdgShell ? MarathonCompositor.xdgShell.shellSurfaces : null
-        delegate: WaylandQuickItem {
+        Item {
             anchors.fill: parent
-            surface: shellSurface ? shellSurface.surface : null
+
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000"
+
+                Text {
+                    anchors.centerIn: parent
+                    color: "#444"
+                    font.family: "monospace"
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "marathon-compositor\n" + "socket: " + comp.socketName + "\n" + "waiting for shell + app clients…"
+                }
+            }
+
+            // Per-xdg-toplevel rendering. Uses ShellSurfaceItem (the
+            // QWaylandQuickShellSurfaceItem subclass that handles
+            // surface destruction + focus + popups) rather than raw
+            // WaylandQuickItem — the bare item leaks a render-thread
+            // null-deref when shellSurface goes null.
+            Repeater {
+                model: comp.xdgShell ? comp.xdgShell.shellSurfaces : null
+                delegate: ShellSurfaceItem {
+                    anchors.fill: parent
+                    shellSurface: model.shellSurface
+                    onSurfaceDestroyed: destroy()
+                }
+            }
         }
     }
 }

@@ -21,9 +21,19 @@ class ScreencopyManagerV1 : public QObject {
     Q_OBJECT
 
   public:
-    explicit ScreencopyManagerV1(QWaylandCompositor *compositor, QWaylandQuickOutput *output,
-                                 QQuickWindow *window);
+    explicit ScreencopyManagerV1(QWaylandCompositor *compositor);
     ~ScreencopyManagerV1() override;
+
+    // Wired after the QML WaylandOutput finishes its componentComplete.
+    // The global is already advertised by then (registered in ctor against
+    // compositor->display()); captures simply fail until output+window are
+    // populated, which is correct semantics for an early client request.
+    void setOutput(QWaylandQuickOutput *output) {
+        m_output = output;
+    }
+    void setWindow(QQuickWindow *window) {
+        m_window = window;
+    }
 
     QWaylandQuickOutput *output() const {
         return m_output.data();

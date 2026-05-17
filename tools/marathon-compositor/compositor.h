@@ -1,8 +1,10 @@
 #pragma once
 
+#include <QList>
 #include <QObject>
-#include <QWaylandCompositor>
+#include <QQmlListProperty>
 #include <QWaylandIdleInhibitManagerV1>
+#include <QWaylandQuickCompositor>
 #include <QWaylandQuickOutput>
 #include <QWaylandTextInputManager>
 #include <QWaylandViewporter>
@@ -23,14 +25,34 @@ class QQuickWindow;
 // server-side protocol extension Marathon apps and the marathon-shell layer-
 // shell client need to render.
 //
-// Intentionally narrow: no process spawning, no QML INVOKABLEs for app launch
-// (that's the shell's job). The compositor exposes surfaces to its own QML
-// scene (compositor.qml) for rendering, and that's it. App launches happen in
-// marathon-shell; the runner processes connect here as plain Wayland clients.
-class MarathonCompositor : public QWaylandCompositor {
+// Lifecycle pattern (Qt-blessed for standalone QtQuick compositors):
+//
+//   1. main() registers MarathonCompositor as a QML type and loads
+//      Compositor.qml. The QML root IS a MarathonCompositor.
+//   2. QML's Window declares a child WaylandOutput with
+//      compositor: comp / window: <thisWindow> as set-once bindings.
+//   3. QQmlComponent calls componentComplete() on the MarathonCompositor
+//      root. Inside Qt's implementation that invokes
+//      QWaylandCompositor::create(), which is the moment display() becomes
+//      fully usable. We override create() to register our wlr-* /
+//      ext-session-lock-v1 globals — they all need a valid display.
+//   4. QML's WaylandOutput then runs its OWN componentComplete; its
+//      Component.onCompleted handler in Compositor.qml calls
+//      setupOutput(output), which wires the screencopy extension to the
+//      now-available output + window.
+//
+// Doing any of this from C++ AFTER engine.loadFromModule() returns races
+// the threaded render loop and crashes on LLVMpipe + virtio-gpu (the
+// real failure that gated Phase C-7 r41/r42/r43). See docs/C7_STATUS.md.
+class MarathonCompositor : public QWaylandQuickCompositor {
     Q_OBJECT
-    Q_PROPERTY(QQuickWindow *window READ window CONSTANT)
-    Q_PROPERTY(QWaylandQuickOutput *quickOutput READ quickOutput CONSTANT)
+    // QML default property — mirrors the private
+    // QWaylandQuickCompositorQuickExtensionContainer::data that the stock
+    // WaylandCompositor QML element uses, so child Window/WaylandOutput
+    // declarations parse cleanly.
+    Q_PROPERTY(QQmlListProperty<QObject> data READ data DESIGNABLE false)
+    Q_CLASSINFO("DefaultProperty", "data")
+
     Q_PROPERTY(QWaylandXdgShell *xdgShell READ xdgShell CONSTANT)
     Q_PROPERTY(WlrLayerShellV1 *layerShell READ layerShell CONSTANT)
     Q_PROPERTY(ExtSessionLockManagerV1 *sessionLock READ sessionLock CONSTANT)
@@ -42,13 +64,10 @@ class MarathonCompositor : public QWaylandCompositor {
     explicit MarathonCompositor(QObject *parent = nullptr);
     ~MarathonCompositor() override;
 
-    Q_INVOKABLE void attachWindow(QQuickWindow *window);
-    QQuickWindow    *window() const {
-        return m_window;
+    QQmlListProperty<QObject> data() {
+        return QQmlListProperty<QObject>(this, &m_data);
     }
-    QWaylandQuickOutput *quickOutput() const {
-        return m_output;
-    }
+
     QWaylandXdgShell *xdgShell() const {
         return m_xdgShell;
     }
@@ -65,15 +84,19 @@ class MarathonCompositor : public QWaylandCompositor {
         return m_screencopy;
     }
 
-  private:
-    void calculatePhysicalSize();
+    // Called from Compositor.qml's WaylandOutput.Component.onCompleted —
+    // by then the output has its compositor + window bindings set and the
+    // render thread can sample from it safely.
+    Q_INVOKABLE void setupOutput(QWaylandQuickOutput *output);
 
-    // Plain pointers: every child is parented to this QWaylandCompositor
-    // via QObject parentage, so Qt cleans them up. QPointer adds a guarded
-    // dereference but breaks for forward-declared types in the QML
-    // registration template (qmltyperegistrations needs the full type).
-    QQuickWindow                 *m_window           = nullptr;
-    QWaylandQuickOutput          *m_output           = nullptr;
+  protected:
+    // Hooked to register custom-extension globals against a fully-alive
+    // display. Called by Qt's QML engine on componentComplete of this
+    // QML root.
+    void create() override;
+
+  private:
+    QList<QObject *>              m_data;
     QWaylandXdgShell             *m_xdgShell         = nullptr;
     QWaylandViewporter           *m_viewporter       = nullptr;
     QWaylandTextInputManager     *m_textInputV2      = nullptr;
