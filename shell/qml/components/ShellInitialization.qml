@@ -33,16 +33,6 @@ QtObject {
             Logger.info("ShellInitialization", "No root window provided (Wayland not available)");
             return null;
         }
-        // Phase C-2: in Wayland client mode the shell connects to
-        // marathon-compositor as a layer-shell client and must NOT host
-        // its own QtWaylandCompositor (two surface integrations in the
-        // same process race for window assignment). MARATHON_CLIENT_MODE
-        // is set from C++ as a context property; when true, skip
-        // compositor creation entirely.
-        if (typeof MARATHON_CLIENT_MODE !== "undefined" && MARATHON_CLIENT_MODE) {
-            Logger.info("ShellInitialization", "Wayland client mode — skipping in-shell compositor");
-            return null;
-        }
         var compositor = WaylandCompositorManager.createCompositor(rootWindow);
         if (compositor)
             Logger.info("ShellInitialization", "Wayland Compositor initialized: " + compositor.socketName);

@@ -63,9 +63,6 @@
 #include "medialibrarymanager.h"
 #include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
-#include "src/wayland/foreigntoplevelclient.h"
-#include "src/wayland/screencopyclient.h"
-#include "src/wayland/sessionlockclient.h"
 #include "src/managers/marathoninputmethodengine.h"
 #include "src/managers/rtscheduler.h"
 #include "src/managers/cursormanager.h"
@@ -112,10 +109,6 @@
 #include "src/wayland/waylandcompositor.h"
 #include <QWaylandSurface>
 #include <QWaylandXdgShell>
-#endif
-
-#ifdef MARATHON_HAVE_LAYER_SHELL
-#include <LayerShellQt/Window>
 #endif
 
 #ifdef HAVE_WEBENGINE
@@ -228,30 +221,6 @@ int main(int argc, char *argv[]) {
 
     QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
-
-    // Phase C-2 transitional client mode. Set MARATHON_WAYLAND_CLIENT_MODE=1
-    // when starting under marathon-compositor; the shell then renders its
-    // QQuickWindow as a wlr-layer-shell surface (Overlay layer, fullscreen)
-    // instead of hosting an in-process compositor. This relies on
-    // layer-shell-qt's QPA plugin auto-activating once the library is
-    // loaded (no explicit useLayerShell() call needed since Qt 6.5).
-    const QByteArray clientModeEnv = qgetenv("MARATHON_WAYLAND_CLIENT_MODE").trimmed().toLower();
-    const bool       waylandClientMode = (clientModeEnv == "1" || clientModeEnv == "true");
-    if (waylandClientMode) {
-        if (qgetenv("QT_QPA_PLATFORM").isEmpty())
-            qputenv("QT_QPA_PLATFORM", "wayland");
-        if (qgetenv("WAYLAND_DISPLAY").isEmpty())
-            qputenv("WAYLAND_DISPLAY", "marathon-wayland-0");
-        // Tell Qt's Wayland QPA to use layer-shell-qt's shell integration
-        // for every new QWindow created. Without this, Qt creates xdg-shell
-        // toplevels and LayerShellQt::Window::get(window) is too late —
-        // attempting to retro-fit layer-shell after first show() prints
-        // "already has a shell integration" warnings and the layer-shell
-        // surface is never assigned.
-        qputenv("QT_WAYLAND_SHELL_INTEGRATION", "layer-shell");
-        qInfo() << "[MarathonShell] Wayland client mode enabled — connecting to"
-                << qgetenv("WAYLAND_DISPLAY") << "with layer-shell QPA integration";
-    }
 
     QGuiApplication app(argc, argv);
 
@@ -384,8 +353,6 @@ int main(int argc, char *argv[]) {
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
 
-    ctx->setContextProperty("MARATHON_CLIENT_MODE", waylandClientMode);
-
 #ifdef HAVE_WAYLAND
     ctx->setContextProperty("HAVE_WAYLAND", true);
 #else
@@ -481,73 +448,6 @@ int main(int argc, char *argv[]) {
     auto *appLifecycleManager = new AppLifecycleManager(taskModel, appLaunchService, &app);
     qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
                                                       "AppLifecycleManager", appLifecycleManager);
-
-    // Wayland-client mode: populate TaskModel from foreign-toplevel
-    // events instead of the in-shell compositor's surface map, and let
-    // AppLifecycleManager route activate/close through the protocol.
-    // Stays idle in legacy host-compositor mode (no global to bind).
-    auto *foreignToplevels = new ForeignToplevelClient(&app);
-    appLifecycleManager->setForeignToplevelClient(foreignToplevels);
-
-    QObject::connect(foreignToplevels, &ForeignToplevelClient::toplevelAdded, &app,
-                     [taskModel, appModel](ForeignToplevelHandle *handle) {
-                         const QString appId = handle->appId();
-                         if (appId.isEmpty())
-                             return;
-                         // Transitional dual-source: the in-shell compositor
-                         // surface path may have created the task first.
-                         if (taskModel->getTaskByAppId(appId))
-                             return;
-                         QString name = appId;
-                         QString icon = QStringLiteral("application-x-executable");
-                         if (App *a = appModel->getApp(appId)) {
-                             if (!a->name().isEmpty())
-                                 name = a->name();
-                             if (!a->icon().isEmpty())
-                                 icon = a->icon();
-                         }
-                         // surfaceId=-1: no QWaylandSurfaceId in client mode;
-                         // the foreign-toplevel handle IS the surface identity.
-                         taskModel->launchTask(appId, name, icon, QStringLiteral("native"), -1,
-                                               handle);
-                     });
-
-    QObject::connect(foreignToplevels, &ForeignToplevelClient::toplevelRemoved, &app,
-                     [taskModel](ForeignToplevelHandle *handle) {
-                         if (Task *t = taskModel->getTaskByAppId(handle->appId()))
-                             taskModel->closeTask(t->id());
-                     });
-
-    // Active Frames thumbnails: capture the output when a toplevel
-    // loses focus (the next frame the compositor draws still shows
-    // the outgoing app, since Marathon's single-window UX means the
-    // foreground app fills the screen). screencopy lives on the
-    // marathon-compositor side, so this is a no-op when idle.
-    auto *screencopy = new ScreencopyClient(&app);
-    QObject::connect(foreignToplevels, &ForeignToplevelClient::toplevelAdded, screencopy,
-                     [screencopy](ForeignToplevelHandle *handle) {
-                         QObject::connect(handle, &ForeignToplevelHandle::activatedChanged,
-                                          screencopy, [screencopy, handle]() {
-                                              if (!handle->activated())
-                                                  screencopy->capture(handle->appId());
-                                          });
-                     });
-    QObject::connect(screencopy, &ScreencopyClient::captured, taskModel,
-                     [taskModel](const QString &tag, const QImage &image) {
-                         taskModel->updateTaskSnapshot(tag, image);
-                     });
-
-    // ext_session_lock_v1 client: ask the compositor to enter the
-    // locked state when SessionStore flips, and release it on unlock.
-    // The compositor stops drawing app surfaces while locked; the
-    // shell's own MarathonLockScreen continues to render on the
-    // layer-shell overlay.
-    auto *sessionLock = new SessionLockClient(&app);
-    QObject::connect(
-        sessionStore, &SessionStore::isLockedChanged, sessionLock,
-        [sessionLock, sessionStore]() { sessionLock->setLocked(sessionStore->isLocked()); });
-    if (sessionStore->isLocked())
-        sessionLock->setLocked(true);
 
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
     qmlRegisterSingletonInstance<PowerPolicyController>(
@@ -919,19 +819,6 @@ int main(int argc, char *argv[]) {
         qCritical() << "No root QML objects";
         return -1;
     }
-
-#ifdef MARATHON_HAVE_LAYER_SHELL
-    // Phase C-2: in Wayland client mode the QT_WAYLAND_SHELL_INTEGRATION
-    // env var (set above) tells Qt's wayland-qpa to wrap every new
-    // QWindow as a wlr-layer-shell surface. Defaults from layer-shell-qt
-    // (layer=Top, no anchors) work for now; explicit anchor/layer
-    // configuration via LayerShellQt::Window::get() races against the
-    // QPA's initial show() — surface is already mapped by the time
-    // engine.load() returns, so attribute writes warn "already has a
-    // shell integration." Phase C-6 will move the layer-shell config to
-    // the QML side using LayerShellQt's attached-property syntax which
-    // runs at component construction (before show()).
-#endif
 
     QTimer::singleShot(
         0, &app, [&app, settingsManager, appModel, appRegistry, appScanner, permissionManager]() {

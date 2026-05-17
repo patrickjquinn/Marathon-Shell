@@ -12,7 +12,6 @@
 class TaskModel;
 class AppLaunchService;
 class CgroupManager;
-class ForeignToplevelClient;
 
 class AppLifecycleManager : public QObject {
     Q_OBJECT
@@ -36,12 +35,6 @@ class AppLifecycleManager : public QObject {
 
     explicit AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
                                  QObject *parent = nullptr);
-
-    // When wired, bringToForeground/closeApp route activate/close via
-    // wlr_foreign_toplevel_handle_v1 in addition to the QML lifecycle
-    // path. Optional: if unset or the client is inactive, only the QML
-    // path runs (which still works for the in-shell compositor build).
-    void                    setForeignToplevelClient(ForeignToplevelClient *client);
 
     Q_INVOKABLE void        registerApp(const QString &appId, QObject *appInstance);
     Q_INVOKABLE void        unregisterApp(const QString &appId);
@@ -114,7 +107,6 @@ class AppLifecycleManager : public QObject {
     QPointer<TaskModel>               m_taskModel;
     QPointer<AppLaunchService>        m_appLaunchService;
     CgroupManager                    *m_cgroup = nullptr;
-    QPointer<ForeignToplevelClient>   m_foreignToplevelClient;
 
     QHash<QString, QPointer<QObject>> m_appRegistry;
     QHash<QString, AppState>          m_appStates;
