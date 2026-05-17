@@ -118,3 +118,18 @@ if(SYSTEMD_FOUND)
 endif()
 
 install(TARGETS marathon-compositor RUNTIME DESTINATION bin)
+
+# systemd user units + greetd launcher for the split-process session.
+# Image-build pipelines pull these from $prefix/lib/systemd/user and
+# $prefix/libexec/marathon-session into /usr/lib/systemd/user and
+# /usr/libexec respectively.
+install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../platforms/duranium/systemd/marathon-compositor.service
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../platforms/duranium/systemd/marathon-shell.service
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../platforms/duranium/systemd/marathon-session.target
+    DESTINATION lib/systemd/user
+)
+install(PROGRAMS
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../platforms/duranium/marathon-session
+    DESTINATION libexec
+)

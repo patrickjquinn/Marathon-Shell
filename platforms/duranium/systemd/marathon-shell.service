@@ -1,0 +1,28 @@
+[Unit]
+Description=Marathon shell (UI)
+Documentation=https://github.com/patrickjquinn/Marathon-Shell
+PartOf=marathon-session.target
+Requires=marathon-compositor.service
+After=marathon-compositor.service
+# BindsTo: if the compositor stops, the shell goes with it. The
+# inverse is not true — shell can restart on its own without
+# disturbing the compositor or the running apps.
+BindsTo=marathon-compositor.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/marathon-shell-bin
+Restart=on-failure
+RestartSec=2
+
+# Wayland-client mode: bind layer-shell-qt as the QPA shell
+# integration, and let foreign-toplevel + screencopy + session-
+# lock clients drive the shell's task/thumbnail/lock surfaces.
+Environment=QT_QPA_PLATFORM=wayland
+Environment=MARATHON_WAYLAND_CLIENT_MODE=1
+Environment=WAYLAND_DISPLAY=marathon-wayland-0
+
+Slice=marathon.slice
+
+[Install]
+WantedBy=marathon-session.target

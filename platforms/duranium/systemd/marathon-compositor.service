@@ -1,0 +1,30 @@
+[Unit]
+Description=Marathon compositor
+Documentation=https://github.com/patrickjquinn/Marathon-Shell
+PartOf=marathon-session.target
+
+# The compositor owns the Wayland socket and the GPU/EGL context;
+# the shell binds to it as a Wayland client. Everything in the
+# session depends on this being up.
+Before=marathon-shell.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/bin/marathon-compositor
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=30
+
+# Export WAYLAND_DISPLAY into the user systemd env so app-runner
+# units (children of marathon.slice) inherit it without each
+# session-start script having to set it.
+ExecStartPre=/usr/bin/systemctl --user set-environment WAYLAND_DISPLAY=marathon-wayland-0
+Environment=MARATHON_WL_SOCKET_NAME=marathon-wayland-0
+
+# Same slice as the shell — both are Marathon system processes,
+# not user apps. App-runners live under marathon-apps.slice.
+Slice=marathon.slice
+
+[Install]
+WantedBy=marathon-session.target

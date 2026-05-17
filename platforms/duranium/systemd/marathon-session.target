@@ -1,0 +1,5 @@
+[Unit]
+Description=Marathon graphical session
+Documentation=https://github.com/patrickjquinn/Marathon-Shell
+Wants=marathon-compositor.service marathon-shell.service
+After=marathon-compositor.service marathon-shell.service
