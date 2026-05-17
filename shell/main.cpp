@@ -64,6 +64,7 @@
 #include "musiclibrarymanager.h"
 #include "src/wayland/waylandcompositormanager.h"
 #include "src/wayland/foreigntoplevelclient.h"
+#include "src/wayland/screencopyclient.h"
 #include "src/managers/marathoninputmethodengine.h"
 #include "src/managers/rtscheduler.h"
 #include "src/managers/cursormanager.h"
@@ -514,6 +515,25 @@ int main(int argc, char *argv[]) {
                      [taskModel](ForeignToplevelHandle *handle) {
                          if (Task *t = taskModel->getTaskByAppId(handle->appId()))
                              taskModel->closeTask(t->id());
+                     });
+
+    // Active Frames thumbnails: capture the output when a toplevel
+    // loses focus (the next frame the compositor draws still shows
+    // the outgoing app, since Marathon's single-window UX means the
+    // foreground app fills the screen). screencopy lives on the
+    // marathon-compositor side, so this is a no-op when idle.
+    auto *screencopy = new ScreencopyClient(&app);
+    QObject::connect(foreignToplevels, &ForeignToplevelClient::toplevelAdded, screencopy,
+                     [screencopy](ForeignToplevelHandle *handle) {
+                         QObject::connect(handle, &ForeignToplevelHandle::activatedChanged,
+                                          screencopy, [screencopy, handle]() {
+                                              if (!handle->activated())
+                                                  screencopy->capture(handle->appId());
+                                          });
+                     });
+    QObject::connect(screencopy, &ScreencopyClient::captured, taskModel,
+                     [taskModel](const QString &tag, const QImage &image) {
+                         taskModel->updateTaskSnapshot(tag, image);
                      });
 
     auto *powerPolicyController = new PowerPolicyController(powerManager, displayManager, &app);
