@@ -158,14 +158,16 @@ list(APPEND SOURCES
     src/managers/cursormanager.cpp
 )
 
-# foreign-toplevel-management + screencopy clients. Both go active
-# only when the matching global is advertised; otherwise inactive —
-# safe to link unconditionally.
+# foreign-toplevel-management + screencopy + session-lock clients.
+# Each goes active only when the matching global is advertised;
+# otherwise inactive — safe to link unconditionally.
 list(APPEND SOURCES
     src/wayland/foreigntoplevelclient.h
     src/wayland/foreigntoplevelclient.cpp
     src/wayland/screencopyclient.h
     src/wayland/screencopyclient.cpp
+    src/wayland/sessionlockclient.h
+    src/wayland/sessionlockclient.cpp
 )
 
 # Phase C-2 transitional: shell can run as EITHER a host-compositor (legacy,
@@ -513,6 +515,7 @@ qt6_generate_wayland_protocol_client_sources(marathon-shell
     FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
         ${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-screencopy-unstable-v1.xml
+        ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml
 )
 target_link_libraries(marathon-shell PRIVATE Qt6::WaylandClient)
 
