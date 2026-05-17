@@ -28,12 +28,9 @@ static const struct zwlr_screencopy_manager_v1_interface managerImpl = {
     .destroy               = ScreencopyManagerV1::onDestroyManager,
 };
 
-ScreencopyManagerV1::ScreencopyManagerV1(QWaylandCompositor  *compositor,
-                                         QWaylandQuickOutput *output, QQuickWindow *window)
+ScreencopyManagerV1::ScreencopyManagerV1(QWaylandCompositor *compositor)
     : QObject(compositor)
-    , m_compositor(compositor)
-    , m_output(output)
-    , m_window(window) {
+    , m_compositor(compositor) {
     m_global = wl_global_create(compositor->display(), &zwlr_screencopy_manager_v1_interface,
                                 kScreencopyVersion, this, &bind);
     if (m_global)
