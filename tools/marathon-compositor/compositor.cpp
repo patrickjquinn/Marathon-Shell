@@ -54,9 +54,13 @@ void MarathonCompositor::attachWindow(QQuickWindow *window) {
     }
     m_window = window;
 
-    m_output = new QWaylandQuickOutput;
-    m_output->setCompositor(this);
-    m_output->setWindow(window);
+    // Pass compositor + window to the constructor directly. The default
+    // ctor + setCompositor/setWindow sequence leaves the output's internal
+    // wl_output association undone during the first scene-graph sync,
+    // which segfaults under eglfs_kms on virtio-gpu (a real failure we
+    // chased through r41/r42). Constructor wiring matches what the
+    // shell's in-process compositor has done since day one.
+    m_output = new QWaylandQuickOutput(this, window);
     m_output->setSizeFollowsWindow(true);
     calculatePhysicalSize();
 
