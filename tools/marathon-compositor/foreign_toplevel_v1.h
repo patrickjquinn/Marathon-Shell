@@ -10,18 +10,16 @@ class QWaylandXdgToplevel;
 class QWaylandSurface;
 class ForeignToplevelHandleV1;
 
-// Server-side wlr_foreign_toplevel_management_unstable_v1. The marathon-
-// shell binds this from the client side via marathon-core/wayland/
-// foreigntoplevelclient.{h,cpp} (added in C-3) to drive its Active Frames
-// task list. One handle is created per xdg_toplevel surface; each
-// bound manager sees the full handle list and follows it live via
-// title/app_id/state/done events.
+// Server-side wlr_foreign_toplevel_management_unstable_v1 (v3).
 //
-// Protocol: protocols/wlr-foreign-toplevel-management-unstable-v1.xml
+// One handle per xdg_toplevel; every bound manager sees the full list
+// and follows it live via title/app_id/state/done events. activate +
+// close are routed to the underlying QWaylandXdgToplevel; the rest of
+// the protocol's window-state requests (set_maximized / _minimized /
+// _fullscreen / set_rectangle) are no-ops because Marathon is single-
+// window mobile UX.
 //
-// Phase C-3 ships full title + app_id + state + activate/close request
-// handling. set_maximized/minimized/fullscreen stay as no-ops for now
-// (Marathon is single-window mobile UX, no maximize/minimize semantics).
+// Protocol XML: protocols/wlr-foreign-toplevel-management-unstable-v1.xml
 class ForeignToplevelManagerV1 : public QObject {
     Q_OBJECT
 
@@ -29,10 +27,8 @@ class ForeignToplevelManagerV1 : public QObject {
     explicit ForeignToplevelManagerV1(QWaylandCompositor *compositor);
     ~ForeignToplevelManagerV1() override;
 
-    // Called by MarathonCompositor when a new xdg_toplevel maps. Creates
-    // a ForeignToplevelHandleV1, broadcasts a toplevel event to every
-    // bound manager. The handle lives until the underlying surface is
-    // destroyed.
+    // Creates a handle for the toplevel and announces it to every bound
+    // manager. The handle lives until the underlying surface is destroyed.
     void registerToplevel(QWaylandXdgToplevel *toplevel);
 
   private:

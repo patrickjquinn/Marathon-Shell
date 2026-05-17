@@ -37,11 +37,10 @@ class AppLifecycleManager : public QObject {
     explicit AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
                                  QObject *parent = nullptr);
 
-    // Phase C-3: when the shell runs as a Wayland client of marathon-
-    // compositor, activate/close ride wlr_foreign_toplevel_handle_v1
-    // requests instead of poking the in-process QWaylandCompositor. The
-    // setter is no-op-safe (null client => fall back to the legacy path,
-    // which still works for the in-shell compositor build).
+    // When wired, bringToForeground/closeApp route activate/close via
+    // wlr_foreign_toplevel_handle_v1 in addition to the QML lifecycle
+    // path. Optional: if unset or the client is inactive, only the QML
+    // path runs (which still works for the in-shell compositor build).
     void                    setForeignToplevelClient(ForeignToplevelClient *client);
 
     Q_INVOKABLE void        registerApp(const QString &appId, QObject *appInstance);

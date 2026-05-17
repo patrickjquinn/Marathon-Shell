@@ -71,8 +71,7 @@ void MarathonCompositor::attachWindow(QQuickWindow *window) {
     // activate, and close it from outside the compositor process.
     connect(m_xdgShell, &QWaylandXdgShell::toplevelCreated, this,
             [this](QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *) {
-                if (m_foreignToplevels)
-                    m_foreignToplevels->registerToplevel(toplevel);
+                m_foreignToplevels->registerToplevel(toplevel);
             });
 
     qCInfo(lcComp) << "ready: xdg-shell + viewporter + text-input-v2/v3 + idle-inhibit"

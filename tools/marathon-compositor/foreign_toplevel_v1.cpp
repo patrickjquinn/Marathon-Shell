@@ -80,8 +80,6 @@ void ForeignToplevelManagerV1::notifyBound(wl_resource *managerResource) {
 }
 
 void ForeignToplevelManagerV1::registerToplevel(QWaylandXdgToplevel *toplevel) {
-    if (!toplevel)
-        return;
     if (m_handlesByToplevel.contains(toplevel))
         return;
     auto *handle                  = new ForeignToplevelHandleV1(this, toplevel);
@@ -117,9 +115,6 @@ ForeignToplevelHandleV1::ForeignToplevelHandleV1(ForeignToplevelManagerV1 *manag
     : QObject(manager)
     , m_manager(manager)
     , m_toplevel(toplevel) {
-    if (!toplevel)
-        return;
-
     // Snapshot initial properties so the first done() sends a complete state.
     m_title = toplevel->title();
     m_appId = toplevel->appId();
@@ -145,11 +140,9 @@ ForeignToplevelHandleV1::ForeignToplevelHandleV1(ForeignToplevelManagerV1 *manag
         sendAppIdAll(a);
         sendDoneAll();
     });
-    // QWaylandXdgToplevel doesn't expose an "activated" signal directly,
-    // but activate() is driven by the compositor's seat focus. We emit
-    // state changes from outside via a manual call when focus shifts;
-    // for now (C-3) the activated bit is set on initial mapping if the
-    // surface is the current focus. C-3+ will hook seat focus changes.
+    // QWaylandXdgToplevel doesn't expose an "activated" signal directly;
+    // seat-focus changes will drive that in a follow-up. For now the
+    // activated bit only flips when a client calls activate.
     auto *xdgSurface = toplevel->xdgSurface();
     if (xdgSurface) {
         connect(xdgSurface->surface(), &QWaylandSurface::surfaceDestroyed, this, [this]() {

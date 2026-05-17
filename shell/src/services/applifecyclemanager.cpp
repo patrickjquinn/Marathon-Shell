@@ -146,13 +146,11 @@ void AppLifecycleManager::bringToForeground(const QString &appId) {
             m_pendingForegroundApps.push_back(appId);
     }
 
-    // Tell the compositor to actually raise + focus this client's surface.
-    // The QML registry path above starts the app object but doesn't move
-    // the Wayland surface to the top — that's the compositor's job and the
-    // foreign-toplevel `activate` request is how we ask for it from the
-    // client side. Cheap to call even if the app's still launching: the
-    // handle will arrive later and the next bringToForeground (or the
-    // initial focus the compositor grants new surfaces) will set state.
+    // The QML path above drives the app's own lifecycle hooks but
+    // doesn't raise the Wayland surface — that's the compositor's
+    // call, requested via foreign-toplevel `activate`. No-op if the
+    // app's handle hasn't arrived yet; the compositor focuses new
+    // surfaces by default, so first launch lands focused anyway.
     if (m_foreignToplevelClient && m_foreignToplevelClient->isActive()) {
         if (auto *handle = m_foreignToplevelClient->handleForAppId(appId))
             handle->requestActivate();
