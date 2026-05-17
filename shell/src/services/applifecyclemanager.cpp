@@ -3,7 +3,6 @@
 #include "applaunchservice.h"
 #include "cgroupmanager.h"
 #include "taskmodel.h"
-#include "wayland/foreigntoplevelclient.h"
 
 #include <QDateTime>
 #include <QFile>
@@ -145,20 +144,6 @@ void AppLifecycleManager::bringToForeground(const QString &appId) {
         if (!m_pendingForegroundApps.contains(appId))
             m_pendingForegroundApps.push_back(appId);
     }
-
-    // The QML path above drives the app's own lifecycle hooks but
-    // doesn't raise the Wayland surface — that's the compositor's
-    // call, requested via foreign-toplevel `activate`. No-op if the
-    // app's handle hasn't arrived yet; the compositor focuses new
-    // surfaces by default, so first launch lands focused anyway.
-    if (m_foreignToplevelClient && m_foreignToplevelClient->isActive()) {
-        if (auto *handle = m_foreignToplevelClient->handleForAppId(appId))
-            handle->requestActivate();
-    }
-}
-
-void AppLifecycleManager::setForeignToplevelClient(ForeignToplevelClient *client) {
-    m_foreignToplevelClient = client;
 }
 
 void AppLifecycleManager::restoreApp(const QString &appId) {

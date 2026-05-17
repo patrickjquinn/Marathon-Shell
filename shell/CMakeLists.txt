@@ -158,25 +158,6 @@ list(APPEND SOURCES
     src/managers/cursormanager.cpp
 )
 
-# foreign-toplevel-management + screencopy + session-lock clients.
-# Each goes active only when the matching global is advertised;
-# otherwise inactive — safe to link unconditionally.
-list(APPEND SOURCES
-    src/wayland/foreigntoplevelclient.h
-    src/wayland/foreigntoplevelclient.cpp
-    src/wayland/screencopyclient.h
-    src/wayland/screencopyclient.cpp
-    src/wayland/sessionlockclient.h
-    src/wayland/sessionlockclient.cpp
-)
-
-# Phase C-2 transitional: shell can run as EITHER a host-compositor (legacy,
-# default) OR a Wayland client of marathon-compositor (when launched with
-# MARATHON_WAYLAND_CLIENT_MODE=1 and QT_QPA_PLATFORM=wayland). We keep the
-# in-process compositor sources linked during the transition so app launch
-# still works while Phase C-3 (foreign-toplevel-management) is being wired.
-# Phase C-6 will fully drop Qt6::WaylandCompositor once the launch path
-# moves to direct QProcess spawn + foreign-toplevel surface tracking.
 if(TARGET Qt6::WaylandCompositor)
     list(APPEND SOURCES
         src/wayland/waylandcompositor.h
@@ -486,38 +467,18 @@ if(TARGET oxford-step-counter)
     target_link_libraries(marathon-shell PRIVATE oxford-step-counter)
 endif()
 
-# Legacy in-shell compositor path (will go away in Phase C-6 when the
-# launch flow moves to foreign-toplevel-management + direct QProcess).
+# Link additional conditional dependencies
+
 if(TARGET Qt6::WaylandCompositor)
     target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositor)
     target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND)
 
+    # Link private module for text-input-v3 access
     if(TARGET Qt6::WaylandCompositorPrivate)
         target_link_libraries(marathon-shell PRIVATE Qt6::WaylandCompositorPrivate)
         target_compile_definitions(marathon-shell PRIVATE HAVE_WAYLAND_PRIVATE)
     endif()
 endif()
-
-# Phase C-2: link KDE's layer-shell-qt so MarathonShell.qml's top-level
-# Window can be turned into a wlr-layer-shell surface (Overlay layer,
-# anchored fullscreen) when running as a Wayland client of marathon-
-# compositor. Gated at runtime by MARATHON_WAYLAND_CLIENT_MODE.
-find_package(LayerShellQt REQUIRED)
-target_link_libraries(marathon-shell PRIVATE LayerShellQtInterface)
-target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_LAYER_SHELL=1)
-
-# qtwaylandscanner-generated client glue for wlr-foreign-toplevel-
-# management. Emits a `qwayland-*.h` public header alongside a private
-# `wayland-*-client-protocol.h`; the generated files land in the build
-# dir, which is already on the include path.
-find_package(Qt6 REQUIRED COMPONENTS WaylandClient)
-qt6_generate_wayland_protocol_client_sources(marathon-shell
-    FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
-        ${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-screencopy-unstable-v1.xml
-        ${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml
-)
-target_link_libraries(marathon-shell PRIVATE Qt6::WaylandClient)
 
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
