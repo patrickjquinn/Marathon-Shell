@@ -2,6 +2,7 @@
 
 #include "foreign_toplevel_v1.h"
 #include "layer_shell_v1.h"
+#include "screencopy_v1.h"
 #include "session_lock_v1.h"
 #include "textinputv3.h"
 
@@ -65,6 +66,7 @@ void MarathonCompositor::attachWindow(QQuickWindow *window) {
     m_layerShell       = new WlrLayerShellV1(this);
     m_sessionLock      = new ExtSessionLockManagerV1(this);
     m_foreignToplevels = new ForeignToplevelManagerV1(this);
+    m_screencopy       = new ScreencopyManagerV1(this, m_output, window);
 
     // Bridge xdg-shell → foreign-toplevel-management: every new
     // xdg_toplevel gets a foreign-toplevel handle so the shell can list,
@@ -76,7 +78,7 @@ void MarathonCompositor::attachWindow(QQuickWindow *window) {
 
     qCInfo(lcComp) << "ready: xdg-shell + viewporter + text-input-v2/v3 + idle-inhibit"
                    << "+ wlr-layer-shell-v1 + ext-session-lock-v1"
-                   << "+ wlr-foreign-toplevel-management-v1";
+                   << "+ wlr-foreign-toplevel-management-v1 + wlr-screencopy-v1";
 }
 
 void MarathonCompositor::calculatePhysicalSize() {

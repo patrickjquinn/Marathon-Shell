@@ -13,6 +13,7 @@
 // pointed-to class is fully defined. Forward decls fail that check.
 #include "foreign_toplevel_v1.h"
 #include "layer_shell_v1.h"
+#include "screencopy_v1.h"
 #include "session_lock_v1.h"
 #include "textinputv3.h"
 
@@ -34,6 +35,7 @@ class MarathonCompositor : public QWaylandCompositor {
     Q_PROPERTY(WlrLayerShellV1 *layerShell READ layerShell CONSTANT)
     Q_PROPERTY(ExtSessionLockManagerV1 *sessionLock READ sessionLock CONSTANT)
     Q_PROPERTY(ForeignToplevelManagerV1 *foreignToplevels READ foreignToplevels CONSTANT)
+    Q_PROPERTY(ScreencopyManagerV1 *screencopy READ screencopy CONSTANT)
     QML_ELEMENT
 
   public:
@@ -59,6 +61,9 @@ class MarathonCompositor : public QWaylandCompositor {
     ForeignToplevelManagerV1 *foreignToplevels() const {
         return m_foreignToplevels;
     }
+    ScreencopyManagerV1 *screencopy() const {
+        return m_screencopy;
+    }
 
   private:
     void calculatePhysicalSize();
@@ -77,4 +82,5 @@ class MarathonCompositor : public QWaylandCompositor {
     WlrLayerShellV1              *m_layerShell       = nullptr;
     ExtSessionLockManagerV1      *m_sessionLock      = nullptr;
     ForeignToplevelManagerV1     *m_foreignToplevels = nullptr;
+    ScreencopyManagerV1          *m_screencopy       = nullptr;
 };
