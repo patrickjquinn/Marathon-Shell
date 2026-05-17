@@ -480,49 +480,38 @@ int main(int argc, char *argv[]) {
     qmlRegisterSingletonInstance<AppLifecycleManager>("MarathonOS.Shell", 1, 0,
                                                       "AppLifecycleManager", appLifecycleManager);
 
-    // Phase C-3: foreign-toplevel-management client. Populates TaskModel
-    // from marathon-compositor's `toplevel` events and gives
-    // AppLifecycleManager a handle to call `activate` on the compositor
-    // side when foregrounding apps. Always instantiated; goes active only
-    // when the global is advertised (i.e. when we're a Wayland client of
-    // marathon-compositor). In legacy host-compositor mode it just sits idle.
+    // Wayland-client mode: populate TaskModel from foreign-toplevel
+    // events instead of the in-shell compositor's surface map, and let
+    // AppLifecycleManager route activate/close through the protocol.
+    // Stays idle in legacy host-compositor mode (no global to bind).
     auto *foreignToplevels = new ForeignToplevelClient(&app);
     appLifecycleManager->setForeignToplevelClient(foreignToplevels);
 
     QObject::connect(foreignToplevels, &ForeignToplevelClient::toplevelAdded, &app,
                      [taskModel, appModel](ForeignToplevelHandle *handle) {
-                         if (!handle || !taskModel)
-                             return;
                          const QString appId = handle->appId();
                          if (appId.isEmpty())
                              return;
-                         if (taskModel->getTaskByAppId(appId)) {
-                             // The legacy in-shell path (still running until C-6) may
-                             // already have created the task — don't double-add.
+                         // Transitional dual-source: the in-shell compositor
+                         // surface path may have created the task first.
+                         if (taskModel->getTaskByAppId(appId))
                              return;
-                         }
                          QString name = appId;
                          QString icon = QStringLiteral("application-x-executable");
-                         if (appModel) {
-                             if (App *a = appModel->getApp(appId)) {
-                                 if (!a->name().isEmpty())
-                                     name = a->name();
-                                 if (!a->icon().isEmpty())
-                                     icon = a->icon();
-                             }
+                         if (App *a = appModel->getApp(appId)) {
+                             if (!a->name().isEmpty())
+                                 name = a->name();
+                             if (!a->icon().isEmpty())
+                                 icon = a->icon();
                          }
-                         // surfaceId = -1: in Wayland-client mode the shell has no
-                         // QWaylandSurfaceId; the foreign-toplevel handle IS the
-                         // surface identity. TaskCard uses appId for routing, so -1
-                         // is harmless.
+                         // surfaceId=-1: no QWaylandSurfaceId in client mode;
+                         // the foreign-toplevel handle IS the surface identity.
                          taskModel->launchTask(appId, name, icon, QStringLiteral("native"), -1,
                                                handle);
                      });
 
     QObject::connect(foreignToplevels, &ForeignToplevelClient::toplevelRemoved, &app,
                      [taskModel](ForeignToplevelHandle *handle) {
-                         if (!handle || !taskModel)
-                             return;
                          if (Task *t = taskModel->getTaskByAppId(handle->appId()))
                              taskModel->closeTask(t->id());
                      });

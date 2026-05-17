@@ -6,28 +6,18 @@
 
 #include <QtWaylandClient/qwaylandclientextension.h>
 
-// The qtwaylandscanner-generated headers live in the build dir under
-// `qwayland-wlr-foreign-toplevel-management-unstable-v1.h`. Two headers get
-// generated per protocol: the public `qwayland-*.h` (event listener +
-// request wrappers) and the private `wayland-*-client-protocol.h`. We only
-// touch the public one here.
 #include "qwayland-wlr-foreign-toplevel-management-unstable-v1.h"
 
 class ForeignToplevelHandle;
 
 // Shell-side client of zwlr_foreign_toplevel_manager_v1 v3.
 //
-// QWaylandClientExtensionTemplate handles registry walking + bind for us:
-// once the Wayland compositor advertises the manager global, this object's
-// active() property flips to true and the manager interface is bound on
-// our wl_display. From then on, every `toplevel` event minted by the
-// server becomes a new ForeignToplevelHandle exposed via the
-// `toplevelAdded` signal.
-//
-// TaskModel subscribes to toplevelAdded/Removed/Title/AppId/State and
-// drives Active Frames from those events instead of the in-process
-// QWaylandCompositor surface map. Once Phase C-6 lands, the in-process
-// path is deleted; for now both coexist behind MARATHON_WAYLAND_CLIENT_MODE.
+// QWaylandClientExtensionTemplate handles registry walking + bind, then
+// flips active() once the global is advertised. Each `toplevel` event
+// becomes a ForeignToplevelHandle exposed via toplevelAdded after its
+// first non-empty app_id arrives — emitting earlier would feed TaskModel
+// rows with empty keys (the v1 protocol bursts title/app_id/state before
+// the initial done()).
 class ForeignToplevelClient : public QWaylandClientExtensionTemplate<ForeignToplevelClient>,
                               public QtWayland::zwlr_foreign_toplevel_manager_v1 {
     Q_OBJECT
@@ -36,8 +26,6 @@ class ForeignToplevelClient : public QWaylandClientExtensionTemplate<ForeignTopl
     explicit ForeignToplevelClient(QObject *parent = nullptr);
     ~ForeignToplevelClient() override;
 
-    // Look up a live handle by app_id. Used by AppLifecycleManager to
-    // call activate/close on the right handle when the user taps a task.
     ForeignToplevelHandle *handleForAppId(const QString &appId) const;
 
   Q_SIGNALS:
@@ -56,10 +44,9 @@ class ForeignToplevelClient : public QWaylandClientExtensionTemplate<ForeignTopl
     QHash<struct ::zwlr_foreign_toplevel_handle_v1 *, ForeignToplevelHandle *> m_handles;
 };
 
-// One per zwlr_foreign_toplevel_handle_v1 resource. Mirrors the server-
-// side state (title, app_id, activated) for the shell to render. Owned
-// by ForeignToplevelClient and destroyed on the protocol's `closed`
-// event (after which `destroy` is sent and the resource is freed).
+// One per zwlr_foreign_toplevel_handle_v1 resource. Owned by the client;
+// `destroy` is sent in the dtor when still bound (closed() fires before
+// then in the normal-shutdown path).
 class ForeignToplevelHandle : public QObject, public QtWayland::zwlr_foreign_toplevel_handle_v1 {
     Q_OBJECT
     Q_PROPERTY(QString title READ title NOTIFY titleChanged)
@@ -80,9 +67,8 @@ class ForeignToplevelHandle : public QObject, public QtWayland::zwlr_foreign_top
         return m_activated;
     }
 
-    // QML-friendly request wrappers. Activate needs a seat; the shell's
-    // single QWaylandSeat is the implicit default and Qt's QPA gives us
-    // its proxy through QGuiApplication::nativeInterface().
+    // The protocol's activate request needs a wl_seat — looked up via
+    // QPA. Marathon has exactly one seat so we don't disambiguate.
     Q_INVOKABLE void requestActivate();
     Q_INVOKABLE void requestClose();
 
