@@ -27,14 +27,16 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
 
     // The threaded scene-graph render loop races LLVMpipe's non-reentrant
-    // GL context state and segfaults during first scene-graph sync. Force
-    // basic (single-threaded GUI-thread render) unless the caller has
-    // explicitly opted into threaded — works on every QPA the compositor
-    // supports (eglfs_kms, offscreen, xcb) and is what minimal-cpp /
-    // minimal-qml use upstream. Setting via env so QSG honors it before
-    // the render loop is selected.
-    if (qgetenv("QSG_RENDER_LOOP").isEmpty())
-        qputenv("QSG_RENDER_LOOP", "basic");
+    // GL context state and segfaults during first scene-graph sync.
+    // marathon-shell-session exports QSG_RENDER_LOOP=threaded for the
+    // SHELL (which is fine, the shell is a Wayland client with its own
+    // QQuickWindow lifecycle), but the COMPOSITOR inherits that env and
+    // crashes. Pin basic unconditionally here — set it via qputenv so it
+    // wins over the inherited value before Qt reads the env. Caller can
+    // override via MARATHON_COMPOSITOR_RENDER_LOOP if they really know
+    // what they're doing.
+    const QByteArray loopOverride = qgetenv("MARATHON_COMPOSITOR_RENDER_LOOP");
+    qputenv("QSG_RENDER_LOOP", loopOverride.isEmpty() ? "basic" : loopOverride);
 
     QGuiApplication::setApplicationName("Marathon Compositor");
     QGuiApplication::setOrganizationName("Marathon OS");
