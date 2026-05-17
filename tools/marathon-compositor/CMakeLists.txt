@@ -57,6 +57,8 @@ set(SOURCES
     layer_shell_v1.h
     session_lock_v1.cpp
     session_lock_v1.h
+    foreign_toplevel_v1.cpp
+    foreign_toplevel_v1.h
 )
 
 qt6_add_executable(marathon-compositor ${SOURCES})
@@ -67,6 +69,8 @@ marathon_wayland_protocol(marathon-compositor
     "${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-layer-shell-unstable-v1.xml")
 marathon_wayland_protocol(marathon-compositor
     "${CMAKE_CURRENT_SOURCE_DIR}/protocols/ext-session-lock-v1.xml")
+marathon_wayland_protocol(marathon-compositor
+    "${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-foreign-toplevel-management-unstable-v1.xml")
 # wlr-layer-shell references xdg_popup_interface from xdg-shell. Qt links
 # its own private copy that doesn't expose the C symbol, so we generate
 # the xdg-shell server stub ourselves to satisfy the reference. Symbol is
