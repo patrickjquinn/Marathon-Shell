@@ -11,6 +11,7 @@
 // Full headers (not forward declarations) — Qt's MOC-generated metatype
 // registration for Q_PROPERTY pointer types static_asserts that the
 // pointed-to class is fully defined. Forward decls fail that check.
+#include "foreign_toplevel_v1.h"
 #include "layer_shell_v1.h"
 #include "session_lock_v1.h"
 #include "textinputv3.h"
@@ -32,6 +33,7 @@ class MarathonCompositor : public QWaylandCompositor {
     Q_PROPERTY(QWaylandXdgShell *xdgShell READ xdgShell CONSTANT)
     Q_PROPERTY(WlrLayerShellV1 *layerShell READ layerShell CONSTANT)
     Q_PROPERTY(ExtSessionLockManagerV1 *sessionLock READ sessionLock CONSTANT)
+    Q_PROPERTY(ForeignToplevelManagerV1 *foreignToplevels READ foreignToplevels CONSTANT)
     QML_ELEMENT
 
   public:
@@ -54,6 +56,9 @@ class MarathonCompositor : public QWaylandCompositor {
     ExtSessionLockManagerV1 *sessionLock() const {
         return m_sessionLock;
     }
+    ForeignToplevelManagerV1 *foreignToplevels() const {
+        return m_foreignToplevels;
+    }
 
   private:
     void calculatePhysicalSize();
@@ -62,13 +67,14 @@ class MarathonCompositor : public QWaylandCompositor {
     // via QObject parentage, so Qt cleans them up. QPointer adds a guarded
     // dereference but breaks for forward-declared types in the QML
     // registration template (qmltyperegistrations needs the full type).
-    QQuickWindow                 *m_window      = nullptr;
-    QWaylandQuickOutput          *m_output      = nullptr;
-    QWaylandXdgShell             *m_xdgShell    = nullptr;
-    QWaylandViewporter           *m_viewporter  = nullptr;
-    QWaylandTextInputManager     *m_textInputV2 = nullptr;
-    QWaylandIdleInhibitManagerV1 *m_idleInhibit = nullptr;
-    TextInputManagerV3           *m_textInputV3 = nullptr;
-    WlrLayerShellV1              *m_layerShell  = nullptr;
-    ExtSessionLockManagerV1      *m_sessionLock = nullptr;
+    QQuickWindow                 *m_window           = nullptr;
+    QWaylandQuickOutput          *m_output           = nullptr;
+    QWaylandXdgShell             *m_xdgShell         = nullptr;
+    QWaylandViewporter           *m_viewporter       = nullptr;
+    QWaylandTextInputManager     *m_textInputV2      = nullptr;
+    QWaylandIdleInhibitManagerV1 *m_idleInhibit      = nullptr;
+    TextInputManagerV3           *m_textInputV3      = nullptr;
+    WlrLayerShellV1              *m_layerShell       = nullptr;
+    ExtSessionLockManagerV1      *m_sessionLock      = nullptr;
+    ForeignToplevelManagerV1     *m_foreignToplevels = nullptr;
 };

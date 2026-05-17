@@ -158,6 +158,15 @@ list(APPEND SOURCES
     src/managers/cursormanager.cpp
 )
 
+# Phase C-3: foreign-toplevel-management client (client of the standalone
+# marathon-compositor's server-side extension). Active whenever we run as
+# a Wayland client; harmless otherwise (QWaylandClientExtension just stays
+# inactive if no matching global is advertised).
+list(APPEND SOURCES
+    src/wayland/foreigntoplevelclient.h
+    src/wayland/foreigntoplevelclient.cpp
+)
+
 # Phase C-2 transitional: shell can run as EITHER a host-compositor (legacy,
 # default) OR a Wayland client of marathon-compositor (when launched with
 # MARATHON_WAYLAND_CLIENT_MODE=1 and QT_QPA_PLATFORM=wayland). We keep the
@@ -493,6 +502,21 @@ endif()
 find_package(LayerShellQt REQUIRED)
 target_link_libraries(marathon-shell PRIVATE LayerShellQtInterface)
 target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_LAYER_SHELL=1)
+
+# Phase C-3: qtwaylandscanner-generated client glue for
+# wlr-foreign-toplevel-management-unstable-v1. The generator emits a
+# `qwayland-*.h` public header and a private `wayland-*-client-protocol.h`
+# that the .cpp `#include`s transitively. Build dir is already in include
+# paths above.
+find_package(Qt6 REQUIRED COMPONENTS WaylandClient)
+qt6_generate_wayland_protocol_client_sources(marathon-shell
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
+)
+target_link_libraries(marathon-shell PRIVATE Qt6::WaylandClient)
+# Private headers needed for qpa/qplatformnativeinterface.h (wl_seat lookup).
+if(TARGET Qt6::GuiPrivate)
+    target_compile_definitions(marathon-shell PRIVATE MARATHON_HAVE_FOREIGN_TOPLEVEL=1)
+endif()
 
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)

@@ -1,5 +1,6 @@
 #include "compositor.h"
 
+#include "foreign_toplevel_v1.h"
 #include "layer_shell_v1.h"
 #include "session_lock_v1.h"
 #include "textinputv3.h"
@@ -7,6 +8,8 @@
 #include <QLoggingCategory>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QWaylandXdgSurface>
+#include <QWaylandXdgToplevel>
 
 Q_LOGGING_CATEGORY(lcComp, "marathon.compositor")
 
@@ -58,12 +61,23 @@ void MarathonCompositor::attachWindow(QQuickWindow *window) {
 
     // Now create the custom extensions — they need the compositor to be
     // fully alive (wl_display ready, sockets bound).
-    m_textInputV3 = new TextInputManagerV3(this);
-    m_layerShell  = new WlrLayerShellV1(this);
-    m_sessionLock = new ExtSessionLockManagerV1(this);
+    m_textInputV3      = new TextInputManagerV3(this);
+    m_layerShell       = new WlrLayerShellV1(this);
+    m_sessionLock      = new ExtSessionLockManagerV1(this);
+    m_foreignToplevels = new ForeignToplevelManagerV1(this);
+
+    // Bridge xdg-shell → foreign-toplevel-management: every new
+    // xdg_toplevel gets a foreign-toplevel handle so the shell can list,
+    // activate, and close it from outside the compositor process.
+    connect(m_xdgShell, &QWaylandXdgShell::toplevelCreated, this,
+            [this](QWaylandXdgToplevel *toplevel, QWaylandXdgSurface *) {
+                if (m_foreignToplevels)
+                    m_foreignToplevels->registerToplevel(toplevel);
+            });
 
     qCInfo(lcComp) << "ready: xdg-shell + viewporter + text-input-v2/v3 + idle-inhibit"
-                   << "+ wlr-layer-shell-v1 + ext-session-lock-v1";
+                   << "+ wlr-layer-shell-v1 + ext-session-lock-v1"
+                   << "+ wlr-foreign-toplevel-management-v1";
 }
 
 void MarathonCompositor::calculatePhysicalSize() {
