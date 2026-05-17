@@ -111,6 +111,10 @@
 #include <QWaylandXdgShell>
 #endif
 
+#ifdef MARATHON_HAVE_LAYER_SHELL
+#include <LayerShellQt/Window>
+#endif
+
 #ifdef HAVE_WEBENGINE
 #include <QtWebEngineQuick/QtWebEngineQuick>
 #endif
@@ -221,6 +225,30 @@ int main(int argc, char *argv[]) {
 
     QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
+
+    // Phase C-2 transitional client mode. Set MARATHON_WAYLAND_CLIENT_MODE=1
+    // when starting under marathon-compositor; the shell then renders its
+    // QQuickWindow as a wlr-layer-shell surface (Overlay layer, fullscreen)
+    // instead of hosting an in-process compositor. This relies on
+    // layer-shell-qt's QPA plugin auto-activating once the library is
+    // loaded (no explicit useLayerShell() call needed since Qt 6.5).
+    const QByteArray clientModeEnv = qgetenv("MARATHON_WAYLAND_CLIENT_MODE").trimmed().toLower();
+    const bool       waylandClientMode = (clientModeEnv == "1" || clientModeEnv == "true");
+    if (waylandClientMode) {
+        if (qgetenv("QT_QPA_PLATFORM").isEmpty())
+            qputenv("QT_QPA_PLATFORM", "wayland");
+        if (qgetenv("WAYLAND_DISPLAY").isEmpty())
+            qputenv("WAYLAND_DISPLAY", "marathon-wayland-0");
+        // Tell Qt's Wayland QPA to use layer-shell-qt's shell integration
+        // for every new QWindow created. Without this, Qt creates xdg-shell
+        // toplevels and LayerShellQt::Window::get(window) is too late —
+        // attempting to retro-fit layer-shell after first show() prints
+        // "already has a shell integration" warnings and the layer-shell
+        // surface is never assigned.
+        qputenv("QT_WAYLAND_SHELL_INTEGRATION", "layer-shell");
+        qInfo() << "[MarathonShell] Wayland client mode enabled — connecting to"
+                << qgetenv("WAYLAND_DISPLAY") << "with layer-shell QPA integration";
+    }
 
     QGuiApplication app(argc, argv);
 
@@ -352,6 +380,8 @@ int main(int argc, char *argv[]) {
     }
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
+
+    ctx->setContextProperty("MARATHON_CLIENT_MODE", waylandClientMode);
 
 #ifdef HAVE_WAYLAND
     ctx->setContextProperty("HAVE_WAYLAND", true);
@@ -819,6 +849,19 @@ int main(int argc, char *argv[]) {
         qCritical() << "No root QML objects";
         return -1;
     }
+
+#ifdef MARATHON_HAVE_LAYER_SHELL
+    // Phase C-2: in Wayland client mode the QT_WAYLAND_SHELL_INTEGRATION
+    // env var (set above) tells Qt's wayland-qpa to wrap every new
+    // QWindow as a wlr-layer-shell surface. Defaults from layer-shell-qt
+    // (layer=Top, no anchors) work for now; explicit anchor/layer
+    // configuration via LayerShellQt::Window::get() races against the
+    // QPA's initial show() — surface is already mapped by the time
+    // engine.load() returns, so attribute writes warn "already has a
+    // shell integration." Phase C-6 will move the layer-shell config to
+    // the QML side using LayerShellQt's attached-property syntax which
+    // runs at component construction (before show()).
+#endif
 
     QTimer::singleShot(
         0, &app, [&app, settingsManager, appModel, appRegistry, appScanner, permissionManager]() {
