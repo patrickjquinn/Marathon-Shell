@@ -34,7 +34,15 @@ int main(int argc, char *argv[]) {
 
     qInfo() << "Marathon compositor starting";
 
-    MarathonCompositor    compositor;
+    MarathonCompositor compositor;
+    // create() binds the wl socket and announces all globals owned by
+    // QWaylandCompositor itself (xdg-shell, viewporter, text-input-v2,
+    // idle-inhibit). It must run before attachWindow because our custom
+    // extensions register globals against compositor->display() inside
+    // attachWindow, and those wl_global_create calls were segfaulting
+    // when the display wasn't fully initialised yet.
+    compositor.create();
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty("MarathonCompositor",
                                              QVariant::fromValue(&compositor));
@@ -50,7 +58,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     compositor.attachWindow(window);
-    compositor.create();
 
 #ifdef MARATHON_HAVE_SD_NOTIFY
     // Tell systemd we're ready. The wl socket is bound by now
