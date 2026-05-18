@@ -82,15 +82,23 @@ if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_TEST_TRUSTED:-}" ]; then
     export MARATHON_TEST_TRUSTED=1
 fi
 
-# Route GL through Zink (Vulkan) under virtio-gpu. Alpine's Mesa is built
-# without the virgl Gallium driver, so the default GL path falls back to
-# llvmpipe with "virtio_gpu: driver missing". Zink + mesa-vulkan-virtio
-# (Venus protocol) reaches the host GPU through virtio-gpu-gl-pci. Requires
-# QEMU launched with: -device virtio-gpu-gl-pci,hostmem=1G,blob=true,venus=true
-#                    -display egl-headless,rendernode=/dev/dri/renderD128
-if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MESA_LOADER_DRIVER_OVERRIDE:-}" ]; then
-    export MESA_LOADER_DRIVER_OVERRIDE=zink
-fi
+# Under virtio-gpu, Mesa's loader auto-picks the virgl Gallium driver via
+# usr/lib/dri/virtio_gpu_dri.so → libgallium-26.1.0.so. virgl speaks the
+# virgl3d wire protocol to the host's virglrenderer, which translates to
+# native host GL — on M1 Asahi that's libGL → Apple GPU.
+#
+# Requires our locally-built mesa-26.1.0-r100 (or later) apks in
+# mkosi.packages/, since upstream Alpine's mesa for aarch64 is compiled
+# without virgl in _gallium_drivers. If we're running on an image WITHOUT
+# the virgl-enabled Mesa, the loader falls back to llvmpipe (software)
+# and Marathon's GL shaders still render, just slowly. We log a hint
+# either way so the failure mode is debuggable.
+#
+# No MESA_LOADER_DRIVER_OVERRIDE here — let Mesa choose. The previous
+# Zink-over-Venus path needed mesa-vulkan-virtio (Venus protocol) but
+# Venus on M1 wedges boot without unmerged 16KiB blob-alignment patches,
+# so virgl is the path forward for QEMU acceleration on Apple Silicon
+# until Venus catches up.
 
 # ---- Qt-wide env -------------------------------------------------------------
 
