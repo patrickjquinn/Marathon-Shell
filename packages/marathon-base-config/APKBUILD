@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=14
+pkgrel=15
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -50,6 +50,7 @@ source="
 	20-modesetting.conf
 	marathon-shell.service
 	greetd-marathon.toml
+	marathon.slice
 "
 package() {
 	install -Dm644 "$srcdir/99-marathon.conf" \
@@ -79,6 +80,12 @@ package() {
 
 	install -Dm644 "$srcdir/marathon-shell.service" \
 		"$pkgdir/usr/lib/systemd/system/marathon-shell.service"
+
+	# User-level slice with Delegate=yes — the shell carves marathon-apps
+	# subgroups under this for per-app cgroup.freeze (Phase B perf
+	# overhaul). See marathon-shell-session for the systemd-run hook.
+	install -Dm644 "$srcdir/marathon.slice" \
+		"$pkgdir/usr/lib/systemd/user/marathon.slice"
 	install -Dm644 "$srcdir/greetd-marathon.toml" \
 		"$pkgdir/etc/greetd/config.toml"
 	install -d "$pkgdir"/etc/systemd/system/graphical.target.wants
@@ -104,4 +111,5 @@ eeb74e7d904d8a4fe5f50924b3c81abf180630b9adf624ed0197bc5bcdea3382e72397d2af7b5339
 a608d0847faf9cf09f64602add5b994dfa04b4314e5cd4e9d315cd93c83ac02e6cec185379873fcb42b16994af9bed4506491d49f47504b8ffd4981f40d38a2e  20-modesetting.conf
 17ba6bb2983a53715a65475815dd9cbf24bbe5badbdd85e351d903cb2faafc69d48dfcc0ad316d1cd52709530cf15623cb694c7c32d02f2d3d8b5d9c87c0bcb2  marathon-shell.service
 962a78c489bb610e2725017dd41aeaaa7c031477a32c07148fe11277d0155c2b1d7b203f60294ff976e5004ba8311ce769ce4f2e5bf67d1aa5ec0d677018e63a  greetd-marathon.toml
+4da76ef721df0af33bad4dec1d57110677096e7c632aeb3409181fed405114ab4cf120c0026388d2262fd88d51de0b84a98db7fd9e385cd8fe28412018bd07fd  marathon.slice
 "

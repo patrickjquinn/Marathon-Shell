@@ -1,0 +1,17 @@
+[Unit]
+Description=Marathon Shell — delegated cgroup root
+# This is a USER-level slice. The shell runs inside it (placed there by
+# marathon-shell-session via `systemd-run --user --slice=marathon.slice
+# --scope`), and the shell's CgroupManager creates per-app subgroups under
+# marathon.slice/marathon-apps for cgroup.freeze use.
+#
+# Without Delegate=yes the shell can't write cgroup.subtree_control or mkdir
+# child cgroups, and per-app freezing degrades to a no-op (lifecycle state
+# machine still runs, just without real CPU/wakeup throttling).
+
+[Slice]
+Delegate=yes
+# Defense in depth: let systemd-oomd reclaim from this slice under
+# memory pressure even if our PSI listener is offline.
+ManagedOOMMemoryPressure=kill
+ManagedOOMMemoryPressureLimit=60%
