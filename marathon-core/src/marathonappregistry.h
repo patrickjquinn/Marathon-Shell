@@ -32,7 +32,8 @@ class MarathonAppRegistry : public QAbstractListModel {
         CategoriesRole,
         HandlesUriSchemesRole,
         DefaultForRole,
-        BackgroundCapabilitiesRole
+        BackgroundCapabilitiesRole,
+        RequiresQtModulesRole
     };
 
     struct AppInfo {
@@ -51,6 +52,7 @@ class MarathonAppRegistry : public QAbstractListModel {
         QStringList handlesUriSchemes;
         QStringList defaultFor;
         QStringList backgroundCapabilities;
+        QStringList requiresQtModules;
 
         AppInfo() = default;
         AppInfo(const QString &id, const QString &name, const QString &icon, AppType type,

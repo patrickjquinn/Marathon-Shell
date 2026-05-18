@@ -235,6 +235,11 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
         info.backgroundCapabilities.append(value.toString());
     }
 
+    QJsonArray qtModulesArray = obj.value("requiresQtModules").toArray();
+    for (const auto &value : qtModulesArray) {
+        info.requiresQtModules.append(value.toString());
+    }
+
     qDebug() << "[MarathonAppScanner] Deep links for" << info.id << ":" << info.deepLinksJson;
 
     qDebug() << "[MarathonAppScanner] Parsed manifest:"

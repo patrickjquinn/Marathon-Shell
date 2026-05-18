@@ -36,21 +36,26 @@ class AppLifecycleManager : public QObject {
     explicit AppLifecycleManager(TaskModel *taskModel, AppLaunchService *appLaunchService,
                                  QObject *parent = nullptr);
 
-    Q_INVOKABLE void        registerApp(const QString &appId, QObject *appInstance);
-    Q_INVOKABLE void        unregisterApp(const QString &appId);
-    Q_INVOKABLE QObject    *getAppInstance(const QString &appId) const;
+    Q_INVOKABLE void     registerApp(const QString &appId, QObject *appInstance);
+    Q_INVOKABLE void     unregisterApp(const QString &appId);
+    Q_INVOKABLE QObject *getAppInstance(const QString &appId) const;
 
-    Q_INVOKABLE void        bringToForeground(const QString &appId);
-    Q_INVOKABLE void        restoreApp(const QString &appId);
-    Q_INVOKABLE void        launchAppWithRoute(const QString &appId, const QString &route,
-                                               const QString &paramsJson);
+    Q_INVOKABLE void     bringToForeground(const QString &appId);
+    Q_INVOKABLE void     restoreApp(const QString &appId);
+    Q_INVOKABLE void     launchAppWithRoute(const QString &appId, const QString &route,
+                                            const QString &paramsJson);
 
-    Q_INVOKABLE bool        handleSystemBack();
-    Q_INVOKABLE bool        handleSystemForward();
-    Q_INVOKABLE bool        minimizeForegroundApp();
+    Q_INVOKABLE bool     handleSystemBack();
+    Q_INVOKABLE bool     handleSystemForward();
+    Q_INVOKABLE bool     minimizeForegroundApp();
 
-    Q_INVOKABLE void        closeApp(const QString &appId, bool skipNativeClose = false);
-    Q_INVOKABLE void        broadcastLowMemory();
+    Q_INVOKABLE void     closeApp(const QString &appId, bool skipNativeClose = false);
+    Q_INVOKABLE void     broadcastLowMemory();
+
+    // Memory-pressure kill path: pick the longest-frozen app, SIGTERM with
+    // 5 s grace then SIGKILL. Returns the killed PID or -1 if no Frozen
+    // app exists. Wired from MemoryPressureMonitor::Critical in main.cpp.
+    Q_INVOKABLE int         killOldestFrozenApp();
 
     Q_INVOKABLE QVariantMap getAppState(const QString &appId) const;
     Q_INVOKABLE bool        isAppRunning(const QString &appId) const;

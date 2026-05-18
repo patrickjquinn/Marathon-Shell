@@ -27,6 +27,13 @@
 #include <atomic>
 #include <cstring>
 
+#ifdef HAVE_WEBENGINE
+#include <QtWebEngineQuick/QtWebEngineQuick>
+#endif
+
+#include "marathonappregistry.h"
+#include "marathonappscanner.h"
+
 // Tiny QObject helper that exposes QTimeZone to QML. Qt's QML JS engine
 // silently ignores the `timeZone` option on Date.toLocaleString, so apps
 // that need DST-correct wall-clock times across IANA zones can't use the
@@ -378,7 +385,49 @@ static QString findAppQmldirPath(const QString &appAbsolutePath, const QString &
     return {};
 }
 
+// Find --app-id / -a in argv without constructing any Qt application
+// object. QtWebEngineQuick::initialize() must run before QGuiApplication
+// is created, so we peek at argv first to look up the manifest.
+static QString peekAppId(int argc, char *argv[]) {
+    auto take = [&](const QString &val) { return val.startsWith('-') ? QString() : val.trimmed(); };
+    for (int i = 1; i < argc; ++i) {
+        const QString a = QString::fromUtf8(argv[i]);
+        if ((a == QLatin1String("-a") || a == QLatin1String("--app-id")) && i + 1 < argc)
+            return take(QString::fromUtf8(argv[i + 1]));
+        if (a.startsWith(QLatin1String("--app-id=")))
+            return a.mid(QStringLiteral("--app-id=").size()).trimmed();
+        if (a.startsWith(QLatin1String("-a=")))
+            return a.mid(QStringLiteral("-a=").size()).trimmed();
+    }
+    return {};
+}
+
 int main(int argc, char *argv[]) {
+    // STAGE 1: Pre-QGuiApplication. We peek at the manifest to learn
+    // which Qt modules this app needs at process scope (currently just
+    // WebEngine). The cost of loading Chromium is then paid by app
+    // processes that actually use it, not by the shell.
+    {
+        const QString earlyAppId = peekAppId(argc, argv);
+        if (!earlyAppId.isEmpty()) {
+            MarathonAppRegistry earlyRegistry;
+            MarathonAppScanner  earlyScanner(&earlyRegistry);
+            if (earlyScanner.scanSingleApp(earlyAppId)) {
+                auto *info = earlyRegistry.getAppInfo(earlyAppId);
+                if (info && info->requiresQtModules.contains(QStringLiteral("webengine"))) {
+#ifdef HAVE_WEBENGINE
+                    QtWebEngineQuick::initialize();
+#else
+                    qWarning() << "[marathon-app-runner] App" << earlyAppId
+                               << "declares requiresQtModules=[webengine] but this"
+                                  " build of marathon-app-runner was compiled without"
+                                  " HAVE_WEBENGINE -- WebEngineView will fail to load.";
+#endif
+                }
+            }
+        }
+    }
+
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-app-runner");
     QCoreApplication::setOrganizationName("Marathon OS");

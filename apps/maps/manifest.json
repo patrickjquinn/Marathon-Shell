@@ -13,6 +13,7 @@
   "defaultFor": [],
   "searchKeywords": ["maps", "navigation", "location", "directions", "places"],
   "deepLinks": {},
-  "backgroundCapabilities": ["active-navigation", "location-tracking"]
+  "backgroundCapabilities": ["active-navigation", "location-tracking"],
+  "requiresQtModules": ["webengine"]
 }
 

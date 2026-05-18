@@ -483,10 +483,11 @@ endif()
 # Link QtDBus and QtSql for telephony and media services
 target_link_libraries(marathon-shell PRIVATE Qt6::DBus Qt6::Sql)
 
-if(HAVE_WEBENGINE)
-    target_link_libraries(marathon-shell PRIVATE Qt6::WebEngineQuick)
-    target_compile_definitions(marathon-shell PRIVATE HAVE_WEBENGINE)
-endif()
+# NOTE: Qt WebEngine intentionally NOT linked into the shell.
+# Maps / Browser / Email each import QtWebEngine in their own QML; they
+# run out-of-process under marathon-app-runner, which is the binary that
+# owns the Chromium runtime cost (gated on manifest requiresQtModules).
+# See tools/marathon-app-runner/CMakeLists.txt + main.cpp.
 
 # Link Hunspell for spell-checking
 pkg_check_modules(HUNSPELL hunspell)

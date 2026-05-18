@@ -111,10 +111,6 @@
 #include <QWaylandXdgShell>
 #endif
 
-#ifdef HAVE_WEBENGINE
-#include <QtWebEngineQuick/QtWebEngineQuick>
-#endif
-
 template <typename T, typename... Args>
 static T *createObject(QQmlContext *ctx, const char *qmlName, Args &&...args) {
     static_assert(std::is_base_of_v<QObject, T>, "T must inherit QObject");
@@ -212,10 +208,6 @@ int main(int argc, char *argv[]) {
     QGuiApplication::setApplicationName("Marathon Shell");
     QGuiApplication::setOrganizationName("Marathon OS");
 
-#ifdef HAVE_WEBENGINE
-    QtWebEngineQuick::initialize();
-#endif
-
     QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
 
@@ -223,6 +215,38 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
 
     QGuiApplication app(argc, argv);
+
+    // Verify our oom_score_adj sits at the persistent-system end of the
+    // ladder. Android uses PERSISTENT_PROC_ADJ=-800 for system_server-class
+    // processes; Marathon's shell hosts the in-process compositor, 30+
+    // service singletons, and DBus well-known names — losing it strands
+    // every running app. It must be the last thing the OOM killer
+    // considers under memory pressure.
+    //
+    // The value is set by marathon-shell-session via
+    //   systemd-run --property=OOMScoreAdjust=-800
+    // because writing values below 0 requires CAP_SYS_RESOURCE, and setting
+    // file caps on the binary makes it AT_SECURE — which makes glibc drop
+    // DBUS_SESSION_BUS_ADDRESS, breaking every IPC path
+    // (see marathon-shell.post-install). Routing the score through systemd
+    // sidesteps the cap requirement entirely.
+    {
+        QFile oom(QStringLiteral("/proc/self/oom_score_adj"));
+        if (oom.open(QIODevice::ReadOnly)) {
+            const int score = oom.readAll().trimmed().toInt();
+            oom.close();
+            if (score > 0) {
+                qWarning() << "[MarathonShell] oom_score_adj=" << score
+                           << "(expected <= -800). Launch wrapper did not set"
+                              " --property=OOMScoreAdjust. Under memory pressure"
+                              " the shell may be killed before app subprocesses,"
+                              " which strands every running app. Check"
+                              " marathon-shell-session.";
+            } else {
+                qInfo() << "[MarathonShell] oom_score_adj=" << score << "(PERSISTENT_PROC bias)";
+            }
+        }
+    }
 
     // Logging filter rules must go AFTER QGuiApplication: the QGuiApplication
     // constructor processes QT_LOGGING_RULES and Qt config-file rules,
@@ -633,17 +657,21 @@ int main(int argc, char *argv[]) {
     new BackgroundTaskObserver(appLifecycleManager, appLaunchService, mpris2Controller,
                                telephonyService, &app);
 
-    // PSI memory pressure monitor (observe-only in this phase). On
-    // High/Critical we drop the broadcastLowMemory() hint to apps and let
-    // systemd-oomd handle the actual reclamation. A targeted kill of the
-    // oldest Frozen app is a follow-up once the duranium boot test
-    // confirms freezing works end-to-end.
+    // PSI memory pressure listener. Marathon's policy ladder mirrors the
+    // industry split: at Moderate (Linux PSI some-avg10 ≥ 5%) apps get a
+    // low-memory hint; at Critical (≥ 40%) we proactively kill the
+    // longest-frozen app, matching Android's lmkd-on-PSI behavior
+    // (psi_partial_stall_ms=70ms on high-perf devices triggers low-mem;
+    // 700ms triggers critical). systemd-oomd at the slice level is the
+    // belt-and-suspenders fallback if our listener dies.
     auto *pressureMonitor = new MemoryPressureMonitor(&app);
     QObject::connect(pressureMonitor, &MemoryPressureMonitor::pressureLevelChanged,
                      appLifecycleManager,
                      [appLifecycleManager](MemoryPressureMonitor::PressureLevel level, double) {
                          if (level >= MemoryPressureMonitor::High)
                              appLifecycleManager->broadcastLowMemory();
+                         if (level >= MemoryPressureMonitor::Critical)
+                             appLifecycleManager->killOldestFrozenApp();
                      });
 
     QObject::connect(telephonyService, &TelephonyService::callStateChanged, audioRoutingManager,
