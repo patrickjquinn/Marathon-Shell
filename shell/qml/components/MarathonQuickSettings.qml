@@ -15,15 +15,34 @@ import QtQuick
 //   • Page indicator — teal bar for active, dim circles for others
 //   • Music strip — MNowBar variant (only when something is playing)
 //   • Drag handle — 44 × 4 bar centred at bottom
-Rectangle {
+Item {
     id: quickSettings
+
+    // The running app surface to blur behind the QS chrome, if any.
+    // Set by MarathonShell.qml to appWindowContainer when an app is
+    // open; null otherwise (a dark tint covers the wallpaper).
+    property Item appBackdrop: null
 
     signal closed
     signal launchApp(var app)
 
-    // Container: glass over wallpaper.
-    color: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.95)
-    border.width: 0
+    // Backdrop: live blur of the running app (iOS-style glass-over-app)
+    // when one is open, dark tint over the wallpaper otherwise.
+    AppBackdropBlur {
+        anchors.fill: parent
+        source: quickSettings.appBackdrop
+        blurAmount: 1.0
+        blurMax: 48
+        saturation: 0.5
+        brightness: -0.1
+        tint: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.55)
+    }
+
+    Rectangle {
+        anchors.fill: parent
+        visible: quickSettings.appBackdrop === null
+        color: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.95)
+    }
 
     // Tile state. Wired to SystemControlStore / SystemStatusStore.
     // Helper: descriptive sublabels per JSX QuickSettings — show meaningful
