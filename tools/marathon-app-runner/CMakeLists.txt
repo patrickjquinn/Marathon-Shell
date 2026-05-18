@@ -37,6 +37,18 @@ target_link_libraries(marathon-app-runner PRIVATE
     MarathonCore
 )
 
+# Qt WebEngine is the heaviest optional dependency in the OS. Linking it
+# into a per-app process (instead of the shell) keeps the Chromium
+# runtime cost scoped to apps that actually need it (Maps / Browser /
+# Email), and lets it die with the app under the Phase B freezer / PSI
+# kill path. Manifest must declare "requiresQtModules":["webengine"];
+# main.cpp parses argv early, scans the manifest, and only calls
+# QtWebEngineQuick::initialize() when required.
+if(HAVE_WEBENGINE)
+    target_link_libraries(marathon-app-runner PRIVATE Qt6::WebEngineQuick)
+    target_compile_definitions(marathon-app-runner PRIVATE HAVE_WEBENGINE)
+endif()
+
 install(TARGETS marathon-app-runner
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )

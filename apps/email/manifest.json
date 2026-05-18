@@ -22,5 +22,6 @@
     "compose"
   ],
   "deepLinks": {},
-  "backgroundCapabilities": ["download", "periodic-sync"]
+  "backgroundCapabilities": ["download", "periodic-sync"],
+  "requiresQtModules": ["webengine"]
 }

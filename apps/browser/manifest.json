@@ -21,5 +21,6 @@
     "history",
     "online"
   ],
-  "deepLinks": {}
+  "deepLinks": {},
+  "requiresQtModules": ["webengine"]
 }

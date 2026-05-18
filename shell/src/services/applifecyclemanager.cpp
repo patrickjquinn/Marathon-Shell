@@ -8,7 +8,13 @@
 #include <QFile>
 #include <QLoggingCategory>
 #include <QMetaObject>
+#include <QPointer>
+#include <QTimer>
 #include <QVariant>
+
+#include <csignal>
+#include <limits>
+#include <sys/types.h>
 
 Q_LOGGING_CATEGORY(lcLifecycle, "marathon.lifecycle")
 
@@ -446,17 +452,81 @@ void AppLifecycleManager::transitionTo(const QString &appId, LifecycleState newS
 }
 
 int AppLifecycleManager::oomScoreForState(LifecycleState state) {
-    // Per docs/PERF_LIFECYCLE.md. oom_score_adj range is [-1000, 1000].
-    // Negative values bias against being killed; positive values bias for.
+    // oom_score_adj range is [-1000, 1000]. Lower = less likely to be
+    // killed by the kernel OOM killer / systemd-oomd. Values below taken
+    // from Android's ProcessList ladder
+    // (FOREGROUND_APP_ADJ=0, PERCEPTIBLE/VISIBLE bands ~100-200, CACHED
+    // band 900-999) plus the iOS jetsam rule that an audio/nav/call app
+    // outranks a merely-visible one (jetsam priority Audio=12 > Foreground=10).
+    //
+    // The shell itself writes oom_score_adj=-800 in main.cpp (PERSISTENT_PROC
+    // equivalent). The values here are for app-runner subprocesses.
     switch (state) {
-        case Foreground: return -100;
-        case BackgroundActive: return -50;
-        case BackgroundIdle: return 0;
-        case Frozen: return 200;
+        // Visible app; recoverable on cold relaunch.
+        case Foreground: return 0;
+        // Holding an active capability (audio playback, navigation,
+        // active call, recording). iOS protects these OVER the foreground
+        // app — interrupting music to keep an idle visible tab alive is
+        // a UX disaster. Marathon does the same.
+        case BackgroundActive: return -100;
+        // Backgrounded, no capabilities, within the freeze debounce window.
+        // Above-foreground oom_score but below cached, so the kernel will
+        // pick frozen apps first under pressure.
+        case BackgroundIdle: return 300;
+        // Frozen via cgroup.freeze. Eligible for kernel kill; we also
+        // kill oldest-frozen-first from MemoryPressureMonitor at Critical.
+        case Frozen: return 950;
         case Killed: return 0;
         case Unregistered: return 0;
     }
     return 0;
+}
+
+int AppLifecycleManager::killOldestFrozenApp() {
+    QString oldestId;
+    qint64  oldestEnter = std::numeric_limits<qint64>::max();
+    for (auto it = m_appStates.constBegin(); it != m_appStates.constEnd(); ++it) {
+        if (it.value().state != Frozen)
+            continue;
+        if (it.value().stateEnteredMs < oldestEnter) {
+            oldestEnter = it.value().stateEnteredMs;
+            oldestId    = it.key();
+        }
+    }
+    if (oldestId.isEmpty()) {
+        qCInfo(lcLifecycle) << "killOldestFrozenApp: no frozen apps to kill";
+        return -1;
+    }
+    if (!m_appLaunchService) {
+        qCWarning(lcLifecycle) << "killOldestFrozenApp: no AppLaunchService";
+        return -1;
+    }
+    const qint64 pid = m_appLaunchService->pidForAppId(oldestId);
+    if (pid <= 0) {
+        qCWarning(lcLifecycle) << "killOldestFrozenApp: no PID for" << oldestId;
+        return -1;
+    }
+    qCInfo(lcLifecycle) << "killOldestFrozenApp: SIGTERM pid" << pid << "appId=" << oldestId
+                        << "(frozen for"
+                        << (QDateTime::currentMSecsSinceEpoch() - oldestEnter) / 1000 << "s)";
+    // Thaw before SIGTERM so the app can run its cleanup / cgroup.freeze=1
+    // would otherwise block the signal handler from executing.
+    if (m_cgroup && m_cgroup->isAvailable())
+        m_cgroup->setAppFrozen(oldestId, false);
+    ::kill(static_cast<pid_t>(pid), SIGTERM);
+    // SIGKILL fallback if the app doesn't exit cleanly.
+    QPointer<AppLifecycleManager> self(this);
+    QTimer::singleShot(5000, this, [self, oldestId, pid]() {
+        if (!self)
+            return;
+        if (self->m_appLaunchService && self->m_appLaunchService->pidForAppId(oldestId) == pid) {
+            qCInfo(lcLifecycle) << "killOldestFrozenApp: SIGKILL pid" << pid
+                                << "(SIGTERM grace expired)";
+            ::kill(static_cast<pid_t>(pid), SIGKILL);
+        }
+    });
+    transitionTo(oldestId, Killed);
+    return static_cast<int>(pid);
 }
 
 void AppLifecycleManager::writeOomScoreAdj(const QString &appId, LifecycleState state) {
