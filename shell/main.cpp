@@ -214,6 +214,14 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setAttribute(Qt::AA_SynthesizeTouchForUnhandledMouseEvents);
     QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents);
 
+    // AA_ShareOpenGLContexts was previously set as an implicit side effect
+    // of QtWebEngineQuick::initialize(). After the WebEngine refactor moved
+    // that init to marathon-app-runner, the shell lost the attribute and
+    // its QSG scenegraph hits a SIGSEGV on LLVMpipe at first-frame init
+    // (reproduced in duranium r49 QEMU). Set it explicitly here so the
+    // attribute stays even when the shell never imports WebEngine.
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
     QGuiApplication app(argc, argv);
 
     // Verify our oom_score_adj sits at the persistent-system end of the
