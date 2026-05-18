@@ -179,5 +179,27 @@ mkdir -p /home/user/.marathon 2>/dev/null
 } > /home/user/.marathon/session-env.log 2>&1
 
 # ---- Launch ------------------------------------------------------------------
+#
+# The shell is launched inside a Delegate=yes user slice so it can carve
+# per-app cgroups for cgroup.freeze (see CgroupManager). We probe for
+# systemd-run + the marathon.slice unit first; if either is missing
+# (older images, debug runs) we fall through to a plain exec and the
+# lifecycle freezer becomes a no-op cleanly.
+
+if command -v systemd-run >/dev/null 2>&1 && \
+   systemctl --user cat marathon.slice >/dev/null 2>&1; then
+    # OOMScoreAdjust=-800 pins the shell process at Android's
+    # PERSISTENT_PROC_ADJ band. The shell hosts the in-process compositor
+    # + 30+ service singletons + DBus well-known names; losing it strands
+    # every running app. systemd applies this on our behalf so the shell
+    # binary itself does NOT need CAP_SYS_RESOURCE (which would mark it
+    # AT_SECURE and break DBUS_SESSION_BUS_ADDRESS env propagation —
+    # see marathon-shell.post-install for the historical reason).
+    exec systemd-run --user --quiet --collect --scope \
+        --slice=marathon.slice \
+        --unit="marathon-shell-$$" \
+        --property=OOMScoreAdjust=-800 \
+        -- /usr/bin/marathon-shell-bin "$@"
+fi
 
 exec /usr/bin/marathon-shell-bin "$@"
