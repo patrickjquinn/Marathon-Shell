@@ -1314,7 +1314,6 @@ Item {
         visible: !SessionStore.isLocked && UIStore.quickSettingsHeight > 0
         z: Constants.zIndexQuickSettings
         clip: true
-        appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         onClosed: {
             UIStore.closeQuickSettings();
         }
@@ -1488,7 +1487,6 @@ Item {
 
         anchors.fill: parent
         z: Constants.zIndexLockScreen
-        appBackdrop: UIStore.appWindowOpen ? appWindowContainer : null
         onUnlockRequested: {
             if (SessionStore.checkSession()) {
                 Logger.state("Shell", "locked", "unlocked");
