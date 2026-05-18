@@ -144,6 +144,20 @@ Item {
             compositor.systemHomeTriggered.connect(handleHomeKey);
             compositor.userActivity.connect(PowerManagerService.updateActivity);
         }
+        // xdg-shell v6 suspend: BgIdle (3) or Frozen (4) → suspended;
+        // Foreground (1) / BgActive (2) → not suspended. Co-operating
+        // clients (Qt 6 apps, Chromium) pause their render loop on the
+        // suspended state so we save CPU between the lifecycle debounce
+        // and the actual cgroup.freeze. Only flip when the suspend
+        // boolean actually changes to avoid spamming configure events.
+        AppLifecycleManager.stateChanged.connect(function (appId, oldState, newState) {
+            if (!compositor)
+                return;
+            const wantSuspend = newState >= 3 && newState <= 4;
+            const wasSuspend = oldState >= 3 && oldState <= 4;
+            if (wantSuspend !== wasSuspend)
+                compositor.sendSuspendedState(appId, wantSuspend);
+        });
         // --start-on=<surface> for visual-validation harness only.
         // Honoured alongside --skip-lock; no-op without it.
         // --demo-notifications seeds five canonical notifications matching

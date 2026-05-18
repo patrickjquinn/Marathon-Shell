@@ -1211,3 +1211,45 @@ bool WaylandCompositor::eventFilter(QObject *watched, QEvent *event) {
 
     return QObject::eventFilter(watched, event);
 }
+
+void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended) {
+    if (appId.isEmpty())
+        return;
+
+    // xdg-shell v6 state code (Qt 6.10's public State enum stops at
+    // ActivatedState=4; the wire protocol number is in
+    // qwayland-server-xdg-shell.h:state_suspended=9).
+    constexpr int        kStateSuspended = 9;
+
+    QWaylandXdgToplevel *toplevel = nullptr;
+    int                  foundId  = -1;
+    for (auto it = m_xdgSurfaceMap.constBegin(); it != m_xdgSurfaceMap.constEnd(); ++it) {
+        QWaylandXdgSurface *xdgSurface = it.value();
+        if (!xdgSurface || !xdgSurface->surface())
+            continue;
+        if (xdgSurface->surface()->property("appId").toString() != appId)
+            continue;
+        toplevel = xdgSurface->surface()->property("xdgToplevel").value<QWaylandXdgToplevel *>();
+        foundId  = it.key();
+        break;
+    }
+    if (!toplevel)
+        return;
+
+    QList<int> states;
+    if (toplevel->activated())
+        states << static_cast<int>(QWaylandXdgToplevel::ActivatedState);
+    if (toplevel->maximized())
+        states << static_cast<int>(QWaylandXdgToplevel::MaximizedState);
+    if (toplevel->fullscreen())
+        states << static_cast<int>(QWaylandXdgToplevel::FullscreenState);
+    if (toplevel->resizing())
+        states << static_cast<int>(QWaylandXdgToplevel::ResizingState);
+    if (suspended)
+        states << kStateSuspended;
+
+    const QSize size = (m_output && m_output->window()) ? m_output->window()->size() : QSize(0, 0);
+    toplevel->sendConfigure(size, states);
+    qInfo() << "[WaylandCompositor] xdg-suspend appId=" << appId << "suspended=" << suspended
+            << "surfaceId=" << foundId;
+}

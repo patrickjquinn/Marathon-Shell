@@ -45,7 +45,14 @@ class WaylandCompositor : public QWaylandCompositor {
     Q_INVOKABLE void     injectKey(int key, int modifiers, bool pressed);
     Q_INVOKABLE bool     checkIdleInhibitors();
 
-    bool                 hasIdleInhibitingSurface() const {
+    // Emits xdg_toplevel.configure with state_suspended (9) added to or
+    // removed from the toplevel's state list. The xdg-shell v6 suspend
+    // state lets cooperating clients (Qt, Chromium) pause their render
+    // loop voluntarily — paired with the AppLifecycleManager BgIdle/
+    // Frozen transitions for graceful suspend before cgroup.freeze.
+    Q_INVOKABLE void sendSuspendedState(const QString &appId, bool suspended);
+
+    bool             hasIdleInhibitingSurface() const {
         return m_hasIdleInhibitor;
     }
 
