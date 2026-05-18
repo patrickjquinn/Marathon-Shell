@@ -73,6 +73,15 @@ if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_NO_INITIAL_LOCK:-}" ]; then
     export MARATHON_NO_INITIAL_LOCK=1
 fi
 
+# Headless QEMU validation needs to drive Navigation.LaunchApp etc. via
+# busctl without coming from a registered Marathon app PID. The shell's
+# DBus services normally reject those calls with AccessDenied; the test
+# bypass admits a synthetic trusted caller. Strictly QEMU-only —
+# IS_VIRTIO_GPU is the same gate used for MARATHON_FORCE_DPI/NO_INITIAL_LOCK.
+if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_TEST_TRUSTED:-}" ]; then
+    export MARATHON_TEST_TRUSTED=1
+fi
+
 # Route GL through Zink (Vulkan) under virtio-gpu. Alpine's Mesa is built
 # without the virgl Gallium driver, so the default GL path falls back to
 # llvmpipe with "virtio_gpu: driver missing". Zink + mesa-vulkan-virtio
@@ -188,17 +197,15 @@ mkdir -p /home/user/.marathon 2>/dev/null
 
 if command -v systemd-run >/dev/null 2>&1 && \
    systemctl --user cat marathon.slice >/dev/null 2>&1; then
-    # OOMScoreAdjust=-800 pins the shell process at Android's
-    # PERSISTENT_PROC_ADJ band. The shell hosts the in-process compositor
-    # + 30+ service singletons + DBus well-known names; losing it strands
-    # every running app. systemd applies this on our behalf so the shell
-    # binary itself does NOT need CAP_SYS_RESOURCE (which would mark it
-    # AT_SECURE and break DBUS_SESSION_BUS_ADDRESS env propagation —
-    # see marathon-shell.post-install for the historical reason).
+    # NOTE: pinning OOMScoreAdjust=-800 via systemd-run --user --property=
+    # fails on this systemd build (user-bus rejects negative values that
+    # require CAP_SYS_RESOURCE — "Unknown assignment" error, shell never
+    # launches). Tracked separately; shell logs a warning at boot if the
+    # score is not at PERSISTENT_PROC bias. A future fix lands a
+    # system-level marathon-shell.service that systemd itself privileges.
     exec systemd-run --user --quiet --collect --scope \
         --slice=marathon.slice \
         --unit="marathon-shell-$$" \
-        --property=OOMScoreAdjust=-800 \
         -- /usr/bin/marathon-shell-bin "$@"
 fi
 
