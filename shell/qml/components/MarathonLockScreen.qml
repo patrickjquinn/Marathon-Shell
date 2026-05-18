@@ -10,6 +10,11 @@ import QtQuick.Effects
 Item {
     id: lockScreen
 
+    // The running app surface to blur behind the lock chrome, if any.
+    // Set by MarathonShell.qml to appWindowContainer when an app is
+    // open; null otherwise (the wallpaper renders through normally).
+    property Item appBackdrop: null
+
     property real swipeProgress: 0
     property int idleTimeoutMs: 30000
     readonly property int roleIsRead: roleId("isRead")
@@ -178,6 +183,17 @@ Item {
 
         WallpaperSlateAurora {
             anchors.fill: parent
+            visible: lockScreen.appBackdrop === null
+        }
+
+        AppBackdropBlur {
+            anchors.fill: parent
+            source: lockScreen.appBackdrop
+            blurAmount: 1.0
+            blurMax: 64
+            saturation: 0.4
+            brightness: -0.15
+            tint: Qt.rgba(0, 0, 0, 0.25)
         }
 
         MarathonStatusBar {
