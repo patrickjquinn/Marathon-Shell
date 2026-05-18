@@ -193,6 +193,7 @@ endif()
 set(QML_FILES
     qml/Main.qml
     qml/MarathonShell.qml
+    qml/components/AppBackdropBlur.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonLockShortcuts.qml
     qml/components/MarathonActiveFramesHome.qml
