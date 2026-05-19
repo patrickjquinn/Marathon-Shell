@@ -351,6 +351,21 @@ async fn mint_access_token(account_id: &str) -> Result<(String, u64, Option<Stri
 
 fn main() {
     let cli = Cli::parse();
+
+    // Permission gate. AppLaunchService sets MARATHON_PERM_SECRET_SERVICE=1
+    // for apps whose manifest declares the `secret-service` permission.
+    // We require it for every code path here (Add stores a refresh token,
+    // Token reads one, Remove deletes one) — without it we refuse to touch
+    // the keyring even though the session-bus socket is technically
+    // reachable inside the sandbox. This is the policy enforcement point.
+    if std::env::var("MARATHON_PERM_SECRET_SERVICE").as_deref() != Ok("1") {
+        fail(
+            "permission_denied",
+            "MARATHON_PERM_SECRET_SERVICE not granted — \
+             app manifest must declare \"secret-service\" permission",
+        );
+    }
+
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

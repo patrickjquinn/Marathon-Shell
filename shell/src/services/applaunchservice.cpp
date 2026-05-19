@@ -391,6 +391,16 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
     if (permissions.contains("storage")) {
         env.insert("MARATHON_PERM_STORAGE", "1");
     }
+    // Secret Service (org.freedesktop.secrets) lives on the session bus.
+    // The session bus socket is already inside the sandbox via the
+    // XDG_RUNTIME_DIR bind (it shares the same dir as the Wayland socket
+    // we MUST expose), so no extra bwrap flag is needed. Instead we
+    // surface the permission as an env var the app/helper can gate on —
+    // marathon-mail-oauth refuses to read/write keyring entries unless
+    // MARATHON_PERM_SECRET_SERVICE=1 is set in its environment.
+    if (permissions.contains("secret-service")) {
+        env.insert("MARATHON_PERM_SECRET_SERVICE", "1");
+    }
 
     // Build the app command. If bubblewrap is present, wrap marathon-app-runner
     // in a sandbox so an app process can no longer reach the shell's QSettings
