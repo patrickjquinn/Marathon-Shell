@@ -1,4 +1,5 @@
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -53,18 +54,10 @@ Item {
         border.color: MColors.whiteOverlay08
     }
 
-    // Inner highlight — top-edge only per the DS "lit from above"
-    // pattern (matches MCard, MButton, MAppIcon home tiles). 1 px
-    // white-06 along the top inside the outer ring. The previous
-    // 4-sided ring read as a heavy double border.
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.leftMargin: 1
-        anchors.rightMargin: 1
-        anchors.topMargin: 1
-        height: 1
+    // Inner highlight — top arc only, follows the squircle path
+    // (matches MCard, MButton, MAppIcon home tiles).
+    MTopHairline {
+        radius: MRadius.md
         color: MColors.whiteOverlay06
     }
 

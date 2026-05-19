@@ -1120,20 +1120,11 @@ Item {
             layer.enabled: appWindowContainer.showCardFrame
             clip: true
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: appWindowContainer.showCardFrame ? 1 : 0
-                border.color: Qt.rgba(255, 255, 255, 0.03)
-
-                Behavior on border.width {
-                    NumberAnimation {
-                        duration: 200
-                        easing.type: Easing.OutCubic
-                    }
-                }
+            MTopHairline {
+                visible: appWindowContainer.showCardFrame
+                radius: parent.radius
+                color: Qt.rgba(255, 255, 255, 0.03)
+                lineWidth: 1
             }
 
             Rectangle {

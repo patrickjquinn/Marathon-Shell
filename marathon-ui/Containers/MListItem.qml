@@ -1,7 +1,8 @@
+import MarathonOS.Shell
+import MarathonUI.Effects
+import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
-import MarathonUI.Theme
-import MarathonOS.Shell
 
 Rectangle {
     id: root
@@ -154,13 +155,10 @@ Rectangle {
                 blurMax: 2
             }
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.03)
+            MTopHairline {
+                radius: parent.radius
+                color: Qt.rgba(1, 1, 1, 0.03)
+                lineWidth: 1
             }
         }
 

@@ -1,4 +1,5 @@
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import MarathonOS.Shell 1.0
 import QtQuick
@@ -187,18 +188,14 @@ Item {
                         }
 
                         // Inner 1 px white-15 TOP-only highlight — DS
-                        // app-icon frame inset 0 1px 0 rgba(255,255,255,0.15).
-                        // Sits one pixel inside the outer ring so it
-                        // reads as a "lit from above" edge, not a full
-                        // 4-sided inner stroke.
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.leftMargin: 1
-                            anchors.rightMargin: 1
-                            anchors.topMargin: 1
-                            height: 1
+                        // app-icon frame `inset 0 1px 0 rgba(255,255,255,0.15)`.
+                        // MTopHairline traces the top arc of the
+                        // squircle (PathArc → PathLine → PathArc) so
+                        // the highlight follows the corner radius
+                        // instead of extending past it as a flat
+                        // horizontal bar.
+                        MTopHairline {
+                            radius: MRadius.squircle
                             color: Qt.rgba(1, 1, 1, 0.15)
                             z: 3
                         }

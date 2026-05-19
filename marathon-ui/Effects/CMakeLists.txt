@@ -3,6 +3,7 @@
 set(EFFECTS_QML_FILES
     MRipple.qml
     MHaptics.qml
+    MTopHairline.qml
     WallpaperSlateAurora.qml
 )
 

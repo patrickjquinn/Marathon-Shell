@@ -81,20 +81,15 @@ Rectangle {
     }
 
     // Inner highlight — DS prescribes an asymmetric "lit from above"
-    // edge treatment: a single 1 px bright stroke on the TOP edge of the
-    // card, not a full 4-sided ring. Matches the m-card CSS spec
-    // `inset 0 1px 0 var(--w-06)` and lines up with how buttons, keys,
-    // and toggles all share the same "highlight on top, shadow on
-    // bottom" reading from the reference shots.
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.leftMargin: shadowMargin1
-        anchors.rightMargin: shadowMargin1
-        anchors.topMargin: shadowMargin1
-        height: borderWidth
+    // edge treatment: a single 1 px bright stroke on the TOP edge,
+    // not a full 4-sided ring. Matches the m-card CSS spec
+    // `inset 0 1px 0 var(--w-06)`. MTopHairline traces the top arc
+    // so the highlight follows the card's corner radius.
+    MTopHairline {
+        radius: root.radius
         color: MElevation.getBorderInner(elevation)
+        lineWidth: borderWidth
+        inset: shadowMargin1
     }
 
     Item {

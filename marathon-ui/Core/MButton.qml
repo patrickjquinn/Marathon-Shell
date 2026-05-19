@@ -165,19 +165,14 @@ Item {
         }
 
         // Top-edge inset highlight per JSX m-btn (.primary uses
-        // rgba(255,255,255,0.25); .secondary uses w-04). 1 px tall, sits
-        // just inside the top border to give the "lit from above" look —
-        // not a full 4-sided inner stroke.
-        Rectangle {
+        // rgba(255,255,255,0.30); .secondary uses w-04). Traces the
+        // top arc of buttonRect so it follows the corner radius
+        // instead of stopping short at a flat line past the curve.
+        MTopHairline {
             visible: !root.disabled && root.variant !== "ghost"
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.leftMargin: 2
-            anchors.rightMargin: 2
-            anchors.topMargin: 1
-            height: 1
+            radius: MRadius.md
             color: root.isPrimary ? Qt.rgba(1, 1, 1, 0.30) : MColors.whiteOverlay04
+            inset: 2
         }
 
         Row {
