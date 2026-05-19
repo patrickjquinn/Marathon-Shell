@@ -14,6 +14,7 @@ qt6_add_qml_module(marathon-ui-controls
         MQSTile.qml
         MQSSlider.qml
         MFilterChip.qml
+        MTextField.qml
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Controls
 )
 
@@ -35,6 +36,7 @@ if(QMLLINT_AVAILABLE)
         MQSTile.qml
         MQSSlider.qml
         MFilterChip.qml
+        MTextField.qml
     )
 endif()
 
@@ -60,5 +62,6 @@ install(FILES
     MQSTile.qml
     MQSSlider.qml
     MFilterChip.qml
+    MTextField.qml
     DESTINATION ${MARATHON_UI_DIR}/Controls
 )
