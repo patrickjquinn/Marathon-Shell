@@ -1,4 +1,5 @@
 #include "src/wayland/waylandcompositor.h"
+#include "src/wayland/fifov1.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/textinputv3.h"
 #include <QDebug>
@@ -113,6 +114,14 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // follow-up commit; this enables the global so the runtime side can
     // be developed against a real implementation.
     m_securityContextManager = new SecurityContextManagerV1(this);
+
+    // wp_fifo_v1 — queued-presentation barriers. Surfaces with
+    // set_barrier / wait_barrier get FIFO ordering enforced at the
+    // Qt scene-graph swap boundary (QQuickWindow::frameSwapped). Apps
+    // that bind this protocol (SDL3, Chromium Ozone, future Mesa
+    // presentation loop) get the strict frame-N-before-N+1 guarantee
+    // they need for jank-free animation.
+    m_fifoManager = new FifoManagerV1(this, window);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);

@@ -20,6 +20,7 @@
 
 class TextInputManagerV3;
 class SecurityContextManagerV1;
+class FifoManagerV1;
 
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
@@ -92,6 +93,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandTextInputManager               *m_textInputManager         = nullptr;
     TextInputManagerV3                     *m_textInputManagerV3Custom = nullptr;
     SecurityContextManagerV1               *m_securityContextManager   = nullptr;
+    FifoManagerV1                          *m_fifoManager              = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;
