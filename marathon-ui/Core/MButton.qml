@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import MarathonUI.Theme
 import MarathonUI.Core
 import MarathonUI.Effects
@@ -10,20 +11,34 @@ import MarathonOS.Shell
 // Radius 4 px (--r-md). Padding 0 18 px (22+ for large). Font 14/600 Sora.
 // Press: scale(0.96), 160 ms spring (--ease-spring).
 //
-// Surface treatment per the Marathon button reference (Continue >):
-//   • Primary
-//       - Vertical teal gradient (teal-bright top → teal-dark bottom).
-//       - 1 px black/dark-teal outer ring.
-//       - 1 px white-30 top-edge inner highlight following the corner
-//         radius (MTopHairline).
-//       - NO outer glow/halo. The button is self-contained; the visual
-//         interest is the gradient + ring + top highlight. Earlier
-//         iterations rendered a MultiEffect bloom that read as either
-//         a hard-edged rectangle around the button or a teal smear
-//         leaking past containing modals — both wrong per the
-//         reference image, which shows zero external glow.
+// Surface treatment per the marathon-tokens.css spec. Spec text:
+//
+//   .m-btn.primary {
+//     background: linear-gradient(180deg, #1de9b6 0%, #00bfa5 50%, #00897b 100%);
+//     color: #000;
+//     border: 1 px solid rgba(0,191,165,0.35);
+//     box-shadow:
+//       inset 0 1px 0 rgba(255,255,255,0.25),     /* top inset highlight */
+//       0 0 0 1px rgba(0,191,165,0.35),           /* outer ring (extra) */
+//       0 8px 24px -8px rgba(0,191,165,0.5);      /* cast-down glow    */
+//   }
+//
+// The "complex border" is the two stacked 1 px teal rings (the
+// element's own border + the outer `0 0 0 1px` box-shadow) plus a
+// 1 px white top highlight inside. Reads as a thick, depth-having
+// edge — that's what the reference shows.
+//
+// Cast-down glow uses the exact spec values: blur 24, spread -8,
+// y-offset 8, teal at 50% alpha. Source ends 8 px inside the button
+// on every side and shifts 8 px down → visible extent is small
+// above (~8 px), larger below (~24 px), modest on sides (~16 px).
+// Smaller than the previous over-shot MultiEffect and bounded
+// enough to coexist with a 14 px modal padding without bleeding
+// outside the dialog when the consumer keeps the spec padding.
+//
+// Other variants:
 //   • Secondary — bb10-surface fill, w-08 outer, top-only w-04 highlight.
-//   • Ghost     — transparent, w-08 outer ring, no highlight.
+//   • Ghost     — transparent, w-08 outer ring, no highlight, no glow.
 //   • Danger    — bb10-surface fill, error-30 outer, error text.
 Item {
     id: root
@@ -35,6 +50,16 @@ Item {
     property bool iconLeft: true
     property bool disabled: false
     property string state: "default"          // "default" | "loading" | "success"
+
+    // Cast-down glow is part of the DS spec but can't be physically
+    // contained inside tight parents (modals at the DS-max 340 px
+    // width, narrow list rows) — Qt's MultiEffect renders to an FBO
+    // whose composite geometry ignores ancestor clip, and the spec's
+    // 24 px blur reach pushes the halo past the parent's rounded
+    // boundary. Consumers in those contexts set `castGlow: false`;
+    // they still get the gradient + double-ring edge + top hairline
+    // that gives the primary variant its identity.
+    property bool castGlow: true
 
     signal clicked
     signal pressed
@@ -68,6 +93,57 @@ Item {
     Keys.onSpacePressed: if (!disabled && state === "default")
         clicked()
 
+    // ── Primary cast-down glow ─────────────────────────────────
+    // CSS: `0 8px 24px -8px rgba(0,191,165,0.5)`
+    // Source rect = button shrunk by 8 each side, offset down 8.
+    // Blur radius 24 → visible reach: ~8 px above, ~24 px below,
+    // ~16 px past each side. The shadow pools BELOW the button per
+    // the spec's directional cast-down characteristic.
+    Item {
+        id: shadowContainer
+        anchors.fill: buttonRect
+        anchors.margins: -24
+        z: -1
+        visible: root.isPrimary && !root.disabled && root.castGlow
+
+        Rectangle {
+            id: shadowSource
+            x: 24 + 8                         // 24 container inset + 8 spread inset
+            y: 24 + 8 + 8                     // 24 + 8 spread + 8 y-offset
+            width: buttonRect.width - 16      // -8 spread each side
+            height: buttonRect.height - 16
+            radius: MRadius.md
+            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.5)
+            visible: false
+            layer.enabled: shadowContainer.visible
+            layer.smooth: true
+        }
+
+        MultiEffect {
+            anchors.fill: parent
+            source: shadowSource
+            blurEnabled: true
+            blur: 1.0
+            blurMax: 24
+        }
+    }
+
+    // ── Outer extra ring ───────────────────────────────────────
+    // CSS box-shadow layer 2: `0 0 0 1px var(--teal-border)`.
+    // A 1 px ring sitting 1 px OUTSIDE the buttonRect.border, with
+    // no offset and no blur. Stacks with the button's own border to
+    // give the primary variant its signature double-ring edge.
+    Rectangle {
+        anchors.fill: buttonRect
+        anchors.margins: -1
+        radius: MRadius.md + 1
+        color: "transparent"
+        border.width: 1
+        border.color: Qt.rgba(0, 191 / 255, 165 / 255, 0.35)
+        visible: root.isPrimary && !root.disabled
+        z: -1
+    }
+
     Rectangle {
         id: buttonRect
         anchors.fill: parent
@@ -86,29 +162,36 @@ Item {
             return mouseArea.pressed ? Qt.rgba(1, 1, 1, 0.04) : "transparent";
         }
 
+        // Three-stop teal gradient per CSS spec:
+        //   linear-gradient(180deg, #1de9b6 0%, #00bfa5 50%, #00897b 100%)
+        // The 50%-stop mid-tone is what gives the body its visible
+        // top-to-mid brightness band before fading to the deeper
+        // teal at the bottom. A 2-stop gradient lacks that bend.
         gradient: root.isPrimary ? primaryGradient : null
         Gradient {
             id: primaryGradient
-            orientation: Gradient.Vertical          // top-light → bottom-dark per JSX
+            orientation: Gradient.Vertical
             GradientStop {
                 position: 0.0
-                color: MColors.marathonTealBright
+                color: "#1de9b6"
+            }
+            GradientStop {
+                position: 0.5
+                color: "#00bfa5"
             }
             GradientStop {
                 position: 1.0
-                color: MColors.marathonTealDark
+                color: "#00897b"
             }
         }
 
-        // Outer ring. The primary reference shows a dark, near-black
-        // edge against the teal fill — this is what separates the
-        // button from the surrounding dark surface and gives the
-        // top-edge highlight a clean wall to brighten against. The
-        // previous teal-on-teal ring read as a soft edge.
+        // Inner ring — 1 px teal-border. Pairs with the outer extra
+        // teal ring (a sibling drawn at -1 px margins) to form the
+        // signature stacked double-ring edge from the DS spec.
         border.width: 1
         border.color: {
             if (root.isPrimary)
-                return Qt.rgba(0, 0, 0, 0.6);
+                return Qt.rgba(0, 191 / 255, 165 / 255, 0.35);
             if (root.variant === "danger")
                 return Qt.rgba(239 / 255, 68 / 255, 68 / 255, 0.3);
             return MColors.whiteOverlay08;
@@ -128,14 +211,14 @@ Item {
             }
         }
 
-        // Top-edge inset highlight per JSX m-btn (.primary uses
-        // rgba(255,255,255,0.30); .secondary uses w-04). Traces the
-        // top arc of buttonRect so it follows the corner radius
-        // instead of stopping short at a flat line past the curve.
+        // CSS box-shadow layer 1: `inset 0 1px 0 rgba(255,255,255,0.25)`.
+        // A 1 px white-25 highlight along the top inside edge,
+        // tracing the corner radius so the curve at the corners
+        // stays clean.
         MTopHairline {
             visible: !root.disabled && root.variant !== "ghost"
             radius: MRadius.md
-            color: root.isPrimary ? Qt.rgba(1, 1, 1, 0.30) : MColors.whiteOverlay04
+            color: root.isPrimary ? Qt.rgba(1, 1, 1, 0.25) : MColors.whiteOverlay04
             inset: 2
         }
 

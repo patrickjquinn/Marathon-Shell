@@ -322,6 +322,12 @@ Item {
             }
 
             // 6. Actions: Deny secondary + Allow primary, side-by-side, flex:1.
+            // Allow opts out of MButton's cast-down glow — there's no
+            // room inside a 340 px modal for the spec's 24 px halo
+            // reach without leaking past the rounded edge, and the
+            // button reads correctly without the halo in this
+            // context (the gradient + double-ring + top highlight
+            // already carry the primary-variant identity).
             Item {
                 width: parent.width
                 height: Math.round(45 * Constants.scaleFactor) + Math.round(32 * Constants.scaleFactor)
@@ -346,6 +352,7 @@ Item {
                         width: (parent.width - Math.round(10 * Constants.scaleFactor)) / 2
                         text: "Allow"
                         variant: "primary"
+                        castGlow: false  // no room for the halo inside a 340 px dialog
                         onClicked: PermissionManager.setPermissions(permissionDialog.appId, permissionDialog.allPermissions, true, true)
                     }
                 }
