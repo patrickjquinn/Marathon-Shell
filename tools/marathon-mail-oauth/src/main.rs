@@ -46,52 +46,99 @@ use url::Url;
 //
 // OAuth2 endpoints come from Google's and Microsoft's public installed-
 // app docs. The client_id is NOT a secret for the installed-app flow
-// (PKCE replaces the secret).
+// (PKCE replaces the secret), so it is safe to publish in an open-
+// source binary. Same pattern Thunderbird, Evolution, GNOME Online
+// Accounts, Geary, and K-9 Mail use.
 //
-// Client IDs are read at runtime from environment variables so the
-// shipping binary can be customised per distribution / channel without
-// rebuilding. The production image's marathon-mail-oauth.service sets:
+// Client IDs resolve through a three-tier ladder, highest precedence
+// first:
 //
-//   Environment=MARATHON_OAUTH_GOOGLE_CLIENT_ID=<your-google-id>
-//   Environment=MARATHON_OAUTH_MICROSOFT_CLIENT_ID=<your-ms-id>
+//   1. Runtime env var
+//        MARATHON_OAUTH_GOOGLE_CLIENT_ID / MARATHON_OAUTH_MICROSOFT_CLIENT_ID
+//      The override path for forks, enterprise tenants, or per-machine
+//      experimentation. Setting one of these wins regardless of what
+//      the binary was compiled with.
 //
-// See docs/MAIL_OAUTH_REGISTRATION.md for how to obtain them from
-// Google Cloud Console + Microsoft Azure Portal. If either env var is
-// unset (or the placeholder OWN_BEFORE_SHIP… is still present), the
-// helper exits with a structured `error` envelope instead of attempting
-// a guaranteed-to-fail OAuth flow.
+//   2. Compile-time embedded default (set in this binary's APKBUILD)
+//        MARATHON_DEFAULT_GOOGLE_CLIENT_ID / MARATHON_DEFAULT_MICROSOFT_CLIENT_ID
+//      The project-shipped IDs that Marathon's image owns. Empty in
+//      this source tree — the project owner sets them once at build
+//      time after registering with Google + Microsoft. See
+//      docs/MAIL_OAUTH_REGISTRATION.md for the registration playbook.
+//
+//   3. Unset.
+//      Binary returns `kind:"error", code:"oauth_not_configured"` and
+//      the QML side falls back to the classic IMAP setup page
+//      (works for Fastmail, iCloud, Gmail-with-app-password,
+//      self-hosted).
 
-const GOOGLE_AUTH_URL:  &str = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
-const GOOGLE_SCOPES:    &[&str] = &[
+const COMPILE_DEFAULT_GOOGLE_CLIENT_ID:    Option<&'static str> = option_env!("MARATHON_DEFAULT_GOOGLE_CLIENT_ID");
+const COMPILE_DEFAULT_MICROSOFT_CLIENT_ID: Option<&'static str> = option_env!("MARATHON_DEFAULT_MICROSOFT_CLIENT_ID");
+
+const GOOGLE_AUTH_URL:     &str = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL:    &str = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v3/userinfo";
+const GOOGLE_SCOPES:       &[&str] = &[
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/userinfo.email",
 ];
 
-const MS_AUTH_URL:  &str = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
-const MS_TOKEN_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-const MS_SCOPES:    &[&str] = &[
+const MS_AUTH_URL:     &str = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+const MS_TOKEN_URL:    &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+const MS_USERINFO_URL: &str = "https://graph.microsoft.com/v1.0/me";
+const MS_SCOPES:       &[&str] = &[
     "offline_access",
     "https://outlook.office.com/IMAP.AccessAsUser.All",
     "https://outlook.office.com/SMTP.Send",
     "User.Read",
 ];
 
+// Typed error so main() can distinguish unregistered-build from real
+// I/O failures and emit `kind:"error", code:"oauth_not_configured"`
+// for the QML side to recognise. Anyhow chains preserve this via
+// downcast_ref.
+#[derive(thiserror::Error, Debug)]
+#[error("{0}")]
+struct OAuthNotConfigured(String);
+
 fn resolve_client_id(provider: Provider) -> Result<String> {
-    let var = match provider {
-        Provider::Gmail   => "MARATHON_OAUTH_GOOGLE_CLIENT_ID",
-        Provider::Outlook => "MARATHON_OAUTH_MICROSOFT_CLIENT_ID",
+    let (env_var, compile_default) = match provider {
+        Provider::Gmail   => (
+            "MARATHON_OAUTH_GOOGLE_CLIENT_ID",
+            COMPILE_DEFAULT_GOOGLE_CLIENT_ID,
+        ),
+        Provider::Outlook => (
+            "MARATHON_OAUTH_MICROSOFT_CLIENT_ID",
+            COMPILE_DEFAULT_MICROSOFT_CLIENT_ID,
+        ),
     };
-    let raw = std::env::var(var).map_err(|_| {
-        anyhow!("{var} not set — see docs/MAIL_OAUTH_REGISTRATION.md to obtain a client id")
-    })?;
-    if raw.starts_with("OWN_BEFORE_SHIP") || raw.is_empty() {
-        return Err(anyhow!(
-            "{var} is still the placeholder — register a real client id per \
-             docs/MAIL_OAUTH_REGISTRATION.md"
-        ));
+
+    // Runtime override wins.
+    if let Ok(v) = std::env::var(env_var) {
+        if !v.is_empty() {
+            return Ok(v);
+        }
     }
-    Ok(raw)
+    // Compile-time default (project-shipped).
+    if let Some(d) = compile_default {
+        if !d.is_empty() {
+            return Ok(d.to_string());
+        }
+    }
+    // Neither set — this is an unregistered build. Return a typed
+    // error so the dispatcher emits `code:"oauth_not_configured"`.
+    Err(OAuthNotConfigured(format!(
+        "{} OAuth is not enabled in this build of Marathon. \
+         Use the classic IMAP setup (Fastmail, iCloud, Gmail with \
+         app-password, self-hosted) or set {} at runtime. \
+         See docs/MAIL_OAUTH_REGISTRATION.md.",
+        match provider {
+            Provider::Gmail   => "Google",
+            Provider::Outlook => "Microsoft",
+        },
+        env_var,
+    ))
+    .into())
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -406,11 +453,44 @@ async fn run_pkce_flow(provider: Provider) -> Result<(String /*refresh*/, Option
         .ok_or_else(|| anyhow!("provider returned no refresh_token — flow incomplete"))?
         .secret()
         .clone();
+    let access = token_res.access_token().secret().clone();
 
-    // We don't bother decoding the id_token; for surfacing the email in
-    // the UI we'll ask the provider's userinfo endpoint on first
-    // successful access-token mint. Keep this function focused.
-    Ok((refresh, None))
+    // Fetch the user's email so the QML side can show the From address
+    // without needing a second round-trip after first IDLE. Best-effort:
+    // if the userinfo endpoint fails (network blip, scope revoked
+    // between auth and userinfo call), we still return the refresh
+    // token so the account is usable — the email just defaults to
+    // empty and gets backfilled on first mint_access_token().
+    let email = fetch_email(provider, &access).await.ok();
+    Ok((refresh, email))
+}
+
+async fn fetch_email(provider: Provider, access_token: &str) -> Result<String> {
+    let url = match provider {
+        Provider::Gmail   => GOOGLE_USERINFO_URL,
+        Provider::Outlook => MS_USERINFO_URL,
+    };
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let body: serde_json::Value = client
+        .get(url)
+        .bearer_auth(access_token)
+        .send().await?
+        .error_for_status()?
+        .json().await?;
+    // Google returns {"email": "..."}, Microsoft returns
+    // {"mail": "...", "userPrincipalName": "..."} (mail can be null
+    // for personal MSA accounts — fall back to UPN).
+    match provider {
+        Provider::Gmail => body.get("email").and_then(|v| v.as_str()).map(str::to_owned),
+        Provider::Outlook => body
+            .get("mail")
+            .and_then(|v| v.as_str())
+            .or_else(|| body.get("userPrincipalName").and_then(|v| v.as_str()))
+            .map(str::to_owned),
+    }
+    .ok_or_else(|| anyhow!("userinfo response missing email"))
 }
 
 async fn mint_access_token(account_id: &str) -> Result<(String, u64, Option<String>)> {
@@ -522,6 +602,12 @@ fn main() {
     });
 
     if let Err(e) = result {
+        // Pull out the typed unregistered-build error so callers can
+        // distinguish it from generic I/O failures and show the
+        // "use IMAP setup instead" hint rather than a scary trace.
+        if let Some(notconf) = e.downcast_ref::<OAuthNotConfigured>() {
+            fail("oauth_not_configured", notconf.to_string());
+        }
         // Walk the error chain so the SASL plugin sees the actual root
         // cause, not "an error occurred."
         let chain = e.chain().map(|c| c.to_string()).collect::<Vec<_>>().join(": ");
