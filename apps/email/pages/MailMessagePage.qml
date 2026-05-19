@@ -38,6 +38,10 @@ Page {
 
     // ── Out / signals ─────────────────────────────────────────────
     signal back
+    // Emitted when the user taps Reply. The pre-fill map seeds the
+    // compose sheet (defaultTo, defaultSubject, defaultBody) so the
+    // user lands in a draft that already quotes the original.
+    signal replyRequested(var prefill)
 
     // ── Derived ───────────────────────────────────────────────────
     readonly property var mail: typeof MailService !== "undefined" ? MailService : null
@@ -89,8 +93,16 @@ Page {
                 page.mail.moveToArchive(page.messageId);
             else if (index === 1)
                 page.mail.moveToTrash(page.messageId);
-            else if (index === 2)
-                Logger.info("Mail", "Reply not yet implemented (Day 9)");
+            else if (index === 2) {
+                const subj = (page.subject || "").trim();
+                const reSubj = /^re:/i.test(subj) ? subj : ("Re: " + subj);
+                const quote = (page.bodyPlain || "").split("\n").map(l => "> " + l).join("\n");
+                page.replyRequested({
+                    "defaultTo": page.fromAddr || "",
+                    "defaultSubject": reSubj,
+                    "defaultBody": "\n\n" + quote
+                });
+            }
         }
     }
 
