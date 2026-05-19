@@ -1,0 +1,378 @@
+#!/bin/sh
+# Marathon: relocate the /etc-level getty@tty1 mask shipped by
+# marathon-base-config into /usr/lib/systemd/system-preset/ so that
+# `systemctl preset-all` doesn't fail. The mask-symlink in /etc satisfies
+# runtime semantics for pmbootstrap'd images, but Duranium's mkosi pipeline
+# treats a non-zero preset-all as a hard build error.
+set -eu
+
+BUILDROOT=/buildroot
+
+# Drop the masking symlink (greetd-vs-getty race is handled below)
+rm -f "$BUILDROOT/etc/systemd/system/getty@tty1.service"
+
+# Disable getty@tty1 via the systemd preset mechanism instead. This wins
+# over the postmarketos 90-* presets because of the numeric prefix and
+# applies cleanly to all instances.
+mkdir -p "$BUILDROOT/usr/lib/systemd/system-preset"
+cat > "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset" <<'EOF'
+# Marathon-Shell: greetd owns vt1; do not auto-spawn getty there.
+disable getty@tty1.service
+EOF
+
+# Pre-seed the default user so duranium-firstboot.service no-ops (its
+# ConditionPathExists=!/etc/default_user is what gates it). Required for
+# headless smoke validation — the upstream firstboot runs f0rmz, an
+# interactive TUI that can't render on serial.
+USER_NAME=user
+for g in audio input netdev plugdev video wheel render; do
+    chroot "$BUILDROOT" /usr/sbin/groupadd -f "$g" 2>/dev/null || true
+done
+# Don't --create-home from the build sandbox: rootless mkosi can't chown
+# files to non-root uids (only uid 0 is mapped in the user namespace). We
+# leave the home directory to be materialised at boot by systemd-tmpfiles
+# with the correct ownership.
+chroot "$BUILDROOT" /usr/sbin/groupadd -f "$USER_NAME"
+chroot "$BUILDROOT" /usr/sbin/useradd \
+    --no-create-home \
+    --gid "$USER_NAME" \
+    --shell /bin/bash \
+    --groups audio,input,netdev,plugdev,video,wheel,render \
+    "$USER_NAME"
+# Lock password ('!') — greetd auto-login per /etc/greetd/config.toml does
+# not require a real password; lock prevents su/login fallback abuse.
+chroot "$BUILDROOT" /usr/sbin/usermod -p '!' "$USER_NAME"
+
+mkdir -p "$BUILDROOT/usr/lib/tmpfiles.d"
+# SettingsManager constructs QSettings("marathon-os", "Marathon Shell") which
+# resolves to ~/.config/marathon-os/Marathon Shell.conf on Linux — NOT the
+# QApplication setOrganizationName/Application path. Use the lowercase-hyphen
+# org dir name to match the constructor exactly.
+cat > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-home.conf" <<EOF
+d /home/$USER_NAME 0750 $USER_NAME $USER_NAME -
+d /home/$USER_NAME/.config 0700 $USER_NAME $USER_NAME -
+d /home/$USER_NAME/.config/marathon-os 0700 $USER_NAME $USER_NAME -
+d /home/$USER_NAME/.config/marathon 0700 $USER_NAME $USER_NAME -
+C+ "/home/$USER_NAME/.config/marathon-os/Marathon Shell.conf" 0600 $USER_NAME $USER_NAME - -
+C+ "/home/$USER_NAME/.config/marathon/app-permissions.json" 0600 $USER_NAME $USER_NAME - -
+EOF
+
+FACTORY="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon-os"
+mkdir -p "$FACTORY"
+cat > "$FACTORY/Marathon Shell.conf" <<'EOF'
+[system]
+firstRunComplete=true
+
+[apps]
+filterMobileFriendly=false
+hiddenApps=@Invalid()
+
+[General]
+EOF
+
+# Factory tree: pre-grant common permissions so apps can launch without prompts
+FACTORY_PERMS="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon"
+mkdir -p "$FACTORY_PERMS"
+cat > "$FACTORY_PERMS/app-permissions.json" <<'EOF'
+{}
+EOF
+
+printf '%s\n' "$USER_NAME" > "$BUILDROOT/etc/default_user"
+
+# Enable a known root password on serial so headless validation can log in
+# and run measurements. INSECURE — strictly for QEMU smoke. Real images
+# keep RootPassword=hashed:! locked.
+chroot "$BUILDROOT" sh -c 'echo "root:marathon" | chpasswd'
+
+# Headless QEMU validation: allow root password SSH so validate-visual.sh
+# / verify-lifecycle.sh can drive the box (the existing duranium pattern,
+# see ~/duranium-build/validate-visual.sh). Upstream sshd_config defaults
+# to PermitRootLogin=prohibit-password which blocks the documented root
+# password 'marathon' set above. Override to allow.
+mkdir -p "$BUILDROOT/etc/ssh/sshd_config.d"
+cat > "$BUILDROOT/etc/ssh/sshd_config.d/99-marathon-qemu.conf" <<'EOF'
+# QEMU smoke validation only — root password login. Real images must
+# strip this drop-in and keep upstream prohibit-password.
+PermitRootLogin yes
+PasswordAuthentication yes
+EOF
+
+# Persistent journal so logs survive reboots and we can post-mortem.
+mkdir -p "$BUILDROOT/var/log/journal"
+
+# Belt-and-suspenders for the QSettings pre-seed: a one-shot systemd unit that
+# runs as 'user' BEFORE greetd starts marathon-shell, copies the factory file
+# in place, and marks itself complete. tmpfiles.d 'C+' alone isn't reliable
+# when /home is a fresh tmpfs/LUKS mount populated after tmpfiles-setup runs.
+mkdir -p "$BUILDROOT/usr/lib/systemd/system"
+cat > "$BUILDROOT/usr/lib/systemd/system/marathon-userconfig.service" <<EOF
+[Unit]
+Description=Marathon Shell user config seed (one-shot)
+ConditionPathExists=/usr/share/factory/home/$USER_NAME/.config/marathon-os/Marathon Shell.conf
+ConditionPathExists=!/home/$USER_NAME/.config/marathon/.seeded
+DefaultDependencies=no
+After=local-fs.target systemd-tmpfiles-setup.service
+Before=greetd.service display-manager.service multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon-userconfig-seed
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+mkdir -p "$BUILDROOT/usr/libexec"
+cat > "$BUILDROOT/usr/libexec/marathon-userconfig-seed" <<'EOF'
+#!/bin/sh
+set -eu
+USER_NAME=user
+HOME_DIR=/home/$USER_NAME
+FACTORY="/usr/share/factory/home/$USER_NAME"
+install -d -m 0750 -o $USER_NAME -g $USER_NAME "$HOME_DIR"
+install -d -m 0700 -o $USER_NAME -g $USER_NAME "$HOME_DIR/.config"
+install -d -m 0700 -o $USER_NAME -g $USER_NAME "$HOME_DIR/.config/marathon-os"
+install -d -m 0700 -o $USER_NAME -g $USER_NAME "$HOME_DIR/.config/marathon"
+
+install -m 0600 -o $USER_NAME -g $USER_NAME \
+    "$FACTORY/.config/marathon-os/Marathon Shell.conf" \
+    "$HOME_DIR/.config/marathon-os/Marathon Shell.conf"
+install -m 0600 -o $USER_NAME -g $USER_NAME \
+    "$FACTORY/.config/marathon/app-permissions.json" \
+    "$HOME_DIR/.config/marathon/app-permissions.json"
+
+touch "$HOME_DIR/.config/marathon/.seeded"
+chown $USER_NAME:$USER_NAME "$HOME_DIR/.config/marathon/.seeded"
+EOF
+chmod +x "$BUILDROOT/usr/libexec/marathon-userconfig-seed"
+
+mkdir -p "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants"
+ln -sf ../marathon-userconfig.service \
+    "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants/marathon-userconfig.service"
+
+# === xdg-terminal-exec wiring (Vladimir-csp ref impl) ===
+# postmarketos-ui-marathon doesn't ship the resolver — drop the upstream POSIX
+# shell script into /usr/bin so Terminal=true entries route correctly. foot is
+# pulled via mkosi.images/base/mkosi.conf Packages= (community repo).
+install -Dm755 /work/src/marathon-extras/xdg-terminal-exec \
+    "$BUILDROOT/usr/bin/xdg-terminal-exec"
+
+mkdir -p "$BUILDROOT/etc/xdg"
+cat > "$BUILDROOT/etc/xdg/xdg-terminals.list" <<'EOF'
+foot.desktop
+EOF
+
+# --- Terminal=true wiring via Marathon's own QML terminal --------------------
+# External Wayland terminals (foot, alacritty, kgx) are unusable in Marathon:
+# foot needs wl_seat v5 (compositor exposes v4), alacritty requires Vulkan/
+# Zink which Marathon's compositor doesn't surface. Going through Marathon's
+# own terminal app sidesteps the protocol gap entirely — it renders inside
+# the same Qt scenegraph as the shell, no external Wayland client involved.
+#
+# Plumbing without touching marathon-shell source:
+#   1. /usr/bin/marathon-term-exec wrapper writes the command to a sentinel
+#      in $XDG_RUNTIME_DIR, then execs marathon-app-runner --app-id terminal.
+#      marathon-app-runner is what Marathon already uses for its bundled apps,
+#      so the IPC caller-verification path (--app-id terminal + parent=shell)
+#      admits it without MARATHON_TEST_TRUSTED.
+#   2. /etc/profile.d/marathon-term-exec.sh runs on every interactive shell
+#      ($SHELL -i, which is how TerminalEngine spawns its PTY child); if the
+#      sentinel exists, source it then exec back into $SHELL so the user
+#      lands in a normal shell after htop exits.
+#   3. htop.desktop's Exec gets rewritten to use the wrapper.
+#
+# Edge case: concurrent launches would race the sentinel. Single-user mobile
+# device — acceptable. A real fix routes via TerminalEngine's MARATHON_TERMINAL_EXEC
+# env, but that needs marathon-shell source changes + apk rebuild.
+
+install -Dm755 /dev/stdin "$BUILDROOT/usr/bin/marathon-term-exec" <<'EOF'
+#!/bin/sh
+set -eu
+[ -n "${XDG_RUNTIME_DIR:-}" ] || XDG_RUNTIME_DIR="/run/user/$(id -u)"
+SENTINEL="$XDG_RUNTIME_DIR/marathon-term-exec.cmd"
+printf '%s\n' "$*" > "$SENTINEL"
+exec /usr/bin/marathon-app-runner --app-id terminal
+EOF
+
+# TerminalEngine runs $SHELL -i (interactive non-login). bash -i sources
+# /etc/bash/bashrc (Alpine path; confirmed via `strings /bin/bash`) and then
+# ~/.bashrc. Append the sentinel-consumer to /etc/bash/bashrc so every Marathon
+# terminal session picks it up. (User account is set to /bin/bash above; the
+# default /bin/sh -> busybox-ash doesn't honour any sysrc on -i.)
+mkdir -p "$BUILDROOT/etc/bash"
+cat >> "$BUILDROOT/etc/bash/bashrc" <<'EOF'
+
+# Marathon: consume next-cmd sentinel staged by marathon-term-exec, then
+# fall through to interactive shell so the user lands somewhere useful when
+# the command exits.
+[ -n "$XDG_RUNTIME_DIR" ] || XDG_RUNTIME_DIR="/run/user/$(id -u)"
+__SENT="$XDG_RUNTIME_DIR/marathon-term-exec.cmd"
+if [ -f "$__SENT" ]; then
+    __cmd=$(cat "$__SENT"); rm -f "$__SENT"
+    [ -n "$__cmd" ] && eval "$__cmd"
+fi
+unset __cmd __SENT
+EOF
+
+# --- App Store: real Flathub-backed browser ----------------------------------
+# Replace the bundled `Coming Soon` Store QML with one that pulls live data
+# from flathub.org/api/v2. marathon-app-runner checks the manifest entryPoint
+# file on disk first (tools/marathon-app-runner/main.cpp:644); when present,
+# it bypasses the compiled libstoreplugin.so resource bundle. We drop the
+# replacement at the path the manifest already names: StoreApp.qml.
+install -Dm644 /work/src/marathon-extras/StoreApp.qml \
+    "$BUILDROOT/usr/share/marathon-apps/store/StoreApp.qml"
+
+# Install handler + state-refresh helper. The handler is invoked via
+# Qt.openUrlExternally("marathon-store://<verb>/<arg>") from the Store QML;
+# xdg-open routes the URL scheme through .desktop MimeType. Verbs accepted:
+#   install / update / uninstall / open / refresh-state / update-all
+# Every flatpak invocation passes through libflatpak via the CLI with a
+# fixed argv (no shell concat). The ref is validated against a strict
+# regex (matches flatpak's own internal validators) and the remote is
+# hard-pinned to flathub. Install progress is written atomically to a
+# state file in XDG_RUNTIME_DIR for the QML to poll.
+install -Dm755 /work/src/marathon-extras/marathon-store-handler \
+    "$BUILDROOT/usr/bin/marathon-store-handler"
+install -Dm755 /work/src/marathon-extras/marathon-store-refresh-state \
+    "$BUILDROOT/usr/libexec/marathon-store-refresh-state"
+
+install -Dm644 /dev/stdin \
+    "$BUILDROOT/usr/share/applications/marathon-store-handler.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Marathon Store Handler
+Exec=/usr/bin/marathon-store-handler %u
+NoDisplay=true
+MimeType=x-scheme-handler/marathon-store;
+EOF
+
+# Periodic state refresh: fwupd-style cadence — every 12h with 6h jitter,
+# Persistent so a phone that was asleep catches up on next online window.
+install -Dm644 /work/src/marathon-extras/marathon-store-refresh.service.template \
+    "$BUILDROOT/usr/lib/systemd/user/marathon-store-refresh.service"
+install -Dm644 /work/src/marathon-extras/marathon-store-refresh.timer.template \
+    "$BUILDROOT/usr/lib/systemd/user/marathon-store-refresh.timer"
+mkdir -p "$BUILDROOT/usr/lib/systemd/user/default.target.wants"
+ln -sf ../marathon-store-refresh.timer \
+    "$BUILDROOT/usr/lib/systemd/user/default.target.wants/marathon-store-refresh.timer"
+
+# Default URL-scheme handler — xdg-open consults /usr/share/applications/mimeapps.list
+# after the user-scoped one; setting the system default keeps the link working
+# without a per-user xdg-mime call.
+mkdir -p "$BUILDROOT/usr/share/applications"
+cat > "$BUILDROOT/usr/share/applications/mimeapps.list" <<'EOF'
+[Default Applications]
+x-scheme-handler/marathon-store=marathon-store-handler.desktop
+EOF
+
+# Pre-register Flathub for --user too so the install handler works without
+# pkexec. Setup runs as the auto-logged-in user via a user-systemd one-shot.
+install -Dm755 /dev/stdin "$BUILDROOT/usr/libexec/marathon-flathub-user-setup" <<'EOF'
+#!/bin/sh
+set -eu
+test -d "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/repo/objects" && exit 0
+flatpak --user remote-add --no-gpg-verify --if-not-exists \
+    flathub https://dl.flathub.org/repo/ 2>/dev/null || true
+install -Dm644 /usr/share/flatpak/keyrings/flathub.gpg \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/repo/flathub.trustedkeys.gpg"
+flatpak --user remote-modify --gpg-verify flathub 2>/dev/null || true
+EOF
+
+mkdir -p "$BUILDROOT/usr/lib/systemd/user"
+cat > "$BUILDROOT/usr/lib/systemd/user/marathon-flathub-user-setup.service" <<'EOF'
+[Unit]
+Description=Marathon: register Flathub for the user (offline-safe)
+ConditionPathExists=/usr/share/flatpak/keyrings/flathub.gpg
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon-flathub-user-setup
+RemainAfterExit=yes
+
+[Install]
+WantedBy=default.target
+EOF
+mkdir -p "$BUILDROOT/usr/lib/systemd/user/default.target.wants"
+ln -sf ../marathon-flathub-user-setup.service \
+    "$BUILDROOT/usr/lib/systemd/user/default.target.wants/marathon-flathub-user-setup.service"
+
+SYS_HTOP="$BUILDROOT/usr/share/applications/htop.desktop"
+if [ -f "$SYS_HTOP" ]; then
+    cat > "$SYS_HTOP" <<'EOF'
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Htop
+GenericName=Process Viewer
+Comment=Interactive process viewer
+Icon=utilities-terminal
+Exec=/usr/bin/marathon-term-exec /usr/bin/htop
+Terminal=false
+Categories=System;Monitor;
+Keywords=process;monitor;system;cpu;memory;
+EOF
+fi
+
+# === Flathub remote: pre-staged binary keyring + --gpg-import ===
+# The .flatpakrepo inline GPGKey= base64 corrupts in transit; use the binary
+# keyring directly via flatpak remote-add --gpg-import. Verified sha256
+# 8bdc20abc4e19c0796460beb5bfe0e7aa4138716999e19c6f2dbdd78cc41aeaa, fpr
+# 6E5C 05D9 79C7 6DAF 93C0 8135 4184 DD4D 907A 7CAE (expires 2027-06-14).
+install -Dm644 /work/src/marathon-extras/flathub.gpg \
+    "$BUILDROOT/usr/share/flatpak/keyrings/flathub.gpg"
+
+cat > "$BUILDROOT/usr/libexec/marathon-flathub-setup" <<'EOF'
+#!/bin/sh
+# postmarketos-ui-marathon's apk post-install registers Flathub at apk-install
+# time, but its inline GPGKey= base64 in the .flatpakrepo file corrupts before
+# reaching ostree's gpgme import, leaving the remote keyless. On Duranium /var
+# is created fresh from the LUKS root partition at first boot, so even that
+# partial state doesn't carry over — the repo starts empty.
+#
+# Bootstrap sequence:
+#   1. remote-add --no-gpg-verify --if-not-exists — initialises the OSTree
+#      repo (creates objects/refs/tmp + config), registers the URL, no key
+#      yet. Throws a GPGME error from the broken --gpg-import path that we
+#      don't pass; the repo dirs land regardless.
+#   2. Drop the binary keyring at flathub.trustedkeys.gpg — what flatpak
+#      checks during `install` to verify summary + ref signatures.
+#   3. remote-modify --gpg-verify — flips the remote config back on.
+set -eu
+KEYRING_SRC=/usr/share/flatpak/keyrings/flathub.gpg
+KEYRING_DST=/var/lib/flatpak/repo/flathub.trustedkeys.gpg
+
+if [ -f "$KEYRING_DST" ] && [ "$(stat -c %s "$KEYRING_DST")" -gt 2000 ] \
+        && [ -d /var/lib/flatpak/repo/objects ]; then
+    exit 0
+fi
+
+if [ ! -d /var/lib/flatpak/repo/objects ]; then
+    flatpak --system remote-add --no-gpg-verify --if-not-exists \
+        flathub https://dl.flathub.org/repo/ 2>/dev/null || true
+fi
+
+install -Dm644 "$KEYRING_SRC" "$KEYRING_DST"
+
+flatpak --system remote-modify --gpg-verify flathub 2>/dev/null || true
+EOF
+chmod +x "$BUILDROOT/usr/libexec/marathon-flathub-setup"
+
+cat > "$BUILDROOT/usr/lib/systemd/system/marathon-flathub-setup.service" <<'EOF'
+[Unit]
+Description=Marathon Shell: install Flathub trusted keyring (offline-safe)
+ConditionPathExists=/usr/share/flatpak/keyrings/flathub.gpg
+After=local-fs.target systemd-tmpfiles-setup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/marathon-flathub-setup
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+ln -sf ../marathon-flathub-setup.service \
+    "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants/marathon-flathub-setup.service"
