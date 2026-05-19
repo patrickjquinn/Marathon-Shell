@@ -113,64 +113,18 @@ Item {
         anchors.topMargin: 14
         spacing: 14
 
-        // ── Header — Marathon lockup + date ──────────────────
-        Row {
+        // ── Header — date only ──────────────────────────────
+        // Per user direction the MARATHON brand lockup at the top of
+        // Quick Settings was dropped. The status bar already carries
+        // the brand; repeating it here was redundant. The date string
+        // stays as the only ornament so the panel has a clear anchor.
+        Item {
             width: parent.width
-            spacing: 10
+            height: 22
 
-            // Marathon lockup — 20 px teal-gradient bay + black M
-            // glyph per JSX QuickSettings(). Bay radius is 3 (one step
-            // off the squircle 14 to read more like a glyph than an
-            // app tile).
-            Rectangle {
-                width: 20
-                height: 20
-                radius: 3
-                anchors.verticalCenter: parent.verticalCenter
-                gradient: Gradient {
-                    GradientStop {
-                        position: 0
-                        color: MColors.marathonTealBright
-                    }
-                    GradientStop {
-                        position: 1
-                        color: MColors.marathonTealDark
-                    }
-                }
-                border.width: 1
-                border.color: MColors.tealBorder
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "M"
-                    color: MColors.elev0
-                    font.family: MTypography.fontFamily
-                    font.pixelSize: 13
-                    font.weight: MTypography.weightBlack
-                }
-            }
-            // 'MARATHON' eyebrow — DS Eyebrow role (11/700/+2 tracking,
-            // textPrimary on this surface since the lockup is the
-            // brand). Was sizeCaption (12) which is one role too large.
             Text {
-                text: "MARATHON"
-                color: MColors.textPrimary
-                font.family: MTypography.fontFamily
-                font.pixelSize: MTypography.sizeEyebrow
-                font.weight: MTypography.weightBold
-                font.letterSpacing: 2
-                font.capitalization: Font.AllUppercase
+                anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-            }
-            // Spacer
-            Item {
-                width: parent.width - 24 - 90 - 110
-                height: 1
-            }
-            // Short "Fri · 7:08 PM" per JSX QuickSettings — long form
-            // dateString ("Thursday, May 14") overflows the right edge on
-            // 540 px canvases. Recompute from a local timer-driven clock.
-            Text {
                 text: Qt.formatDateTime(new Date(), "ddd · h:mm AP")
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
@@ -178,60 +132,60 @@ Item {
                 font.features: ({
                         "tnum": 1
                     })
-                anchors.verticalCenter: parent.verticalCenter
             }
         }
 
         // ── Sliders ──────────────────────────────────────────
-        // DS-spec card: elev-2 fill, whiteOverlay04 border + inner
-        // highlight, 4 px radius, padding 12 14.
+        // DS-spec card: elev-2 fill, whiteOverlay04 border, 4 px radius.
+        // Heights computed from the inner Column so sliders + halo
+        // always fit cleanly inside without overflowing into the tile
+        // grid below.
         Rectangle {
             width: parent.width
-            height: brightness.height + volume.height + slidersDivider.height + 24
+            height: slidersInner.height + 24       // 12 top + 12 bottom padding
             radius: MRadius.md
             color: MColors.elev2
             border.width: 1
             border.color: MColors.whiteOverlay04
 
-            MQSSlider {
-                id: brightness
+            Column {
+                id: slidersInner
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.leftMargin: 14
                 anchors.rightMargin: 14
                 anchors.topMargin: 12
-                iconName: "sun"
-                label: "Brightness"
-                value: SystemControlStore.brightness
-                onMoved: function (v) {
-                    SystemControlStore.setBrightness(v);
+                // JSX QuickSettings inner divider uses `margin: '12px 0'`
+                // — i.e. 12 px gap above + below the hairline. Column spacing
+                // applies between every child, so a value of 12 yields the
+                // brightness/divider/volume rhythm the spec calls for.
+                spacing: 12
+
+                MQSSlider {
+                    id: brightness
+                    width: parent.width
+                    iconName: "sun"
+                    label: "Brightness"
+                    value: SystemControlStore.brightness
+                    onMoved: function (v) {
+                        SystemControlStore.setBrightness(v);
+                    }
                 }
-            }
-            Rectangle {
-                id: slidersDivider
-                anchors.top: brightness.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.topMargin: 10
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                height: 1
-                color: MColors.whiteOverlay04
-            }
-            MQSSlider {
-                id: volume
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: slidersDivider.bottom
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                anchors.topMargin: 10
-                iconName: "volume-2"
-                label: "Volume"
-                value: SystemControlStore.volume
-                onMoved: function (v) {
-                    SystemControlStore.setVolume(v);
+                Rectangle {
+                    width: parent.width
+                    height: 1
+                    color: MColors.whiteOverlay04
+                }
+                MQSSlider {
+                    id: volume
+                    width: parent.width
+                    iconName: "volume-2"
+                    label: "Volume"
+                    value: SystemControlStore.volume
+                    onMoved: function (v) {
+                        SystemControlStore.setVolume(v);
+                    }
                 }
             }
         }
