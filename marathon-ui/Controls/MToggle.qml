@@ -95,17 +95,13 @@ Item {
     }
 
     // Top-edge inset highlight per JSX (toggles in Settings carry a
-    // subtle "lit from above" stripe across the top so the pill reads
-    // as raised, not pasted on).
-    Rectangle {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.leftMargin: 2
-        anchors.rightMargin: 2
-        anchors.topMargin: 1
-        height: 1
+    // subtle "lit from above" stripe so the pill reads as raised, not
+    // pasted on). Traces the pill's top arc so the highlight runs
+    // along the curved cap rather than ending abruptly inside it.
+    MTopHairline {
+        radius: parent.height / 2
         color: root.checked ? Qt.rgba(1, 1, 1, 0.32) : Qt.rgba(1, 1, 1, 0.06)
+        inset: 2
     }
 
     // Thumb — white 20 px disc.

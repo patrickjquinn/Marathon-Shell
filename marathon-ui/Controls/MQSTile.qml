@@ -1,4 +1,5 @@
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -29,14 +30,11 @@ Rectangle {
     border.color: on ? MColors.tealBorder : MColors.whiteOverlay04
     clip: true
 
-    // Inner inset highlight — uniform whether on or off.
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius - 1
-        color: "transparent"
-        border.width: 1
-        border.color: MColors.whiteOverlay04
+    // Inner inset highlight — top-only, follows the squircle path.
+    MTopHairline {
+        radius: parent.radius
+        color: MColors.whiteOverlay04
+        lineWidth: 1
         z: 1
     }
 

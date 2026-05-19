@@ -2,6 +2,7 @@ import MarathonApp.Maps
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtPositioning
 import QtQuick
@@ -416,13 +417,10 @@ MApp {
             border.color: mapsApp.selectedPlace ? MColors.tealBorder : MColors.whiteOverlay08
             z: 100
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: MColors.whiteOverlay04
+            MTopHairline {
+                radius: parent.radius
+                color: MColors.whiteOverlay04
+                lineWidth: 1
             }
 
             Row {
@@ -676,13 +674,10 @@ MApp {
             border.color: MColors.whiteOverlay04
             z: 90
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: MColors.whiteOverlay04
+            MTopHairline {
+                radius: parent.radius
+                color: MColors.whiteOverlay04
+                lineWidth: 1
             }
 
             Row {

@@ -2,6 +2,7 @@ import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -81,15 +82,12 @@ Item {
             Component.onCompleted: if (!isOutgoing)
                 color = MColors.elev2
 
-            // Inner inset highlight — only visible on the outgoing tint.
-            Rectangle {
+            // Inner inset highlight — top arc only, follows bubble radius.
+            MTopHairline {
                 visible: isOutgoing
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.2)
+                radius: parent.radius
+                color: Qt.rgba(1, 1, 1, 0.2)
+                lineWidth: 1
             }
 
             Text {
