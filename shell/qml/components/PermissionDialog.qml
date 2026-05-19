@@ -97,36 +97,7 @@ Item {
         }
     }
 
-    // Cast-down shadow per DS Dialogs · "0 24px 60px -20px rgba(0,0,0,0.8)".
-    // Rendered as a SIBLING of `dialog` (not a child) so the dialog can
-    // safely clip its own children — see the clip:true note on the
-    // dialog Rectangle below.
-    Rectangle {
-        anchors.fill: dialog
-        anchors.topMargin: Math.round(8 * Constants.scaleFactor)
-        radius: dialog.radius
-        color: Qt.rgba(0, 0, 0, 0.55)
-        z: dialog.z - 1
-        opacity: 0.6
-    }
-
     // Dialog body. Max 340 design-px wide per DS Dialogs spec.
-    //
-    // `layer.enabled: true` is load-bearing: MButton's primary variant
-    // renders its cast-down teal glow through a MultiEffect, which
-    // composites to an offscreen FBO. That FBO ignores the parent
-    // Rectangle's `clip: true` — the FBO is composited as a textured
-    // quad at the effect's geometry, which extends past the modal
-    // body. The visible result was a teal smear leaking down and to
-    // the right of the dialog.
-    //
-    // Putting `layer.enabled: true` on the dialog forces the WHOLE
-    // dialog (body + chrome + child effects) to render into a single
-    // offscreen FBO bounded by the dialog's bbox. Anything a child
-    // would have drawn outside the bbox is clipped by the FBO size —
-    // including MultiEffect output. The compositor then paints that
-    // bounded FBO at the dialog's position with the rounded corners
-    // preserved.
     Rectangle {
         id: dialog
 
@@ -135,9 +106,17 @@ Item {
         height: contentColumn.implicitHeight
         radius: MRadius.md
         color: MColors.elev2
-        layer.enabled: true
-        layer.smooth: true
         scale: (PermissionManager && PermissionManager.promptActive) ? 1.0 : 0.96
+
+        // Cast-down shadow per DS Dialogs · "0 24px 60px -20px rgba(0,0,0,0.8)".
+        Rectangle {
+            anchors.fill: parent
+            anchors.topMargin: Math.round(8 * Constants.scaleFactor)
+            radius: parent.radius
+            color: Qt.rgba(0, 0, 0, 0.55)
+            z: -1
+            opacity: 0.6
+        }
 
         // Double-edge stroke: outer dark hairline + inset top-edge w-08 highlight.
         // DS Cards · "0 0 0 1px var(--border-dark), inset 0 1px 0 var(--w-08)".
