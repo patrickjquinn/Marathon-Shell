@@ -33,3 +33,11 @@ build-podman/
 
 # Claude Code tooling/project state
 .claude/
+
+# Per-deployment OAuth client IDs (see oauth-clients.env.example).
+# Not secrets — PKCE installed-app means the client_id alone can't be
+# used to impersonate. Gitignored anyway so each release / fork picks
+# its own IDs without colliding with upstream Marathon's quota.
+tools/marathon-mail-oauth/oauth-clients.env
+# Rust cargo build artefacts under each Rust crate
+tools/marathon-mail-oauth/target/
