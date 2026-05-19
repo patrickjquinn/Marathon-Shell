@@ -19,6 +19,7 @@
 #include <QPointer>
 
 class TextInputManagerV3;
+class SecurityContextManagerV1;
 
 class WaylandCompositor : public QWaylandCompositor {
     Q_OBJECT
@@ -90,6 +91,7 @@ class WaylandCompositor : public QWaylandCompositor {
     QWaylandViewporter                     *m_viewporter               = nullptr;
     QWaylandTextInputManager               *m_textInputManager         = nullptr;
     TextInputManagerV3                     *m_textInputManagerV3Custom = nullptr;
+    SecurityContextManagerV1               *m_securityContextManager   = nullptr;
     QWaylandIdleInhibitManagerV1           *m_idleInhibitManager       = nullptr;
     QWaylandQuickOutput                    *m_output                   = nullptr;
     QQuickWindow                           *m_window                   = nullptr;

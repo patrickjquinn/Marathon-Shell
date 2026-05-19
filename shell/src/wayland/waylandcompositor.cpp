@@ -1,4 +1,6 @@
 #include "src/wayland/waylandcompositor.h"
+#include "src/wayland/securitycontextv1.h"
+#include "src/wayland/textinputv3.h"
 #include <QDebug>
 #include <QTimer>
 #include <QPointer>
@@ -101,6 +103,16 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
             [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(true); });
     connect(m_textInputManagerV3Custom, &TextInputManagerV3::textInputDisabled, this,
             [this](QWaylandSurface *) { emit nativeTextInputPanelRequested(false); });
+
+    // wp_security_context_v1 — lets sandbox engines (marathon-app-runner,
+    // future Flatpak) tag connections with a fixed (engine, app_id,
+    // instance_id) triple. The compositor (and any portal proxies that
+    // consult it) can then enforce per-app policy independent of the
+    // client's own assertion. Runtime wiring (marathon-app-runner using
+    // this to make its bwrap'd apps connect on a separate FD) lands in a
+    // follow-up commit; this enables the global so the runtime side can
+    // be developed against a real implementation.
+    m_securityContextManager = new SecurityContextManagerV1(this);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
