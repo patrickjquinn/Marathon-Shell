@@ -7,6 +7,14 @@ Item {
 
     property string title: ""
     property string subtitle: ""
+    // DS section labels (.m-row groups in Settings, Display, etc.) use a
+    // small-caps tracked eyebrow above the card — 11/700 uppercase with
+    // 1.4 tracking, secondary colour, NO subtitle. The Title-3 + subtitle
+    // variant we used before reads as content, not as a navigational
+    // section heading. Opt-in via `eyebrow: true`; default stays Title-3
+    // for backward-compatibility with surfaces that have already adopted
+    // the heavier treatment intentionally.
+    property bool eyebrow: false
     default property alias content: contentColumn.children
 
     function updateDividers() {
@@ -36,22 +44,24 @@ Item {
         visible: title !== ""
 
         Text {
-            // DS Title 3 — 22/500 with -0.3 tracking (list section
-            // heroes). The previous sizeLarge (17) + weightDemiBold (600)
-            // read as a heavy 17 px label; the DS calls for a larger,
-            // lighter title so sections feel like distinct sub-pages
-            // within a list, not bolded labels.
-            text: title
-            color: MColors.textPrimary
-            font.pixelSize: MTypography.sizeTitle3
-            font.weight: MTypography.weightMedium
-            font.letterSpacing: MTypography.trackingTitle3
+            // Two modes:
+            //   eyebrow = true  → DS settings label: 11/700 + 1.4 tracking,
+            //                     uppercase, --text-secondary. No subtitle.
+            //   eyebrow = false → Legacy Title 3: 22/500 with -0.3 tracking.
+            text: section.eyebrow ? title.toUpperCase() : title
+            color: section.eyebrow ? MColors.textSecondary : MColors.textPrimary
+            font.pixelSize: section.eyebrow ? MTypography.sizeEyebrow : MTypography.sizeTitle3
+            font.weight: section.eyebrow ? MTypography.weightBold : MTypography.weightMedium
+            font.letterSpacing: section.eyebrow ? MTypography.trackingEyebrow : MTypography.trackingTitle3
             font.family: MTypography.fontFamily
             width: parent.width
         }
 
         Text {
-            visible: subtitle !== ""
+            // Subtitle suppressed in eyebrow mode — DS doesn't pair the
+            // small-caps label with descriptive copy. Only Title-3 mode
+            // surfaces this slot.
+            visible: !section.eyebrow && subtitle !== ""
             text: subtitle
             color: MColors.textSecondary
             font.pixelSize: MTypography.sizeSmall
