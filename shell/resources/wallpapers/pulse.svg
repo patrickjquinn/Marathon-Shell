@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="pulse-glow" cx="0.5" cy="0.6398" r="0.5">
+      <stop offset="0" stop-color="#00bfa5" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#pulse-glow)"/>
+  <g fill="none" stroke="#1de9b6" stroke-linecap="round">
+    <circle cx="195" cy="540" r="40" stroke-width="1.2" opacity="0.550"/>
+    <circle cx="195" cy="540" r="90" stroke-width="0.5" opacity="0.490"/>
+    <circle cx="195" cy="540" r="150" stroke-width="0.5" opacity="0.430"/>
+    <circle cx="195" cy="540" r="220" stroke-width="0.5" opacity="0.370"/>
+    <circle cx="195" cy="540" r="300" stroke-width="0.5" opacity="0.310"/>
+    <circle cx="195" cy="540" r="400" stroke-width="0.5" opacity="0.250"/>
+    <circle cx="195" cy="540" r="520" stroke-width="0.5" opacity="0.190"/>
+    <circle cx="195" cy="540" r="680" stroke-width="0.5" opacity="0.130"/>
+  </g>
+  <g>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#1de9b6" stroke-width="0.7" opacity="0.55"/>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#5dffdc" stroke-width="0.3" opacity="0.385"/>
+    <circle cx="195" cy="540" r="2.5" fill="#5dffdc" opacity="0.95"/>
+    <circle cx="195" cy="540" r="8" fill="#1de9b6" opacity="0.18"/>
+  </g>
+</svg>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="dawn-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2840" stop-opacity="0.55"/>
+      <stop offset="0.30" stop-color="#3a4055" stop-opacity="0.45"/>
+      <stop offset="0.50" stop-color="#5a4a4a" stop-opacity="0.35"/>
+      <stop offset="0.6398" stop-color="#040404" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="1"/>
+    </linearGradient>
+    <radialGradient id="dawn-sun" cx="0.5" cy="0.6398" r="0.45">
+      <stop offset="0" stop-color="#5dffdc" stop-opacity="0.35"/>
+      <stop offset="0.4" stop-color="#1de9b6" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#dawn-sky)"/>
+  <rect width="390" height="844" fill="url(#dawn-sun)"/>
+  <circle cx="285" cy="160" r="1.0" fill="#f5f5f5" opacity="0.85"/>
+  <circle cx="285" cy="160" r="3" fill="#f5f5f5" opacity="0.15"/>
+  <g>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#1de9b6" stroke-width="0.7" opacity="0.7"/>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#5dffdc" stroke-width="0.3" opacity="0.48999999999999994"/>
+    <circle cx="195" cy="540" r="2.5" fill="#5dffdc" opacity="0.95"/>
+    <circle cx="195" cy="540" r="8" fill="#1de9b6" opacity="0.18"/>
+  </g>
+</svg>

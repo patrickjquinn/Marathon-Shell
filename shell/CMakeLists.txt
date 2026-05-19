@@ -357,6 +357,18 @@ qt_add_resources(marathon-shell "shell_wallpapers"
     BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/wallpapers"
     FILES
         resources/wallpapers/slate-aurora.svg
+        resources/wallpapers/carbon.svg
+        resources/wallpapers/contour.svg
+        resources/wallpapers/dawn.svg
+        resources/wallpapers/halftone.svg
+        resources/wallpapers/indigo-dusk.svg
+        resources/wallpapers/long-run.svg
+        resources/wallpapers/mesh.svg
+        resources/wallpapers/pulse.svg
+        resources/wallpapers/striae.svg
+        resources/wallpapers/stride.svg
+        resources/wallpapers/track.svg
+        resources/wallpapers/tundra.svg
 )
 # Fonts go via a dedicated qrc to preserve `alias=` mappings — the FILES
 # form of qt_add_resources can't rename embedded paths, and the brackets

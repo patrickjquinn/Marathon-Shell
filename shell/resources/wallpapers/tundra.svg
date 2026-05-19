@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="tundra-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a6b9c" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#1f3a5c" stop-opacity="0.45"/>
+      <stop offset="0.6398" stop-color="#040404" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="1"/>
+    </linearGradient>
+    <radialGradient id="tundra-glow" cx="0.5" cy="0.6398" r="0.4">
+      <stop offset="0" stop-color="#1de9b6" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#tundra-sky)"/>
+  <rect width="390" height="844" fill="url(#tundra-glow)"/>
+  <g fill="none" stroke="#1de9b6" stroke-linecap="round" opacity="0.45">
+    <path d="M -25 540 A 220 220 0 0 1 415 540" stroke-width="0.7"/>
+    <path d="M 55 540 A 140 140 0 0 1 335 540" stroke-width="0.6" opacity="0.7"/>
+  </g>
+  <g>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#1de9b6" stroke-width="0.7" opacity="0.55"/>
+    <line x1="0" y1="540" x2="390" y2="540" stroke="#5dffdc" stroke-width="0.3" opacity="0.385"/>
+    <circle cx="195" cy="540" r="2.5" fill="#5dffdc" opacity="0.95"/>
+    <circle cx="195" cy="540" r="8" fill="#1de9b6" opacity="0.18"/>
+  </g>
+</svg>
