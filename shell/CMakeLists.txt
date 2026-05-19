@@ -164,27 +164,37 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/waylandcompositor.cpp
         src/wayland/textinputv3.h
         src/wayland/textinputv3.cpp
+        src/wayland/securitycontextv1.h
+        src/wayland/securitycontextv1.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)
     if(WAYLAND_SCANNER)
-        set(TEXT_INPUT_V3_XML ${CMAKE_CURRENT_SOURCE_DIR}/protocols/text-input-unstable-v3.xml)
-        set(TEXT_INPUT_V3_SERVER_H ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3-server.h)
-        set(TEXT_INPUT_V3_CODE ${CMAKE_CURRENT_BINARY_DIR}/text-input-unstable-v3.c)
+        # Each custom protocol: <xml-stem> in the protocols dir.
+        # wayland-scanner generates a server header + private-code .c
+        # in the build dir, which we then add to SOURCES.
+        #
+        # text-input-unstable-v3 is named the way it is for protocol-
+        # version compatibility (it follows the pre-staging naming).
+        # Everything else follows the staging naming (foo-vN.xml →
+        # foo-vN-server.h, foo-vN.c) which matches the upstream
+        # wayland-protocols layout.
+        function(marathon_scan_protocol XML_STEM HEADER_STEM)
+            set(_xml    ${CMAKE_CURRENT_SOURCE_DIR}/protocols/${XML_STEM}.xml)
+            set(_hdr    ${CMAKE_CURRENT_BINARY_DIR}/${HEADER_STEM}-server.h)
+            set(_code   ${CMAKE_CURRENT_BINARY_DIR}/${HEADER_STEM}.c)
+            add_custom_command(OUTPUT ${_hdr}
+                COMMAND ${WAYLAND_SCANNER} server-header  ${_xml} ${_hdr}
+                DEPENDS ${_xml})
+            add_custom_command(OUTPUT ${_code}
+                COMMAND ${WAYLAND_SCANNER} private-code   ${_xml} ${_code}
+                DEPENDS ${_xml})
+            set(SOURCES ${SOURCES} ${_code} ${_hdr} PARENT_SCOPE)
+        endfunction()
 
-        add_custom_command(
-            OUTPUT ${TEXT_INPUT_V3_SERVER_H}
-            COMMAND ${WAYLAND_SCANNER} server-header ${TEXT_INPUT_V3_XML} ${TEXT_INPUT_V3_SERVER_H}
-            DEPENDS ${TEXT_INPUT_V3_XML}
-        )
-        add_custom_command(
-            OUTPUT ${TEXT_INPUT_V3_CODE}
-            COMMAND ${WAYLAND_SCANNER} private-code ${TEXT_INPUT_V3_XML} ${TEXT_INPUT_V3_CODE}
-            DEPENDS ${TEXT_INPUT_V3_XML}
-        )
-
-        list(APPEND SOURCES ${TEXT_INPUT_V3_CODE} ${TEXT_INPUT_V3_SERVER_H})
-        message(STATUS "Wayland scanner found - enabling text-input-v3 protocol")
+        marathon_scan_protocol(text-input-unstable-v3 text-input-unstable-v3)
+        marathon_scan_protocol(security-context-v1    security-context-v1)
+        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1")
     else()
         message(WARNING "wayland-scanner not found - custom protocols disabled")
     endif()
