@@ -153,6 +153,11 @@ class MailService : public QObject {
     //   void onAccountRemoved(const QMailAccountId &id);
     //   void onRetrievalProgress(uint progress, uint total);
     //   void onActionCompleted(const QMailServiceAction::Status &status);
+    //
+    // onMessagesUpdated() handles flag changes (read/unread, folder moves,
+    // deletes). onMessagesAdded() is the IDLE arrival path: each newly
+    // inserted unread message in the Inbox produces a freedesktop
+    // notification on org.freedesktop.Notifications via QDBus.
     void onMessagesUpdated();
 
   private:
@@ -162,6 +167,12 @@ class MailService : public QObject {
     // Try to load the user's last-selected account from QSettings.
     void restoreLastSelection();
     void saveLastSelection();
+    // Push a freedesktop notification for each newly-arrived unread
+    // incoming Inbox message in `ids`. Called from the messagesAdded
+    // lambda — body signature uses QVariantList of u64 ids to keep the
+    // header free of QMF includes; the .cpp casts back to
+    // QMailMessageIdList.
+    void notifyForNewMessages(const class QMailMessageIdList &ids);
 
     // QMF model handles. All owned by MailService (QObject parent).
     QMailAccountListModel     *m_accountsModel = nullptr;

@@ -2,8 +2,13 @@
 
 #include <QAbstractItemModel>
 #include <QByteArray>
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusPendingCall>
 #include <QDebug>
 #include <QSettings>
+#include <QVariantList>
+#include <QVariantMap>
 
 // QMF public API. These headers come from qmf-dev. The build won't link
 // until the QMF apks land on the build host (see ~/duranium-build
@@ -186,7 +191,14 @@ MailService::MailService(QObject *parent)
             }
             emit currentAccountChanged();
         });
-        connect(store, &QMailStore::messagesAdded, this, &MailService::onMessagesUpdated);
+        // messagesAdded fires for IMAP IDLE arrivals (new server-side
+        // messages pulled by messageserver). We dispatch one freedesktop
+        // notification per newly-arrived unread incoming message, then
+        // recompute unreadCount via the shared onMessagesUpdated path.
+        connect(store, &QMailStore::messagesAdded, this, [this](const QMailMessageIdList &ids) {
+            notifyForNewMessages(ids);
+            onMessagesUpdated();
+        });
         connect(store, &QMailStore::messagesUpdated, this, &MailService::onMessagesUpdated);
         connect(store, &QMailStore::messagesRemoved, this, &MailService::onMessagesUpdated);
     }
@@ -458,6 +470,72 @@ void MailService::onMessagesUpdated() {
     if (n != m_unreadCount) {
         m_unreadCount = n;
         emit unreadCountChanged();
+    }
+}
+
+void MailService::notifyForNewMessages(const QMailMessageIdList &ids) {
+    if (ids.isEmpty())
+        return;
+
+    // Lazy session-bus connect. QDBusConnection::sessionBus() is a cheap
+    // accessor; the underlying connection is process-wide and shared.
+    auto bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected())
+        return;
+
+    for (const auto &id : ids) {
+        const QMailMessage msg(id);
+        if (!msg.id().isValid())
+            continue;
+        // Only Inbox arrivals (Incoming), and only unread. Sent items,
+        // drafts, and messages we ourselves mark via syncMail() flow
+        // through messagesAdded too — silence those.
+        const auto status = msg.status();
+        if (!(status & QMailMessage::Incoming))
+            continue;
+        if (status & QMailMessage::Read)
+            continue;
+
+        const QString senderName  = msg.from().name();
+        const QString senderEmail = msg.from().address();
+        const QString display     = !senderName.isEmpty() ?
+                senderName :
+                (!senderEmail.isEmpty() ? senderEmail : QStringLiteral("Mail"));
+        const QString subject =
+            msg.subject().isEmpty() ? QStringLiteral("(no subject)") : msg.subject();
+
+        // org.freedesktop.Notifications.Notify(
+        //   app_name: s, replaces_id: u, app_icon: s,
+        //   summary: s, body: s,
+        //   actions: as, hints: a{sv}, expire_timeout: i) -> u
+        auto call = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.Notifications"),
+                                                   QStringLiteral("/org/freedesktop/Notifications"),
+                                                   QStringLiteral("org.freedesktop.Notifications"),
+                                                   QStringLiteral("Notify"));
+
+        QVariantMap hints;
+        // category hint per the fdo spec — lets the shell route into the
+        // Hub's Mail filter and apply mail-specific suppression rules.
+        hints.insert(QStringLiteral("category"), QStringLiteral("email.arrived"));
+        // The shell's FreedesktopNotifications proxy reads `desktop-entry`
+        // to attribute the notification to the app (icon lookup, tap
+        // routing). "email" matches apps/email/manifest.json's appId.
+        hints.insert(QStringLiteral("desktop-entry"), QStringLiteral("email"));
+
+        QVariantList args;
+        args << QStringLiteral("Mail")         // app_name
+             << static_cast<uint>(0)           // replaces_id
+             << QStringLiteral("envelope")     // app_icon — Phosphor glyph
+             << display                        // summary
+             << subject                        // body
+             << QStringList{}                  // actions
+             << hints << static_cast<int>(-1); // expire_timeout (default)
+        call.setArguments(args);
+
+        // Fire-and-forget: we don't need the returned notification id;
+        // a failed call just logs and moves on (the next arrival will
+        // retry).
+        bus.asyncCall(call);
     }
 }
 
