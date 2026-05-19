@@ -10,7 +10,7 @@ SettingsManager::SettingsManager(QObject *parent)
     : QObject(parent)
     , m_settings("marathon-os", "Marathon Shell")
     , m_userScaleFactor(1.0)
-    , m_wallpaperPath("qrc:/wallpapers/wallpaper.jpg")
+    , m_wallpaperPath("qrc:/wallpapers/slate-aurora.svg")
     , m_deviceName("Marathon OS")
     , m_autoLock(true)
     , m_autoLockTimeout(300)
@@ -152,7 +152,7 @@ void SettingsManager::load() {
 
     m_userScaleFactor = m_settings.value("ui/userScaleFactor", 1.0).toReal();
     m_wallpaperPath =
-        m_settings.value("ui/wallpaperPath", assetUrl("wallpapers/wallpaper.jpg")).toString();
+        m_settings.value("ui/wallpaperPath", assetUrl("wallpapers/slate-aurora.svg")).toString();
     m_wallpaperPath = migrateQrcToFile(m_wallpaperPath, dataDir);
 
     m_deviceName               = m_settings.value("system/deviceName", "Marathon OS").toString();

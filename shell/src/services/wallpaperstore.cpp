@@ -7,6 +7,13 @@ WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent
     : QObject(parent)
     , m_settingsManager(settingsManager) {
     m_wallpapers = {
+        // DS 2026 default — Slate Aurora ships first so it's the picker
+        // default and matches docs/redesign/marathonos/project/wallpapers.jsx.
+        QVariantMap{
+            {"name", "Slate Aurora"},
+            {"path",
+             resolveAssetPath("wallpapers/slate-aurora.svg", "qrc:/wallpapers/slate-aurora.svg")},
+            {"isDark", true}},
         QVariantMap{
             {"name", "Gradient 1"},
             {"path", resolveAssetPath("wallpapers/wallpaper.jpg", "qrc:/wallpapers/wallpaper.jpg")},
