@@ -5,7 +5,7 @@
   "entryPoint": "EmailApp.qml",
   "icon": "assets/icon.svg",
   "author": "Marathon OS",
-  "permissions": ["network", "storage"],
+  "permissions": ["network", "storage", "secret-service"],
   "minShellVersion": "1.0.0",
   "protected": false,
   "categories": ["Productivity"],
@@ -23,5 +23,5 @@
   ],
   "deepLinks": {},
   "backgroundCapabilities": ["download", "periodic-sync"],
-  "requiresQtModules": ["webengine"]
+  "requiresQtModules": []
 }
