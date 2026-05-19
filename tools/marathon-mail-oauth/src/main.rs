@@ -135,7 +135,25 @@ enum Cmd {
         #[arg(long)]
         account_id: String,
     },
-    /// Forget an account — wipes its secret.
+    /// Store username + password for a classic IMAP/SMTP account. Password
+    /// is read from stdin (so it never appears in a process listing).
+    /// Used by MailService.addImapAccount for Fastmail / iCloud / self-
+    /// hosted IMAP — the auth method MarathonAccountSetupPage exposes.
+    ClassicAdd {
+        #[arg(long)]
+        account_id: String,
+        #[arg(long)]
+        username: String,
+    },
+    /// Print the stored username + password for a classic account on
+    /// stdout (JSON envelope). Called by the marathonclassic QMF
+    /// credentials plugin on every IMAP/SMTP authentication attempt.
+    ClassicGet {
+        #[arg(long)]
+        account_id: String,
+    },
+    /// Forget an account — wipes its secret. Works for both OAuth and
+    /// classic-password entries (same account_id, separate namespaces).
     Remove {
         #[arg(long)]
         account_id: String,
@@ -148,7 +166,9 @@ enum Cmd {
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum Reply<'a> {
     AccessToken { access_token: &'a str, expires_in_secs: u64, email: Option<&'a str> },
+    Password    { username: &'a str, password: &'a str },
     Added       { account_id: &'a str, provider: &'a str, email: Option<&'a str> },
+    ClassicAdded { account_id: &'a str, username: &'a str },
     Removed     { account_id: &'a str },
     Error       { code: &'a str, message: String },
 }
@@ -222,17 +242,71 @@ async fn ss_load_refresh(account_id: &str) -> Result<(Provider, String)> {
 }
 
 async fn ss_remove(account_id: &str) -> Result<()> {
+    // Wipe BOTH namespaces so a Remove on an account_id that switched auth
+    // method (rare but possible) doesn't leave a dangling stale secret.
+    let ss = SecretService::connect(EncryptionType::Dh).await
+        .context("connecting to org.freedesktop.secrets")?;
+    for service in ["marathon-mail-oauth", "marathon-mail-classic"] {
+        let attrs: std::collections::HashMap<&str, &str> = [
+            ("service",    service),
+            ("account_id", account_id),
+        ].into_iter().collect();
+        let items = ss.search_items(attrs).await?;
+        for item in items.unlocked.into_iter().chain(items.locked) {
+            let _ = item.delete().await;
+        }
+    }
+    Ok(())
+}
+
+// Classic-password storage. Username lives in the item attributes (not
+// secret); password is the secret payload. Separate namespace from OAuth
+// to avoid the attribute search picking up the wrong item kind.
+
+async fn ss_store_classic(account_id: &str, username: &str, password: &str) -> Result<()> {
+    let ss = SecretService::connect(EncryptionType::Dh).await
+        .context("connecting to org.freedesktop.secrets")?;
+    let coll = ss.get_default_collection().await
+        .context("opening default Secret-Service collection")?;
+    if coll.is_locked().await.unwrap_or(false) {
+        coll.unlock().await.context("unlocking Secret-Service collection")?;
+    }
+    let attrs: std::collections::HashMap<&str, &str> = [
+        ("service",    "marathon-mail-classic"),
+        ("account_id", account_id),
+        ("username",   username),
+    ].into_iter().collect();
+    coll.create_item(
+        &format!("Marathon Mail · {account_id} (IMAP)"),
+        attrs,
+        password.as_bytes(),
+        true,   // replace_existing
+        "text/plain",
+    ).await.context("writing classic credentials to Secret-Service")?;
+    Ok(())
+}
+
+async fn ss_load_classic(account_id: &str) -> Result<(String, String)> {
     let ss = SecretService::connect(EncryptionType::Dh).await
         .context("connecting to org.freedesktop.secrets")?;
     let attrs: std::collections::HashMap<&str, &str> = [
-        ("service",    "marathon-mail-oauth"),
+        ("service",    "marathon-mail-classic"),
         ("account_id", account_id),
     ].into_iter().collect();
-    let items = ss.search_items(attrs).await?;
-    for item in items.unlocked.into_iter().chain(items.locked) {
-        let _ = item.delete().await;
+    let items = ss.search_items(attrs).await
+        .context("searching Secret-Service for classic account")?;
+    let item = items.unlocked.into_iter().chain(items.locked).next()
+        .ok_or_else(|| anyhow!("no classic-password account named {account_id:?}"))?;
+    if item.is_locked().await.unwrap_or(false) {
+        item.unlock().await.context("unlocking secret item")?;
     }
-    Ok(())
+    let attrs = item.get_attributes().await.unwrap_or_default();
+    let username = attrs.get("username")
+        .ok_or_else(|| anyhow!("stored item missing username attribute"))?
+        .clone();
+    let bytes = item.get_secret().await.context("reading secret payload")?;
+    let password = String::from_utf8(bytes).context("password is not UTF-8")?;
+    Ok((username, password))
 }
 
 // ── OAuth flows ───────────────────────────────────────────────────────
@@ -393,6 +467,31 @@ fn main() {
                 // We exit cleanly even after stdout write; the SASL
                 // plugin treats exit 0 + non-error JSON as success.
                 let _ = SystemTime::now();
+                Ok(())
+            }
+            Cmd::ClassicAdd { account_id, username } => {
+                // Password from stdin (NOT a CLI arg) so it stays out of
+                // /proc/<pid>/cmdline and any ps listing.
+                let mut buf = String::new();
+                std::io::stdin().read_line(&mut buf)
+                    .context("reading password from stdin")?;
+                let password = buf.trim_end_matches('\n').trim_end_matches('\r');
+                if password.is_empty() {
+                    return Err(anyhow!("empty password on stdin"));
+                }
+                ss_store_classic(&account_id, &username, password).await?;
+                emit(&Reply::ClassicAdded {
+                    account_id: &account_id,
+                    username:   &username,
+                });
+                Ok(())
+            }
+            Cmd::ClassicGet { account_id } => {
+                let (username, password) = ss_load_classic(&account_id).await?;
+                emit(&Reply::Password {
+                    username: &username,
+                    password: &password,
+                });
                 Ok(())
             }
             Cmd::Remove { account_id } => {
