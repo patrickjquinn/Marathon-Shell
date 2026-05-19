@@ -9,6 +9,15 @@ Item {
     property var hiddenApps: SettingsManagerCpp.hiddenApps
     property string sortOrder: SettingsManagerCpp.appSortOrder
     property bool showNotificationBadges: SettingsManagerCpp.showNotificationBadges
+    // Curated home-grid order. When set, the model emits these apps in this
+    // exact order and DROPS everything else — that's the DS HomePage1
+    // contract (screens-shell.jsx ships 16 specific apps in 4×4). The App
+    // Drawer surface uses a separate alphabetical model. Default list mirrors
+    // the JSX HomePage1 ordering, substituting installed Marathon apps for
+    // the brand-only slots (mi/wallet/health) that don't ship as separate
+    // app bundles yet.
+    property var pinnedAppIds: ["phone", "messages", "email", "browser", "store", "music", "camera", "gallery", "maps", "calendar", "clock", "calculator", "notes", "settings"]
+    property bool pinnedMode: true
 
     signal dataChanged
 
@@ -21,6 +30,27 @@ Item {
 
     function rebuildFilteredList() {
         var apps = [];
+        // Pinned mode: lookup each id in the source model and emit in order.
+        // Drop entries that don't resolve so we don't render empty cells
+        // when a built-in app is missing from this build.
+        if (pinnedMode && pinnedAppIds && pinnedAppIds.length > 0) {
+            var indexById = {};
+            for (var k = 0; k < sourceModel.count; k++) {
+                var src = sourceModel.getAppAtIndex(k);
+                if (src && src.id)
+                    indexById[src.id] = src;
+            }
+            for (var j = 0; j < pinnedAppIds.length; j++) {
+                var id = pinnedAppIds[j];
+                var hit = indexById[id];
+                if (hit && hiddenApps.indexOf(id) < 0)
+                    apps.push(hit);
+            }
+            filteredApps = apps;
+            dataChanged();
+            Logger.info("FilteredAppModel", "Rebuilt (pinned): " + filteredApps.length + " of " + pinnedAppIds.length + " requested (source has " + sourceModel.count + ")");
+            return;
+        }
         for (var i = 0; i < sourceModel.count; i++) {
             var app = sourceModel.getAppAtIndex(i);
             if (!app)

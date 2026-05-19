@@ -10,7 +10,12 @@ Item {
     property var appModel: null
     property int pageIndex: 0
     property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6))
-    property int rows: Constants.screenWidth < 700 ? 5 : 4
+    // DS HomePage1 (screens-shell.jsx) ships 16 apps per page in a 4×4 grid on
+    // the 390×844 phone canvas, with a 4-icon pinned dock below. We honour
+    // that exactly on phone widths; wider canvases get an extra row of breathing
+    // room. Earlier work pushed this to 6×4 = 24 for "density" — that's past
+    // spec and made the dock collide with the last row visually.
+    property int rows: Constants.screenWidth < 700 ? 4 : 5
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
@@ -50,11 +55,14 @@ Item {
         id: iconGrid
 
         anchors.fill: parent
-        anchors.margins: 12
-        anchors.bottomMargin: Constants.bottomBarHeight + 16
+        anchors.margins: 10
+        anchors.bottomMargin: Constants.bottomBarHeight + 12
         columns: appGrid.columns
         rows: appGrid.rows
-        spacing: Constants.spacingMedium
+        // Tighter inter-cell spacing for higher density per user direction
+        // — 8 px keeps icons legible while fitting 6 rows × 4 cols on
+        // phone canvases without clipping.
+        spacing: Math.round(8 * (Constants.scaleFactor || 1.0))
 
         Repeater {
             model: appGrid.pageItemCount
@@ -105,7 +113,11 @@ Item {
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: Constants.spacingSmall
+                    // Tighter icon→label gap so labels sit close under the
+                    // icon and more rows fit per page. 4 px is the tightest
+                    // value that still preserves a visible separator at
+                    // smaller scaleFactors.
+                    spacing: Math.round(4 * (Constants.scaleFactor || 1.0))
 
                     Item {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -197,20 +209,18 @@ Item {
                         }
                     }
 
-                    // App label — Caption 12 / 500 per DS list-row caption
-                    // spec. textPrimary on dark wallpapers; Text.Outline
-                    // dropped since the DS dark-first surface doesn't
-                    // need it (icons sit on glass or aurora-tinted
-                    // wallpaper, both dark enough for primary-tint text).
+                    // App label — Footnote 13 / 500 per user direction
+                    // ("make icons and text bigger"). textPrimary on dark
+                    // wallpapers; Text.Outline dropped since the DS dark-
+                    // first surface doesn't need it.
                     Text {
                         width: parent.parent.width
                         horizontalAlignment: Text.AlignHCenter
                         text: appData ? appData.name : ""
                         color: MColors.textPrimary
                         font.family: MTypography.fontFamily
-                        font.pixelSize: MTypography.sizeCaption
+                        font.pixelSize: MTypography.sizeFootnote
                         font.weight: MTypography.weightMedium
-                        font.letterSpacing: MTypography.trackingCaption
                         elide: Text.ElideRight
                         maximumLineCount: 1
                     }
