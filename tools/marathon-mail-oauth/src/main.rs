@@ -44,20 +44,25 @@ use url::Url;
 
 // ── Provider definitions ──────────────────────────────────────────────
 //
-// These OAuth2 endpoints + client IDs come from Google's and Microsoft's
-// public installed-app docs. The client_id is NOT a secret for the
-// installed-app flow (PKCE replaces the secret). We hard-code both
-// providers' IDs because mail is a system-wide service, not a per-user
-// app registration — Marathon ships one client_id and rotates it via
-// release.
+// OAuth2 endpoints come from Google's and Microsoft's public installed-
+// app docs. The client_id is NOT a secret for the installed-app flow
+// (PKCE replaces the secret).
 //
-// TODO: register a real production client_id with both providers and
-// replace these placeholders. Marked here as `OWN_BEFORE_SHIP` rather
-// than left as bogus values that would fail with no diagnostic.
+// Client IDs are read at runtime from environment variables so the
+// shipping binary can be customised per distribution / channel without
+// rebuilding. The production image's marathon-mail-oauth.service sets:
+//
+//   Environment=MARATHON_OAUTH_GOOGLE_CLIENT_ID=<your-google-id>
+//   Environment=MARATHON_OAUTH_MICROSOFT_CLIENT_ID=<your-ms-id>
+//
+// See docs/MAIL_OAUTH_REGISTRATION.md for how to obtain them from
+// Google Cloud Console + Microsoft Azure Portal. If either env var is
+// unset (or the placeholder OWN_BEFORE_SHIP… is still present), the
+// helper exits with a structured `error` envelope instead of attempting
+// a guaranteed-to-fail OAuth flow.
 
 const GOOGLE_AUTH_URL:  &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
-const GOOGLE_CLIENT_ID: &str = "OWN_BEFORE_SHIP-google-installed.apps.googleusercontent.com";
 const GOOGLE_SCOPES:    &[&str] = &[
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/userinfo.email",
@@ -65,13 +70,29 @@ const GOOGLE_SCOPES:    &[&str] = &[
 
 const MS_AUTH_URL:  &str = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
 const MS_TOKEN_URL: &str = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-const MS_CLIENT_ID: &str = "OWN_BEFORE_SHIP-microsoft-marathon-app";
 const MS_SCOPES:    &[&str] = &[
     "offline_access",
     "https://outlook.office.com/IMAP.AccessAsUser.All",
     "https://outlook.office.com/SMTP.Send",
     "User.Read",
 ];
+
+fn resolve_client_id(provider: Provider) -> Result<String> {
+    let var = match provider {
+        Provider::Gmail   => "MARATHON_OAUTH_GOOGLE_CLIENT_ID",
+        Provider::Outlook => "MARATHON_OAUTH_MICROSOFT_CLIENT_ID",
+    };
+    let raw = std::env::var(var).map_err(|_| {
+        anyhow!("{var} not set — see docs/MAIL_OAUTH_REGISTRATION.md to obtain a client id")
+    })?;
+    if raw.starts_with("OWN_BEFORE_SHIP") || raw.is_empty() {
+        return Err(anyhow!(
+            "{var} is still the placeholder — register a real client id per \
+             docs/MAIL_OAUTH_REGISTRATION.md"
+        ));
+    }
+    Ok(raw)
+}
 
 #[derive(Clone, Copy, Debug)]
 enum Provider {
@@ -96,9 +117,6 @@ impl Provider {
     }
     fn token_url(self) -> &'static str {
         match self { Provider::Gmail => GOOGLE_TOKEN_URL, Provider::Outlook => MS_TOKEN_URL }
-    }
-    fn client_id(self) -> &'static str {
-        match self { Provider::Gmail => GOOGLE_CLIENT_ID, Provider::Outlook => MS_CLIENT_ID }
     }
     fn scopes(self) -> &'static [&'static str] {
         match self { Provider::Gmail => GOOGLE_SCOPES, Provider::Outlook => MS_SCOPES }
@@ -312,8 +330,9 @@ async fn ss_load_classic(account_id: &str) -> Result<(String, String)> {
 // ── OAuth flows ───────────────────────────────────────────────────────
 
 fn build_client(provider: Provider, redirect: &Url) -> Result<BasicClient> {
+    let client_id = resolve_client_id(provider)?;
     Ok(BasicClient::new(
-        ClientId::new(provider.client_id().to_string()),
+        ClientId::new(client_id),
         // No client_secret — installed apps use PKCE. For Microsoft's
         // common endpoint we technically *can* use an empty secret too.
         Some(ClientSecret::new(String::new())),
