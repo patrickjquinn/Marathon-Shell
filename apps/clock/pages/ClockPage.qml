@@ -404,7 +404,7 @@ Item {
                                 color: MColors.textTertiary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
-                                font.weight: Font.Regular
+                                font.weight: Font.Normal
                             }
                             Text {
                                 text: modelData.city

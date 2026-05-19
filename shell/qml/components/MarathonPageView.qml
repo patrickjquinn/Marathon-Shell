@@ -1,4 +1,4 @@
-import MarathonUI.Theme
+import MarathonOS.Shell
 import QtQuick
 
 Item {
@@ -34,7 +34,7 @@ Item {
             pageViewContainer.internalAppGridPage = page;
             pageView.currentIndex = page + 1;
             Qt.callLater(function () {
-                var loader = pageView.itemAtIndex(page + 1);
+                let loader = pageView.itemAtIndex(page + 1) as Loader;
                 if (loader && loader.item && typeof loader.item.navigateToPage === 'function')
                     loader.item.navigateToPage(page);
             });

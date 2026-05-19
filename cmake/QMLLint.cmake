@@ -51,38 +51,32 @@ function(add_qmllint_target target_name)
         endif()
     endif()
     
-    # Find MarathonUI build directory (multiple possible locations)
-    if(EXISTS "${CMAKE_BINARY_DIR}/qmllint")
-        list(APPEND import_paths "${CMAKE_BINARY_DIR}/qmllint")
+    # Find the MarathonUI module dir. We pick exactly ONE canonical path
+    # per module family — adding both `build/qmllint` and `build/MarathonUI`
+    # (which export the same singletons) triggers thousands of "Ambiguous
+    # type detected" warnings that drown out real findings. Prefer:
+    #   1. CMAKE_BINARY_DIR/MarathonUI when building marathon-ui directly
+    #   2. The dedicated build/qmllint staging tree if it exists
+    #   3. A sibling build/MarathonUI from an out-of-source build
+    set(_marathon_ui_path "")
+    if(CMAKE_CURRENT_BINARY_DIR MATCHES "marathon-ui"
+       AND EXISTS "${CMAKE_BINARY_DIR}/MarathonUI")
+        set(_marathon_ui_path "${CMAKE_BINARY_DIR}/MarathonUI")
+    elseif(EXISTS "${CMAKE_BINARY_DIR}/qmllint/MarathonUI")
+        set(_marathon_ui_path "${CMAKE_BINARY_DIR}/qmllint")
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/build/qmllint/MarathonUI")
+        set(_marathon_ui_path "${CMAKE_SOURCE_DIR}/build/qmllint")
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/../build/qmllint/MarathonUI")
+        set(_marathon_ui_path "${CMAKE_SOURCE_DIR}/../build/qmllint")
+    elseif(EXISTS "${CMAKE_BINARY_DIR}/MarathonUI")
+        set(_marathon_ui_path "${CMAKE_BINARY_DIR}/MarathonUI")
+        # Hoist module dir → parent to match QML_IMPORT_PATH convention.
+        get_filename_component(_marathon_ui_path "${_marathon_ui_path}" DIRECTORY)
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/build-ui/MarathonUI")
+        set(_marathon_ui_path "${CMAKE_SOURCE_DIR}/build-ui")
     endif()
-
-    if(EXISTS "${CMAKE_SOURCE_DIR}/build/qmllint")
-        list(APPEND import_paths "${CMAKE_SOURCE_DIR}/build/qmllint")
-    endif()
-
-    if(EXISTS "${CMAKE_SOURCE_DIR}/../build/qmllint")
-        list(APPEND import_paths "${CMAKE_SOURCE_DIR}/../build/qmllint")
-    endif()
-
-    # 1. If we're building marathon-ui, use current binary dir
-    if(CMAKE_CURRENT_BINARY_DIR MATCHES "marathon-ui")
-        list(APPEND import_paths "${CMAKE_BINARY_DIR}/MarathonUI")
-    endif()
-    
-    # 2. Check for separate build-ui directory (common build pattern)
-    # This is the most common case - MarathonUI is built separately
-    if(EXISTS "${CMAKE_SOURCE_DIR}/build-ui/MarathonUI")
-        list(APPEND import_paths "${CMAKE_SOURCE_DIR}/build-ui/MarathonUI")
-    endif()
-    
-    # 2b. Also check relative to current source directory
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../build-ui/MarathonUI")
-        list(APPEND import_paths "${CMAKE_CURRENT_SOURCE_DIR}/../../build-ui/MarathonUI")
-    endif()
-    
-    # 3. Check for build/MarathonUI (if built in same directory)
-    if(EXISTS "${CMAKE_BINARY_DIR}/MarathonUI")
-        list(APPEND import_paths "${CMAKE_BINARY_DIR}/MarathonUI")
+    if(_marathon_ui_path)
+        list(APPEND import_paths "${_marathon_ui_path}")
     endif()
 
     if(EXISTS "${CMAKE_BINARY_DIR}/shell/qml")

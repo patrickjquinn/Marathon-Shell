@@ -102,7 +102,7 @@ Item {
                 color: isOutgoing ? "#000000" : MColors.textPrimary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeBody
-                font.weight: Font.Regular
+                font.weight: Font.Normal
                 wrapMode: Text.Wrap
             }
         }

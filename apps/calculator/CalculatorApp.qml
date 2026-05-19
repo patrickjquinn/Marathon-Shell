@@ -208,7 +208,7 @@ MApp {
                 color: MColors.textTertiary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeSubhead
-                font.weight: Font.Regular
+                font.weight: Font.Normal
                 visible: text.length > 0
                 font.features: ({
                         "tnum": 1

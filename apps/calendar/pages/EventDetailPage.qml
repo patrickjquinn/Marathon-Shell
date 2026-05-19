@@ -12,7 +12,7 @@ MPage {
     id: root
 
     property var event: ({})
-    property var onDelete: null
+    property var deleteCallback: null
 
     title: "Event Details"
     showBackButton: true
@@ -66,8 +66,8 @@ MPage {
             text: "Delete Event"
             variant: "secondary"
             onClicked: {
-                if (root.onDelete)
-                    root.onDelete(root.event.id);
+                if (root.deleteCallback)
+                    root.deleteCallback(root.event.id);
 
                 root.StackView.view.pop();
             }

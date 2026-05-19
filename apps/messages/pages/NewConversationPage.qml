@@ -1,5 +1,4 @@
 import MarathonApp.Messages
-import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
