@@ -58,7 +58,7 @@ class MusicLibraryManager : public QObject {
 
   public:
     explicit MusicLibraryManager(QObject *parent = nullptr);
-    ~MusicLibraryManager();
+    ~MusicLibraryManager() override;
 
     QVariantList             artists() const;
     bool                     isScanning() const;

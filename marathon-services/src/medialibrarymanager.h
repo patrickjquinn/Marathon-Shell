@@ -63,7 +63,7 @@ class MediaLibraryManager : public QObject {
 
   public:
     explicit MediaLibraryManager(QObject *parent = nullptr);
-    ~MediaLibraryManager();
+    ~MediaLibraryManager() override;
 
     QVariantList             albums() const;
     bool                     isScanning() const;

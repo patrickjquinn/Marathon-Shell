@@ -18,7 +18,7 @@ class TelephonyService : public QObject {
 
   public:
     explicit TelephonyService(QObject *parent = nullptr);
-    ~TelephonyService();
+    ~TelephonyService() override;
 
     QString          callState() const;
     bool             hasModem() const;

@@ -76,7 +76,7 @@ class AppModel : public QAbstractListModel {
     };
 
     explicit AppModel(QObject *parent = nullptr);
-    ~AppModel();
+    ~AppModel() override;
 
     int      rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;

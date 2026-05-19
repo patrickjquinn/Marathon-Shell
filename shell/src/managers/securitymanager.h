@@ -27,7 +27,7 @@ class SecurityManager : public QObject {
 
   public:
     explicit SecurityManager(QObject *parent = nullptr);
-    ~SecurityManager();
+    ~SecurityManager() override;
 
     enum AuthMode {
         SystemPassword,

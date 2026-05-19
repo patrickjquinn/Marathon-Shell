@@ -13,7 +13,7 @@ class TextInputManagerV3 : public QObject {
     Q_OBJECT
   public:
     explicit TextInputManagerV3(QWaylandCompositor *compositor);
-    ~TextInputManagerV3();
+    ~TextInputManagerV3() override;
 
     static void bindManager(struct wl_client *client, void *data, uint32_t version, uint32_t id);
     static void handleGetTextInput(struct wl_client *client, struct wl_resource *resource,
@@ -35,7 +35,7 @@ class TextInputV3 : public QObject {
   public:
     explicit TextInputV3(TextInputManagerV3 *manager, struct wl_client *client, uint32_t id,
                          QWaylandSeat *seat);
-    ~TextInputV3();
+    ~TextInputV3() override;
 
     void        sendEnter(QWaylandSurface *surface);
     void        sendLeave(QWaylandSurface *surface);

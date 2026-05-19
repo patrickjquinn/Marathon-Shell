@@ -1,17 +1,14 @@
 #pragma once
 
-#include <QObject>
-#include <QString>
-#include <QVariant>
 #include <QDBusConnection>
 #include <QDBusInterface>
-#include <QDBusPendingCallWatcher>
-#include <QTimer>
-
-#include <QTimer>
-#include <QMap>
-#include <QVariant>
 #include <QDBusObjectPath>
+#include <QDBusPendingCallWatcher>
+#include <QMap>
+#include <QObject>
+#include <QString>
+#include <QTimer>
+#include <QVariant>
 
 typedef QMap<QString, QVariant>             PropertyMap;
 typedef QMap<QString, PropertyMap>          InterfaceMap;

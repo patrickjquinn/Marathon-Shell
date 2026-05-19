@@ -38,7 +38,7 @@ class MPRIS2Controller : public QObject {
 
   public:
     explicit MPRIS2Controller(QObject *parent = nullptr);
-    ~MPRIS2Controller();
+    ~MPRIS2Controller() override;
 
     bool hasActivePlayer() const {
         return m_hasActivePlayer;

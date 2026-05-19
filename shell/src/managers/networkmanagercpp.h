@@ -30,7 +30,7 @@ class NetworkManagerCpp : public QObject {
 
   public:
     explicit NetworkManagerCpp(QObject *parent = nullptr);
-    ~NetworkManagerCpp();
+    ~NetworkManagerCpp() override;
 
     bool wifiEnabled() const {
         return m_wifiEnabled;

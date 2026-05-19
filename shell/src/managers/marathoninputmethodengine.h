@@ -17,7 +17,7 @@ class MarathonInputMethodEngine : public QObject {
 
   public:
     explicit MarathonInputMethodEngine(QObject *parent = nullptr);
-    ~MarathonInputMethodEngine();
+    ~MarathonInputMethodEngine() override;
 
     bool active() const {
         return m_active;

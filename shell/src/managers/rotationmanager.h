@@ -16,7 +16,7 @@ class RotationManager : public QObject {
 
   public:
     explicit RotationManager(QObject *parent = nullptr);
-    ~RotationManager();
+    ~RotationManager() override;
 
     bool available() const {
         return m_available;
