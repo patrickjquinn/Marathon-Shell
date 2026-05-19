@@ -1,0 +1,37 @@
+[Unit]
+Description=Marathon Mail Server — QMF (Qt Messaging Framework) sync daemon
+Documentation=https://code.qt.io/cgit/qt-labs/messagingframework.git/
+# QMF's messageserver5 owns IMAP/SMTP/POP3 sync for the system. It's a
+# long-lived per-user daemon; the MarathonApp consumer talks to it via
+# QMF's in-process IPC. Started lazily — D-Bus socket activation isn't
+# available for QMF, so we WantedBy=marathon-shell.service so the daemon
+# is up when any app might query mail.
+PartOf=marathon-shell.service
+After=marathon-shell.service dbus.service
+Requires=dbus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/messageserver5
+Restart=on-failure
+RestartSec=2s
+# Place the daemon under the same delegated cgroup root as apps so the
+# Phase A+B lifecycle freezer policy can treat it uniformly. We don't
+# WANT to ever freeze it (mail sync is a background-by-design service)
+# but the cgroup placement gives systemd-oomd a coherent view of what
+# Marathon's mail subsystem is consuming.
+Slice=marathon.slice
+# QMF needs writable XDG_DATA_HOME for its on-disk message store
+# (~/.local/share/qmf). XDG inheritance from the user session is the
+# default behaviour; setting it explicitly is defensive against
+# environments that don't propagate.
+Environment=XDG_DATA_HOME=%h/.local/share
+
+# Memory budget: messageserver5 typically idles around 8-15 MB RSS with
+# 1-2 accounts. 64 MB ceiling is generous and lets a foreground fetch
+# of attachments breathe.
+MemoryHigh=64M
+MemoryMax=128M
+
+[Install]
+WantedBy=marathon-shell.service
