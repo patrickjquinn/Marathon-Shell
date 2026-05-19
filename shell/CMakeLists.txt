@@ -196,14 +196,12 @@ set(QML_FILES
     qml/components/AppBackdropBlur.qml
     qml/components/MarathonLockScreen.qml
     qml/components/MarathonLockShortcuts.qml
-    qml/components/MarathonActiveFramesHome.qml
     qml/components/MarathonAppGrid.qml
     qml/components/MarathonNavBar.qml
     qml/components/MarathonStatusBar.qml
     qml/components/MarathonBottomBar.qml
     qml/components/MarathonMessagingHub.qml
     qml/components/MarathonQuickSettings.qml
-    qml/components/MarathonTaskSwitcher.qml
     qml/components/TaskCard.qml
     qml/components/TaskPageIndicator.qml
     qml/components/MarathonPeek.qml
@@ -315,9 +313,71 @@ if(COMMAND qt_policy)
     endif()
 endif()
 
-# FIX: Use Big Resources for large assets to prevent OOM
-# This compiles resources.qrc into a separate object file that handles large data better
-qt6_add_big_resources(BIG_RESOURCES resources.qrc)
+# Embed UI resources (icons, wallpapers, fonts) via explicit FILES list.
+#
+# This used to go through `qt6_add_big_resources(... resources.qrc)` which
+# silently dropped every .svg/.png path on the Alpine-edge container build
+# (verified by `strings marathon-shell-bin | grep ^qrc:` — only .jpg/.wav
+# files made it through). The variable-form qt_add_resources had the same
+# symptom: the qrc paths get compiled, but only the .jpg and .wav data
+# arrays survive linking. Hypothesis: the autorcc machinery from
+# qt_add_qml_module collides with the qrc-form qt_add_resources on the
+# same target. The TARGET form below (explicit FILES, no .qrc) sidesteps
+# the conflict entirely and is the documented modern API.
+qt_add_resources(marathon-shell "shell_images"
+    PREFIX "/images"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/images"
+    FILES
+        resources/images/marathon.png
+        resources/images/phone.svg
+        resources/images/messages.svg
+        resources/images/mail.svg
+        resources/images/browser.svg
+        resources/images/camera.svg
+        resources/images/settings.svg
+        resources/images/calendar.svg
+        resources/images/clock.svg
+        resources/images/music.svg
+        resources/images/gallery.svg
+        resources/images/maps.svg
+        resources/images/calculator.svg
+        resources/images/notes.svg
+        resources/images/store.svg
+        resources/images/marathon.svg
+        resources/images/wallet.svg
+        resources/images/health.svg
+        resources/images/weather.svg
+        resources/images/voice.svg
+        resources/images/contacts.svg
+        resources/images/files.svg
+        resources/images/disconnect.svg
+)
+qt_add_resources(marathon-shell "shell_wallpapers"
+    PREFIX "/wallpapers"
+    BASE "${CMAKE_CURRENT_SOURCE_DIR}/resources/wallpapers"
+    FILES
+        resources/wallpapers/slate-aurora.svg
+        resources/wallpapers/wallpaper.jpg
+        resources/wallpapers/wallpaper2.jpg
+        resources/wallpapers/wallpaper3.jpg
+        resources/wallpapers/wallpaper4.jpg
+        resources/wallpapers/wallpaper5.jpg
+        resources/wallpapers/wallpaper6.jpg
+        resources/wallpapers/wallpaper7.jpg
+        resources/wallpapers/wallpaper8.jpg
+)
+# Fonts go via a dedicated qrc to preserve `alias=` mappings — the FILES
+# form of qt_add_resources can't rename embedded paths, and the brackets
+# in `Sora[wght].ttf` further confuse the prefix-mapped lookup. Using a
+# qrc with `<file alias="Sora.ttf">…</file>` keeps the FontLoader paths
+# stable across builds.
+qt_add_resources(SHELL_FONTS resources-fonts.qrc)
+target_sources(marathon-shell PRIVATE ${SHELL_FONTS})
+# Sounds stay in resources.qrc with the variable-output form because the
+# .wav blobs (69 MB) DO actually land in the binary today. Keep them out
+# of the qml-module target to avoid recompiling the giant initializer
+# every time a QML file changes.
+qt_add_resources(SHELL_SOUNDS resources.qrc)
 
 # Qt6 QML module configuration
 qt6_add_qml_module(marathon-shell
@@ -401,8 +461,8 @@ set_property(TARGET marathon-shell PROPERTY QT_QML_IMPORT_PATH
     "${CMAKE_BINARY_DIR}/shell/qml"
 )
 
-# Link the big resources to the target
-target_sources(marathon-shell PRIVATE ${BIG_RESOURCES})
+# Link the big resources (sounds-only qrc) to the target
+target_sources(marathon-shell PRIVATE ${SHELL_SOUNDS})
 
 # Add qmllint validation target - runs BEFORE building
 if(QMLLINT_AVAILABLE)
@@ -524,7 +584,7 @@ install(TARGETS marathon-shell
 # Install MarathonOS.Shell module for marathon-app-runner to find it
 if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
     set(SHELL_QML_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib/qt6/qml")
-    
+
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/qml/MarathonOS/
         DESTINATION ${SHELL_QML_INSTALL_DIR}/MarathonOS
         FILES_MATCHING
@@ -534,4 +594,22 @@ if(CMAKE_INSTALL_PREFIX STREQUAL "/usr" OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/l
         PATTERN "*.js"
         PATTERN "*.so"
     )
+
 endif()
+
+# qt6_add_qml_module bakes `prefer :/qt/qml/MarathonOS/Shell/` into the
+# generated qmldir at ${CMAKE_CURRENT_BINARY_DIR}/qml/MarathonOS/Shell/qmldir.
+# That's correct for marathon-shell-bin (uses its embedded qrc copies of
+# the .qml files at runtime). But it breaks marathon-app-runner: when an
+# app pulls in a shared shell component (e.g. WiFiPasswordDialog →
+# Constants), Qt follows the prefer line into the app-runner's qrc where
+# those files don't exist. Strip the prefer line from the BUILD output so
+# the install copies a clean qmldir; the shell binary doesn't consult
+# this file at runtime so the strip is safe for it.
+# NOTE: the installed MarathonOS.Shell/qmldir carries a
+# `prefer :/qt/qml/MarathonOS/Shell/` directive that tells Qt to use the
+# shell binary's qrc copies of the .qml files. That's right for the
+# shell binary itself but breaks marathon-app-runner (the qrc only
+# exists in marathon-shell-bin's address space). The APKBUILD's
+# package() step strips this directive post-install, alongside the
+# equivalent strip it already does for MarathonUI sub-modules.

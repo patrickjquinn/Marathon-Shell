@@ -1,1 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" fill="none"><rect width="152" height="152" x="20" y="20" fill="#56595B" rx="10"/><path fill="#98DC9A" fill-rule="evenodd" d="M107 130.2h38.4v-6.4H107v6.4Zm0-12.8h38.4V111H107v6.4Z" clip-rule="evenodd"/><path fill="#B1B5BD" fill-rule="evenodd" d="M63.68 137h7.76v-15.92h15.92v-7.84H71.44V97.32h-7.76v15.92h-16v7.84h16V137Zm78.92-76.48L137.16 55 125.8 66.28 114.52 55 109 60.52l11.28 11.28L109 83.08l5.52 5.52 11.28-11.28 11.36 11.28 5.44-5.52-11.28-11.28 11.28-11.28ZM56 72.04h22.4V65H56v7.04Z" clip-rule="evenodd"/></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+    <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c1c1d"/><stop offset="1" stop-color="#040404"/></linearGradient></defs>
+    <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+    <rect width="64" height="64" rx="14" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>
+    <g transform="translate(12.16 12.16) scale(1.65)">
+        <rect x="3" y="3" width="6" height="6" rx="1" fill="#1de9b6"/>
+        <rect x="10" y="3" width="6" height="6" rx="1" fill="rgba(255,255,255,0.15)"/>
+        <rect x="17" y="3" width="4" height="6" rx="1" fill="rgba(255,255,255,0.15)"/>
+        <rect x="3" y="10" width="6" height="6" rx="1" fill="rgba(255,255,255,0.15)"/>
+        <rect x="10" y="10" width="6" height="6" rx="1" fill="rgba(255,255,255,0.15)"/>
+        <rect x="17" y="10" width="4" height="11" rx="1" fill="#1de9b6"/>
+        <rect x="3" y="17" width="13" height="4" rx="1" fill="rgba(255,255,255,0.15)"/>
+    </g>
+</svg>

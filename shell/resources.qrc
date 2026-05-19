@@ -1,30 +1,11 @@
 <RCC>
-    <qresource prefix="/images">
-        <file alias="marathon.png">resources/images/marathon.png</file>
-        <file alias="phone.svg">resources/images/phone.svg</file>
-        <file alias="messages.svg">resources/images/messages.svg</file>
-        <file alias="browser.svg">resources/images/browser.svg</file>
-        <file alias="camera.svg">resources/images/camera.svg</file>
-        <file alias="settings.svg">resources/images/settings.svg</file>
-        <file alias="calendar.svg">resources/images/calendar.svg</file>
-        <file alias="clock.svg">resources/images/clock.svg</file>
-        <file alias="music.svg">resources/images/music.svg</file>
-        <file alias="gallery.svg">resources/images/gallery.svg</file>
-        <file alias="maps.svg">resources/images/maps.svg</file>
-        <file alias="calculator.svg">resources/images/calculator.svg</file>
-        <file alias="notes.svg">resources/images/notes.svg</file>
-    </qresource>
-    <qresource prefix="/wallpapers">
-        <file alias="slate-aurora.svg">resources/wallpapers/slate-aurora.svg</file>
-        <file alias="wallpaper.jpg">resources/wallpapers/wallpaper.jpg</file>
-        <file alias="wallpaper2.jpg">resources/wallpapers/wallpaper2.jpg</file>
-        <file alias="wallpaper3.jpg">resources/wallpapers/wallpaper3.jpg</file>
-        <file alias="wallpaper4.jpg">resources/wallpapers/wallpaper4.jpg</file>
-        <file alias="wallpaper5.jpg">resources/wallpapers/wallpaper5.jpg</file>
-        <file alias="wallpaper6.jpg">resources/wallpapers/wallpaper6.jpg</file>
-        <file alias="wallpaper7.jpg">resources/wallpapers/wallpaper7.jpg</file>
-        <file alias="wallpaper8.jpg">resources/wallpapers/wallpaper8.jpg</file>
-    </qresource>
+    <!--
+        Sounds-only qrc. The small UI assets (icons, wallpapers, fonts)
+        are embedded via the explicit FILES form of qt_add_resources in
+        shell/CMakeLists.txt — that path is reliable across Qt versions,
+        whereas a mixed-content qrc through qt6_add_big_resources lost
+        every .svg/.png entry under Alpine's Qt 6.10 toolchain.
+    -->
     <qresource prefix="/sounds">
         <file>resources/sounds/alarms/alarm_antelope.wav</file>
         <file>resources/sounds/alarms/alarm_bbproalarm.wav</file>
@@ -94,20 +75,5 @@
         <file>resources/sounds/bbm/present.wav</file>
         <file>resources/sounds/bbm/reflect.wav</file>
         <file>resources/sounds/bbm/sparkle.wav</file>
-    </qresource>
-
-    <qresource prefix="/fonts">
-        <file alias="Sora.ttf">resources/fonts/Sora[wght].ttf</file>
-        <file alias="JetBrainsMono-Medium.ttf">resources/fonts/JetBrainsMono-Medium.ttf</file>
-        <file alias="Slate-Light.ttf">resources/fonts/SlateLight.TTF</file>
-        <file alias="Slate-LightItalic.ttf">resources/fonts/SlateLightIt.TTF</file>
-        <file alias="Slate-Book.ttf">resources/fonts/SlateBook.TTF</file>
-        <file alias="Slate-BookItalic.ttf">resources/fonts/SlateBookIt.TTF</file>
-        <file alias="Slate-Regular.ttf">resources/fonts/SlateRg.TTF</file>
-        <file alias="Slate-RegularItalic.ttf">resources/fonts/SlateRgIt.TTF</file>
-        <file alias="Slate-Medium.ttf">resources/fonts/SlateMedium.TTF</file>
-        <file alias="Slate-MediumItalic.ttf">resources/fonts/SlateMedIt.TTF</file>
-        <file alias="Slate-Bold.ttf">resources/fonts/SlateBold.TTF</file>
-        <file alias="Slate-BoldItalic.ttf">resources/fonts/SlateBoldIt.TTF</file>
     </qresource>
 </RCC>
