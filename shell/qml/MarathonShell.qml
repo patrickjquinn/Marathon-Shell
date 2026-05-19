@@ -23,11 +23,6 @@ Item {
     property var pendingLaunch: null
     property bool volumeUpPressed: false
     property bool powerButtonPressed: false
-    // Toggle: BB10 Active Frames home (DS 2026) vs legacy 4×4 app grid.
-    // Default true while the redesign is rolling out — set false to
-    // fall back to MarathonPageView with the legacy AppGrid + task
-    // switcher gestures, until those land in the new system.
-    property bool useActiveFramesHome: true
 
     function handleBackKey() {
         if (PermissionManager.promptActive) {
@@ -189,6 +184,27 @@ Item {
                 if (!startOnTimer.running)
                     startOnTimer.start();
             }
+            // Visually validate the PermissionDialog without booting an
+            // app-runner. Fakes a request for a single permission against
+            // a known app id so the dialog's layout (app icon + name + by-
+            // line + inline permission row + 2 actions) renders against
+            // real shell data. Production paths never hit this.
+            if (a.indexOf("--demo-permission") === 0) {
+                let perm = "storage";
+                let app = "notes";
+                const eq = a.indexOf("=");
+                if (eq > 0) {
+                    const spec = a.substring(eq + 1).split(":");
+                    if (spec.length >= 1 && spec[0].length > 0)
+                        app = spec[0];
+                    if (spec.length >= 2 && spec[1].length > 0)
+                        perm = spec[1];
+                }
+                startOnTimer.demoPermissionApp = app;
+                startOnTimer.demoPermissionId = perm;
+                if (!startOnTimer.running)
+                    startOnTimer.start();
+            }
             if (a.indexOf("--screenshot-after=") === 0) {
                 const secs = parseFloat(a.substring("--screenshot-after=".length));
                 if (!isNaN(secs) && secs > 0)
@@ -237,9 +253,23 @@ Item {
         property string surface: ""
         property bool seedDemo: false
         property bool seedCall: false
+        property string demoPermissionApp: ""
+        property string demoPermissionId: ""
         interval: 600
         repeat: false
         onTriggered: {
+            if (demoPermissionApp.length > 0 && demoPermissionId.length > 0 && typeof PermissionManager !== "undefined" && PermissionManager) {
+                SessionStore.unlock();
+                // Protected built-in apps get the requested permission auto-granted
+                // during the initial app scan (see main.cpp grantProtected). If we
+                // request it again here, the manager short-circuits as
+                // "already granted" and never opens the dialog. Revoke first so
+                // the harness actually queues a fresh prompt.
+                if (PermissionManager.revokePermission)
+                    PermissionManager.revokePermission(demoPermissionApp, demoPermissionId);
+                PermissionManager.requestPermission(demoPermissionApp, demoPermissionId);
+                Logger.info("Shell", "demo-permission triggered: " + demoPermissionApp + ":" + demoPermissionId);
+            }
             if (seedCall) {
                 // Fake an active call so the lock-screen NowBar renders
                 // for visual validation. Production paths never hit this.
@@ -300,7 +330,11 @@ Item {
     // the lock+unlock interaction is being revisited. Production paths
     // (no flag) are unchanged.
     readonly property bool _skipLock: Qt.application.arguments.indexOf("--skip-lock") >= 0
-    state: _skipLock ? "home" : (SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home")
+    // --skip-lock is the validation-harness shortcut around the lock+OOBE path.
+    // Earlier it hard-pinned to "home" which silently broke --start-on=app:<id>
+    // captures (UIStore.openApp toggles appWindowOpen but the state binding
+    // ignored it). Honor the app-window state even under skip-lock.
+    state: _skipLock ? (UIStore.appWindowOpen ? "app" : "home") : (SettingsManagerCpp.firstRunComplete ? (SessionStore.showLockScreen ? (showPinScreen ? "pinEntry" : "locked") : (UIStore.appWindowOpen ? "app" : "home")) : "home")
     Keys.onPressed: event => {
         if (event.key === Qt.Key_VolumeUp) {
             volumeUpPressed = true;
@@ -736,12 +770,21 @@ Item {
             height: parent.height - Constants.statusBarHeight - Constants.navBarHeight
             z: Constants.zIndexMainContent + 10
 
+            // MarathonPageView owns the horizontal swipe:
+            //   page 0:   MarathonHub (notifications/messages)
+            //   page 1+:  MarathonAppGrid (iOS-style home icon grid,
+            //             paginated when more than 16 apps; page 1 is
+            //             the curated home per JSX HomePage1).
+            //
+            // The previous "Active Frames Home" page was a design
+            // confusion — Active Frames IS the task switcher and is
+            // reached by an app-minimise gesture, not by paging.
+            // MarathonActiveFramesHome.qml has been deleted.
             MarathonPageView {
                 id: pageView
 
                 anchors.fill: parent
                 z: Constants.zIndexMainContent + 10
-                visible: !shell.useActiveFramesHome
                 isGestureActive: navBar.isAppOpen && shell.isTransitioningToActiveFrames
                 compositor: shell.compositor
                 onCurrentPageChanged: {
@@ -764,23 +807,6 @@ Item {
                 }
                 Component.onCompleted: {
                     shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16));
-                }
-            }
-
-            // BB10-lineage Active Frames home + task switcher (unified
-            // per DS §04/07). Gated behind a settings flag while the
-            // legacy MarathonPageView still owns app launch and the
-            // window state machine. Toggle to true to preview the
-            // redesigned home.
-            MarathonActiveFramesHome {
-                anchors.fill: parent
-                z: Constants.zIndexMainContent + 10
-                visible: shell.useActiveFramesHome
-                onPinnedAppLaunched: function (appId) {
-                    AppLaunchService.launchApp(appId, shell.compositor, appWindow);
-                }
-                onFrameActivated: function (appId) {
-                    AppLaunchService.launchApp(appId, shell.compositor, appWindow);
                 }
             }
 

@@ -164,6 +164,20 @@ capture_quicksettings() {
   kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
 }
 
+# Trigger the system PermissionDialog directly so its layout (app icon +
+# name + by-line + inline permission row + 2 buttons) can be diffed
+# against screens-shell.jsx PermissionDialog without booting an app-runner.
+# Default request: notes app asking for storage.
+capture_permission() {
+  echo "→ permission-dialog (--demo-permission=notes:storage)"
+  local pid wid
+  pid=$(launch_shell --skip-lock --demo-permission=notes:storage)
+  sleep 4
+  wid=$(wait_for_window) || { echo "no window"; kill -9 "$pid"; return 1; }
+  capture "$wid" "$VDIR/permission-dialog.png"
+  kill -9 "$pid" 2>/dev/null; wait "$pid" 2>/dev/null || true
+}
+
 # Auto-launch an installed app via MARATHON_AUTO_LAUNCH_APP_ID
 # (honoured by shell/main.cpp). The window state machine routes the
 # AppLaunchService through the compositor so the app's QML lands as
@@ -211,12 +225,14 @@ case "${1:-help}" in
   home)            capture_home ;;
   hub)             capture_hub ;;
   quicksettings)   capture_quicksettings ;;
+  permission)      capture_permission ;;
   app:*)           capture_app "${1#app:}" ;;
   all)
     capture_lock_no_media
     capture_home
     capture_hub
     capture_quicksettings
+    capture_permission
     echo "✓ captures in $VDIR/"
     ;;
   *)
