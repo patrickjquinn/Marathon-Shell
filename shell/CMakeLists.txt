@@ -168,6 +168,8 @@ if(TARGET Qt6::WaylandCompositor)
         src/wayland/securitycontextv1.cpp
         src/wayland/fifov1.h
         src/wayland/fifov1.cpp
+        src/wayland/committimingv1.h
+        src/wayland/committimingv1.cpp
     )
 
     find_program(WAYLAND_SCANNER wayland-scanner)
@@ -197,7 +199,8 @@ if(TARGET Qt6::WaylandCompositor)
         marathon_scan_protocol(text-input-unstable-v3 text-input-unstable-v3)
         marathon_scan_protocol(security-context-v1    security-context-v1)
         marathon_scan_protocol(fifo-v1                fifo-v1)
-        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1")
+        marathon_scan_protocol(commit-timing-v1       commit-timing-v1)
+        message(STATUS "Wayland scanner found - enabling custom protocols: text-input-v3, security-context-v1, fifo-v1, commit-timing-v1")
     else()
         message(WARNING "wayland-scanner not found - custom protocols disabled")
     endif()
