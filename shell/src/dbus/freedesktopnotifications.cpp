@@ -17,7 +17,7 @@ FreedesktopNotifications::FreedesktopNotifications(NotificationDatabase *databas
     , m_model(model)
     , m_powerManager(powerManager) {}
 
-FreedesktopNotifications::~FreedesktopNotifications() {}
+FreedesktopNotifications::~FreedesktopNotifications() = default;
 
 bool FreedesktopNotifications::registerService() {
     QDBusConnection bus = QDBusConnection::sessionBus();

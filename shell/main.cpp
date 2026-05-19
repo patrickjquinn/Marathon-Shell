@@ -953,5 +953,5 @@ int main(int argc, char *argv[]) {
         });
 
     qDebug() << "Marathon OS Shell started";
-    return app.exec();
+    return QGuiApplication::exec();
 }

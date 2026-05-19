@@ -132,7 +132,7 @@ MPage {
                     "recurring": "none"
                 };
                 if (root.saveCallback)
-                    root.saveCallback(newEvent);
+                    root.saveCallback(newEvent);  // qmllint disable use-proper-function
 
                 root.StackView.view.pop();
             }

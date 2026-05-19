@@ -248,7 +248,7 @@ void UnifiedSearchServiceCpp::appendDeepLinkItems() {
             const QJsonObject link = it.value().toObject();
             QStringList       keywords;
             const QJsonArray  keywordsArray = link.value("keywords").toArray();
-            for (const QJsonValue &keyword : keywordsArray) {
+            for (const auto &keyword : keywordsArray) {
                 if (keyword.isString())
                     keywords.append(keyword.toString());
             }
@@ -352,7 +352,7 @@ void UnifiedSearchServiceCpp::loadRecentSearches() {
         if (!doc.isArray())
             return;
         const QJsonArray arr = doc.array();
-        for (const QJsonValue &value : arr) {
+        for (const auto &value : arr) {
             if (value.isString())
                 m_recentSearches.append(value.toString());
         }

@@ -556,8 +556,11 @@ MApp {
             if (browserApp._focusRetrySelectAll)
                 browserApp._focusRetryItem.selectAll();
 
+            // Qt.inputMethod is QInputMethod; .show() is its documented public
+            // API. The lint tool sees Qt.inputMethod as bare QObject and can't
+            // resolve the method.
             if (Qt.inputMethod)
-                Qt.inputMethod.show();
+                Qt.inputMethod.show();  // qmllint disable missing-property
 
             focusRetryTimer.restart();
         });

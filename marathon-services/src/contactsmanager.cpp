@@ -19,7 +19,7 @@ ContactsManager::ContactsManager(QObject *parent)
     qDebug() << "[ContactsManager] Initialized with" << m_contacts.size() << "contacts";
 }
 
-ContactsManager::~ContactsManager() {}
+ContactsManager::~ContactsManager() = default;
 
 QString ContactsManager::getContactsDir() {
     QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);

@@ -383,6 +383,16 @@ qt_add_resources(SHELL_SOUNDS resources.qrc)
 qt6_add_qml_module(marathon-shell
     URI MarathonOS.Shell
     VERSION 1.0
+    IMPORTS
+        MarathonUI.Theme
+        MarathonUI.Core
+        MarathonUI.Controls
+        MarathonUI.Lists
+        MarathonUI.Navigation
+        MarathonUI.Feedback
+        MarathonUI.Modals
+        MarathonUI.Effects
+        MarathonUI.Containers
     QML_FILES ${QML_FILES}
     SOURCES
         src/services/sessionstore.cpp

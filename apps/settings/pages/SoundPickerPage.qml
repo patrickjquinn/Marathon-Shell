@@ -141,7 +141,12 @@ SettingsPageTemplate {
                                     Logger.info("SoundPickerPage", "Selected sound: " + modelData);
                                     soundPickerPage.currentSound = modelData;
                                     soundPickerPage.soundSelected(modelData);
-                                    AudioManagerCpp.previewSound(modelData);
+                                    // AudioManagerCpp is an AudioClient inside the
+                                    // marathon-app-runner host process (see
+                                    // tools/marathon-app-runner/main.cpp), which exposes
+                                    // previewSound; the shell-side singleton with the
+                                    // same name does not.
+                                    AudioManagerCpp.previewSound(modelData);  // qmllint disable missing-property
                                 }
                             }
                         }

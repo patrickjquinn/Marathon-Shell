@@ -64,8 +64,8 @@ void MmsManager::discoverService() {
     }
 
     m_servicePath = services.first().first.path();
-    if (m_service)
-        delete m_service;
+
+    delete m_service;
     m_service = new QDBusInterface(kBus, m_servicePath, "org.ofono.mms.Service",
                                    QDBusConnection::sessionBus(), this);
     if (!m_service->isValid()) {

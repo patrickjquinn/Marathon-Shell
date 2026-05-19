@@ -19,7 +19,7 @@ QStringList DomainSuggestions::getSuggestions(const QString &text, bool isEmail)
         if (lowerText.contains("@")) {
             const QStringList parts = lowerText.split("@");
             if (parts.size() == 2) {
-                const QString domain = parts[1];
+                const QString &domain = parts[1];
                 for (const QString &emailDomain : m_emailDomains) {
                     if (suggestions.size() >= 3) {
                         break;

@@ -146,7 +146,7 @@ void CalendarManagerCpp::load() {
         const QJsonArray arr = doc.array();
         m_events.clear();
         m_events.reserve(arr.size());
-        for (const QJsonValue &value : arr) {
+        for (const auto &value : arr) {
             if (value.isObject())
                 m_events.append(value.toObject().toVariantMap());
         }

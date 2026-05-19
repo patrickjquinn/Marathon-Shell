@@ -108,7 +108,7 @@ void FlatpakManager::requestPermissions(const QString &ref) {
 
     const auto cached = m_permCache.constFind(ref);
     if (cached != m_permCache.constEnd()) {
-        const QVariantMap copy = cached.value();
+        const QVariantMap &copy = cached.value();
         QMetaObject::invokeMethod(
             this, [this, ref, copy]() { emit permissionsReady(ref, copy); }, Qt::QueuedConnection);
         return;

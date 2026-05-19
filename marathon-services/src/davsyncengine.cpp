@@ -15,9 +15,9 @@
 
 namespace {
 
-    static const char *kDav     = "DAV:";
-    static const char *kCardDav = "urn:ietf:params:xml:ns:carddav";
-    static const char *kCalDav  = "urn:ietf:params:xml:ns:caldav";
+    const char *kDav     = "DAV:";
+    const char *kCardDav = "urn:ietf:params:xml:ns:carddav";
+    const char *kCalDav  = "urn:ietf:params:xml:ns:caldav";
 
     // Parse a multistatus PROPFIND/REPORT body.
     struct DavResponse {
@@ -33,7 +33,7 @@ namespace {
         int     status = 200;
     };
 
-    static QList<DavResponse> parseMultistatus(const QByteArray &xml) {
+    QList<DavResponse> parseMultistatus(const QByteArray &xml) {
         QList<DavResponse> out;
         QXmlStreamReader   r(xml);
         DavResponse        cur;
@@ -88,7 +88,7 @@ namespace {
     }
 
     // Walk inner href under named parent element, helper for principal/home extraction.
-    static QString findHrefUnder(const QByteArray &xml, const char *parentLocalName) {
+    QString findHrefUnder(const QByteArray &xml, const char *parentLocalName) {
         QXmlStreamReader r(xml);
         bool             inParent = false;
         while (!r.atEnd()) {
@@ -106,7 +106,7 @@ namespace {
         return {};
     }
 
-    static QString resolveRelative(const QString &base, const QString &maybeRelative) {
+    QString resolveRelative(const QString &base, const QString &maybeRelative) {
         if (maybeRelative.startsWith("http://") || maybeRelative.startsWith("https://"))
             return maybeRelative;
         QUrl b(base);
@@ -131,7 +131,7 @@ namespace {
         QStringList emailTypes;
     };
 
-    static QString unfoldVCard(const QString &text) {
+    QString unfoldVCard(const QString &text) {
         QStringList lines = text.split('\n');
         QStringList out;
         out.reserve(lines.size());
@@ -146,7 +146,7 @@ namespace {
         return out.join('\n');
     }
 
-    static QString extractType(const QString &paramSection) {
+    QString extractType(const QString &paramSection) {
         const QStringList parts = paramSection.split(';');
         for (const QString &p : parts) {
             const int eq = p.indexOf('=');
@@ -176,7 +176,7 @@ namespace {
         bool    allDay  = false;
     };
 
-    static qint64 parseICalDateTime(const QString &headParams, const QString &raw, bool *isAllDay) {
+    qint64 parseICalDateTime(const QString &headParams, const QString &raw, bool *isAllDay) {
         // VALUE=DATE means YYYYMMDD (no time component); else YYYYMMDDTHHMMSS[Z]
         *isAllDay = headParams.contains(QStringLiteral("VALUE=DATE"), Qt::CaseInsensitive) &&
             !headParams.contains(QStringLiteral("VALUE=DATE-TIME"), Qt::CaseInsensitive);
@@ -198,7 +198,7 @@ namespace {
         return dt.toMSecsSinceEpoch();
     }
 
-    static QList<VEventEntry> parseICalendar(const QString &raw) {
+    QList<VEventEntry> parseICalendar(const QString &raw) {
         QList<VEventEntry> out;
         const QString      unfolded = unfoldVCard(raw); // same folding rule
         VEventEntry        cur;
@@ -244,7 +244,7 @@ namespace {
         return out;
     }
 
-    static VCardContact parseVCard(const QString &raw) {
+    VCardContact parseVCard(const QString &raw) {
         VCardContact  c;
         const QString unfolded = unfoldVCard(raw);
         for (const QString &line : unfolded.split('\n')) {
@@ -536,7 +536,7 @@ void DavSyncEngine::runDiscoveryStep2(DavAccount &acct, const QString &principal
                        "</d:prop></d:propfind>");
     QNetworkReply *reply = propfind(principalUrl, 0, xml, acct);
     QString        accId = acct.id;
-    QString        princ = principalUrl;
+    const QString &princ = principalUrl;
     connect(reply, &QNetworkReply::finished, this, [this, accId, reply, princ]() {
         DavAccount       a    = m_accounts.value(accId);
         const QByteArray body = reply->readAll();
@@ -640,7 +640,7 @@ void DavSyncEngine::syncCollection(const DavAccount &acct, const QString &collec
 
     QNetworkReply *reply = report(collectionUrl, xml, acct);
     const QString  accId = acct.id;
-    const QString  url   = collectionUrl;
+    const QString &url   = collectionUrl;
     connect(reply, &QNetworkReply::finished, this, [this, accId, url, reply, isCalendar]() {
         const QByteArray body = reply->readAll();
         reply->deleteLater();

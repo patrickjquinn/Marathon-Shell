@@ -213,7 +213,7 @@ QVariantList MarathonAppStoreService::getFeaturedApps() {
         }
     }
 
-    if (featured.isEmpty() && m_catalog.size() > 0) {
+    if (featured.isEmpty() && !m_catalog.empty()) {
         for (int i = 0; i < qMin(5, m_catalog.size()); ++i) {
             featured.append(m_catalog.at(i));
         }

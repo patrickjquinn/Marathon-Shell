@@ -618,7 +618,7 @@ void SecurityManager::updateLockoutStatus() {
     }
 }
 
-int SecurityManager::queryFaillockAttempts() {
+int SecurityManager::queryFaillockAttempts() const {
     QString  username = getCurrentUsername();
     QProcess process;
     process.start("faillock", QStringList() << "--user" << username);

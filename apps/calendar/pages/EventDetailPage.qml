@@ -67,7 +67,7 @@ MPage {
             variant: "secondary"
             onClicked: {
                 if (root.deleteCallback)
-                    root.deleteCallback(root.event.id);
+                    root.deleteCallback(root.event.id);  // qmllint disable use-proper-function
 
                 root.StackView.view.pop();
             }

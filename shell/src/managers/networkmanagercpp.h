@@ -86,10 +86,10 @@ class NetworkManagerCpp : public QObject {
     Q_INVOKABLE void         stopHotspot();
     Q_INVOKABLE bool         isHotspotActive() const;
 
-    Q_INVOKABLE QVariantList getVpnConnections();
-    Q_INVOKABLE void         connectVpn(const QString &connectionId);
-    Q_INVOKABLE void         disconnectVpn(const QString &connectionId);
-    Q_INVOKABLE bool         isVpnConnected(const QString &connectionId);
+    Q_INVOKABLE QVariantList getVpnConnections() const;
+    Q_INVOKABLE void         connectVpn(const QString &connectionId) const;
+    Q_INVOKABLE void         disconnectVpn(const QString &connectionId) const;
+    Q_INVOKABLE bool         isVpnConnected(const QString &connectionId) const;
 
   signals:
     void wifiEnabledChanged();

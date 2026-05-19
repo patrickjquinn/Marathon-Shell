@@ -124,9 +124,7 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     }
 }
 
-NetworkManagerCpp::~NetworkManagerCpp() {
-    // m_nmInterface is parented to this; Qt will delete it
-}
+NetworkManagerCpp::~NetworkManagerCpp() = default;
 
 void NetworkManagerCpp::detectHardwareAvailability() {
     if (!m_hasNetworkManager) {
@@ -818,7 +816,7 @@ bool NetworkManagerCpp::isHotspotActive() const {
     return m_hotspotActive;
 }
 
-QVariantList NetworkManagerCpp::getVpnConnections() {
+QVariantList NetworkManagerCpp::getVpnConnections() const {
     QVariantList vpnList;
 
     if (!m_hasNetworkManager) {
@@ -863,7 +861,7 @@ QVariantList NetworkManagerCpp::getVpnConnections() {
     return vpnList;
 }
 
-void NetworkManagerCpp::connectVpn(const QString &connectionId) {
+void NetworkManagerCpp::connectVpn(const QString &connectionId) const {
     qInfo() << "[NetworkManagerCpp] Connecting VPN:" << connectionId;
 
     if (!m_hasNetworkManager) {
@@ -884,7 +882,7 @@ void NetworkManagerCpp::connectVpn(const QString &connectionId) {
     }
 }
 
-void NetworkManagerCpp::disconnectVpn(const QString &connectionId) {
+void NetworkManagerCpp::disconnectVpn(const QString &connectionId) const {
     qInfo() << "[NetworkManagerCpp] Disconnecting VPN:" << connectionId;
 
     if (!m_hasNetworkManager) {
@@ -918,7 +916,7 @@ void NetworkManagerCpp::disconnectVpn(const QString &connectionId) {
     }
 }
 
-bool NetworkManagerCpp::isVpnConnected(const QString &connectionId) {
+bool NetworkManagerCpp::isVpnConnected(const QString &connectionId) const {
     if (!m_hasNetworkManager) {
         return false;
     }

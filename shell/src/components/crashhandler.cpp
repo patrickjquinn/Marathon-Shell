@@ -7,7 +7,7 @@
 #include <execinfo.h>
 #endif
 #include <cstring>
-#include <unistd.h>
+#include <utility>
 #include <unistd.h>
 
 CrashHandler *CrashHandler::s_instance       = nullptr;
@@ -65,7 +65,7 @@ void CrashHandler::install() {
 }
 
 void CrashHandler::setCrashCallback(std::function<void(const QString &)> callback) {
-    m_crashCallback = callback;
+    m_crashCallback = std::move(callback);
 }
 
 bool CrashHandler::isInCrashHandler() {

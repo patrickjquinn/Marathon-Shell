@@ -159,8 +159,8 @@ void SMSService::sendMessage(const QString &recipient, const QString &text) {
     QString     modemPath;
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString     path       = it.key();
-        QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
+        const QString &path       = it.key();
+        QVariantMap    interfaces = qdbus_cast<QVariantMap>(it.value());
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Messaging")) {
             modemPath = path;
@@ -450,8 +450,8 @@ void SMSService::checkForNewMessages() {
     QVariantMap objects = reply.value();
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString     path       = it.key();
-        QVariantMap interfaces = qdbus_cast<QVariantMap>(it.value());
+        const QString &path       = it.key();
+        QVariantMap    interfaces = qdbus_cast<QVariantMap>(it.value());
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Messaging")) {
             QDBusInterface messagingInterface("org.freedesktop.ModemManager1", path,

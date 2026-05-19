@@ -99,11 +99,11 @@ MApp {
     readonly property var bestCoord: {
         if (geoclueValid)
             return QtPositioning.coordinate(LocationService.latitude, LocationService.longitude);
-        if (positionSource.position.valid)
+        if (positionSource.position.coordinate.isValid)
             return positionSource.position.coordinate;
         return QtPositioning.coordinate(37.7749, -122.419);
     }
-    readonly property bool bestCoordValid: geoclueValid || (typeof positionSource !== "undefined" && positionSource.position && positionSource.position.valid === true)
+    readonly property bool bestCoordValid: geoclueValid || (typeof positionSource !== "undefined" && positionSource.position && positionSource.position.coordinate && positionSource.position.coordinate.isValid === true)
 
     function searchLocation(query) {
         if (query.length === 0) {

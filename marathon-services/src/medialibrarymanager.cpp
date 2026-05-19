@@ -300,7 +300,7 @@ void MediaLibraryManager::onScanProgress(int current, int total) {
     }
 }
 
-void MediaLibraryManager::onScanFinished(QList<MediaItem> items) {
+void MediaLibraryManager::onScanFinished(const QList<MediaItem> &items) {
     qDebug() << "[MediaLibraryManager] Async scan finished. Processing" << items.size() << "items";
 
     addMediaItemBatch(items);
@@ -608,7 +608,7 @@ QString MediaLibraryManager::createThumbnail(const QString &sourcePath) {
     const QString ext = (isPngSource || looksLikeScreenshot) ? "png" : "jpg";
     const QString thumbFileName =
         QString::fromLatin1(hash.left(16)) + QString("_thumb_v2_%1.%2").arg(targetSize).arg(ext);
-    const QString thumbPath = thumbnailsDir + "/" + thumbFileName;
+    QString thumbPath = thumbnailsDir + "/" + thumbFileName;
 
     if (QFile::exists(thumbPath)) {
         return thumbPath;
