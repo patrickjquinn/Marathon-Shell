@@ -76,10 +76,13 @@ Item {
         anchors.fill: parent
         anchors.margins: 8
         color: MColors.glassTitlebar
-        radius: Constants.borderRadiusSharp
-        border.width: Constants.borderWidthThin
+        // DS card chrome — 4 px corners. Previously Constants.borderRadiusSharp
+        // (=0) made every Active Frames tile a flat box, breaking continuity
+        // with the rest of the shell's rounded language.
+        radius: MRadius.md
+        border.width: 1
         border.color: MColors.borderSubtle
-        antialiasing: Constants.enableAntialiasing
+        antialiasing: true
         scale: closing ? 0.7 : 1
         opacity: closing ? 0 : 1
 

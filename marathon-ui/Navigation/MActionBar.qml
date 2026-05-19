@@ -82,7 +82,8 @@ Rectangle {
 
             Row {
                 anchors.centerIn: parent
-                spacing: Math.round(6 * root.scaleFactor)
+                // DS button icon-to-text gap = 8 (matches MButton's contentRow).
+                spacing: Math.round(8 * root.scaleFactor)
 
                 Text {
                     text: "◀"
@@ -257,6 +258,9 @@ Rectangle {
 
                         Column {
                             anchors.centerIn: parent
+                            // DS tab icon-to-label gap = 6 (vertical stack
+                            // intentionally tighter than the horizontal
+                            // button gap — closer reads as one item).
                             spacing: Math.round(6 * root.scaleFactor)
 
                             Icon {

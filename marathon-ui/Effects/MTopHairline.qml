@@ -31,8 +31,13 @@ Item {
     Shape {
         anchors.fill: parent
         antialiasing: true
-        layer.enabled: true
-        layer.samples: 4
+        // CurveRenderer does GPU-side analytical AA per fragment — strictly
+        // sharper than GeometryRenderer + layer.samples MSAA for curves,
+        // and avoids the FBO round-trip the `layer.enabled` path forced.
+        // This is the single biggest crispness win for every squircle
+        // hairline in the system (cards, buttons, toggles, app icons,
+        // sheets, modals).
+        preferredRendererType: Shape.CurveRenderer
 
         ShapePath {
             strokeWidth: root.lineWidth

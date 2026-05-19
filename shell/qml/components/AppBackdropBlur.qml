@@ -34,8 +34,17 @@ Item {
         live: root.visible && root.source !== null
         hideSource: false
         recursive: false
-        format: ShaderEffectSource.RGBA
-        samples: 0
+        // RGBA16F keeps the colour chain linear-precise across the blur
+        // → tint composite. With 8-bit RGBA you get dark-fringe gamma
+        // error around bright pixels (white app text against teal-glow
+        // tint shows a brown halo). Half-float is cheap on every GPU
+        // we ship to (Mali, Apple GPU, Mesa-virgl) and worth the
+        // ~2× FBO memory for the perceptual win.
+        format: ShaderEffectSource.RGBA16F
+        // Mipmap so MultiEffect's wide-kernel reads sample a pre-filtered
+        // chain rather than re-blurring 32× per pixel — visibly smoother
+        // bokeh, lower fillrate cost.
+        mipmap: true
         smooth: true
         visible: false
     }

@@ -54,6 +54,12 @@ Item {
         font.pixelSize: MTypography.sizeDisplay
         font.weight: MTypography.weightExtraLight   // 200 — the comment said 200, the constant now matches
         font.letterSpacing: MTypography.trackingDisplay
-        renderType: Text.NativeRendering
+        // CurveRendering (Qt 6.7+) rasterises glyph outlines analytically
+        // on the GPU — strictly sharper than NativeRendering at display
+        // sizes AND smooth through the opacity/scale transitions the
+        // lock clock + media-mode swap go through (NativeRendering
+        // snaps to integer pixels, so it shimmers during fades).
+        renderType: Text.CurveRendering
+        renderTypeQuality: Text.VeryHighTextRenderQuality
     }
 }

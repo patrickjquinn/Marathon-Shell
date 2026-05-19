@@ -15,6 +15,8 @@
 #include <QFileSystemWatcher>
 #include <QSet>
 #include <QTimer>
+#include <QSurfaceFormat>
+#include <QColorSpace>
 
 #include "util/rtprio.h"
 #include <cstring>
@@ -221,6 +223,36 @@ int main(int argc, char *argv[]) {
     // (reproduced in duranium r49 QEMU). Set it explicitly here so the
     // attribute stays even when the shell never imports WebEngine.
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
+    // High-fidelity rendering defaults for the whole scene graph. This is
+    // the single biggest "iOS-grade" lever — applied here so every shell
+    // surface (status bar, chrome, lock, app drawer, blurred panels) and
+    // every embedded ShapePath gets the same anti-aliased, sRGB-correct
+    // output without per-item opt-in.
+    //
+    //   • 4× MSAA — analytical AA on Shape strokes (squircle hairlines,
+    //     keypad keycaps, tab indicators). Free on tilers, ~10-15 % cost
+    //     on desktop iGPUs / virgl; we accept that for the visible win on
+    //     curved chrome. Per-item layer.samples opt-out exists if a
+    //     surface measures hot.
+    //   • sRGB color space — flag the swapchain so blending happens with
+    //     correct gamma. Doesn't add bits by itself, but removes the
+    //     dark-fringe error you get blending bright pixels through an
+    //     un-flagged 8-bit linear path.
+    //   • vsync — swap interval 1. We never want tearing on a shell that
+    //     overlays glass panels and live activity over app surfaces.
+    //   • 24/8 depth+stencil — gives Shape clipping a stencil to work
+    //     with without falling back to software rasterization.
+    {
+        QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+        fmt.setRenderableType(QSurfaceFormat::OpenGL);
+        fmt.setColorSpace(QColorSpace::SRgb);
+        fmt.setSamples(4);
+        fmt.setSwapInterval(1);
+        fmt.setDepthBufferSize(24);
+        fmt.setStencilBufferSize(8);
+        QSurfaceFormat::setDefaultFormat(fmt);
+    }
 
     QGuiApplication app(argc, argv);
 

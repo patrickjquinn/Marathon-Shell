@@ -41,26 +41,32 @@ Item {
         anchors.centerIn: parent
         width: 200
         height: 200
-        radius: Constants.borderRadiusSharp
+        // DS says 4 px corners on every chrome surface. Previously
+        // Constants.borderRadiusSharp (= 0) made this a flat box,
+        // breaking continuity with the rest of the shell language.
+        radius: MRadius.md
         color: MElevation.getSurface(4)
-        border.width: Constants.borderWidthThin
+        border.width: 1
         border.color: MElevation.getBorderOuter(4)
-        antialiasing: Constants.enableAntialiasing
+        antialiasing: true
         opacity: 0
         visible: hudVisible
 
+        // Inner hairline highlight — same role as MTopHairline elsewhere,
+        // but a HUD only ever sits as a free-floating overlay so the
+        // simpler all-around inset hairline is fine.
         Rectangle {
             anchors.fill: parent
-            anchors.margins: Constants.borderWidthThin
-            radius: parent.radius > 0 ? parent.radius - Constants.borderWidthThin : 0
+            anchors.margins: 1
+            radius: parent.radius - 1
             color: "transparent"
             border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.05)
+            border.color: MColors.whiteOverlay04
         }
 
         Column {
             anchors.centerIn: parent
-            spacing: Constants.spacingLarge
+            spacing: MSpacing.lg
             width: parent.width - 40
 
             Icon {
@@ -72,21 +78,23 @@ Item {
 
             Column {
                 width: parent.width
-                spacing: Constants.spacingSmall
+                spacing: MSpacing.sm
 
                 Rectangle {
                     width: parent.width
                     height: 8
-                    radius: 4
-                    color: Qt.rgba(1, 1, 1, 0.1)
+                    radius: MRadius.md
+                    color: MColors.whiteOverlay04
                     border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.05)
+                    border.color: MColors.whiteOverlay04
 
                     Rectangle {
                         width: parent.width * hudValue
                         height: parent.height
                         radius: parent.radius
-                        color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.9)
+                        // DS teal accent — was an inline RGB literal duplicating
+                        // MColors.marathonTeal at ~0.9 opacity.
+                        color: Qt.rgba(0, 191 / 255, 165 / 255, 0.9)
 
                         Behavior on width {
                             NumberAnimation {
@@ -100,8 +108,9 @@ Item {
                 Text {
                     text: Math.round(hudValue * 100) + "%"
                     color: MColors.textPrimary
-                    font.pixelSize: MTypography.sizeLarge
-                    font.weight: Font.DemiBold
+                    font.pixelSize: MTypography.sizeHeadline
+                    font.weight: MTypography.weightDemiBold
+                    font.letterSpacing: MTypography.trackingHeadline
                     font.family: MTypography.fontFamily
                     anchors.horizontalCenter: parent.horizontalCenter
                 }
