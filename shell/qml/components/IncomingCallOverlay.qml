@@ -2,7 +2,6 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Controls
 
 Rectangle {
     id: callOverlay
