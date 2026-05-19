@@ -65,31 +65,48 @@ Item {
     Keys.onSpacePressed: if (!disabled && state === "default")
         clicked()
 
-    // ── Outer teal halo (primary only) ─────────────────────────
-    // We render the halo as a separate visible-false Rectangle
-    // fed through a sibling MultiEffect, instead of putting
-    // layer.effect on buttonRect. Layering a Rectangle that has
-    // a gradient drops the gradient fill in Qt 6.10 — the button
-    // becomes invisible. This split keeps the gradient intact and
-    // limits the MultiEffect blur to a solid teal source so the
-    // halo reads as a clean bloom around the button edge.
-    Rectangle {
-        id: haloSource
+    // ── Primary cast-down drop shadow ──────────────────────────
+    // DS .m-btn.primary box-shadow: "0 8px 24px -8px rgba(0,191,165,0.5)".
+    // That decomposes to: y-offset +8, blur 24, spread -8 (shrink shadow
+    // source by 8 each side), teal at 50% alpha. The earlier implementation
+    // rendered the halo as a +2px-margin Rectangle blurred uniformly —
+    // which reads as a flat surround, not a cast shadow. Here we build
+    // the shadow correctly:
+    //   • shadowContainer expands buttonRect outward by 40 px so the
+    //     MultiEffect has bleed room (blurMax 32 + safety margin).
+    //   • shadowSource sits inside, sized to button-16 (spread -8 each side),
+    //     offset y+8 from buttonRect top (the "8px down" cast).
+    //   • MultiEffect blurs the (invisible) source onto the container.
+    // The layered Rectangle keeps the buttonRect's gradient intact — the
+    // failure mode of putting layer.effect directly on a gradient-filled
+    // rectangle in Qt 6.10 was previously documented in this file.
+    Item {
+        id: shadowContainer
         anchors.fill: buttonRect
-        anchors.margins: -2
-        radius: MRadius.md + 1
-        color: MColors.marathonTealBright
-        visible: false
-        layer.enabled: root.isPrimary && !root.disabled
-    }
-    MultiEffect {
-        anchors.fill: haloSource
-        source: haloSource
+        anchors.margins: -40
+        z: -1
         visible: root.isPrimary && !root.disabled
-        blurEnabled: true
-        blur: 1.0
-        blurMax: 24
-        opacity: 0.55
+
+        Rectangle {
+            id: shadowSource
+            x: 40 + 8
+            y: 40 + 8
+            width: buttonRect.width - 16
+            height: buttonRect.height - 16
+            radius: MRadius.md
+            color: Qt.rgba(0, 191 / 255, 165 / 255, 0.5)
+            visible: false
+            layer.enabled: shadowContainer.visible
+            layer.smooth: true
+        }
+
+        MultiEffect {
+            anchors.fill: parent
+            source: shadowSource
+            blurEnabled: true
+            blur: 1.0
+            blurMax: 32
+        }
     }
 
     Rectangle {
