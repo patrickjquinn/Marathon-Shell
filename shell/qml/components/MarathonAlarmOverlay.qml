@@ -2,7 +2,6 @@ import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Layouts
 
 Rectangle {
     id: alarmOverlay

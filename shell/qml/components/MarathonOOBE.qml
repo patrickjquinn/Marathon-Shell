@@ -5,7 +5,6 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 
 Item {
     id: oobeRoot

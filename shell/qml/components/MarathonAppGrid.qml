@@ -3,7 +3,6 @@ import MarathonUI.Effects
 import MarathonUI.Theme
 import MarathonOS.Shell 1.0
 import QtQuick
-import QtQuick.Effects
 
 Item {
     id: appGrid

@@ -5,7 +5,6 @@ import MarathonUI.Core
 import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
-import QtQuick.Effects
 
 Item {
     id: lockScreen

@@ -3,7 +3,6 @@ import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
-import QtWayland.Compositor
 
 MApp {
     id: nativeAppWindow
