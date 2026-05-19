@@ -52,15 +52,20 @@ fi
 # QEMU virtio-gpu reports a fake desktop-monitor physical size in EDID, so Qt
 # derives ~108 DPI for a phone-shaped 720x1440 canvas and the shell renders at
 # desktop scale. Inject the DPI override here (read by ScreenMetrics::computeDpi)
-# so QEMU validation matches phone-hardware proportions. Unset on real devices.
+# so QEMU validation matches the locked design canvas. Unset on real devices.
 #
-# 240 DPI (scaleFactor 1.5) corresponds to a 5" 720x1440 budget phone, which is
-# what the QEMU canvas actually approximates. Higher (e.g. 400 = 2.5x for a
-# OnePlus 6) over-fills the 720-wide canvas because the design assumes a
-# 1080-wide screen at that scale -- content collides with chrome on small
-# pages. Real phones with correct EDID don't need this override at all.
+# The DS canvas is 390x844 design-px (marathon-tokens.css .phone — the
+# iPhone-14-Pro-scaled artboard every JSX screen reference draws against).
+# QEMU's canvas is 720x1440 hardware-px. To render the 390-wide design at
+# full canvas width:
+#     scaleFactor = 720 / 390 = 1.846
+#     DPI         = scaleFactor * baseDPI(160) = 295.4 ≈ 296
+# Every design-px token then scales by 1.85x to fill the canvas without
+# overshooting it. An earlier 160 setting rendered the 390-design at only
+# 54% of canvas width — what the user described as "the UI looks stupid
+# and small at whatever scale you have it on."
 if [ "$IS_VIRTIO_GPU" = 1 ] && [ -z "${MARATHON_FORCE_DPI:-}" ]; then
-    export MARATHON_FORCE_DPI=240
+    export MARATHON_FORCE_DPI=296
 fi
 
 # Skip the lock screen on startup under QEMU. We have no good way to drive
