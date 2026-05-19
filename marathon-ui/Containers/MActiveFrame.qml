@@ -53,14 +53,19 @@ Item {
         border.color: MColors.whiteOverlay08
     }
 
-    // Inner highlight — the design's depth cue.
+    // Inner highlight — top-edge only per the DS "lit from above"
+    // pattern (matches MCard, MButton, MAppIcon home tiles). 1 px
+    // white-06 along the top inside the outer ring. The previous
+    // 4-sided ring read as a heavy double border.
     Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: MRadius.md - 1
-        color: "transparent"
-        border.width: 1
-        border.color: MColors.whiteOverlay06
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.leftMargin: 1
+        anchors.rightMargin: 1
+        anchors.topMargin: 1
+        height: 1
+        color: MColors.whiteOverlay06
     }
 
     // ── Header (home mode — top) ─────────────────────────────

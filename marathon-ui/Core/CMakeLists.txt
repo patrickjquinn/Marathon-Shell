@@ -15,7 +15,7 @@ set(CORE_QML_FILES
     MResponsive.qml
     MGrid.qml
     MContainer.qml
-    LucideGlyphs.js
+    PhosphorGlyphs.js
     MAppIcon.qml
     MHaloedDisplay.qml
 )
@@ -30,7 +30,8 @@ qt6_add_qml_module(marathon-ui-core
     VERSION 2.0
     QML_FILES ${CORE_QML_FILES}
     RESOURCES
-        fonts/lucide.ttf
+        fonts/Phosphor-Light.ttf
+        fonts/Phosphor-Bold.ttf
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Core
 )
 
@@ -58,6 +59,8 @@ install(FILES ${CORE_QML_FILES}
     DESTINATION ${MARATHON_UI_DIR}/Core
 )
 
-install(FILES fonts/lucide.ttf
+install(FILES
+    fonts/Phosphor-Light.ttf
+    fonts/Phosphor-Bold.ttf
     DESTINATION ${MARATHON_UI_DIR}/Core/fonts
 )

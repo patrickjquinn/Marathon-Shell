@@ -118,7 +118,7 @@ Item {
         anchors.topMargin: 18
         height: dialSize + 24
 
-        readonly property real dialSize: Math.round(parent.width * 0.72)
+        readonly property real dialSize: Math.round(parent.width * 0.60)
 
         Item {
             id: dial
@@ -329,12 +329,18 @@ Item {
     // teal-bright clock readout on the right.
     Item {
         id: worldSection
-        anchors.top: dialFrame.bottom
+        anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: 16
         anchors.rightMargin: 16
-        anchors.topMargin: 18
+        // 12 px above the bottom edge keeps the card visually decoupled
+        // from the underlying tab bar (which renders its own 1 px hairline
+        // divider). Anchored to parent.bottom rather than dialFrame.bottom
+        // so on smaller canvases the dial absorbs the squeeze instead of
+        // the card overflowing past the tab bar.
+        anchors.bottomMargin: 12
+        height: worldEyebrow.height + 12 + worldCard.height
 
         Text {
             id: worldEyebrow
@@ -354,7 +360,11 @@ Item {
             anchors.right: parent.right
             anchors.topMargin: 12
             elevation: 3
-            height: 4 * 64 + 16
+            // Row delegates below are 72 px tall; size the card to match
+            // (4 cities × 72) + 16 px breathing room. The previous 4 × 64
+            // shortfall caused Sydney to extend past the card and bleed
+            // through the bottom tab bar's 78%-opaque glass background.
+            height: 4 * 72 + 16
 
             Column {
                 anchors.fill: parent

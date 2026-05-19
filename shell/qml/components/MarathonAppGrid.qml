@@ -113,11 +113,12 @@ Item {
 
                 Column {
                     anchors.centerIn: parent
-                    // Tighter icon→label gap so labels sit close under the
-                    // icon and more rows fit per page. 4 px is the tightest
-                    // value that still preserves a visible separator at
-                    // smaller scaleFactors.
-                    spacing: Math.round(4 * (Constants.scaleFactor || 1.0))
+                    // 10 px between the squircle and the label per the
+                    // home-grid reference (screens-shell.jsx HomePage1).
+                    // 4 px (the previous value) packed labels visually
+                    // into the icon's drop shadow and made the row read
+                    // as a single block instead of icon + caption.
+                    spacing: Math.round(10 * (Constants.scaleFactor || 1.0))
 
                     Item {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -147,14 +148,20 @@ Item {
                             }
                         }
 
-                        MAppIcon {
-                            anchors.centerIn: parent
-                            anchors.verticalCenterOffset: 2
-                            source: appData ? appData.icon : ""
-                            size: parent.width
-                            opacity: 0.3
-                            color: "black"
-                            z: 1
+                        // Drop shadow — DS app-icon frame spec
+                        // (app-icons.jsx AppIconFrame boxShadow):
+                        //   0 8px 16px -8px rgba(0,0,0,0.7)
+                        // Rendered as a translated, opacity-0.7 black
+                        // squircle sitting 8 px below the icon. Cheaper
+                        // than a real blur and visually equivalent at
+                        // 64–80 px icon sizes against dark wallpapers.
+                        Rectangle {
+                            anchors.fill: parent
+                            anchors.topMargin: 8
+                            radius: MRadius.squircle
+                            color: Qt.rgba(0, 0, 0, 0.7)
+                            opacity: 0.35
+                            z: 0
                         }
 
                         MAppIcon {
@@ -163,7 +170,37 @@ Item {
                             source: appData ? appData.icon : ""
                             size: parent.width
                             anchors.centerIn: parent
+                            z: 1
+                        }
+
+                        // Outer 1 px black-60 ring — DS app-icon frame
+                        // boxShadow: `0 0 0 1px rgba(0,0,0,0.6)`. Gives
+                        // each tile a hard edge against the wallpaper
+                        // without a heavy ring around the whole tile.
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: MRadius.squircle
+                            color: "transparent"
+                            border.width: 1
+                            border.color: Qt.rgba(0, 0, 0, 0.6)
                             z: 2
+                        }
+
+                        // Inner 1 px white-15 TOP-only highlight — DS
+                        // app-icon frame inset 0 1px 0 rgba(255,255,255,0.15).
+                        // Sits one pixel inside the outer ring so it
+                        // reads as a "lit from above" edge, not a full
+                        // 4-sided inner stroke.
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.leftMargin: 1
+                            anchors.rightMargin: 1
+                            anchors.topMargin: 1
+                            height: 1
+                            color: Qt.rgba(1, 1, 1, 0.15)
+                            z: 3
                         }
 
                         // Notification badge — tealBright per DS Badges

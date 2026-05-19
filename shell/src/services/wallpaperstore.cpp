@@ -6,53 +6,19 @@
 WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent)
     : QObject(parent)
     , m_settingsManager(settingsManager) {
-    m_wallpapers = {
-        // DS 2026 default — Slate Aurora ships first so it's the picker
-        // default and matches docs/redesign/marathonos/project/wallpapers.jsx.
-        QVariantMap{
-            {"name", "Slate Aurora"},
-            {"path",
-             resolveAssetPath("wallpapers/slate-aurora.svg", "qrc:/wallpapers/slate-aurora.svg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 1"},
-            {"path", resolveAssetPath("wallpapers/wallpaper.jpg", "qrc:/wallpapers/wallpaper.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 2"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper2.jpg", "qrc:/wallpapers/wallpaper2.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 3"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper3.jpg", "qrc:/wallpapers/wallpaper3.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 4"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper4.jpg", "qrc:/wallpapers/wallpaper4.jpg")},
-            {"isDark", false}},
-        QVariantMap{
-            {"name", "Gradient 5"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper5.jpg", "qrc:/wallpapers/wallpaper5.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 6"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper6.jpg", "qrc:/wallpapers/wallpaper6.jpg")},
-            {"isDark", false}},
-        QVariantMap{
-            {"name", "Gradient 7"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper7.jpg", "qrc:/wallpapers/wallpaper7.jpg")},
-            {"isDark", true}},
-        QVariantMap{
-            {"name", "Gradient 8"},
-            {"path",
-             resolveAssetPath("wallpapers/wallpaper8.jpg", "qrc:/wallpapers/wallpaper8.jpg")},
-            {"isDark", true}}};
+    m_wallpapers = {// DS 2026 — Slate Aurora ships as the only default for now. The
+                    // legacy `wallpaper.jpg…wallpaper8.jpg` stock photos have been
+                    // removed; they were inherited from the pre-DS scaffold and don't
+                    // match the design system. The remaining 12 wallpapers from
+                    // docs/redesign/marathonos/project/wallpapers.jsx (Carbon,
+                    // IndigoDusk, LongRun, Flowfield, Mesh, Topographic, Drift,
+                    // Tundra, Striae, Halftone, Pulse, Twilight) are queued to be
+                    // rendered to SVG and shipped alongside slate-aurora.svg.
+                    QVariantMap{{"name", "Slate Aurora"},
+                                {"path",
+                                 resolveAssetPath("wallpapers/slate-aurora.svg",
+                                                  "qrc:/wallpapers/slate-aurora.svg")},
+                                {"isDark", true}}};
     emit wallpapersChanged();
 
     if (m_settingsManager && !m_settingsManager->wallpaperPath().isEmpty()) {
