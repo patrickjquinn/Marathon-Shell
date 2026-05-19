@@ -178,9 +178,25 @@ Total first-run time on a modern machine: ~15 minutes (mostly QMF +
 marathon-shell C++ compile). Subsequent runs that only change shell
 sources rebuild in ~3 minutes.
 
-Drop `--verify` for a buildonly run, or use `--boot` for an
-interactive QEMU window. Run `./scripts/build-qemu-image.sh --help`
-for env-var overrides (alternate forks, branches, build cache path).
+Other modes:
+
+- `./scripts/build-qemu-image.sh` — build only, leave the image on
+  disk, exit. Boot later with `--boot-only`.
+- `./scripts/build-qemu-image.sh --boot` — build then launch QEMU
+  interactively. GL-accelerated (`virtio-gpu-gl-pci` + virgl), VNC
+  on `127.0.0.1:5905` by default so it works on any host. Set
+  `MARATHON_QEMU_DISPLAY=gtk` to pop a native window instead.
+- `./scripts/build-qemu-image.sh --boot-only` — skip rebuild and
+  just launch QEMU against the existing baked image. Fast iteration.
+- `./scripts/build-qemu-image.sh --verify` — headless boot + the
+  12-check Mail verification harness, exit with its rc.
+- `./scripts/build-qemu-image.sh --help` — env-var overrides for
+  forks/branches/cache path/OAuth client IDs.
+
+After `--boot` / `--boot-only`, connect with any VNC viewer to
+`127.0.0.1:5905` (Remmina, vinagre, vncviewer, macOS Screen
+Sharing, …). SSH into the guest with
+`sshpass -p marathon ssh -p 2233 root@127.0.0.1`.
 
 ### Initial Setup (for developing the shell itself)
 

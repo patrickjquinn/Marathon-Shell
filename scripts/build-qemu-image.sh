@@ -48,15 +48,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export MARATHON_SHELL_SRC="$(dirname "$SCRIPT_DIR")"
 LIB="$SCRIPT_DIR/qemu/lib"
 
-# CLI parsing — keep it small. --boot launches QEMU after the bake.
-# --verify is the same but pipes verify-mail.sh into the guest and
-# exits with its rc.
+# CLI parsing — keep it small.
+#
+#   --boot          (after the bake) launch a GL-accelerated interactive
+#                   QEMU. Auto-picks GTK if $DISPLAY/$WAYLAND_DISPLAY are
+#                   present, else VNC on 127.0.0.1:5905.
+#   --verify        (after the bake) headless boot + run verify-mail.sh.
+#                   Exits with verify-mail.sh's return code.
+#   --boot-only     SKIP the build/bake stages; boot the already-baked
+#                   image. Use for fast iteration after a build.
 BOOT=0
+BOOT_ONLY=0
 VERIFY=0
 for a in "$@"; do
     case "$a" in
-        --boot)    BOOT=1 ;;
-        --verify)  BOOT=1; VERIFY=1 ;;
+        --boot)       BOOT=1 ;;
+        --verify)     BOOT=1; VERIFY=1 ;;
+        --boot-only)  BOOT_ONLY=1; BOOT=1 ;;
         -h|--help)
             sed -n '2,/^set -euo pipefail/p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
@@ -71,6 +79,14 @@ bash "$LIB/check-host.sh"
 echo "==> stage 2: dependency trees"
 # shellcheck source=qemu/lib/setup-trees.sh
 . "$LIB/setup-trees.sh"
+
+# --boot-only short-circuits the build chain — straight to the
+# launcher. Useful after a regular build to pop the QEMU window
+# again without re-running mkosi.
+if [ "$BOOT_ONLY" -eq 1 ]; then
+    echo "==> --boot-only: skipping build, baking, and verify"
+    exec bash "$LIB/boot-image.sh"
+fi
 
 # Helper — only build an apk if no matching file already exists in
 # mkosi.packages/ (or FORCE_REBUILD=1). Each builder script writes
@@ -114,25 +130,11 @@ if [ "$VERIFY" -eq 1 ]; then
     echo "==> stage 5: boot + verify"
     bash "$LIB/boot-and-verify-mail.sh"
 elif [ "$BOOT" -eq 1 ]; then
-    echo "==> stage 5: boot (use Ctrl-A x in serial to quit)"
-    echo "    SSH after a minute: ssh -p 2223 root@127.0.0.1   (password: marathon)"
-    exec qemu-system-aarch64 \
-        -machine type=virt,memory-backend=mem -cpu host -accel kvm \
-        -smp 2 -m 2048M \
-        -object memory-backend-memfd,id=mem,size=2048M,share=on \
-        -object rng-random,filename=/dev/urandom,id=rng0 \
-        -device virtio-rng-pci,rng=rng0 -device virtio-balloon \
-        -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2223-:22 \
-        -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/aarch64/QEMU_EFI-pflash.qcow2 \
-        -drive if=pflash,format=qcow2,file=/tmp/marathon-qemu-vars.qcow2 \
-        -drive file="$LATEST_IMG",format=raw,if=none,id=hd0,cache=writeback,discard=unmap \
-        -device virtio-blk-pci,drive=hd0,bootindex=1 \
-        -device virtio-gpu-pci,xres=720,yres=1440 \
-        -device virtio-keyboard-pci -device virtio-tablet-pci \
-        -display gtk -serial mon:stdio \
-        -boot menu=on,splash-time=0
+    echo "==> stage 5: boot (Ctrl-C in this terminal stops QEMU)"
+    exec bash "$LIB/boot-image.sh"
 else
     echo "==> done. Boot with:"
-    echo "    $0 --boot      (interactive QEMU window)"
-    echo "    $0 --verify    (headless boot + Mail verification harness)"
+    echo "    $0 --boot       (interactive shell window — GTK or VNC depending on host display)"
+    echo "    $0 --verify     (headless boot + Mail verification harness)"
+    echo "    $0 --boot-only  (skip rebuild, just launch QEMU again)"
 fi
