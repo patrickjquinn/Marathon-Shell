@@ -95,14 +95,15 @@ build_if_missing() {
 }
 
 echo "==> stage 3: build apks"
-build_if_missing "qmf"                  'qmf-libs-*.apk'             "$LIB/build-qmf-apk.sh"
-build_if_missing "marathon-base-config" 'marathon-base-config-*.apk' "$LIB/build-marathon-base-config-apk.sh"
-build_if_missing "marathon-mail-oauth"  'marathon-mail-oauth-*.apk'  "$LIB/build-marathon-mail-oauth-apk.sh"
-build_if_missing "marathon-shell"       'marathon-shell-*.apk'       "$LIB/build-marathon-shell-apk.sh"
+build_if_missing "qmf"                       'qmf-libs-*.apk'                  "$LIB/build-qmf-apk.sh"
+build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'      "$LIB/build-marathon-base-config-apk.sh"
+build_if_missing "marathon-mail-oauth"       'marathon-mail-oauth-*.apk'       "$LIB/build-marathon-mail-oauth-apk.sh"
+build_if_missing "marathon-shell"            'marathon-shell-*.apk'            "$LIB/build-marathon-shell-apk.sh"
+build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk'  "$LIB/build-postmarketos-ui-marathon-apk.sh"
 
 echo "==> stage 4: bake image"
 cd "$DURANIUM_DIR"
-PATH="$MKOSI_BIN:$(dirname "$MKOSI_BIN"):$PATH" \
+PATH="$(dirname "$MKOSI_BIN"):$PATH" \
     python3 scripts/build-image.py device-qemu-aarch64 ui-marathon
 LATEST_IMG=$(ls -1t "$DURANIUM_DIR/mkosi.output/qemu-aarch64_marathon_edge"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
     | grep -E '/qemu-aarch64_marathon_edge_[0-9]+\.raw$' | head -1)
