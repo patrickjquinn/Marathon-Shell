@@ -28,7 +28,7 @@ class NotificationDatabase : public QObject {
     };
 
     explicit NotificationDatabase(QObject *parent = nullptr);
-    ~NotificationDatabase();
+    ~NotificationDatabase() override;
 
     bool                      initialize();
     uint                      saveNotification(const NotificationRecord &notif);

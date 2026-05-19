@@ -49,7 +49,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_ENUM(PowerProfile)
 
     explicit PowerManagerCpp(QObject *parent = nullptr);
-    ~PowerManagerCpp();
+    ~PowerManagerCpp() override;
 
     int batteryLevel() const {
         return m_batteryLevel;

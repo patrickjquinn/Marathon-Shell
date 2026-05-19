@@ -18,7 +18,7 @@ class FreedesktopNotifications : public QObject, protected QDBusContext {
   public:
     explicit FreedesktopNotifications(NotificationDatabase *database, NotificationModel *model,
                                       PowerManagerCpp *powerManager, QObject *parent = nullptr);
-    ~FreedesktopNotifications();
+    ~FreedesktopNotifications() override;
 
     bool registerService();
 

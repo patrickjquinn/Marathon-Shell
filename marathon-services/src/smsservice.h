@@ -37,7 +37,7 @@ class SMSService : public QObject {
 
   public:
     explicit SMSService(QObject *parent = nullptr);
-    ~SMSService();
+    ~SMSService() override;
 
     void             setContactsManager(ContactsManager *contactsManager);
     void             setMmsManager(MmsManager *mmsManager);

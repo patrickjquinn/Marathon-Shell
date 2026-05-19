@@ -56,7 +56,7 @@ class AudioManagerCpp : public QObject {
 
   public:
     explicit AudioManagerCpp(QObject *parent = nullptr);
-    ~AudioManagerCpp();
+    ~AudioManagerCpp() override;
 
     bool available() const {
         return m_available;
