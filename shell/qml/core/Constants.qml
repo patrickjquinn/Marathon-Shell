@@ -100,13 +100,14 @@ QtObject {
     readonly property real dividerHeight: Math.max(1, Math.round(1 * scaleFactor))
     readonly property real actionBarHeight: Math.round(72 * scaleFactor)
     readonly property real hubHeaderHeight: Math.round(80 * scaleFactor)
-    readonly property real appIconSize: Math.round(72 * scaleFactor)
+    readonly property real appIconSize: Math.round(80 * scaleFactor)
     readonly property real appGridSpacing: Math.round(20 * scaleFactor)
     readonly property real appLabelHeight: Math.round(32 * scaleFactor)
     readonly property real cardHeight: Math.round(160 * scaleFactor)
     readonly property real cardWidth: Math.round(screenWidth * 0.42)
     readonly property real cardBannerHeight: Math.round(60 * scaleFactor)
-    readonly property real cardRadius: Math.round(20 * scaleFactor)
+    // DS .m-card uses radius 4 (--r-md). Was 20 (off-spec).
+    readonly property real cardRadius: Math.round(4 * scaleFactor)
     readonly property real fontSizeXSmall: Math.round(12 * scaleFactor)
     readonly property real fontSizeSmall: Math.round(14 * scaleFactor)
     readonly property real fontSizeMedium: Math.round(16 * scaleFactor)
@@ -121,11 +122,25 @@ QtObject {
     readonly property real spacingLarge: Math.round(20 * scaleFactor)
     readonly property real spacingXLarge: Math.round(32 * scaleFactor)
     readonly property real spacingXXLarge: Math.round(40 * scaleFactor)
+    // DS radius scale (marathon-tokens.css):
+    //   --r-sm  = 2  · inline tags
+    //   --r-md  = 4  · DEFAULT — cards, buttons, rows, dialogs, chips
+    //   --r-lg  = 6  · sheets, dialogs when softer needed
+    //   --r-xl  = 8  · map / gallery thumbs (max non-pill / non-squircle)
+    //   --r-full= 999· pills (sliders, filter chips, toggles)
+    //   squircle=14  · APP ICONS ONLY
+    //
+    // The DS explicitly forbids 12, 14, 16, 18 ("they drift toward iOS
+    // softness"). The legacy Constants ramp had Medium=8, Large=12,
+    // XLarge=20 — every value above r-md was off-spec. New ramp:
+    //   Small=4, Medium=4, Large=6, XLarge=8.
+    // Callers using Medium/Large/XLarge migrate downward without code
+    // changes; the DS-canonical MRadius store is preferred for new code.
     readonly property real borderRadiusSharp: 0
     readonly property real borderRadiusSmall: Math.round(4 * scaleFactor)
-    readonly property real borderRadiusMedium: Math.round(8 * scaleFactor)
-    readonly property real borderRadiusLarge: Math.round(12 * scaleFactor)
-    readonly property real borderRadiusXLarge: Math.round(20 * scaleFactor)
+    readonly property real borderRadiusMedium: Math.round(4 * scaleFactor)
+    readonly property real borderRadiusLarge: Math.round(6 * scaleFactor)
+    readonly property real borderRadiusXLarge: Math.round(8 * scaleFactor)
     readonly property real borderWidthThin: Math.max(1, Math.round(1 * scaleFactor))
     readonly property real borderWidthMedium: Math.max(1, Math.round(2 * scaleFactor))
     readonly property real borderWidthThick: Math.max(2, Math.round(3 * scaleFactor))
