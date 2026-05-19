@@ -35,10 +35,16 @@ Item {
         visible: title !== ""
 
         Text {
+            // DS Title 3 — 22/500 with -0.3 tracking (list section
+            // heroes). The previous sizeLarge (17) + weightDemiBold (600)
+            // read as a heavy 17 px label; the DS calls for a larger,
+            // lighter title so sections feel like distinct sub-pages
+            // within a list, not bolded labels.
             text: title
             color: MColors.textPrimary
-            font.pixelSize: MTypography.sizeLarge
-            font.weight: MTypography.weightDemiBold
+            font.pixelSize: MTypography.sizeTitle3
+            font.weight: MTypography.weightMedium
+            font.letterSpacing: MTypography.trackingTitle3
             font.family: MTypography.fontFamily
             width: parent.width
         }
