@@ -104,28 +104,42 @@ Steps as of 2026-05 against Microsoft Entra (formerly Azure AD).
 
 ## Baking the IDs into Marathon's image
 
-Once both client IDs are registered, edit
-`Marathon-Image/packages/marathon-mail-oauth/APKBUILD`:
+Once both client IDs are registered, copy the env template:
+
+```
+$ cd tools/marathon-mail-oauth
+$ cp oauth-clients.env.example oauth-clients.env
+$ $EDITOR oauth-clients.env
+```
+
+Fill in the two variables:
 
 ```sh
-build() {
-    cd "$builddir"
-    MARATHON_DEFAULT_GOOGLE_CLIENT_ID="842XXXXX-XXXXX.apps.googleusercontent.com" \
-    MARATHON_DEFAULT_MICROSOFT_CLIENT_ID="4f9d3e2a-XXXX-XXXX-XXXX-XXXXXXXXXXXX" \
-        cargo auditable build --frozen --release
-}
+MARATHON_DEFAULT_GOOGLE_CLIENT_ID="842XXXXX-XXXXX.apps.googleusercontent.com"
+MARATHON_DEFAULT_MICROSOFT_CLIENT_ID="4f9d3e2a-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 ```
 
-Rust's `option_env!` macro reads both at compile time and bakes the
-strings as constants in the binary. No runtime env var is needed
-after that; the helper just works.
-
-Rebuild + rebake:
+`oauth-clients.env` is `.gitignored` — your IDs never leak into the
+repo. The duranium build wrapper sources it before invoking cargo:
 
 ```
-$ bash marathon-extras/build-marathon-mail-oauth-apk.sh
+$ cd ~/duranium-build/duranium
+$ MARATHON_SHELL_SRC=~/Developer/Marathon-Shell \
+    bash marathon-extras/build-marathon-mail-oauth-apk.sh
+oauth bake: gmail=set, microsoft=set
+…
 $ python3 scripts/build-image.py device-qemu-aarch64 ui-marathon
 ```
+
+`option_env!` in `tools/marathon-mail-oauth/src/main.rs` reads the
+env vars at `cargo build` time and bakes them as `&'static str`
+constants in the binary. No runtime env var is needed after that.
+
+If `oauth-clients.env` is missing or both values are empty, the
+wrapper prints `oauth bake: none — community apk` and the binary
+emits `kind:"error", code:"oauth_not_configured"` when a user taps
+Sign in with Google/Microsoft. The classic IMAP setup form still
+works fine for Fastmail / iCloud / app-password Gmail / self-hosted.
 
 Verify on QEMU:
 
