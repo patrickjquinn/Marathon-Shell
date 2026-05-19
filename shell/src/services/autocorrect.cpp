@@ -75,8 +75,8 @@ QString AutoCorrect::correct(const QString &word) {
         return word;
     }
 
-    const QString bestMatch = suggestions.first();
-    const int     distance  = levenshteinDistance(lowerWord, bestMatch.toLower());
+    const QString &bestMatch = suggestions.first();
+    const int      distance  = levenshteinDistance(lowerWord, bestMatch.toLower());
     if (distance <= 2) {
         return bestMatch;
     }
@@ -87,7 +87,7 @@ QString AutoCorrect::shouldCorrect(const QString &word) {
     if (!m_enabled || word.size() < 3) {
         return {};
     }
-    const QString corrected = correct(word);
+    QString corrected = correct(word);
     if (corrected != word) {
         return corrected;
     }

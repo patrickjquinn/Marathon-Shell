@@ -119,8 +119,6 @@ static void applyMainPriorityForActive(bool active) {
 }
 #endif
 
-#include "marathonappregistry.h"
-#include "marathonappscanner.h"
 #include "marathonappinstaller.h"
 
 #include "ipc/shellipcclients.h"
@@ -302,8 +300,8 @@ static QString createPatchedQmldirWithoutPrefer(const QString &importRoot,
             !line.startsWith("depends ") && !line.startsWith("import ") &&
             !line.startsWith("linktarget ");
         if (looksLikeTypeDecl) {
-            const QString relTarget = parts.last();
-            const QString srcCheck  = QDir(moduleAbsDir).filePath(relTarget);
+            const QString &relTarget = parts.last();
+            const QString  srcCheck  = QDir(moduleAbsDir).filePath(relTarget);
             if (!QFileInfo::exists(srcCheck))
                 continue;
         }
@@ -915,7 +913,7 @@ int main(int argc, char *argv[]) {
             createAndAttach();
         });
 
-    return app.exec();
+    return QGuiApplication::exec();
 }
 
 #include "main.moc"

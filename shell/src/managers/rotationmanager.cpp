@@ -23,7 +23,7 @@ RotationManager::RotationManager(QObject *parent)
     }
 }
 
-RotationManager::~RotationManager() {}
+RotationManager::~RotationManager() = default;
 
 void RotationManager::setAutoRotateEnabled(bool enabled) {
     if (m_autoRotateEnabled == enabled)

@@ -48,8 +48,8 @@ bool CgroupManager::initRootPath() {
     // Find marathon.slice in the path: it's always the immediate parent
     // of the marathon-shell-*.scope component when launched via
     // marathon-shell-session's systemd-run wrapper.
-    QString   parentPath = shellPath;
-    const int scopeIdx   = parentPath.lastIndexOf(QStringLiteral("/marathon-shell-"));
+    const QString &parentPath = shellPath;
+    const int      scopeIdx   = parentPath.lastIndexOf(QStringLiteral("/marathon-shell-"));
     if (scopeIdx <= 0 || !parentPath.endsWith(QStringLiteral(".scope"))) {
         qCInfo(lcCgroup) << "shell not inside marathon-shell-*.scope (cgroup:" << shellPath
                          << ") — running unwrapped? freeze will be log-only";
@@ -130,8 +130,8 @@ bool CgroupManager::writeFile(const QString &path, const QByteArray &data) const
 QString CgroupManager::placeAppPid(qint64 pid, const QString &appId) {
     if (!m_available || pid <= 0 || appId.isEmpty())
         return {};
-    const QString appPath = m_appsRoot + QStringLiteral("/marathon-app-") + appId;
-    QDir          appsRoot(m_appsRoot);
+    QString appPath = m_appsRoot + QStringLiteral("/marathon-app-") + appId;
+    QDir    appsRoot(m_appsRoot);
     if (!appsRoot.exists(QStringLiteral("marathon-app-") + appId)) {
         if (!appsRoot.mkdir(QStringLiteral("marathon-app-") + appId)) {
             qCInfo(lcCgroup) << "mkdir" << appPath << "failed";

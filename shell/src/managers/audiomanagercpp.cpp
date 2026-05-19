@@ -347,7 +347,7 @@ bool AudioManagerCpp::initPulseAudio() {
 
     pa_context_set_state_callback(m_pa_context, &AudioManagerCpp::paContextStateCallback, this);
 
-    if (pa_context_connect(m_pa_context, NULL, PA_CONTEXT_NOFLAGS, NULL) < 0) {
+    if (pa_context_connect(m_pa_context, nullptr, PA_CONTEXT_NOFLAGS, nullptr) < 0) {
         cleanupPulseAudio();
         return false;
     }

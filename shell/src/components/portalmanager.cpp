@@ -18,7 +18,7 @@ PortalManager::PortalManager(QObject *parent)
     checkPortals();
 }
 
-PortalManager::~PortalManager() {}
+PortalManager::~PortalManager() = default;
 
 void PortalManager::checkPortals() {
 
@@ -65,7 +65,7 @@ void PortalManager::checkCameraPortal() {
     });
 }
 
-bool PortalManager::isPortalAvailable(const QString &portalName) {
+bool PortalManager::isPortalAvailable(const QString &portalName) const {
     if (!m_portalsAvailable)
         return false;
 

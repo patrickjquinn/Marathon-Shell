@@ -2064,7 +2064,7 @@ bool AppLifecycleObject::EndBackgroundTask(quint32 handle) {
     auto it = m_handles.find(handle);
     if (it == m_handles.end())
         return false;
-    const ActiveTask task = it.value();
+    const ActiveTask &task = it.value();
     m_handles.erase(it);
     // Refcount semantics: only release the capability when this was the
     // last outstanding handle holding (appId, category).

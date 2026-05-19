@@ -81,7 +81,7 @@ class MusicLibraryManager : public QObject {
   private slots:
     void onDirectoryChanged(const QString &path);
     void performScan();
-    void onScanFinished(QList<Track> tracks);
+    void onScanFinished(const QList<Track> &tracks);
     void onScanProgress(int current, int total);
 
   private:

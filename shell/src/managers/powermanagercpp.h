@@ -154,7 +154,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
   private:
     void                    setupDBusConnections();
     void                    simulateBatteryUpdate();
-    void                    applyCPUGovernor(PowerProfile profile);
+    void                    applyCPUGovernor(PowerProfile profile) const;
     void                    checkCPUGovernorSupport();
     void                    checkWakelockSupport();
     void                    checkRtcAlarmSupport();

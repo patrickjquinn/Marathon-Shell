@@ -203,12 +203,12 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     info.isProtected = obj.value("protected").toBool(false);
 
     QJsonArray permissionsArray = obj.value("permissions").toArray();
-    for (const QJsonValue &value : permissionsArray) {
+    for (const auto &value : permissionsArray) {
         info.permissions.append(value.toString());
     }
 
     QJsonArray keywordsArray = obj.value("searchKeywords").toArray();
-    for (const QJsonValue &value : keywordsArray) {
+    for (const auto &value : keywordsArray) {
         info.searchKeywords.append(value.toString());
     }
 
@@ -216,22 +216,22 @@ MarathonAppRegistry::AppInfo MarathonAppScanner::parseManifest(const QString &ma
     info.deepLinksJson       = QJsonDocument(deepLinksObj).toJson(QJsonDocument::Compact);
 
     QJsonArray categoriesArray = obj.value("categories").toArray();
-    for (const QJsonValue &value : categoriesArray) {
+    for (const auto &value : categoriesArray) {
         info.categories.append(value.toString());
     }
 
     QJsonArray uriSchemesArray = obj.value("handlesUriSchemes").toArray();
-    for (const QJsonValue &value : uriSchemesArray) {
+    for (const auto &value : uriSchemesArray) {
         info.handlesUriSchemes.append(value.toString());
     }
 
     QJsonArray defaultForArray = obj.value("defaultFor").toArray();
-    for (const QJsonValue &value : defaultForArray) {
+    for (const auto &value : defaultForArray) {
         info.defaultFor.append(value.toString());
     }
 
     QJsonArray bgCapArray = obj.value("backgroundCapabilities").toArray();
-    for (const QJsonValue &value : bgCapArray) {
+    for (const auto &value : bgCapArray) {
         info.backgroundCapabilities.append(value.toString());
     }
 

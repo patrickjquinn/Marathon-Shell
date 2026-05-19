@@ -35,8 +35,8 @@ int packageCommand(const QStringList &args) {
         return 1;
     }
 
-    QString appDir = args.at(2);
-    QString outputFile;
+    const QString &appDir = args.at(2);
+    QString        outputFile;
 
     if (args.size() >= 4) {
         outputFile = args.at(3);
@@ -72,8 +72,8 @@ int signCommand(const QStringList &args) {
         return 1;
     }
 
-    QString appDir = args.at(2);
-    QString keyId;
+    const QString &appDir = args.at(2);
+    QString        keyId;
 
     if (args.size() >= 4) {
         keyId = args.at(3);
@@ -111,8 +111,8 @@ int validateCommand(const QStringList &args) {
         return 1;
     }
 
-    QString   path = args.at(2);
-    QFileInfo pathInfo(path);
+    const QString &path = args.at(2);
+    QFileInfo      pathInfo(path);
 
     printInfo("Validating: " + path);
 
@@ -160,8 +160,8 @@ int installCommand(const QStringList &args) {
         return 1;
     }
 
-    QString   path = args.at(2);
-    QFileInfo pathInfo(path);
+    const QString &path = args.at(2);
+    QFileInfo      pathInfo(path);
 
     printInfo("Installing: " + path);
 
@@ -198,10 +198,10 @@ int initCommand(const QStringList &args) {
         return 1;
     }
 
-    QString appName = args.at(2);
-    QString appId   = appName.toLower().replace(" ", "-");
+    const QString &appName = args.at(2);
+    QString        appId   = appName.toLower().replace(" ", "-");
 
-    QDir    dir;
+    QDir           dir;
     if (!dir.mkdir(appId)) {
         printError("Failed to create directory: " + appId);
         return 1;
@@ -334,14 +334,14 @@ int main(int argc, char *argv[]) {
     QCoreApplication::setApplicationName("marathon-dev");
     QCoreApplication::setApplicationVersion("1.0.0");
 
-    QStringList args = app.arguments();
+    QStringList args = QCoreApplication::arguments();
 
     if (args.size() < 2) {
         printHelp();
         return 0;
     }
 
-    QString command = args.at(1);
+    const QString &command = args.at(1);
 
     if (command == "init") {
         return initCommand(args);

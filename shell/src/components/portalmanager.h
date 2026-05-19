@@ -15,7 +15,7 @@ class PortalManager : public QObject {
     ~PortalManager();
     void checkCameraPortal();
 
-    bool isPortalAvailable(const QString &portalName = QString());
+    bool isPortalAvailable(const QString &portalName = QString()) const;
 
     void requestCameraAccess(const QString &appId);
     void requestLocationAccess(const QString &appId);

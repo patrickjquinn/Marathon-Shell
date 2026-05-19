@@ -28,9 +28,9 @@ TelephonyService::TelephonyService(QObject *parent)
 }
 
 TelephonyService::~TelephonyService() {
-    if (m_voiceCall) {
-        delete m_voiceCall;
-    }
+
+    delete m_voiceCall;
+
     // m_modemManager is parented to this; Qt will delete it
 }
 
@@ -331,8 +331,8 @@ void TelephonyService::checkModemStatus() {
     arg >> objects;
 
     for (auto it = objects.constBegin(); it != objects.constEnd(); ++it) {
-        QString       path       = it.key().path();
-        InterfaceList interfaces = it.value();
+        QString              path       = it.key().path();
+        const InterfaceList &interfaces = it.value();
 
         if (interfaces.contains("org.freedesktop.ModemManager1.Modem.Voice")) {
             if (m_modemPath != path) {

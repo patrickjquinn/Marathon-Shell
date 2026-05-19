@@ -395,7 +395,7 @@ void AppLifecycleManager::startIdleFreezeDebounce(const QString &appId) {
     QTimer *timer = new QTimer(this);
     timer->setSingleShot(true);
     timer->setInterval(m_idleFreezeDebounceMs);
-    const QString capturedAppId = appId;
+    const QString &capturedAppId = appId;
     connect(timer, &QTimer::timeout, this, [this, capturedAppId, timer]() {
         auto state = m_appStates.find(capturedAppId);
         if (state == m_appStates.end())

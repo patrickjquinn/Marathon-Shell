@@ -173,11 +173,12 @@ QtObject {
             newDpi = baseDPI;
             dpiSource = "fallback";
             if (deviceDpi && (deviceDpi < dpiMin || deviceDpi > dpiMax))
-                Logger.warn("Constants", "Invalid deviceDPI (" + deviceDpi + "), using baseDPI: " + newDpi);
+                console.warn("[WARN] Constants:", "Invalid deviceDPI (" + deviceDpi + "), using baseDPI: " + newDpi);
         }
         if (Math.abs(dpi - newDpi) > 0.1) {
             dpi = newDpi;
-            Logger.debug("Constants", "Screen: " + width.toFixed(0) + "×" + height.toFixed(0) + " @ " + dpi.toFixed(0) + " DPI (source: " + dpiSource + ", scaleFactor: " + scaleFactor.toFixed(2) + ")");
+            if (debugMode)
+                console.log("[DEBUG] Constants:", "Screen: " + width.toFixed(0) + "×" + height.toFixed(0) + " @ " + dpi.toFixed(0) + " DPI (source: " + dpiSource + ", scaleFactor: " + scaleFactor.toFixed(2) + ")");
         }
     }
 

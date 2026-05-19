@@ -99,7 +99,11 @@ SettingsPageTemplate {
                 visible: AudioManagerCpp.perAppVolumeSupported
 
                 Repeater {
-                    model: AudioManagerCpp.streams
+                    // AudioStreamModel is registered via the AudioClient IPC
+                    // shim in marathon-app-runner; its qmltypes is not present
+                    // when linting against MarathonOS.Shell so qmllint can't
+                    // resolve the type. Runtime is correct.
+                    model: AudioManagerCpp.streams  // qmllint disable unresolved-type
 
                     MSettingsListItem {
                         title: model.appName
@@ -144,7 +148,7 @@ SettingsPageTemplate {
                     text: "No audio streams playing"
                     color: MColors.textSecondary
                     font.pixelSize: MTypography.sizeSmall
-                    visible: AudioManagerCpp.streams.rowCount() === 0
+                    visible: AudioManagerCpp.streams.rowCount() === 0  // qmllint disable unresolved-type
                     anchors.horizontalCenter: parent.horizontalCenter
                     topPadding: MSpacing.md
                     bottomPadding: MSpacing.md

@@ -71,7 +71,7 @@ QStringList StateManagerCpp::restoreStates() {
     QStringList      appIds;
     const QJsonArray arr = doc.array();
     appIds.reserve(arr.size());
-    for (const QJsonValue &value : arr) {
+    for (const auto &value : arr) {
         if (value.isString())
             appIds.append(value.toString());
     }

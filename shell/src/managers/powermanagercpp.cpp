@@ -420,7 +420,7 @@ void PowerManagerCpp::checkIdleState() {
     }
 }
 
-void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) {
+void PowerManagerCpp::applyCPUGovernor(PowerProfile profile) const {
     if (!m_powerProfilesSupported) {
         qDebug() << "[PowerManagerCpp] CPU governor control not supported";
         return;

@@ -118,7 +118,7 @@ class SecurityManager : public QObject {
     void                  updateLockoutStatus();
     void                  recordFailedAttempt();
     void                  resetFailedAttempts();
-    int                   queryFaillockAttempts();
+    int                   queryFaillockAttempts() const;
 
     AuthMode              m_authMode;
     bool                  m_hasQuickPIN;

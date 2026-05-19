@@ -85,7 +85,7 @@ TextInputV3::TextInputV3(TextInputManagerV3 *manager, struct wl_client *client, 
     wl_resource_set_implementation(m_resource, &textInputInterface, this, nullptr);
 }
 
-TextInputV3::~TextInputV3() {}
+TextInputV3::~TextInputV3() = default;
 
 void TextInputV3::sendEnter(QWaylandSurface *surface) {
     if (!surface || !m_resource)

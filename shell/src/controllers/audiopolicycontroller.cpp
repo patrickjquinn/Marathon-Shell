@@ -11,7 +11,7 @@
 
 namespace {
     QUrl toUrl(const QString &pathOrUrl) {
-        const QUrl url(pathOrUrl);
+        QUrl url(pathOrUrl);
         if (url.isValid() && !url.scheme().isEmpty()) {
             return url;
         }

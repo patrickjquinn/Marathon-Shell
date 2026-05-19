@@ -7,7 +7,7 @@
 #include <sched.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <errno.h>
+#include <cerrno>
 #include <cstring>
 #endif
 
@@ -83,7 +83,7 @@ void RTScheduler::detectKernelCapabilities() {
 #endif
 }
 
-bool RTScheduler::setRealtimePriority(int priority) {
+bool RTScheduler::setRealtimePriority(int priority) const {
 #ifdef Q_OS_LINUX
     if (!m_hasRTPermissions) {
         qWarning() << "[RTScheduler] Cannot set RT priority - permissions not available (shell "
@@ -112,7 +112,7 @@ bool RTScheduler::setRealtimePriority(int priority) {
 #endif
 }
 
-bool RTScheduler::setThreadPriority(QThread *thread, int priority) {
+bool RTScheduler::setThreadPriority(QThread *thread, int priority) const {
 #ifdef Q_OS_LINUX
     if (!thread) {
         qWarning() << "[RTScheduler] Null thread pointer";
@@ -129,7 +129,7 @@ bool RTScheduler::setThreadPriority(QThread *thread, int priority) {
         return false;
     }
 
-    pthread_t          threadHandle = reinterpret_cast<pthread_t>(thread->currentThreadId());
+    pthread_t          threadHandle = reinterpret_cast<pthread_t>(QThread::currentThreadId());
 
     struct sched_param param;
     param.sched_priority = priority;

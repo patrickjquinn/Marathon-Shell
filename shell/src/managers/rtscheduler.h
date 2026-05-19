@@ -16,9 +16,9 @@ class RTScheduler : public QObject {
 
     explicit RTScheduler(QObject *parent = nullptr);
 
-    Q_INVOKABLE bool    setRealtimePriority(int priority);
+    Q_INVOKABLE bool    setRealtimePriority(int priority) const;
 
-    Q_INVOKABLE bool    setThreadPriority(QThread *thread, int priority);
+    Q_INVOKABLE bool    setThreadPriority(QThread *thread, int priority) const;
 
     Q_INVOKABLE bool    isRealtimeKernel() const;
 

@@ -117,7 +117,7 @@ void UpdateService::onReleasesReply() {
 
     const QJsonArray arr             = doc.array();
     const bool       allowPrerelease = !isStableChannel();
-    for (const QJsonValue &v : arr) {
+    for (const auto &v : arr) {
         const QJsonObject o          = v.toObject();
         const bool        prerelease = o.value("prerelease").toBool();
         if (prerelease && !allowPrerelease)
