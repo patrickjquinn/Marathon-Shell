@@ -6,19 +6,34 @@
 WallpaperStore::WallpaperStore(SettingsManager *settingsManager, QObject *parent)
     : QObject(parent)
     , m_settingsManager(settingsManager) {
-    m_wallpapers = {// DS 2026 — Slate Aurora ships as the only default for now. The
-                    // legacy `wallpaper.jpg…wallpaper8.jpg` stock photos have been
-                    // removed; they were inherited from the pre-DS scaffold and don't
-                    // match the design system. The remaining 12 wallpapers from
-                    // docs/redesign/marathonos/project/wallpapers.jsx (Carbon,
-                    // IndigoDusk, LongRun, Flowfield, Mesh, Topographic, Drift,
-                    // Tundra, Striae, Halftone, Pulse, Twilight) are queued to be
-                    // rendered to SVG and shipped alongside slate-aurora.svg.
-                    QVariantMap{{"name", "Slate Aurora"},
-                                {"path",
-                                 resolveAssetPath("wallpapers/slate-aurora.svg",
-                                                  "qrc:/wallpapers/slate-aurora.svg")},
-                                {"isDark", true}}};
+    // All 13 DS 2026 wallpapers from docs/redesign/marathonos/project/wallpapers.jsx,
+    // rendered to static SVG via scripts/build-wallpapers.py. Slate Aurora is the
+    // boot default. Order matches the design canvas (signature mark first, then
+    // structural pieces, then the gradient / atmospheric set, then dawn).
+    auto wp = [this](const char *name, const char *file, bool dark) -> QVariantMap {
+        const QString rel = QStringLiteral("wallpapers/") + QLatin1String(file);
+        const QString qrc = QStringLiteral("qrc:/wallpapers/") + QLatin1String(file);
+        return QVariantMap{
+            {"name", QLatin1String(name)},
+            {"path", resolveAssetPath(rel, qrc)},
+            {"isDark", dark},
+        };
+    };
+    m_wallpapers = {
+        wp("Slate Aurora", "slate-aurora.svg", true),
+        wp("Long Run", "long-run.svg", true),
+        wp("Carbon", "carbon.svg", true),
+        wp("Indigo Dusk", "indigo-dusk.svg", true),
+        wp("Track", "track.svg", true),
+        wp("Mesh", "mesh.svg", true),
+        wp("Contour", "contour.svg", true),
+        wp("Stride", "stride.svg", true),
+        wp("Tundra", "tundra.svg", true),
+        wp("Striae", "striae.svg", true),
+        wp("Halftone", "halftone.svg", true),
+        wp("Pulse", "pulse.svg", true),
+        wp("Dawn", "dawn.svg", true),
+    };
     emit wallpapersChanged();
 
     if (m_settingsManager && !m_settingsManager->wallpaperPath().isEmpty()) {

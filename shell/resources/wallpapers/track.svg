@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="track-fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#040404" stop-opacity="1"/>
+      <stop offset="0.15" stop-color="#040404" stop-opacity="0"/>
+      <stop offset="0.85" stop-color="#040404" stop-opacity="0"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="1"/>
+    </linearGradient>
+    <radialGradient id="track-glow" cx="0.5" cy="0.6398" r="0.45">
+      <stop offset="0" stop-color="#00897b" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#040404" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="390" height="844" fill="#040404"/>
+  <rect width="390" height="844" fill="url(#track-glow)"/>
+  <g>
+    <line x1="20" y1="450" x2="370" y2="450" stroke="#1de9b6" stroke-width="0.7" opacity="0.170"/>
+    <line x1="20" y1="480" x2="370" y2="480" stroke="#1de9b6" stroke-width="0.7" opacity="0.297"/>
+    <line x1="20" y1="510" x2="370" y2="510" stroke="#1de9b6" stroke-width="0.7" opacity="0.423"/>
+    <line x1="20" y1="540" x2="370" y2="540" stroke="#1de9b6" stroke-width="1.2" opacity="0.550"/>
+    <line x1="20" y1="570" x2="370" y2="570" stroke="#1de9b6" stroke-width="0.7" opacity="0.423"/>
+    <line x1="20" y1="600" x2="370" y2="600" stroke="#1de9b6" stroke-width="0.7" opacity="0.297"/>
+    <line x1="20" y1="630" x2="370" y2="630" stroke="#1de9b6" stroke-width="0.7" opacity="0.170"/>
+  </g>
+  <rect width="390" height="844" fill="url(#track-fade)" opacity="0.6"/>
+</svg>
