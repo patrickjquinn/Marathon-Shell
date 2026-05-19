@@ -147,6 +147,8 @@ Rectangle {
             border.color: MColors.borderSubtle
 
             layer.enabled: true
+            layer.smooth: true
+            layer.samples: 4
             layer.effect: MultiEffect {
                 shadowEnabled: true
                 shadowColor: Qt.rgba(0, 0, 0, 0.4)
@@ -169,10 +171,15 @@ Rectangle {
 
             Text {
                 id: titleText
+                // DS Headline — 17/600 per MTypography role default.
+                // Was 17/400 (Normal) which read as a generic Body label
+                // and made every list row feel flat. DS calls the title
+                // role "Headline" for a reason: it carries the row.
                 text: root.title
                 color: MColors.textPrimary
-                font.pixelSize: 17
-                font.weight: Font.Normal
+                font.pixelSize: MTypography.sizeHeadline
+                font.weight: MTypography.weightDemiBold
+                font.letterSpacing: MTypography.trackingHeadline
                 font.family: MTypography.fontFamily
                 width: parent.width
                 elide: Text.ElideRight
@@ -182,8 +189,8 @@ Rectangle {
                 id: subtitleText
                 text: root.subtitle
                 color: MColors.textSecondary
-                font.pixelSize: MTypography.sizeSmall
-                font.weight: Font.Light
+                font.pixelSize: MTypography.sizeFootnote
+                font.weight: MTypography.weightRegular
                 font.family: MTypography.fontFamily
                 width: parent.width
                 elide: Text.ElideRight

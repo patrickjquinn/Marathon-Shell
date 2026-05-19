@@ -64,6 +64,10 @@ Item {
             font.features: ({
                     "tnum": 1
                 })
+            // NativeRendering at this size rasterises glyphs per-px via
+            // FreeType — visibly crisper than Qt's SDF atlas for the
+            // 12 px status-bar numerics, which never animate.
+            renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
 
             readonly property real trackingForCaption: MTypography.trackingCaption
@@ -92,6 +96,9 @@ Item {
             font.features: ({
                     "tnum": 1
                 })
+            // Crisp per-px raster for the 12 px clock string — sibling
+            // of the battery percentage; identical reasoning.
+            renderType: Text.NativeRendering
 
             Behavior on opacity {
                 NumberAnimation {

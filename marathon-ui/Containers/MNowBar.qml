@@ -128,7 +128,7 @@ Item {
                 text: root.label
                 color: MColors.textPrimary
                 font.family: MTypography.fontFamily
-                font.pixelSize: 11
+                font.pixelSize: MTypography.sizeEyebrow   // DS NowBar 11/600
                 font.weight: MTypography.weightDemiBold
                 elide: Text.ElideRight
             }
@@ -137,6 +137,10 @@ Item {
                 text: root.sublabel
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
+                // 9 px is intentionally below the type ramp — DS NowBar spec
+                // ("11/600 title, 9/400 subtitle"). Live-activity sublabel
+                // never appears anywhere else; promoting to a token would
+                // imply reuse that doesn't exist.
                 font.pixelSize: 9
                 font.weight: MTypography.weightRegular
                 elide: Text.ElideRight
