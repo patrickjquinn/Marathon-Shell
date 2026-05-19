@@ -154,9 +154,38 @@ apk add cmake samurai g++ pkgconf git \
 
 > **Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
 
-### Initial Setup
+### Try Marathon in QEMU (single command)
 
-Clone the repository with submodules:
+The fastest way to see Marathon running: build a bootable Alpine
+postmarketOS image from source and boot it under QEMU.
+
+```bash
+git clone https://github.com/patrickjquinn/Marathon-Shell.git
+cd Marathon-Shell
+./scripts/build-qemu-image.sh --verify
+```
+
+What that does, in order:
+
+1. Checks host tools (podman, qemu-system-aarch64, sshpass, EFI firmware) and prints install hints if anything's missing.
+2. Auto-clones `Marathon-Image` (APKBUILDs), `postmarketos-duranium` (mkosi skeleton), and a pinned `mkosi` release into `~/.cache/marathon-build/`.
+3. Overlays Marathon's `mkosi.conf` + image-extras scripts onto the duranium tree.
+4. Builds the four local apks in dependency order (`qmf`, `marathon-base-config`, `marathon-mail-oauth`, `marathon-shell`). Each one runs in a rootless podman container; subsequent invocations skip apks already in the cache.
+5. Bakes a `qemu-aarch64_marathon_edge` image via mkosi.
+6. Boots it under QEMU and runs `verify-mail.sh` (12 checks across the Mail backend).
+
+Total first-run time on a modern machine: ~15 minutes (mostly QMF +
+marathon-shell C++ compile). Subsequent runs that only change shell
+sources rebuild in ~3 minutes.
+
+Drop `--verify` for a buildonly run, or use `--boot` for an
+interactive QEMU window. Run `./scripts/build-qemu-image.sh --help`
+for env-var overrides (alternate forks, branches, build cache path).
+
+### Initial Setup (for developing the shell itself)
+
+For local dev (running the shell directly on your X11/Wayland host
+instead of inside QEMU), clone the repository:
 
 ```bash
 git clone https://github.com/patrickjquinn/Marathon-Shell.git
