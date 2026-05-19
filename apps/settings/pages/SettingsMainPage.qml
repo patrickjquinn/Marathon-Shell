@@ -38,11 +38,15 @@ Page {
             topPadding: 24
             bottomPadding: 24
 
+            // DS Title 1 — 34/200 with -0.8 tracking. The DS guidance is
+            // unambiguous: "Use weight 200 for any heading 24px+. The
+            // system reads as airy and engineered, not heavy."
             Text {
                 text: "Settings"
                 color: MColors.textPrimary
-                font.pixelSize: MTypography.sizeXLarge
-                font.weight: Font.Bold
+                font.pixelSize: MTypography.sizeTitle1
+                font.weight: MTypography.weightExtraLight
+                font.letterSpacing: MTypography.trackingTitle1
                 font.family: MTypography.fontFamily
             }
 
