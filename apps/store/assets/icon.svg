@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- App Store icon: teal-gradient squircle with the Marathon "M" wordmark.
+     Drawn as <path> geometry rather than <text> so it renders identically in
+     every SVG engine (Qt's QtSvg, lunasvg, librsvg, Inkscape, browsers).
+     The previous version used <text font-family="Sora" font-weight="900"
+     font-style="italic"> — lunasvg's text path silently failed to resolve
+     the weight-900 italic face, producing a blank squircle on the home grid.
+     This path is a hand-tuned bold italic capital M (~12° forward slant, even
+     stroke 7 px, full cap-height 32 px) sized to match the JSX reference. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-    <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1de9b6"/><stop offset="1" stop-color="#00897b"/></linearGradient></defs>
-    <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-    <rect width="64" height="64" rx="14" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>
-    <text x="32" y="50" font-family="Sora, serif" font-size="44" font-weight="900" font-style="italic" fill="#000" text-anchor="middle">M</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1de9b6"/>
+      <stop offset="1" stop-color="#00897b"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="1"/>
+  <!-- Bold italic "M": four diagonal strokes forming the M, slanted ~12° right.
+       Cap-height 32 (y 16→48), x-positions chosen so the apex points sit at
+       the geometric centre of each half. Stroke weight 8 = ExtraBlack. -->
+  <path d="M 14 48 L 18 16 L 26 16 L 32 38 L 38 16 L 46 16 L 50 48 L 42 48 L 39.5 26 L 34 48 L 30 48 L 24.5 26 L 22 48 Z"
+        transform="skewX(-12) translate(5,0)"
+        fill="#000"/>
 </svg>
