@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-base-config
 pkgver=1.0.0
-pkgrel=16
+pkgrel=17
 pkgdesc="Marathon OS base system configuration and tuning"
 url="https://github.com/patrickjquinn/Marathon-Image"
 arch="all"
@@ -86,6 +86,18 @@ package() {
 	# WantedBy=marathon-shell.service so it activates with the shell.
 	install -Dm644 "$srcdir/marathon-mailserver.service" \
 		"$pkgdir/usr/lib/systemd/user/marathon-mailserver.service"
+
+	# Enable user-systemd linger for `user` at first boot. Equivalent to
+	# `loginctl enable-linger user` — systemd-logind reads this marker
+	# during boot and starts user@<uid>.service immediately, populating
+	# XDG_RUNTIME_DIR + the user-bus socket so apps that need them
+	# (Mail's marathon-mailserver, MPRIS clients, future Wallet) can
+	# talk to the user manager from any session, including non-tty SSH.
+	#
+	# Without this, pmOS+greetd auto-login doesn't trigger pam_systemd,
+	# the user manager never starts, and `systemctl --user` hangs.
+	install -d "$pkgdir/var/lib/systemd/linger"
+	touch "$pkgdir/var/lib/systemd/linger/user"
 
 	# User-level slice with Delegate=yes — the shell carves marathon-apps
 	# subgroups under this for per-app cgroup.freeze (Phase B perf
