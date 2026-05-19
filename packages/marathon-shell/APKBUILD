@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=63
+pkgrel=66
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -60,6 +60,8 @@ depends="
 	ffmpeg
 	gst-plugins-base
 	gst-plugins-good
+	qmf-libs
+	qmf-messageserver
 	"
 makedepends="
 	cmake
@@ -86,6 +88,7 @@ makedepends="
 	libinput-dev
 	git
 	linux-pam-dev
+	qmf-dev
 	"
 install="$pkgname.post-install"
 subpackages="$pkgname-doc"
