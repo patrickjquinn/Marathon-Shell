@@ -1,4 +1,5 @@
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 
@@ -77,13 +78,10 @@ Rectangle {
         border.width: 1
         border.color: MColors.border
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(255, 255, 255, 0.02)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(255, 255, 255, 0.02)
+            lineWidth: 1
         }
 
         Column {

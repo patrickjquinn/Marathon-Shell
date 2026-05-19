@@ -1,5 +1,6 @@
-import QtQuick
+import MarathonUI.Effects
 import MarathonUI.Theme
+import QtQuick
 
 Item {
     id: section
@@ -72,13 +73,10 @@ Item {
         border.width: 1
         border.color: Qt.rgba(1, 1, 1, 0.12)
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.03)
+        MTopHairline {
+            radius: parent.radius
+            color: Qt.rgba(1, 1, 1, 0.03)
+            lineWidth: 1
         }
 
         Column {

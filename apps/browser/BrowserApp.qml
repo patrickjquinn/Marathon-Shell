@@ -2,6 +2,7 @@ import MarathonApp.Browser
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import Qt5Compat.GraphicalEffects
 import QtQuick
@@ -1552,13 +1553,10 @@ MApp {
             scale: visible ? 1 : 0.97
             layer.enabled: true
 
-            Rectangle {
-                anchors.fill: parent
-                anchors.margins: 1
-                radius: parent.radius - 1
-                color: "transparent"
-                border.width: 1
-                border.color: MColors.highlightSubtle
+            MTopHairline {
+                radius: parent.radius
+                color: MColors.highlightSubtle
+                lineWidth: 1
             }
 
             ListView {

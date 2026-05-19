@@ -1,9 +1,10 @@
-import QtQuick
-import QtQuick.Controls
-import MarathonUI.Theme
 import MarathonOS.Shell
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Modals
+import MarathonUI.Theme
+import QtQuick
+import QtQuick.Controls
 
 Rectangle {
     id: root
@@ -29,13 +30,10 @@ Rectangle {
     border.width: 1
     border.color: Qt.rgba(1, 1, 1, 0.08)
 
-    Rectangle {
-        anchors.fill: parent
-        anchors.margins: 1
-        radius: parent.radius - 1
-        color: "transparent"
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.04)
+    MTopHairline {
+        radius: parent.radius
+        color: Qt.rgba(1, 1, 1, 0.04)
+        lineWidth: 1
     }
 
     MouseArea {

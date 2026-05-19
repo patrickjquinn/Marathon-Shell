@@ -345,13 +345,10 @@ Rectangle {
                     }
                 }
 
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: parent.radius - 1
-                    color: "transparent"
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.1)
+                MTopHairline {
+                    radius: parent.radius
+                    color: Qt.rgba(1, 1, 1, 0.1)
+                    lineWidth: 1
                 }
 
                 Rectangle {
