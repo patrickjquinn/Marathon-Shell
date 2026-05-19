@@ -1,3 +1,4 @@
+import MarathonApp.Phone
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -832,7 +833,7 @@ MApp {
                                             return "·";
                                         if (parts.length === 1)
                                             return parts[0].substring(0, 2).toUpperCase();
-                                        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+                                        return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
                                     }
                                     color: MColors.textPrimary
                                     font.family: MTypography.fontFamily

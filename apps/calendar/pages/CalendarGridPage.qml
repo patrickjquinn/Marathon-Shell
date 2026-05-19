@@ -104,7 +104,7 @@ Rectangle {
                             HapticService.medium();
                             if (calendarApp.navStack)
                                 calendarApp.navStack.push("pages/EventCreationPage.qml", {
-                                    "onSave": event => {
+                                    "saveCallback": event => {
                                         calendarApp.createEvent(event.title, event.date, event.time, event.allDay, event.recurring);
                                     }
                                 });
@@ -135,7 +135,7 @@ Rectangle {
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeSubhead
-                font.weight: Font.Regular
+                font.weight: Font.Normal
             }
 
             Row {
@@ -289,7 +289,7 @@ Rectangle {
                             color: dayCell.isToday ? "#000000" : (dayCell.isCurrentMonth ? MColors.textPrimary : MColors.textTertiary)
                             font.family: MTypography.fontFamily
                             font.pixelSize: MTypography.sizeSubhead
-                            font.weight: dayCell.isToday ? Font.Bold : Font.Regular
+                            font.weight: dayCell.isToday ? Font.Bold : Font.Normal
                         }
 
                         // Event dots — up to 3 teal-bright 4 px circles.

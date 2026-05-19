@@ -11,7 +11,7 @@ import QtQuick.Layouts
 MPage {
     id: root
 
-    property var onSave: null
+    property var saveCallback: null
 
     title: "New Event"
     showBackButton: true
@@ -131,8 +131,8 @@ MPage {
                     "allDay": allDaySwitch.checked,
                     "recurring": "none"
                 };
-                if (root.onSave)
-                    root.onSave(newEvent);
+                if (root.saveCallback)
+                    root.saveCallback(newEvent);
 
                 root.StackView.view.pop();
             }

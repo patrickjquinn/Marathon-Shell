@@ -57,7 +57,7 @@ Page {
             return "·";
         if (parts.length === 1)
             return parts[0].substring(0, 2).toUpperCase();
-        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
     // Tint palette: pseudo-random per contact, drawn from the DS
@@ -244,7 +244,7 @@ Page {
                                 color: MColors.textSecondary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeFootnote
-                                font.weight: Font.Regular
+                                font.weight: Font.Normal
                                 elide: Text.ElideRight
                                 maximumLineCount: 1
                             }

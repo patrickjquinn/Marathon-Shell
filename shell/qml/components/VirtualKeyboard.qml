@@ -18,7 +18,7 @@ Item {
 
     property bool keyboardAvailable: true
     property bool active: false
-    readonly property real keyboardHeight: marathonKeyboardLoader.item ? marathonKeyboardLoader.item.implicitHeight : 0
+    readonly property real keyboardHeight: marathonKeyboardLoader.item ? (marathonKeyboardLoader.item as MarathonKeyboard).implicitHeight : 0
 
     width: parent ? parent.width : 0
     height: active ? keyboardHeight : 0
@@ -37,10 +37,10 @@ Item {
                 Logger.info("VirtualKeyboard", "Lazy-loading MarathonKeyboard");
                 marathonKeyboardLoader.active = true;
             } else if (marathonKeyboardLoader.item) {
-                marathonKeyboardLoader.item.show();
+                (marathonKeyboardLoader.item as MarathonKeyboard).show();
             }
         } else if (marathonKeyboardLoader.item) {
-            marathonKeyboardLoader.item.hide();
+            (marathonKeyboardLoader.item as MarathonKeyboard).hide();
         }
     }
 

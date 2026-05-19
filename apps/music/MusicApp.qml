@@ -293,7 +293,7 @@ MApp {
                                 color: MColors.textSecondary
                                 font.family: MTypography.fontFamily
                                 font.pixelSize: MTypography.sizeSubhead
-                                font.weight: Font.Regular
+                                font.weight: Font.Normal
                                 elide: Text.ElideRight
                             }
                         }

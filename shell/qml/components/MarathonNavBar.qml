@@ -242,7 +242,7 @@ Rectangle {
                         UIStore.quickSettingsDragging = true;
 
                     var newHeight = UIStore.quickSettingsHeight - diffY;
-                    var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000;
+                    var maxHeight = UIStore.shellRef ? (UIStore.shellRef as MarathonShell).maxQuickSettingsHeight : 1000;
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
                     startY = mouse.y;
                 } else if (isAppOpen) {
@@ -293,7 +293,7 @@ Rectangle {
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
-                var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400;
+                var threshold = UIStore.shellRef ? (UIStore.shellRef as MarathonShell).quickSettingsThreshold : 400;
                 var isFlingUp = velocityY < -500;
                 if (isFlingUp || UIStore.quickSettingsHeight < threshold)
                     UIStore.closeQuickSettings();

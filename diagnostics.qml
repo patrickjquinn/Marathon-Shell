@@ -176,14 +176,14 @@ ApplicationWindow {
                     }
 
                     Text {
-                        text: typeof AudioManagerCpp !== 'undefined' ? ("masterVolume: " + AudioManagerCpp.masterVolume) : ""
+                        text: typeof AudioManagerCpp !== 'undefined' ? ("volume: " + AudioManagerCpp.volume) : ""
                         font.family: "monospace"
                         color: "#ffffff"
                         visible: typeof AudioManagerCpp !== 'undefined'
                     }
 
                     Text {
-                        text: typeof AudioManagerCpp !== 'undefined' ? ("isMuted: " + AudioManagerCpp.isMuted) : ""
+                        text: typeof AudioManagerCpp !== 'undefined' ? ("muted: " + AudioManagerCpp.muted) : ""
                         font.family: "monospace"
                         color: "#ffffff"
                         visible: typeof AudioManagerCpp !== 'undefined'

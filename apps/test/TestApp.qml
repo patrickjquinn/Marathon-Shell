@@ -1,3 +1,4 @@
+import MarathonApp.Test
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core

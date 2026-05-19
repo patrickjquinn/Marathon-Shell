@@ -8,7 +8,6 @@ Column {
     property variant selectedValue: undefined
     property int selectedIndex: -1
     property alias options: optionsRepeater.model
-    property alias spacing: root.spacing
 
     signal selectionChanged(variant value, int index)
 

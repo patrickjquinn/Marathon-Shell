@@ -1,5 +1,4 @@
 import MarathonApp.Messages
-import MarathonApp.Messages
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -105,7 +104,7 @@ Rectangle {
             return "·";
         if (parts.length === 1)
             return parts[0].substring(0, 2).toUpperCase();
-        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        return String(parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
     }
 
     Column {

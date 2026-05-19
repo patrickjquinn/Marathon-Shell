@@ -1,3 +1,4 @@
+import MarathonApp.Calendar
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
@@ -45,7 +46,7 @@ MApp {
         if (navStack)
             navStack.push("pages/EventDetailPage.qml", {
                 "event": event,
-                "onDelete": eventId => {
+                "deleteCallback": eventId => {
                     calendarApp.deleteEvent(eventId);
                 }
             });

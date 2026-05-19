@@ -263,7 +263,7 @@ Rectangle {
                         if (!mediaManager.hasMedia || mediaManager.duration <= 0)
                             return;
                         const frac = Math.max(0, Math.min(1, mouse.x / width));
-                        MPRIS2Controller.position = frac * mediaManager.duration * 1e+06;
+                        MPRIS2Controller.setPosition(frac * mediaManager.duration * 1e+06);
                         HapticManager.light();
                     }
                 }

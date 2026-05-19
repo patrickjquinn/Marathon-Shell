@@ -9,7 +9,7 @@ QtObject {
     readonly property int xl: 1280
     readonly property int xxl: 1536
 
-    function getBreakpoint(width) {
+    function getBreakpoint(width: int): string {
         if (width >= xxl)
             return "xxl";
         if (width >= xl)
@@ -23,38 +23,38 @@ QtObject {
         return "xs";
     }
 
-    function isXS(width) {
+    function isXS(width: int): bool {
         return width < sm;
     }
-    function isSM(width) {
+    function isSM(width: int): bool {
         return width >= sm && width < md;
     }
-    function isMD(width) {
+    function isMD(width: int): bool {
         return width >= md && width < lg;
     }
-    function isLG(width) {
+    function isLG(width: int): bool {
         return width >= lg && width < xl;
     }
-    function isXL(width) {
+    function isXL(width: int): bool {
         return width >= xl && width < xxl;
     }
-    function isXXL(width) {
+    function isXXL(width: int): bool {
         return width >= xxl;
     }
 
-    function atLeastSM(width) {
+    function atLeastSM(width: int): bool {
         return width >= sm;
     }
-    function atLeastMD(width) {
+    function atLeastMD(width: int): bool {
         return width >= md;
     }
-    function atLeastLG(width) {
+    function atLeastLG(width: int): bool {
         return width >= lg;
     }
-    function atLeastXL(width) {
+    function atLeastXL(width: int): bool {
         return width >= xl;
     }
-    function atLeastXXL(width) {
+    function atLeastXXL(width: int): bool {
         return width >= xxl;
     }
 }

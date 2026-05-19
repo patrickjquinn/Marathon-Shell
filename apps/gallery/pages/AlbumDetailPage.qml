@@ -1,5 +1,4 @@
 import MarathonApp.Gallery
-import MarathonApp.Gallery
 import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core

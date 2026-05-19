@@ -1,4 +1,5 @@
 import QtQuick
+import MarathonOS.Shell
 
 Item {
     id: dynamicLayout
