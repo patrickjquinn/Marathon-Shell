@@ -6,6 +6,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDebug>
+#include <QProcess>
 #include <QSettings>
 #include <QVariantList>
 #include <QVariantMap>
@@ -614,7 +615,8 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
         qWarning() << "[MailService] addImapAccount: failed to add imap4 service";
         return {};
     }
-    auto &imap = cfg.serviceConfiguration(QStringLiteral("imap4"));
+    QMailAccountConfiguration::ServiceConfiguration &imap =
+        cfg.serviceConfiguration(QStringLiteral("imap4"));
     imap.setValue(QStringLiteral("servicetype"), QStringLiteral("source"));
     imap.setValue(QStringLiteral("version"), QStringLiteral("1"));
     imap.setValue(QStringLiteral("server"), imapHost);
@@ -622,26 +624,24 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     imap.setValue(QStringLiteral("encryption"), encStr);
     imap.setValue(QStringLiteral("username"), username);
     // Auth method 0 = PLAIN/LOGIN — QMF picks the strongest the server
-    // advertises. Marked PLAIN-only so we don't need NTLM/DIGEST-MD5
-    // dependencies on the image.
+    // advertises.
     imap.setValue(QStringLiteral("authentication"), QStringLiteral("0"));
-    imap.setValue(QStringLiteral("checkInterval"), QStringLiteral("0")); // IDLE only, no polling
+    imap.setValue(QStringLiteral("checkInterval"), QStringLiteral("0"));
     imap.setValue(QStringLiteral("intervalCheckRoamingEnabled"), QStringLiteral("0"));
     imap.setValue(QStringLiteral("pushEnabled"), QStringLiteral("1"));
-    // SECURITY (tracked under credentials-plugin work): v1 stores the
-    // password in QMF's per-user config file (~/.config/QMF/QMF.conf).
-    // That file is u=rw,go= by default on systemd-tmpfiles-managed
-    // homes; the next iteration migrates password retrieval through a
-    // marathonclassic QMailCredentialsPlugin backed by Secret-Service,
-    // mirroring how marathonoauth already handles OAuth tokens.
-    imap.setValue(QStringLiteral("password"), password);
+    // CredentialsPlugin=marathon-classic — QMF will load our plugin
+    // (libmarathonclassic.so) at auth time, which shells out to
+    // /usr/bin/marathon-mail-oauth classic-get to retrieve the password
+    // from Secret-Service. Nothing sensitive is written to QMF's
+    // QSettings store.
+    imap.setValue(QStringLiteral("CredentialsPlugin"), QStringLiteral("marathon-classic"));
 
-    // SMTP service.
     if (!cfg.addServiceConfiguration(QStringLiteral("smtp"))) {
         qWarning() << "[MailService] addImapAccount: failed to add smtp service";
         return {};
     }
-    auto &smtp = cfg.serviceConfiguration(QStringLiteral("smtp"));
+    QMailAccountConfiguration::ServiceConfiguration &smtp =
+        cfg.serviceConfiguration(QStringLiteral("smtp"));
     smtp.setValue(QStringLiteral("servicetype"), QStringLiteral("sink"));
     smtp.setValue(QStringLiteral("version"), QStringLiteral("1"));
     smtp.setValue(QStringLiteral("server"), smtpHost);
@@ -649,8 +649,8 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     smtp.setValue(QStringLiteral("encryption"), smtpEncStr);
     smtp.setValue(QStringLiteral("smtpUsername"), username);
     smtp.setValue(QStringLiteral("authentication"), QStringLiteral("0"));
-    smtp.setValue(QStringLiteral("smtppassword"), password);
     smtp.setValue(QStringLiteral("address"), email);
+    smtp.setValue(QStringLiteral("CredentialsPlugin"), QStringLiteral("marathon-classic"));
 
     if (!store->addAccount(&account, &cfg)) {
         qWarning() << "[MailService] addImapAccount: QMailStore::addAccount failed";
@@ -658,6 +658,31 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     }
 
     const QString accountId = QString::number(account.id().toULongLong());
+
+    // Now that QMF has assigned a stable id, hand the password off to the
+    // helper for Secret-Service storage. The helper indexes by accountId.
+    // Password goes over stdin so it never lands in /proc/<pid>/cmdline.
+    QProcess helper;
+    helper.setProgram(QStringLiteral("/usr/bin/marathon-mail-oauth"));
+    helper.setArguments({QStringLiteral("classic-add"), QStringLiteral("--account-id"), accountId,
+                         QStringLiteral("--username"), username});
+    helper.start();
+    if (!helper.waitForStarted(2000)) {
+        qWarning() << "[MailService] addImapAccount: helper did not start —"
+                   << helper.errorString();
+        store->removeAccount(account.id());
+        return {};
+    }
+    helper.write(password.toUtf8());
+    helper.write("\n");
+    helper.closeWriteChannel();
+    if (!helper.waitForFinished(8000) || helper.exitCode() != 0) {
+        qWarning() << "[MailService] addImapAccount: helper failed —"
+                   << helper.readAllStandardError();
+        store->removeAccount(account.id());
+        return {};
+    }
+
     qInfo() << "[MailService] addImapAccount: created accountId=" << accountId
             << "imap=" << imapHost << ":" << imapPort << "(enc=" << imapEncryption << ")"
             << "smtp=" << smtpHost << ":" << smtpPort << "(enc=" << smtpEncryption << ")"
