@@ -154,10 +154,20 @@ apk add cmake samurai g++ pkgconf git \
 
 > **Important**: If you encounter the error `module "MarathonUI.Theme" is not installed`, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-error-module-marathonuitheme-is-not-installed) for a quick fix.
 
-### Try Marathon in QEMU (single command)
+### Build an image (single command, pick your device)
 
-The fastest way to see Marathon running: build a bootable Alpine
-postmarketOS image from source and boot it under QEMU.
+One wrapper per target. Each calls the shared
+`scripts/build-image.sh` with the right device argument and any
+device-specific overlay aport.
+
+| Device | Entry script | Status |
+|---|---|---|
+| QEMU virt aarch64 | `scripts/build-qemu-image.sh` | **Ready** — `--boot` lights up the shell on your dev box via virgl + VNC. |
+| OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | **Ready** — mainline PREEMPT_RT kernel via `linux-marathon`, flash with `scripts/flash/flash-oneplus6.sh`. |
+| Librem 5 (purism-librem5) | `scripts/build-librem5-image.sh` | **Build-ready, overlay TODO** — orchestrator runs but a `device-purism-librem5-marathon` aport hasn't been authored yet, so mkosi pulls upstream pmaports' base device package only (no Marathon runtime stack until the overlay lands). |
+| Hackberry Pi | `scripts/build-hackberry-pi-image.sh` | **Blocked** — refuses with explanation. See `scripts/flash/flash-hackberry-pi.sh` header. |
+
+Fastest visible result:
 
 ```bash
 git clone https://github.com/patrickjquinn/Marathon-Shell.git
