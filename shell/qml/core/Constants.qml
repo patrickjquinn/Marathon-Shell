@@ -100,7 +100,7 @@ QtObject {
     readonly property real dividerHeight: Math.max(1, Math.round(1 * scaleFactor))
     readonly property real actionBarHeight: Math.round(72 * scaleFactor)
     readonly property real hubHeaderHeight: Math.round(80 * scaleFactor)
-    readonly property real appIconSize: Math.round(80 * scaleFactor)
+    readonly property real appIconSize: Math.round(64 * scaleFactor)
     readonly property real appGridSpacing: Math.round(20 * scaleFactor)
     readonly property real appLabelHeight: Math.round(32 * scaleFactor)
     readonly property real cardHeight: Math.round(160 * scaleFactor)

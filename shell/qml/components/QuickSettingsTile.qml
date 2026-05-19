@@ -76,13 +76,19 @@ Item {
                 border.color: toggleData.active ? MColors.accentBright : MColors.border
                 antialiasing: Constants.enableAntialiasing
 
+                // DS edge spec: "lit from above" — 1 px highlight on the
+                // top edge ONLY, not a full 4-sided inner ring. The
+                // previous full-ring read as a heavy embossed border;
+                // the top-only hairline matches MCard / MButton.
                 Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    radius: Constants.borderRadiusSharp
-                    color: "transparent"
-                    border.width: Constants.borderWidthThin
-                    border.color: MColors.borderSubtle
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.leftMargin: 1
+                    anchors.rightMargin: 1
+                    anchors.topMargin: 1
+                    height: Constants.borderWidthThin
+                    color: MColors.borderSubtle
                     antialiasing: Constants.enableAntialiasing
                 }
 
@@ -182,13 +188,18 @@ Item {
         scale: isPressed ? 0.98 : 1
         opacity: isAvailable ? 1 : 0.5
 
+        // Top-edge inset highlight per DS, same as the toggleable tile
+        // (and MCard / MButton). 1 px white-04 on the top edge only —
+        // "lit from above", not a full 4-sided inner ring.
         Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: Constants.borderRadiusSharp
-            color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MColors.borderSubtle
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: 1
+            anchors.rightMargin: 1
+            anchors.topMargin: 1
+            height: Constants.borderWidthThin
+            color: MColors.borderSubtle
             antialiasing: Constants.enableAntialiasing
         }
 

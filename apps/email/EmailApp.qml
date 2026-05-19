@@ -116,9 +116,12 @@ MApp {
 
                 title: "Choose your mail provider"
 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: MSpacing.lg
+                content: Column {
+                    width: pickerPage.width
+                    leftPadding: MSpacing.lg
+                    rightPadding: MSpacing.lg
+                    topPadding: MSpacing.lg
+                    bottomPadding: MSpacing.lg
                     spacing: MSpacing.md
 
                     MLabel {
