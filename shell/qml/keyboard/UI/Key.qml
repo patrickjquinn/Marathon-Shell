@@ -1,5 +1,6 @@
 import MarathonOS.Shell 1.0
 import MarathonUI.Core
+import MarathonUI.Effects
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
@@ -128,14 +129,10 @@ Rectangle {
         antialiasing: true
         layer.enabled: true
 
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: "transparent"
-            border.width: Constants.borderWidthThin
-            border.color: MColors.highlightMedium
-            antialiasing: true
+        MTopHairline {
+            radius: parent.radius
+            color: MColors.highlightMedium
+            lineWidth: Constants.borderWidthThin
         }
 
         Text {
