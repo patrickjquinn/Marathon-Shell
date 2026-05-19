@@ -12,7 +12,7 @@ Requires=dbus.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/messageserver5
+ExecStart=/usr/bin/messageserver
 Restart=on-failure
 RestartSec=2s
 # Place the daemon under the same delegated cgroup root as apps so the
