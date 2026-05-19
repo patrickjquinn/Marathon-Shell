@@ -11,28 +11,24 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-// QMF public API. These headers come from qmf-dev. The build won't link
-// until the QMF apks land on the build host (see ~/duranium-build
-// /duranium/marathon-extras/build-qmf-apk.sh).
-#include <QMailAccount>
-#include <QMailAccountConfiguration>
-#include <QMailAccountId>
-#include <QMailAccountKey>
-#include <QMailAccountListModel>
-#include <QMailAddress>
-#include <QMailFolder>
-#include <QMailFolderId>
-#include <QMailFolderKey>
-#include <QMailFolderListModel>
-#include <QMailMessage>
-#include <QMailMessageId>
-#include <QMailMessageKey>
-#include <QMailMessageListModel>
-#include <QMailMessageSortKey>
-#include <QMailRetrievalAction>
-#include <QMailServiceAction>
-#include <QMailStore>
-#include <QMailTransmitAction>
+// QMF public API. qmf-dev ships only the lowercase header files (no
+// CamelCase forwarders — upstream uses syncqt which Alpine's package
+// doesn't run). Stick to lowercase to stay portable.
+#include <qmailaccount.h>
+#include <qmailaccountconfiguration.h>
+#include <qmailaccountkey.h>
+#include <qmailaccountlistmodel.h>
+#include <qmailaddress.h>
+#include <qmaildatacomparator.h>
+#include <qmailfolder.h>
+#include <qmailfolderkey.h>
+#include <qmailmessage.h>
+#include <qmailmessagekey.h>
+#include <qmailmessagelistmodel.h>
+#include <qmailmessagemodelbase.h>
+#include <qmailmessagesortkey.h>
+#include <qmailserviceaction.h>
+#include <qmailstore.h>
 
 // QML role names exposed to the inbox ListView. The base QMF model
 // returns variants by Qt::UserRole offsets; we proxy through a custom
@@ -164,7 +160,6 @@ class MailMessageListProxy : public QAbstractListModel {
 MailService::MailService(QObject *parent)
     : QObject(parent)
     , m_accountsModel(new QMailAccountListModel(this))
-    , m_foldersModel(new QMailFolderListModel(this))
     , m_messagesModel(nullptr) {
 
     // Configure the account list: enabled + user-visible accounts only.
@@ -238,10 +233,6 @@ QObject *MailService::accounts() const {
     return m_accountsModel;
 }
 
-QObject *MailService::folders() const {
-    return m_foldersModel;
-}
-
 QObject *MailService::messages() const {
     return m_messagesModel;
 }
@@ -283,19 +274,15 @@ void MailService::setCurrentAccountId(const QString &id) {
     m_currentAccountId = id;
     saveLastSelection();
 
-    // Bind the folder list to this account.
     if (!id.isEmpty()) {
         const QMailAccountId aid(id.toULongLong());
-        m_foldersModel->setKey(QMailFolderKey::parentAccountId(aid));
-        // Default to the account's Inbox.
-        QMailAccount acct(aid);
-        const auto   inboxId = acct.standardFolder(QMailFolder::InboxFolder);
+        const QMailAccount   acct(aid);
+        const auto           inboxId = acct.standardFolder(QMailFolder::InboxFolder);
         if (inboxId.isValid())
             setCurrentFolderId(QString::number(inboxId.toULongLong()));
         else
             setCurrentFolderId({});
     } else {
-        m_foldersModel->setKey(QMailFolderKey());
         setCurrentFolderId({});
     }
     emit currentAccountChanged();
@@ -440,12 +427,13 @@ QVariantMap MailService::openMessage(const QString &messageId) {
     // Find HTML + plain bodies. QMF stores them as parts; the
     // findHtmlContainer / findPlainTextContainer convenience methods
     // give us the right part.
-    if (msg.hasBody() || msg.partCount() > 0) {
-        auto htmlPart = msg.findPlainTextContainer(); // also handles single-part text
-        if (htmlPart.contentType().subType().toLower() == "html")
-            out[QStringLiteral("bodyHtml")] = QString::fromUtf8(htmlPart.body().data().toUtf8());
-        else
-            out[QStringLiteral("bodyPlain")] = QString::fromUtf8(htmlPart.body().data().toUtf8());
+    // findHtmlContainer / findPlainTextContainer give us the right part
+    // (or nullptr if not present). msg owns the container; we just read.
+    if (auto *htmlPart = msg.findHtmlContainer()) {
+        out[QStringLiteral("bodyHtml")] = QString::fromUtf8(htmlPart->body().data().toUtf8());
+    }
+    if (auto *plainPart = msg.findPlainTextContainer()) {
+        out[QStringLiteral("bodyPlain")] = QString::fromUtf8(plainPart->body().data().toUtf8());
     }
 
     QVariantList atts;
@@ -551,9 +539,8 @@ void MailService::restoreLastSelection() {
     }
     // No stored selection — pick the first enabled account if any.
     if (m_accountsModel->rowCount() > 0) {
-        const auto idx = m_accountsModel->index(0);
-        const auto aid = m_accountsModel->data(idx, QMailAccountListModel::MailAccountIdRole)
-                             .value<QMailAccountId>();
+        const QModelIndex    idx = m_accountsModel->index(0);
+        const QMailAccountId aid = m_accountsModel->idFromIndex(idx);
         if (aid.isValid())
             setCurrentAccountId(QString::number(aid.toULongLong()));
     }

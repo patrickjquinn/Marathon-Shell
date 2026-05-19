@@ -1,6 +1,7 @@
 #ifndef MAILSERVICE_H
 #define MAILSERVICE_H
 
+#include <QAbstractListModel>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -9,16 +10,14 @@
 #include <QVariantMap>
 #include <qqml.h>
 
-// Forward declarations from qmfclient. We forward-declare rather than
-// include so this header doesn't drag QMF into every consumer; the
-// QMF includes live in the .cpp.
-class QMailAccountId;
+// QMF id typedefs (QMailMessageIdList = QList<QMailMessageId>) live in
+// qmailid.h. Include it directly so callers of notifyForNewMessages()
+// see the full typedef, not a class-forward-decl that clashes with QMF.
+// The heavier QMF model/action classes stay forward-declared.
+#include <qmailid.h>
+
 class QMailAccountListModel;
-class QMailFolderListModel;
-class QMailMessageListModel;
-class QMailMessageThreadedModel;
 class QMailRetrievalAction;
-class QMailServiceAction;
 class QMailTransmitAction;
 
 // MailService — the QtQuick-facing facade in front of QMF (Qt Messaging
@@ -68,9 +67,9 @@ class MailService : public QObject {
     Q_PROPERTY(QString currentAccountId READ currentAccountId WRITE setCurrentAccountId NOTIFY
                    currentAccountChanged)
     Q_PROPERTY(QString currentAccountName READ currentAccountName NOTIFY currentAccountChanged)
-    // Folder list for the current account.
-    Q_PROPERTY(QObject *folders READ folders NOTIFY currentAccountChanged)
     // Currently-selected folder id; defaults to the account's Inbox.
+    // (Folder list is not exposed yet — QMailStore::queryFolders gives
+    // ids directly; a per-account folder list model is a future add.)
     Q_PROPERTY(QString currentFolderId READ currentFolderId WRITE setCurrentFolderId NOTIFY
                    currentFolderChanged)
     Q_PROPERTY(QString currentFolderName READ currentFolderName NOTIFY currentFolderChanged)
@@ -99,7 +98,6 @@ class MailService : public QObject {
     void                setCurrentAccountId(const QString &id);
     QString             currentAccountName() const;
 
-    QObject            *folders() const;
     QString             currentFolderId() const;
     void                setCurrentFolderId(const QString &id);
     QString             currentFolderName() const;
@@ -172,9 +170,9 @@ class MailService : public QObject {
     //   void onActionCompleted(const QMailServiceAction::Status &status);
     //
     // onMessagesUpdated() handles flag changes (read/unread, folder moves,
-    // deletes). onMessagesAdded() is the IDLE arrival path: each newly
-    // inserted unread message in the Inbox produces a freedesktop
-    // notification on org.freedesktop.Notifications via QDBus.
+    // deletes). The QMailStore::messagesAdded lambda in the constructor
+    // calls notifyForNewMessages() directly, then this slot for unread
+    // recount.
     void onMessagesUpdated();
 
   private:
@@ -189,13 +187,13 @@ class MailService : public QObject {
     // lambda — body signature uses QVariantList of u64 ids to keep the
     // header free of QMF includes; the .cpp casts back to
     // QMailMessageIdList.
-    void notifyForNewMessages(const class QMailMessageIdList &ids);
+    void notifyForNewMessages(const QMailMessageIdList &ids);
 
     // QMF model handles. All owned by MailService (QObject parent).
-    QMailAccountListModel     *m_accountsModel = nullptr;
-    QMailFolderListModel      *m_foldersModel  = nullptr;
-    QMailMessageListModel     *m_messagesModel = nullptr;
-    QMailMessageThreadedModel *m_threadedModel = nullptr;
+    // m_messagesModel is the MailMessageListProxy (defined in .cpp) so
+    // we hold it as the abstract base — keeps the header QMF-free.
+    QMailAccountListModel *m_accountsModel = nullptr;
+    QAbstractListModel    *m_messagesModel = nullptr;
 
     // Action handles for kick-off + state — kept member-resident because
     // QMF actions hold the connection state we need to display.

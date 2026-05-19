@@ -42,7 +42,7 @@ void MarathonClassicCredentials::spawnHelper() {
     m_lastError.clear();
 
     auto *proc = new QProcess(this);
-    proc->setProgram(QStringLiteral(kHelperBinary));
+    proc->setProgram(QString::fromUtf8(kHelperBinary));
     proc->setArguments(
         {QStringLiteral("classic-get"), QStringLiteral("--account-id"), m_accountId});
     proc->setProcessChannelMode(QProcess::SeparateChannels);

@@ -89,6 +89,7 @@ if(MARATHON_HAS_QMF)
         target_link_libraries(MarathonMailService PRIVATE ${QMF_MESSAGESERVER_LIB})
     endif()
     target_include_directories(MarathonMailService PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${QMF_CLIENT_INCLUDE}
         ${QMF_MS_INCLUDE}
     )
