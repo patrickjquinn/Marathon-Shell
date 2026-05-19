@@ -679,4 +679,178 @@ QString MailService::addImapAccount(const QString &name, const QString &email,
     return accountId;
 }
 
+bool MailService::startOAuthLogin(const QString &provider) {
+    const QString canon   = provider.toLower();
+    const bool    isGmail = (canon == QStringLiteral("gmail") || canon == QStringLiteral("google"));
+    const bool    isOutlook = (canon == QStringLiteral("outlook") ||
+                            canon == QStringLiteral("microsoft") || canon == QStringLiteral("ms"));
+    if (!isGmail && !isOutlook) {
+        emit oauthLoginFailed(
+            QStringLiteral("invalid_provider"),
+            QStringLiteral("Unknown provider %1; expected gmail or outlook").arg(provider));
+        return false;
+    }
+
+    auto *store = QMailStore::instance();
+    if (!store) {
+        emit oauthLoginFailed(QStringLiteral("io"), QStringLiteral("QMailStore is not available"));
+        return false;
+    }
+
+    // Provider-specific IMAP + SMTP server settings. Values taken from
+    // Google's / Microsoft's IMAP setup docs as of 2026 — both stable
+    // for years (Gmail since 2008, Outlook IMAP since 2012). Encryption
+    // codes match QMF's imap4/smtp plugins: 1=SSL/implicit, 2=STARTTLS.
+    const QString imapHost =
+        isGmail ? QStringLiteral("imap.gmail.com") : QStringLiteral("outlook.office365.com");
+    const int     imapPort = 993;
+    const QString smtpHost =
+        isGmail ? QStringLiteral("smtp.gmail.com") : QStringLiteral("smtp.office365.com");
+    const int     smtpPort     = isGmail ? 465 : 587;
+    const int     smtpEnc      = isGmail ? 1 : 2;
+    const QString providerName = isGmail ? QStringLiteral("Gmail") : QStringLiteral("Outlook");
+
+    QMailAccount  account;
+    account.setName(providerName);
+    account.setMessageType(QMailMessageMetaData::Email);
+    account.setStatus(QMailAccount::SynchronizationEnabled | QMailAccount::Enabled |
+                          QMailAccount::CanRetrieve | QMailAccount::CanTransmit |
+                          QMailAccount::MessageSource | QMailAccount::MessageSink |
+                          QMailAccount::UserEditable | QMailAccount::UserRemovable,
+                      true);
+
+    QMailAccountConfiguration cfg;
+
+    if (!cfg.addServiceConfiguration(QStringLiteral("imap4"))) {
+        emit oauthLoginFailed(QStringLiteral("io"), QStringLiteral("Failed to add imap4 service"));
+        return false;
+    }
+    QMailAccountConfiguration::ServiceConfiguration &imap =
+        cfg.serviceConfiguration(QStringLiteral("imap4"));
+    imap.setValue(QStringLiteral("servicetype"), QStringLiteral("source"));
+    imap.setValue(QStringLiteral("version"), QStringLiteral("1"));
+    imap.setValue(QStringLiteral("server"), imapHost);
+    imap.setValue(QStringLiteral("port"), QString::number(imapPort));
+    imap.setValue(QStringLiteral("encryption"), QStringLiteral("1")); // SSL
+    // authentication=4 = OAuth2/XOAUTH2 SASL mechanism. The QMF imap4
+    // plugin then asks our CredentialsPlugin for an access token via
+    // QMailCredentialsInterface::accessToken().
+    imap.setValue(QStringLiteral("authentication"), QStringLiteral("4"));
+    imap.setValue(QStringLiteral("checkInterval"), QStringLiteral("0"));
+    imap.setValue(QStringLiteral("pushEnabled"), QStringLiteral("1"));
+    imap.setValue(QStringLiteral("CredentialsPlugin"), QStringLiteral("marathon-oauth"));
+
+    if (!cfg.addServiceConfiguration(QStringLiteral("smtp"))) {
+        emit oauthLoginFailed(QStringLiteral("io"), QStringLiteral("Failed to add smtp service"));
+        return false;
+    }
+    QMailAccountConfiguration::ServiceConfiguration &smtp =
+        cfg.serviceConfiguration(QStringLiteral("smtp"));
+    smtp.setValue(QStringLiteral("servicetype"), QStringLiteral("sink"));
+    smtp.setValue(QStringLiteral("version"), QStringLiteral("1"));
+    smtp.setValue(QStringLiteral("server"), smtpHost);
+    smtp.setValue(QStringLiteral("port"), QString::number(smtpPort));
+    smtp.setValue(QStringLiteral("encryption"), QString::number(smtpEnc));
+    smtp.setValue(QStringLiteral("authentication"), QStringLiteral("4"));
+    smtp.setValue(QStringLiteral("CredentialsPlugin"), QStringLiteral("marathon-oauth"));
+
+    if (!store->addAccount(&account, &cfg)) {
+        emit oauthLoginFailed(QStringLiteral("io"),
+                              QStringLiteral("QMailStore::addAccount failed"));
+        return false;
+    }
+
+    const QString accountId      = QString::number(account.id().toULongLong());
+    const QString helperProvider = isGmail ? QStringLiteral("gmail") : QStringLiteral("outlook");
+
+    // Spawn the helper as a long-running process. The helper:
+    //   • binds 127.0.0.1:<random>, prints the auth URL on stderr
+    //   • blocks waiting for the loopback redirect
+    //   • on success, writes the Added envelope to stdout and exits 0
+    auto *proc = new QProcess(this);
+    proc->setProgram(QStringLiteral("/usr/bin/marathon-mail-oauth"));
+    proc->setArguments({QStringLiteral("add"), QStringLiteral("--provider"), helperProvider,
+                        QStringLiteral("--account-id"), accountId});
+    proc->setProcessChannelMode(QProcess::SeparateChannels);
+
+    connect(proc, &QProcess::readyReadStandardError, this, [this, proc] {
+        // The helper writes the auth URL on its own line on stderr.
+        // Capture the FIRST line that looks like an HTTPS URL — that's
+        // the prompt. Anything else (warnings, debug) gets dropped.
+        for (const auto &line : proc->readAllStandardError().split('\n')) {
+            const QString s = QString::fromUtf8(line.trimmed());
+            if (s.startsWith(QStringLiteral("https://"))) {
+                emit oauthAuthUrlReady(s);
+                return;
+            }
+        }
+    });
+
+    auto        accountIdCopy = accountId;
+    QByteArray *stdoutBuf     = new QByteArray;
+    connect(proc, &QProcess::readyReadStandardOutput, this,
+            [proc, stdoutBuf] { stdoutBuf->append(proc->readAllStandardOutput()); });
+    connect(proc, &QProcess::finished, this,
+            [this, store, proc, stdoutBuf, accountIdCopy, account](int, QProcess::ExitStatus es) {
+                stdoutBuf->append(proc->readAllStandardOutput());
+
+                // Find the last non-empty JSON line.
+                QByteArray last;
+                for (const auto &line : stdoutBuf->split('\n'))
+                    if (!line.trimmed().isEmpty())
+                        last = line;
+
+                const auto doc  = QJsonDocument::fromJson(last);
+                const auto obj  = doc.object();
+                const auto kind = obj.value(QStringLiteral("kind")).toString();
+
+                proc->deleteLater();
+                delete stdoutBuf;
+
+                if (es != QProcess::NormalExit || kind == QStringLiteral("error")) {
+                    const auto code =
+                        obj.value(QStringLiteral("code")).toString(QStringLiteral("io"));
+                    const auto msg = obj.value(QStringLiteral("message"))
+                                         .toString(QStringLiteral("OAuth helper failed"));
+                    QMailAccount toRemove(account.id());
+                    Q_UNUSED(toRemove);
+                    store->removeAccount(account.id());
+                    emit oauthLoginFailed(code, msg);
+                    return;
+                }
+                if (kind != QStringLiteral("added")) {
+                    store->removeAccount(account.id());
+                    emit oauthLoginFailed(QStringLiteral("io"),
+                                          QStringLiteral("Unexpected helper reply: ") + kind);
+                    return;
+                }
+
+                // Backfill the From: address now that the helper has
+                // fetched it from the userinfo endpoint.
+                const QString email = obj.value(QStringLiteral("email")).toString();
+                if (!email.isEmpty()) {
+                    QMailAccount acct(account.id());
+                    acct.setFromAddress(QMailAddress(acct.name(), email));
+                    store->updateAccount(&acct, nullptr);
+                }
+
+                setCurrentAccountId(accountIdCopy);
+                emit oauthLoginSucceeded(accountIdCopy);
+            });
+
+    // start() not startDetached() — we need the QProcess signals to
+    // fire on stdout/stderr/finished. The lambdas above keep the
+    // process attached to MailService's lifetime.
+    proc->start();
+    if (!proc->waitForStarted(2000)) {
+        store->removeAccount(account.id());
+        delete stdoutBuf;
+        proc->deleteLater();
+        emit oauthLoginFailed(QStringLiteral("io"),
+                              QStringLiteral("Could not start /usr/bin/marathon-mail-oauth"));
+        return false;
+    }
+    return true;
+}
+
 #include "mailservice.moc"

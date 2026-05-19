@@ -153,11 +153,45 @@ class MailService : public QObject {
                                        const QString &smtpHost, int smtpPort, int smtpEncryption,
                                        const QString &username, const QString &password);
 
+    // Start an OAuth login flow for Gmail / Outlook. Creates a QMF
+    // account skeleton with the provider's well-known IMAP+SMTP
+    // servers and CredentialsPlugin=marathon-oauth, then spawns the
+    // marathon-mail-oauth helper to run the PKCE flow.
+    //
+    // Returns true if the helper started; false if the helper binary
+    // is missing or the QMF account couldn't be saved. Browser auth
+    // is asynchronous, so the rest of the flow comes back over three
+    // signals (below).
+    //
+    // provider: "gmail" | "outlook" (or "google" | "microsoft" — both
+    // resolve to the same canonical id in the helper's clap parser).
+    Q_INVOKABLE bool startOAuthLogin(const QString &provider);
+
   signals:
     void currentAccountChanged();
     void currentFolderChanged();
     void unreadCountChanged();
     void syncStateChanged();
+
+    // OAuth login flow signals — emitted asynchronously from
+    // startOAuthLogin() as the helper subprocess progresses.
+    //
+    // oauthAuthUrlReady fires once the helper has bound its loopback
+    // listener and printed the authorisation URL on stderr. The QML
+    // side opens this in the system browser via Qt.openUrlExternally.
+    //
+    // oauthLoginSucceeded fires once the helper has exchanged the
+    // PKCE code, fetched a refresh token, persisted it to Secret-
+    // Service, and (best-effort) populated the From: email. The
+    // accountId is already current — currentAccountChanged also fires.
+    //
+    // oauthLoginFailed fires on any failure. `code` is the structured
+    // error from the helper envelope; the QML side treats
+    // "oauth_not_configured" as "route to classic IMAP" and any other
+    // code as a generic error banner.
+    void oauthAuthUrlReady(const QString &url);
+    void oauthLoginSucceeded(const QString &accountId);
+    void oauthLoginFailed(const QString &code, const QString &message);
 
   private slots:
     // Slots take the QMF-side concrete types — the .cpp `#include`s the
