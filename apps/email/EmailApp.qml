@@ -101,6 +101,37 @@ MApp {
             readonly property int accountCount: emailApp.serviceAvailable && emailApp.mail.accounts ? (emailApp.mail.accounts.rowCount ? emailApp.mail.accounts.rowCount() : 0) : 0
             readonly property int messageCount: emailApp.serviceAvailable && emailApp.mail.messages ? (emailApp.mail.messages.rowCount ? emailApp.mail.messages.rowCount() : 0) : 0
 
+            // OAuth flow status surfaced under the Sign-in buttons.
+            // Updated from the Connections block below as the helper
+            // progresses through bind-loopback / open-browser / success.
+            property string oauthMessage: ""
+            property bool oauthError: false
+
+            // Listen for the OAuth-flow signals from MailService. The
+            // helper is async (it blocks on the loopback redirect from
+            // the browser), so the QML side just relays state to UI.
+            Connections {
+                target: emailApp.mail
+                ignoreUnknownSignals: true
+                function onOauthAuthUrlReady(url) {
+                    inboxPage.oauthMessage = "Continue in your browser…";
+                    inboxPage.oauthError = false;
+                    Qt.openUrlExternally(url);
+                }
+                function onOauthLoginSucceeded(accountId) {
+                    inboxPage.oauthMessage = "";
+                    inboxPage.oauthError = false;
+                }
+                function onOauthLoginFailed(code, message) {
+                    if (code === "oauth_not_configured") {
+                        inboxPage.oauthMessage = "OAuth sign-in isn't enabled in this build. Use Sign in with IMAP instead.";
+                    } else {
+                        inboxPage.oauthMessage = message;
+                    }
+                    inboxPage.oauthError = true;
+                }
+            }
+
             MTopBar {
                 id: topBar
                 title: "Inbox"
@@ -233,19 +264,40 @@ MApp {
                             Layout.topMargin: MSpacing.sm
                             text: "Sign in with Google"
                             variant: "primary"
-                            onClicked: Logger.info("Mail", "Add Gmail — invokes marathon-mail-oauth helper")
+                            onClicked: {
+                                if (emailApp.mail)
+                                    emailApp.mail.startOAuthLogin("gmail");
+                            }
                         }
                         MButton {
                             Layout.alignment: Qt.AlignHCenter
                             text: "Sign in with Microsoft"
                             variant: "secondary"
-                            onClicked: Logger.info("Mail", "Add Outlook — invokes marathon-mail-oauth helper")
+                            onClicked: {
+                                if (emailApp.mail)
+                                    emailApp.mail.startOAuthLogin("outlook");
+                            }
                         }
                         MButton {
                             Layout.alignment: Qt.AlignHCenter
                             text: "Sign in with IMAP"
                             variant: "secondary"
                             onClicked: navigationStack.push(setupComponent)
+                        }
+
+                        // OAuth flow feedback. The buttons above are
+                        // fire-and-forget — the helper runs async, so
+                        // we surface progress here.
+                        Text {
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.fillWidth: true
+                            visible: inboxPage.oauthMessage !== ""
+                            text: inboxPage.oauthMessage
+                            color: inboxPage.oauthError ? MColors.error : MColors.textSecondary
+                            font.family: MTypography.fontFamily
+                            font.pixelSize: MTypography.sizeFootnote
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                         }
                     }
                 }
