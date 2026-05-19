@@ -241,6 +241,12 @@ MApp {
                             variant: "secondary"
                             onClicked: Logger.info("Mail", "Add Outlook — invokes marathon-mail-oauth helper")
                         }
+                        MButton {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "Sign in with IMAP"
+                            variant: "secondary"
+                            onClicked: navigationStack.push(setupComponent)
+                        }
                     }
                 }
 
@@ -515,6 +521,18 @@ MApp {
         MailComposePage {
             onBack: navigationStack.pop()
             onSent: navigationStack.pop()
+        }
+    }
+
+    // ── IMAP account setup ─────────────────────────────────────────
+    Component {
+        id: setupComponent
+
+        MailAccountSetupPage {
+            onBack: navigationStack.pop()
+            // accountCreated → pop back to inbox; the inbox auto-rebinds
+            // via MailService.currentAccountChanged.
+            onAccountCreated: navigationStack.pop()
         }
     }
 }

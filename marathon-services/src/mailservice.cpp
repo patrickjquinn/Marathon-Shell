@@ -14,9 +14,11 @@
 // until the QMF apks land on the build host (see ~/duranium-build
 // /duranium/marathon-extras/build-qmf-apk.sh).
 #include <QMailAccount>
+#include <QMailAccountConfiguration>
 #include <QMailAccountId>
 #include <QMailAccountKey>
 #include <QMailAccountListModel>
+#include <QMailAddress>
 #include <QMailFolder>
 #include <QMailFolderId>
 #include <QMailFolderKey>
@@ -559,6 +561,110 @@ void MailService::restoreLastSelection() {
 void MailService::saveLastSelection() {
     QSettings s(QStringLiteral("MarathonOS"), QStringLiteral("Mail"));
     s.setValue(QStringLiteral("lastAccountId"), m_currentAccountId);
+}
+
+QString MailService::addImapAccount(const QString &name, const QString &email,
+                                    const QString &imapHost, int imapPort, int imapEncryption,
+                                    const QString &smtpHost, int smtpPort, int smtpEncryption,
+                                    const QString &username, const QString &password) {
+    // Basic input validation — refuse incomplete payloads so QMF doesn't
+    // see a half-configured account that will keep failing to sync.
+    if (imapHost.isEmpty() || smtpHost.isEmpty() || username.isEmpty() || email.isEmpty()) {
+        qWarning() << "[MailService] addImapAccount: missing required field";
+        return {};
+    }
+    if (imapPort <= 0)
+        imapPort = (imapEncryption == 1) ? 993 : 143;
+    if (smtpPort <= 0)
+        smtpPort = (smtpEncryption == 1) ? 465 : 587;
+
+    auto *store = QMailStore::instance();
+    if (!store) {
+        qWarning() << "[MailService] addImapAccount: QMailStore unavailable";
+        return {};
+    }
+
+    // Encryption value → QMF imap4/smtp plugin "encryption" key. Numeric
+    // ladder matches the upstream plugin's enum (none=0, ssl=1, starttls=2).
+    const QString encStr        = QString::number(imapEncryption);
+    const QString smtpEncStr    = QString::number(smtpEncryption);
+    const QString displayName   = name.isEmpty() ? email : name;
+    const QString fromAddrLabel = displayName + QStringLiteral(" <") + email + QStringLiteral(">");
+
+    QMailAccount  account;
+    account.setName(displayName);
+    account.setFromAddress(QMailAddress(displayName, email));
+    account.setMessageType(QMailMessageMetaData::Email);
+
+    // Status flags — Android/iOS-equivalent default is fully on (sync,
+    // retrieve, transmit, user-editable, user-removable). QMF will refuse
+    // to use the account as a message source/sink unless these bits are
+    // set, even if the service configurations are present.
+    account.setStatus(QMailAccount::SynchronizationEnabled | QMailAccount::Enabled |
+                          QMailAccount::CanRetrieve | QMailAccount::CanTransmit |
+                          QMailAccount::MessageSource | QMailAccount::MessageSink |
+                          QMailAccount::UserEditable | QMailAccount::UserRemovable,
+                      true);
+
+    QMailAccountConfiguration cfg;
+
+    // IMAP4 service — the keys match QMF's upstream imap4 plugin
+    // (qmf/src/plugins/messageservices/imap/imapconfiguration.cpp).
+    if (!cfg.addServiceConfiguration(QStringLiteral("imap4"))) {
+        qWarning() << "[MailService] addImapAccount: failed to add imap4 service";
+        return {};
+    }
+    auto &imap = cfg.serviceConfiguration(QStringLiteral("imap4"));
+    imap.setValue(QStringLiteral("servicetype"), QStringLiteral("source"));
+    imap.setValue(QStringLiteral("version"), QStringLiteral("1"));
+    imap.setValue(QStringLiteral("server"), imapHost);
+    imap.setValue(QStringLiteral("port"), QString::number(imapPort));
+    imap.setValue(QStringLiteral("encryption"), encStr);
+    imap.setValue(QStringLiteral("username"), username);
+    // Auth method 0 = PLAIN/LOGIN — QMF picks the strongest the server
+    // advertises. Marked PLAIN-only so we don't need NTLM/DIGEST-MD5
+    // dependencies on the image.
+    imap.setValue(QStringLiteral("authentication"), QStringLiteral("0"));
+    imap.setValue(QStringLiteral("checkInterval"), QStringLiteral("0")); // IDLE only, no polling
+    imap.setValue(QStringLiteral("intervalCheckRoamingEnabled"), QStringLiteral("0"));
+    imap.setValue(QStringLiteral("pushEnabled"), QStringLiteral("1"));
+    // SECURITY (tracked under credentials-plugin work): v1 stores the
+    // password in QMF's per-user config file (~/.config/QMF/QMF.conf).
+    // That file is u=rw,go= by default on systemd-tmpfiles-managed
+    // homes; the next iteration migrates password retrieval through a
+    // marathonclassic QMailCredentialsPlugin backed by Secret-Service,
+    // mirroring how marathonoauth already handles OAuth tokens.
+    imap.setValue(QStringLiteral("password"), password);
+
+    // SMTP service.
+    if (!cfg.addServiceConfiguration(QStringLiteral("smtp"))) {
+        qWarning() << "[MailService] addImapAccount: failed to add smtp service";
+        return {};
+    }
+    auto &smtp = cfg.serviceConfiguration(QStringLiteral("smtp"));
+    smtp.setValue(QStringLiteral("servicetype"), QStringLiteral("sink"));
+    smtp.setValue(QStringLiteral("version"), QStringLiteral("1"));
+    smtp.setValue(QStringLiteral("server"), smtpHost);
+    smtp.setValue(QStringLiteral("port"), QString::number(smtpPort));
+    smtp.setValue(QStringLiteral("encryption"), smtpEncStr);
+    smtp.setValue(QStringLiteral("smtpUsername"), username);
+    smtp.setValue(QStringLiteral("authentication"), QStringLiteral("0"));
+    smtp.setValue(QStringLiteral("smtppassword"), password);
+    smtp.setValue(QStringLiteral("address"), email);
+
+    if (!store->addAccount(&account, &cfg)) {
+        qWarning() << "[MailService] addImapAccount: QMailStore::addAccount failed";
+        return {};
+    }
+
+    const QString accountId = QString::number(account.id().toULongLong());
+    qInfo() << "[MailService] addImapAccount: created accountId=" << accountId
+            << "imap=" << imapHost << ":" << imapPort << "(enc=" << imapEncryption << ")"
+            << "smtp=" << smtpHost << ":" << smtpPort << "(enc=" << smtpEncryption << ")"
+            << "fromAddr=" << fromAddrLabel;
+
+    setCurrentAccountId(accountId);
+    return accountId;
 }
 
 #include "mailservice.moc"

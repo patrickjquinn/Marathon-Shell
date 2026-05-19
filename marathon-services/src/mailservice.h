@@ -138,6 +138,23 @@ class MailService : public QObject {
     //     "attachments": [{ "name": ..., "size": ..., "mime": ... }] }
     Q_INVOKABLE QVariantMap openMessage(const QString &messageId);
 
+    // Add a classic-password IMAP/SMTP account. Used for Fastmail,
+    // self-hosted IMAP, and any provider that doesn't expose OAuth.
+    // Returns the new accountId as a string (empty on failure).
+    //
+    // encryption values per QMF imap4/smtp plugins:
+    //   0 = none, 1 = SSL (implicit, typically port 993/465),
+    //   2 = STARTTLS (explicit, typically port 143/587).
+    //
+    // SECURITY: v1 stores the password in QMF's account-config (QSettings
+    // under ~/.config/QMF/QMF.conf). That file is user-owned, but moving
+    // the password into Secret-Service through a QMailCredentialsPlugin
+    // is a known follow-on — tracked under the credentials-plugin task.
+    Q_INVOKABLE QString addImapAccount(const QString &name, const QString &email,
+                                       const QString &imapHost, int imapPort, int imapEncryption,
+                                       const QString &smtpHost, int smtpPort, int smtpEncryption,
+                                       const QString &username, const QString &password);
+
   signals:
     void currentAccountChanged();
     void currentFolderChanged();
