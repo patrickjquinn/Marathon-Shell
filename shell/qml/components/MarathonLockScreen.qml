@@ -627,11 +627,26 @@ Item {
                     required property var timestamp
 
                     width: notificationStack.width
-                    height: Math.max(60, cardContent.implicitHeight + 24)
+                    // Natural content height — no 60 px floor. DS lock-screen
+                    // cards are tight glanceable snippets, not list rows; the
+                    // floor was making them feel like full Settings rows.
+                    height: cardContent.implicitHeight + 24
                     radius: MRadius.md   // 4 — DS default
-                    color: MColors.bb10Elevated   // elev-2
+                    color: MColors.bb10Elevated   // elev-2 = #161718
+                    // .m-card outer ring is `0 0 0 1px var(--border-dark)`
+                    // (rgba(0,0,0,0.7)) — a DARK border that makes the card
+                    // recede into the wallpaper. Was whiteOverlay08, which
+                    // made the cards pop forward and read as opaque chrome.
                     border.width: 1
-                    border.color: MColors.whiteOverlay08
+                    border.color: MColors.borderDark
+
+                    // .m-card inset top hairline `inset 0 1px 0 var(--w-06)`.
+                    // Lit edge sits inside the dark outer ring — the
+                    // signature double-edge of every Marathon card.
+                    MTopHairline {
+                        radius: MRadius.md
+                        color: MColors.whiteOverlay06
+                    }
 
                     Row {
                         id: cardContent
@@ -742,12 +757,20 @@ Item {
             // shown when more unread exist than the stack displays.
             Rectangle {
                 width: notificationStack.width
-                height: 44
+                // DS .m-card padding "10px 14px" + 28 px icon row =
+                // 48 px tall. Was 44 px (too cramped) and bordered in
+                // white-08 instead of the DS dark outer ring.
+                height: 48
                 radius: MRadius.md
                 color: MColors.bb10Elevated
                 border.width: 1
-                border.color: MColors.whiteOverlay08
+                border.color: MColors.borderDark
                 visible: lockScreen.moreCount > 0
+
+                MTopHairline {
+                    radius: MRadius.md
+                    color: MColors.whiteOverlay06
+                }
 
                 Row {
                     anchors.fill: parent
