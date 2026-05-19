@@ -1,4 +1,5 @@
 #include "src/wayland/waylandcompositor.h"
+#include "src/wayland/committimingv1.h"
 #include "src/wayland/fifov1.h"
 #include "src/wayland/securitycontextv1.h"
 #include "src/wayland/textinputv3.h"
@@ -122,6 +123,13 @@ WaylandCompositor::WaylandCompositor(QQuickWindow *window)
     // presentation loop) get the strict frame-N-before-N+1 guarantee
     // they need for jank-free animation.
     m_fifoManager = new FifoManagerV1(this, window);
+
+    // wp_commit_timing_v1 — per-commit presentation timestamps. Pairs
+    // with fifo-v1 to give clients (SDL3, Chromium, Mesa) the
+    // deadline-driven scheduling primitives they prefer for animation.
+    // Tracked but not yet enforced at present time — see committimingv1.h
+    // for the honesty note on the public-API constraint.
+    m_commitTimingManager = new CommitTimingManagerV1(this);
 
     if (enableIdleInhibit) {
         m_idleInhibitManager = new QWaylandIdleInhibitManagerV1(this);
