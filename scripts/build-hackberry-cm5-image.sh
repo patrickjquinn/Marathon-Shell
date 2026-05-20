@@ -84,10 +84,12 @@ if [ "$SKIP_BUILD" -eq 1 ]; then
 fi
 
 echo "==> stage 3-5: customize image (this is the long stage — go make coffee)"
-sudo \
-    MARATHON_BUILD_DIR="$BUILD_DIR" \
-    MARATHON_SHELL_SRC="$MARATHON_SHELL_SRC" \
-    GROW_TO="${GROW_TO:-6}" \
+# Rootless: virt-customize + virt-resize + guestfish run inside a
+# private QEMU VM, so the host kernel never touches loop devices or
+# nspawn — no sudo needed at any stage of the build.
+MARATHON_BUILD_DIR="$BUILD_DIR" \
+MARATHON_SHELL_SRC="$MARATHON_SHELL_SRC" \
+GROW_TO="${GROW_TO:-6}" \
     bash "$LIB/customize-image.sh"
 
 echo "==> stage 6: finalize"
