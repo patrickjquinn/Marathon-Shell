@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Wire greetd's marathon config + autologin
+ln -sf marathon-config.toml /etc/greetd/config.toml
+
+# Enable Marathon's session manager + supporting services
+systemctl enable greetd
+systemctl enable NetworkManager
+systemctl enable ModemManager  2>/dev/null || true
+systemctl enable upower
+systemctl enable iwd            2>/dev/null || true
+systemctl enable bluetooth      2>/dev/null || true
+systemctl enable pipewire
+systemctl enable pipewire-pulse
+systemctl enable wireplumber
+
+# Mask lightdm if it was pulled in transitively — Marathon owns tty1
+# via greetd.
+systemctl disable lightdm.service 2>/dev/null || true
+systemctl mask    lightdm.service 2>/dev/null || true
+
+# graphical.target as default boot target
+systemctl set-default graphical.target 2>/dev/null || true
+
+# Disable getty on tty1 — greetd owns it
+systemctl disable getty@tty1.service 2>/dev/null || true
+
+exit 0
