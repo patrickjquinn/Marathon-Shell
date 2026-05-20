@@ -72,14 +72,23 @@ fi
 [ -b "$DEV" ] || { echo "$DEV is not a block device" >&2; exit 1; }
 [ -f "$IMG" ] || { echo "missing $IMG" >&2; exit 1; }
 
-# Safety: refuse to clobber the host's own disks.
-case "$DEV" in
-    /dev/sda|/dev/nvme0n1|/dev/vda|/dev/mmcblk0)
-        echo "refusing to write to $DEV — looks like your host system disk" >&2
-        echo "double-check with 'lsblk' and pass the SD card's device explicitly" >&2
-        exit 1
-        ;;
-esac
+# Safety: refuse to clobber the host's own root device, and require
+# the target to be flagged removable. A static block-list (sda, vda,
+# nvme0n1, mmcblk0) misses lots of edge cases — laptops on nvme1n1,
+# servers booting off sdb, hosts using a microSD as root, etc.
+ROOT_DEV=$(findmnt -no SOURCE / 2>/dev/null | sed 's|/dev/||;s|p\?[0-9]*$||;s|^|/dev/|')
+if [ "$DEV" = "$ROOT_DEV" ]; then
+    echo "refusing: $DEV is the host's root device" >&2
+    exit 1
+fi
+DEV_BASE=$(basename "$DEV" | sed 's/p\?[0-9]*$//')
+REMOVABLE=$(cat /sys/block/"$DEV_BASE"/removable 2>/dev/null || echo "0")
+if [ "$REMOVABLE" != "1" ]; then
+    echo "warning: $DEV is NOT marked removable in sysfs." >&2
+    echo "         (USB SD card readers normally report removable=1.)" >&2
+    read -r -p "type FORCE to override and continue: " override
+    [ "$override" = "FORCE" ] || { echo "aborted"; exit 1; }
+fi
 
 echo "==> about to overwrite $DEV with $IMG"
 lsblk "$DEV" 2>/dev/null || true
