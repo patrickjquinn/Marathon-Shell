@@ -180,6 +180,55 @@ case "$MARATHON_TARGET_DEVICE" in
             echo "warn: u-boot-librem5 apk not found in mkosi cache; flash-librem5.sh emmc will need UBOOT= set" >&2
         fi
         ;;
+    raspberry-pi*|rpi*)
+        # Pi firmware boots: kernel + initrd + cmdline.txt direct from
+        # the ESP root (no UEFI on Pi 5, so systemd-stub never runs).
+        # mkosi.finalize wrote /boot/cmdline.txt; the kernel landed at
+        # /vmlinuz-rpi via mkosi.repart's CopyFiles=/boot:/. The initrd
+        # is produced separately by mkosi's initrd sub-image and gets
+        # dropped at <ESP>/<image-id>/initrd by mkosi's UKI pipeline —
+        # NOT at the root where the Pi firmware expects it. Promote it.
+        #
+        # We rewrite the .raw directly via mtools' @@offset syntax (the
+        # FAT inside the GPT-partitioned image), not the .esp.raw split
+        # — that split isn't what gets flashed.
+        if ! command -v mcopy >/dev/null || ! command -v sfdisk >/dev/null; then
+            echo "warn: mtools/sfdisk missing; cannot promote initrd to ESP root" >&2
+            echo "      install with: apt install mtools util-linux  |  dnf install mtools util-linux" >&2
+        else
+            # Locate ESP partition byte offset inside the .raw via sfdisk.
+            # sfdisk -d formats each partition line as
+            #   /path/to.raw1 : start=    2048, size=    2097152, type=C12A...
+            # The whitespace between `start=` and its value breaks awk-by-field
+            # parsing, so pull each value with a regex on the matching line.
+            ESP_OFFSET_SECTORS=$(sfdisk -d "$LATEST_IMG" \
+                | grep -i 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' \
+                | sed -E 's/.*start=[[:space:]]*([0-9]+).*/\1/')
+            SECTOR_SIZE=$(sfdisk -d "$LATEST_IMG" \
+                | sed -nE 's/^sector-size:[[:space:]]*([0-9]+).*/\1/p')
+            if [ -z "${ESP_OFFSET_SECTORS:-}" ] || [ -z "${SECTOR_SIZE:-}" ]; then
+                echo "warn: could not parse ESP offset from $LATEST_IMG; skipping initrd promotion" >&2
+            else
+                ESP_OFFSET_BYTES=$(( ESP_OFFSET_SECTORS * SECTOR_SIZE ))
+                # mtools uses image@@offset to scope to the FAT inside.
+                ESP_AT="$LATEST_IMG@@$ESP_OFFSET_BYTES"
+                # Promote /<device>/initrd (where mkosi dropped it) to
+                # /initramfs-rpi (where config.txt's `initramfs initramfs-rpi`
+                # line expects it).
+                if mdir -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" >/dev/null 2>&1; then
+                    TMP_INITRD=$(mktemp)
+                    mcopy -n -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" "$TMP_INITRD"
+                    mcopy -n -i "$ESP_AT" "$TMP_INITRD" '::initramfs-rpi'
+                    rm -f "$TMP_INITRD"
+                    INITRD_SIZE=$(mdir -i "$ESP_AT" '::initramfs-rpi' 2>/dev/null \
+                        | awk '/initramfs-rpi/ {print $(NF-1); exit}')
+                    echo "==> promoted ESP initrd to root as initramfs-rpi (${INITRD_SIZE} bytes)"
+                else
+                    echo "warn: no $MARATHON_TARGET_DEVICE/initrd in ESP — Pi firmware will fail to load initramfs" >&2
+                fi
+            fi
+        fi
+        ;;
     oneplus-enchilada)
         # Duranium installs to a GPT inside the OP6's `userdata`
         # partition. The Android `boot` partition gets a separate
