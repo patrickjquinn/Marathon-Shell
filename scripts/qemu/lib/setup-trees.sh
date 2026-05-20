@@ -60,11 +60,28 @@ fi
 export DURANIUM_DIR
 echo "==> duranium:        $DURANIUM_DIR"
 
-# 3. mkosi — vendored at a known tag so the image build is
-#    reproducible regardless of host package version.
-MKOSI_SRC="$MARATHON_BUILD_DIR/mkosi-src"
+# 3. mkosi — duranium needs `Distribution=postmarketos` support, which
+#    vanilla upstream mkosi DOES NOT carry; pmOS maintains a fork.
+#    Resolution priority:
+#      (a) $MKOSI_SRC env override (user pin)
+#      (b) ~/duranium-build/mkosi-src if it has a postmarketos
+#          distribution module — that's the canonical Marathon dev
+#          location per project memory (feedback_duranium_primary).
+#      (c) Fall back to cloning the upstream tag at $MKOSI_GIT —
+#          will only work for non-postmarketos targets.
+if [ -z "${MKOSI_SRC:-}" ]; then
+    if [ -f "$HOME/duranium-build/mkosi-src/mkosi/distribution/postmarketos.py" ] \
+       || [ -f "$HOME/duranium-build/mkosi-src/mkosi/distributions/postmarketos.py" ]; then
+        MKOSI_SRC="$HOME/duranium-build/mkosi-src"
+        echo "==> mkosi: using duranium-build fork at $MKOSI_SRC (has postmarketos support)"
+    else
+        MKOSI_SRC="$MARATHON_BUILD_DIR/mkosi-src"
+    fi
+fi
 if [ ! -d "$MKOSI_SRC/.git" ]; then
     echo "==> cloning mkosi $MKOSI_REF into $MKOSI_SRC"
+    echo "    NOTE: upstream v25.3 has no Distribution=postmarketos. If the bake step" >&2
+    echo "    fails with that error, install pmOS's mkosi fork at ~/duranium-build/mkosi-src." >&2
     git clone --depth 1 --branch "$MKOSI_REF" \
         "$MKOSI_GIT" "$MKOSI_SRC"
 fi
@@ -84,6 +101,19 @@ OVERLAY_SRC="$MARATHON_SHELL_SRC/scripts/qemu/duranium-overlay"
 if [ -d "$OVERLAY_SRC" ]; then
     echo "==> overlaying Marathon customs from scripts/qemu/duranium-overlay/"
     rsync -a "$OVERLAY_SRC/" "$DURANIUM_DIR/"
+fi
+
+# Mirror the working duranium-build's `marathon-extras/` directory into
+# our cache. The mkosi.postinst (overlay) references `/work/src/marathon-
+# extras/...` paths (xdg-terminal-exec, flathub.gpg, marathon-store-*,
+# StoreApp.qml). mkosi auto-bind-mounts the conf's source tree at
+# /work/src/, so this dir needs to be present alongside mkosi.conf to be
+# visible in the chroot. Per feedback_duranium_primary the canonical
+# location is $HOME/duranium-build/duranium/marathon-extras/.
+USER_MARATHON_EXTRAS="$HOME/duranium-build/duranium/marathon-extras"
+if [ -d "$USER_MARATHON_EXTRAS" ] && [ ! -d "$DURANIUM_DIR/marathon-extras" ]; then
+    echo "==> syncing marathon-extras/ from $USER_MARATHON_EXTRAS"
+    rsync -a "$USER_MARATHON_EXTRAS/" "$DURANIUM_DIR/marathon-extras/"
 fi
 
 # 5. The build-*-apk.sh scripts under scripts/qemu/lib/ rely on the
