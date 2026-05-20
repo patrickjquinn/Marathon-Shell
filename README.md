@@ -162,10 +162,12 @@ device-specific overlay aport.
 
 | Device | Entry script | Status |
 |---|---|---|
-| QEMU virt aarch64 | `scripts/build-qemu-image.sh` | **Ready** — `--boot` lights up the shell on your dev box via virgl + VNC. |
-| OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | **Ready** — mainline PREEMPT_RT kernel via `linux-marathon`, flash with `scripts/flash/flash-oneplus6.sh`. |
-| Librem 5 (purism-librem5) | `scripts/build-librem5-image.sh` | **Build-ready, overlay TODO** — orchestrator runs but a `device-purism-librem5-marathon` aport hasn't been authored yet, so mkosi pulls upstream pmaports' base device package only (no Marathon runtime stack until the overlay lands). |
-| Hackberry Pi | `scripts/build-hackberry-pi-image.sh` | **Blocked** — refuses with explanation. See `scripts/flash/flash-hackberry-pi.sh` header. |
+| QEMU virt aarch64 | `scripts/build-qemu-image.sh` | **Ready, verified** — `--boot` lights up the shell on your dev box via virgl + VNC. |
+| OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | **Build-ready, flash unverified** — extracts both the GPT `.raw` and the EFI-aware `boot.img` (from the ESP) for `scripts/flash/flash-oneplus6.sh`. End-to-end on real hardware hasn't been tested on Marathon's branch yet. |
+| Librem 5 (purism-librem5) | `scripts/build-librem5-image.sh` | **Build-ready, flash unverified** — overlay aport ships the u-boot-librem5 dep; orchestrator extracts `phone-boot.img` for `scripts/flash/flash-librem5.sh emmc`. SD path is a single dd of the `.raw`. |
+| Hackberry Pi | `scripts/build-hackberry-pi-image.sh` | **Refuses** — needs a parallel raspios-style pipeline (HyperPixel DPI overlay + BBQ10 DKMS) before this can be real. See `scripts/flash/flash-hackberry-pi.sh` header. |
+
+See `docs/IMAGE_BUILD_ARCHITECTURE.md` for why duranium works on phones, what the per-device extraction does, and which paths are verified vs. documented-but-untested.
 
 Fastest visible result:
 
