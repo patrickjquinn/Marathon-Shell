@@ -33,10 +33,11 @@ Usage: flash-librem5.sh sd  /dev/sdX     /path/to/marathon-librem5.raw[.xz]
        flash-librem5.sh emmc            /path/to/marathon-librem5.raw[.xz]
 
 Env:
-  UBOOT      path to phone-boot.img (defaults to
-             ~/.cache/marathon-build/duranium/mkosi.packages-extracted/u-boot-librem5/usr/share/u-boot/librem5/phone-boot.img,
-             or /usr/share/u-boot/librem5/phone-boot.img if you've installed
-             u-boot-librem5 system-wide).
+  UBOOT      path to phone-boot.img (auto-detected from
+             ~/.cache/marathon-build/duranium/mkosi.output/purism-librem5_marathon_edge/phone-boot.img
+             — the build orchestrator extracts it there. Falls back to
+             /usr/share/u-boot/librem5/phone-boot.img if u-boot-librem5
+             is installed system-wide, or ./phone-boot.img.).
 
 sd path:
   Insert SD card. Pass its block device as the second arg.
@@ -109,11 +110,14 @@ case "$MODE" in
             exit 1
         }
 
-        # Locate phone-boot.img.
+        # Locate phone-boot.img. The build orchestrator
+        # (scripts/build-image.sh) extracts this from the
+        # u-boot-librem5 apk into mkosi.output/ next to the .raw image
+        # whenever MARATHON_TARGET_DEVICE=purism-librem5.
         UBOOT="${UBOOT:-}"
         if [[ -z "$UBOOT" ]]; then
             for c in \
-                "$HOME/.cache/marathon-build/duranium/mkosi.packages-extracted/u-boot-librem5/usr/share/u-boot/librem5/phone-boot.img" \
+                "$HOME/.cache/marathon-build/duranium/mkosi.output/purism-librem5_marathon_edge/phone-boot.img" \
                 /usr/share/u-boot/librem5/phone-boot.img \
                 ./phone-boot.img
             do
