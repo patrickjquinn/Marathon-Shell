@@ -376,3 +376,20 @@ EOF
 
 ln -sf ../marathon-flathub-setup.service \
     "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants/marathon-flathub-setup.service"
+
+# ── mkinitfs: explicit run, post-package-install ──────────────────────
+# We dropped /in-pmbootstrap via mkosi.skeleton/ to prevent the
+# postmarketos-mkinitfs.trigger from firing mid-apk-install (it runs
+# boot-deploy, which fails inside the mkosi chroot for the
+# Raspberry-Pi-firmware boot path because the .esp partition doesn't
+# exist yet). Now that all packages are installed, run mkinitfs
+# explicitly so the kernel + initramfs land in /boot.
+#
+# || true: for devices where boot-deploy still errors (e.g. Pi 5
+# bcm2712), we accept the error — Marathon's downstream
+# device-${device}-marathon post-install + mkosi.repart can finish the
+# boot-files layout from the staged kernel + initramfs.
+rm -f "$BUILDROOT/in-pmbootstrap"
+chroot "$BUILDROOT" /usr/sbin/mkinitfs 2>&1 \
+    | sed 's/^/[mkinitfs] /' \
+    || echo "warn: mkinitfs/boot-deploy returned non-zero — Pi-firmware-boot devices may need manual /boot fixup post-flash"
