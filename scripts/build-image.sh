@@ -157,6 +157,24 @@ LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.ra
 [ -z "$LATEST_IMG" ] && { echo "no image produced for device-$MARATHON_TARGET_DEVICE" >&2; exit 1; }
 echo "==> image ready: $LATEST_IMG"
 
+# Librem 5: also extract phone-boot.img next to the image so
+# scripts/flash/flash-librem5.sh can chainload it via uuu without
+# requiring the user to fish it out of the rootfs themselves. Source
+# of truth is the u-boot-librem5 apk that mkosi already downloaded.
+if [ "$MARATHON_TARGET_DEVICE" = "purism-librem5" ]; then
+    UBOOT_APK=$(ls -1t "$DURANIUM_DIR"/mkosi.cache/*/cache/apk/u-boot-librem5-*.apk \
+        "$DURANIUM_DIR"/mkosi.packages/u-boot-librem5-*.apk 2>/dev/null | head -1 || true)
+    if [ -n "$UBOOT_APK" ]; then
+        PHONE_BOOT="$OUT_DIR_GLOB/phone-boot.img"
+        echo "==> extracting phone-boot.img from $(basename "$UBOOT_APK") to $PHONE_BOOT"
+        # apk packages are gzipped tarballs; -O streams the entry to stdout.
+        tar -xzOf "$UBOOT_APK" usr/share/u-boot/librem5/phone-boot.img > "$PHONE_BOOT" \
+            || { echo "warn: phone-boot.img not in apk — uuu flash will need manual UBOOT=" >&2; rm -f "$PHONE_BOOT"; }
+    else
+        echo "warn: u-boot-librem5 apk not found in mkosi cache; flash-librem5.sh emmc will need UBOOT= set" >&2
+    fi
+fi
+
 # --boot / --verify only make sense for the QEMU target. Real
 # devices need flashing — see scripts/flash/flash-<device>.sh.
 if [ "$MARATHON_TARGET_DEVICE" != "qemu-aarch64" ]; then
