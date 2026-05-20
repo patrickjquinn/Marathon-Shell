@@ -1,37 +1,33 @@
 #!/usr/bin/env bash
-# Build a Marathon image for the Hackberry Pi.
+# Hackberry Pi build dispatcher.
 #
-# ─────────────────────────────────────────────────────────────────────
-#  STATUS: NOT READY. See scripts/flash/flash-hackberry-pi.sh for the
-#  full blocker list. The blocker shapes were corrected 2026-05-20
-#  after a direct read of the ZitaoTech repos. Short version:
+# ZitaoTech ships four Hackberry variants. Marathon currently supports
+# ONE of them:
 #
-#    • The 720×720 panel is DPI/GPIO, driven by HyperPixel 4.0 Square
-#      via raspberrypi-firmware config.txt overlays — NOT ST7701 DSI,
-#      and not bootable via UEFI. Duranium's systemd-boot/UKI chain
-#      can't apply the overlay.
-#    • BBQ10 I²C keyboard driver only exists out-of-tree (canonical:
-#      ardangelo/beepberry-keyboard-driver, DKMS-shipped).
-#    • No pmaports `device-rpi*-hackberry` aport exists.
-#    • Marathon would need a raspios-style build pipeline (config.txt
-#      + cmdline.txt + HyperPixel overlay) parallel to duranium. That
-#      pipeline doesn't exist yet.
+#   ZitaoTech/HackberryPiCM5      CM5 + 720x720 HyperPixel-style panel
+#                                 + USB-HID RP2040 keyboard
+#                                 → ./scripts/build-hackberry-cm5-image.sh
 #
-#  Until those four items land, this script refuses to run. The
-#  refusal is the honest answer — duranium would produce an image
-#  that boots blind (no display, no keyboard) on Hackberry.
-# ─────────────────────────────────────────────────────────────────────
+# Other variants (Pi Zero 2 W, Pi 4B, Pi 5) are not supported. The CM5
+# is the highest-spec Hackberry on the carrier and the variant the
+# project is actively building against, so we focused there first.
+# Adding the others is a smaller scope each (new device aport +
+# config.txt + DTC overlay) than building the first one was.
+#
+# This script just dispatches to the CM5 path so the per-device
+# wrapper layout matches the other devices.
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-cat >&2 <<'EOF'
-Hackberry Pi support is not in a buildable state.
+cat >&2 <<'NOTICE'
+NOTE: scripts/build-hackberry-pi-image.sh is a compatibility wrapper.
+The actual build is in scripts/build-hackberry-cm5-image.sh, which
+targets the ZitaoTech HackberryPi CM5 (CM5 Lite + 720x720 panel).
 
-The panel chain (HyperPixel 4.0 Square DPI), keyboard driver
-(out-of-tree ardangelo/beepberry-keyboard-driver), and pipeline
-(needs a raspios-style boot chain, not duranium) all need work
-before this script can produce a real image.
+If you want a different Hackberry variant (Pi Zero 2 W / 4B / Pi 5),
+file an issue with the variant + your panel/keyboard hardware so we
+can author its overlay.
 
-See scripts/flash/flash-hackberry-pi.sh for the full breakdown
-and links to upstream sources.
-EOF
-exit 1
+Dispatching to scripts/build-hackberry-cm5-image.sh ...
+NOTICE
+exec bash "$SCRIPT_DIR/build-hackberry-cm5-image.sh" "$@"
