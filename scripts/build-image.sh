@@ -327,8 +327,17 @@ DROPIN
                         | sed -E 's/.*uuid=([0-9a-fA-F-]+).*/\1/' \
                         | tr '[:upper:]' '[:lower:]' | tr -d '-')
                     if [ -n "$VTY_UUID" ] && [ -n "$USR_UUID" ]; then
-                        USRHASH="${VTY_UUID}${USR_UUID}"
-                        CMDLINE="console=tty1 console=serial0,115200 rw rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service usrhash=${USRHASH}"
+                        # Discoverable Partitions Spec encoding:
+                        #   first  16 bytes of roothash → DATA partition's PartUUID
+                        #   second 16 bytes of roothash → VERITY (hash) partition's PartUUID
+                        # systemd-veritysetup-generator parses usrhash= and treats
+                        # the first half as data, second as hash. Empirically
+                        # verified via veritysetup verify against the source files.
+                        # (Diagnosed 2026-05-20 after an on-hardware boot hung in
+                        # initramfs waiting for /dev/mapper/usr because we had this
+                        # backwards.)
+                        USRHASH="${USR_UUID}${VTY_UUID}"
+                        CMDLINE="console=tty1 console=serial0,115200 rw rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
                         TMP_CMDLINE=$(mktemp --suffix=.cmdline.txt)
                         printf '%s\n' "$CMDLINE" > "$TMP_CMDLINE"
                         mdel -i "$ESP_AT" ::cmdline.txt 2>/dev/null || true
