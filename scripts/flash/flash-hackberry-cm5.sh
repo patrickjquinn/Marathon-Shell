@@ -125,7 +125,7 @@ case "$IMG" in
     *.xz)   xz -dc "$IMG" ;;
     *.gz)   gzip -dc "$IMG" ;;
     *.zst)  zstd -dc "$IMG" ;;
-    *.img)  cat "$IMG" ;;
+    *.raw|*.img)  cat "$IMG" ;;
     *)      echo "unrecognized image format: $IMG" >&2; exit 1 ;;
 esac | sudo dd of="$DEV" bs=4M conv=fsync status=progress
 
@@ -135,14 +135,17 @@ echo
 echo "==> done."
 echo
 echo "Eject the SD card, insert it into the HackberryPi CM5 carrier."
-echo "Power on. First boot: ~30-60 s. LightDM auto-logs in as 'pi'."
+echo "Power on. First boot: ~30-60 s. greetd auto-logs in as user 'marathon'"
+echo "and starts the Marathon Wayland session."
 echo
-echo "Console / SSH:"
-echo "  user:     pi"
-echo "  password: raspberry  (RaspiOS default — change after first login)"
+echo "Console / SSH (post first-boot setup):"
+echo "  user:     marathon"
+echo "  password: marathon  (duranium default — change after first login)"
 echo
-echo "If the screen stays black: SSH in and check"
-echo "  systemctl status lightdm"
-echo "  journalctl -u lightdm --since '2 minutes ago'"
+echo "If the screen stays black: console-login over UART and check"
+echo "  systemctl status greetd"
+echo "  journalctl -u greetd --since '2 minutes ago'"
 echo "  ls /boot/firmware/overlays/hackberrypi.dtbo   # overlay present?"
-echo "  grep -E '^dtoverlay=' /boot/firmware/config.txt"
+echo "  grep -E '^dtoverlay=' /boot/firmware/usercfg.txt"
+echo "  cat /proc/cmdline                              # verity composed?"
+echo "  ls /dev/mapper                                 # /dev/mapper/usr present?"
