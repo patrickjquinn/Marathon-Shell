@@ -6,13 +6,17 @@ a deep audit corrected several wrong assumptions.
 
 ## The one-line summary
 
-Marathon ships **one image format** — a duranium (postmarketOS mkosi)
-GPT disk image with systemd-boot + UKI + erofs+verity /usr — to
-**three target classes**: QEMU (UEFI directly), fastboot Android phones
-(via u-boot's UEFI emulation), and uuu i.MX phones (via u-boot's
-UEFI emulation). A fourth class (raspberrypi-firmware-boot handhelds
-like Hackberry) is not supported — it needs a parallel raspios-style
-pipeline that doesn't exist.
+Marathon ships **two image formats** to **four target classes**:
+
+1. **duranium** (postmarketOS mkosi + systemd-boot + erofs+verity GPT
+   disk image) for QEMU (UEFI directly), fastboot Android phones
+   (via u-boot's UEFI emulation), and uuu i.MX phones (also via
+   u-boot's UEFI emulation).
+2. **raspios-style** (Raspberry Pi firmware + FAT32 boot + ext4
+   rootfs) for the HackberryPi CM5 — because the CM5's HyperPixel
+   DPI panel requires a config.txt-driven overlay applied at
+   firmware stage, which is fundamentally incompatible with
+   duranium's systemd-boot chain.
 
 ## Why duranium, not pmbootstrap
 
@@ -134,28 +138,64 @@ The OP6 deviceinfo sets `SectorSize=4096` (UFS storage). The L5 sets
 time — that's how the SD-card flash path works without any host-side
 trickery (just dd the .raw to a microSD and the device boots).
 
-## Why Hackberry doesn't fit
+## How the HackberryPi CM5 pipeline works (the second pipeline)
 
-The Hackberry Pi (4B variant) is the odd one out because:
+The CM5 doesn't fit the duranium chain because:
 
-1. **Boot chain** — Pi uses `raspberrypi-firmware` boot (config.txt + cmdline.txt + start.elf), not UEFI. There is a UEFI-on-Pi-4B firmware (pftf/RPi4 EDK2), but
-2. **Panel** — the 720×720 display is DPI/GPIO via Pimoroni HyperPixel 4.0 Square overlay. Linux DRM applies the overlay only once Linux is up, so the firmware-stage UEFI can never show anything. The HyperPixel overlay is configured in `/boot/config.txt`, but duranium ships an ESP with systemd-boot, not a `/boot/config.txt`.
-3. **Keyboard** — BlackBerry-style I²C keyboard (BBQ10) needs the ardangelo/beepberry-keyboard-driver DKMS module against the kernel. No pmaports aport. No upstream submission.
+1. **Boot chain** — Pi uses `raspberrypi-firmware` (config.txt + cmdline.txt + start.elf + bootcode.bin), not UEFI. While pftf/RPi4 EDK2 exists for the Pi 4B, there's no equivalent for the Pi 5/CM5's BCM2712.
+2. **Panel** — the 720×720 display is DPI/GPIO via Pimoroni's HyperPixel 4.0 Square overlay + ZitaoTech's `hackberrypi.dtbo` overlay (compatible with `brcm,bcm2712`, `raspberrypi,5-compute-module`). Linux DRM applies these overlays only once Linux is up, configured via `/boot/firmware/config.txt`. Duranium ships an ESP with systemd-boot — no place to inject `dtoverlay=` lines.
+3. **Keyboard** — the ZitaoTech CM5 keyboard is **USB HID** (RP2040 + QMK/Vial firmware on the keyboard PCB). It enumerates as a standard USB keyboard + mouse to the CM5. No kernel module needed. (This was a correction from earlier audit notes that referenced the I²C-attached BBQ10/Beepy keyboard — that driver is for a different product.)
 
-To support Hackberry properly we'd need a parallel raspios-style
-pipeline that produces a normal Pi image (FAT32 boot partition with
-config.txt + cmdline.txt + bootcode.bin + start.elf + overlays/, plus
-an ext4 rootfs). That's enough work that we currently refuse — both
-the build script and the flash script say so honestly.
+The pipeline is in `scripts/build-hackberry-cm5-image.sh`:
+
+```
+scripts/
+├── build-hackberry-cm5-image.sh    ← entry point
+├── hackberry-cm5/lib/
+│   ├── check-host.sh               ← verify tools (losetup, nspawn, dtc, …)
+│   ├── fetch-raspios.sh            ← pinned RaspiOS Lite arm64 download
+│   ├── customize-image.sh          ← grow rootfs, loop-mount, nspawn into it
+│   ├── inside-chroot.sh            ← apt install Qt6 + build marathon-shell + LightDM
+│   └── finalize.sh                 ← xz compress + emit to out/
+└── flash/flash-hackberry-cm5.sh    ← dd to microSD with safety checks
+```
+
+Build flow:
+1. Fetch pinned RaspiOS Lite arm64 `.img.xz` from `downloads.raspberrypi.com` (default: `2025-05-13` Bookworm)
+2. Grow rootfs partition to 6 GiB (RaspiOS Lite ships ~3 GiB; we need room for Qt6 + WebEngine)
+3. Loop-mount + `systemd-nspawn` into the rootfs
+4. Inside the chroot: `apt install qt6-base-dev qt6-wayland qt6-webengine-dev …`, build marathon-shell from the bind-mounted source, install LightDM + the `platforms/raspberry-pi/config/` session files, enable autologin
+5. Compile ZitaoTech's `hackberrypi.dts` to `.dtbo` via `dtc`, install to `/boot/firmware/overlays/`
+6. Append HyperPixel + KMS overlay lines to `/boot/firmware/config.txt`
+7. Purge build-time `-dev` packages (saves ~1.5 GiB), `apt clean`
+8. `xz` compress, emit to `out/marathon-hackberry-cm5.img.xz`
+9. Flash with `dd` (handled by `scripts/flash/flash-hackberry-cm5.sh`)
+
+Marathon-shell runs as the Wayland session under LightDM's autologin
+as user `pi`. The shell uses the `eglfs` Qt platform plugin (direct
+KMS/DRM, no nested compositor), which on the CM5 means raw GPU access
+through the V3D KMS driver — same model as on the OnePlus 6 / Librem 5
+under duranium, just at a different layer of the boot stack.
+
+The first build takes ~30-45 minutes (apt install of Qt6 + WebEngine
++ marathon-shell compile dominate). Subsequent builds reuse the
+cached base image but re-do the customization stage — pass
+`--skip-download` to skip the base-image fetch.
+
+Other Hackberry variants (Zero 2 W, Pi 4B, Pi 5) aren't supported
+yet; the CM5 was prioritized because it's the highest-spec variant
+and the one currently being tested. Adding another variant is a
+narrower scope each (new device overlay aport + corresponding boot
+config), now that the first one is built.
 
 ## What's verified vs. what isn't
 
 | Path | Build | Flash | Boot on hardware |
 |---|---|---|---|
 | QEMU UEFI | ✅ yes | n/a | ✅ verified (virgl + VNC) |
-| OnePlus 6 | ✅ yes (overlay aport present) | ⚠️ written but unverified | ❌ not yet — needs flashing |
-| Librem 5 | ⚠️ overlay aport present + phone-boot.img extracted | ⚠️ written but unverified | ❌ not yet — needs flashing |
-| Hackberry | ❌ refuses | ❌ refuses | ❌ refuses |
+| OnePlus 6 | ✅ yes (overlay aport + boot.img extraction wired) | ⚠️ written but unverified | ❌ not yet — needs flashing |
+| Librem 5 | ✅ overlay aport + phone-boot.img extraction wired | ⚠️ written but unverified | ❌ not yet — needs flashing |
+| HackberryPi CM5 | ✅ raspios-style pipeline + hackberrypi.dtbo + LightDM session | ⚠️ written but unverified | ❌ not yet — needs flashing. QML responsiveness at 720×720 verified locally. |
 
 "unverified" means the script follows the duranium-on-phone protocol
 the postmarketOS team documented, but Marathon hasn't run it against

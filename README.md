@@ -163,11 +163,16 @@ device-specific overlay aport.
 | Device | Entry script | Status |
 |---|---|---|
 | QEMU virt aarch64 | `scripts/build-qemu-image.sh` | **Ready, verified** — `--boot` lights up the shell on your dev box via virgl + VNC. |
-| OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | **Build-ready, flash unverified** — extracts both the GPT `.raw` and the EFI-aware `boot.img` (from the ESP) for `scripts/flash/flash-oneplus6.sh`. End-to-end on real hardware hasn't been tested on Marathon's branch yet. |
-| Librem 5 (purism-librem5) | `scripts/build-librem5-image.sh` | **Build-ready, flash unverified** — overlay aport ships the u-boot-librem5 dep; orchestrator extracts `phone-boot.img` for `scripts/flash/flash-librem5.sh emmc`. SD path is a single dd of the `.raw`. |
-| Hackberry Pi | `scripts/build-hackberry-pi-image.sh` | **Refuses** — needs a parallel raspios-style pipeline (HyperPixel DPI overlay + BBQ10 DKMS) before this can be real. See `scripts/flash/flash-hackberry-pi.sh` header. |
+| OnePlus 6 (enchilada) | `scripts/build-oneplus6-image.sh` | **Build-ready, flash unverified** — duranium GPT `.raw` + EFI-aware `boot.img` extracted from the ESP, both consumed by `scripts/flash/flash-oneplus6.sh`. |
+| Librem 5 (purism-librem5) | `scripts/build-librem5-image.sh` | **Build-ready, flash unverified** — duranium GPT `.raw`; orchestrator also extracts `phone-boot.img` for `flash-librem5.sh emmc`. SD path is a single dd of the `.raw`. |
+| HackberryPi CM5 | `scripts/build-hackberry-cm5-image.sh` | **Build-ready, flash unverified** — parallel raspios-style pipeline (not duranium). Customizes stock RaspiOS Lite arm64 with marathon-shell + ZitaoTech `hackberrypi.dtbo` overlay + LightDM autologin. Verified Marathon QML renders responsively at 720×720 locally. Flash with `scripts/flash/flash-hackberry-cm5.sh /dev/sdX`. |
 
-See `docs/IMAGE_BUILD_ARCHITECTURE.md` for why duranium works on phones, what the per-device extraction does, and which paths are verified vs. documented-but-untested.
+Two pipelines, three devices:
+
+- **duranium** (mkosi + systemd-boot + erofs+verity): QEMU, OnePlus 6, Librem 5
+- **raspios-style** (RPi firmware + config.txt + LightDM + Wayland session): HackberryPi CM5
+
+See `docs/IMAGE_BUILD_ARCHITECTURE.md` for which boot chain runs where, what the per-device extraction does, and which paths are verified vs. documented-but-untested-on-hardware.
 
 Fastest visible result:
 
