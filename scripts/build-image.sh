@@ -212,6 +212,35 @@ case "$MARATHON_TARGET_DEVICE" in
                 ESP_OFFSET_BYTES=$(( ESP_OFFSET_SECTORS * SECTOR_SIZE ))
                 # mtools uses image@@offset to scope to the FAT inside.
                 ESP_AT="$LATEST_IMG@@$ESP_OFFSET_BYTES"
+                # Build a tiny cpio drop-in that overrides
+                # systemd-repart.service's ExecStart to specify the boot disk
+                # explicitly. Pi-firmware boot has no systemd-stub so
+                # LoaderDevicePartUUID is unset; upstream systemd-repart
+                # returns 76 ("root block device not found") which is in
+                # SuccessExitStatus=76 — service "succeeds" silently, no
+                # partition gets created, and initrd-root-fs.target hangs
+                # forever waiting for /dev/disk/by-partlabel/pmOS_root before
+                # systemd drops to emergency mode. Found via on-hardware
+                # boot diagnosis 2026-05-20.
+                REPART_FIX_CPIO=""
+                REPART_FIX_DIR=$(mktemp -d --suffix=.cm5-repart-fix)
+                if [ -n "$REPART_FIX_DIR" ]; then
+                    mkdir -p "$REPART_FIX_DIR/etc/systemd/system/systemd-repart.service.d"
+                    cat > "$REPART_FIX_DIR/etc/systemd/system/systemd-repart.service.d/pi-disk.conf" <<'DROPIN'
+# Pi-firmware boot has no LoaderDevicePartUUID (no systemd-stub in path).
+# Tell systemd-repart which disk to target explicitly. /dev/mmcblk0 is
+# the SD card on Pi 5 (BCM2712 boot media via the SoC SD controller).
+[Service]
+ExecStart=
+ExecStart=systemd-repart --dry-run=no /dev/mmcblk0
+DROPIN
+                    REPART_FIX_CPIO=$(mktemp --suffix=.cpio.gz)
+                    (cd "$REPART_FIX_DIR" && find etc -print0 \
+                        | cpio -o --null -H newc 2>/dev/null \
+                        | gzip -c) > "$REPART_FIX_CPIO"
+                    rm -rf "$REPART_FIX_DIR"
+                fi
+
                 # Stitch base initrd + kernel-modules initrd. The standalone
                 # initrd.cpio.gz in the output dir is ONLY the base (systemd +
                 # generators + veritysetup + libs). mkosi packs the kernel-
@@ -236,16 +265,24 @@ case "$MARATHON_TARGET_DEVICE" in
                     # its "file truncated" warning on stderr.
                     objcopy --dump-section ".initrd=$MODULES_CPIO" "$UKI_EFI" /dev/null 2>/dev/null
                     if [ -s "$MODULES_CPIO" ]; then
-                        cat "$BASE_INITRD" <(gzip -c "$MODULES_CPIO") > "$STITCHED"
-                        BASE_SZ=$(stat -c%s "$BASE_INITRD")
-                        MOD_SZ=$(stat -c%s "$MODULES_CPIO")
-                        STITCH_SZ=$(stat -c%s "$STITCHED")
-                        echo "==> stitched base ($BASE_SZ B) + kernel modules ($MOD_SZ B raw) -> $STITCH_SZ B"
+                        # Concatenate: base initramfs + kernel modules cpio.gz
+                        # + the tiny repart drop-in cpio.gz (if produced).
+                        # Linux kernel handles concatenated initramfs natively
+                        # — each piece can be independently compressed and
+                        # unpacks in order.
+                        if [ -n "${REPART_FIX_CPIO:-}" ] && [ -s "$REPART_FIX_CPIO" ]; then
+                            cat "$BASE_INITRD" <(gzip -c "$MODULES_CPIO") "$REPART_FIX_CPIO" > "$STITCHED"
+                            REPART_SZ=$(stat -c%s "$REPART_FIX_CPIO")
+                            echo "==> stitched base ($(stat -c%s "$BASE_INITRD") B) + modules ($(stat -c%s "$MODULES_CPIO") B raw) + repart-fix ($REPART_SZ B) -> $(stat -c%s "$STITCHED") B"
+                        else
+                            cat "$BASE_INITRD" <(gzip -c "$MODULES_CPIO") > "$STITCHED"
+                            echo "==> stitched base ($(stat -c%s "$BASE_INITRD") B) + modules ($(stat -c%s "$MODULES_CPIO") B raw) -> $(stat -c%s "$STITCHED") B"
+                        fi
                     else
                         echo "warn: could not extract .initrd from $UKI_EFI; promoting base initrd alone (dm-verity will fail)" >&2
                         cp "$BASE_INITRD" "$STITCHED"
                     fi
-                    rm -f "$MODULES_CPIO"
+                    rm -f "$MODULES_CPIO" "${REPART_FIX_CPIO:-}"
                 elif mdir -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" >/dev/null 2>&1; then
                     # Fallback: promote the in-ESP per-device initrd. Same
                     # missing-modules bug as before but at least something.
