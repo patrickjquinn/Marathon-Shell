@@ -76,12 +76,28 @@ fi
 # the target to be flagged removable. A static block-list (sda, vda,
 # nvme0n1, mmcblk0) misses lots of edge cases — laptops on nvme1n1,
 # servers booting off sdb, hosts using a microSD as root, etc.
-ROOT_DEV=$(findmnt -no SOURCE / 2>/dev/null | sed 's|/dev/||;s|p\?[0-9]*$||;s|^|/dev/|')
-if [ "$DEV" = "$ROOT_DEV" ]; then
-    echo "refusing: $DEV is the host's root device" >&2
+#
+# Walk lsblk's parent tree to find the disk that backs `/`. This
+# handles:
+#   - bare partitions:        /dev/nvme0n1p6  → /dev/nvme0n1
+#   - btrfs subvolumes:       /dev/nvme0n1p6[/root]  → /dev/nvme0n1
+#   - LUKS mappers:           /dev/mapper/luks → underlying disk
+#   - LVM:                    /dev/mapper/vg-root → underlying PV disk
+# … by asking lsblk to follow PKNAME (parent kernel name) up to a TYPE=disk.
+target_basename=$(basename "$DEV")
+DEV_DISK=$(lsblk -no PKNAME "$DEV" 2>/dev/null | head -1)
+[ -z "$DEV_DISK" ] && DEV_DISK="$target_basename"   # already a whole disk
+
+ROOT_SRC=$(findmnt -no SOURCE / 2>/dev/null | sed 's|\[.*\]||')
+ROOT_DISK=$(lsblk -no PKNAME "$ROOT_SRC" 2>/dev/null | head -1)
+[ -z "$ROOT_DISK" ] && ROOT_DISK=$(basename "$ROOT_SRC")
+
+if [ "$DEV_DISK" = "$ROOT_DISK" ] || [ "$target_basename" = "$ROOT_DISK" ]; then
+    echo "refusing: $DEV is on the same disk as the host root ($ROOT_SRC → /dev/$ROOT_DISK)" >&2
     exit 1
 fi
-DEV_BASE=$(basename "$DEV" | sed 's/p\?[0-9]*$//')
+
+DEV_BASE="$DEV_DISK"
 REMOVABLE=$(cat /sys/block/"$DEV_BASE"/removable 2>/dev/null || echo "0")
 if [ "$REMOVABLE" != "1" ]; then
     echo "warning: $DEV is NOT marked removable in sysfs." >&2
