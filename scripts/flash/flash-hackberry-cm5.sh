@@ -24,9 +24,12 @@
 # Change with `passwd` after first SSH/console login.
 set -euo pipefail
 
-CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/hackberry-cm5"
-DEFAULT_IMG_XZ="$CACHE/out/marathon-hackberry-cm5.img.xz"
-DEFAULT_IMG_RAW="$CACHE/out/marathon-hackberry-cm5.img"
+CACHE="${MARATHON_BUILD_DIR:-$HOME/.cache/marathon-build}/duranium/mkosi.output/raspberry-pi5_marathon_edge"
+DEFAULT_IMG_RAW=$(ls -1t "$CACHE"/raspberry-pi5_marathon_edge_*.raw 2>/dev/null \
+    | grep -E "/raspberry-pi5_marathon_edge_[0-9]+\.raw$" | head -1 || true)
+DEFAULT_IMG_XZ=$(ls -1t "$CACHE"/raspberry-pi5_marathon_edge_*.raw.zst \
+                       "$CACHE"/raspberry-pi5_marathon_edge_*.raw.xz \
+                       "$CACHE"/raspberry-pi5_marathon_edge_*.raw.gz 2>/dev/null | head -1 || true)
 
 usage() {
     cat <<USAGE

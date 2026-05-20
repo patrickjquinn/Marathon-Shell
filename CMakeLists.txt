@@ -115,11 +115,23 @@ find_package(Qt6 6.4...6.12 REQUIRED COMPONENTS
     DBus
     Sql
     Multimedia
-    Location
     Positioning
     Sensors
     WebSockets
 )
+# Qt6::Location was a hard requirement when Marathon's Maps app used
+# QtLocation's OSM Map block. After Maps was rewritten to use
+# WebEngine + MapLibre GL JS (see docs/redesign/...), no target links
+# Qt6::Location and the QML side imports through qml6-module-qtlocation
+# at runtime instead. Treat it as optional so we build on Debian
+# Bookworm, which has qt6-positioning-dev but ships QtLocation only
+# from Trixie onwards.
+find_package(Qt6 6.4 COMPONENTS Location QUIET)
+if(TARGET Qt6::Location)
+    message(STATUS "Qt6::Location found (build environment ships QtLocation)")
+else()
+    message(STATUS "Qt6::Location not found - Maps falls back to MapLibre GL JS via WebEngine")
+endif()
 
 # Qt 6.5+ QML policies - must be AFTER find_package so Qt6_VERSION is defined
 # QTP0001: Use ':/qt/qml/' as the default QML resource prefix
