@@ -157,23 +157,59 @@ LATEST_IMG=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.ra
 [ -z "$LATEST_IMG" ] && { echo "no image produced for device-$MARATHON_TARGET_DEVICE" >&2; exit 1; }
 echo "==> image ready: $LATEST_IMG"
 
-# Librem 5: also extract phone-boot.img next to the image so
-# scripts/flash/flash-librem5.sh can chainload it via uuu without
-# requiring the user to fish it out of the rootfs themselves. Source
-# of truth is the u-boot-librem5 apk that mkosi already downloaded.
-if [ "$MARATHON_TARGET_DEVICE" = "purism-librem5" ]; then
-    UBOOT_APK=$(ls -1t "$DURANIUM_DIR"/mkosi.cache/*/cache/apk/u-boot-librem5-*.apk \
-        "$DURANIUM_DIR"/mkosi.packages/u-boot-librem5-*.apk 2>/dev/null | head -1 || true)
-    if [ -n "$UBOOT_APK" ]; then
-        PHONE_BOOT="$OUT_DIR_GLOB/phone-boot.img"
-        echo "==> extracting phone-boot.img from $(basename "$UBOOT_APK") to $PHONE_BOOT"
-        # apk packages are gzipped tarballs; -O streams the entry to stdout.
-        tar -xzOf "$UBOOT_APK" usr/share/u-boot/librem5/phone-boot.img > "$PHONE_BOOT" \
-            || { echo "warn: phone-boot.img not in apk — uuu flash will need manual UBOOT=" >&2; rm -f "$PHONE_BOOT"; }
-    else
-        echo "warn: u-boot-librem5 apk not found in mkosi cache; flash-librem5.sh emmc will need UBOOT= set" >&2
-    fi
-fi
+# Post-bake device-conditional extraction. Some flash flows need
+# artifacts the user shouldn't have to fish out of the .raw or apk
+# cache by hand; we drop them next to the .raw so the per-device
+# flash scripts can pick them up unambiguously.
+case "$MARATHON_TARGET_DEVICE" in
+    purism-librem5)
+        # uuu (SDP → Fastboot) needs phone-boot.img on the HOST to
+        # chainload u-boot into the phone's RAM before the eMMC is
+        # reachable. Source of truth: the u-boot-librem5 apk that
+        # mkosi already downloaded.
+        UBOOT_APK=$(ls -1t "$DURANIUM_DIR"/mkosi.cache/*/cache/apk/u-boot-librem5-*.apk \
+            "$DURANIUM_DIR"/mkosi.packages/u-boot-librem5-*.apk 2>/dev/null | head -1 || true)
+        if [ -n "$UBOOT_APK" ]; then
+            PHONE_BOOT="$OUT_DIR_GLOB/phone-boot.img"
+            echo "==> extracting phone-boot.img from $(basename "$UBOOT_APK") to $PHONE_BOOT"
+            # apk packages are gzipped tarballs; -O streams the entry to stdout.
+            tar -xzOf "$UBOOT_APK" usr/share/u-boot/librem5/phone-boot.img > "$PHONE_BOOT" \
+                || { echo "warn: phone-boot.img not in apk — uuu flash will need manual UBOOT=" >&2; rm -f "$PHONE_BOOT"; }
+        else
+            echo "warn: u-boot-librem5 apk not found in mkosi cache; flash-librem5.sh emmc will need UBOOT= set" >&2
+        fi
+        ;;
+    oneplus-enchilada)
+        # Duranium installs to a GPT inside the OP6's `userdata`
+        # partition. The Android `boot` partition gets a separate
+        # one-time-flash bootimg containing u-boot + initramfs +
+        # EFI-loader. boot-deploy ran during the rootfs bake (the
+        # device aport depends on mkbootimg + systemd-boot +
+        # deviceinfo_generate_bootimg=true) and dropped boot.img-<kver>
+        # under /boot/, which mkosi.repart's CopyFiles=/boot:/ landed
+        # at the ESP root. Extract it next to the .raw so
+        # flash-oneplus6.sh can pick it up without slicing the GPT
+        # image at flash time.
+        ESP_RAW=$(ls -1t "$OUT_DIR_GLOB"/${MARATHON_TARGET_DEVICE}_marathon_edge_*.esp.raw 2>/dev/null | head -1 || true)
+        if [ -n "$ESP_RAW" ]; then
+            if command -v mcopy >/dev/null; then
+                BOOT_IMG="$OUT_DIR_GLOB/boot.img"
+                # mcopy needs a target path that exists; -n overwrites.
+                if mcopy -n -i "$ESP_RAW" ::boot.img-\* "$BOOT_IMG" 2>/dev/null; then
+                    echo "==> extracted boot.img from $(basename "$ESP_RAW") to $BOOT_IMG"
+                else
+                    echo "warn: no boot.img-* in $(basename "$ESP_RAW"); flash-oneplus6.sh will need BOOT_IMG= set" >&2
+                    rm -f "$BOOT_IMG"
+                fi
+            else
+                echo "warn: mtools/mcopy not installed; cannot extract boot.img from ESP" >&2
+                echo "      install with: apt install mtools  |  dnf install mtools" >&2
+            fi
+        else
+            echo "warn: no *.esp.raw split artifact found (mkosi SplitArtifacts disabled?); cannot extract boot.img" >&2
+        fi
+        ;;
+esac
 
 # --boot / --verify only make sense for the QEMU target. Real
 # devices need flashing — see scripts/flash/flash-<device>.sh.
