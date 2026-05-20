@@ -44,8 +44,10 @@ cd /work/aports/marathon-plymouth-theme
 abuild -F checksum >/dev/null
 abuild -d -F
 
-# arch="noarch" → abuild output lives under aports/noarch.
-cp "/root/packages/aports/noarch/${TARGET}" "/out/${TARGET}"
+# abuild stages noarch packages under the build host's arch directory,
+# NOT aports/noarch — same as marathon-base-config (arch=all).
+ARCH_DIR="$(uname -m)"
+cp "/root/packages/aports/${ARCH_DIR}/${TARGET}" "/out/${TARGET}"
 echo "wrote /out/${TARGET}"
 CSCRIPT
 
