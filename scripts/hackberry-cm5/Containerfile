@@ -1,0 +1,35 @@
+# Marathon CM5 image-builder container.
+#
+# Wraps libguestfs (virt-customize + virt-resize + guestfish) so the
+# HOST doesn't need guestfs-tools installed. Podman runs this rootless
+# with /dev/kvm passed through; the user never types sudo, never
+# installs anything beyond what duranium already requires.
+#
+# Build once per host:
+#   podman build -t localhost/marathon-cm5-builder:latest \
+#       scripts/hackberry-cm5/
+# Subsequent builds reuse the cached image.
+
+FROM quay.io/fedora/fedora-minimal:42
+
+# guestfs-tools brings virt-customize, virt-resize, guestfish + the
+# libguestfs appliance (the tiny Linux VM that mounts disk images).
+# xz/curl for upstream RaspiOS extraction shouldn't be needed inside
+# the container (the orchestrator pre-stages the .img), but keep them
+# for parity with the host-side check.
+RUN microdnf install -y \
+        guestfs-tools \
+        xz \
+        curl \
+        ca-certificates \
+    && microdnf clean all \
+    && rm -rf /var/cache/dnf /var/cache/yum
+
+# Pre-create the appliance cache. libguestfs builds it on first run;
+# pre-warming here means the first marathon build doesn't pay the
+# ~1-minute appliance-init cost.
+ENV LIBGUESTFS_BACKEND=direct
+RUN libguestfs-test-tool --qemu /usr/bin/qemu-kvm 2>/dev/null || true
+
+WORKDIR /work
+ENTRYPOINT ["/bin/bash"]
