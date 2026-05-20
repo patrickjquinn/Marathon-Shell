@@ -41,9 +41,12 @@ if [ "$missing" = "1" ]; then
     cat >&2 <<EOF
 
 Install hints:
-  Fedora/RHEL:  sudo dnf install util-linux parted dosfstools e2fsprogs rsync xz curl systemd-container device-tree-compiler
-  Debian/Ubuntu: sudo apt install util-linux parted dosfstools e2fsprogs rsync xz-utils curl systemd-container device-tree-compiler
-  Alpine:        sudo apk add util-linux parted dosfstools e2fsprogs rsync xz curl systemd device-tree-compiler
+  Fedora/RHEL:   sudo dnf install util-linux parted dosfstools e2fsprogs rsync xz curl systemd-container dtc mtools
+  Debian/Ubuntu: sudo apt install util-linux parted dosfstools e2fsprogs rsync xz-utils curl systemd-container device-tree-compiler mtools
+  Alpine:        sudo apk add util-linux parted dosfstools e2fsprogs rsync xz curl systemd dtc mtools
+
+(Fedora calls the device-tree compiler 'dtc'; Debian calls it
+'device-tree-compiler'. Same binary either way.)
 
 Sudo is required for losetup + systemd-nspawn. The orchestrator will
 prompt when it needs it.
