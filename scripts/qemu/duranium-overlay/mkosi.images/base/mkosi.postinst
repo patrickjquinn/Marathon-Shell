@@ -61,7 +61,12 @@ FACTORY="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon-os"
 mkdir -p "$FACTORY"
 cat > "$FACTORY/Marathon Shell.conf" <<'EOF'
 [system]
-firstRunComplete=true
+# firstRunComplete=false so the OOBE PIN-setup wizard runs on first boot.
+# Marathon-Image does NOT pre-bake a Quick PIN (and the pmOS 'user' has
+# /etc/shadow locked '!' so PAM password fallback is unusable). Without
+# OOBE, the lock screen falls into PAM password mode and rejects every
+# input — diagnosed on real CM5 hardware 2026-05-20.
+firstRunComplete=false
 
 [apps]
 filterMobileFriendly=false

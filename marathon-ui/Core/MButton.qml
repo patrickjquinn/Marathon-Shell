@@ -61,6 +61,13 @@ Item {
     // that gives the primary variant its identity.
     property bool castGlow: true
 
+    // Optional text-color override. When unset (the default), the variant
+    // chooses the colour (black on primary gradient, error-red on danger,
+    // textPrimary elsewhere). Used by callers like the lock screen's
+    // Emergency button — semantically `ghost` (clickable text, no shell)
+    // but still wants the red E911 signifier from MColors.error.
+    property color textColor: "transparent"
+
     signal clicked
     signal pressed
     signal released
@@ -248,6 +255,10 @@ Item {
                 color: {
                     if (root.disabled)
                         return MColors.textHint;
+                    // Caller override wins when set (alpha=0 sentinel
+                    // means "use variant default").
+                    if (root.textColor.a > 0)
+                        return root.textColor;
                     if (root.isPrimary)
                         return "#000000";
                     if (root.variant === "danger")

@@ -593,8 +593,15 @@ if(HAVE_HUNSPELL)
     message(STATUS "Linking Hunspell to marathon-shell")
 endif()
 
-# Enable QML Debugging/Profiling
-target_compile_definitions(marathon-shell PRIVATE QT_QML_DEBUG)
+# Enable QML Debugging/Profiling — Debug builds only. QT_QML_DEBUG opens a
+# TCP debug port (off by default but the macro pulls in the QML profiler
+# runtime + emits "QML debugging is enabled. Only use this in a safe
+# environment." on every shell start) which is inappropriate for the
+# Marathon shell shipping in a production image.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(marathon-shell PRIVATE QT_QML_DEBUG)
+    message(STATUS "QML debugging enabled (Debug build)")
+endif()
 
 set_target_properties(marathon-shell PROPERTIES
     MACOSX_BUNDLE TRUE
