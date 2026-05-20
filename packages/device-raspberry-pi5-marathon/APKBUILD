@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / HackberryPi CM5 - Marathon OS Edition"
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -79,6 +79,21 @@ package() {
 	# panel + edt-ft5x06 touch + max17048 fuel gauge.
 	install -Dm644 "$srcdir/hackberrypi.dtbo" \
 		"$pkgdir/boot/overlays/hackberrypi.dtbo"
+
+	# Auto-load the MAX17040/MAX17048 fuel-gauge driver at boot. The
+	# kernel ships it as CONFIG_BATTERY_MAX17040=m and the dtoverlay
+	# declares the chip on i2c-1 @ 0x36, but the module isn't loaded
+	# by udev modalias matching alone in some pmOS configs. Forcing
+	# the load via modules-load.d guarantees /sys/class/power_supply/
+	# gets a battery entry that UPower picks up and Marathon shows
+	# in the status bar (was sitting at 0% because no power_supply
+	# node existed — diagnosed on real CM5 hardware 2026-05-20).
+	mkdir -p "$pkgdir/usr/lib/modules-load.d"
+	cat > "$pkgdir/usr/lib/modules-load.d/marathon-cm5-fuelgauge.conf" <<-EOF
+		# MAX17048 LiPo fuel-gauge on the Hackberry CM5 — i2c-1 @ 0x36.
+		# CONFIG_BATTERY_MAX17040=m in linux-rpi.
+		max17040_battery
+	EOF
 }
 
 sha512sums="
