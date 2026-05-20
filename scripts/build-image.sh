@@ -212,17 +212,58 @@ case "$MARATHON_TARGET_DEVICE" in
                 ESP_OFFSET_BYTES=$(( ESP_OFFSET_SECTORS * SECTOR_SIZE ))
                 # mtools uses image@@offset to scope to the FAT inside.
                 ESP_AT="$LATEST_IMG@@$ESP_OFFSET_BYTES"
-                # Promote /<device>/initrd (where mkosi dropped it) to
-                # /initramfs-rpi (where config.txt's `initramfs initramfs-rpi`
-                # line expects it).
-                if mdir -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" >/dev/null 2>&1; then
-                    TMP_INITRD=$(mktemp)
-                    mcopy -n -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" "$TMP_INITRD"
-                    mcopy -n -i "$ESP_AT" "$TMP_INITRD" '::initramfs-rpi'
-                    rm -f "$TMP_INITRD"
+                # Stitch base initrd + kernel-modules initrd. The standalone
+                # initrd.cpio.gz in the output dir is ONLY the base (systemd +
+                # generators + veritysetup + libs). mkosi packs the kernel-
+                # modules cpio archive into the UKI's .initrd section
+                # because systemd-stub concatenates them at boot — but on
+                # Pi 5 we don't go through the UKI, so we have to do the
+                # concatenation here. Without this, dm-verity (=m) is missing
+                # and verity composition fails with
+                # "Cannot use device verity for verification: Operation not
+                # supported" right after "Welcome to systemd!" — boot hangs.
+                #
+                # Linux supports concatenated initramfs natively: each piece
+                # can be gzip/xz/zstd or raw cpio. We gzip the modules cpio
+                # (gives ~10% size win) and append to the base.
+                BASE_INITRD="$OUT_DIR_GLOB/initrd.cpio.gz"
+                UKI_EFI=$(ls -1t "$OUT_DIR_GLOB"/base_*.efi 2>/dev/null | head -1)
+                STITCHED=$(mktemp --suffix=.initramfs)
+                if [ -f "$BASE_INITRD" ] && [ -n "$UKI_EFI" ] && [ -f "$UKI_EFI" ] && command -v objcopy >/dev/null; then
+                    MODULES_CPIO=$(mktemp --suffix=.cpio)
+                    # objcopy --dump-section writes to its first positional
+                    # arg AND requires an outfile; pass /dev/null and ignore
+                    # its "file truncated" warning on stderr.
+                    objcopy --dump-section ".initrd=$MODULES_CPIO" "$UKI_EFI" /dev/null 2>/dev/null
+                    if [ -s "$MODULES_CPIO" ]; then
+                        cat "$BASE_INITRD" <(gzip -c "$MODULES_CPIO") > "$STITCHED"
+                        BASE_SZ=$(stat -c%s "$BASE_INITRD")
+                        MOD_SZ=$(stat -c%s "$MODULES_CPIO")
+                        STITCH_SZ=$(stat -c%s "$STITCHED")
+                        echo "==> stitched base ($BASE_SZ B) + kernel modules ($MOD_SZ B raw) -> $STITCH_SZ B"
+                    else
+                        echo "warn: could not extract .initrd from $UKI_EFI; promoting base initrd alone (dm-verity will fail)" >&2
+                        cp "$BASE_INITRD" "$STITCHED"
+                    fi
+                    rm -f "$MODULES_CPIO"
+                elif mdir -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" >/dev/null 2>&1; then
+                    # Fallback: promote the in-ESP per-device initrd. Same
+                    # missing-modules bug as before but at least something.
+                    mcopy -n -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" "$STITCHED"
+                    echo "warn: stitching skipped (no UKI?); kernel modules will not be in initramfs" >&2
+                else
+                    echo "warn: no base initrd available — Pi firmware will fail to load initramfs" >&2
+                    rm -f "$STITCHED"; STITCHED=""
+                fi
+
+                if [ -n "${STITCHED:-}" ] && [ -f "$STITCHED" ]; then
+                    # Replace existing initramfs-rpi if present, then write.
+                    mdel -i "$ESP_AT" ::initramfs-rpi 2>/dev/null || true
+                    mcopy -n -i "$ESP_AT" "$STITCHED" '::initramfs-rpi'
+                    rm -f "$STITCHED"
                     INITRD_SIZE=$(mdir -i "$ESP_AT" '::initramfs-rpi' 2>/dev/null \
                         | awk '/initramfs-rpi/ {print $(NF-1); exit}')
-                    echo "==> promoted ESP initrd to root as initramfs-rpi (${INITRD_SIZE} bytes)"
+                    echo "==> wrote /initramfs-rpi to ESP ($INITRD_SIZE bytes)"
                 else
                     echo "warn: no $MARATHON_TARGET_DEVICE/initrd in ESP — Pi firmware will fail to load initramfs" >&2
                 fi
