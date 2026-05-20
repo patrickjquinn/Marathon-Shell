@@ -260,10 +260,15 @@ DROPIN
                 STITCHED=$(mktemp --suffix=.initramfs)
                 if [ -f "$BASE_INITRD" ] && [ -n "$UKI_EFI" ] && [ -f "$UKI_EFI" ] && command -v objcopy >/dev/null; then
                     MODULES_CPIO=$(mktemp --suffix=.cpio)
-                    # objcopy --dump-section writes to its first positional
-                    # arg AND requires an outfile; pass /dev/null and ignore
-                    # its "file truncated" warning on stderr.
-                    objcopy --dump-section ".initrd=$MODULES_CPIO" "$UKI_EFI" /dev/null 2>/dev/null
+                    # objcopy --dump-section writes the section to the first
+                    # positional arg, but also REQUIRES an outfile positional
+                    # arg for the (uncopied) PE rewrite. Passing /dev/null
+                    # works but objcopy emits "file truncated" on stderr AND
+                    # exits 1 — under set -e that kills the script. Use a
+                    # throwaway tempfile and discard it after.
+                    OBJCOPY_TRASH=$(mktemp --suffix=.efi-trash)
+                    objcopy --dump-section ".initrd=$MODULES_CPIO" "$UKI_EFI" "$OBJCOPY_TRASH" 2>/dev/null || true
+                    rm -f "$OBJCOPY_TRASH"
                     if [ -s "$MODULES_CPIO" ]; then
                         # Concatenate: base initramfs + kernel modules cpio.gz
                         # + the tiny repart drop-in cpio.gz (if produced).
@@ -337,7 +342,14 @@ DROPIN
                         # initramfs waiting for /dev/mapper/usr because we had this
                         # backwards.)
                         USRHASH="${USR_UUID}${VTY_UUID}"
-                        CMDLINE="console=tty1 console=serial0,115200 rw rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
+                        # consoleblank=0 stops the kernel from blanking the
+                        # framebuffer console after 10 min idle. Marathon's
+                        # DisplayPolicyController already manages screen-off
+                        # via KMS DPMS, but the kernel's tty1 blanker fights
+                        # it and can leave the panel powered-down even when
+                        # the shell wants it on (reported on Hackberry CM5
+                        # 2026-05-20).
+                        CMDLINE="console=tty1 console=serial0,115200 rw consoleblank=0 rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
                         TMP_CMDLINE=$(mktemp --suffix=.cmdline.txt)
                         printf '%s\n' "$CMDLINE" > "$TMP_CMDLINE"
                         mdel -i "$ESP_AT" ::cmdline.txt 2>/dev/null || true

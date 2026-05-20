@@ -138,7 +138,12 @@ static void         marathonMessageHandler(QtMsgType type, const QMessageLogCont
 
             msg.contains("libEGL warning: failed to get driver name for fd -1") ||
             msg.contains("MESA-LOADER: failed to retrieve device information") ||
-            msg.contains("Failed to initialize EGL display")) {
+            msg.contains("Failed to initialize EGL display") ||
+            // Qt6 prints this from libQt6Qml when the QML debugger code
+            // path is linked, regardless of whether the build defined
+            // QT_QML_DEBUG. It's noise in production. Filter unless the
+            // user explicitly asked for debug output via $MARATHON_DEBUG.
+            msg.contains("QML debugging is enabled")) {
             return;
         }
     }
