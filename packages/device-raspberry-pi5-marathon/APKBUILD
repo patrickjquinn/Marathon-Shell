@@ -1,8 +1,8 @@
 # Reference: <https://postmarketos.org/devicepkg>
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 
-pkgname=device-raspberry-pi5-hackberry-marathon
-pkgdesc="HackberryPi CM5 - Marathon OS Edition"
+pkgname=device-raspberry-pi5-marathon
+pkgdesc="Raspberry Pi 5 / HackberryPi CM5 - Marathon OS Edition"
 pkgver=1.0.0
 pkgrel=1
 url="https://github.com/patrickjquinn/Marathon-Image"
