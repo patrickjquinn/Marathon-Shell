@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 - Marathon OS Edition"
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -29,6 +29,8 @@ depends="
 	marathon-shell
 	marathon-base-config
 	marathon-boot-logo
+	marathon-plymouth-theme
+	plymouth
 	greetd
 	greetd-agreety
 	networkmanager

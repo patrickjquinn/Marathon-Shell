@@ -1,0 +1,40 @@
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+pkgname=marathon-plymouth-theme
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Marathon OS boot splash for plymouth"
+url="https://github.com/patrickjquinn/Marathon-Image"
+license="MIT"
+arch="noarch"
+options="!check"
+depends="plymouth"
+install="$pkgname.post-install $pkgname.post-upgrade"
+source="
+	marathon.plymouth
+	marathon.script
+	marathon-logo.png
+	progress-track.png
+	progress-fill.png
+	"
+
+package() {
+	# Install the theme files into plymouth's themes directory.
+	install -Dm644 "$srcdir/marathon.plymouth" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/marathon.plymouth"
+	install -Dm644 "$srcdir/marathon.script" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/marathon.script"
+	install -Dm644 "$srcdir/marathon-logo.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/marathon-logo.png"
+	install -Dm644 "$srcdir/progress-track.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/progress-track.png"
+	install -Dm644 "$srcdir/progress-fill.png" \
+		"$pkgdir/usr/share/plymouth/themes/marathon/progress-fill.png"
+}
+
+sha512sums="
+9f3b0121725bbf40cbe6288c6dd83807ea0175c3944694ac1bb01cb0e4d4aca67741a46664720aa55ae5d1ad0abbe8aeaa9502babef8e9d07495d91e0b48aebc  marathon.plymouth
+e3ca311ed0284111afbce1d743ef43924b4f60bf2882a16df8cbf2df0c859a7c368db5abc86641f45b5e95992a677ccec95597b488cc4b61faf07805fda59c97  marathon.script
+75a5743dde7657f139822146bd97f0b6b46bef91391c2ddeeadc62bef7f4dc8e8925a63d7ec1b795ebf3a752e05ed29ba8269c24a57794d9129cef4e93523796  marathon-logo.png
+2bc10ce1294e1f59519d640b210825cfd4201daa170a00d8f9e7ebfdaa69afafd861994e3631ebc2059ca7ec5d327361b9bc2b6c0f25b0632c6924a51f2b2656  progress-track.png
+c78ba5dabf8b5daf2399bdb3f7de48ace351e2263ce1477253c41051c4d377beacf680f5f2fb4d29c6f5c9cd4b9ad939f264ac9fc11031c0d061f327980eccf9  progress-fill.png
+"

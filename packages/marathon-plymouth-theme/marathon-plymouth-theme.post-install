@@ -1,0 +1,27 @@
+#!/bin/sh
+# Set Marathon as the default plymouth theme on first install. Rebuild
+# the initramfs so the theme actually appears at boot — plymouth ships
+# from initramfs, not the rootfs.
+set -e
+
+if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+    plymouth-set-default-theme -R marathon || \
+        plymouth-set-default-theme marathon || true
+fi
+
+# If plymouth-set-default-theme isn't installed or failed silently
+# (common in image-build chroots with no real kernel package), set the
+# symlink manually and mark the initramfs as needing a rebuild on
+# first boot.
+if [ ! -L /etc/alternatives/default.plymouth ] || \
+   ! readlink /etc/alternatives/default.plymouth | grep -q marathon; then
+    mkdir -p /etc/alternatives
+    ln -sf /usr/share/plymouth/themes/marathon/marathon.plymouth \
+        /etc/alternatives/default.plymouth
+fi
+
+# Mark a flag the first-boot service watches for, in case the chroot
+# couldn't rebuild the initramfs.
+touch /var/lib/marathon-plymouth-pending-initrd-rebuild
+
+exit 0

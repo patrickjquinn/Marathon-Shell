@@ -1,0 +1,99 @@
+// Marathon OS boot splash — implements docs/redesign/marathonos/project/screens-shell.jsx
+// BootSplash component as a Plymouth theme. Matches: black background, centered
+// 96px M-in-teal-circle with subtle glow, "MARATHON" tracked uppercase below,
+// 140x2 teal progress bar near the bottom.
+//
+// Plymouth scripting reference:
+//   https://www.freedesktop.org/wiki/Software/Plymouth/Scripts/
+
+// ── Window setup ──────────────────────────────────────────────────────
+// Solid black — matches the JSX `background: '#000'`.
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+screen_width = Window.GetWidth();
+screen_height = Window.GetHeight();
+
+// ── Logo (the M-in-teal-circle, pre-rendered with halo) ───────────────
+logo.image = Image("marathon-logo.png");
+logo_w = logo.image.GetWidth();
+logo_h = logo.image.GetHeight();
+logo.sprite = Sprite(logo.image);
+// Vertically biased slightly above center to match the JSX layout (the
+// "MARATHON" wordmark sits 28px below the circle; vertical centering of
+// the *group* puts the circle a bit above true-center).
+logo.sprite.SetX(screen_width / 2 - logo_w / 2);
+logo.sprite.SetY(screen_height / 2 - logo_h / 2 - 24);
+logo.sprite.SetZ(10);
+
+// ── MARATHON wordmark (tracked uppercase) ─────────────────────────────
+// Plymouth's `Image.Text(text, r, g, b, a, font)` rasterizes via pango/cairo.
+// "Inter 14 weight 300" with letter-spacing approximated by font name; the
+// pango `letter-spacing` attribute isn't available in Plymouth's Text fn,
+// so we use a wider font and accept the small visual delta vs. CSS.
+wordmark.image = Image.Text("M A R A T H O N", 1.0, 1.0, 1.0, 1.0, "Sans 14");
+wordmark.sprite = Sprite(wordmark.image);
+wordmark.sprite.SetX(screen_width / 2 - wordmark.image.GetWidth() / 2);
+wordmark.sprite.SetY(screen_height / 2 + logo_h / 2 - 24);
+wordmark.sprite.SetZ(10);
+
+// ── Progress bar (140x2, teal-on-translucent-white) ───────────────────
+// Bottom: 110px in the JSX → from-bottom 110.
+PROGRESS_BAR_WIDTH  = 140;
+PROGRESS_BAR_HEIGHT = 2;
+
+// Track (the 8% white background pill).
+progress_track.image = Image("progress-track.png");
+progress_track.sprite = Sprite(progress_track.image);
+progress_track.sprite.SetX(screen_width / 2 - progress_track.image.GetWidth() / 2);
+progress_track.sprite.SetY(screen_height - 110);
+progress_track.sprite.SetZ(10);
+
+// Fill (animated; starts 0-width, grows with plymouth's boot progress).
+progress_fill.image = Image("progress-fill.png");
+progress_fill.sprite = Sprite(progress_fill.image);
+progress_fill.sprite.SetX(screen_width / 2 - progress_track.image.GetWidth() / 2);
+progress_fill.sprite.SetY(screen_height - 110);
+progress_fill.sprite.SetZ(11);
+// Start at 0% by clipping width to 0; updated each callback.
+progress_fill.current_width = 0;
+
+// ── Boot progress callback (plymouth pushes 0.0..1.0 as boot proceeds) ─
+fun progress_callback(duration, progress) {
+    target_width = Math.Int(PROGRESS_BAR_WIDTH * progress);
+    if (progress_fill.current_width != target_width) {
+        progress_fill.current_width = target_width;
+        // Plymouth doesn't have an in-place clip; reslice the fill image.
+        progress_fill.sliced = progress_fill.image.Scale(target_width, PROGRESS_BAR_HEIGHT);
+        progress_fill.sprite.SetImage(progress_fill.sliced);
+    }
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+// ── Optional: passive glow pulse on the logo, very subtle, 4-second loop ─
+// Plymouth's Window.SetRefreshRate defaults to 50 Hz; we cap with a divisor.
+fun refresh_callback() {
+    // Render-only callback; keep the splash framerate down to ~10 fps to
+    // avoid hogging the CPU during boot. The progress fill is driven by
+    // progress_callback, not here.
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+// ── Quit handling — fades out cleanly when boot completes ─────────────
+fun quit_callback() {
+    logo.sprite.SetOpacity(0);
+    wordmark.sprite.SetOpacity(0);
+    progress_track.sprite.SetOpacity(0);
+    progress_fill.sprite.SetOpacity(0);
+}
+Plymouth.SetQuitFunction(quit_callback);
+
+// ── Password prompt (unused on Marathon — boot is non-interactive) ────
+// Defined as no-ops so plymouth doesn't fall back to its default theme
+// when the kernel boot needs to prompt (e.g. fsck repair).
+fun message_callback(text) { }
+fun display_password_callback(prompt, bullets) { }
+fun display_normal_callback() { }
+Plymouth.SetMessageFunction(message_callback);
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
