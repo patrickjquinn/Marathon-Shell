@@ -49,6 +49,15 @@ Item {
     property string passcodeError: ""
     property bool passcodeSkipped: false
 
+    // Compact OOBE layout for short / square screens (e.g. HyperPixel 4.0
+    // Square 720×720 on the Hackberry CM5). At physical DPI 254 the DS-
+    // canvas scaleFactor lands around 1.6×, and 220 sf reserved at the
+    // bottom + 180 sf hero image + status bar overflowed the 720 px
+    // panel — the logo+title got clipped on first boot.
+    readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
+    readonly property real swipeBottomMargin: compactLayout ? 140 : 220
+    readonly property real heroImageBlockSize: compactLayout ? 100 : 180
+
     signal setupComplete
 
     anchors.fill: parent
@@ -116,7 +125,7 @@ Item {
         // touchTargetMedium ~70sf), the page-indicator row, the nav bar, plus
         // margins. The old 170sf was tight at any scale and clipped cards on
         // Gestures / Time & Date / Passcode at high DPI.
-        anchors.bottomMargin: Math.round(220 * Constants.scaleFactor)
+        anchors.bottomMargin: Math.round(oobeRoot.swipeBottomMargin * Constants.scaleFactor)
         currentIndex: oobeRoot.currentPage
         interactive: false
         clip: true
@@ -129,11 +138,11 @@ Item {
 
                 Item {
                     width: parent.width
-                    height: Math.round(180 * Constants.scaleFactor)
+                    height: Math.round(oobeRoot.heroImageBlockSize * Constants.scaleFactor)
 
                     Image {
                         anchors.centerIn: parent
-                        width: Math.min(parent.width * 0.45, Math.round(180 * Constants.scaleFactor))
+                        width: Math.min(parent.width * 0.45, Math.round(oobeRoot.heroImageBlockSize * Constants.scaleFactor))
                         height: width
                         source: "qrc:/images/marathon.png"
                         sourceSize: Qt.size(width, height)
@@ -959,17 +968,12 @@ Item {
                     spacing: MSpacing.md
                     topPadding: MSpacing.lg
 
-                    MButton {
-                        text: "Skip for now"
-                        variant: "default"
-                        onClicked: {
-                            oobeRoot.passcodeSkipped = true;
-                            oobeRoot.newPasscode = "";
-                            oobeRoot.confirmPasscode = "";
-                            oobeRoot.passcodeError = "";
-                            oobeRoot.currentPage++;
-                        }
-                    }
+                    // "Skip for now" intentionally removed: the user has no
+                    // PAM password to fall back on (pmOS_root /etc/shadow
+                    // ships with the account locked '!'), so skipping
+                    // produces an unusable lock screen. The Skip button in
+                    // the top-right is also hidden from page 5 onward for
+                    // the same reason — Passcode setup is mandatory.
 
                     MButton {
                         text: "Set passcode"
@@ -1139,7 +1143,12 @@ Item {
         anchors.rightMargin: MSpacing.xl
         text: "Skip"
         variant: "default"
-        visible: oobeRoot.currentPage < oobeRoot.pages.length - 1
+        // Skip is only meaningful for early informational steps. The
+        // Passcode page needs to complete (the user has no PAM password to
+        // fall back on — pmOS_root /etc/shadow ships with the account
+        // locked '!'), so hide Skip from page 5 (Passcode) onward. Also
+        // hide on page 6 (Done) since that has its own Get Started action.
+        visible: oobeRoot.currentPage < 5
         z: 200
         onClicked: {
             SettingsManagerCpp.firstRunComplete = true;
