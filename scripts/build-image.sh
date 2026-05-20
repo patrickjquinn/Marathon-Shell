@@ -264,6 +264,43 @@ case "$MARATHON_TARGET_DEVICE" in
                     INITRD_SIZE=$(mdir -i "$ESP_AT" '::initramfs-rpi' 2>/dev/null \
                         | awk '/initramfs-rpi/ {print $(NF-1); exit}')
                     echo "==> wrote /initramfs-rpi to ESP ($INITRD_SIZE bytes)"
+
+                    # Rewrite cmdline.txt with the bits the Pi-firmware boot
+                    # chain needs to actually reach Marathon. Two findings
+                    # from QEMU validation (commit history for details):
+                    #
+                    # 1. duranium's mount-subpartitions.service is OP6-only
+                    #    (it parses the LoaderDevicePartUUID EFI variable
+                    #    set by systemd-boot, which Pi firmware doesn't
+                    #    provide). Without masking, the service fails and
+                    #    OnFailure=emergency.target stops the boot.
+                    #
+                    # 2. systemd-veritysetup-generator needs an explicit
+                    #    usrhash= on cmdline when there's no
+                    #    LoaderDevicePartUUID — otherwise it can't locate
+                    #    the verity pair on disk. The hash is the two
+                    #    discoverable-partition UUIDs concatenated, per
+                    #    the discoverable-partitions spec.
+                    VTY_UUID=$(sfdisk -d "$LATEST_IMG" \
+                        | grep -iE 'usr-verity|6E11A4E7-FBCA-4DED' \
+                        | sed -E 's/.*uuid=([0-9a-fA-F-]+).*/\1/' \
+                        | tr '[:upper:]' '[:lower:]' | tr -d '-')
+                    USR_UUID=$(sfdisk -d "$LATEST_IMG" \
+                        | grep -iE 'B0E01050-EE5F-4390-949A-9101B17104E9' \
+                        | sed -E 's/.*uuid=([0-9a-fA-F-]+).*/\1/' \
+                        | tr '[:upper:]' '[:lower:]' | tr -d '-')
+                    if [ -n "$VTY_UUID" ] && [ -n "$USR_UUID" ]; then
+                        USRHASH="${VTY_UUID}${USR_UUID}"
+                        CMDLINE="console=tty1 console=serial0,115200 rw rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service usrhash=${USRHASH}"
+                        TMP_CMDLINE=$(mktemp --suffix=.cmdline.txt)
+                        printf '%s\n' "$CMDLINE" > "$TMP_CMDLINE"
+                        mdel -i "$ESP_AT" ::cmdline.txt 2>/dev/null || true
+                        mcopy -n -i "$ESP_AT" "$TMP_CMDLINE" '::cmdline.txt'
+                        rm -f "$TMP_CMDLINE"
+                        echo "==> wrote /cmdline.txt with usrhash=${USRHASH:0:16}…"
+                    else
+                        echo "warn: could not extract verity partition UUIDs from $LATEST_IMG; cmdline.txt unchanged (verity will not compose)" >&2
+                    fi
                 else
                     echo "warn: no $MARATHON_TARGET_DEVICE/initrd in ESP — Pi firmware will fail to load initramfs" >&2
                 fi
