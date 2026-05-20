@@ -16,6 +16,19 @@ Item {
     property bool biometricInProgress: false
     property bool authenticating: false
 
+    // Compact layout for short/square screens (e.g. HyperPixel 4.0 Square
+    // 720×720 on the Hackberry CM5). The DS-canvas (390×844) keypad with
+    // 70 px buttons overflows the vertical axis when scaleFactor is driven
+    // by physical DPI (≈1.6×) on a screen that's only 720 px tall. Detect
+    // via Constants.isSquareScreen + a height-based fallback and shrink
+    // the keypad to fit.
+    readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
+    readonly property real keyButtonSize: compactLayout ? 54 : 70
+    readonly property real keyCellPadding: compactLayout ? 6 : 12
+    readonly property real keypadRowSpacing: compactLayout ? 6 : 12
+    readonly property real keypadColumnSpacing: compactLayout ? 12 : 16
+    readonly property real columnSpacing: compactLayout ? 14 : 24
+
     signal pinCorrect
     signal cancelled
 
@@ -231,8 +244,8 @@ Item {
 
     Column {
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: Math.round(-20 * Constants.scaleFactor)
-        spacing: Math.round(24 * Constants.scaleFactor)
+        anchors.verticalCenterOffset: pinScreen.compactLayout ? 0 : Math.round(-20 * Constants.scaleFactor)
+        spacing: Math.round(pinScreen.columnSpacing * Constants.scaleFactor)
         z: 100
         layer.enabled: true
         layer.smooth: true
@@ -398,8 +411,8 @@ Item {
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
-                columnSpacing: Math.round(16 * Constants.scaleFactor)
-                rowSpacing: Math.round(12 * Constants.scaleFactor)
+                columnSpacing: Math.round(pinScreen.keypadColumnSpacing * Constants.scaleFactor)
+                rowSpacing: Math.round(pinScreen.keypadRowSpacing * Constants.scaleFactor)
                 layer.enabled: true
                 layer.smooth: true
 
@@ -410,14 +423,14 @@ Item {
                         required property string modelData
                         property string digit: modelData
 
-                        width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                        height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                        width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                        height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                         MCircularIconButton {
                             anchors.centerIn: parent
                             text: digit
-                            iconSize: Math.round(28 * Constants.scaleFactor)
-                            buttonSize: Math.round(70 * Constants.scaleFactor)
+                            iconSize: Math.round((pinScreen.compactLayout ? 22 : 28) * Constants.scaleFactor)
+                            buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: {
@@ -431,17 +444,17 @@ Item {
 
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Math.round(16 * Constants.scaleFactor)
+                spacing: Math.round(pinScreen.keypadColumnSpacing * Constants.scaleFactor)
 
                 Item {
-                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                    height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "keyboard"
-                        iconSize: Math.round(24 * Constants.scaleFactor)
-                        buttonSize: Math.round(70 * Constants.scaleFactor)
+                        iconSize: Math.round((pinScreen.compactLayout ? 20 : 24) * Constants.scaleFactor)
+                        buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
                         variant: "secondary"
                         visible: !passwordMode
                         onClicked: {
@@ -452,14 +465,14 @@ Item {
                 }
 
                 Item {
-                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                    height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
                         anchors.centerIn: parent
                         text: "0"
-                        iconSize: Math.round(28 * Constants.scaleFactor)
-                        buttonSize: Math.round(70 * Constants.scaleFactor)
+                        iconSize: Math.round((pinScreen.compactLayout ? 22 : 28) * Constants.scaleFactor)
+                        buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
                         variant: "secondary"
                         textColor: MColors.textPrimary
                         onClicked: {
@@ -470,14 +483,14 @@ Item {
                 }
 
                 Item {
-                    width: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
-                    height: Math.round(70 * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
+                    width: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
+                    height: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor) + Math.round(pinScreen.keyCellPadding * Constants.scaleFactor)
 
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "delete"
-                        iconSize: Math.round(24 * Constants.scaleFactor)
-                        buttonSize: Math.round(70 * Constants.scaleFactor)
+                        iconSize: Math.round((pinScreen.compactLayout ? 20 : 24) * Constants.scaleFactor)
+                        buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
                         variant: "secondary"
                         iconColor: MColors.textSecondary
                         onClicked: {
@@ -589,6 +602,11 @@ Item {
                     width: (parent.width - parent.spacing) / 2
                     text: "Unlock"
                     variant: "primary"
+                    // castGlow: false to match PermissionDialog's Allow button
+                    // styling (per design — primary actions inside narrow
+                    // surfaces opt out of the cast-down halo since it would
+                    // leak past the rounded edge).
+                    castGlow: false
                     enabled: !authenticating
                     onClicked: verifyPasswordInput()
                 }
@@ -609,34 +627,16 @@ Item {
             }
         }
 
-        Text {
+        // Cancel — uses MButton variant="ghost" per the DS rule that all
+        // clickable buttons use the common UI component (was Text+MouseArea).
+        MButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Cancel"
-            color: MColors.textSecondary
-            font.pixelSize: Math.round(16 * Constants.scaleFactor)
-            font.weight: Font.Medium
-            opacity: cancelMouseArea.pressed ? 0.5 : 0.8
-            renderType: Text.NativeRendering
-            // Accessibility: announce as cancel-button so screen readers can find it.
-            Accessible.name: "Cancel"
-            Accessible.role: Accessible.Button
-            Accessible.onPressAction: cancelMouseArea.clicked(null)
-
-            MouseArea {
-                id: cancelMouseArea
-
-                anchors.fill: parent
-                anchors.margins: Math.round(-16 * Constants.scaleFactor)
-                onClicked: {
-                    HapticManager.light();
-                    cancelled();
-                }
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 80
-                }
+            variant: "ghost"
+            textColor: MColors.textSecondary
+            onClicked: {
+                HapticManager.light();
+                cancelled();
             }
         }
 
@@ -644,35 +644,18 @@ Item {
         // without authentication (FCC E911 / EU Article 109). Launches the
         // phone app in --emergency-only mode; the modem itself enforces
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
-        Text {
+        // Uses MButton ghost variant (DS: all clickable buttons go through
+        // the common control); textColor=MColors.error keeps the red
+        // E911 signifier without re-implementing a button shell.
+        MButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Emergency"
-            color: MColors.error
-            font.pixelSize: Math.round(16 * Constants.scaleFactor)
-            font.weight: Font.Bold
-            opacity: emergencyMouseArea.pressed ? 0.5 : 0.9
-            renderType: Text.NativeRendering
-            Accessible.name: "Emergency call"
-            Accessible.description: "Place an emergency call without unlocking"
-            Accessible.role: Accessible.Button
-            Accessible.onPressAction: emergencyMouseArea.clicked(null)
-
-            MouseArea {
-                id: emergencyMouseArea
-
-                anchors.fill: parent
-                anchors.margins: Math.round(-16 * Constants.scaleFactor)
-                onClicked: {
-                    HapticManager.medium();
-                    Logger.info("PinScreen", "Emergency dial requested from lock screen");
-                    AppLifecycleManager.launchAppWithRoute("phone", "/emergency", "{}");
-                }
-            }
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 80
-                }
+            variant: "ghost"
+            textColor: MColors.error
+            onClicked: {
+                HapticManager.medium();
+                Logger.info("PinScreen", "Emergency dial requested from lock screen");
+                AppLifecycleManager.launchAppWithRoute("phone", "/emergency", "{}");
             }
         }
     }
