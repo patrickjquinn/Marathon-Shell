@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Marathon boot splash — design spec at docs/redesign/marathonos/project/screens-shell.jsx:10-49
+  (function BootSplash). Black background, centered M-in-teal-circle with glow,
+  "MARATHON" tracked-uppercase below, 140x2 teal progress bar near the bottom.
+  The progress bar's filled portion is shown at 60% as a frozen reference;
+  the actual boot-time animation is driven by plymouth's marathon.script.
+  Canvas: 720x720 — matches HackberryPi CM5 native panel. Plymouth scales
+  for other resolutions.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="720" viewBox="0 0 720 720">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1de9b6"/>
+      <stop offset="100%" stop-color="#00bfa5"/>
+    </linearGradient>
+    <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1de9b6"/>
+      <stop offset="100%" stop-color="#00bfa5"/>
+    </linearGradient>
+    <radialGradient id="logoGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="rgba(0,191,165,0.45)"/>
+      <stop offset="70%" stop-color="rgba(0,191,165,0.18)"/>
+      <stop offset="100%" stop-color="rgba(0,191,165,0)"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Black background -->
+  <rect width="720" height="720" fill="#000000"/>
+
+  <!-- Glow halo — 40px feathered around the circle -->
+  <circle cx="360" cy="338" r="88" fill="url(#logoGlow)"/>
+
+  <!-- 96px circle with inner highlight + 1px white-15% border -->
+  <circle cx="360" cy="338" r="48" fill="url(#logoGradient)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+  <!-- Inset highlight: 0 1px 0 rgba(255,255,255,0.3) — top inner edge -->
+  <path d="M 312 338 A 48 48 0 0 1 408 338" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+
+  <!-- M glyph centered in circle — SVG path from BootSplash: scaled to fit 28x28 inside 48x48 circle -->
+  <g transform="translate(332,310) scale(0.5)">
+    <path d="M10 44V14h6l12 18 12-18h6v30h-6V24L28 40 16 24v20z" fill="#000000"/>
+  </g>
+
+  <!-- "MARATHON" tracked uppercase: 14px font-size + 6px letter-spacing, weight 300, white.
+       The original JSX is `letterSpacing: 6, fontSize: 14, fontWeight: 300`. With letter-spacing 6
+       in real CSS that's ~6 absolute px; rendered as SVG text we use 'letter-spacing' attribute. -->
+  <text x="360" y="438" text-anchor="middle"
+        font-family="Inter, Helvetica, Arial, sans-serif"
+        font-size="14" font-weight="300"
+        letter-spacing="6"
+        fill="#ffffff">MARATHON</text>
+
+  <!-- Progress track: 140x2, near-black background; bottom: 110px → y = 720-110-1 = 609 -->
+  <rect x="290" y="609" width="140" height="2" fill="rgba(255,255,255,0.08)" rx="1"/>
+  <!-- Progress fill: 60% snapshot — for plymouth's static-spec PNG reference only.
+       The marathon.script overrides this with real time-based progress. -->
+  <rect x="290" y="609" width="84" height="2" fill="url(#progressGradient)" rx="1"/>
+</svg>

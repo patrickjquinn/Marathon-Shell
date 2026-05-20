@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Marathon
+Description=Marathon OS boot splash — design at docs/redesign/marathonos/project/screens-shell.jsx (BootSplash).
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/marathon
+ScriptFile=/usr/share/plymouth/themes/marathon/marathon.script

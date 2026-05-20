@@ -1,11 +1,17 @@
 #!/bin/sh
 # Marathon Shell Wayland Session Startup Script
+#
+# Launched by greetd auto-login as user `pi`. Marathon-shell is its
+# own Wayland compositor — it binds /run/user/$UID/marathon-wayland-0
+# directly via QtWaylandCompositor and runs on top of eglfs (raw
+# KMS/DRM, no nested compositor).
 
-# Save original display state
+# Save original display state (used to detect if we're running nested,
+# e.g. under another Wayland compositor for dev testing).
 ORIGINAL_WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
 ORIGINAL_DISPLAY="$DISPLAY"
 
-# Set session name
+# Session identity
 export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=marathon
 export XDG_CURRENT_DESKTOP=marathon
@@ -15,17 +21,23 @@ export MARATHON_PREFIX=/usr
 export MARATHON_APPS_DIR=~/.local/share/marathon-apps
 export MARATHON_DATA_DIR="${MARATHON_DATA_DIR:-$MARATHON_PREFIX/share/marathon-shell}"
 
-# Qt/QML environment
+# Qt/QML environment — RaspiOS Bookworm puts Qt6 modules under the
+# Debian multiarch path /usr/lib/aarch64-linux-gnu/qt6/qml. Marathon's
+# `ninja install` with PREFIX=/usr also lands its qml there. Both the
+# multiarch path AND the legacy /usr/lib/qt6/qml are in QML_IMPORT_PATH
+# so any package layout works.
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export QT_QUICK_CONTROLS_STYLE=Basic
-export QML_IMPORT_PATH=/usr/local/lib/qt6/qml:/usr/lib/qt6/qml:/usr/lib/qml:$QML_IMPORT_PATH
-export QML2_IMPORT_PATH=/usr/local/lib/qt6/qml:/usr/lib/qt6/qml:/usr/lib/qml:$QML2_IMPORT_PATH
+export QML_IMPORT_PATH=/usr/lib/aarch64-linux-gnu/qt6/qml:/usr/lib/qt6/qml:/usr/local/lib/qt6/qml:$QML_IMPORT_PATH
+export QML2_IMPORT_PATH="$QML_IMPORT_PATH"
 
-# Enable QML disk cache
+# QML disk cache — first launch warms it, subsequent ones reuse.
 export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
 mkdir -p "$QT_QML_DISK_CACHE_PATH"
 
-# Display scaling
+# Display scaling — Marathon's Constants.qml computes scaleFactor from
+# ScreenMetricsCpp, which derives from QScreen. Leave Qt's auto-scaling
+# off and let Marathon do it.
 export QT_SCALE_FACTOR=1
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 export QT_SCREEN_SCALE_FACTORS=1
@@ -46,25 +58,25 @@ export QT_LOGGING_RULES="*.warning=true;marathon.*.info=true"
 export QML_DISABLE_DISK_CACHE=0
 export QML_FORCE_DISK_CACHE=1
 
-# Accessibility
+# Accessibility — disable AT-SPI bridge to cut startup chatter we don't
+# need on a phone form factor.
 export NO_AT_BRIDGE=1
 export GTK_A11Y=none
 export QT_ACCESSIBILITY=0
 
-# GIO/GSettings
+# GIO/GSettings — keep memory-only backends so we don't pull in dconf.
 export GIO_USE_VFS=local
 export GSETTINGS_BACKEND=memory
 
-# Start the compositor
+# Start the compositor.
+LOG=/tmp/marathon-shell.log
 if [ -n "$ORIGINAL_WAYLAND_DISPLAY" ] || [ -n "$ORIGINAL_DISPLAY" ]; then
-    # Running nested - use wayland client  
-    exec /usr/bin/marathon-shell-bin -platform wayland --fullscreen "$@"
+    # Running nested under another compositor — dev / debugging path.
+    exec /usr/bin/marathon-shell-bin -platform wayland --fullscreen "$@" 2>"$LOG"
 else
-    # Running as primary compositor
-    # Try linuxfb first (software rendering, fewer permissions needed)
-    # Fall back to eglfs if that doesn't work
-    /usr/bin/marathon-shell-bin -platform eglfs "$@" 2>/tmp/marathon-linuxfb.log
-    if [ $? -ne 0 ]; then
-        exec /usr/bin/marathon-shell-bin -platform eglfs "$@"
-    fi
+    # Running as primary compositor on bare KMS/DRM via eglfs.
+    # `kms` backend is the v3d KMS driver on Pi 5/CM5.
+    export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
+    export QT_QPA_EGLFS_KMS_ATOMIC=1
+    exec /usr/bin/marathon-shell-bin -platform eglfs "$@" 2>"$LOG"
 fi
