@@ -25,7 +25,6 @@ depends="
 	device-raspberry-pi5
 	marathon-shell
 	marathon-base-config
-	marathon-boot-logo
 	marathon-plymouth-theme
 	plymouth
 	greetd
