@@ -382,7 +382,12 @@ DROPIN
                         # it and can leave the panel powered-down even when
                         # the shell wants it on (reported on Hackberry CM5
                         # 2026-05-20).
-                        CMDLINE="console=tty1 console=serial0,115200 rw consoleblank=0 rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
+                        # quiet+splash hand the framebuffer to plymouth so
+                        # the Marathon boot logo replaces the kernel-log
+                        # scroll. plymouth.ignore-serial-consoles leaves
+                        # the serial console available for debug while
+                        # plymouth still owns the tty1 framebuffer.
+                        CMDLINE="console=tty1 console=serial0,115200 rw quiet splash plymouth.ignore-serial-consoles consoleblank=0 rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
                         TMP_CMDLINE=$(mktemp --suffix=.cmdline.txt)
                         printf '%s\n' "$CMDLINE" > "$TMP_CMDLINE"
                         mdel -i "$ESP_AT" ::cmdline.txt 2>/dev/null || true
