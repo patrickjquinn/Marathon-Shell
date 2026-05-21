@@ -131,25 +131,29 @@ Item {
         clip: true
 
         Item {
-            // Welcome page — matches docs/redesign/marathonos/project/
-            // screens-apps-2.jsx OOBELanguage/OOBEWifi pattern: a
-            // contextual icon (48 px, teal-bright) above a big title
-            // (Title-L weight 200) and a 14 px secondary body. The
-            // hero Marathon logo is replaced by the icon to align
-            // with every other OOBE page in the new design.
+            // Welcome page — Marathon product mark above the canonical
+            // Title-1 weight-200 heading. The product mark is the
+            // identity moment; no contextual Lucide icon (sparkles is
+            // banned; every other OOBE page uses its own domain icon
+            // but page 1 IS the brand).
             Column {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.topMargin: Math.round(50 * Constants.scaleFactor)
+                anchors.topMargin: Math.round(oobeRoot.compactLayout ? 36 : 60 * Constants.scaleFactor)
                 anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
                 anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
                 spacing: Math.round(18 * Constants.scaleFactor)
 
-                Icon {
-                    name: "sparkles"
-                    size: Math.round(48 * Constants.scaleFactor)
-                    color: MColors.marathonTealBright
+                Image {
+                    source: "qrc:/images/marathon.png"
+                    width: Math.round((oobeRoot.compactLayout ? 56 : 72) * Constants.scaleFactor)
+                    height: width
+                    sourceSize: Qt.size(width, height)
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    mipmap: true
+                    cache: true
                 }
 
                 Text {
