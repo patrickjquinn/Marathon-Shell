@@ -35,7 +35,12 @@ MApp {
     id: emailApp
 
     readonly property var mail: typeof MailService !== "undefined" ? MailService : null
-    readonly property bool serviceAvailable: mail !== null
+    // QMF backend bootstrapped successfully. mail.accounts is null when
+    // MailService's ctor couldn't reach QMailStore (first boot before
+    // messageserver inits, missing storage dir, etc.) — treat as
+    // unavailable and show the service-unavailable state instead of
+    // touching the dead backend and crashing.
+    readonly property bool serviceAvailable: mail !== null && mail.accounts !== null
 
     Rectangle {
         anchors.fill: parent

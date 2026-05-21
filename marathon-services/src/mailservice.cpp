@@ -161,16 +161,30 @@ class MailMessageListProxy : public QAbstractListModel {
 
 MailService::MailService(QObject *parent)
     : QObject(parent)
-    , m_accountsModel(new QMailAccountListModel(this))
+    , m_accountsModel(nullptr)
     , m_messagesModel(nullptr) {
 
-    // Configure the account list: enabled + user-visible accounts only.
+    // Bootstrap QMF — QMailStore::instance() is the runtime entry point.
+    // On a fresh first boot the store directory may not exist yet, or
+    // libQmfClient could fail to load credentials plugins; we don't
+    // want to segfault the runner constructing an account-list model
+    // against a half-initialised QMF. Probe first, only allocate the
+    // QMF-backed models if the store is alive.
+    auto *store = QMailStore::instance();
+    if (!store) {
+        qWarning() << "[MailService] QMailStore::instance() returned null —"
+                   << "QMF runtime not initialised. Mail will run in "
+                   << "service-unavailable mode until next launch.";
+        m_syncState = QStringLiteral("offline");
+        m_lastError = QStringLiteral("Mail backend unavailable");
+        return;
+    }
+
+    m_accountsModel = new QMailAccountListModel(this);
     m_accountsModel->setKey(
         QMailAccountKey::status(QMailAccount::Enabled, QMailDataComparator::Includes));
 
-    // Hook QMF's account events so QML's accounts property auto-refreshes.
-    auto *store = QMailStore::instance();
-    if (store) {
+    {
         connect(store, &QMailStore::accountsAdded, this, [this](const auto &ids) {
             (void)ids;
             emit currentAccountChanged();
