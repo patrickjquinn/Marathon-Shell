@@ -13,12 +13,6 @@ Item {
     property alias appWindowContainer: appWindowContainer
     property bool showPinScreen: false
     property bool isTransitioningToActiveFrames: false
-    // True while the Active Frames task switcher overlay is on screen
-    // (post-minimise-animation). Separate from isTransitioningToActiveFrames
-    // which only covers the snap-into-grid animation itself — that one
-    // resets on animation end, this one stays true until the user picks
-    // an app or dismisses.
-    property bool taskSwitcherActive: false
     property int currentPage: 0
     property int totalPages: 1
     property var pendingNotification: null
@@ -857,28 +851,12 @@ Item {
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
-                    taskSwitcherActive: shell.taskSwitcherActive || shell.isTransitioningToActiveFrames
                     onAppLaunched: app => {
                         AppLaunchService.launchApp(app, compositor, appWindow);
                     }
                     onPageNavigationRequested: page => {
                         Logger.info("BottomBar", "Navigation requested to page: " + page);
                         pageView.navigateToPage(page);
-                    }
-                    onTaskSwitcherRequested: {
-                        Logger.info("BottomBar", "Task switcher requested via dot tap");
-                        if (UIStore.appWindowOpen) {
-                            AppLifecycleManager.minimizeForegroundApp();
-                            shell.isTransitioningToActiveFrames = true;
-                            snapIntoGridAnimation.startWithVelocity(-1500);
-                        } else {
-                            // No app to minimise; the snap animation has
-                            // nothing to drive. Show the switcher
-                            // directly — it'll render TaskModel's existing
-                            // entries (background apps) or the empty
-                            // state.
-                            shell.taskSwitcherActive = true;
-                        }
                     }
                 }
             }
@@ -962,8 +940,8 @@ Item {
             Logger.gesture("NavBar", "shortSwipeUp", {
                 "target": "home"
             });
-            // index 0 = Hub, index 1 = first app-grid page (the home).
-            pageView.currentIndex = 1;
+            // Hub=0, Frames=1, AppGrid pages start at index 2 (home).
+            pageView.currentIndex = 2;
             Router.goToAppPage(0);
         }
         onLongSwipeUp: {
@@ -989,12 +967,9 @@ Item {
                 shell.isTransitioningToActiveFrames = true;
                 snapIntoGridAnimation.startWithVelocity(-1500);
             } else {
-                // No app to minimise — show the switcher directly. It
-                // renders TaskModel entries (background apps still alive)
-                // or the empty state when the task list is genuinely
-                // empty.
-                Logger.info("NavBar", "Long swipe up with no app open — show task switcher overlay");
-                shell.taskSwitcherActive = true;
+                Logger.info("NavBar", "No app open - just navigating to task switcher");
+                pageView.currentIndex = 1;
+                Router.goToFrames();
             }
             Logger.info("NavBar", "------- LONG SWIPE UP COMPLETE -------");
         }
@@ -1342,12 +1317,7 @@ Item {
                 UIStore.minimizeSettings();
             else if (UIStore.appWindowOpen)
                 UIStore.minimizeApp();
-            // Don't drop isTransitioningToActiveFrames here — that flag
-            // also gates MarathonTaskSwitcher visibility (and the
-            // appWindowContainer-as-thumbnail compositing). The task
-            // switcher stays open until the user picks an app or
-            // dismisses; see taskSwitcher.onDismissed / onSwitchTo.
-            shell.taskSwitcherActive = true;
+            shell.isTransitioningToActiveFrames = false;
         }
 
         NumberAnimation {
@@ -1368,31 +1338,6 @@ Item {
             to: 1
             duration: 300
             easing.type: Easing.OutCubic
-        }
-    }
-
-    MarathonTaskSwitcher {
-        id: taskSwitcher
-
-        active: shell.taskSwitcherActive
-        onSwitchTo: appId => {
-            Logger.info("Shell", "TaskSwitcher: switching to " + appId);
-            shell.taskSwitcherActive = false;
-            // Bring the chosen app to the foreground. AppLifecycleManager
-            // handles re-attaching its surface from backgroundAppsContainer
-            // back into appWindowContainer.
-            AppLifecycleManager.bringToForeground(appId);
-        }
-        onCloseApp: appId => {
-            Logger.info("Shell", "TaskSwitcher: closing " + appId);
-            // Surface a close into the runner. The runner exits + emits
-            // pid-exit; AppLaunchService cleans the task entry.
-            AppLifecycleManager.closeApp(appId);
-        }
-        onDismissed: {
-            Logger.info("Shell", "TaskSwitcher dismissed → home");
-            shell.taskSwitcherActive = false;
-            Router.goToAppPage(0);
         }
     }
 
