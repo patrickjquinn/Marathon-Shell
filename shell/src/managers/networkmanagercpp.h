@@ -127,21 +127,27 @@ class NetworkManagerCpp : public QObject {
     bool            m_wifiEnabled;
     bool            m_wifiConnected;
     QString         m_wifiSsid;
-    int             m_wifiSignalStrength;
-    bool            m_ethernetConnected;
-    QString         m_ethernetConnectionName;
-    QString         m_activeWifiDevicePath;
-    QString         m_activeApPath;
-    bool            m_bluetoothEnabled;
-    bool            m_airplaneModeEnabled;
-    bool            m_wifiAvailable;
-    bool            m_bluetoothAvailable;
-    bool            m_hasNetworkManager;
-    QVariantList    m_availableNetworks;
-    QString         m_wifiDevicePath;
-    QTimer         *m_scanTimer;
-    QString         m_hotspotConnectionPath;
-    bool            m_hotspotActive;
+    // SSID we last asked NetworkManager to activate but haven't yet seen
+    // come online via PropertiesChanged. Used to fire connectionSuccess
+    // on real activation rather than the eager AddAndActivateConnection
+    // reply — without that gating the WiFi password dialog dismisses
+    // before authentication completes.
+    QString      m_pendingConnectSsid;
+    int          m_wifiSignalStrength;
+    bool         m_ethernetConnected;
+    QString      m_ethernetConnectionName;
+    QString      m_activeWifiDevicePath;
+    QString      m_activeApPath;
+    bool         m_bluetoothEnabled;
+    bool         m_airplaneModeEnabled;
+    bool         m_wifiAvailable;
+    bool         m_bluetoothAvailable;
+    bool         m_hasNetworkManager;
+    QVariantList m_availableNetworks;
+    QString      m_wifiDevicePath;
+    QTimer      *m_scanTimer;
+    QString      m_hotspotConnectionPath;
+    bool         m_hotspotActive;
 };
 
 #endif
