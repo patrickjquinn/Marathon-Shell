@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-plymouth-theme
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Marathon OS boot splash for plymouth"
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
@@ -30,26 +30,17 @@ package() {
 	install -Dm644 "$srcdir/progress-fill.png" \
 		"$pkgdir/usr/share/plymouth/themes/marathon/progress-fill.png"
 
-	# Force the default theme to "marathon" by writing
-	# /usr/share/plymouth/plymouthd.defaults — Plymouth's last-resort
-	# default selection. On duranium /etc lives on a data partition
-	# created at first boot by systemd-repart, AFTER plymouth has
-	# already run; the post-install /etc symlink doesn't survive.
-	# /usr is verity-mounted before plymouth starts so this works on
-	# first boot.
-	install -d "$pkgdir/usr/share/plymouth"
-	cat > "$pkgdir/usr/share/plymouth/plymouthd.defaults" <<-EOF
-		[Daemon]
-		Theme=marathon
-		ShowDelay=0
-		DeviceTimeout=8
-	EOF
-	chmod 644 "$pkgdir/usr/share/plymouth/plymouthd.defaults"
-
-	# Belt-and-braces: also ship /usr/share/factory/etc/plymouth/
-	# plymouthd.conf so once /etc is provisioned the explicit user
-	# config matches. The duranium base shell already runs
-	# systemd-tmpfiles which copies factory tree into /etc.
+	# Ship /usr/share/factory/etc/plymouth/plymouthd.conf with
+	# Theme=marathon. duranium's base systemd-tmpfiles ruleset copies
+	# the factory tree into /etc on first boot before user-facing
+	# services start, giving Plymouth the explicit override in the
+	# /etc location it reads first.
+	#
+	# We can't overwrite /usr/share/plymouth/plymouthd.defaults — the
+	# upstream plymouth apk owns it. The cmdline.txt `plymouth.splash=
+	# marathon` override (set in scripts/build-image.sh) covers the
+	# very-first-boot case where plymouth-start may run before
+	# systemd-tmpfiles-setup.
 	install -d "$pkgdir/usr/share/factory/etc/plymouth"
 	cat > "$pkgdir/usr/share/factory/etc/plymouth/plymouthd.conf" <<-EOF
 		[Daemon]
