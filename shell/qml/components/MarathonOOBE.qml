@@ -968,13 +968,6 @@ Item {
                     spacing: MSpacing.md
                     topPadding: MSpacing.lg
 
-                    // "Skip for now" intentionally removed: the user has no
-                    // PAM password to fall back on (pmOS_root /etc/shadow
-                    // ships with the account locked '!'), so skipping
-                    // produces an unusable lock screen. The Skip button in
-                    // the top-right is also hidden from page 5 onward for
-                    // the same reason — Passcode setup is mandatory.
-
                     MButton {
                         text: "Set passcode"
                         variant: "primary"
