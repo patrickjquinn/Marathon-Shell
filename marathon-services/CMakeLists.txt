@@ -11,8 +11,13 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS Core DBus Sql Gui Multimedia Network Xm
 # don't have it; in that case we skip Mail-related build entirely and the
 # Mail app surfaces its "service unavailable" state at runtime. The build
 # never fails for lack of Mail support — auto-detect.
-find_library(QMF_CLIENT_LIB        QmfClient)
-find_library(QMF_MESSAGESERVER_LIB QmfMessageServer)
+#
+# Library naming: upstream QMF 4.0 ships the Qt6 build with a `-qt6` SONAME
+# suffix (libQmfClient-qt6.so.6) to coexist with the legacy Qt5 build on
+# distros that still package both. find_library tries both spellings; the
+# qt6-suffixed name wins on Duranium/Alpine.
+find_library(QMF_CLIENT_LIB        NAMES QmfClient-qt6 QmfClient)
+find_library(QMF_MESSAGESERVER_LIB NAMES QmfMessageServer-qt6 QmfMessageServer)
 find_path   (QMF_CLIENT_INCLUDE    qmailstore.h        PATH_SUFFIXES qt6/QmfClient)
 find_path   (QMF_MS_INCLUDE        qmailcredentials.h  PATH_SUFFIXES qt6/QmfMessageServer)
 if(QMF_CLIENT_LIB AND QMF_CLIENT_INCLUDE)
