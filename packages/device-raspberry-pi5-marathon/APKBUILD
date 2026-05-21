@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / HackberryPi CM5 - Marathon OS Edition"
 pkgver=1.0.0
-pkgrel=4
+pkgrel=5
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -104,6 +104,6 @@ package() {
 sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-2379995b05f0254f9bb0a41e5b927e4c035743608ff0f40746b018a7cc3bf7e02808411bfa91c2b734cd96e44bff54a6530ff52c79116d82ccd1e415ca756702  usercfg.txt
+c2b2f4a11c2aef1276336fa77f4f5049ae63abb4ace0c921c19b1ed7c186b408ae170c6f6ca9b12715765aa8d89ebd39f18d9c703c1259ddcb878820a2df301d  usercfg.txt
 de7bc200a19810d9f003a63a61cd9c3a57b025a8d54d65b530d5687d431d3f1c7a16da923ce0417acef289d8ee70f6863164222dd6f67c8ad503c75258ddb94e  hackberrypi.dtbo
 "
