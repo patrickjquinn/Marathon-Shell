@@ -386,15 +386,14 @@ DROPIN
                         # the Marathon boot logo replaces the kernel-log
                         # scroll. plymouth.ignore-serial-consoles leaves
                         # the serial console available for debug while
-                        # plymouth still owns the tty1 framebuffer.
-                        # plymouth.splash=marathon forces the Marathon
-                        # theme on the very first boot — /etc/plymouth/
-                        # plymouthd.conf is provisioned by tmpfiles AFTER
-                        # plymouth has already started, so without this
-                        # the first boot would fall back to whatever
-                        # /usr/share/plymouth/plymouthd.defaults points
-                        # at (pmOS's green-triangle default).
-                        CMDLINE="console=tty1 console=serial0,115200 rw quiet splash plymouth.ignore-serial-consoles plymouth.splash=marathon consoleblank=0 rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
+                        # plymouth still owns the tty1 framebuffer. The
+                        # theme is selected by /usr/share/plymouth/
+                        # plymouthd.defaults (shipped by marathon-
+                        # plymouth-theme apk, which overrides plymouth's
+                        # own copy via apk replaces=plymouth) — there is
+                        # NO plymouth.splash= cmdline arg, plymouth
+                        # never reads such a thing.
+                        CMDLINE="console=tty1 console=serial0,115200 rw quiet splash plymouth.ignore-serial-consoles consoleblank=0 rd.systemd.mask=mount-subpartitions.service systemd.mask=mount-subpartitions.service rd.systemd.mask=systemd-cryptsetup@pmOS_root.service systemd.mask=systemd-cryptsetup@pmOS_root.service usrhash=${USRHASH}"
                         TMP_CMDLINE=$(mktemp --suffix=.cmdline.txt)
                         printf '%s\n' "$CMDLINE" > "$TMP_CMDLINE"
                         mdel -i "$ESP_AT" ::cmdline.txt 2>/dev/null || true
