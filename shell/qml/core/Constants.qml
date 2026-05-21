@@ -69,9 +69,16 @@ QtObject {
     readonly property int commitThreshold: 100
     // Marathon DS 2026: 28px status bar, 96px top bar, 70px tab bar,
     // 64px dock, 36px Now Bar. See docs/redesign/ANALYSIS.md §4.
+    //
+    // On short/square panels (HyperPixel 4.0 Square 720×720 on Hackberry
+    // CM5) the DPI-driven scaleFactor lands around 1.6×; without a
+    // compact override the 64+70 px dock chrome consumed ~30% of the
+    // 720 px panel. compactLayout drops the base 64/70 to 48/56 so the
+    // dock keeps a tappable height (still ≥ Apple HIG 44pt @1×) without
+    // eating the rest of the screen.
     readonly property real statusBarHeight: Math.round(28 * scaleFactor)
-    readonly property real navBarHeight: Math.round(64 * scaleFactor)
-    readonly property real bottomBarHeight: Math.round(70 * scaleFactor)
+    readonly property real navBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 48 : 64) * scaleFactor)
+    readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 56 : 70) * scaleFactor)
     readonly property real safeAreaTop: statusBarHeight
     readonly property real safeAreaBottom: navBarHeight
     readonly property real safeAreaLeft: 0
