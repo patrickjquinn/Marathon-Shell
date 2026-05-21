@@ -25,8 +25,8 @@ find_package(QmfMessageServer QUIET)
 if(NOT QmfMessageServer_FOUND)
     # Fall back to manual library + header discovery for Alpine where
     # the upstream CMake config file isn't always shipped in qmf-dev.
-    find_library(QMF_MESSAGESERVER_LIB QmfMessageServer)
-    find_library(QMF_CLIENT_LIB        QmfClient)
+    find_library(QMF_MESSAGESERVER_LIB NAMES QmfMessageServer-qt6 QmfMessageServer)
+    find_library(QMF_CLIENT_LIB        NAMES QmfClient-qt6 QmfClient)
     find_path(QMF_MESSAGESERVER_INCLUDE qmailcredentials.h
               PATH_SUFFIXES qt6/QmfMessageServer)
     if(NOT QMF_MESSAGESERVER_LIB OR NOT QMF_MESSAGESERVER_INCLUDE)
