@@ -602,11 +602,6 @@ Item {
                     width: (parent.width - parent.spacing) / 2
                     text: "Unlock"
                     variant: "primary"
-                    // castGlow: false to match PermissionDialog's Allow button
-                    // styling (per design — primary actions inside narrow
-                    // surfaces opt out of the cast-down halo since it would
-                    // leak past the rounded edge).
-                    castGlow: false
                     enabled: !authenticating
                     onClicked: verifyPasswordInput()
                 }
@@ -627,8 +622,6 @@ Item {
             }
         }
 
-        // Cancel — uses MButton variant="ghost" per the DS rule that all
-        // clickable buttons use the common UI component (was Text+MouseArea).
         MButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Cancel"
@@ -640,13 +633,10 @@ Item {
             }
         }
 
-        // Emergency dial -- required to be reachable from the lock screen
+        // Emergency dial — required to be reachable from the lock screen
         // without authentication (FCC E911 / EU Article 109). Launches the
         // phone app in --emergency-only mode; the modem itself enforces
         // which numbers are allowed (3GPP TS 22.101 + SIM EF_ECC).
-        // Uses MButton ghost variant (DS: all clickable buttons go through
-        // the common control); textColor=MColors.error keeps the red
-        // E911 signifier without re-implementing a button shell.
         MButton {
             anchors.horizontalCenter: parent.horizontalCenter
             text: "Emergency"

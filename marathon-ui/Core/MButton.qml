@@ -51,13 +51,11 @@ Item {
     property bool disabled: false
     property string state: "default"          // "default" | "loading" | "success"
 
-    // Cast-down glow defaults to OFF after extensive on-hardware feedback:
-    // the FBO halo leaked past rounded parents (modals, narrow list rows,
-    // OOBE/WiFi/Lock primary buttons) creating the visual the user kept
-    // flagging as "overglow". Primary identity is carried by the teal
-    // gradient + double-ring edge + top hairline alone. Callers that
-    // genuinely need the halo (large hero CTAs with plenty of breathing
-    // room around them) can opt in with `castGlow: true`.
+    // Cast-down glow is opt-in. Qt's MultiEffect renders the halo to an
+    // FBO whose composite geometry ignores ancestor clip, so the 24 px DS
+    // reach leaks past rounded parents (modals, narrow list rows). Primary
+    // identity is carried by the teal gradient + double-ring edge + top
+    // hairline; the halo is decoration for large hero CTAs only.
     property bool castGlow: false
 
     // Optional text-color override. When unset (the default), the variant
