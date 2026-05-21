@@ -294,8 +294,17 @@ Rectangle {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
                 var threshold = UIStore.shellRef ? (UIStore.shellRef as MarathonShell).quickSettingsThreshold : 400;
+                // Dismiss on any of: explicit upward fling (velocity < -500),
+                // sub-threshold panel height after drag, OR a deliberate
+                // upward swipe of ≥40 px while QS is open. The third case
+                // is the user's documented "swipe-up-from-nav-bar dismisses
+                // QS" gesture — the previous logic missed it because diffY
+                // alone wasn't checked and slow-but-confident swipes have
+                // velocity in the -200..-400 range, well above the fling
+                // cutoff.
                 var isFlingUp = velocityY < -500;
-                if (isFlingUp || UIStore.quickSettingsHeight < threshold)
+                var isDeliberateSwipeUp = UIStore.quickSettingsOpen && diffY > 40;
+                if (isFlingUp || isDeliberateSwipeUp || UIStore.quickSettingsHeight < threshold)
                     UIStore.closeQuickSettings();
                 else
                     UIStore.openQuickSettings();

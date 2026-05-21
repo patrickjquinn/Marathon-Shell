@@ -173,15 +173,20 @@ bool AppLifecycleManager::handleSystemBack() {
     if (m_foregroundAppId.isEmpty())
         return false;
 
+    // Marathon apps launch as a separate marathon-app-runner process; the
+    // shell does NOT hold a QObject for them in m_appRegistry (the MApp
+    // root lives in the runner). Route the back gesture over DBus to the
+    // runner first — its app-side MAppRouter pops the nav stack if it has
+    // depth, or surfaces an unhandled response so we can minimise the app.
+    if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId))
+        return m_appLaunchService->sendBackToRunner(m_foregroundAppId);
+
     QObject *app = m_appRegistry.value(m_foregroundAppId);
     if (!app)
         return false;
 
     const bool isNative = app->property("isNative").toBool();
     if (isNative) {
-        if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
-            return m_appLaunchService->sendBackToRunner(m_foregroundAppId);
-        }
         QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
         if (compositor) {
             if (invokeInjectKey(compositor, 0x01000000, 0, true) &&
@@ -201,15 +206,17 @@ bool AppLifecycleManager::handleSystemForward() {
     if (m_foregroundAppId.isEmpty())
         return false;
 
+    // Marathon apps live in marathon-app-runner; route forward via DBus
+    // before consulting the local m_appRegistry. See handleSystemBack().
+    if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId))
+        return m_appLaunchService->sendForwardToRunner(m_foregroundAppId);
+
     QObject *app = m_appRegistry.value(m_foregroundAppId);
     if (!app)
         return false;
 
     const bool isNative = app->property("isNative").toBool();
     if (isNative) {
-        if (m_appLaunchService && m_appLaunchService->isMarathonAppId(m_foregroundAppId)) {
-            return m_appLaunchService->sendForwardToRunner(m_foregroundAppId);
-        }
         QObject *compositor = m_appLaunchService ? m_appLaunchService->compositor() : nullptr;
         if (compositor) {
             if (invokeInjectKey(compositor, 0x01000014, 0x08000000, true) &&
