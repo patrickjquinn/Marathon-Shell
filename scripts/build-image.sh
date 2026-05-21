@@ -274,6 +274,54 @@ DROPIN
                     rm -rf "$REPART_FIX_DIR"
                 fi
 
+                # Plymouth-marathon overlay cpio. The base initramfs from
+                # pmaports ships /usr/share/plymouth/plymouthd.defaults with
+                # Theme=pmos-spin baked in, and only carries pmos-pulse +
+                # pmos-spin themes. plymouthd starts from the initramfs
+                # BEFORE /usr (verity) is mounted, so its theme resolution
+                # uses the initramfs's own /usr/share — the rootfs marathon-
+                # plymouth-theme apk is never consulted on first frame.
+                #
+                # The fix is the same concatenation trick we use for the
+                # repart drop-in: build a tiny cpio that overrides the
+                # plymouthd.defaults + ships the marathon theme tree, and
+                # tack it onto the end of the stitched initramfs. Linux's
+                # concatenated-initramfs format lets later entries shadow
+                # earlier ones, so our plymouthd.defaults wins.
+                PLYMOUTH_FIX_CPIO=""
+                PLYMOUTH_THEME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/../Marathon-Image/packages/marathon-plymouth-theme"
+                if [ -d "$PLYMOUTH_THEME_DIR" ] && [ -f "$PLYMOUTH_THEME_DIR/marathon.plymouth" ]; then
+                    PLYMOUTH_FIX_DIR=$(mktemp -d --suffix=.plymouth-fix)
+                    if [ -n "$PLYMOUTH_FIX_DIR" ]; then
+                        mkdir -p "$PLYMOUTH_FIX_DIR/usr/share/plymouth/themes/marathon"
+                        install -m 644 "$PLYMOUTH_THEME_DIR/marathon.plymouth" \
+                            "$PLYMOUTH_FIX_DIR/usr/share/plymouth/themes/marathon/"
+                        install -m 644 "$PLYMOUTH_THEME_DIR/marathon.script" \
+                            "$PLYMOUTH_FIX_DIR/usr/share/plymouth/themes/marathon/"
+                        install -m 644 "$PLYMOUTH_THEME_DIR/marathon-logo.png" \
+                            "$PLYMOUTH_FIX_DIR/usr/share/plymouth/themes/marathon/"
+                        install -m 644 "$PLYMOUTH_THEME_DIR/progress-track.png" \
+                            "$PLYMOUTH_FIX_DIR/usr/share/plymouth/themes/marathon/"
+                        install -m 644 "$PLYMOUTH_THEME_DIR/progress-fill.png" \
+                            "$PLYMOUTH_FIX_DIR/usr/share/plymouth/themes/marathon/"
+                        cat > "$PLYMOUTH_FIX_DIR/usr/share/plymouth/plymouthd.defaults" <<'PLYDEF'
+[Daemon]
+Theme=marathon
+ShowDelay=0
+DeviceTimeout=8
+DeviceScale=1.0
+PLYDEF
+
+                        PLYMOUTH_FIX_CPIO=$(mktemp --suffix=.cpio.gz)
+                        (cd "$PLYMOUTH_FIX_DIR" && find usr -print0 \
+                            | cpio -o --null -H newc 2>/dev/null \
+                            | gzip -c) > "$PLYMOUTH_FIX_CPIO"
+                        rm -rf "$PLYMOUTH_FIX_DIR"
+                        PLY_FIX_SZ=$(stat -c%s "$PLYMOUTH_FIX_CPIO")
+                        echo "==> built plymouth-overlay cpio ($PLY_FIX_SZ B)"
+                    fi
+                fi
+
                 # Stitch base initrd + kernel-modules initrd. The standalone
                 # initrd.cpio.gz in the output dir is ONLY the base (systemd +
                 # generators + veritysetup + libs). mkosi packs the kernel-
@@ -304,23 +352,30 @@ DROPIN
                     rm -f "$OBJCOPY_TRASH"
                     if [ -s "$MODULES_CPIO" ]; then
                         # Concatenate: base initramfs + kernel modules cpio.gz
-                        # + the tiny repart drop-in cpio.gz (if produced).
+                        # + the tiny repart drop-in cpio.gz (if produced)
+                        # + the marathon plymouth-theme overlay cpio.gz.
                         # Linux kernel handles concatenated initramfs natively
                         # — each piece can be independently compressed and
-                        # unpacks in order.
+                        # unpacks in order, with later entries shadowing
+                        # earlier ones. Plymouth-overlay goes LAST so its
+                        # plymouthd.defaults wins over the pmaports default.
+                        CAT_ARGS=("$BASE_INITRD" <(gzip -c "$MODULES_CPIO"))
+                        STITCH_LABEL="base ($(stat -c%s "$BASE_INITRD") B) + modules ($(stat -c%s "$MODULES_CPIO") B raw)"
                         if [ -n "${REPART_FIX_CPIO:-}" ] && [ -s "$REPART_FIX_CPIO" ]; then
-                            cat "$BASE_INITRD" <(gzip -c "$MODULES_CPIO") "$REPART_FIX_CPIO" > "$STITCHED"
-                            REPART_SZ=$(stat -c%s "$REPART_FIX_CPIO")
-                            echo "==> stitched base ($(stat -c%s "$BASE_INITRD") B) + modules ($(stat -c%s "$MODULES_CPIO") B raw) + repart-fix ($REPART_SZ B) -> $(stat -c%s "$STITCHED") B"
-                        else
-                            cat "$BASE_INITRD" <(gzip -c "$MODULES_CPIO") > "$STITCHED"
-                            echo "==> stitched base ($(stat -c%s "$BASE_INITRD") B) + modules ($(stat -c%s "$MODULES_CPIO") B raw) -> $(stat -c%s "$STITCHED") B"
+                            CAT_ARGS+=("$REPART_FIX_CPIO")
+                            STITCH_LABEL+=" + repart-fix ($(stat -c%s "$REPART_FIX_CPIO") B)"
                         fi
+                        if [ -n "${PLYMOUTH_FIX_CPIO:-}" ] && [ -s "$PLYMOUTH_FIX_CPIO" ]; then
+                            CAT_ARGS+=("$PLYMOUTH_FIX_CPIO")
+                            STITCH_LABEL+=" + plymouth-marathon ($(stat -c%s "$PLYMOUTH_FIX_CPIO") B)"
+                        fi
+                        cat "${CAT_ARGS[@]}" > "$STITCHED"
+                        echo "==> stitched $STITCH_LABEL -> $(stat -c%s "$STITCHED") B"
                     else
                         echo "warn: could not extract .initrd from $UKI_EFI; promoting base initrd alone (dm-verity will fail)" >&2
                         cp "$BASE_INITRD" "$STITCHED"
                     fi
-                    rm -f "$MODULES_CPIO" "${REPART_FIX_CPIO:-}"
+                    rm -f "$MODULES_CPIO" "${REPART_FIX_CPIO:-}" "${PLYMOUTH_FIX_CPIO:-}"
                 elif mdir -i "$ESP_AT" "::$MARATHON_TARGET_DEVICE/initrd" >/dev/null 2>&1; then
                     # Fallback: promote the in-ESP per-device initrd. Same
                     # missing-modules bug as before but at least something.
