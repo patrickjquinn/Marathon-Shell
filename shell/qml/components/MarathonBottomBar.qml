@@ -11,16 +11,8 @@ Item {
     property bool showNotifications: currentPage >= 0
     property bool showPageIndicators: true
 
-    // taskSwitcherActive lets the layers indicator render in its "active"
-    // visual state while the task switcher overlay is on screen. Active
-    // Frames isn't a paginated page (gesture-only), so it can't be
-    // expressed via currentPage — the shell drives this flag from
-    // shell.isTransitioningToActiveFrames.
-    property bool taskSwitcherActive: false
-
     signal appLaunched(var app)
     signal pageNavigationRequested(int page)
-    signal taskSwitcherRequested
 
     height: Constants.bottomBarHeight
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
@@ -116,7 +108,7 @@ Item {
         Rectangle {
             id: hubIndicator
 
-            readonly property bool isActive: bottomBar.currentPage === -1
+            readonly property bool isActive: bottomBar.currentPage === -2
 
             width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
@@ -134,7 +126,7 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: bottomBar.pageNavigationRequested(-1)
+                onClicked: bottomBar.pageNavigationRequested(-2)
             }
 
             Behavior on width {
@@ -156,13 +148,12 @@ Item {
             }
         }
 
-        // Task switcher (Active Frames) tap target. Not a paginated page —
-        // gesture-driven — so the active state mirrors the shell's
-        // taskSwitcherActive flag rather than currentPage.
+        // Frames (Active Frames task switcher) page indicator. Lights up
+        // when on the task-switcher page; tap navigates there.
         Rectangle {
             id: framesIndicator
 
-            readonly property bool isActive: bottomBar.taskSwitcherActive
+            readonly property bool isActive: bottomBar.currentPage === -1
 
             width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
@@ -179,7 +170,7 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: bottomBar.taskSwitcherRequested()
+                onClicked: bottomBar.pageNavigationRequested(-1)
             }
 
             Behavior on width {

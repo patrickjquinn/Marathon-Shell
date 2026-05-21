@@ -1,293 +1,214 @@
-import MarathonOS.Shell 1.0
 import MarathonUI.Core
 import MarathonUI.Theme
+import MarathonOS.Shell 1.0
 import QtQuick
 
-// Marathon Active Frames task switcher.
-//
-// Replaces the deleted MarathonActiveFramesHome.qml's "switcher" mode
-// with a focused, gesture-only overlay. Bound to TaskModel — each
-// running app shows as a card; tap to switch, X to close, tap the
-// scrim or swipe down to dismiss.
-//
-// Visibility is driven by the shell (`active` property). The shell
-// shows this when long-swipe-up fires with at least one running app;
-// long-swipe-up with zero tasks is a no-op per the gesture handler.
 Item {
-    id: switcher
+    id: taskSwitcher
 
-    property bool active: false
+    readonly property bool haveWayland: HAVE_WAYLAND
+    property real searchPullProgress: 0
+    property bool searchGestureActive: false
+    property var compositor: null
 
-    signal switchTo(string appId)
-    signal closeApp(string appId)
-    signal dismissed
+    signal closed
+    signal taskSelected(var task)
+    signal pullDownToSearch
 
-    anchors.fill: parent
-    visible: opacity > 0.001
-    opacity: active ? 1 : 0
-    z: Constants.zIndexTaskSwitcher
+    scale: visible ? 1 : 0.95
 
-    Behavior on opacity {
-        NumberAnimation {
-            duration: MMotion.quick
-            easing.type: Easing.OutCubic
-        }
-    }
+    MouseArea {
+        property real startX: 0
+        property real startY: 0
+        property real currentY: 0
+        property bool isDragging: false
+        property bool isVertical: false
+        readonly property real pullThreshold: 100
+        readonly property real commitThreshold: 0.35
 
-    // Scrim — dim the wallpaper below, tap to dismiss.
-    Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.55)
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: switcher.dismissed()
+        enabled: TaskModel.taskCount === 0
+        z: 2
+        onPressed: function (mouse) {
+            startX = mouse.x;
+            startY = mouse.y;
+            currentY = mouse.y;
+            isDragging = false;
+            isVertical = false;
+            taskSwitcher.searchGestureActive = false;
         }
-    }
-
-    // Header — page title + count.
-    Item {
-        id: header
-
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.topMargin: Constants.statusBarHeight + Math.round(20 * Constants.scaleFactor)
-        height: Math.round(40 * Constants.scaleFactor)
-
-        Text {
-            anchors.left: parent.left
-            anchors.leftMargin: Math.round(20 * Constants.scaleFactor)
-            anchors.verticalCenter: parent.verticalCenter
-            text: "Active Frames"
-            color: MColors.textPrimary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeTitle3
-            font.weight: MTypography.weightExtraLight
-            font.letterSpacing: MTypography.trackingTitle3
-        }
-
-        Text {
-            anchors.right: parent.right
-            anchors.rightMargin: Math.round(20 * Constants.scaleFactor)
-            anchors.verticalCenter: parent.verticalCenter
-            text: TaskModel.taskCount + (TaskModel.taskCount === 1 ? " app" : " apps")
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
-        }
-    }
-
-    // 2×N grid of running apps.
-    Flickable {
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: header.bottom
-        anchors.bottom: parent.bottom
-        anchors.topMargin: Math.round(8 * Constants.scaleFactor)
-        anchors.bottomMargin: Constants.navBarHeight + Math.round(16 * Constants.scaleFactor)
-        contentHeight: grid.implicitHeight + Math.round(40 * Constants.scaleFactor)
-        clip: true
-
-        Grid {
-            id: grid
-
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: Math.round(16 * Constants.scaleFactor)
-            anchors.rightMargin: Math.round(16 * Constants.scaleFactor)
-            columns: 2
-            columnSpacing: Math.round(12 * Constants.scaleFactor)
-            rowSpacing: Math.round(12 * Constants.scaleFactor)
-
-            readonly property real cellWidth: (width - columnSpacing) / 2
-            readonly property real cellHeight: Math.round(cellWidth * 1.35)
-
-            Repeater {
-                model: TaskModel
-
-                Rectangle {
-                    id: card
-
-                    required property int index
-                    required property string appId
-                    required property string title
-                    required property string icon
-
-                    width: grid.cellWidth
-                    height: grid.cellHeight
-                    radius: MRadius.lg
-                    color: MColors.surface
-                    border.width: 1
-                    border.color: MColors.borderSubtle
-                    clip: true
-                    scale: cardSwipe.pressed ? 0.97 : 1
-
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: MMotion.micro
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-
-                    // Header — icon, app name, close button.
-                    Item {
-                        id: cardHeader
-
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Math.round(8 * Constants.scaleFactor)
-                        height: Math.round(28 * Constants.scaleFactor)
-
-                        Rectangle {
-                            id: iconChip
-
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.height
-                            height: parent.height
-                            radius: MRadius.sm
-                            color: MColors.whiteOverlay08
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: card.icon || "square"
-                                size: Math.round(14 * Constants.scaleFactor)
-                                color: MColors.textPrimary
-                            }
-                        }
-
-                        Text {
-                            anchors.left: iconChip.right
-                            anchors.leftMargin: Math.round(8 * Constants.scaleFactor)
-                            anchors.right: closeBtn.left
-                            anchors.rightMargin: Math.round(8 * Constants.scaleFactor)
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: card.title || card.appId
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
-                            font.weight: MTypography.weightMedium
-                            elide: Text.ElideRight
-                        }
-
-                        Rectangle {
-                            id: closeBtn
-
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.height
-                            height: parent.height
-                            radius: width / 2
-                            color: closeMouseArea.pressed ? MColors.whiteOverlay16 : MColors.whiteOverlay08
-
-                            Icon {
-                                anchors.centerIn: parent
-                                name: "x"
-                                size: Math.round(12 * Constants.scaleFactor)
-                                color: MColors.textPrimary
-                            }
-
-                            MouseArea {
-                                id: closeMouseArea
-
-                                anchors.fill: parent
-                                onClicked: {
-                                    HapticManager.light();
-                                    switcher.closeApp(card.appId);
-                                }
-                            }
-                        }
-                    }
-
-                    // Preview area — placeholder tint plus the app icon
-                    // as a watermark. Wayland live-surface thumbnails are
-                    // a follow-up (TaskModel.SnapshotRole isn't yet
-                    // wired for native runner apps).
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: cardHeader.bottom
-                        anchors.bottom: parent.bottom
-                        anchors.margins: Math.round(8 * Constants.scaleFactor)
-                        radius: MRadius.md
-                        color: MColors.elev1
-
-                        Icon {
-                            anchors.centerIn: parent
-                            name: card.icon || "layout-grid"
-                            size: Math.round(44 * Constants.scaleFactor)
-                            color: MColors.textTertiary
-                            opacity: 0.4
-                        }
-                    }
-
-                    // Swipe-up-to-close gesture, plus tap-to-switch.
-                    MouseArea {
-                        id: cardSwipe
-
-                        property real startY: 0
-                        property real currentY: 0
-                        property bool swipedClose: false
-
-                        anchors.fill: parent
-                        preventStealing: false
-                        onPressed: function (mouse) {
-                            startY = mouse.y;
-                            currentY = mouse.y;
-                            swipedClose = false;
-                        }
-                        onPositionChanged: function (mouse) {
-                            currentY = mouse.y;
-                            const dy = startY - currentY;
-                            if (dy > Math.round(80 * Constants.scaleFactor) && !swipedClose) {
-                                swipedClose = true;
-                                HapticManager.medium();
-                                switcher.closeApp(card.appId);
-                            }
-                        }
-                        onClicked: {
-                            if (swipedClose)
-                                return;
-                            HapticManager.light();
-                            switcher.switchTo(card.appId);
-                        }
+        onPositionChanged: function (mouse) {
+            if (pressed && !isDragging && !isVertical) {
+                var deltaX = Math.abs(mouse.x - startX);
+                var deltaY = mouse.y - startY;
+                if (deltaX > 10 || Math.abs(deltaY) > 10) {
+                    if (Math.abs(deltaY) > deltaX * 3 && deltaY > 0) {
+                        isVertical = true;
+                        isDragging = true;
+                        taskSwitcher.searchGestureActive = true;
+                        Logger.info("TaskSwitcher", "Pull-down gesture started");
+                    } else {
+                        isVertical = false;
+                        isDragging = false;
+                        return;
                     }
                 }
+            }
+            if (isDragging && pressed) {
+                currentY = mouse.y;
+                var deltaY = currentY - startY;
+                taskSwitcher.searchPullProgress = Math.min(1, deltaY / pullThreshold);
+            }
+        }
+        onReleased: function (mouse) {
+            if (isDragging && isVertical) {
+                var deltaY = currentY - startY;
+                var deltaTime = Date.now() - startY;
+                var velocity = deltaY / (deltaTime || 1);
+                if (taskSwitcher.searchPullProgress > commitThreshold || velocity > 0.25) {
+                    Logger.info("TaskSwitcher", "Pull down threshold met - opening search (" + deltaY + "px)");
+                    UIStore.openSearch();
+                    taskSwitcher.searchPullProgress = 0;
+                }
+            }
+            isDragging = false;
+            isVertical = false;
+            taskSwitcher.searchGestureActive = false;
+        }
+        onCanceled: {
+            isDragging = false;
+            isVertical = false;
+            taskSwitcher.searchGestureActive = false;
+        }
+    }
+
+    Column {
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -80 - Constants.navBarHeight
+        spacing: Constants.spacingSmall
+        visible: TaskModel.taskCount === 0
+        z: 1
+
+        Text {
+            text: SystemStatusStore.timeString
+            color: MColors.text
+            font.pixelSize: Constants.fontSizeGigantic
+            font.weight: Font.Thin
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            Text {
+                text: parent.text
+                color: "#80000000"
+                font.pixelSize: parent.font.pixelSize
+                font.weight: parent.font.weight
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 2
+                z: -1
+            }
+        }
+
+        Text {
+            text: SystemStatusStore.dateString
+            color: MColors.text
+            font.pixelSize: MTypography.sizeLarge
+            font.weight: Font.Normal
+            anchors.horizontalCenter: parent.horizontalCenter
+            opacity: 0.9
+
+            Text {
+                text: parent.text
+                color: "#80000000"
+                font.pixelSize: parent.font.pixelSize
+                font.weight: parent.font.weight
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: 2
+                z: -1
+                opacity: parent.opacity
             }
         }
     }
 
-    // Empty state — long-swipe-up with no running apps shows this.
-    Column {
-        anchors.centerIn: parent
-        spacing: Math.round(12 * Constants.scaleFactor)
-        visible: TaskModel.taskCount === 0
+    MouseArea {
+        anchors.fill: parent
+        enabled: TaskModel.taskCount > 0
+        propagateComposedEvents: true
+        z: -1
+        onClicked: mouse => {
+            mouse.accepted = false;
+            closed();
+        }
+    }
 
-        Icon {
-            anchors.horizontalCenter: parent.horizontalCenter
-            name: "layers"
-            size: Math.round(64 * Constants.scaleFactor)
-            color: MColors.textTertiary
-            opacity: 0.5
+    Connections {
+        function onTaskCountChanged() {
+            Logger.info("TaskSwitcher", "TaskModel count changed: " + TaskModel.taskCount);
         }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "No active apps"
-            color: MColors.textSecondary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeBody
-            font.weight: MTypography.weightMedium
-        }
+        target: TaskModel
+    }
 
-        Text {
-            anchors.horizontalCenter: parent.horizontalCenter
-            text: "Open an app to see it here"
-            color: MColors.textTertiary
-            font.family: MTypography.fontFamily
-            font.pixelSize: MTypography.sizeFootnote
+    GridView {
+        id: taskGrid
+
+        property bool allowHorizontalPassthrough: true
+
+        snapMode: GridView.SnapOneRow
+        flickDeceleration: 1500
+        maximumFlickVelocity: 3000
+        anchors.fill: parent
+        anchors.margins: 16
+        anchors.rightMargin: TaskModel.taskCount > 4 ? 24 : 16
+        anchors.bottomMargin: Constants.bottomBarHeight + 16
+        cellWidth: width / 2
+        cellHeight: height / 2
+        clip: true
+        Component.onCompleted: {
+            console.log("[TaskSwitcher] GridView created, model count:", count);
+            Logger.info("TaskSwitcher", "GridView created with " + count + " tasks, interactive: " + interactive);
+        }
+        flickableDirection: Flickable.VerticalFlick
+        pressDelay: 0
+        interactive: TaskModel.taskCount > 4
+        boundsBehavior: Flickable.StopAtBounds
+        model: TaskModel
+        cacheBuffer: Math.max(0, height * 2)
+        reuseItems: true
+        onDraggingChanged: Logger.info("TaskSwitcher", "GridView dragging: " + dragging)
+        onFlickingChanged: Logger.info("TaskSwitcher", "GridView flicking: " + flicking)
+        onMovingChanged: Logger.info("TaskSwitcher", "GridView moving: " + moving + ", contentY: " + contentY)
+        onInteractiveChanged: Logger.info("TaskSwitcher", "GridView interactive changed: " + interactive + ", taskCount: " + TaskModel.taskCount)
+
+        delegate: TaskCard {
+            width: GridView.view.cellWidth
+            height: GridView.view.cellHeight
+            haveWayland: taskSwitcher.haveWayland
+            compositor: taskSwitcher.compositor
+            taskSwitcherVisible: taskSwitcher.visible
+            gridMoving: taskGrid.moving
+            gridDragging: taskGrid.dragging
+            onClosed: taskSwitcher.closed()
+        }
+    }
+
+    TaskPageIndicator {
+        taskCount: TaskModel.taskCount
+        gridContentY: taskGrid.contentY
+        gridHeight: taskGrid.height
+    }
+
+    Behavior on opacity {
+        NumberAnimation {
+            duration: Constants.animationSlow
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    Behavior on scale {
+        NumberAnimation {
+            duration: Constants.animationSlow
+            easing.type: Easing.OutCubic
         }
     }
 }
