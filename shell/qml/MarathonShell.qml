@@ -754,6 +754,21 @@ Item {
         z: Constants.zIndexBackground
     }
 
+    // Dither overlay — see WallpaperSlateAurora.qml for rationale.
+    // 64×64 noise tile @ 4 % opacity adds ~1 LSB jitter per pixel,
+    // enough to break the gradient banding on 18 bpp DPI panels
+    // (HyperPixel 4.0 Square on the Hackberry CM5). No-op cost on
+    // higher bit-depth panels; barely visible.
+    Image {
+        anchors.fill: parent
+        source: "qrc:/wallpapers/dither-noise.png"
+        fillMode: Image.Tile
+        opacity: 0.04
+        smooth: false
+        cache: true
+        z: Constants.zIndexBackground + 1
+    }
+
     Column {
         id: mainContent
 

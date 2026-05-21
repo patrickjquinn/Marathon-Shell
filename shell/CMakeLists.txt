@@ -385,6 +385,7 @@ qt_add_resources(marathon-shell "shell_wallpapers"
         resources/wallpapers/stride.svg
         resources/wallpapers/track.svg
         resources/wallpapers/tundra.svg
+        resources/wallpapers/dither-noise.png
 )
 # Fonts go via a dedicated qrc to preserve `alias=` mappings — the FILES
 # form of qt_add_resources can't rename embedded paths, and the brackets
