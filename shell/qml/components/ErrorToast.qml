@@ -57,7 +57,6 @@ Item {
         border.width: Constants.borderWidthMedium
         border.color: MColors.error
         opacity: 0
-        layer.enabled: true
 
         MouseArea {
             id: swipeArea
@@ -162,10 +161,6 @@ Item {
                 wrapMode: Text.WordWrap
                 visible: errorToast.errorMessage.length > 0
             }
-        }
-
-        layer.effect: ShaderEffect {
-            property real blur: 16
         }
     }
 

@@ -84,7 +84,6 @@ Item {
         color: MColors.surface
         border.width: Constants.borderWidthThin
         border.color: MColors.border
-        layer.enabled: true
 
         Column {
             id: contentColumn
@@ -389,10 +388,6 @@ Item {
             id: translateTransform
 
             y: dialogCard.height
-        }
-
-        layer.effect: ShaderEffect {
-            property real blur: 32
         }
     }
 
