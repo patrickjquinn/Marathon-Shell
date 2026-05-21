@@ -276,6 +276,15 @@ void NetworkManagerCpp::queryConnectionState() {
         m_wifiConnected = hasWifi;
         emit wifiConnectedChanged();
         qInfo() << "[NetworkManagerCpp] WiFi connected:" << hasWifi;
+
+        // If we were waiting for a specific SSID to come online, fire
+        // connectionSuccess now so the WiFi password dialog dismisses
+        // *after* real activation rather than on the eager DBus reply.
+        if (hasWifi && !m_pendingConnectSsid.isEmpty()) {
+            qInfo() << "[NetworkManagerCpp] Pending connect activated:" << m_pendingConnectSsid;
+            m_pendingConnectSsid.clear();
+            emit connectionSuccess();
+        }
     }
 
     if (hasWifi && !wifiSsid.isEmpty() && m_wifiSsid != wifiSsid) {
@@ -627,13 +636,22 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
 
                     emit connectionFailed(userError);
                 } else {
-                    qInfo() << "[NetworkManagerCpp] Successfully connected to:" << ssid;
-                    m_wifiSsid      = ssid;
-                    m_wifiConnected = true;
-                    emit wifiSsidChanged();
-                    emit wifiConnectedChanged();
-                    emit connectionSuccess();
-
+                    // AddAndActivateConnection returning OK only means
+                    // NetworkManager *accepted* the request — auth +
+                    // DHCP haven't run yet. Don't flip m_wifiConnected
+                    // or emit connectionSuccess here; the dialog would
+                    // dismiss before authentication completes and an
+                    // 8-character-but-wrong password would silently
+                    // fail (the bug the user reported on CM5).
+                    //
+                    // The real state comes from the NetworkManager
+                    // PropertiesChanged signal observing the active
+                    // connection's state hitting 100 (ACTIVATED). That
+                    // path already updates m_wifiConnected; we just
+                    // need to emit connectionSuccess in lockstep.
+                    qInfo() << "[NetworkManagerCpp] Activation request accepted for:" << ssid
+                            << "— waiting for state=ACTIVATED";
+                    m_pendingConnectSsid = ssid;
                     QTimer::singleShot(1000, this, &NetworkManagerCpp::queryConnectionState);
                 }
 
