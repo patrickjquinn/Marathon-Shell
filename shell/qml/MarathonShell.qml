@@ -851,12 +851,23 @@ Item {
                     currentPage: shell.currentPage
                     totalPages: shell.totalPages
                     showNotifications: shell.currentPage > 0
+                    taskSwitcherActive: shell.isTransitioningToActiveFrames
                     onAppLaunched: app => {
                         AppLaunchService.launchApp(app, compositor, appWindow);
                     }
                     onPageNavigationRequested: page => {
                         Logger.info("BottomBar", "Navigation requested to page: " + page);
                         pageView.navigateToPage(page);
+                    }
+                    onTaskSwitcherRequested: {
+                        Logger.info("BottomBar", "Task switcher requested via dot tap");
+                        if (UIStore.appWindowOpen) {
+                            AppLifecycleManager.minimizeForegroundApp();
+                            shell.isTransitioningToActiveFrames = true;
+                            snapIntoGridAnimation.startWithVelocity(-1500);
+                        } else {
+                            Router.goToFrames();
+                        }
                     }
                 }
             }
@@ -940,7 +951,8 @@ Item {
             Logger.gesture("NavBar", "shortSwipeUp", {
                 "target": "home"
             });
-            pageView.currentIndex = 2;
+            // index 0 = Hub, index 1 = first app-grid page (the home).
+            pageView.currentIndex = 1;
             Router.goToAppPage(0);
         }
         onLongSwipeUp: {
@@ -966,9 +978,10 @@ Item {
                 shell.isTransitioningToActiveFrames = true;
                 snapIntoGridAnimation.startWithVelocity(-1500);
             } else {
-                Logger.info("NavBar", "No app open - just navigating to task switcher");
-                pageView.currentIndex = 1;
-                Router.goToFrames();
+                // No app to minimise → long-swipe-up has nothing to switch
+                // to. Active Frames is gesture-only; with an empty task
+                // list there's nothing to show. Logged for telemetry only.
+                Logger.info("NavBar", "Long swipe up with no app open — no-op");
             }
             Logger.info("NavBar", "------- LONG SWIPE UP COMPLETE -------");
         }
