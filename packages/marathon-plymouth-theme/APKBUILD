@@ -1,13 +1,17 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-plymouth-theme
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Marathon OS boot splash for plymouth"
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="noarch"
 options="!check"
 depends="plymouth"
+# We override /usr/share/plymouth/plymouthd.defaults (owned by the
+# upstream plymouth package) so the Marathon theme is the actual
+# default — apk needs explicit replaces= permission for the overlap.
+replaces="plymouth"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="
 	marathon.plymouth
@@ -30,17 +34,32 @@ package() {
 	install -Dm644 "$srcdir/progress-fill.png" \
 		"$pkgdir/usr/share/plymouth/themes/marathon/progress-fill.png"
 
-	# Ship /usr/share/factory/etc/plymouth/plymouthd.conf with
-	# Theme=marathon. duranium's base systemd-tmpfiles ruleset copies
-	# the factory tree into /etc on first boot before user-facing
-	# services start, giving Plymouth the explicit override in the
-	# /etc location it reads first.
+	# Override /usr/share/plymouth/plymouthd.defaults with our theme
+	# selection. This file is Plymouth's last-resort default lookup
+	# (after /etc/plymouth/plymouthd.conf which doesn't exist on first
+	# boot before systemd-tmpfiles runs). The apk's `replaces=plymouth`
+	# directive above grants permission to overwrite the upstream
+	# plymouth package's copy.
 	#
-	# We can't overwrite /usr/share/plymouth/plymouthd.defaults — the
-	# upstream plymouth apk owns it. The cmdline.txt `plymouth.splash=
-	# marathon` override (set in scripts/build-image.sh) covers the
-	# very-first-boot case where plymouth-start may run before
-	# systemd-tmpfiles-setup.
+	# Why /usr/share/plymouth/plymouthd.defaults rather than the
+	# initramfs: Plymouth on Duranium starts from the rootfs path after
+	# /usr is verity-mounted, NOT from a baked-in initramfs theme. The
+	# pre-built linux-rpi kernel apk doesn't carry a plymouth theme
+	# selection so the resolution falls through to plymouthd.defaults
+	# which is exactly where we want our override.
+	install -d "$pkgdir/usr/share/plymouth"
+	cat > "$pkgdir/usr/share/plymouth/plymouthd.defaults" <<-EOF
+		[Daemon]
+		Theme=marathon
+		ShowDelay=0
+		DeviceTimeout=8
+	EOF
+	chmod 644 "$pkgdir/usr/share/plymouth/plymouthd.defaults"
+
+	# Belt-and-braces: factory→/etc/plymouth/plymouthd.conf for second
+	# boot onward, when /etc has been provisioned. Plymouth reads /etc
+	# in preference to /usr/share so this becomes the user-visible
+	# config and matches what plymouth-set-default-theme would write.
 	install -d "$pkgdir/usr/share/factory/etc/plymouth"
 	cat > "$pkgdir/usr/share/factory/etc/plymouth/plymouthd.conf" <<-EOF
 		[Daemon]
