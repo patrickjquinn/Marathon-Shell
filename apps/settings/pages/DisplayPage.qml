@@ -171,9 +171,7 @@ SettingsPageTemplate {
                     title: "Screen Timeout"
                     value: DisplayManagerCpp.screenTimeoutString
                     showChevron: true
-                    onSettingClicked: {
-                        StackView.view.push(screenTimeoutPageComponent);
-                    }
+                    onSettingClicked: SettingsController.requestPage("screentimeout")
                 }
             }
 
@@ -203,18 +201,14 @@ SettingsPageTemplate {
                     title: "UI Scale"
                     subtitle: Math.round(Constants.userScaleFactor * 100) + "%"
                     showChevron: true
-                    onSettingClicked: {
-                        StackView.view.push(scalePageComponent);
-                    }
+                    onSettingClicked: SettingsController.requestPage("scale")
                 }
 
                 MSettingsListItem {
                     title: "Wallpaper"
                     subtitle: "Change background image"
                     showChevron: true
-                    onSettingClicked: {
-                        StackView.view.push(wallpaperPageComponent);
-                    }
+                    onSettingClicked: SettingsController.requestPage("wallpaper")
                 }
             }
 
