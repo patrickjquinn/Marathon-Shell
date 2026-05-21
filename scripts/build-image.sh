@@ -108,16 +108,47 @@ fi
 # mkosi.packages/ (or FORCE_REBUILD=1). Each builder script writes
 # its output via its own MKOSI_PKG_DIR env var that we already
 # exported from setup-trees.sh.
+#
+# Cache invalidation: $glob is a wildcard like `marathon-shell-*.apk`,
+# so any older version satisfies the existence check by default. The
+# optional $aport_apkbuild arg makes the helper compare the CURRENT
+# pkgver-pkgrel from the source APKBUILD against the cached filename
+# — if they differ, the cache is stale and we rebuild. Without this
+# guard a pkgrel bump in the source would silently fall back to the
+# previous build (the bug that shipped r2 on a r5 source twice in a
+# row).
 build_if_missing() {
-    local label="$1" glob="$2" script="$3"
-    shift 3
+    local label="$1" glob="$2" script="$3" aport_apkbuild="${4:-}"
     if [ "${FORCE_REBUILD:-0}" = "1" ]; then
         rm -f "$MKOSI_PKG_DIR"/$glob 2>/dev/null || true
     fi
-    if compgen -G "$MKOSI_PKG_DIR/$glob" >/dev/null; then
+
+    # Stale-cache check: if the caller passed an APKBUILD path, derive
+    # the expected filename from its pkgver+pkgrel and only treat the
+    # cache as warm when that exact apk is present.
+    if [ -n "$aport_apkbuild" ] && [ -f "$aport_apkbuild" ]; then
+        local pkgver pkgrel pkgname expected
+        pkgver=$(grep -E '^pkgver=' "$aport_apkbuild" | head -1 | cut -d= -f2)
+        pkgrel=$(grep -E '^pkgrel=' "$aport_apkbuild" | head -1 | cut -d= -f2)
+        pkgname=$(grep -E '^pkgname=' "$aport_apkbuild" | head -1 | cut -d= -f2)
+        if [ -n "$pkgver" ] && [ -n "$pkgrel" ] && [ -n "$pkgname" ]; then
+            expected="${pkgname}-${pkgver}-r${pkgrel}.apk"
+            if [ -f "$MKOSI_PKG_DIR/$expected" ]; then
+                echo "==> $label: cached ($expected)"
+                return 0
+            fi
+            if compgen -G "$MKOSI_PKG_DIR/$glob" >/dev/null; then
+                local stale
+                stale=$(ls -1 "$MKOSI_PKG_DIR"/$glob | xargs -n1 basename | tr '\n' ' ')
+                echo "==> $label: cache STALE (want $expected, have $stale) — rebuilding"
+                rm -f "$MKOSI_PKG_DIR"/$glob
+            fi
+        fi
+    elif compgen -G "$MKOSI_PKG_DIR/$glob" >/dev/null; then
         echo "==> $label: cached ($(ls -1 "$MKOSI_PKG_DIR"/$glob | tail -1 | xargs -n1 basename))"
         return 0
     fi
+
     echo "==> $label: building"
     MARATHON_SHELL_SRC="$MARATHON_SHELL_SRC" \
     MARATHON_IMAGE_DIR="$MARATHON_IMAGE_DIR" \
@@ -127,22 +158,24 @@ build_if_missing() {
 }
 
 echo "==> stage 3: build apks"
-build_if_missing "qmf"                       'qmf-libs-*.apk'                  "$LIB/build-qmf-apk.sh"
-build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'      "$LIB/build-marathon-base-config-apk.sh"
-build_if_missing "marathon-mail-oauth"       'marathon-mail-oauth-*.apk'       "$LIB/build-marathon-mail-oauth-apk.sh"
-build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'   "$LIB/build-marathon-plymouth-theme-apk.sh"
-build_if_missing "marathon-shell"            'marathon-shell-*.apk'            "$LIB/build-marathon-shell-apk.sh"
-build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk'  "$LIB/build-postmarketos-ui-marathon-apk.sh"
+APORTS_DIR="$MARATHON_IMAGE_DIR/packages"
+build_if_missing "qmf"                       'qmf-libs-*.apk'                 "$LIB/build-qmf-apk.sh"                       "$APORTS_DIR/qmf/APKBUILD"
+build_if_missing "marathon-base-config"      'marathon-base-config-*.apk'     "$LIB/build-marathon-base-config-apk.sh"      "$APORTS_DIR/marathon-base-config/APKBUILD"
+build_if_missing "marathon-mail-oauth"       'marathon-mail-oauth-*.apk'      "$LIB/build-marathon-mail-oauth-apk.sh"       "$APORTS_DIR/marathon-mail-oauth/APKBUILD"
+build_if_missing "marathon-plymouth-theme"   'marathon-plymouth-theme-*.apk'  "$LIB/build-marathon-plymouth-theme-apk.sh"   "$APORTS_DIR/marathon-plymouth-theme/APKBUILD"
+build_if_missing "marathon-shell"            'marathon-shell-*.apk'           "$LIB/build-marathon-shell-apk.sh"            "$APORTS_DIR/marathon-shell/APKBUILD"
+build_if_missing "postmarketos-ui-marathon"  'postmarketos-ui-marathon-*.apk' "$LIB/build-postmarketos-ui-marathon-apk.sh"  "$APORTS_DIR/postmarketos-ui-marathon/APKBUILD"
 
 # Device-specific Marathon overlay (pulls the upstream pmaports
 # device-<NAME> plus Marathon's runtime stack as dependencies).
 # QEMU has no overlay aport — its mkosi.images/base picks up the
 # right packages directly. Real devices need this.
-DEVICE_OVERLAY_APORT="$MARATHON_IMAGE_DIR/packages/device-$MARATHON_TARGET_DEVICE-marathon"
+DEVICE_OVERLAY_APORT="$APORTS_DIR/device-$MARATHON_TARGET_DEVICE-marathon"
 if [ -d "$DEVICE_OVERLAY_APORT" ]; then
     build_if_missing "device-$MARATHON_TARGET_DEVICE-marathon" \
         "device-$MARATHON_TARGET_DEVICE-marathon-*.apk" \
-        "$LIB/build-device-marathon-apk.sh"
+        "$LIB/build-device-marathon-apk.sh" \
+        "$DEVICE_OVERLAY_APORT/APKBUILD"
 fi
 
 echo "==> stage 4: bake image for device=$MARATHON_TARGET_DEVICE"
