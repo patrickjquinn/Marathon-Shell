@@ -11,8 +11,16 @@ Item {
     property bool showNotifications: currentPage >= 0
     property bool showPageIndicators: true
 
+    // taskSwitcherActive lets the layers indicator render in its "active"
+    // visual state while the task switcher overlay is on screen. Active
+    // Frames isn't a paginated page (gesture-only), so it can't be
+    // expressed via currentPage — the shell drives this flag from
+    // shell.isTransitioningToActiveFrames.
+    property bool taskSwitcherActive: false
+
     signal appLaunched(var app)
     signal pageNavigationRequested(int page)
+    signal taskSwitcherRequested
 
     height: Constants.bottomBarHeight
     Component.onCompleted: Logger.info("BottomBar", "Initialized")
@@ -108,23 +116,25 @@ Item {
         Rectangle {
             id: hubIndicator
 
-            width: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: bottomBar.currentPage === -2 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            readonly property bool isActive: bottomBar.currentPage === -1
+
+            width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: 999
-            color: bottomBar.currentPage === -2 ? MColors.textPrimary : "transparent"
+            color: isActive ? MColors.textPrimary : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
             Icon {
                 name: "inbox"
-                size: bottomBar.currentPage === -2 ? Constants.iconSizeSmall : Constants.fontSizeSmall
+                size: hubIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
-                color: bottomBar.currentPage === -2 ? MColors.elev0 : MColors.textPrimary
+                color: hubIndicator.isActive ? MColors.elev0 : MColors.textPrimary
                 visible: true
             }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: bottomBar.pageNavigationRequested(-2)
+                onClicked: bottomBar.pageNavigationRequested(-1)
             }
 
             Behavior on width {
@@ -146,25 +156,30 @@ Item {
             }
         }
 
+        // Task switcher (Active Frames) tap target. Not a paginated page —
+        // gesture-driven — so the active state mirrors the shell's
+        // taskSwitcherActive flag rather than currentPage.
         Rectangle {
             id: framesIndicator
 
-            width: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
-            height: bottomBar.currentPage === -1 ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            readonly property bool isActive: bottomBar.taskSwitcherActive
+
+            width: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
+            height: isActive ? Constants.pageIndicatorHubSizeActive : Constants.pageIndicatorHubSizeInactive
             radius: 999
-            color: bottomBar.currentPage === -1 ? MColors.textPrimary : "transparent"
+            color: isActive ? MColors.textPrimary : "transparent"
             anchors.verticalCenter: parent.verticalCenter
 
             Icon {
                 name: "layers"
-                size: bottomBar.currentPage === -1 ? Constants.iconSizeSmall : Constants.fontSizeSmall
+                size: framesIndicator.isActive ? Constants.iconSizeSmall : Constants.fontSizeSmall
                 anchors.centerIn: parent
-                color: bottomBar.currentPage === -1 ? MColors.elev0 : MColors.textPrimary
+                color: framesIndicator.isActive ? MColors.elev0 : MColors.textPrimary
             }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: bottomBar.pageNavigationRequested(-1)
+                onClicked: bottomBar.taskSwitcherRequested()
             }
 
             Behavior on width {
