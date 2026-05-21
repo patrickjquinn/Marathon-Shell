@@ -325,10 +325,13 @@ Item {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: {
-                                    Constants.userScaleFactor = modelData.factor;
-                                    SettingsManagerCpp.userScaleFactor = modelData.factor;
-                                }
+                                // Write only to SettingsManagerCpp — the
+                                // Constants.userScaleFactor Binding listens
+                                // for the change and propagates back. Direct
+                                // assignment to Constants would break that
+                                // binding and the shell would no longer
+                                // react to subsequent scale changes.
+                                onClicked: SettingsManagerCpp.userScaleFactor = modelData.factor
                             }
                         }
                     }

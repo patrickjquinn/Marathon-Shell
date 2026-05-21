@@ -123,6 +123,9 @@ MApp {
                     bluetooth: bluetoothPageComponent,
                     cellular: cellularPageComponent,
                     display: displayPageComponent,
+                    scale: scalePageComponent,
+                    wallpaper: wallpaperPageComponent,
+                    screentimeout: screenTimeoutPageComponent,
                     sound: soundPageComponent,
                     notifications: notificationsPageComponent,
                     storage: storagePageComponent,
@@ -184,6 +187,30 @@ MApp {
             id: displayPageComponent
 
             DisplayPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: scalePageComponent
+
+            ScalePage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: wallpaperPageComponent
+
+            WallpaperPage {
+                onNavigateBack: appRouter.popRoute()
+            }
+        }
+
+        Component {
+            id: screenTimeoutPageComponent
+
+            ScreenTimeoutPage {
                 onNavigateBack: appRouter.popRoute()
             }
         }

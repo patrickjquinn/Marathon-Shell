@@ -139,10 +139,10 @@ SettingsPageTemplate {
 
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: {
-                                    Constants.userScaleFactor = modelData.factor;
-                                    SettingsManagerCpp.userScaleFactor = modelData.factor;
-                                }
+                                // Write only to SettingsManagerCpp — the
+                                // Constants.userScaleFactor Binding listens
+                                // for changes and propagates back.
+                                onClicked: SettingsManagerCpp.userScaleFactor = modelData.factor
                             }
                         }
                     }
