@@ -11,6 +11,21 @@
 #include <QUuid>
 #include <algorithm>
 
+// NetworkManager's connection settings dict is sig `a{sa{sv}}` — a map
+// from settings-group name to a sub-dict of property values. QtDBus does
+// NOT produce this signature for a bare `QMap<QString, QVariantMap>`
+// passed through a generic QVariant; the default serialiser wraps each
+// inner map in an outer VARIANT, yielding `a{sv}` where each v contains
+// `a{sv}`. NetworkManager rejects that as "Invalid arguments" because
+// the static signature is wrong.
+//
+// The canonical fix is a typedef + qDBusRegisterMetaType — QtDBus's
+// generated marshaller for that typedef emits the inner map directly
+// (no outer VARIANT), producing the `a{sa{sv}}` NM expects. Phosh,
+// Plasma-NM, GNOME Mobile all do the same thing.
+typedef QMap<QString, QVariantMap> NMConnectionSettings;
+Q_DECLARE_METATYPE(NMConnectionSettings)
+
 static QByteArray dbusByteArrayFromVariant(const QVariant &v) {
 
     if (v.canConvert<QByteArray>())
@@ -69,6 +84,11 @@ NetworkManagerCpp::NetworkManagerCpp(QObject *parent)
     , m_scanTimer(nullptr)
     , m_hotspotActive(false) {
     qDebug() << "[NetworkManagerCpp] Initializing";
+
+    // Register NMConnectionSettings so QtDBus emits `a{sa{sv}}` instead
+    // of `a{sv}` for the AddAndActivateConnection settings parameter.
+    // qDBusRegisterMetaType is idempotent — safe to call once per ctor.
+    qDBusRegisterMetaType<NMConnectionSettings>();
 
     m_nmInterface =
         new QDBusInterface("org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
@@ -538,7 +558,9 @@ void NetworkManagerCpp::processAccessPoint(const QString &apPath) {
 }
 
 void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &password) {
-    qDebug() << "[NetworkManagerCpp] Attempting to connect to:" << ssid;
+    qInfo() << "[NetworkManagerCpp] connectToNetwork() called for SSID=" << ssid
+            << "passwordLen=" << password.length() << "wifiDevicePath=" << m_wifiDevicePath
+            << "hasNM=" << m_hasNetworkManager;
 
     if (!m_hasNetworkManager || m_wifiDevicePath.isEmpty()) {
         qWarning()
@@ -560,55 +582,57 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
     }
 
     if (apPath.isEmpty()) {
-        qWarning() << "[NetworkManagerCpp] Access point not found for SSID:" << ssid;
+        qWarning() << "[NetworkManagerCpp] Access point not found for SSID:" << ssid << "(have"
+                   << m_availableNetworks.size() << "networks cached)";
         emit connectionFailed("Network not found");
         return;
     }
 
-    qDebug() << "[NetworkManagerCpp] Found AP at:" << apPath << "Secured:" << isSecured;
+    qInfo() << "[NetworkManagerCpp] Found AP at:" << apPath << "Secured:" << isSecured;
 
-    QMap<QString, QMap<QString, QVariant>> connectionSettings;
+    // Build the NMConnectionSettings dict. The registered typedef makes
+    // QtDBus emit the correct `a{sa{sv}}` signature on the wire.
+    NMConnectionSettings connectionSettings;
 
-    QMap<QString, QVariant>                connection;
-    connection["type"]               = "802-11-wireless";
+    QVariantMap          connection;
+    connection["type"]               = QStringLiteral("802-11-wireless");
     connection["uuid"]               = QUuid::createUuid().toString().remove('{').remove('}');
     connection["id"]                 = ssid;
     connection["autoconnect"]        = true;
     connectionSettings["connection"] = connection;
 
-    QMap<QString, QVariant> wireless;
+    QVariantMap wireless;
     wireless["ssid"]                      = ssid.toUtf8();
-    wireless["mode"]                      = "infrastructure";
+    wireless["mode"]                      = QStringLiteral("infrastructure");
     connectionSettings["802-11-wireless"] = wireless;
 
     if (isSecured && !password.isEmpty()) {
-        QMap<QString, QVariant> wirelessSecurity;
-        wirelessSecurity["key-mgmt"]                   = "wpa-psk";
-        wirelessSecurity["auth-alg"]                   = "open";
-        wirelessSecurity["psk"]                        = password;
+        QVariantMap wirelessSecurity;
+        wirelessSecurity["key-mgmt"] = QStringLiteral("wpa-psk");
+        wirelessSecurity["psk"]      = password;
+        // Note: dropped explicit auth-alg=open. NM picks the right
+        // alg from the AP's RSN/WPA IE. Setting it explicitly was
+        // copy-pasted from very old NM 0.9 examples and is wrong for
+        // modern WPA2/WPA3 networks.
         connectionSettings["802-11-wireless-security"] = wirelessSecurity;
     }
 
-    QMap<QString, QVariant> ipv4;
-    ipv4["method"]             = "auto";
+    QVariantMap ipv4;
+    ipv4["method"]             = QStringLiteral("auto");
     connectionSettings["ipv4"] = ipv4;
 
-    QMap<QString, QVariant> ipv6;
-    ipv6["method"]             = "auto";
+    QVariantMap ipv6;
+    ipv6["method"]             = QStringLiteral("auto");
     connectionSettings["ipv6"] = ipv6;
 
-    qDebug() << "[NetworkManagerCpp] Calling AddAndActivateConnection...";
+    qInfo() << "[NetworkManagerCpp] Calling AddAndActivateConnection with "
+            << connectionSettings.size() << "setting groups: keys=" << connectionSettings.keys();
 
     QDBusMessage msg = QDBusMessage::createMethodCall(
         "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
         "org.freedesktop.NetworkManager", "AddAndActivateConnection");
 
-    QVariantMap dbusSettings;
-    for (auto it = connectionSettings.begin(); it != connectionSettings.end(); ++it) {
-        dbusSettings[it.key()] = QVariant::fromValue(it.value());
-    }
-
-    msg << QVariant::fromValue(dbusSettings);
+    msg << QVariant::fromValue(connectionSettings);
     msg << QVariant::fromValue(QDBusObjectPath(m_wifiDevicePath));
     msg << QVariant::fromValue(QDBusObjectPath(apPath));
 
@@ -620,18 +644,25 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
                 QDBusPendingReply<QDBusObjectPath, QDBusObjectPath> reply = *watcher;
 
                 if (reply.isError()) {
-                    QString error = reply.error().message();
-                    qWarning() << "[NetworkManagerCpp] Connection failed:" << error;
+                    const QString name  = reply.error().name();
+                    const QString error = reply.error().message();
+                    qWarning() << "[NetworkManagerCpp] AddAndActivateConnection FAILED:"
+                               << "name=" << name << "message=" << error;
 
                     QString userError;
-                    if (error.contains("secrets-required") || error.contains("no-secrets")) {
+                    if (name.contains("InvalidArgs") || error.contains("not allowed")) {
+                        userError = "Connection rejected by NetworkManager (bad config)";
+                    } else if (error.contains("secrets-required") || error.contains("no-secrets") ||
+                               error.contains("not authorized")) {
                         userError = "Incorrect password";
                     } else if (error.contains("timeout")) {
                         userError = "Connection timeout";
                     } else if (error.contains("not-found")) {
                         userError = "Network not found";
+                    } else if (!error.isEmpty()) {
+                        userError = QStringLiteral("Failed: %1").arg(error);
                     } else {
-                        userError = "Connection failed";
+                        userError = QStringLiteral("Failed (%1)").arg(name);
                     }
 
                     emit connectionFailed(userError);
@@ -640,16 +671,17 @@ void NetworkManagerCpp::connectToNetwork(const QString &ssid, const QString &pas
                     // NetworkManager *accepted* the request — auth +
                     // DHCP haven't run yet. Don't flip m_wifiConnected
                     // or emit connectionSuccess here; the dialog would
-                    // dismiss before authentication completes and an
-                    // 8-character-but-wrong password would silently
-                    // fail (the bug the user reported on CM5).
+                    // dismiss before authentication completes.
                     //
-                    // The real state comes from the NetworkManager
-                    // PropertiesChanged signal observing the active
-                    // connection's state hitting 100 (ACTIVATED). That
-                    // path already updates m_wifiConnected; we just
-                    // need to emit connectionSuccess in lockstep.
+                    // The real state comes from PropertiesChanged
+                    // observing the active connection's state hitting
+                    // 2 (ACTIVATED). queryConnectionState handles that;
+                    // emit connectionSuccess in lockstep with the
+                    // m_wifiConnected transition.
+                    const QDBusObjectPath connPath   = reply.argumentAt<0>();
+                    const QDBusObjectPath activePath = reply.argumentAt<1>();
                     qInfo() << "[NetworkManagerCpp] Activation request accepted for:" << ssid
+                            << "connection=" << connPath.path() << "active=" << activePath.path()
                             << "— waiting for state=ACTIVATED";
                     m_pendingConnectSsid = ssid;
                     QTimer::singleShot(1000, this, &NetworkManagerCpp::queryConnectionState);
