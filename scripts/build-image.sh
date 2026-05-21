@@ -359,18 +359,26 @@ PLYDEF
                         # unpacks in order, with later entries shadowing
                         # earlier ones. Plymouth-overlay goes LAST so its
                         # plymouthd.defaults wins over the pmaports default.
-                        CAT_ARGS=("$BASE_INITRD" <(gzip -c "$MODULES_CPIO"))
+                        #
+                        # Gzip modules to a real temp file first (process
+                        # substitution `<(gzip -c ...)` can't be deferred
+                        # through a bash-array — FD closes the moment the
+                        # subshell exits).
+                        MODULES_CPIO_GZ=$(mktemp --suffix=.cpio.gz)
+                        gzip -c "$MODULES_CPIO" > "$MODULES_CPIO_GZ"
                         STITCH_LABEL="base ($(stat -c%s "$BASE_INITRD") B) + modules ($(stat -c%s "$MODULES_CPIO") B raw)"
+                        cp "$BASE_INITRD" "$STITCHED"
+                        cat "$MODULES_CPIO_GZ" >> "$STITCHED"
                         if [ -n "${REPART_FIX_CPIO:-}" ] && [ -s "$REPART_FIX_CPIO" ]; then
-                            CAT_ARGS+=("$REPART_FIX_CPIO")
+                            cat "$REPART_FIX_CPIO" >> "$STITCHED"
                             STITCH_LABEL+=" + repart-fix ($(stat -c%s "$REPART_FIX_CPIO") B)"
                         fi
                         if [ -n "${PLYMOUTH_FIX_CPIO:-}" ] && [ -s "$PLYMOUTH_FIX_CPIO" ]; then
-                            CAT_ARGS+=("$PLYMOUTH_FIX_CPIO")
+                            cat "$PLYMOUTH_FIX_CPIO" >> "$STITCHED"
                             STITCH_LABEL+=" + plymouth-marathon ($(stat -c%s "$PLYMOUTH_FIX_CPIO") B)"
                         fi
-                        cat "${CAT_ARGS[@]}" > "$STITCHED"
                         echo "==> stitched $STITCH_LABEL -> $(stat -c%s "$STITCHED") B"
+                        rm -f "$MODULES_CPIO_GZ"
                     else
                         echo "warn: could not extract .initrd from $UKI_EFI; promoting base initrd alone (dm-verity will fail)" >&2
                         cp "$BASE_INITRD" "$STITCHED"
