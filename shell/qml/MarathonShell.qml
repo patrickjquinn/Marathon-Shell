@@ -1321,7 +1321,11 @@ Item {
         function startWithVelocity(v) {
             velocity = v;
             var velocityFactor = Math.min(2, Math.abs(v) / 1000);
-            var duration = Math.max(150, 350 - (velocityFactor * 100));
+            // Tightened from [150, 350] → [120, 260] to feel snappier
+            // on small screens. The scaleAnim still picks up enough
+            // duration at low velocity to read as deliberate, but a
+            // confident swipe completes ~30% faster.
+            var duration = Math.max(120, 260 - (velocityFactor * 80));
             scaleAnim.duration = duration;
             opacityAnim.duration = duration;
             Router.goToFrames();

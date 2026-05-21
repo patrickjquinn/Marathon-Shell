@@ -95,7 +95,9 @@ Item {
         flickableDirection: Flickable.HorizontalFlick
         currentIndex: 1
         boundsBehavior: Flickable.StopAtBounds
-        highlightMoveDuration: 250
+        // 250 ms felt sluggish on small screens; 180 ms matches the
+        // OutCubic snap pattern the rest of the shell uses.
+        highlightMoveDuration: 180
         preferredHighlightBegin: 0
         preferredHighlightEnd: width
         cacheBuffer: width * 3

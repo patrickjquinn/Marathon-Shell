@@ -131,59 +131,47 @@ Item {
         clip: true
 
         Item {
+            // Welcome page — matches docs/redesign/marathonos/project/
+            // screens-apps-2.jsx OOBELanguage/OOBEWifi pattern: a
+            // contextual icon (48 px, teal-bright) above a big title
+            // (Title-L weight 200) and a 14 px secondary body. The
+            // hero Marathon logo is replaced by the icon to align
+            // with every other OOBE page in the new design.
             Column {
-                anchors.centerIn: parent
-                width: parent.width
-                spacing: MSpacing.xxl
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.topMargin: Math.round(50 * Constants.scaleFactor)
+                anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
+                anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
+                spacing: Math.round(18 * Constants.scaleFactor)
 
-                Item {
-                    width: parent.width
-                    height: Math.round(oobeRoot.heroImageBlockSize * Constants.scaleFactor)
-
-                    Image {
-                        anchors.centerIn: parent
-                        width: Math.min(parent.width * 0.45, Math.round(oobeRoot.heroImageBlockSize * Constants.scaleFactor))
-                        height: width
-                        source: "qrc:/images/marathon.png"
-                        sourceSize: Qt.size(width, height)
-                        fillMode: Image.PreserveAspectFit
-                        smooth: false
-                        mipmap: false
-                        asynchronous: true
-                        cache: true
-                    }
+                Icon {
+                    name: "sparkles"
+                    size: Math.round(48 * Constants.scaleFactor)
+                    color: MColors.marathonTealBright
                 }
 
                 Text {
-                    text: "Welcome to Marathon OS"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
+                    text: "Welcome to\nMarathon"
+                    font.pixelSize: MTypography.sizeTitle1
+                    font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
-                    color: MColors.text
-                    horizontalAlignment: Text.AlignHCenter
-                    width: parent.width
+                    font.letterSpacing: MTypography.trackingTitle1
+                    lineHeight: 1.05
+                    color: MColors.textPrimary
                     wrapMode: Text.WordWrap
+                    width: parent.width
                 }
 
                 Text {
-                    text: "A modern, gesture-driven mobile shell for Linux"
-                    font.pixelSize: MTypography.sizeLarge
+                    text: "A modern, gesture-driven mobile shell. Let's get you set up — this takes about a minute."
+                    font.pixelSize: MTypography.sizeSubhead
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
-                    horizontalAlignment: Text.AlignHCenter
-                    width: parent.width
                     wrapMode: Text.WordWrap
-                }
-
-                Text {
-                    text: "Let's get you set up"
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    color: MColors.textTertiary
-                    horizontalAlignment: Text.AlignHCenter
                     width: parent.width
-                    wrapMode: Text.WordWrap
-                    topPadding: MSpacing.lg
+                    topPadding: Math.round(4 * Constants.scaleFactor)
                 }
             }
         }
