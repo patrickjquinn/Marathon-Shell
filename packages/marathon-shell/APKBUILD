@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=70
+pkgrel=71
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -130,8 +130,17 @@ build() {
 	export QML_DISABLE_DISK_CACHE=1
 	export QT_DISABLE_QML_CACHE=1
 
+	# Release build with -O3 + auto-vectorisation. NEON is mandatory in
+	# ARMv8 (always on aarch64), so the win comes from -ftree-vectorize
+	# firing on hot loops the size-target -Os would have left scalar.
+	# -ffp-contract=fast lets GCC fuse mul+add into FMA where the
+	# hardware supports it (Cortex-A76 and Kryo-385 both do).
+	local _opt_flags="-O3 -DNDEBUG -ftree-vectorize -ffp-contract=fast"
+
 	cmake -B build -G Ninja \
-		-DCMAKE_BUILD_TYPE=MinSizeRel \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_C_FLAGS_RELEASE="$_opt_flags" \
+		-DCMAKE_CXX_FLAGS_RELEASE="$_opt_flags" \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib \
 		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
@@ -141,7 +150,8 @@ build() {
 	cmake --build build
 
 	cmake -B build-apps -S apps -G Ninja \
-		-DCMAKE_BUILD_TYPE=MinSizeRel \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_CXX_FLAGS_RELEASE="$_opt_flags" \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DMARATHON_APPS_DIR=/usr/share/marathon-apps \
 		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
