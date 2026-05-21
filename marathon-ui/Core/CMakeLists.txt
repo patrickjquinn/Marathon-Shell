@@ -18,6 +18,7 @@ set(CORE_QML_FILES
     PhosphorGlyphs.js
     MAppIcon.qml
     MHaloedDisplay.qml
+    MMarathonMark.qml
 )
 
 # Mark singleton

@@ -80,6 +80,18 @@ Item {
         anchors.fill: parent
         color: MColors.background
 
+        // Dither overlay — break HyperPixel 4.0 Square's 18 bpp DPI
+        // quantisation banding on the smooth gradient below. Same
+        // 4 % tiled noise pattern used by the live wallpaper renderer.
+        Image {
+            anchors.fill: parent
+            source: "qrc:/wallpapers/dither-noise.png"
+            fillMode: Image.Tile
+            smooth: false
+            opacity: 0.04
+            z: Constants.zIndexBackground + 1
+        }
+
         Rectangle {
             anchors.fill: parent
             opacity: 0.08
@@ -131,51 +143,40 @@ Item {
         clip: true
 
         Item {
-            // Welcome page — Marathon product mark above the canonical
-            // Title-1 weight-200 heading. The product mark is the
-            // identity moment; no contextual Lucide icon (sparkles is
-            // banned; every other OOBE page uses its own domain icon
-            // but page 1 IS the brand).
+            // Welcome page — canonical MarathonMark (teal disc + black M
+            // + "MARATHON" tracked caps) per docs/redesign/marathonos/
+            // project/design-system/ds-foundations.jsx. This is THE
+            // brand mark; the old marathon.png raster is retired.
             Column {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.topMargin: Math.round(oobeRoot.compactLayout ? 36 : 60 * Constants.scaleFactor)
-                anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
-                anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
-                spacing: Math.round(18 * Constants.scaleFactor)
+                anchors.centerIn: parent
+                spacing: Math.round(28 * Constants.scaleFactor)
+                width: parent.width
 
-                Image {
-                    source: "qrc:/images/marathon.png"
-                    width: Math.round((oobeRoot.compactLayout ? 56 : 72) * Constants.scaleFactor)
-                    height: width
-                    sourceSize: Qt.size(width, height)
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    mipmap: true
-                    cache: true
+                MMarathonMark {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    size: Math.round((oobeRoot.compactLayout ? 180 : 220) * Constants.scaleFactor)
                 }
 
                 Text {
-                    text: "Welcome to\nMarathon"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Welcome"
                     font.pixelSize: MTypography.sizeTitle1
                     font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
                     font.letterSpacing: MTypography.trackingTitle1
-                    lineHeight: 1.05
                     color: MColors.textPrimary
-                    wrapMode: Text.WordWrap
-                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
                 }
 
                 Text {
-                    text: "A modern, gesture-driven mobile shell. Let's get you set up — this takes about a minute."
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "A modern, gesture-driven mobile shell.\nLet's get you set up."
                     font.pixelSize: MTypography.sizeSubhead
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
+                    horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    width: parent.width
-                    topPadding: Math.round(4 * Constants.scaleFactor)
+                    width: Math.round(360 * Constants.scaleFactor)
                 }
             }
         }
