@@ -4,7 +4,7 @@
 pkgname=device-raspberry-pi5-marathon
 pkgdesc="Raspberry Pi 5 / HackberryPi CM5 - Marathon OS Edition"
 pkgver=1.0.0
-pkgrel=3
+pkgrel=4
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -75,8 +75,13 @@ package() {
 	install -Dm644 "$srcdir/usercfg.txt" \
 		"$pkgdir/boot/usercfg.txt"
 
-	# ZitaoTech's hackberrypi overlay binary — drives the 720x720
-	# panel + edt-ft5x06 touch + max17048 fuel gauge.
+	# hackberrypi.dtbo: Marathon's compiled overlay (hackberrypi.dts
+	# in this aport). Equivalent to ZitaoTech's stock for the 720x720
+	# HyperPixel + edt-ft5x06 touch on GPIO 10/11 i2c-gpio, PLUS adds
+	# the MAX17048 fuel gauge node (compatible="maxim,max17048" @ 0x36
+	# on the same bus). ZitaoTech's stock dtbo omits the fuel gauge
+	# which is why on-CM5 Marathon kept showing 0% in the status bar —
+	# diagnosed 2026-05-20.
 	install -Dm644 "$srcdir/hackberrypi.dtbo" \
 		"$pkgdir/boot/overlays/hackberrypi.dtbo"
 
@@ -100,5 +105,5 @@ sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
 2379995b05f0254f9bb0a41e5b927e4c035743608ff0f40746b018a7cc3bf7e02808411bfa91c2b734cd96e44bff54a6530ff52c79116d82ccd1e415ca756702  usercfg.txt
-e169a0b068fc95c5fc635eae62e68dad026b02abb46b273e066449f4973af176bfc402b97261477dc837a73be28d995ca96086889ddaf5addf6452668e5ed9a2  hackberrypi.dtbo
+de7bc200a19810d9f003a63a61cd9c3a57b025a8d54d65b530d5687d431d3f1c7a16da923ce0417acef289d8ee70f6863164222dd6f67c8ad503c75258ddb94e  hackberrypi.dtbo
 "

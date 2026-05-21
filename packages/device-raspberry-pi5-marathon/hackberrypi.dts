@@ -1,0 +1,127 @@
+/*
+ * hackberrypi.dts — HackberryPi CM5 overlay for Marathon OS
+ *
+ * Combines:
+ *   - HyperPixel 4.0 Square (720×720) DPI panel + edt-ft5x06 capacitive
+ *     touch — identical to ZitaoTech's stock hackberrypi.dtbo (matches
+ *     panel-timing values we extracted from the binary).
+ *   - MAX17048 LiPo fuel gauge on the same i2c-gpio bus @ 0x36, using
+ *     the upstream `maxim,max17048` compatible string so the standard
+ *     CONFIG_BATTERY_MAX17040=m kernel module binds (no DKMS / no
+ *     out-of-tree driver needed). CNflysky's hackberrypiq20 driver uses
+ *     a custom `hackberrypi,max17048-battery` compatible to add
+ *     hackberrypi-specific energy reporting, but the mainline driver is
+ *     sufficient for status-bar percentage display.
+ *
+ * Reference: github.com/CNflysky/hackberrypiq20/blob/main/hackberrypicm5.dts
+ *            github.com/ZitaoTech/HackberryPiCM5
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2712", "raspberrypi,5-compute-module";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			i2c_gpio: i2c-gpio {
+				compatible = "i2c-gpio";
+				gpios = <&rp1_gpio 10 0
+				         &rp1_gpio 11 0>;
+				i2c-gpio,delay-us = <4>;
+				/* GPIO 10/11 are unused by DPI 18-bit (RGB666) mode, freeing them for I2C */
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				touch: touchscreen@48 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					compatible = "edt,edt-ft5406";
+					reg = <0x48>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&touch_int_pin>;
+					interrupt-parent = <&gpio>;
+					interrupts = <27 0x02>;
+					touchscreen-size-x = <720>;
+					touchscreen-size-y = <720>;
+				};
+
+				/* MAX17048 LiPo fuel gauge — Marathon adds this; ZitaoTech's
+				 * stock dtbo doesn't include it, which is why status-bar
+				 * battery read kept showing 0% (no power_supply node).
+				 * compatible="maxim,max17048" binds the mainline
+				 * max17040_battery module (CONFIG_BATTERY_MAX17040=m in
+				 * linux-rpi). 5000 mAh / 18.5 Wh figures from CNflysky.
+				 */
+				fuel_gauge: battery@36 {
+					compatible = "maxim,max17048";
+					reg = <0x36>;
+					charge-full-design-microamp-hours = <5000000>;
+					energy-full-design-microwatt-hours = <18500000>;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&dpi>;
+		__overlay__ {
+			status = "okay";
+			pinctrl-names = "default";
+			pinctrl-0 = <&dpi_18bit_cpadhi_gpio0>;
+			port {
+				dpi_out: endpoint {
+					remote-endpoint = <&panel_in>;
+				};
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			panel: panel {
+				compatible = "panel-dpi";
+				/* 4-inch square (~72×72mm); doubled to 144 so high-DPI
+				 * userspace doesn't treat this as a tiny screen. */
+				width-mm = <144>;
+				height-mm = <144>;
+				bus-format = <0x1024>;	/* MEDIA_BUS_FMT_RGB666_1X18 */
+
+				timing: panel-timing {
+					clock-frequency = <35000000>;	/* matches ZitaoTech's stock dtbo */
+					hactive = <720>;
+					hfront-porch = <44>;
+					hsync-len = <2>;
+					hback-porch = <46>;
+					hsync-active = <1>;
+					vactive = <720>;
+					vfront-porch = <16>;
+					vsync-len = <2>;
+					vback-porch = <18>;
+					vsync-active = <1>;
+					de-active = <1>;
+					pixelclk-active = <1>;
+				};
+
+				port {
+					panel_in: endpoint {
+						remote-endpoint = <&dpi_out>;
+					};
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&rp1_gpio>;
+		__overlay__ {
+			touch_int_pin: gpio27 {
+				function = "gpio";
+				pins = "gpio27";
+				bias-pull-up;
+			};
+		};
+	};
+};
