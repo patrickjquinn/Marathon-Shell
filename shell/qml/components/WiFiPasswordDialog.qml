@@ -390,14 +390,6 @@ Item {
                 visible: !isConnecting
             }
         }
-
-        opacity: wifiDialog.internalVisible ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 220
-                easing.type: Easing.OutCubic
-            }
-        }
     }
 
     ParallelAnimation {
