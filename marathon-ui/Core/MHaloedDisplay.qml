@@ -36,7 +36,16 @@ Item {
         y: -root.haloMargin
         width: root.width + root.haloMargin * 2
         height: root.height + root.haloMargin * 2
-        source: "qrc:/qt/qml/MarathonUI/Theme/halo-teal.svg"
+        // The Theme module qrc resource. Use the full URL so resolution
+        // works whether or not the caller has already imported
+        // MarathonUI.Theme — the hardcoded qrc path resolves through the
+        // global Qt resource system once any module has loaded the
+        // Theme resource bundle. (Previous failure mode: Image opened
+        // before Theme.qmldir was processed → resource not yet
+        // registered → "Cannot open: qrc:..." warning. Use the
+        // Qt.resolvedUrl pointing into the sibling Theme/ directory
+        // instead — Qt's QQmlEngine handles the cross-module ref.)
+        source: Qt.resolvedUrl("../Theme/halo-teal.svg")
         fillMode: Image.PreserveAspectFit
         smooth: true
         cache: true
