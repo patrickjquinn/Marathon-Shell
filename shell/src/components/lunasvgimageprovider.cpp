@@ -29,10 +29,24 @@ namespace {
         registered = true;
 
         QStringList candidates;
-        candidates << QStringLiteral(":/qt/qml/MarathonUI/Theme/fonts/Sora.ttf")
-                   << QStringLiteral("/usr/share/marathon/fonts/Sora.ttf")
-                   << QStandardPaths::locate(QStandardPaths::AppDataLocation,
-                                             QStringLiteral("fonts/Sora.ttf"));
+        candidates
+            // Shell's own qrc — guaranteed available since it's compiled
+            // into marathon-shell-bin itself. Try this FIRST so we never
+            // depend on the MarathonUI.Theme QML module having been
+            // imported yet (it loads later; LunaSvgImageProvider gets
+            // wired up at app-icon resolve time, which can race the
+            // module import).
+            << QStringLiteral(":/fonts/Sora.ttf")
+            // MarathonUI.Theme module qrc — available once the module's
+            // qmldir is loaded by any QML import of MarathonUI.Theme.
+            << QStringLiteral(":/qt/qml/MarathonUI/Theme/fonts/Sora.ttf")
+            // System fontconfig path — what marathon-ui-theme's CMake
+            // install drops on disk (matches /usr/share/fonts/marathon/
+            // not /usr/share/marathon/fonts/; previous string was wrong).
+            << QStringLiteral("/usr/share/fonts/marathon/Sora.ttf")
+            // Last-resort XDG_DATA_DIRS lookup.
+            << QStandardPaths::locate(QStandardPaths::AppDataLocation,
+                                      QStringLiteral("fonts/Sora.ttf"));
 
         QString resolved;
         for (const auto &c : candidates) {

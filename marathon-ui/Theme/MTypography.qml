@@ -20,15 +20,19 @@ QtObject {
     property FontLoader _soraLoader: FontLoader {
         source: Qt.resolvedUrl("fonts/Sora.ttf")
         onStatusChanged: {
-            const map = ["Null", "Ready", "Loading", "Error"];
-            console.warn("[MTypography] Sora -> status=" + map[status] + " family='" + name + "'");
+            // Only emit a log line if loading FAILED. Successful loads
+            // were previously logged at WARNING level on every boot,
+            // making the journal look like Sora wasn't loading when it
+            // actually was — user confusion was real.
+            if (status === FontLoader.Error)
+                console.warn("[MTypography] Sora failed to load from", source);
         }
     }
     property FontLoader _monoLoader: FontLoader {
         source: Qt.resolvedUrl("fonts/JetBrainsMono-Medium.ttf")
         onStatusChanged: {
-            const map = ["Null", "Ready", "Loading", "Error"];
-            console.warn("[MTypography] JetBrains Mono -> status=" + map[status] + " family='" + name + "'");
+            if (status === FontLoader.Error)
+                console.warn("[MTypography] JetBrains Mono failed to load from", source);
         }
     }
 
