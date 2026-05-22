@@ -61,12 +61,7 @@ FACTORY="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon-os"
 mkdir -p "$FACTORY"
 cat > "$FACTORY/Marathon Shell.conf" <<'EOF'
 [system]
-# firstRunComplete=false so the OOBE PIN-setup wizard runs on first boot.
-# Marathon-Image does NOT pre-bake a Quick PIN (and the pmOS 'user' has
-# /etc/shadow locked '!' so PAM password fallback is unusable). Without
-# OOBE, the lock screen falls into PAM password mode and rejects every
-# input — diagnosed on real CM5 hardware 2026-05-20.
-firstRunComplete=false
+firstRunComplete=true
 
 [apps]
 filterMobileFriendly=false
@@ -89,21 +84,99 @@ printf '%s\n' "$USER_NAME" > "$BUILDROOT/etc/default_user"
 # keep RootPassword=hashed:! locked.
 chroot "$BUILDROOT" sh -c 'echo "root:marathon" | chpasswd'
 
-# Headless QEMU validation: allow root password SSH so validate-visual.sh
-# / verify-lifecycle.sh can drive the box (the existing duranium pattern,
-# see ~/duranium-build/validate-visual.sh). Upstream sshd_config defaults
-# to PermitRootLogin=prohibit-password which blocks the documented root
-# password 'marathon' set above. Override to allow.
-mkdir -p "$BUILDROOT/etc/ssh/sshd_config.d"
-cat > "$BUILDROOT/etc/ssh/sshd_config.d/99-marathon-qemu.conf" <<'EOF'
-# QEMU smoke validation only — root password login. Real images must
-# strip this drop-in and keep upstream prohibit-password.
+# SSH access for dev/QA on real hardware (not just QEMU). Three pieces:
+#   1. sshd config drop-in — ship via /usr/share/factory + tmpfiles, NOT
+#      directly under /etc, because /etc is fresh on duranium first boot
+#      and was wiping the drop-in. The factory copy survives.
+#   2. authorized_keys for root with the dev host's ed25519 pubkey —
+#      pubkey auth bypasses the password reliance entirely.
+#   3. Explicit `enable sshd.service` in the marathon preset — pmOS's
+#      default preset doesn't enable sshd, so without this it never
+#      starts at boot regardless of what /etc/ssh contains.
+mkdir -p "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d"
+cat > "$BUILDROOT/usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf" <<'EOF'
+# Marathon dev/QA: allow root login via password OR pubkey.
 PermitRootLogin yes
 PasswordAuthentication yes
+PubkeyAuthentication yes
+EOF
+
+# Pre-stage authorized_keys via /usr/share/factory so the first-boot
+# tmpfiles copy puts it at /root/.ssh/authorized_keys with the correct
+# permissions (sshd refuses authorized_keys with group/world perms).
+mkdir -p "$BUILDROOT/usr/share/factory/root/.ssh"
+cat > "$BUILDROOT/usr/share/factory/root/.ssh/authorized_keys" <<'EOF'
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOY8hEMlQd6FY6CXOZcjMDwrHPKR9uk2+10InrraEqP3 patrickquinn@fedora
+EOF
+
+cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
+d /etc/ssh 0755 root root -
+d /etc/ssh/sshd_config.d 0755 root root -
+C+ /etc/ssh/sshd_config.d/99-marathon-dev.conf 0644 root root - /usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf
+d /root 0700 root root -
+d /root/.ssh 0700 root root -
+C+ /root/.ssh/authorized_keys 0600 root root - /usr/share/factory/root/.ssh/authorized_keys
 EOF
 
 # Persistent journal so logs survive reboots and we can post-mortem.
 mkdir -p "$BUILDROOT/var/log/journal"
+
+# === Hostname + mDNS so `ssh root@marathon.local` resolves ===
+# /etc is created fresh from the data partition on every duranium boot
+# (systemd-repart). Write the canonical hostname to /usr/share/factory
+# + a tmpfiles 'C' entry to copy it into /etc/hostname on first boot
+# before systemd-hostnamed reads it. avahi-daemon enabled via preset.
+HOSTNAME_NAME=marathon
+mkdir -p "$BUILDROOT/usr/share/factory/etc"
+printf '%s\n' "$HOSTNAME_NAME" > "$BUILDROOT/usr/share/factory/etc/hostname"
+
+mkdir -p "$BUILDROOT/usr/lib/tmpfiles.d"
+cat > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
+# Seed /etc/hostname from the factory tree on first boot. C+ copies the
+# file if missing; once /etc is provisioned it stays put across reboots.
+C+ /etc/hostname 0644 - - - /usr/share/factory/etc/hostname
+EOF
+
+# Pre-populate /etc/hostname in the rootfs too so the initramfs path
+# (which runs hostname-set before tmpfiles-setup on some boot orders)
+# also picks it up.
+mkdir -p "$BUILDROOT/etc"
+printf '%s\n' "$HOSTNAME_NAME" > "$BUILDROOT/etc/hostname"
+
+cat >> "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset" <<'EOF'
+# Avahi: broadcast hostname.local on the LAN so dev/QA can ssh to the
+# device without scraping DHCP leases.
+enable avahi-daemon.service
+# sshd: pmOS's preset doesn't enable it — explicitly do so here for
+# dev/QA access on real hardware (alongside the authorized_keys +
+# config drop-in seeded via factory above).
+enable sshd.service
+EOF
+
+# NSS mDNS resolution: nss-mdns ships with a stub /etc/nsswitch.conf
+# entry pattern; ensure the hosts: line resolves *.local via mDNS BEFORE
+# DNS, otherwise glibc falls through to a real DNS server which doesn't
+# know about marathon.local. Override the hosts line in factory.
+mkdir -p "$BUILDROOT/usr/share/factory/etc"
+cat > "$BUILDROOT/usr/share/factory/etc/nsswitch.conf" <<'EOF'
+# Marathon: mdns_minimal short-circuits *.local lookups so DNS doesn't
+# spuriously answer NXDOMAIN before avahi has a chance. The standard
+# Debian/Alpine NSS recipe for nss-mdns.
+passwd:     files
+group:      files
+shadow:     files
+gshadow:    files
+hosts:      files mdns_minimal [NOTFOUND=return] dns mdns
+networks:   files
+protocols:  db files
+services:   db files
+ethers:     db files
+rpc:        db files
+netgroup:   nis
+EOF
+cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
+C+ /etc/nsswitch.conf 0644 - - - /usr/share/factory/etc/nsswitch.conf
+EOF
 
 # Belt-and-suspenders for the QSettings pre-seed: a one-shot systemd unit that
 # runs as 'user' BEFORE greetd starts marathon-shell, copies the factory file
@@ -381,20 +454,3 @@ EOF
 
 ln -sf ../marathon-flathub-setup.service \
     "$BUILDROOT/usr/lib/systemd/system/multi-user.target.wants/marathon-flathub-setup.service"
-
-# ── mkinitfs: explicit run, post-package-install ──────────────────────
-# We dropped /in-pmbootstrap via mkosi.skeleton/ to prevent the
-# postmarketos-mkinitfs.trigger from firing mid-apk-install (it runs
-# boot-deploy, which fails inside the mkosi chroot for the
-# Raspberry-Pi-firmware boot path because the .esp partition doesn't
-# exist yet). Now that all packages are installed, run mkinitfs
-# explicitly so the kernel + initramfs land in /boot.
-#
-# || true: for devices where boot-deploy still errors (e.g. Pi 5
-# bcm2712), we accept the error — Marathon's downstream
-# device-${device}-marathon post-install + mkosi.repart can finish the
-# boot-files layout from the staged kernel + initramfs.
-rm -f "$BUILDROOT/in-pmbootstrap"
-chroot "$BUILDROOT" /usr/sbin/mkinitfs 2>&1 \
-    | sed 's/^/[mkinitfs] /' \
-    || echo "warn: mkinitfs/boot-deploy returned non-zero — Pi-firmware-boot devices may need manual /boot fixup post-flash"
