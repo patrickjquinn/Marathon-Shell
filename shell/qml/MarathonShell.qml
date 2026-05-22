@@ -618,37 +618,13 @@ Item {
         }
     ]
 
-    FontLoader {
-        id: soraVariable
-
-        source: "qrc:/fonts/Sora.ttf"
-        Component.onCompleted: {
-            const map = ["Null", "Ready", "Loading", "Error"];
-            console.warn("[Fonts] Sora @ load -> status=" + map[status] + " family='" + name + "'");
-        }
-        onStatusChanged: {
-            const map = ["Null", "Ready", "Loading", "Error"];
-            console.warn("[Fonts] Sora statusChanged -> status=" + map[status] + " family='" + name + "'");
-        }
-    }
-
-    FontLoader {
-        id: jetbrainsMono
-
-        source: "qrc:/fonts/JetBrainsMono-Medium.ttf"
-    }
-
-    FontLoader {
-        id: slateLight
-
-        source: "qrc:/fonts/Slate-Light.ttf"
-    }
-
-    FontLoader {
-        id: slateBook
-
-        source: "qrc:/fonts/Slate-Book.ttf"
-    }
+    // Fonts are loaded by MTypography's singleton FontLoaders at
+    // qrc:/qt/qml/MarathonUI/Theme/fonts/. The previous shell-level
+    // FontLoaders pointed at qrc:/fonts/Sora.ttf — a path that doesn't
+    // exist in the shell's qrc (no resource ever installed it there),
+    // so they always logged "status=Error" on startup. Removed: those
+    // ids (soraVariable, jetbrainsMono, slateLight, slateBook) had no
+    // QML consumers — pure dead code.
 
     FontLoader {
         id: slateRegular
