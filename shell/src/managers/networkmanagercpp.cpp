@@ -296,15 +296,20 @@ void NetworkManagerCpp::queryConnectionState() {
         m_wifiConnected = hasWifi;
         emit wifiConnectedChanged();
         qInfo() << "[NetworkManagerCpp] WiFi connected:" << hasWifi;
+    }
 
-        // If we were waiting for a specific SSID to come online, fire
-        // connectionSuccess now so the WiFi password dialog dismisses
-        // *after* real activation rather than on the eager DBus reply.
-        if (hasWifi && !m_pendingConnectSsid.isEmpty()) {
-            qInfo() << "[NetworkManagerCpp] Pending connect activated:" << m_pendingConnectSsid;
-            m_pendingConnectSsid.clear();
-            emit connectionSuccess();
-        }
+    // Fire connectionSuccess when our pending-connect SSID is now the
+    // ACTIVATED one. The previous gate keyed on the m_wifiConnected
+    // false→true transition, which silently dropped the success signal
+    // whenever the user was already on a different network (NM auto-
+    // joined, m_wifiConnected was already true). In that case switching
+    // networks via AddAndActivateConnection succeeds — the SSID changes —
+    // but m_wifiConnected stays true throughout and the password dialog
+    // spins forever waiting for a transition that never comes.
+    if (hasWifi && !m_pendingConnectSsid.isEmpty() && wifiSsid == m_pendingConnectSsid) {
+        qInfo() << "[NetworkManagerCpp] Pending connect activated:" << m_pendingConnectSsid;
+        m_pendingConnectSsid.clear();
+        emit connectionSuccess();
     }
 
     if (hasWifi && !wifiSsid.isEmpty() && m_wifiSsid != wifiSsid) {

@@ -75,11 +75,14 @@ Item {
     Rectangle {
         id: dialogCard
 
-        // Centred vertically. Was anchored to parent.bottom which sat the
-        // card pinned to the very bottom of the OOBE — visually wrong
-        // (modal feels like a half-sheet popping up from the dock).
-        // Slide-up enter/exit animation still works against the centred
-        // anchor via translateTransform.
+        // Centred horizontally + vertically. NO Translate transform — the
+        // prior `transform: Translate { y: dialogCard.height }` was a
+        // live binding to the card's own height. When the user tapped
+        // Connect and isConnecting flipped true, the BusyIndicator row
+        // grew contentColumn.height → dialogCard.height → the binding
+        // pushed translate.y down by the height delta → dialog visibly
+        // jumped to the bottom of the screen. Now: pure anchors, no
+        // transform; enter/exit are an opacity fade on the parent Item.
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         width: Math.min(parent.width - Math.round(32 * Constants.scaleFactor), Math.round(500 * Constants.scaleFactor))
@@ -388,10 +391,12 @@ Item {
             }
         }
 
-        transform: Translate {
-            id: translateTransform
-
-            y: dialogCard.height
+        opacity: wifiDialog.internalVisible ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 220
+                easing.type: Easing.OutCubic
+            }
         }
     }
 
@@ -406,36 +411,17 @@ Item {
             duration: 250
             easing.type: Easing.OutQuad
         }
-
-        NumberAnimation {
-            target: translateTransform
-            property: "y"
-            from: dialogCard.height
-            to: 0
-            duration: 300
-            easing.type: Easing.OutCubic
-        }
     }
 
     SequentialAnimation {
         id: hideAnimation
 
-        ParallelAnimation {
-            NumberAnimation {
-                target: overlay
-                property: "opacity"
-                to: 0
-                duration: 200
-                easing.type: Easing.InQuad
-            }
-
-            NumberAnimation {
-                target: translateTransform
-                property: "y"
-                to: dialogCard.height
-                duration: 250
-                easing.type: Easing.InCubic
-            }
+        NumberAnimation {
+            target: overlay
+            property: "opacity"
+            to: 0
+            duration: 200
+            easing.type: Easing.InQuad
         }
 
         ScriptAction {
