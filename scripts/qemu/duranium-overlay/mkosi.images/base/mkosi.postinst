@@ -153,30 +153,13 @@ enable avahi-daemon.service
 enable sshd.service
 EOF
 
-# NSS mDNS resolution: nss-mdns ships with a stub /etc/nsswitch.conf
-# entry pattern; ensure the hosts: line resolves *.local via mDNS BEFORE
-# DNS, otherwise glibc falls through to a real DNS server which doesn't
-# know about marathon.local. Override the hosts line in factory.
-mkdir -p "$BUILDROOT/usr/share/factory/etc"
-cat > "$BUILDROOT/usr/share/factory/etc/nsswitch.conf" <<'EOF'
-# Marathon: mdns_minimal short-circuits *.local lookups so DNS doesn't
-# spuriously answer NXDOMAIN before avahi has a chance. The standard
-# Debian/Alpine NSS recipe for nss-mdns.
-passwd:     files
-group:      files
-shadow:     files
-gshadow:    files
-hosts:      files mdns_minimal [NOTFOUND=return] dns mdns
-networks:   files
-protocols:  db files
-services:   db files
-ethers:     db files
-rpc:        db files
-netgroup:   nis
-EOF
-cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
-C+ /etc/nsswitch.conf 0644 - - - /usr/share/factory/etc/nsswitch.conf
-EOF
+# Note: no nsswitch.conf override here. nss-mdns is only required for
+# OUTBOUND .local lookups FROM the device — the device itself doesn't
+# need to resolve other .local hosts. The CLIENT host doing
+# `ssh marathon.local` needs nss-mdns on ITS side; the device just
+# needs avahi-daemon publishing, which the preset enables above.
+# Adding mdns_minimal to the device nsswitch with no nss-mdns apk
+# installed would silently fail every hosts: lookup with NSS_NOTFOUND.
 
 # Belt-and-suspenders for the QSettings pre-seed: a one-shot systemd unit that
 # runs as 'user' BEFORE greetd starts marathon-shell, copies the factory file
