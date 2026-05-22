@@ -50,3 +50,15 @@ install(FILES
     fonts/JetBrainsMono-Medium.ttf
     DESTINATION ${MARATHON_UI_DIR}/Theme/fonts
 )
+
+# Also install Sora + JetBrains Mono into the system fonts directory so
+# fontconfig finds them via fc-match. Without this, anything that goes
+# through fontconfig (greetd, console messages, foot/alacritty before
+# the user has any font config, third-party apps) falls back to Noto
+# Sans / DejaVu. Sora.ttf is the same file shipped via the QML qrc —
+# duplicated here so the system can resolve it by family name.
+install(FILES
+    fonts/Sora.ttf
+    fonts/JetBrainsMono-Medium.ttf
+    DESTINATION share/fonts/marathon
+)
