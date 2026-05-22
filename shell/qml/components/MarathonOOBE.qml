@@ -840,155 +840,225 @@ Item {
             }
         }
 
-        // Passcode page -- sets the device unlock PIN via SecurityManager.
-        // This is the SHELL lock (not the system password). A phone never
-        // ships with a system password; the device PIN is what protects the
-        // user. Skippable, but recommended.
+        // Passcode page — keypad-driven PIN setup, two-stage (enter then
+        // confirm). Visual pattern mirrors MarathonPinScreen (the lock-
+        // screen unlock UI) so OOBE and the lock screen feel unified.
+        // iOS / Android quality: 6 progress dots, circular digit keys,
+        // animated stage transition, haptic feedback on every press.
         Item {
+            id: passcodePage
+
+            readonly property int requiredLength: 4
+            readonly property int maxLength: 8
+            // "enter" → first attempt, "confirm" → re-enter to verify.
+            property string stage: "enter"
+            // PIN digits accumulated in the current stage.
+            property string enteredPin: ""
+            property string confirmedPin: ""
+            readonly property string currentPin: stage === "enter" ? enteredPin : confirmedPin
+
+            readonly property bool isCompact: oobeRoot.compactLayout
+            readonly property real dotSize: Math.round((isCompact ? 12 : 16) * Constants.scaleFactor)
+            readonly property real keySize: Math.round((isCompact ? 56 : 70) * Constants.scaleFactor)
+            readonly property real keySpacing: Math.round((isCompact ? 10 : 14) * Constants.scaleFactor)
+
+            function appendDigit(d) {
+                if (passcodePage.currentPin.length >= passcodePage.maxLength)
+                    return;
+                if (passcodePage.stage === "enter")
+                    passcodePage.enteredPin += d;
+                else
+                    passcodePage.confirmedPin += d;
+                oobeRoot.passcodeError = "";
+                if (typeof HapticManager !== 'undefined')
+                    HapticManager.light();
+            }
+
+            function deleteDigit() {
+                if (passcodePage.stage === "enter" && passcodePage.enteredPin.length > 0)
+                    passcodePage.enteredPin = passcodePage.enteredPin.slice(0, -1);
+                else if (passcodePage.stage === "confirm" && passcodePage.confirmedPin.length > 0)
+                    passcodePage.confirmedPin = passcodePage.confirmedPin.slice(0, -1);
+                if (typeof HapticManager !== 'undefined')
+                    HapticManager.light();
+            }
+
+            function tryAdvance() {
+                if (passcodePage.stage === "enter") {
+                    if (passcodePage.enteredPin.length < passcodePage.requiredLength) {
+                        oobeRoot.passcodeError = "At least " + passcodePage.requiredLength + " digits";
+                        return;
+                    }
+                    passcodePage.stage = "confirm";
+                    oobeRoot.passcodeError = "";
+                } else {
+                    if (passcodePage.confirmedPin !== passcodePage.enteredPin) {
+                        oobeRoot.passcodeError = "Passcodes don't match. Try again.";
+                        passcodePage.confirmedPin = "";
+                        if (typeof HapticManager !== 'undefined')
+                            HapticManager.medium();
+                        return;
+                    }
+                    if (typeof SecurityManagerCpp !== 'undefined')
+                        SecurityManagerCpp.setQuickPINFirstRun(passcodePage.enteredPin);
+                    oobeRoot.newPasscode = passcodePage.enteredPin;
+                    oobeRoot.confirmPasscode = passcodePage.enteredPin;
+                    oobeRoot.passcodeSkipped = false;
+                    oobeRoot.passcodeError = "";
+                    if (typeof HapticManager !== 'undefined')
+                        HapticManager.medium();
+                    oobeRoot.currentPage++;
+                }
+            }
+
             Column {
                 anchors.fill: parent
-                anchors.margins: MSpacing.xl
-                spacing: MSpacing.lg
+                anchors.topMargin: Math.round((passcodePage.isCompact ? 32 : 56) * Constants.scaleFactor)
+                anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
+                anchors.rightMargin: Math.round(28 * Constants.scaleFactor)
+                spacing: Math.round((passcodePage.isCompact ? 14 : 22) * Constants.scaleFactor)
 
-                Text {
-                    width: parent.width
-                    text: "Set a device passcode"
-                    horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: MTypography.sizeXLarge
-                    font.weight: Font.Bold
-                    font.family: MTypography.fontFamily
-                    color: MColors.text
+                Icon {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    name: "lock"
+                    size: Math.round((passcodePage.isCompact ? 36 : 48) * Constants.scaleFactor)
+                    color: MColors.marathonTealBright
                 }
 
                 Text {
-                    width: parent.width
-                    text: "A 4–8 digit passcode unlocks the device after sleep. You can skip this and add one later from Settings → Security."
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
+                    font.pixelSize: MTypography.sizeTitle2
+                    font.weight: MTypography.weightExtraLight
+                    font.family: MTypography.fontFamily
+                    font.letterSpacing: MTypography.trackingTitle2
+                    color: MColors.textPrimary
                     horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
-                    font.pixelSize: MTypography.sizeBody
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
+                    font.pixelSize: MTypography.sizeSubhead
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
+                    horizontalAlignment: Text.AlignHCenter
+                    width: parent.width
+                    wrapMode: Text.WordWrap
                 }
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.sm
+                // PIN-progress dots — fill teal as digits are entered.
+                Row {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    spacing: Math.round(14 * Constants.scaleFactor)
+                    topPadding: Math.round(6 * Constants.scaleFactor)
 
-                    Text {
-                        text: "Passcode"
-                        color: MColors.textSecondary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                    }
+                    Repeater {
+                        model: passcodePage.maxLength
 
-                    Rectangle {
-                        width: parent.width
-                        height: Math.round(56 * Constants.scaleFactor)
-                        color: MColors.elevated
-                        radius: MRadius.md
-                        border.width: 1
-                        border.color: MColors.borderGlass
+                        Rectangle {
+                            required property int index
 
-                        TextInput {
-                            id: passcodeField
+                            width: passcodePage.dotSize
+                            height: passcodePage.dotSize
+                            radius: width / 2
+                            color: index < passcodePage.currentPin.length ? MColors.marathonTealBright : "transparent"
+                            border.width: 1
+                            border.color: index < passcodePage.currentPin.length ? MColors.marathonTealBright : MColors.borderSubtle
+                            scale: (index === passcodePage.currentPin.length - 1 && passcodePage.currentPin.length > 0) ? 1.25 : 1
 
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            verticalAlignment: TextInput.AlignVCenter
-                            inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
-                            echoMode: TextInput.Password
-                            maximumLength: 8
-                            color: MColors.text
-                            font.pixelSize: MTypography.sizeLarge
-                            font.family: MTypography.fontFamily
-                            text: oobeRoot.newPasscode
-                            onTextChanged: {
-                                oobeRoot.newPasscode = text;
-                                oobeRoot.passcodeError = "";
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 120
+                                }
                             }
-                            Accessible.name: "Enter new passcode"
-                            Accessible.role: Accessible.EditableText
-                            Accessible.passwordEdit: true
+
+                            Behavior on scale {
+                                NumberAnimation {
+                                    duration: 150
+                                    easing.type: Easing.OutBack
+                                }
+                            }
                         }
                     }
+                }
 
-                    Text {
-                        text: "Confirm"
-                        color: MColors.textSecondary
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                    }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: oobeRoot.passcodeError.length > 0
+                    text: oobeRoot.passcodeError
+                    color: MColors.error
+                    font.pixelSize: MTypography.sizeFootnote
+                    font.family: MTypography.fontFamily
+                    height: visible ? implicitHeight : 0
+                }
 
-                    Rectangle {
-                        width: parent.width
-                        height: Math.round(56 * Constants.scaleFactor)
-                        color: MColors.elevated
-                        radius: MRadius.md
-                        border.width: 1
-                        border.color: oobeRoot.passcodeError.length > 0 ? MColors.error : MColors.borderGlass
+                // Numeric keypad — 1-9 grid, then [empty | 0 | delete] row.
+                Grid {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    columns: 3
+                    columnSpacing: passcodePage.keySpacing
+                    rowSpacing: passcodePage.keySpacing
+                    topPadding: Math.round(6 * Constants.scaleFactor)
 
-                        TextInput {
-                            id: confirmField
+                    Repeater {
+                        model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            verticalAlignment: TextInput.AlignVCenter
-                            inputMethodHints: Qt.ImhDigitsOnly | Qt.ImhNoPredictiveText
-                            echoMode: TextInput.Password
-                            maximumLength: 8
-                            color: MColors.text
-                            font.pixelSize: MTypography.sizeLarge
-                            font.family: MTypography.fontFamily
-                            text: oobeRoot.confirmPasscode
-                            onTextChanged: {
-                                oobeRoot.confirmPasscode = text;
-                                oobeRoot.passcodeError = "";
-                            }
-                            Accessible.name: "Confirm passcode"
-                            Accessible.role: Accessible.EditableText
-                            Accessible.passwordEdit: true
+                        MCircularIconButton {
+                            required property string modelData
+
+                            text: modelData
+                            buttonSize: passcodePage.keySize
+                            iconSize: Math.round((passcodePage.isCompact ? 22 : 28) * Constants.scaleFactor)
+                            variant: "secondary"
+                            textColor: MColors.textPrimary
+                            onClicked: passcodePage.appendDigit(modelData)
                         }
-                    }
-
-                    Text {
-                        visible: oobeRoot.passcodeError.length > 0
-                        text: oobeRoot.passcodeError
-                        color: MColors.error
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
                     }
                 }
 
                 Row {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: MSpacing.md
-                    topPadding: MSpacing.lg
+                    spacing: passcodePage.keySpacing
 
-                    MButton {
-                        text: "Set passcode"
-                        variant: "primary"
-                        disabled: oobeRoot.newPasscode.length < 4
-                        onClicked: {
-                            if (oobeRoot.newPasscode.length < 4) {
-                                oobeRoot.passcodeError = "At least 4 digits";
-                                return;
-                            }
-                            if (oobeRoot.newPasscode !== oobeRoot.confirmPasscode) {
-                                oobeRoot.passcodeError = "Passcodes don't match";
-                                return;
-                            }
-                            // First-run: setQuickPINFirstRun bypasses the
-                            // PAM check that the regular setQuickPIN does.
-                            // It only succeeds when no PIN is configured yet,
-                            // so it's safe to expose during OOBE.
-                            if (typeof SecurityManagerCpp !== 'undefined') {
-                                SecurityManagerCpp.setQuickPINFirstRun(oobeRoot.newPasscode);
-                            }
-                            oobeRoot.passcodeSkipped = false;
-                            oobeRoot.passcodeError = "";
-                            oobeRoot.currentPage++;
-                        }
+                    Item {
+                        width: passcodePage.keySize
+                        height: passcodePage.keySize
                     }
+
+                    MCircularIconButton {
+                        text: "0"
+                        buttonSize: passcodePage.keySize
+                        iconSize: Math.round((passcodePage.isCompact ? 22 : 28) * Constants.scaleFactor)
+                        variant: "secondary"
+                        textColor: MColors.textPrimary
+                        onClicked: passcodePage.appendDigit("0")
+                    }
+
+                    MCircularIconButton {
+                        iconName: "delete"
+                        buttonSize: passcodePage.keySize
+                        iconSize: Math.round((passcodePage.isCompact ? 20 : 24) * Constants.scaleFactor)
+                        variant: "secondary"
+                        iconColor: MColors.textSecondary
+                        enabled: passcodePage.currentPin.length > 0
+                        onClicked: passcodePage.deleteDigit()
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: Math.round(8 * Constants.scaleFactor)
+                }
+
+                // Primary action — context-aware text + state.
+                MButton {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.round(220 * Constants.scaleFactor)
+                    text: passcodePage.stage === "enter" ? "Next" : "Set passcode"
+                    variant: "primary"
+                    disabled: passcodePage.currentPin.length < passcodePage.requiredLength
+                    onClicked: passcodePage.tryAdvance()
                 }
             }
         }
