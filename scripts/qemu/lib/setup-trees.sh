@@ -99,6 +99,32 @@ echo "==> mkosi:           $MKOSI_BIN"
 #    show up as uncommitted-but-tracked changes.
 OVERLAY_SRC="$MARATHON_SHELL_SRC/scripts/qemu/duranium-overlay"
 if [ -d "$OVERLAY_SRC" ]; then
+    # Safety check: warn if the duranium tree's copy of an overlay file
+    # has DIVERGED from the overlay source. Anyone editing the duranium
+    # tree directly (the natural mental model — "the build uses
+    # ~/duranium-build/duranium so I'll edit there") gets their changes
+    # silently overwritten by this rsync. r80–r87 lost SEVEN rounds of
+    # postinst fixes to this exact trap. Warn so it can't happen again
+    # without the operator at least seeing it.
+    if [ -d "$DURANIUM_DIR" ]; then
+        DIVERGED=$(
+            cd "$OVERLAY_SRC" && find . -type f -print0 |
+                while IFS= read -r -d '' f; do
+                    tree_file="$DURANIUM_DIR/$f"
+                    overlay_file="$OVERLAY_SRC/$f"
+                    if [ -f "$tree_file" ] && ! cmp -s "$tree_file" "$overlay_file"; then
+                        echo "$f"
+                    fi
+                done
+        )
+        if [ -n "$DIVERGED" ]; then
+            echo "==> WARNING: duranium tree has edits that will be overwritten by the overlay:"
+            printf '    %s\n' $DIVERGED
+            echo "    These edits will NOT land in the image. Either copy them into"
+            echo "    $OVERLAY_SRC/ or `git stash` them in the duranium tree."
+        fi
+    fi
+
     echo "==> overlaying Marathon customs from scripts/qemu/duranium-overlay/"
     rsync -a "$OVERLAY_SRC/" "$DURANIUM_DIR/"
 fi
