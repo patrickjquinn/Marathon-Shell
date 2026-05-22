@@ -121,6 +121,73 @@ C+ /etc/ssh/sshd_config.d/99-marathon-dev.conf 0644 root root - /usr/share/facto
 d /root 0700 root root -
 d /root/.ssh 0700 root root -
 C+ /root/.ssh/authorized_keys 0600 root root - /usr/share/factory/root/.ssh/authorized_keys
+# sshd needs /var/empty/sshd to exist for privsep chroot. Alpine
+# ships no tmpfiles.d for this so duranium's fresh /var has no
+# such dir → sshd ExecStart fails with "Missing privilege separation
+# directory: /var/empty/sshd". Create it here.
+d /var/empty 0755 root root -
+d /var/empty/sshd 0755 root root -
+# avahi-daemon needs /run/avahi-daemon owned by the avahi user.
+# Tmpfiles processes this after sysusers, so the avahi user is
+# already in /etc/passwd by the time we create the dir.
+d /run/avahi-daemon 0755 avahi avahi -
+EOF
+
+# === sshd + avahi require system users that Alpine doesn't ship in
+# /etc/passwd by default. Without these users present, sshd refuses
+# to start ("Privilege separation user sshd does not exist") and
+# avahi-daemon refuses to drop privileges. duranium's /etc is
+# reconstructed at first boot — the sysusers.d files under /usr
+# get processed by systemd-sysusers.service which runs BEFORE
+# basic.target, populating /etc/passwd + /etc/group + /etc/shadow
+# with the declared users.
+mkdir -p "$BUILDROOT/usr/lib/sysusers.d"
+cat > "$BUILDROOT/usr/lib/sysusers.d/marathon-base.conf" <<'EOF'
+# sshd: needs privilege-separation user for the privsep chroot.
+g sshd 22
+u sshd 22:22 "Privilege-separated SSH" /var/empty/sshd /sbin/nologin
+# avahi: daemon drops to this user once mDNS publishing is set up.
+g avahi -
+u avahi - "Avahi mDNS daemon" /var/run/avahi-daemon /sbin/nologin
+g netdev -
+EOF
+
+# === SSH host keys need to exist BEFORE sshd starts. Alpine's
+# openssh-server upstream is OpenRC-centric — host-key generation
+# happens inside /etc/init.d/sshd at start time, not in the systemd
+# unit. The Fedora-style sshdgenkeys.service / sshd-keygen.service
+# doesn't ship in Alpine. On a fresh duranium /etc with no
+# /etc/ssh/ssh_host_*_key files, sshd dies at ExecStart with
+# "sshd: no hostkeys available -- exiting".
+#
+# Synthesize the keygen unit ourselves. ConditionPathExists ensures
+# it's a true one-shot — keys are generated once on first boot and
+# persist (the data partition keeps /etc/ssh across reboots).
+mkdir -p "$BUILDROOT/usr/lib/systemd/system"
+cat > "$BUILDROOT/usr/lib/systemd/system/marathon-sshd-keygen.service" <<'EOF'
+[Unit]
+Description=Generate sshd host keys on first boot (Alpine openssh-server lacks this)
+ConditionPathExists=!/etc/ssh/ssh_host_ed25519_key
+DefaultDependencies=no
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+Before=sshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ssh-keygen -A
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Drop-in to make sshd actually depend on the keygen unit, otherwise
+# systemd may parallelise them and sshd starts before keys exist.
+mkdir -p "$BUILDROOT/usr/lib/systemd/system/sshd.service.d"
+cat > "$BUILDROOT/usr/lib/systemd/system/sshd.service.d/10-marathon-keygen.conf" <<'EOF'
+[Unit]
+After=marathon-sshd-keygen.service
+Requires=marathon-sshd-keygen.service
 EOF
 
 # Persistent journal so logs survive reboots and we can post-mortem.
@@ -156,6 +223,9 @@ enable avahi-daemon.service
 # dev/QA access on real hardware (alongside the authorized_keys +
 # config drop-in seeded via factory above).
 enable sshd.service
+# marathon-sshd-keygen: synthesised one-shot that generates host keys
+# on first boot (Alpine's sshd.service alone won't, breaking sshd).
+enable marathon-sshd-keygen.service
 EOF
 
 # Note: no nsswitch.conf override here. nss-mdns is only required for
