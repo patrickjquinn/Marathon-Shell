@@ -75,10 +75,14 @@ Item {
     Rectangle {
         id: dialogCard
 
+        // Centred vertically. Was anchored to parent.bottom which sat the
+        // card pinned to the very bottom of the OOBE — visually wrong
+        // (modal feels like a half-sheet popping up from the dock).
+        // Slide-up enter/exit animation still works against the centred
+        // anchor via translateTransform.
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 0
-        width: Math.min(parent.width, Math.round(500 * Constants.scaleFactor))
+        anchors.verticalCenter: parent.verticalCenter
+        width: Math.min(parent.width - Math.round(32 * Constants.scaleFactor), Math.round(500 * Constants.scaleFactor))
         height: contentColumn.height + Constants.spacingXXLarge
         radius: Constants.borderRadiusLarge
         color: MColors.surface

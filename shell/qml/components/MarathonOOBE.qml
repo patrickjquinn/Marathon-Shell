@@ -1086,6 +1086,12 @@ Item {
             height: parent.height
             text: oobeRoot.currentPage === oobeRoot.pages.length - 1 ? "Get Started" : "Next"
             variant: "primary"
+            // Passcode page (index 5) has its own primary "Set passcode"
+            // action — the bottom Next button is hidden there so the user
+            // can't bypass passcode setup. /etc/shadow ships with the user
+            // account locked '!'; skipping passcode produces an unusable
+            // lock screen.
+            visible: oobeRoot.currentPage !== 5
             onClicked: {
                 HapticManager.light();
                 if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
@@ -1212,10 +1218,22 @@ Item {
 
     Connections {
         function onConnectionSuccess() {
-            if (oobeRoot.activePasswordDialog)
+            // hide() runs the slide-down + fade-out animation (~250 ms).
+            // The prior code set `wifiPasswordDialogLoader.active = false`
+            // synchronously on the next line, which destroys the Loader's
+            // content RIGHT AWAY — killing the animation mid-flight and
+            // making the dialog appear to vanish instantly. The user has
+            // no time to see the connection completed.
+            //
+            // Now we just call .hide() — the dialog's own hideAnimation
+            // ScriptAction sets internalVisible=false at the end, the
+            // dialog stays in the scene but invisible. cleanupTimer
+            // destroys the Loader content shortly AFTER the animation
+            // finishes so the next show() rebuilds cleanly.
+            if (oobeRoot.activePasswordDialog) {
                 oobeRoot.activePasswordDialog.hide();
-
-            wifiPasswordDialogLoader.active = false;
+                wifiCleanupTimer.restart();
+            }
             HapticManager.medium();
         }
 
@@ -1225,6 +1243,16 @@ Item {
         }
 
         target: NetworkManagerCpp
+    }
+
+    Timer {
+        id: wifiCleanupTimer
+
+        // Slightly longer than the dialog's 250 ms hideAnimation so the
+        // animation has completed before we destroy the Loader content.
+        interval: 320
+        repeat: false
+        onTriggered: wifiPasswordDialogLoader.active = false
     }
 
     Timer {

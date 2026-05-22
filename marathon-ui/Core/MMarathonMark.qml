@@ -97,11 +97,18 @@ Item {
                     radius: parent.radius
                 }
 
-                // Black M path, scaled to mSize. viewBox 0..56 from JSX.
+                // Black M path. viewBox 0..56 per JSX spec. ShapePath has
+                // no `scale` property in QtQuick.Shapes 6.x — using it
+                // silently does nothing, leaving the path at its native
+                // (10,14)–(46,44) pixel coords in the upper-left of the
+                // Shape. Use Item.scale on the Shape itself with a fixed
+                // 56×56 box; QML's Item transform centres the scaled
+                // box on the same anchors point.
                 Shape {
                     anchors.centerIn: parent
-                    width: root.mSize
-                    height: root.mSize
+                    width: 56
+                    height: 56
+                    scale: root.mSize / 56
                     antialiasing: true
                     layer.enabled: true
                     layer.samples: 4
@@ -109,7 +116,6 @@ Item {
                     ShapePath {
                         strokeWidth: -1
                         fillColor: "#000"
-                        scale: Qt.size(root.mSize / 56, root.mSize / 56)
                         PathSvg {
                             path: "M10 44V14h6l12 18 12-18h6v30h-6V24L28 40 16 24v20z"
                         }

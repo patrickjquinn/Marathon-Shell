@@ -17,12 +17,18 @@ QtObject {
     // sandbox always rendered at 1× while the shell rendered at DPI/baseDPI.
     property real dpi: (typeof ScreenMetricsCpp !== "undefined" && ScreenMetricsCpp && ScreenMetricsCpp.dpi > 0) ? ScreenMetricsCpp.dpi : (typeof MARATHON_DPI !== "undefined" && MARATHON_DPI > 0) ? MARATHON_DPI : baseDPI
     readonly property real baseDPI: 160
-    // userScaleFactor source order: shell's SettingsManagerCpp (live binding
-    // below) → marathon-app-runner's MARATHON_USER_SCALE context property →
-    // 1.0 default.
-    property real userScaleFactor: (typeof MARATHON_USER_SCALE !== "undefined" && MARATHON_USER_SCALE > 0) ? MARATHON_USER_SCALE : 1
+    // userScaleFactor source order: shell's SettingsManagerCpp (live —
+    // re-evaluates on userScaleFactorChanged) → marathon-app-runner's
+    // MARATHON_USER_SCALE context property → 1.0 default.
+    //
+    // Direct binding (not a child Binding {} element) so QML's standard
+    // binding-graph propagates the change. The prior `property Binding`
+    // pattern relied on the wrapper Binding firing when its `when`
+    // condition was met — in practice it didn't always re-fire on
+    // SettingsManagerCpp.userScaleFactorChanged in Qt 6.10, so OOBE's
+    // scale write never reached the live shell.
+    property real userScaleFactor: (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) ? SettingsManagerCpp.userScaleFactor : ((typeof MARATHON_USER_SCALE !== "undefined" && MARATHON_USER_SCALE > 0) ? MARATHON_USER_SCALE : 1)
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
-    property Binding userScaleFactorBinding
     readonly property real baseHeight: 800
     readonly property real heightScaleFactor: screenHeight / baseHeight
     readonly property real tallScreenRatio: 1.2
@@ -187,13 +193,5 @@ QtObject {
             if (debugMode)
                 console.log("[DEBUG] Constants:", "Screen: " + width.toFixed(0) + "×" + height.toFixed(0) + " @ " + dpi.toFixed(0) + " DPI (source: " + dpiSource + ", scaleFactor: " + scaleFactor.toFixed(2) + ")");
         }
-    }
-
-    userScaleFactorBinding: Binding {
-        target: constants
-        property: "userScaleFactor"
-        value: typeof SettingsManagerCpp !== 'undefined' ? SettingsManagerCpp.userScaleFactor : 1
-        when: typeof SettingsManagerCpp !== 'undefined'
-        restoreMode: Binding.RestoreBinding
     }
 }
