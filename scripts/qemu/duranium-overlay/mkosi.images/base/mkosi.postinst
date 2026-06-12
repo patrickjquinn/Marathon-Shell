@@ -273,6 +273,20 @@ enable marathon-sshd-keygen.service
 disable lightdm.service
 EOF
 
+# User-mode systemd preset for marathon-mailserver. The unit file is
+# shipped by marathon-shell at /usr/lib/systemd/user/marathon-mailserver
+# .service but no preset enables it, so the QMF messageserver never
+# starts on first boot — Mail app launches into an empty store and
+# greetd's user@1000 session has no mail backend running. Add an
+# explicit preset enable so the unit follows greetd auto-login.
+mkdir -p "$BUILDROOT/usr/lib/systemd/user-preset"
+cat > "$BUILDROOT/usr/lib/systemd/user-preset/10-marathon.preset" <<'EOF'
+# QMF mail backend — the messageserver daemon the Marathon Mail app
+# talks to over QMessagingFramework. Without this enable, the unit
+# stays "disabled; preset: disabled" and Mail shows an empty store.
+enable marathon-mailserver.service
+EOF
+
 # Note: no nsswitch.conf override here. nss-mdns is only required for
 # OUTBOUND .local lookups FROM the device — the device itself doesn't
 # need to resolve other .local hosts. The CLIENT host doing
