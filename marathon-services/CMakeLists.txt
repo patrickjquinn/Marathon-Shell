@@ -99,10 +99,16 @@ if(MARATHON_HAS_QMF)
         ${QMF_MS_INCLUDE}
     )
 
-    install(TARGETS MarathonMailService MarathonMailServiceplugin
+    install(TARGETS MarathonMailService
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/qt6/qml/MarathonOS/Services
         RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/qt6/qml/MarathonOS/Services
     )
+    if(TARGET MarathonMailServiceplugin)
+        install(TARGETS MarathonMailServiceplugin
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/qt6/qml/MarathonOS/Services
+            RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}/qt6/qml/MarathonOS/Services
+        )
+    endif()
     install(FILES
         ${CMAKE_BINARY_DIR}/MarathonOS/Services/qmldir
         ${CMAKE_BINARY_DIR}/MarathonOS/Services/MarathonMailService.qmltypes
