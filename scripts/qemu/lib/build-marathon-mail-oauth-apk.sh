@@ -87,7 +87,7 @@ set -euo pipefail
 
 apk add --no-cache --quiet \
     abuild rsync curl ca-certificates git \
-    cargo cargo-auditable 2>&1 | tail -3
+    cargo cargo-auditable 2>&1 | tail -3 || true
 
 mkdir -p /root/.abuild
 abuild-keygen -a -n -q
@@ -108,7 +108,7 @@ else
     echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
     rm -rf /tmp/shellsrc-stage/Marathon-Shell-main
     git clone --depth 1 --branch "$MARATHON_SHELL_REF" \
-        "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3
+        "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3 || true
     rm -rf /tmp/shellsrc-stage/Marathon-Shell-main/.git
 fi
 ( cd /tmp/shellsrc-stage && tar -cf - Marathon-Shell-main ) | gzip -1 \

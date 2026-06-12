@@ -63,7 +63,7 @@ apk add --no-cache --quiet \
     qt6-qtwebengine-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
     hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
-    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3
+    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3 || true
 
 # qmf-dev is built locally (it isn't in alpine:edge upstream yet) so we
 # install it from /local-apks with --allow-untrusted. find_library() in
@@ -74,7 +74,7 @@ QMF_LIBS_APK="$(ls /local-apks/qmf-libs-*.apk 2>/dev/null | head -1)"
 QMF_MS_APK="$(ls /local-apks/qmf-messageserver-*.apk 2>/dev/null | head -1)"
 if [ -n "$QMF_DEV_APK" ] && [ -n "$QMF_LIBS_APK" ] && [ -n "$QMF_MS_APK" ]; then
     apk add --no-cache --quiet --allow-untrusted \
-        "$QMF_LIBS_APK" "$QMF_MS_APK" "$QMF_DEV_APK" 2>&1 | tail -3
+        "$QMF_LIBS_APK" "$QMF_MS_APK" "$QMF_DEV_APK" 2>&1 | tail -3 || true
     echo "qmf-dev installed from $QMF_DEV_APK"
 else
     echo "WARNING: qmf-*.apk not found under /local-apks — Mail backend will be skipped"
@@ -99,7 +99,7 @@ else
     echo "cloning $MARATHON_SHELL_GIT @ $MARATHON_SHELL_REF"
     rm -rf /tmp/shellsrc-stage/Marathon-Shell-main
     git clone --depth 1 --branch "$MARATHON_SHELL_REF" \
-        "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3
+        "$MARATHON_SHELL_GIT" /tmp/shellsrc-stage/Marathon-Shell-main 2>&1 | tail -3 || true
     rm -rf /tmp/shellsrc-stage/Marathon-Shell-main/.git
 fi
 ( cd /tmp/shellsrc-stage && tar -cf - Marathon-Shell-main ) | gzip -1 \

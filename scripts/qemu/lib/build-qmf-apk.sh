@@ -47,7 +47,7 @@ if [ -z "$QMF_SRC" ]; then
     QMF_SRC="$(mktemp -d /tmp/qmf-src.XXXXXX)"
     trap 'rm -rf "$QMF_SRC"' EXIT
     echo "+ cloning $QMF_GIT @ $QMF_REF → $QMF_SRC"
-    git clone --depth 1 --branch "$QMF_REF" "$QMF_GIT" "$QMF_SRC" 2>&1 | tail -3
+    git clone --depth 1 --branch "$QMF_REF" "$QMF_GIT" "$QMF_SRC" 2>&1 | tail -3 || true
 fi
 [ -d "$QMF_SRC" ] || {
     echo "error: QMF_SRC=$QMF_SRC does not exist" >&2
@@ -72,7 +72,7 @@ podman run --rm -i \
 set -euo pipefail
 apk add --no-cache --quiet abuild rsync samurai cmake build-base \
     qt6-qtbase-dev qt6-qtbase-sqlite qt6-qt5compat-dev \
-    openssl-dev icu-dev tar 2>&1 | tail -2
+    openssl-dev icu-dev tar 2>&1 | tail -2 || true
 
 mkdir -p /root/.abuild
 abuild-keygen -a -n -q
