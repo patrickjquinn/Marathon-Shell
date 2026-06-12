@@ -221,14 +221,14 @@ EOF
 mkdir -p "$BUILDROOT/etc"
 printf '%s\n' "$HOSTNAME_NAME" > "$BUILDROOT/etc/hostname"
 
-# Force avahi's published hostname directly. Otherwise avahi-daemon
-# starts BEFORE systemd-hostnamed has read /etc/hostname (observed on
-# the CM5: avahi published "duranium.local" for the entire session
-# because gethostname() returned "duranium" at avahi startup, even
-# though /etc/hostname=marathon by the time tmpfiles-setup finished).
-# Setting host-name= explicitly bypasses the gethostname() race.
-mkdir -p "$BUILDROOT/usr/share/factory/etc/avahi"
-cat > "$BUILDROOT/usr/share/factory/etc/avahi/avahi-daemon.conf" <<EOF
+# Pin avahi's published hostname so it doesn't race systemd-hostnamed
+# at startup. Overwriting /etc/avahi/avahi-daemon.conf directly: the
+# tmpfiles C+ pattern doesn't apply here because the avahi apk already
+# ships its own /etc/avahi/avahi-daemon.conf, so the directive is a
+# no-op (C+ only copies when the file is missing). mkosi.finalize then
+# moves /etc into the confext.
+mkdir -p "$BUILDROOT/etc/avahi" "$BUILDROOT/usr/share/factory/etc/avahi"
+cat > "$BUILDROOT/etc/avahi/avahi-daemon.conf" <<EOF
 [server]
 host-name=$HOSTNAME_NAME
 use-ipv4=yes
@@ -247,12 +247,8 @@ publish-addresses=yes
 
 [rlimits]
 EOF
-
-cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
-# avahi-daemon.conf — bake host-name=marathon so avahi doesn't race
-# against systemd-hostnamed at startup (see r92-r93 boot-log diagnosis).
-C+ /etc/avahi/avahi-daemon.conf 0644 - - - /usr/share/factory/etc/avahi/avahi-daemon.conf
-EOF
+cp "$BUILDROOT/etc/avahi/avahi-daemon.conf" \
+   "$BUILDROOT/usr/share/factory/etc/avahi/avahi-daemon.conf"
 
 cat >> "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset" <<'EOF'
 # Avahi: broadcast hostname.local on the LAN so dev/QA can ssh to the
