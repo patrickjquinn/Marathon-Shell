@@ -148,6 +148,59 @@ if [ -d "$OVERLAY_SRC" ]; then
         sed -i 's|^RootPassword=hashed:.*$|RootPassword=hashed:$6$marathondev$HzxHox2zMxplL5HL5br6IYDb4oQBp3QBfrXebGDGyrf9x0UY7Np6mHN/kjTb5.5iN7R4.U8hD9FYsdLC7yunq/|' \
             "$DURANIUM_TOP_CONF"
     fi
+
+    # ── Optional WiFi pre-seed ────────────────────────────────
+    # If the operator has dropped a wifi-preset.conf with SSID/PSK
+    # next to this lib script, generate a NetworkManager keyfile and
+    # land it in the per-image mkosi.skeleton so it ends up at
+    # /etc/NetworkManager/system-connections/ in the baked image.
+    # NetworkManager auto-loads it at boot and the device joins WiFi
+    # without needing OOBE on first power-on. INSECURE — the PSK
+    # reaches the image in cleartext. Use only for dev/QA images
+    # against networks you control; never ship a release image
+    # built with this file present.
+    WIFI_PRESET="$MARATHON_SHELL_SRC/scripts/qemu/wifi-preset.conf"
+    NM_SKEL_DIR="$DURANIUM_DIR/mkosi.images/base/mkosi.skeleton/etc/NetworkManager/system-connections"
+    NM_KEYFILE="$NM_SKEL_DIR/marathon-dev.nmconnection"
+    # Always clear any stale keyfile first — protects against the case
+    # where the operator removes wifi-preset.conf but the previously-
+    # generated keyfile lingers in the skeleton and gets baked anyway.
+    rm -f "$NM_KEYFILE"
+    if [ -f "$WIFI_PRESET" ]; then
+        # shellcheck disable=SC1090
+        . "$WIFI_PRESET"
+        if [ -n "${SSID:-}" ] && [ -n "${PSK:-}" ]; then
+            : "${INTERFACE_NAME:=wlan0}"
+            mkdir -p "$NM_SKEL_DIR"
+            # NetworkManager refuses keyfiles unless mode is 0600.
+            cat > "$NM_KEYFILE" <<EOF
+[connection]
+id=marathon-dev
+type=wifi
+interface-name=$INTERFACE_NAME
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=$SSID
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=$PSK
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+EOF
+            chmod 0600 "$NM_KEYFILE"
+            echo "==> WiFi pre-seed: baked nmconnection for SSID '$SSID' (mode 0600)"
+        else
+            echo "==> WARNING: $WIFI_PRESET present but SSID or PSK empty — skipping WiFi pre-seed"
+        fi
+        unset SSID PSK INTERFACE_NAME
+    fi
 fi
 
 # Mirror the working duranium-build's `marathon-extras/` directory into

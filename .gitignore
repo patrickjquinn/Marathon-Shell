@@ -41,3 +41,6 @@ build-podman/
 tools/marathon-mail-oauth/oauth-clients.env
 # Rust cargo build artefacts under each Rust crate
 tools/marathon-mail-oauth/target/
+
+# WiFi preset for dev/QA images — never commit credentials.
+scripts/qemu/wifi-preset.conf
