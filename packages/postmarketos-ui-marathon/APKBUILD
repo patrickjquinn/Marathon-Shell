@@ -39,15 +39,13 @@ depends="
 	at-spi2-core
 	polkit
 	dbus
-	"
-
-# Recommended, can be opted out of via pmbootstrap. The Flatpak stack +
-# portals are the Duranium-aligned app delivery path.
-_pmb_recommends="
-	flatpak
 	xdg-desktop-portal
 	xdg-desktop-portal-gtk
 	xdg-desktop-portal-wlr
+	"
+
+_pmb_recommends="
+	flatpak
 	"
 
 source="
