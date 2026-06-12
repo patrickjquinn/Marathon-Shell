@@ -7,6 +7,7 @@ set(CORE_QML_FILES
     MTextInput.qml
     MTextArea.qml
     MLabel.qml
+    MText.qml
     MDateTimePicker.qml
     MImageButton.qml
     MEmptyState.qml

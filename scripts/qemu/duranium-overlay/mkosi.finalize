@@ -253,8 +253,43 @@ if [ -d "$BUILDROOT/boot" ]; then
 console=tty1 console=serial0,115200 rw quiet splash plymouth.use-simpledrm
 EOF
             echo "info: wrote /boot/cmdline.txt"
+        elif [ "${PMOS_DEVICE#qemu-}" != "$PMOS_DEVICE" ] && \
+             [ -f "$BUILDROOT/boot/vmlinuz" ]; then
+            # QEMU virt / generic UEFI — Alpine kernel apk drops a bare
+            # /boot/vmlinuz with no loader entry (Alpine ships OpenRC,
+            # not systemd-boot). Route the kernel through the same
+            # downstream as the loader-entry branch above so mkosi's
+            # UKI builder picks it up.
+            echo "info: no /boot/loader/entries (Alpine kernel ships none) — composing UKI inputs for $PMOS_DEVICE"
+
+            for kdir in "$BUILDROOT"/usr/lib/modules/*/; do
+                if [ -d "$kdir" ]; then
+                    mv "$BUILDROOT/boot/vmlinuz" "$kdir/vmlinuz"
+                    echo "info: moved /boot/vmlinuz -> ${kdir}vmlinuz"
+                    break
+                fi
+            done
+
+            # /etc/kernel/cmdline → baked into UKI .cmdline section.
+            # Discoverable-partitions handles root=, mkosi.repart sets
+            # up verity. Keep this minimal; runtime overrides go via
+            # smbios kernel-cmdline-extra in boot-image.sh.
+            mkdir -p "$BUILDROOT/etc/kernel"
+            cat > "$BUILDROOT/etc/kernel/cmdline" <<'EOF'
+console=ttyAMA0,115200 console=tty0 rw quiet splash plymouth.use-simpledrm
+EOF
+            echo "3" > "$BUILDROOT/etc/kernel/tries"
+
+            rm -f "$BUILDROOT/boot/System.map"* "$BUILDROOT/boot/config-"*
+            if ls "$BUILDROOT"/boot/dtbs-*/ >/dev/null 2>&1; then
+                mkdir -p "$BUILDROOT/boot/dtbs"
+                cp -r "$BUILDROOT"/boot/dtbs-*/* "$BUILDROOT/boot/dtbs/"
+                rm -rf "$BUILDROOT"/boot/dtbs-*
+            fi
+            rm -rf "$BUILDROOT/boot/efi/boot"
         else
             echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
+            echo "       PMOS_DEVICE=$PMOS_DEVICE — add a case to mkosi.finalize"
             exit 1
         fi
     fi
