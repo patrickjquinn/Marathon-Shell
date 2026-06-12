@@ -1,16 +1,24 @@
 # Marathon OS I/O Scheduler Configuration
 # Kyber scheduler for flash storage (eMMC/UFS) + polling + read-ahead tuning
+#
+# KERNEL=="mmcblk[0-9]" matches the WHOLE DISK (mmcblk0, mmcblk1) only.
+# The previous "mmcblk[0-9]*" glob matched partitions too (mmcblk0p1,
+# mmcblk0p5, ...) which don't expose queue/* attributes — every boot
+# spammed dozens of:
+#   "Could not chase sysfs attribute ".../mmcblk0p1/queue/scheduler""
+# in journalctl -p err. Whole-disk-only fixes the noise without losing
+# functionality (queue tuning is a whole-block-device concept).
 
 # Set Kyber scheduler on all mmcblk devices
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/scheduler}="kyber"
+ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="kyber"
 
 # Enable I/O polling (test per device - may help latency on some controllers)
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/io_poll}="1"
+ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/io_poll}="1"
 
 # Set read-ahead to 128KB for better sequential performance
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/read_ahead_kb}="128"
+ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/read_ahead_kb}="128"
 
 # Disable NCQ depth limiting for better throughput
-ACTION=="add|change", KERNEL=="mmcblk[0-9]*", ATTR{queue/nr_requests}="128"
+ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/nr_requests}="128"
 
 

@@ -47,6 +47,13 @@ if [ -z "${QT_QPA_PLATFORM:-}" ]; then
     export QT_QPA_PLATFORM=eglfs
     export QT_QPA_EGLFS_INTEGRATION=eglfs_kms
     export QT_QPA_EGLFS_ALWAYS_SET_MODE=1
+    # Marathon is touch-first — no system cursor needed. Without
+    # HIDECURSOR, eglfs polls a (non-existent on phone hardware) DRM
+    # cursor plane every input event and spams the runtime log:
+    #   "Could not set cursor on screen UNKNOWN1: -6"
+    # On the CM5 + HyperPixel panel this generates ~100 warnings/sec
+    # during any touch interaction. Documented by the Qt eglfs backend.
+    export QT_QPA_EGLFS_HIDECURSOR=1
 fi
 
 # QEMU virtio-gpu reports a fake desktop-monitor physical size in EDID, so Qt
