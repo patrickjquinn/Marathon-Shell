@@ -203,7 +203,13 @@ mkdir -p "$BUILDROOT/usr/share/factory/etc"
 printf '%s\n' "$HOSTNAME_NAME" > "$BUILDROOT/usr/share/factory/etc/hostname"
 
 mkdir -p "$BUILDROOT/usr/lib/tmpfiles.d"
-cat > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
+# IMPORTANT: append (>>) — the SSH + /root section above already wrote
+# the authorized_keys, sshd_config.d, /var/empty, /run/avahi-daemon
+# entries to this same file. A `cat >` here clobbers all of those,
+# leaving sshd with no authorized_keys + locked privsep dir + missing
+# avahi runtime dir. Symptom: "Permission denied (publickey,...)" with
+# the correct key, plus avahi never publishes. (Was an r92 bug.)
+cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
 # Seed /etc/hostname from the factory tree on first boot. C+ copies the
 # file if missing; once /etc is provisioned it stays put across reboots.
 C+ /etc/hostname 0644 - - - /usr/share/factory/etc/hostname
