@@ -256,6 +256,7 @@ install(FILES polkit/org.marathonos.shell.policy
 install(DIRECTORY shell/resources/wallpapers/
     DESTINATION ${CMAKE_INSTALL_DATADIR}/marathon-shell/wallpapers
     FILES_MATCHING PATTERN "*.jpg" PATTERN "*.png" PATTERN "*.jpeg" PATTERN "*.webp"
+                   PATTERN "*.svg"
 )
 
 # Sounds

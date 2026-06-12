@@ -737,7 +737,7 @@ Item {
     // higher bit-depth panels; barely visible.
     Image {
         anchors.fill: parent
-        source: "qrc:/wallpapers/dither-noise.png"
+        source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
         fillMode: Image.Tile
         opacity: 0.04
         smooth: false
