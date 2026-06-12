@@ -30,7 +30,7 @@ podman run --rm -i \
     -v "$MKOSI_PKG_DIR:/out:Z" \
     alpine:edge sh -s <<'CSCRIPT'
 set -euo pipefail
-apk add --no-cache --quiet abuild rsync 2>&1 | tail -2
+apk add --no-cache --quiet abuild rsync 2>&1 | tail -2 || true
 
 mkdir -p /root/.abuild
 abuild-keygen -a -n -q
