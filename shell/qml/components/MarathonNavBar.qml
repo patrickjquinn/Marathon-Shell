@@ -242,7 +242,12 @@ Rectangle {
                         UIStore.quickSettingsDragging = true;
 
                     var newHeight = UIStore.quickSettingsHeight - diffY;
-                    var maxHeight = UIStore.shellRef ? (UIStore.shellRef as MarathonShell).maxQuickSettingsHeight : 1000;
+                    // UIStore.shellRef is QObject* in C++ (MarathonShell is a
+                    // pure-QML type with no class registered), so `as
+                    // MarathonShell` returns null even when shellRef points
+                    // at the real shell. Drop the cast — QML duck-typing
+                    // resolves the property fine.
+                    var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000;
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
                     startY = mouse.y;
                 } else if (isAppOpen) {
@@ -293,7 +298,7 @@ Rectangle {
             if ((UIStore.quickSettingsOpen || UIStore.quickSettingsHeight > 0) && isVerticalGesture) {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
-                var threshold = UIStore.shellRef ? (UIStore.shellRef as MarathonShell).quickSettingsThreshold : 400;
+                var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400;
                 // Dismiss on any of: explicit upward fling (velocity < -500),
                 // sub-threshold panel height after drag, OR a deliberate
                 // upward swipe of ≥40 px while QS is open. The third case
