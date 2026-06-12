@@ -221,6 +221,39 @@ EOF
 mkdir -p "$BUILDROOT/etc"
 printf '%s\n' "$HOSTNAME_NAME" > "$BUILDROOT/etc/hostname"
 
+# Force avahi's published hostname directly. Otherwise avahi-daemon
+# starts BEFORE systemd-hostnamed has read /etc/hostname (observed on
+# the CM5: avahi published "duranium.local" for the entire session
+# because gethostname() returned "duranium" at avahi startup, even
+# though /etc/hostname=marathon by the time tmpfiles-setup finished).
+# Setting host-name= explicitly bypasses the gethostname() race.
+mkdir -p "$BUILDROOT/usr/share/factory/etc/avahi"
+cat > "$BUILDROOT/usr/share/factory/etc/avahi/avahi-daemon.conf" <<EOF
+[server]
+host-name=$HOSTNAME_NAME
+use-ipv4=yes
+use-ipv6=yes
+ratelimit-interval-usec=1000000
+ratelimit-burst=1000
+
+[wide-area]
+
+[publish]
+publish-hinfo=no
+publish-workstation=no
+publish-addresses=yes
+
+[reflector]
+
+[rlimits]
+EOF
+
+cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
+# avahi-daemon.conf — bake host-name=marathon so avahi doesn't race
+# against systemd-hostnamed at startup (see r92-r93 boot-log diagnosis).
+C+ /etc/avahi/avahi-daemon.conf 0644 - - - /usr/share/factory/etc/avahi/avahi-daemon.conf
+EOF
+
 cat >> "$BUILDROOT/usr/lib/systemd/system-preset/10-marathon.preset" <<'EOF'
 # Avahi: broadcast hostname.local on the LAN so dev/QA can ssh to the
 # device without scraping DHCP leases.
@@ -232,6 +265,12 @@ enable sshd.service
 # marathon-sshd-keygen: synthesised one-shot that generates host keys
 # on first boot (Alpine's sshd.service alone won't, breaking sshd).
 enable marathon-sshd-keygen.service
+# pmOS's duranium 90-base preset enables lightdm unconditionally, but
+# the marathon-shell apk masks lightdm.service so greetd can own tty1.
+# Without an explicit disable here, every boot logs:
+#   "Failed to preset all unit: Unit lightdm.service is masked"
+# Quieten the journal — greetd is canonical.
+disable lightdm.service
 EOF
 
 # Note: no nsswitch.conf override here. nss-mdns is only required for
