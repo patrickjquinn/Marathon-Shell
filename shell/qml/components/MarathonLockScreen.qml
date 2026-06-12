@@ -445,7 +445,7 @@ Item {
                 font.weight: MTypography.weightMedium
                 font.letterSpacing: 0.3
                 anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
             }
         }
 
@@ -889,7 +889,7 @@ Item {
                 color: "white"
                 font.pixelSize: MTypography.sizeSmall
                 anchors.horizontalCenter: parent.horizontalCenter
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
             }
         }
 
