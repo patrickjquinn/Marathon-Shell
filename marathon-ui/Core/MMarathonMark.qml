@@ -137,7 +137,7 @@ Item {
             font.weight: Font.Light
             font.letterSpacing: root.wordTracking
             font.capitalization: Font.AllUppercase
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
         }
     }
 }

@@ -260,7 +260,7 @@ Item {
                 color: MColors.text
                 font.pixelSize: Math.round(24 * Constants.scaleFactor)
                 font.weight: Font.Medium
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
 
                 Behavior on text {
                     SequentialAnimation {
@@ -364,7 +364,7 @@ Item {
                 color: MColors.error
                 font.pixelSize: Math.round(14 * Constants.scaleFactor)
                 font.weight: Font.Medium
-                renderType: Text.NativeRendering
+                renderType: Text.QtRendering
             }
 
             Behavior on opacity {
