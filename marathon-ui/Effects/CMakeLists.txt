@@ -4,6 +4,9 @@ set(EFFECTS_QML_FILES
     MRipple.qml
     MHaptics.qml
     MTopHairline.qml
+    MGlass.qml
+    MShadow.qml
+    MGlow.qml
     WallpaperSlateAurora.qml
 )
 
