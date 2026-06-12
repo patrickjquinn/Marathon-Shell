@@ -271,6 +271,14 @@ enable marathon-sshd-keygen.service
 #   "Failed to preset all unit: Unit lightdm.service is masked"
 # Quieten the journal — greetd is canonical.
 disable lightdm.service
+# geoclue: Maps + LocationManager talk to /usr/libexec/geoclue over the
+# system DBus, but Alpine's apk doesn't ship a DBus-activation .service
+# file (no /usr/share/dbus-1/services/org.freedesktop.GeoClue*.service)
+# and there's no preset enabling it. Result on a fresh boot:
+#   [LocationManager] Failed to create client: Did not receive a reply
+# Maps falls back to no-position state. Enable the systemd unit so the
+# daemon is ready when LocationManager probes.
+enable geoclue.service
 EOF
 
 # User-mode systemd preset for marathon-mailserver. The unit file is
