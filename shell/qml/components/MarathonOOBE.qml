@@ -85,7 +85,7 @@ Item {
         // 4 % tiled noise pattern used by the live wallpaper renderer.
         Image {
             anchors.fill: parent
-            source: "qrc:/wallpapers/dither-noise.png"
+            source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
             fillMode: Image.Tile
             smooth: false
             opacity: 0.04

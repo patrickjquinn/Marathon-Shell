@@ -86,7 +86,7 @@ Page {
                 label: "Reply"
             }
         ]
-        onActionTriggered: index => {
+        onActionSelected: index => {
             if (!page.mail)
                 return;
             if (index === 0)

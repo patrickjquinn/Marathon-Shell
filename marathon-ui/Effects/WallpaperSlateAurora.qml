@@ -25,7 +25,11 @@ Item {
 
     Image {
         anchors.fill: parent
-        source: "qrc:/wallpapers/dither-noise.png"
+        // qrc-form qt_add_resources silently drops every wallpaper but
+        // slate-aurora.svg (verified via `strings marathon-shell-bin |
+        // grep ^qrc:`). The 18 bpc dither tile only lands as a
+        // file install; load it from disk by absolute path.
+        source: "file:///usr/share/marathon-shell/wallpapers/dither-noise.png"
         fillMode: Image.Tile
         opacity: 0.04
         smooth: false
