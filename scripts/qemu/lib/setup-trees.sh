@@ -127,6 +127,27 @@ if [ -d "$OVERLAY_SRC" ]; then
 
     echo "==> overlaying Marathon customs from scripts/qemu/duranium-overlay/"
     rsync -a "$OVERLAY_SRC/" "$DURANIUM_DIR/"
+
+    # Patch duranium's top-level mkosi.conf RootPassword.
+    #
+    # Upstream postmarketos-duranium ships RootPassword=hashed:! (locked)
+    # so production images can't be ssh'd into with a default credential.
+    # Per the mkosi v25 changelog, RootPassword is a "universal" setting
+    # that can only be specified at the top-level conf — per-image
+    # mkosi.images/base/mkosi.conf overrides are silently ignored.
+    #
+    # The marathon overlay's RootPassword override therefore has to land
+    # in the cache's top-level mkosi.conf via this sed. Hash below is
+    # sha512crypt of "marathon" with salt "marathondev" (generated via
+    # `openssl passwd -6 -salt marathondev marathon`). DEV/QA ONLY —
+    # replace with hashed:! before shipping a release image.
+    DURANIUM_TOP_CONF="$DURANIUM_DIR/mkosi.conf"
+    if [ -f "$DURANIUM_TOP_CONF" ] && \
+       grep -q '^RootPassword=hashed:' "$DURANIUM_TOP_CONF"; then
+        echo "==> patching $DURANIUM_TOP_CONF — RootPassword to dev hash 'marathon'"
+        sed -i 's|^RootPassword=hashed:.*$|RootPassword=hashed:$6$marathondev$HzxHox2zMxplL5HL5br6IYDb4oQBp3QBfrXebGDGyrf9x0UY7Np6mHN/kjTb5.5iN7R4.U8hD9FYsdLC7yunq/|' \
+            "$DURANIUM_TOP_CONF"
+    fi
 fi
 
 # Mirror the working duranium-build's `marathon-extras/` directory into
