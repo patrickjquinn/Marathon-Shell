@@ -69,6 +69,6 @@ Item {
         // lock clock + media-mode swap go through (NativeRendering
         // snaps to integer pixels, so it shimmers during fades).
         renderType: Text.CurveRendering
-        renderTypeQuality: Text.VeryHighTextRenderQuality
+        renderTypeQuality: Text.VeryHighRenderTypeQuality
     }
 }
