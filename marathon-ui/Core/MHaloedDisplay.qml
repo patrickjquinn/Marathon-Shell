@@ -61,17 +61,23 @@ Item {
         color: MColors.textPrimary
         font.family: MTypography.fontFamily
         font.pixelSize: MTypography.sizeDisplay
-        font.weight: MTypography.weightExtraLight   // 200 — the comment said 200, the constant now matches
+        font.weight: MTypography.weightExtraLight   // 200 default
         font.letterSpacing: MTypography.trackingDisplay
-        // QtRendering uses Qt's own glyph rasterizer against the font
-        // loaded via MTypography's FontLoader — guaranteed to honour
-        // the family/weight selection across software AND hardware
-        // backends. CurveRendering needs GPU pipeline; on the QEMU
-        // software-renderer (QT_QUICK_BACKEND=software) it silently
-        // falls through to NativeRendering, which hands family lookup
-        // to fontconfig and lands on a non-Sora face for thin weights.
-        // QtRendering keeps the visual smoothness through the
-        // opacity/scale transitions without that failure mode.
+        // Sora ships as a variable font (wght axis 100–800, default 400).
+        // font.weight alone does NOT instance the axis — Qt resolves to
+        // the static cut whose OS/2 weight is closest, and since the
+        // file's default is 400 the lock clock rendered as Regular even
+        // when the caller asked for Thin (100). Empirically verified by
+        // pixel-matching the rendered glyphs against fontTools-instanced
+        // reference renders at 100/200/300/400. Binding variableAxes
+        // here engages the wght axis so font.weight actually maps to a
+        // weighted instance. font.styleName is belt-and-suspenders for
+        // the NativeRendering path where Qt falls back to fontconfig
+        // matching by style rather than axis interpolation.
+        font.variableAxes: ({
+                "wght": label.font.weight
+            })
+        font.styleName: label.font.weight <= 100 ? "Thin" : label.font.weight <= 200 ? "ExtraLight" : label.font.weight <= 300 ? "Light" : label.font.weight <= 400 ? "Regular" : label.font.weight <= 500 ? "Medium" : label.font.weight <= 600 ? "SemiBold" : label.font.weight <= 700 ? "Bold" : "ExtraBold"
         renderType: Text.QtRendering
     }
 }
