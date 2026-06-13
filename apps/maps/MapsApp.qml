@@ -361,6 +361,29 @@ MApp {
                 else
                     Logger.info("Maps:WebJS", message);
             }
+            onCertificateError: error => {
+                Logger.warn("Maps", "TLS cert error for " + error.url + ": " + error.description);
+                error.rejectCertificate();
+            }
+            onRenderProcessTerminated: function (terminationStatus, exitCode) {
+                if (terminationStatus === WebEngineView.NormalTerminationStatus)
+                    return;
+                var status = "Unknown";
+                switch (terminationStatus) {
+                case WebEngineView.AbnormalTerminationStatus:
+                    status = "Abnormal";
+                    break;
+                case WebEngineView.CrashedTerminationStatus:
+                    status = "Crashed";
+                    break;
+                case WebEngineView.KilledTerminationStatus:
+                    status = "Killed";
+                    break;
+                }
+                Logger.error("Maps", "Renderer terminated: " + status + " (code " + exitCode + "), reloading");
+                mapsApp.mapsReady = false;
+                webMap.reload();
+            }
             Component.onCompleted: {
                 mapsApp.mapsView = webMap;
             }
