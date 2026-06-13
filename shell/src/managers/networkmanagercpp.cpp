@@ -1,4 +1,6 @@
 #include "networkmanagercpp.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QDebug>
 #include <QDBusMessage>
 #include <QDBusError>
@@ -11,6 +13,11 @@
 #include <QUuid>
 #include <algorithm>
 
+NetworkManagerCpp *NetworkManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new NetworkManagerCpp(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 // NetworkManager's connection settings dict is sig `a{sa{sv}}` — a map
 // from settings-group name to a sub-dict of property values. QtDBus does
 // NOT produce this signature for a bare `QMap<QString, QVariantMap>`

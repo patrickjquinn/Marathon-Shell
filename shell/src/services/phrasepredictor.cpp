@@ -1,5 +1,12 @@
 #include "phrasepredictor.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+PhrasePredictor *PhrasePredictor::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new PhrasePredictor(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 PhrasePredictor::PhrasePredictor(QObject *parent)
     : QObject(parent) {
     m_phraseMap.insert("how are", {"you", "you doing", "things"});

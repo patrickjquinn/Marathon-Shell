@@ -1,4 +1,6 @@
 #include "audiomanagercpp.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include "platform.h"
 #include <QDebug>
 #include <QDBusInterface>
@@ -7,6 +9,12 @@
 #include <QDBusMetaType>
 #include <QProcess>
 #include <QRegularExpression>
+
+AudioManagerCpp *AudioManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new AudioManagerCpp(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 
 AudioStreamModel::AudioStreamModel(QObject *parent)
     : QAbstractListModel(parent) {}

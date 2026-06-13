@@ -2,11 +2,18 @@
 
 #include <QFile>
 #include <QGuiApplication>
+#include <QJSEngine>
 #include <QMetaType>
 #include <QOperatingSystemVersion>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QScreen>
+
+SettingsController *SettingsController::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SettingsController(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 #include <QSysInfo>
 #include <QTimer>
 #include <algorithm>

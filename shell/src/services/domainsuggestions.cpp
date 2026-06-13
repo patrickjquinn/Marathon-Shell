@@ -1,5 +1,12 @@
 #include "domainsuggestions.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+DomainSuggestions *DomainSuggestions::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new DomainSuggestions(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 DomainSuggestions::DomainSuggestions(QObject *parent)
     : QObject(parent)
     , m_commonTlds({"com", "org", "net", "edu", "gov", "co.uk", "co", "io", "app", "dev",

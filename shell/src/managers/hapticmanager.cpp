@@ -1,9 +1,16 @@
 #include "hapticmanager.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QDebug>
 #include <QFile>
 #include <QDir>
 #include <QTimer>
 
+HapticManager *HapticManager::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new HapticManager(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 void HapticManager::vibratePatternVariant(const QVariantList &pattern) {
     QList<int> ints;
     ints.reserve(pattern.size());

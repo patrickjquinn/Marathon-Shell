@@ -1,5 +1,12 @@
 #include "carrierprovisioning.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+CarrierProvisioning *CarrierProvisioning::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new CarrierProvisioning(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 #include <QDebug>
 #include <QFile>
 #include <QXmlStreamReader>

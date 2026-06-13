@@ -1,4 +1,6 @@
 #include "securitymanager.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include "securitylogger.h"
 #include <QDebug>
 #include <QDBusReply>
@@ -14,6 +16,11 @@
 #include <pwd.h>
 #include <sys/types.h>
 
+SecurityManager *SecurityManager::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SecurityManager(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 SecurityManager::SecurityManager(QObject *parent)
     : QObject(parent)
     , m_authMode(SystemPassword)
