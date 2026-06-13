@@ -56,7 +56,7 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: timeoutMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : ((DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Qt.rgba(20, 184, 166, 0.08) : "transparent")
+                                color: timeoutMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : ((DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent")
                                 border.width: (DisplayManagerCpp.screenTimeout === SettingsManagerCpp.screenTimeoutValue(modelData)) ? Constants.borderWidthMedium : 0
                                 border.color: MColors.marathonTeal
 

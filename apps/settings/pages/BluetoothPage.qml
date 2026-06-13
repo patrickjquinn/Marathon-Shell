@@ -114,7 +114,7 @@ SettingsPageTemplate {
                                 anchors.fill: parent
                                 anchors.margins: 1
                                 radius: Constants.borderRadiusSmall
-                                color: deviceMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : "transparent"
+                                color: deviceMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : "transparent"
 
                                 Behavior on color {
                                     ColorAnimation {
@@ -226,7 +226,7 @@ SettingsPageTemplate {
                                     anchors.fill: parent
                                     anchors.margins: 1
                                     radius: Constants.borderRadiusSmall
-                                    color: availableDeviceMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.15) : "transparent"
+                                    color: availableDeviceMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.15) : "transparent"
 
                                     Behavior on color {
                                         ColorAnimation {

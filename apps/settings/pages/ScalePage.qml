@@ -88,9 +88,9 @@ SettingsPageTemplate {
                             width: parent.width
                             height: Constants.touchTargetMedium
                             radius: Constants.borderRadiusSmall
-                            color: Constants.userScaleFactor === modelData.factor ? Qt.rgba(20, 184, 166, 0.08) : "transparent"
+                            color: Constants.userScaleFactor === modelData.factor ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent"
                             border.width: Constants.userScaleFactor === modelData.factor ? 1 : 0
-                            border.color: Qt.rgba(20, 184, 166, 0.3)
+                            border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
 
                             Row {
                                 anchors.fill: parent
