@@ -422,7 +422,9 @@ Item {
 
             MHaloedDisplay {
                 text: SystemStatusStore.timeString
-                font.family: MTypography.fontFamily
+                // family: omit — MHaloedDisplay picks per-weight cut. If
+                // we set fontFamily here it would override (alias)
+                // and force the variable Sora's default Regular cut.
                 font.pixelSize: Math.round((clockColumn.mediaActive ? 76 : 84) * Constants.scaleFactor)
                 font.weight: MTypography.weightThin
                 font.letterSpacing: clockColumn.mediaActive ? -1.5 : -2
@@ -440,7 +442,7 @@ Item {
             Text {
                 text: SystemStatusStore.dateString
                 color: MColors.textSecondary
-                font.family: MTypography.fontFamily
+                font.family: MTypography.fontFamilyMedium
                 font.pixelSize: clockColumn.mediaActive ? Math.round(14 * Constants.scaleFactor) : MTypography.sizeSubhead
                 font.weight: MTypography.weightMedium
                 font.letterSpacing: 0.3
