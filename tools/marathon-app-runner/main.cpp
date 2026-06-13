@@ -414,6 +414,28 @@ int main(int argc, char *argv[]) {
                 auto *info = earlyRegistry.getAppInfo(earlyAppId);
                 if (info && info->requiresQtModules.contains(QStringLiteral("webengine"))) {
 #ifdef HAVE_WEBENGINE
+                    // Chromium's setuid sandbox can't unshare user namespaces
+                    // from inside our bubblewrap wrapper (the kernel rejects
+                    // nested unshare with EPERM), so the renderer process
+                    // would fail to start and the WebEngineView would render
+                    // blank — no errors surfaced to QML. Disable Chromium's
+                    // own sandbox; bubblewrap is the real sandbox boundary.
+                    // --disable-dev-shm-usage routes shared memory through
+                    // /tmp because the bwrap'd /dev/shm is a tmpfs sized to
+                    // the parent's defaults and Chromium can hit ENOSPC on
+                    // larger pages.
+                    qputenv("QTWEBENGINE_DISABLE_SANDBOX", "1");
+                    {
+                        QByteArray       flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+                        const QByteArray needed =
+                            "--no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "
+                            "--enable-features=UseOzonePlatform --ozone-platform=wayland";
+                        if (flags.isEmpty())
+                            flags = needed;
+                        else
+                            flags = flags + " " + needed;
+                        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags);
+                    }
                     QtWebEngineQuick::initialize();
 #else
                     qWarning() << "[marathon-app-runner] App" << earlyAppId
