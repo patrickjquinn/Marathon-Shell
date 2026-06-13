@@ -44,3 +44,4 @@ tools/marathon-mail-oauth/target/
 
 # WiFi preset for dev/QA images — never commit credentials.
 scripts/qemu/wifi-preset.conf
+tests/screenshots/
