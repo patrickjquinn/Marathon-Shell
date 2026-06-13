@@ -59,32 +59,17 @@ Item {
         // Defaults: Display 96 / weight 200 / -3 letter-spacing
         // (matches the lock clock from the DS).
         color: MColors.textPrimary
-        font.family: MTypography.fontFamily
         font.pixelSize: MTypography.sizeDisplay
         font.weight: MTypography.weightExtraLight   // 200 default
         font.letterSpacing: MTypography.trackingDisplay
-        // NativeRendering routes the glyph lookup through fontconfig.
-        // Fontconfig sees Sora's variable-font named instances as
-        // discrete weighted faces (verified with fc-list :family=Sora →
-        // Thin / ExtraLight / Light / Regular / SemiBold / Bold /
-        // ExtraBold). The QtRendering path silently ignored font.weight
-        // AND font.variableAxes for this font in Qt 6.11 (pixel-verified:
-        // clock matched Regular when asked for Thin), so we let
-        // fontconfig do the matching instead.
-        renderType: Text.NativeRendering
-    }
-
-    // Force the family to the named-instance fullname matching the
-    // requested weight, bypassing the `font` alias from the caller.
-    // The inline `font.family` binding in the Text item above is
-    // overridden whenever the outer caller writes
-    // `MHaloedDisplay { font.family: ... }` (alias semantics), so we
-    // use Binding{} which wins over alias-driven assignment. Without
-    // this, the family stays at the variable-font's default record
-    // and font.weight is ignored — see the comment above.
-    Binding {
-        target: label
-        property: "font.family"
-        value: label.font.weight <= 100 ? "Sora Thin" : label.font.weight <= 200 ? "Sora ExtraLight" : label.font.weight <= 300 ? "Sora Light" : label.font.weight <= 400 ? "Sora Regular" : label.font.weight <= 600 ? "Sora SemiBold" : label.font.weight <= 700 ? "Sora Bold" : "Sora ExtraBold"
+        // Bind the family to the per-weight static cut. This is the
+        // only reliable selector — Sora's variable wght axis was
+        // silently ignored by both QtRendering and NativeRendering on
+        // Qt 6.11 (pixel-verified: clock rendered as Regular when
+        // asked for Thin). With 8 distinct static cuts, each is its
+        // own font.family in QFontDatabase and there's no axis
+        // ambiguity left. font.weight stays correct for fallback in
+        // case the FontLoader hasn't reported back yet.
+        font.family: MTypography.fontFamilyForWeight(label.font.weight)
     }
 }

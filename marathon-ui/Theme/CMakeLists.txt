@@ -21,6 +21,14 @@ qt6_add_qml_module(marathon-ui-theme
     RESOURCES
         halo-teal.svg
         fonts/Sora.ttf
+        fonts/Sora-Thin.ttf
+        fonts/Sora-ExtraLight.ttf
+        fonts/Sora-Light.ttf
+        fonts/Sora-Regular.ttf
+        fonts/Sora-Medium.ttf
+        fonts/Sora-SemiBold.ttf
+        fonts/Sora-Bold.ttf
+        fonts/Sora-ExtraBold.ttf
         fonts/JetBrainsMono-Medium.ttf
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/MarathonUI/Theme
 )
@@ -61,6 +69,14 @@ install(FILES halo-teal.svg
 
 install(FILES
     fonts/Sora.ttf
+    fonts/Sora-Thin.ttf
+    fonts/Sora-ExtraLight.ttf
+    fonts/Sora-Light.ttf
+    fonts/Sora-Regular.ttf
+    fonts/Sora-Medium.ttf
+    fonts/Sora-SemiBold.ttf
+    fonts/Sora-Bold.ttf
+    fonts/Sora-ExtraBold.ttf
     fonts/JetBrainsMono-Medium.ttf
     DESTINATION ${MARATHON_UI_DIR}/Theme/fonts
 )
@@ -69,10 +85,21 @@ install(FILES
 # fontconfig finds them via fc-match. Without this, anything that goes
 # through fontconfig (greetd, console messages, foot/alacritty before
 # the user has any font config, third-party apps) falls back to Noto
-# Sans / DejaVu. Sora.ttf is the same file shipped via the QML qrc —
-# duplicated here so the system can resolve it by family name.
+# Sans / DejaVu. The static-instance Sora-<Weight>.ttf files are the
+# critical ones — the variable Sora.ttf alone confused Qt's weight
+# selection (clock rendered as Regular when asked for Thin). With
+# distinct static cuts each registers its own family/style under
+# fontconfig and Qt picks the right one cleanly.
 install(FILES
     fonts/Sora.ttf
+    fonts/Sora-Thin.ttf
+    fonts/Sora-ExtraLight.ttf
+    fonts/Sora-Light.ttf
+    fonts/Sora-Regular.ttf
+    fonts/Sora-Medium.ttf
+    fonts/Sora-SemiBold.ttf
+    fonts/Sora-Bold.ttf
+    fonts/Sora-ExtraBold.ttf
     fonts/JetBrainsMono-Medium.ttf
     DESTINATION share/fonts/marathon
 )

@@ -28,21 +28,16 @@ Text {
     property bool tnum: false
 
     color: MColors.textPrimary
-    font.family: MTypography.fontFamily
+    // Per-cut family — see MTypography for the rationale. Without this
+    // every callsite that asks for ExtraLight / Light / Thin Sora got
+    // the OS/2 default Regular cut due to Qt 6.11 variable-font axis
+    // handling. fontFamilyForWeight selects the matching static face.
+    font.family: MTypography.fontFamilyForWeight(root.font.weight)
     font.pixelSize: MTypography.sizeBody
     font.hintingPreference: Font.PreferNoHinting
     font.kerning: true
 
-    // Body text via NativeRendering routes through fontconfig, where
-    // each Sora named instance is registered with its real CSS weight
-    // (Thin=100 → fc weight=0 → "Sora Thin" face). The QtRendering +
-    // font.weight path empirically rounds 100/200/300 up to Regular
-    // for this variable font on Qt 6.11 — pixel-verified against
-    // fontTools-instanced reference renders. NativeRendering loses the
-    // SDF smoothness during scale/opacity transitions, but Marathon's
-    // body text doesn't animate, and Sora-at-weight beats SDF-blur
-    // every time.
-    renderType: Text.NativeRendering
+    renderType: Text.QtRendering
 
     // Array-of-strings form per the guide §08 Gap 7 — works on Qt 6.6.0
     // (some builds reject the object-literal form), and 6.6.1+. Safer
