@@ -83,8 +83,8 @@ Item {
     // this, the family stays at the variable-font's default record
     // and font.weight is ignored — see the comment above.
     Binding {
-        target: label.font
-        property: "family"
+        target: label
+        property: "font.family"
         value: label.font.weight <= 100 ? "Sora Thin" : label.font.weight <= 200 ? "Sora ExtraLight" : label.font.weight <= 300 ? "Sora Light" : label.font.weight <= 400 ? "Sora Regular" : label.font.weight <= 600 ? "Sora SemiBold" : label.font.weight <= 700 ? "Sora Bold" : "Sora ExtraBold"
     }
 }
