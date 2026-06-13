@@ -63,12 +63,15 @@ Item {
         font.pixelSize: MTypography.sizeDisplay
         font.weight: MTypography.weightExtraLight   // 200 — the comment said 200, the constant now matches
         font.letterSpacing: MTypography.trackingDisplay
-        // CurveRendering (Qt 6.7+) rasterises glyph outlines analytically
-        // on the GPU — strictly sharper than NativeRendering at display
-        // sizes AND smooth through the opacity/scale transitions the
-        // lock clock + media-mode swap go through (NativeRendering
-        // snaps to integer pixels, so it shimmers during fades).
-        renderType: Text.CurveRendering
-        renderTypeQuality: Text.VeryHighRenderTypeQuality
+        // QtRendering uses Qt's own glyph rasterizer against the font
+        // loaded via MTypography's FontLoader — guaranteed to honour
+        // the family/weight selection across software AND hardware
+        // backends. CurveRendering needs GPU pipeline; on the QEMU
+        // software-renderer (QT_QUICK_BACKEND=software) it silently
+        // falls through to NativeRendering, which hands family lookup
+        // to fontconfig and lands on a non-Sora face for thin weights.
+        // QtRendering keeps the visual smoothness through the
+        // opacity/scale transitions without that failure mode.
+        renderType: Text.QtRendering
     }
 }

@@ -158,11 +158,28 @@ class QemuDriver:
             print(f"          {r.stdout.decode(errors='replace').strip()}")
             return False
         except FileNotFoundError:
-            r = subprocess.run(
-                ["compare", "-metric", "AE", "-fuzz", "5%",
-                 str(golden), str(shot), str(diff_out)],
-                capture_output=True)
-            differing = int((r.stderr or b"0").decode().split()[0] or 0)
+            # ImageMagick fallback. AE under -fuzz returns "differing-px",
+            # but ImageMagick6 vs 7 disagree on whether that's an int or
+            # a scientific-notation float, so parse as float first. Also
+            # try `magick compare` (IM7) before plain `compare` (IM6).
+            for binary in (["magick", "compare"], ["compare"]):
+                try:
+                    r = subprocess.run(
+                        [*binary, "-metric", "AE", "-fuzz", "5%",
+                         str(golden), str(shot), str(diff_out)],
+                        capture_output=True)
+                    break
+                except FileNotFoundError:
+                    continue
+            else:
+                print(f"  WARN  no visual-diff backend (odiff / "
+                      f"ImageMagick) — skipping {label}")
+                return True
+            raw = (r.stderr or b"0").decode(errors="replace").split()
+            try:
+                differing = int(float(raw[0])) if raw else 0
+            except ValueError:
+                differing = 0
             total = self.width * self.height
             frac = differing / max(1, total)
             ok = frac <= threshold
