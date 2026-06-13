@@ -164,19 +164,6 @@ Item {
             }
         }
 
-        MouseArea {
-            id: mouseArea
-
-            anchors.fill: parent
-            enabled: !disabled
-            onPressed: MHaptics.lightImpact()
-            onClicked: {
-                if (!disabled) {
-                    root.clicked();
-                }
-            }
-        }
-
         Behavior on color {
             ColorAnimation {
                 duration: MMotion.xs
@@ -188,6 +175,21 @@ Item {
                 spring: MMotion.springLight
                 damping: MMotion.dampingLight
                 epsilon: MMotion.epsilon
+            }
+        }
+    }
+
+    // Hit area covers the full root Item, not just the inner button —
+    // expanding the touch target by the outer ring + 6 px padding.
+    MouseArea {
+        id: mouseArea
+
+        anchors.fill: parent
+        enabled: !disabled
+        onPressed: MHaptics.lightImpact()
+        onClicked: {
+            if (!disabled) {
+                root.clicked();
             }
         }
     }
