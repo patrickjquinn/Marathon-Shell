@@ -48,6 +48,10 @@ class MarathonPermissionManager : public QObject {
                                     bool granted, bool remember = true);
 
     Q_INVOKABLE void dismissAll();
+    // Drop any active or queued prompt belonging to appId. Called when
+    // an app-runner exits — without this the shell keeps showing the
+    // dead app's dialog over every subsequent foreground app.
+    Q_INVOKABLE void             dismissForApp(const QString &appId);
     Q_INVOKABLE QStringList      getAppPermissions(const QString &appId);
 
     Q_INVOKABLE void             revokePermission(const QString &appId, const QString &permission);

@@ -560,7 +560,11 @@ MApp {
                         anchors.centerIn: parent
                         width: parent.width - 48
                         visible: galleryApp.memoryClusters.length === 0
-                        iconName: "sparkles"
+                        // "calendar-heart" matches the Memories surface
+                        // semantically (date-clustered throwbacks) and
+                        // avoids the AI-sparkle glyph banned per project
+                        // rules.
+                        iconName: "calendar-heart"
                         iconSize: 64
                         title: "No Memories Yet"
                         message: "Anniversary throwbacks will appear here as your library grows over the years."
