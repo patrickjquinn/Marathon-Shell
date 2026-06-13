@@ -9,6 +9,7 @@ Rectangle {
     id: root
 
     property bool showBack: true
+    property string backLabel: "Back"
     property int activeAction: 0
     property alias actions: actionRepeater.model
     property alias signatureButton: sigButton
@@ -94,7 +95,7 @@ Rectangle {
                 }
 
                 Text {
-                    text: "Back"
+                    text: root.backLabel
                     color: MColors.textPrimary
                     font.pixelSize: MTypography.sizeBody
                     font.family: MTypography.fontFamily

@@ -426,10 +426,15 @@ int main(int argc, char *argv[]) {
                     // larger pages.
                     qputenv("QTWEBENGINE_DISABLE_SANDBOX", "1");
                     {
+                        // Don't force --ozone-platform=wayland. Alpine's
+                        // Qt6 WebEngine isn't built with the Wayland Ozone
+                        // backend; passing it aborts the process with
+                        // "Invalid ozone platform: wayland". Qt's QPA
+                        // plugin already drives the surface — Chromium
+                        // renders via Qt's GL bridge, not Ozone direct.
                         QByteArray       flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
                         const QByteArray needed =
-                            "--no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "
-                            "--enable-features=UseOzonePlatform --ozone-platform=wayland";
+                            "--no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage";
                         if (flags.isEmpty())
                             flags = needed;
                         else
