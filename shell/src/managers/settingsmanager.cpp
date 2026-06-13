@@ -196,11 +196,14 @@ void SettingsManager::load() {
         m_settings.value("notifications/showOnLockScreen", true).toBool();
 
     m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", false).toBool();
-    m_hiddenApps               = m_settings.value("apps/hiddenApps", QStringList()).toStringList();
-    m_appSortOrder             = m_settings.value("apps/sortOrder", "alphabetical").toString();
-    m_appGridColumns           = m_settings.value("apps/gridColumns", 0).toInt();
-    m_searchNativeApps         = m_settings.value("apps/searchNativeApps", true).toBool();
-    m_showNotificationBadges   = m_settings.value("apps/showBadges", true).toBool();
+    // Default-hide developer-oriented surfaces — they're still tappable
+    // from Settings → Apps → Hidden Apps. A consumer phone shouldn't put
+    // a shell prompt one tap away in the launcher (UX-review #4).
+    m_hiddenApps     = m_settings.value("apps/hiddenApps", QStringList{"terminal"}).toStringList();
+    m_appSortOrder   = m_settings.value("apps/sortOrder", "alphabetical").toString();
+    m_appGridColumns = m_settings.value("apps/gridColumns", 0).toInt();
+    m_searchNativeApps       = m_settings.value("apps/searchNativeApps", true).toBool();
+    m_showNotificationBadges = m_settings.value("apps/showBadges", true).toBool();
     m_appNotificationSettings =
         m_settings.value("notifications/appSettings", QVariantMap()).toMap();
     m_showFrequentApps = m_settings.value("apps/showFrequentApps", false).toBool();
