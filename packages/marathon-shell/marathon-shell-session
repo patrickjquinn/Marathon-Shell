@@ -111,6 +111,34 @@ fi
 # Venus on M1 wedges boot without unmerged 16KiB blob-alignment patches,
 # so virgl is the path forward for QEMU acceleration on Apple Silicon
 # until Venus catches up.
+#
+# CAVEAT — the "falls back to llvmpipe, just slowly" claim above is wrong
+# on aarch64 Alpine: LLVMpipe's MCJIT crashes during
+# llvm::AsmPrinter::doFinalization (libLLVM.so.22 + 0x1820e48), so eglfs
+# can never create a GL context and the shell SIGSEGVs on every greetd
+# launch. Detect this configuration and switch Qt Quick to its software
+# 2D renderer (QT_QUICK_BACKEND=software) — bypasses the GL path entirely,
+# screenshots still work, ShaderEffect QML items degrade to flat fills.
+# Triggered when:
+#   1. MARATHON_FORCE_SOFTWARE_RENDER=1 in env (harness override), OR
+#   2. We're on virtio-gpu AND the virgl-enabled libgallium isn't on disk
+#      (=> no hardware GL possible).
+NEED_SOFTWARE_BACKEND=0
+if [ "${MARATHON_FORCE_SOFTWARE_RENDER:-0}" = "1" ]; then
+    NEED_SOFTWARE_BACKEND=1
+elif [ "$IS_VIRTIO_GPU" = 1 ]; then
+    # Mesa's virgl Gallium driver lives in libgallium-*.so. If the only
+    # gallium on disk lacks virgl symbols we know LLVMpipe is the only
+    # option — guarantee a SEGV. Use nm to grep without touching libraries.
+    GALLIUM_SO="$(ls /usr/lib/libgallium*.so 2>/dev/null | head -1)"
+    if [ -z "$GALLIUM_SO" ] || ! nm -D "$GALLIUM_SO" 2>/dev/null | grep -q virgl; then
+        NEED_SOFTWARE_BACKEND=1
+    fi
+fi
+if [ "$NEED_SOFTWARE_BACKEND" = 1 ]; then
+    export QT_QUICK_BACKEND=software
+    echo "[marathon-shell-session] virgl unavailable — forcing QT_QUICK_BACKEND=software" >&2
+fi
 
 # ---- Qt-wide env -------------------------------------------------------------
 
