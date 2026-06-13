@@ -1,5 +1,12 @@
 #include "surfaceregistry.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+SurfaceRegistry *SurfaceRegistry::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SurfaceRegistry(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 #include <QDebug>
 #include <QtGlobal>
 

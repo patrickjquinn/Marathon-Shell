@@ -1,5 +1,12 @@
 #include "router.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+Router *Router::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new Router(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 #include <QDebug>
 #include <QtGlobal>
 

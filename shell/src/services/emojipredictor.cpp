@@ -1,5 +1,12 @@
 #include "emojipredictor.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+EmojiPredictor *EmojiPredictor::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new EmojiPredictor(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 EmojiPredictor::EmojiPredictor(QObject *parent)
     : QObject(parent) {
     m_emojiMap.insert("happy", {"", "", ""});

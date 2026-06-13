@@ -13,6 +13,13 @@ class NetworkManagerCpp : public QObject {
     Q_OBJECT
     QML_ELEMENT
     QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static NetworkManagerCpp *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(bool wifiEnabled READ wifiEnabled NOTIFY wifiEnabledChanged)
     Q_PROPERTY(bool wifiConnected READ wifiConnected NOTIFY wifiConnectedChanged)
     Q_PROPERTY(QString wifiSsid READ wifiSsid NOTIFY wifiSsidChanged)

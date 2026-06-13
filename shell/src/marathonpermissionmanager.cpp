@@ -1,4 +1,6 @@
 #include "marathonpermissionmanager.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include "portalmanager.h"
 #include <QDebug>
 #include <QDir>
@@ -9,6 +11,11 @@
 #include <QStandardPaths>
 #include <QTimer>
 
+MarathonPermissionManager *MarathonPermissionManager::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new MarathonPermissionManager(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 MarathonPermissionManager::MarathonPermissionManager(QObject *parent)
     : QObject(parent)
     , m_promptActive(false) {

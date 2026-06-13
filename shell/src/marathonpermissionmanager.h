@@ -1,5 +1,8 @@
 #pragma once
 
+class QQmlEngine;
+class QJSEngine;
+
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -11,6 +14,13 @@ class MarathonPermissionManager : public QObject {
     Q_OBJECT
     QML_NAMED_ELEMENT(PermissionManager)
     QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static MarathonPermissionManager *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(bool promptActive READ promptActive NOTIFY promptActiveChanged)
     Q_PROPERTY(QString currentAppId READ currentAppId NOTIFY currentRequestChanged)
     Q_PROPERTY(QString currentPermission READ currentPermission NOTIFY currentRequestChanged)

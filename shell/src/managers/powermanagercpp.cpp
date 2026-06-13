@@ -1,4 +1,6 @@
 #include "powermanagercpp.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QDebug>
 #include <QDBusReply>
 #include <QDBusConnection>
@@ -8,6 +10,11 @@
 #include <QFile>
 #include <QProcess>
 
+PowerManagerCpp *PowerManagerCpp::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new PowerManagerCpp(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 QStringList PowerManagerCpp::activeWakelocks() const {
     QStringList result;
     for (auto it = m_activeWakelocks.constBegin(); it != m_activeWakelocks.constEnd(); ++it) {

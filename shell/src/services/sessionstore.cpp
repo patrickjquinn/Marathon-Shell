@@ -1,5 +1,12 @@
 #include "sessionstore.h"
+#include <QJSEngine>
+#include <QQmlEngine>
 
+SessionStore *SessionStore::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SessionStore(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 #include <QByteArray>
 #include <QDateTime>
 

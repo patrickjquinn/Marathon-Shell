@@ -17,6 +17,13 @@ class SecurityManager : public QObject {
     Q_OBJECT
     QML_NAMED_ELEMENT(SecurityManagerCpp)
     QML_SINGLETON
+  public:
+    // QML_SINGLETON factory — required so the type registers correctly in
+    // marathon-app-runner processes that import this module without the
+    // shell's explicit qmlRegisterSingletonInstance call. Shell process
+    // still calls qmlRegisterSingletonInstance in main.cpp; that override
+    // wins so shell-side C++ consumers share the same instance pointer.
+    static SecurityManager *create(QQmlEngine *, QJSEngine *);
     Q_PROPERTY(AuthMode authMode READ authMode WRITE setAuthMode NOTIFY authModeChanged)
     Q_PROPERTY(bool hasQuickPIN READ hasQuickPIN NOTIFY quickPINChanged)
     Q_PROPERTY(
