@@ -469,9 +469,25 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << QStringLiteral("/var/empty") << QStringLiteral("--proc")
                   << QStringLiteral("/proc") << QStringLiteral("--dev") << QStringLiteral("/dev")
                   << QStringLiteral("--dev-bind-try") << QStringLiteral("/dev/dri")
-                  << QStringLiteral("/dev/dri") << QStringLiteral("--tmpfs")
-                  << QStringLiteral("/tmp") << QStringLiteral("--tmpfs") << homeDir
-                  << QStringLiteral("--ro-bind") << QStringLiteral("/usr/share/marathon-apps")
+                  << QStringLiteral("/dev/dri")
+                  // /sys is needed for GPU/DRM driver discovery: Mesa walks
+                  // /sys/dev/char/<major:minor> → /sys/class/drm/renderD128
+                  // → /sys/devices/.../pci... to pick the right DRI driver.
+                  // Without it Mesa logs "failed to retrieve device
+                  // information" and falls back to zink/swrast.
+                  << QStringLiteral("--ro-bind-try") << QStringLiteral("/sys")
+                  << QStringLiteral("/sys")
+                  // System D-Bus socket lives at /run/dbus/system_bus_socket
+                  // (Alpine path; older distros at /var/run/dbus). Apps
+                  // need it to reach ModemManager / NetworkManager / UPower
+                  // / Bluez. Without this the runner logs
+                  // "Failed to connect to socket /run/dbus/system_bus_socket".
+                  << QStringLiteral("--ro-bind-try") << QStringLiteral("/run/dbus")
+                  << QStringLiteral("/run/dbus") << QStringLiteral("--ro-bind-try")
+                  << QStringLiteral("/var/run/dbus") << QStringLiteral("/var/run/dbus")
+                  << QStringLiteral("--tmpfs") << QStringLiteral("/tmp")
+                  << QStringLiteral("--tmpfs") << homeDir << QStringLiteral("--ro-bind")
+                  << QStringLiteral("/usr/share/marathon-apps")
                   << QStringLiteral("/usr/share/marathon-apps") << QStringLiteral("--ro-bind-try")
                   << appConfig << appConfig << QStringLiteral("--bind") << appData << appData
                   << QStringLiteral("--bind") << appCache << appCache << QStringLiteral("--bind")
