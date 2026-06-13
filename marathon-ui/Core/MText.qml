@@ -35,6 +35,15 @@ Text {
 
     renderType: Text.QtRendering
 
+    // Engage Sora's variable wght axis from font.weight so callers'
+    // requested weight is actually rendered (see MHaloedDisplay for
+    // the longer explanation). Without this, font.weight is ignored
+    // and Sora's OS/2 default (400, Regular) is used for everything.
+    font.variableAxes: ({
+            "wght": root.font.weight
+        })
+    font.styleName: root.font.weight <= 100 ? "Thin" : root.font.weight <= 200 ? "ExtraLight" : root.font.weight <= 300 ? "Light" : root.font.weight <= 400 ? "Regular" : root.font.weight <= 500 ? "Medium" : root.font.weight <= 600 ? "SemiBold" : root.font.weight <= 700 ? "Bold" : "ExtraBold"
+
     // Array-of-strings form per the guide §08 Gap 7 — works on Qt 6.6.0
     // (some builds reject the object-literal form), and 6.6.1+. Safer
     // baseline given Marathon's 6.7 LTS target with downstream packagers
