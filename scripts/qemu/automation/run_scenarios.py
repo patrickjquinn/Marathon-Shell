@@ -143,11 +143,18 @@ def main():
     ap.add_argument("scenarios", nargs="*", help="prefix filter, e.g. 01 02")
     ap.add_argument("--keep-qemu", action="store_true",
                     help="leave the VM running after scenarios finish")
+    ap.add_argument("--no-launch", action="store_true",
+                    help="don't start QEMU — connect to an already-running instance "
+                         "on the standard QMP/SSH sockets")
     ap.add_argument("--image", help="explicit raw image path")
     args = ap.parse_args()
 
-    img = Path(args.image) if args.image else find_image()
-    print(f"==> image:  {img}")
+    if args.no_launch:
+        img_label = "(existing VM)"
+    else:
+        img = Path(args.image) if args.image else find_image()
+        img_label = str(img)
+    print(f"==> image:  {img_label}")
     print(f"==> qmp:    {QMP_SOCK}")
     print(f"==> ssh:    127.0.0.1:{SSH_PORT}")
 
@@ -156,7 +163,10 @@ def main():
     run_dir.mkdir(parents=True, exist_ok=True)
     print(f"==> run dir:{run_dir}")
 
-    proc = launch_qemu(img)
+    if args.no_launch:
+        proc = None
+    else:
+        proc = launch_qemu(img)
     qemu_started = time.monotonic()
     # Record the boot start so the journal allowlist filter only sees fresh entries.
     since = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -186,7 +196,7 @@ def main():
         total_fails = sum(max(0, f) for _, f in results)
         with open(run_dir / "report.md", "w") as fh:
             fh.write(f"# Marathon QEMU automation run — {stamp}\n\n")
-            fh.write(f"image: `{img.name}`  ·  resolution: {drv.width}×{drv.height}\n\n")
+            fh.write(f"image: `{img_label}`  ·  resolution: {drv.width}×{drv.height}\n\n")
             fh.write("| Scenario | Fails |\n|---|---|\n")
             for name, f in results:
                 fh.write(f"| {name} | {f} |\n")
@@ -195,7 +205,7 @@ def main():
         print(f"==> total fails: {total_fails}")
         sys.exit(0 if total_fails == 0 else 1)
     finally:
-        if not args.keep_qemu:
+        if proc is not None and not args.keep_qemu:
             try:
                 drv.shutdown()
             except Exception:
@@ -205,8 +215,10 @@ def main():
                 proc.wait(timeout=10)
             except Exception:
                 proc.kill()
-        else:
+        elif proc is not None:
             print(f"\n==> keeping QEMU alive (pid {proc.pid}, ssh :{SSH_PORT})")
+        else:
+            print(f"\n==> --no-launch: QEMU left as we found it")
 
 
 if __name__ == "__main__":
