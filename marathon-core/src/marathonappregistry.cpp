@@ -82,6 +82,7 @@ QVariantMap MarathonAppRegistry::getApp(const QString &appId) const {
         result["handlesUriSchemes"]      = app->handlesUriSchemes;
         result["defaultFor"]             = app->defaultFor;
         result["backgroundCapabilities"] = app->backgroundCapabilities;
+        result["requiresQtModules"]      = app->requiresQtModules;
     }
 
     return result;

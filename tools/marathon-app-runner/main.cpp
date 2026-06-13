@@ -414,27 +414,16 @@ int main(int argc, char *argv[]) {
                 auto *info = earlyRegistry.getAppInfo(earlyAppId);
                 if (info && info->requiresQtModules.contains(QStringLiteral("webengine"))) {
 #ifdef HAVE_WEBENGINE
-                    // Chromium's setuid sandbox can't unshare user namespaces
-                    // from inside our bubblewrap wrapper (the kernel rejects
-                    // nested unshare with EPERM), so the renderer process
-                    // would fail to start and the WebEngineView would render
-                    // blank — no errors surfaced to QML. Disable Chromium's
-                    // own sandbox; bubblewrap is the real sandbox boundary.
-                    // --disable-dev-shm-usage routes shared memory through
-                    // /tmp because the bwrap'd /dev/shm is a tmpfs sized to
-                    // the parent's defaults and Chromium can hit ENOSPC on
-                    // larger pages.
-                    qputenv("QTWEBENGINE_DISABLE_SANDBOX", "1");
+                    // Keep Chromium's own sandbox enabled — the parent
+                    // bwrap recipe omits --unshare-user-try for webengine
+                    // apps (see AppLaunchService::launchMarathonApp) so
+                    // Chromium can nest its own user-namespace unshare.
+                    // We still pass --disable-dev-shm-usage because the
+                    // sandboxed /dev/shm is tmpfs-sized to defaults and
+                    // Chromium's larger buffer pages can hit ENOSPC.
                     {
-                        // Don't force --ozone-platform=wayland. Alpine's
-                        // Qt6 WebEngine isn't built with the Wayland Ozone
-                        // backend; passing it aborts the process with
-                        // "Invalid ozone platform: wayland". Qt's QPA
-                        // plugin already drives the surface — Chromium
-                        // renders via Qt's GL bridge, not Ozone direct.
-                        QByteArray       flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
-                        const QByteArray needed =
-                            "--no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage";
+                        QByteArray       flags  = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+                        const QByteArray needed = "--disable-dev-shm-usage";
                         if (flags.isEmpty())
                             flags = needed;
                         else
@@ -456,6 +445,11 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("marathon-app-runner");
     QCoreApplication::setOrganizationName("Marathon OS");
+
+    // Mirror the shell's choice: force QtRendering globally so every Text
+    // resolves Sora via the FontLoader instead of fontconfig (which falls
+    // back to Noto Sans on this build).
+    QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
     QCommandLineParser parser;
     parser.setApplicationDescription(

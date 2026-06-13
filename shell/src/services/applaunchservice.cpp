@@ -383,7 +383,9 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
     }
 
-    QStringList permissions = app.value("permissions").toStringList();
+    QStringList permissions   = app.value("permissions").toStringList();
+    QStringList requiresQt    = app.value("requiresQtModules").toStringList();
+    const bool  usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
 
     if (permissions.contains("network")) {
         env.insert("MARATHON_PERM_NETWORK", "1");
@@ -440,8 +442,16 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         QStringList bwrapArgs;
         bwrapArgs << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session")
                   << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
-                  << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
-                  << QStringLiteral("--unshare-user-try");
+                  << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try");
+
+        // User-ns unshare BREAKS Chromium's own zygote sandbox: it tries
+        // to nest its own CLONE_NEWUSER on top, the kernel rejects with
+        // EPERM, the renderer process aborts with SIGTRAP and no log to
+        // QML. For webengine apps we leave the user-ns intact so
+        // Chromium can do its own user-ns unshare. Non-webengine apps
+        // still get the extra isolation layer.
+        if (!usesWebEngine)
+            bwrapArgs << QStringLiteral("--unshare-user-try");
 
         // Network namespace: only granted to apps with "network" permission.
         if (!permissions.contains("network"))
