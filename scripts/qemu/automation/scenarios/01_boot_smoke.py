@@ -52,11 +52,23 @@ def run(drv: QemuDriver, since: str) -> int:
 
     print("==> 5. no fresh journal errors (allowlisted)")
     # Allowlist things that fire on every cold boot and aren't actionable.
+    # Each entry is a substring; one hit excludes the line.
     allow = [
         "Failed to look up info handle",       # sd-machined w/o machine
         "WARNING: CPU: ",                       # kernel sched warnings
         "ratelimit",
         "pulseaudio.service: Skipped because",  # ConditionUser=!root
+        # systemd-veritysetup nags about TPM2 on QEMU (no vTPM attached).
+        "TPM2 support disabled",
+        # systemd-growfs tries to grow an already-grown partition.
+        "systemd-growfs",
+        # avahi-daemon's chroot path differs from the Alpine default.
+        "chroot.c: open() failed",
+        # gnome-keyring runs as the same user as sshd; no auto-unlock.
+        "gkr-pam: couldn't unlock",
+        "gkr-pam: unable to locate daemon",
+        # auditd nuisances on a sandboxed PAM stack.
+        "audit:",
     ]
     if not drv.assert_no_journal_errors_since(since, allowlist=allow):
         fails += 1
