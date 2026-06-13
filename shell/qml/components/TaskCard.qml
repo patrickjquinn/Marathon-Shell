@@ -472,8 +472,15 @@ Item {
                 preventStealing: false
                 propagateComposedEvents: false
                 onPressed: mouse => {
-                    var p = closeButtonRect.mapToItem(handleTapArea, 0, 0);
-                    if (mouse.x >= p.x && mouse.x <= p.x + closeButtonRect.width && mouse.y >= p.y && mouse.y <= p.y + closeButtonRect.height) {
+                    // Mirror the close button's expanded MouseArea bounds
+                    // (anchors.margins: -16) — otherwise this banner-wide tap
+                    // area steals taps in the 16 px ring meant to enlarge the
+                    // close target.
+                    var hitMargin = 16;
+                    var p = closeButtonRect.mapToItem(handleTapArea, -hitMargin, -hitMargin);
+                    var w = closeButtonRect.width + (hitMargin * 2);
+                    var h = closeButtonRect.height + (hitMargin * 2);
+                    if (mouse.x >= p.x && mouse.x <= p.x + w && mouse.y >= p.y && mouse.y <= p.y + h) {
                         mouse.accepted = false;
                         return;
                     }
@@ -545,23 +552,37 @@ Item {
                     id: closeButtonContainer
 
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Constants.iconSizeMedium
-                    height: Constants.iconSizeMedium
+                    width: Math.round(44 * Constants.scaleFactor)
+                    height: Math.round(44 * Constants.scaleFactor)
 
                     Rectangle {
                         id: closeButtonRect
 
                         anchors.centerIn: parent
-                        width: Math.round(32 * Constants.scaleFactor)
-                        height: Math.round(32 * Constants.scaleFactor)
+                        width: Math.round(44 * Constants.scaleFactor)
+                        height: Math.round(44 * Constants.scaleFactor)
                         radius: MRadius.sm
-                        color: MColors.surface
+                        color: closeButtonArea.pressed ? MColors.elevated : MColors.surface
+                        scale: closeButtonArea.pressed ? 0.92 : 1
+
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: MMotion.xs
+                            }
+                        }
+
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: 80
+                                easing.type: Easing.OutCubic
+                            }
+                        }
 
                         Text {
                             anchors.centerIn: parent
                             text: "×"
                             color: MColors.textPrimary
-                            font.pixelSize: MTypography.sizeLarge
+                            font.pixelSize: MTypography.sizeXLarge
                             font.weight: Font.Bold
                         }
 
@@ -569,7 +590,7 @@ Item {
                             id: closeButtonArea
 
                             anchors.fill: parent
-                            anchors.margins: -12
+                            anchors.margins: -16
                             z: 1000
                             preventStealing: true
                             onPressed: mouse => {
