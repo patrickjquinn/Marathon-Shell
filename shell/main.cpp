@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQuickWindow>
 #include <QQuickStyle>
 #include <QDebug>
 #include <QQmlContext>
@@ -385,6 +386,15 @@ int main(int argc, char *argv[]) {
 #else
     qInfo() << "Wayland Compositor support disabled (not available on this platform)";
 #endif
+
+    // Force QtRendering for every Text — Qt 6 documents QtTextRendering as
+    // the default but Alpine's Qt6 build defaults to NativeRendering, which
+    // routes font-family lookup through fontconfig and silently falls back
+    // to Noto Sans (Sora lives only in the per-app QML resource, not in
+    // the system fontconfig cache). Without this every Text without an
+    // explicit renderType drops out of Sora — the lock clock looks right
+    // (explicit Text.QtRendering) while the home grid labels don't.
+    QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
     QQmlApplicationEngine engine;
 
