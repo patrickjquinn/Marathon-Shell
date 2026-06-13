@@ -252,6 +252,11 @@ Rectangle {
                     var frameDeltaY = diffY - prevDiffY;
                     prevDiffY = diffY;
                     var newHeight = UIStore.quickSettingsHeight - frameDeltaY;
+                    // shellRef is plain QObject* in C++; `as MarathonShell`
+                    // returns null because MarathonShell is a QML composite
+                    // with no class. Duck-type the property access — qmllint
+                    // will flag it as missing-property, but it resolves at
+                    // runtime.
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000;
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
                 } else if (isAppOpen) {
