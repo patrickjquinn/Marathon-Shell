@@ -196,6 +196,11 @@ Rectangle {
         property bool isVerticalGesture: false
         property bool isLeftZone: false
         property bool isRightZone: false
+        // Previous-frame cumulative diffY. Lets the QS-drag path compute
+        // a per-frame height delta without resetting startY — preserving
+        // a true cumulative diffY for isVerticalGesture detection and
+        // release-time decisions.
+        property real prevDiffY: 0
 
         anchors.fill: parent
         anchors.topMargin: 0
@@ -209,6 +214,7 @@ Rectangle {
             velocityX = 0;
             velocityY = 0;
             isVerticalGesture = false;
+            prevDiffY = 0;
             var leftBoundary = parent.width * 0.15;
             var rightBoundary = parent.width * 0.85;
             isLeftZone = !pinScreenMode && mouse.x < leftBoundary;
@@ -241,15 +247,13 @@ Rectangle {
                     if (!UIStore.quickSettingsDragging)
                         UIStore.quickSettingsDragging = true;
 
-                    var newHeight = UIStore.quickSettingsHeight - diffY;
-                    // UIStore.shellRef is QObject* in C++ (MarathonShell is a
-                    // pure-QML type with no class registered), so `as
-                    // MarathonShell` returns null even when shellRef points
-                    // at the real shell. Drop the cast — QML duck-typing
-                    // resolves the property fine.
+                    // Per-frame height delta — startY is left alone so
+                    // diffY stays cumulative for the release decision.
+                    var frameDeltaY = diffY - prevDiffY;
+                    prevDiffY = diffY;
+                    var newHeight = UIStore.quickSettingsHeight - frameDeltaY;
                     var maxHeight = UIStore.shellRef ? UIStore.shellRef.maxQuickSettingsHeight : 1000;
                     UIStore.quickSettingsHeight = Math.max(0, Math.min(maxHeight, newHeight));
-                    startY = mouse.y;
                 } else if (isAppOpen) {
                     var oldProgress = gestureProgress;
                     var progressThreshold = Constants.screenHeight * 0.25;
@@ -299,14 +303,10 @@ Rectangle {
                 Logger.info("NavBar", "Quick Settings height: " + UIStore.quickSettingsHeight + ", diffY: " + diffY);
                 UIStore.quickSettingsDragging = false;
                 var threshold = UIStore.shellRef ? UIStore.shellRef.quickSettingsThreshold : 400;
-                // Dismiss on any of: explicit upward fling (velocity < -500),
-                // sub-threshold panel height after drag, OR a deliberate
-                // upward swipe of ≥40 px while QS is open. The third case
-                // is the user's documented "swipe-up-from-nav-bar dismisses
-                // QS" gesture — the previous logic missed it because diffY
-                // alone wasn't checked and slow-but-confident swipes have
-                // velocity in the -200..-400 range, well above the fling
-                // cutoff.
+                // Dismiss on any of: upward fling (velocity < -500), drag
+                // pulled the panel below threshold, or a deliberate upward
+                // swipe of ≥40 px while QS is open (the documented
+                // swipe-up-from-nav dismissal).
                 var isFlingUp = velocityY < -500;
                 var isDeliberateSwipeUp = UIStore.quickSettingsOpen && diffY > 40;
                 if (isFlingUp || isDeliberateSwipeUp || UIStore.quickSettingsHeight < threshold)
@@ -315,15 +315,17 @@ Rectangle {
                     UIStore.openQuickSettings();
                 Logger.gesture("NavBar", "Quick Settings gesture end", {
                     "height": UIStore.quickSettingsHeight,
+                    "diffY": diffY,
                     "velocityY": velocityY,
-                    "flingUp": isFlingUp
+                    "flingUp": isFlingUp,
+                    "deliberateUp": isDeliberateSwipeUp
                 });
                 startX = 0;
                 startY = 0;
                 velocityX = 0;
                 velocityY = 0;
                 isVerticalGesture = false;
-                isVerticalGesture = false;
+                prevDiffY = 0;
                 currentX = 0;
                 currentY = 0;
                 gestureProgress = 0;
@@ -402,6 +404,7 @@ Rectangle {
             isVerticalGesture = false;
             isLeftZone = false;
             isRightZone = false;
+            prevDiffY = 0;
         }
     }
 
