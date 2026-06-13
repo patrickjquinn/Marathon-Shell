@@ -62,14 +62,11 @@ Item {
         font.pixelSize: MTypography.sizeDisplay
         font.weight: MTypography.weightExtraLight   // 200 default
         font.letterSpacing: MTypography.trackingDisplay
-        // Bind the family to the per-weight static cut. This is the
-        // only reliable selector — Sora's variable wght axis was
-        // silently ignored by both QtRendering and NativeRendering on
-        // Qt 6.11 (pixel-verified: clock rendered as Regular when
-        // asked for Thin). With 8 distinct static cuts, each is its
-        // own font.family in QFontDatabase and there's no axis
-        // ambiguity left. font.weight stays correct for fallback in
-        // case the FontLoader hasn't reported back yet.
-        font.family: MTypography.fontFamilyForWeight(label.font.weight)
+        // DEBUG r110: hardcoded "Sora Thin" to bisect whether the binding
+        // chain or Qt's font matching is the failing layer. If r110's
+        // clock comes out Thin, the bug is in fontFamilyForWeight() or
+        // its alias interaction. If r110 is STILL Regular, Qt 6.11 is
+        // ignoring font.family entirely for this Text item.
+        font.family: "Sora Thin"
     }
 }
