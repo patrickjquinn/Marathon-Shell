@@ -3,8 +3,16 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
+#include <QJSEngine>
+#include <QQmlEngine>
 #include <QStandardPaths>
 #include <QUrl>
+
+SettingsManager *SettingsManager::create(QQmlEngine *engine, QJSEngine *) {
+    auto *m = new SettingsManager(engine);
+    QQmlEngine::setObjectOwnership(m, QQmlEngine::CppOwnership);
+    return m;
+}
 
 SettingsManager::SettingsManager(QObject *parent)
     : QObject(parent)

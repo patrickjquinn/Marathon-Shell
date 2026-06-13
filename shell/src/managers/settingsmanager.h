@@ -6,10 +6,21 @@
 #include <QStringList>
 #include <qqml.h>
 
+class QQmlEngine;
+class QJSEngine;
+
 class SettingsManager : public QObject {
     Q_OBJECT
     QML_NAMED_ELEMENT(SettingsManagerCpp)
     QML_SINGLETON
+
+  public:
+    // QML_SINGLETON factory: lets marathon-app-runner instantiate its own
+    // SettingsManager when it imports MarathonOS.Shell, without a manual
+    // qmlRegisterSingletonInstance call. Shell process still calls
+    // qmlRegisterSingletonInstance explicitly in main.cpp — that override
+    // wins so shell-side C++ consumers share the same QObject pointer.
+    static SettingsManager *create(QQmlEngine *, QJSEngine *);
 
     Q_PROPERTY(qreal userScaleFactor READ userScaleFactor WRITE setUserScaleFactor NOTIFY
                    userScaleFactorChanged)
