@@ -142,7 +142,7 @@ Item {
                             radius: Constants.borderRadiusSmall
                             color: Qt.rgba(255, 255, 255, 0.05)
                             border.width: 1
-                            border.color: targetMouseArea.pressed ? Qt.rgba(20, 184, 166, 0.6) : Qt.rgba(255, 255, 255, 0.08)
+                            border.color: targetMouseArea.pressed ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.6) : Qt.rgba(255, 255, 255, 0.08)
 
                             Icon {
                                 name: modelData.icon

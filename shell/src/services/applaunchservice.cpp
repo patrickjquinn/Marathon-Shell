@@ -356,6 +356,11 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
 
     QVariantMap env;
     env.insert("QT_NO_XDG_DESKTOP_PORTAL", "1");
+    // The app-runner's AppRunnerLifecycleObject verifies DBus callers
+    // against this PID before honouring Back() / Forward(). Without it,
+    // every nav-bar back-swipe is rejected and the shell falls through
+    // to closeApp() → the "back-swipe backgrounds the app" bug.
+    env.insert("MARATHON_SHELL_PID", QString::number(QCoreApplication::applicationPid()));
 
     // Always forward DPI + user-scale through the env map — bwrap's
     // --setenv (below) handles the sandboxed case, but unsandboxed
@@ -499,7 +504,10 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_DATA_HOME") << xdgDataHome
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_CACHE_HOME") << xdgCacheHome
                   << QStringLiteral("--setenv") << QStringLiteral("XDG_CONFIG_HOME")
-                  << xdgConfigHome;
+                  << xdgConfigHome
+                  // app-runner verifies DBus callers against this PID on Back/Forward.
+                  << QStringLiteral("--setenv") << QStringLiteral("MARATHON_SHELL_PID")
+                  << QString::number(QCoreApplication::applicationPid());
 
         // Propagate the shell's user scale factor and detected DPI into the
         // sandbox. Apps don't get SettingsManagerCpp or ScreenMetricsCpp

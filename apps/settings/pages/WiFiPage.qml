@@ -112,9 +112,9 @@ SettingsPageTemplate {
                     width: parent.width
                     height: Constants.hubHeaderHeight
                     radius: 4
-                    color: Qt.rgba(20, 184, 166, 0.08)
+                    color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08)
                     border.width: 1
-                    border.color: Qt.rgba(20, 184, 166, 0.3)
+                    border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
 
                     Row {
                         anchors.fill: parent
@@ -124,7 +124,7 @@ SettingsPageTemplate {
                         Icon {
                             name: SettingsController.wifiSignalIcon(NetworkManagerCpp.wifiSignalStrength)
                             size: 28
-                            color: Qt.rgba(20, 184, 166, 1)
+                            color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 1)
                             anchors.verticalCenter: parent.verticalCenter
                         }
 
