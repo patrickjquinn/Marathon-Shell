@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -175,9 +176,19 @@ class QemuDriver:
                 print(f"  WARN  no visual-diff backend (odiff / "
                       f"ImageMagick) — skipping {label}")
                 return True
-            raw = (r.stderr or b"0").decode(errors="replace").split()
+            # AE metric output:
+            #   IM6 ("compare"):  "12345" — a plain integer pixel count
+            #   IM7 ("magick compare", Q16-HDRI): "6.79e+10 (1.0368e+06)"
+            #     The first number is a channel-difference sum scaled by
+            #     HDRI quantization — useless. The parenthesized number
+            #     IS the pixel-count, calibrated against white-vs-black
+            #     (720×1440 = 1.0368e+06). Parse the paren if present,
+            #     else fall through to the leading number.
+            text = (r.stderr or b"0").decode(errors="replace").strip()
+            m = re.search(r"\(([\d.eE+-]+)\)", text)
+            raw = m.group(1) if m else text.split()[0] if text else "0"
             try:
-                differing = int(float(raw[0])) if raw else 0
+                differing = int(float(raw))
             except ValueError:
                 differing = 0
             total = self.width * self.height
