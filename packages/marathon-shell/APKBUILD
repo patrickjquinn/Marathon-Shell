@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=101
+pkgrel=102
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -62,6 +62,8 @@ depends="
 	gst-plugins-good
 	qmf-libs
 	qmf-messageserver
+	python3
+	py3-evdev
 	"
 makedepends="
 	cmake
@@ -96,6 +98,7 @@ source="
 	$pkgname-$pkgver.tar.gz::https://github.com/patrickjquinn/Marathon-Shell/archive/main.tar.gz
 	asyncfuture.tar.gz::https://github.com/vpicaver/asyncfuture/archive/master.tar.gz
 	marathon-shell-session
+	marathon-touchctl
 	pam-marathon-shell
 	90-backlight.rules
 	99-marathon-rtprio.conf
@@ -203,6 +206,13 @@ package() {
 	# /usr/local -- make sure /usr/bin/marathon-shell-session is OUR pmOS one).
 	install -Dm755 "$srcdir/marathon-shell-session" \
 		"$pkgdir/usr/bin/marathon-shell-session"
+
+	# QEMU/test-only synthetic touch driver. Creates a virtual touchscreen
+	# via /dev/uinput so the QEMU automation harness can drive real
+	# evdev events into libinput → the Wayland compositor, instead of
+	# the virtio-tablet "mouse" path which mis-tests touch gestures.
+	install -Dm755 "$srcdir/marathon-touchctl" \
+		"$pkgdir/usr/bin/marathon-touchctl"
 
 	# PAM stack -- required for screen unlock + biometric auth.
 	# Ships under /usr/share/factory/etc/... so Duranium-style immutable
