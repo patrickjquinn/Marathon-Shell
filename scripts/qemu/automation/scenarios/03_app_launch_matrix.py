@@ -100,6 +100,16 @@ def run(drv: QemuDriver, since: str) -> int:
         if rc != 0:
             print(f"     busctl exit {rc}: {(out or err).strip()[:100]}")
 
+        # Snap tty1 immediately after the LaunchApp returns — the shell
+        # prints the runner's QProcess stderr-tail synchronously when the
+        # runner exits abnormally, and /dev/vcs1 is just the on-screen
+        # framebuffer (~80×25 chars), so anything older than the last
+        # second scrolls off into the void. We don't know yet whether
+        # this app will fail; if it does, the run-dir keeps the snap so
+        # diagnosis doesn't depend on a follow-up SSH session.
+        _, vcs0, _ = drv.ssh("cat /dev/vcs1 2>/dev/null | tr -s ' ' "
+                             "| tail -c 6000")
+
         # Poll for the runner pid — software-rendered guests need up to
         # 8 s for heavier QML graphs (browser/maps/email) to spawn.
         pid = None
@@ -111,14 +121,16 @@ def run(drv: QemuDriver, since: str) -> int:
         drv.screenshot(f"app-{appid}")
 
         if not pid:
-            # Shell writes qWarning to /dev/tty1, not journald (greetd
-            # owns the tty). Snarf the visible buffer so the run dir
-            # captures the WaylandCompositor stderr-tail that tells us
-            # *why* the runner exited — usually a QML compile error or
-            # bwrap setup failure that doesn't otherwise leave a trace.
-            _, vcs, _ = drv.ssh("cat /dev/vcs1 2>/dev/null | tr -s ' \\n' "
-                                "| tail -c 4000")
-            (drv.run_dir / f"tty1-{appid}.txt").write_text(vcs)
+            # vcs0 (captured right after LaunchApp) holds the synchronous
+            # qWarning the shell emits when QProcess::errorOccurred fires;
+            # vcs1 (now) holds whatever the polling loop pushed onto the
+            # framebuffer. Save both — vcs0 is the one that usually has
+            # the QML compile error / bwrap stderr-tail.
+            _, vcs1, _ = drv.ssh("cat /dev/vcs1 2>/dev/null | tr -s ' ' "
+                                 "| tail -c 6000")
+            (drv.run_dir / f"tty1-{appid}.txt").write_text(
+                "=== vcs at LaunchApp+0 ===\n" + vcs0 +
+                "\n\n=== vcs at LaunchApp+10s ===\n" + vcs1)
             print(f"     FAIL  no app-runner pid for {appid} after 10 s "
                   f"(tty1 → {drv.run_dir.name}/tty1-{appid}.txt)")
             fails += 1
