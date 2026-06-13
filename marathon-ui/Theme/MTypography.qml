@@ -17,31 +17,83 @@ QtObject {
     // produces a module-relative qrc path that works in both the shell
     // process and the per-app marathon-app-runner process (each gets
     // its own qrc, but the font travels with the module).
+    // The variable Sora confused Qt's weight resolution — font.weight
+    // alone never instanced the wght axis, so requests for Thin (100)
+    // rendered as Regular (400, the OS/2 default). We ship 8 static
+    // single-weight cuts alongside the variable file and load each
+    // through its own FontLoader; that makes them register as distinct
+    // family/style pairs in Qt's QFontDatabase and behave predictably
+    // with both QtRendering and NativeRendering. fontFamilyForWeight()
+    // returns the right loaded family name for any CSS weight; callers
+    // bind font.family to that and font.weight stays informational.
     property FontLoader _soraLoader: FontLoader {
         source: Qt.resolvedUrl("fonts/Sora.ttf")
-        onStatusChanged: {
-            // Only emit a log line if loading FAILED. Successful loads
-            // were previously logged at WARNING level on every boot,
-            // making the journal look like Sora wasn't loading when it
-            // actually was — user confusion was real.
-            if (status === FontLoader.Error)
-                console.warn("[MTypography] Sora failed to load from", source);
-        }
+    }
+    property FontLoader _soraThin: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-Thin.ttf")
+    }
+    property FontLoader _soraExtraLight: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-ExtraLight.ttf")
+    }
+    property FontLoader _soraLight: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-Light.ttf")
+    }
+    property FontLoader _soraRegular: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-Regular.ttf")
+    }
+    property FontLoader _soraMedium: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-Medium.ttf")
+    }
+    property FontLoader _soraSemiBold: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-SemiBold.ttf")
+    }
+    property FontLoader _soraBold: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-Bold.ttf")
+    }
+    property FontLoader _soraExtraBold: FontLoader {
+        source: Qt.resolvedUrl("fonts/Sora-ExtraBold.ttf")
     }
     property FontLoader _monoLoader: FontLoader {
         source: Qt.resolvedUrl("fonts/JetBrainsMono-Medium.ttf")
-        onStatusChanged: {
-            if (status === FontLoader.Error)
-                console.warn("[MTypography] JetBrains Mono failed to load from", source);
-        }
     }
 
-    // Use the loaded font's reported family name. If status isn't Ready
-    // yet (cold start race), fall back to the static string so the
-    // singleton resolution never returns empty.
-    readonly property string fontFamily: _soraLoader.name !== "" ? _soraLoader.name : "Sora"
+    // Default family for callers that don't care about weight. Most
+    // body text lands here. Always falls back to literal "Sora" so the
+    // resolver never returns empty during cold boot.
+    readonly property string fontFamily: _soraRegular.name !== "" ? _soraRegular.name : "Sora"
     readonly property string fontFamilyMono: _monoLoader.name !== "" ? _monoLoader.name : "JetBrains Mono"
     readonly property string fontMonospace: fontFamilyMono
+
+    // Per-cut family names — bind to these directly for hero text
+    // (lock-screen clock, OOBE display, etc.) where the weight has to
+    // hit exactly. Falls back to fontconfig "Sora <Cut>" string if a
+    // FontLoader hasn't returned yet.
+    readonly property string fontFamilyThin: _soraThin.name !== "" ? _soraThin.name : "Sora Thin"
+    readonly property string fontFamilyExtraLight: _soraExtraLight.name !== "" ? _soraExtraLight.name : "Sora ExtraLight"
+    readonly property string fontFamilyLight: _soraLight.name !== "" ? _soraLight.name : "Sora Light"
+    readonly property string fontFamilyRegular: _soraRegular.name !== "" ? _soraRegular.name : "Sora Regular"
+    readonly property string fontFamilyMedium: _soraMedium.name !== "" ? _soraMedium.name : "Sora Medium"
+    readonly property string fontFamilySemiBold: _soraSemiBold.name !== "" ? _soraSemiBold.name : "Sora SemiBold"
+    readonly property string fontFamilyBold: _soraBold.name !== "" ? _soraBold.name : "Sora Bold"
+    readonly property string fontFamilyExtraBold: _soraExtraBold.name !== "" ? _soraExtraBold.name : "Sora ExtraBold"
+
+    function fontFamilyForWeight(w) {
+        if (w <= 100)
+            return fontFamilyThin;
+        if (w <= 200)
+            return fontFamilyExtraLight;
+        if (w <= 300)
+            return fontFamilyLight;
+        if (w <= 400)
+            return fontFamilyRegular;
+        if (w <= 500)
+            return fontFamilyMedium;
+        if (w <= 600)
+            return fontFamilySemiBold;
+        if (w <= 700)
+            return fontFamilyBold;
+        return fontFamilyExtraBold;
+    }
 
     // ── Type scale — design-system roles (Sora) ───────────────
     // Marathon DS 2026. iOS-aligned, 2-tier hierarchy.
