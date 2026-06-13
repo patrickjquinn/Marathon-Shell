@@ -34,9 +34,11 @@ from qemu_driver import QemuDriver  # noqa: E402
 
 
 # Order picks the cheapest first so a partial run still covers breadth.
+# "contacts" intentionally not listed — there's no contacts app on disk
+# yet (Phone owns recents + dial pad; contacts surface lives inside it).
 APPS = [
     "calculator", "clock", "notes", "settings",
-    "calendar", "contacts", "messages", "phone",
+    "calendar", "messages", "phone",
     "music", "gallery", "camera",
     "email", "browser", "maps",
     "store", "terminal",
@@ -44,18 +46,25 @@ APPS = [
 
 
 def busctl(drv: QemuDriver, method: str, arg: str = "") -> tuple[int, str, str]:
+    # --machine=user@.host hops onto the user session bus from our root
+    # ssh — without it busctl can't find $DBUS_SESSION_BUS_ADDRESS.
     cmd = (
-        "busctl --user call org.marathonos.Shell "
+        "busctl --machine=user@.host --user call org.marathonos.Shell "
         "/org/marathonos/Shell/Navigation "
         "org.marathonos.Shell.Navigation1 "
         f"{method} s '{arg}'"
     )
-    return drv.ssh(f"sudo -u user -i bash -lc \"{cmd}\"")
+    return drv.ssh(cmd)
 
 
 def app_runner_pid(drv: QemuDriver, appid: str) -> int | None:
+    # Match the marathon-app-runner binary in /proc/<pid>/comm or argv[0],
+    # not the full cmdline — otherwise pgrep self-matches because the ssh
+    # remote-command literally contains "marathon-app-runner --app-id X".
     rc, out, _ = drv.ssh(
-        f"pgrep -f 'marathon-app-runner.*--app-id {appid}' | head -1")
+        "ps -e -o pid=,comm=,args= "
+        f"| awk '$2 ~ /^marathon-app/ && /--app-id {appid}\\>/ {{print $1; exit}}'"
+    )
     out = out.strip()
     if not out or not out.isdigit():
         return None
@@ -89,17 +98,29 @@ def run(drv: QemuDriver, since: str) -> int:
 
         rc, out, err = busctl(drv, "LaunchApp", appid)
         if rc != 0:
-            # busctl prints either "b true" or DBus error. Either way we
-            # continue and let the screenshot + coredump check be the
-            # actual signal.
             print(f"     busctl exit {rc}: {(out or err).strip()[:100]}")
 
-        time.sleep(4)
+        # Poll for the runner pid — software-rendered guests need up to
+        # 8 s for heavier QML graphs (browser/maps/email) to spawn.
+        pid = None
+        for _ in range(10):
+            time.sleep(1)
+            pid = app_runner_pid(drv, appid)
+            if pid:
+                break
         drv.screenshot(f"app-{appid}")
 
-        pid = app_runner_pid(drv, appid)
         if not pid:
-            print(f"     FAIL  no app-runner pid for {appid}")
+            # Shell writes qWarning to /dev/tty1, not journald (greetd
+            # owns the tty). Snarf the visible buffer so the run dir
+            # captures the WaylandCompositor stderr-tail that tells us
+            # *why* the runner exited — usually a QML compile error or
+            # bwrap setup failure that doesn't otherwise leave a trace.
+            _, vcs, _ = drv.ssh("cat /dev/vcs1 2>/dev/null | tr -s ' \\n' "
+                                "| tail -c 4000")
+            (drv.run_dir / f"tty1-{appid}.txt").write_text(vcs)
+            print(f"     FAIL  no app-runner pid for {appid} after 10 s "
+                  f"(tty1 → {drv.run_dir.name}/tty1-{appid}.txt)")
             fails += 1
             continue
         print(f"     pid {pid}")
@@ -111,11 +132,16 @@ def run(drv: QemuDriver, since: str) -> int:
         else:
             print(f"     OK    surface up, no crashes")
 
-        # Swipe right on the nav-bar pill to go back. Build 20's
-        # MARATHON_SHELL_PID env fix is what makes this actually return
-        # to home rather than silently no-op; we exercise it once per app.
-        drv.swipe(360, drv.height - 30, 10, drv.height - 30, steps=14, duration_ms=200)
-        time.sleep(1.5)
+        # Hard-stop the runner so the next iteration starts from a known
+        # state. The nav-pill swipe only *backgrounds* via UIStore.closeApp
+        # — the runner keeps its surface mapped and its PID alive, which
+        # lets prior iterations interfere with later launches (e.g. the
+        # shell's per-appId pid-table refusing a relaunch). SIGTERM is the
+        # cheapest deterministic teardown; coredumps_since() already ran.
+        drv.ssh(f"kill -TERM {pid} 2>/dev/null; "
+                f"for _ in 1 2 3 4 5; do kill -0 {pid} 2>/dev/null || break; "
+                f"sleep 0.3; done; kill -KILL {pid} 2>/dev/null; true")
+        time.sleep(0.8)
 
     return fails
 

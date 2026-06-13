@@ -75,7 +75,7 @@ Page {
                 label: "Send"
             }
         ]
-        onActionTriggered: index => {
+        onActionSelected: index => {
             if (!page.canSend)
                 return;
             const ok = page.mail.send(toField.text.trim(), ccField.text.trim(), subjectField.text, bodyArea.text,
