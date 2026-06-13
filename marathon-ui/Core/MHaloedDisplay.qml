@@ -13,6 +13,14 @@ import MarathonUI.Theme
 // "lit", not just typed. Implemented as a static SVG asset behind
 // the text rather than a MultiEffect blur, per the DS performance
 // rule against persistent FBO effects.
+//
+// NOTE on the property model: the old `property alias font: label.font`
+// caused value-type-aliasing weirdness that made Qt 6.11 silently
+// substitute the variable Sora's default OS/2 weight (Regular 400) for
+// every weight we asked for. We now expose the font sub-properties as
+// individual properties on the component — this guarantees Qt sees
+// the family + pixelSize + weight + letterSpacing as ordinary property
+// bindings on a plain Text item, with no alias plumbing between them.
 Item {
     id: root
 
@@ -22,12 +30,17 @@ Item {
     // How far past the text the halo reaches.
     property real haloMargin: 28
 
-    // Text properties — proxied to the inner Text.
+    // ── Text content ────────────────────────────────────────
     property alias text: label.text
-    property alias font: label.font
     property alias color: label.color
     property alias textFormat: label.textFormat
     property alias horizontalAlignment: label.horizontalAlignment
+
+    // ── Font sub-properties (NO value-type alias) ───────────
+    // Default: Display 96 / weight 200 / -3 letter-spacing.
+    property int pixelSize: MTypography.sizeDisplay
+    property int weight: MTypography.weightExtraLight
+    property real letterSpacing: MTypography.trackingDisplay
 
     // The halo. SVG asset, gradient pre-baked.
     Image {
@@ -36,15 +49,6 @@ Item {
         y: -root.haloMargin
         width: root.width + root.haloMargin * 2
         height: root.height + root.haloMargin * 2
-        // The Theme module qrc resource. Use the full URL so resolution
-        // works whether or not the caller has already imported
-        // MarathonUI.Theme — the hardcoded qrc path resolves through the
-        // global Qt resource system once any module has loaded the
-        // Theme resource bundle. (Previous failure mode: Image opened
-        // before Theme.qmldir was processed → resource not yet
-        // registered → "Cannot open: qrc:..." warning. Use the
-        // Qt.resolvedUrl pointing into the sibling Theme/ directory
-        // instead — Qt's QQmlEngine handles the cross-module ref.)
         source: Qt.resolvedUrl("../Theme/halo-teal.svg")
         fillMode: Image.PreserveAspectFit
         smooth: true
@@ -55,18 +59,10 @@ Item {
     Text {
         id: label
         anchors.centerIn: parent
-        // Caller sets text + font + color via the aliases above.
-        // Defaults: Display 96 / weight 200 / -3 letter-spacing
-        // (matches the lock clock from the DS).
         color: MColors.textPrimary
-        font.pixelSize: MTypography.sizeDisplay
-        font.weight: MTypography.weightExtraLight   // 200 default
-        font.letterSpacing: MTypography.trackingDisplay
-        // DEBUG r110: hardcoded "Sora Thin" to bisect whether the binding
-        // chain or Qt's font matching is the failing layer. If r110's
-        // clock comes out Thin, the bug is in fontFamilyForWeight() or
-        // its alias interaction. If r110 is STILL Regular, Qt 6.11 is
-        // ignoring font.family entirely for this Text item.
-        font.family: "Sora Thin"
+        font.family: MTypography.fontFamilyForWeight(root.weight)
+        font.pixelSize: root.pixelSize
+        font.weight: root.weight
+        font.letterSpacing: root.letterSpacing
     }
 }
