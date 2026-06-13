@@ -178,25 +178,37 @@ class QemuDriver:
         return ax, ay
 
     # Input strategy:
-    #   Prefer ydotool (uinput inside the guest) — it produces real evdev
-    #   events the same way a touchscreen would, which is what Phosh's and
-    #   Plasma Mobile's test harnesses use. We only fall back to QMP
-    #   virtio-tablet events if ydotool isn't installed/running on the
-    #   guest — the QMP path doesn't deliver multi-touch and Wayland
-    #   apps see "mouse" semantics, which mis-tests gesture code paths.
-    _ydotool_available: bool | None = None
+    #   Prefer marathon-touchctl (python-evdev) inside the guest — produces
+    #   real ABS_MT touch events the Wayland compositor sees identically
+    #   to a real touchscreen. Falls back to QMP virtio-tablet pointer
+    #   events if the helper isn't installed (older images).
+    #
+    #   The pointer fallback DOES NOT exercise touch-specific paths —
+    #   MouseArea will receive press/release, but PinchHandler / multi-
+    #   finger gestures / per-touch tracking will silently no-op. Track
+    #   this in test reports so it's clear which fixtures depend on which.
+    _touchctl_available: bool | None = None
 
-    def _has_ydotool(self) -> bool:
-        if self._ydotool_available is None:
-            rc, _, _ = self.ssh("command -v ydotool >/dev/null && "
-                                "systemctl is-active --quiet ydotoold")
-            self._ydotool_available = (rc == 0)
-        return self._ydotool_available
+    def _has_touchctl(self) -> bool:
+        if self._touchctl_available is None:
+            rc, _, _ = self.ssh("command -v marathon-touchctl >/dev/null")
+            self._touchctl_available = (rc == 0)
+            if self._touchctl_available:
+                # Push the screen geometry so coords match what we screenshot.
+                self.ssh(
+                    f"echo 'export MARATHON_TOUCH_WIDTH={self.width}; "
+                    f"export MARATHON_TOUCH_HEIGHT={self.height}' "
+                    "> /tmp/marathon-touchctl.env")
+        return self._touchctl_available
+
+    def _touchctl(self, cmd: str):
+        return self.ssh(
+            f". /tmp/marathon-touchctl.env 2>/dev/null; "
+            f"marathon-touchctl {cmd}")
 
     def tap(self, x: int, y: int, hold_ms: int = 80):
-        if self._has_ydotool():
-            self.ssh(f"ydotool mousemove -a -- {x} {y} && "
-                     f"ydotool click --next-delay {hold_ms} 0xC0")
+        if self._has_touchctl():
+            self._touchctl(f"tap {x} {y}")
             return
         ax, ay = self._abs(x, y)
         self._cmd("input-send-event", {"events": [
@@ -212,19 +224,8 @@ class QemuDriver:
         ]})
 
     def swipe(self, x1: int, y1: int, x2: int, y2: int, steps: int = 24, duration_ms: int = 400):
-        if self._has_ydotool():
-            # ydotool 1.0+ accepts an explicit step+time path via a script.
-            per = max(1, duration_ms // max(1, steps))
-            moves = []
-            for i in range(1, steps + 1):
-                tx = int(x1 + (x2 - x1) * i / steps)
-                ty = int(y1 + (y2 - y1) * i / steps)
-                moves.append(f"mousemove -a -- {tx} {ty}")
-            script = ("ydotool mousemove -a -- " + f"{x1} {y1}" +
-                      " && ydotool mousedown 0xC0" +
-                      "".join(f" && ydotool {m} && ydotool sleep {per}" for m in moves) +
-                      " && ydotool mouseup 0xC0")
-            self.ssh(script, timeout=duration_ms // 1000 + 30)
+        if self._has_touchctl():
+            self._touchctl(f"swipe {x1} {y1} {x2} {y2} {steps}")
             return
         ax1, ay1 = self._abs(x1, y1)
         ax2, ay2 = self._abs(x2, y2)
