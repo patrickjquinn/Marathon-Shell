@@ -63,21 +63,28 @@ Item {
         font.pixelSize: MTypography.sizeDisplay
         font.weight: MTypography.weightExtraLight   // 200 default
         font.letterSpacing: MTypography.trackingDisplay
-        // Sora ships as a variable font (wght axis 100–800, default 400).
-        // font.weight alone does NOT instance the axis — Qt resolves to
-        // the static cut whose OS/2 weight is closest, and since the
-        // file's default is 400 the lock clock rendered as Regular even
-        // when the caller asked for Thin (100). Empirically verified by
-        // pixel-matching the rendered glyphs against fontTools-instanced
-        // reference renders at 100/200/300/400. Binding variableAxes
-        // here engages the wght axis so font.weight actually maps to a
-        // weighted instance. font.styleName is belt-and-suspenders for
-        // the NativeRendering path where Qt falls back to fontconfig
-        // matching by style rather than axis interpolation.
-        font.variableAxes: ({
-                "wght": label.font.weight
-            })
-        font.styleName: label.font.weight <= 100 ? "Thin" : label.font.weight <= 200 ? "ExtraLight" : label.font.weight <= 300 ? "Light" : label.font.weight <= 400 ? "Regular" : label.font.weight <= 500 ? "Medium" : label.font.weight <= 600 ? "SemiBold" : label.font.weight <= 700 ? "Bold" : "ExtraBold"
-        renderType: Text.QtRendering
+        // NativeRendering routes the glyph lookup through fontconfig.
+        // Fontconfig sees Sora's variable-font named instances as
+        // discrete weighted faces (verified with fc-list :family=Sora →
+        // Thin / ExtraLight / Light / Regular / SemiBold / Bold /
+        // ExtraBold). The QtRendering path silently ignored font.weight
+        // AND font.variableAxes for this font in Qt 6.11 (pixel-verified:
+        // clock matched Regular when asked for Thin), so we let
+        // fontconfig do the matching instead.
+        renderType: Text.NativeRendering
+    }
+
+    // Force the family to the named-instance fullname matching the
+    // requested weight, bypassing the `font` alias from the caller.
+    // The inline `font.family` binding in the Text item above is
+    // overridden whenever the outer caller writes
+    // `MHaloedDisplay { font.family: ... }` (alias semantics), so we
+    // use Binding{} which wins over alias-driven assignment. Without
+    // this, the family stays at the variable-font's default record
+    // and font.weight is ignored — see the comment above.
+    Binding {
+        target: label.font
+        property: "family"
+        value: label.font.weight <= 100 ? "Sora Thin" : label.font.weight <= 200 ? "Sora ExtraLight" : label.font.weight <= 300 ? "Sora Light" : label.font.weight <= 400 ? "Sora Regular" : label.font.weight <= 600 ? "Sora SemiBold" : label.font.weight <= 700 ? "Sora Bold" : "Sora ExtraBold"
     }
 }

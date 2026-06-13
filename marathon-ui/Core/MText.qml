@@ -33,16 +33,16 @@ Text {
     font.hintingPreference: Font.PreferNoHinting
     font.kerning: true
 
-    renderType: Text.QtRendering
-
-    // Engage Sora's variable wght axis from font.weight so callers'
-    // requested weight is actually rendered (see MHaloedDisplay for
-    // the longer explanation). Without this, font.weight is ignored
-    // and Sora's OS/2 default (400, Regular) is used for everything.
-    font.variableAxes: ({
-            "wght": root.font.weight
-        })
-    font.styleName: root.font.weight <= 100 ? "Thin" : root.font.weight <= 200 ? "ExtraLight" : root.font.weight <= 300 ? "Light" : root.font.weight <= 400 ? "Regular" : root.font.weight <= 500 ? "Medium" : root.font.weight <= 600 ? "SemiBold" : root.font.weight <= 700 ? "Bold" : "ExtraBold"
+    // Body text via NativeRendering routes through fontconfig, where
+    // each Sora named instance is registered with its real CSS weight
+    // (Thin=100 → fc weight=0 → "Sora Thin" face). The QtRendering +
+    // font.weight path empirically rounds 100/200/300 up to Regular
+    // for this variable font on Qt 6.11 — pixel-verified against
+    // fontTools-instanced reference renders. NativeRendering loses the
+    // SDF smoothness during scale/opacity transitions, but Marathon's
+    // body text doesn't animate, and Sora-at-weight beats SDF-blur
+    // every time.
+    renderType: Text.NativeRendering
 
     // Array-of-strings form per the guide §08 Gap 7 — works on Qt 6.6.0
     // (some builds reject the object-literal form), and 6.6.1+. Safer
