@@ -137,7 +137,14 @@ elif [ "$IS_VIRTIO_GPU" = 1 ]; then
 fi
 if [ "$NEED_SOFTWARE_BACKEND" = 1 ]; then
     export QT_QUICK_BACKEND=software
-    echo "[marathon-shell-session] virgl unavailable — forcing QT_QUICK_BACKEND=software" >&2
+    # eglfs is GL-only — QBackingStore::resize aborts inside the software
+    # backend because eglfs has no software paint device. linuxfb writes
+    # the scene-graph straight into /dev/fb0 (the virtio-gpu DRM-fb the
+    # kernel sets up at boot). Override the eglfs decision below.
+    export QT_QPA_PLATFORM=linuxfb
+    unset QT_QPA_EGLFS_INTEGRATION
+    unset QT_QPA_EGLFS_ALWAYS_SET_MODE
+    echo "[marathon-shell-session] virgl unavailable — forcing QT_QUICK_BACKEND=software + QT_QPA_PLATFORM=linuxfb" >&2
 fi
 
 # ---- Qt-wide env -------------------------------------------------------------
