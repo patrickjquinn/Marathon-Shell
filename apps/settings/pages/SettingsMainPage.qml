@@ -266,6 +266,13 @@ Page {
                     showChevron: true
                     onSettingClicked: mainPage.navigateToPage("accounts")
                 }
+
+                MSettingsListItem {
+                    title: "Terminal"
+                    iconName: "square-terminal"
+                    showChevron: true
+                    onSettingClicked: AppLifecycleManager.launchAppWithRoute("terminal", "", "{}")
+                }
             }
 
             // ── APPS & LAYOUT ──────────────────────────────────────
