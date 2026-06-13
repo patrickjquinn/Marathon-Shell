@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QDebug>
 #include <QRegularExpression>
+#include <QSet>
 
 DesktopFileParser::DesktopFileParser(QObject *parent)
     : QObject(parent) {}
@@ -383,6 +384,61 @@ bool DesktopFileParser::isMobileFriendly(const QVariantMap &app) {
                 return true;
             }
         }
+    }
+
+    // GNOME/freedesktop "Mobile" category — used by post-GTK4 apps that
+    // intentionally pass mobile QA (Calls, Chats, Portfolio, etc.).
+    if (app.contains("categories")) {
+        QStringList categories = app["categories"].toStringList();
+        for (const QString &cat : categories) {
+            if (cat.compare("Mobile", Qt::CaseInsensitive) == 0 ||
+                cat.compare("Phone", Qt::CaseInsensitive) == 0) {
+                qDebug() << "[DesktopFileParser]   Mobile-friendly via Categories:" << cat;
+                return true;
+            }
+        }
+    }
+
+    // Curated allowlist — GTK4/libadwaita and KDE Plasma apps that ship as
+    // adaptive by default but don't bother declaring the hint. Keyed on the
+    // desktop file basename (= app id) so themes/forks don't drift it.
+    static const QSet<QString> kCuratedAdaptive{
+        // GNOME Circle / adaptive-by-default
+        "org.gnome.Calendar",
+        "org.gnome.Calls",
+        "org.gnome.Chess",
+        "org.gnome.Contacts",
+        "org.gnome.Loupe",
+        "org.gnome.Maps",
+        "org.gnome.Music",
+        "org.gnome.Papers",
+        "org.gnome.Snapshot",
+        "org.gnome.TextEditor",
+        "org.gnome.Weather",
+        "org.gnome.clocks",
+        "org.gnome.font-viewer",
+        // Phosh / Mobian first-party
+        "sm.puri.Chatty",
+        "sm.puri.Phosh",
+        "org.sigxcpu.Phosh",
+        // KDE Plasma Mobile
+        "org.kde.angelfish",
+        "org.kde.calindori",
+        "org.kde.kalk",
+        "org.kde.kasts",
+        "org.kde.kclock",
+        "org.kde.koko",
+        "org.kde.neochat",
+        "org.kde.tokodon",
+        // Useful daily-drivers known to work in 720 px / single-column
+        "org.gnome.Console",
+        "io.github.tchx84.Flatseal",
+        "page.codeberg.libre_menteur.LibreMenteur",
+    };
+    const QString id = QFileInfo(app.value("desktopFile").toString()).completeBaseName();
+    if (kCuratedAdaptive.contains(id)) {
+        qDebug() << "[DesktopFileParser]   Mobile-friendly via curated allowlist:" << id;
+        return true;
     }
 
     return false;
