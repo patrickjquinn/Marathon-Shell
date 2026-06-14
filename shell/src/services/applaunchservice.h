@@ -73,9 +73,8 @@ class AppLaunchService : public QObject {
     void appLaunchCompleted(const QString &appId, const QString &appName);
     void appLaunchFailed(const QString &appId, const QString &appName, const QString &error);
     void appLaunchProgress(const QString &appId, int percent);
-    // Fired when a tracked app-runner process exits. Carries appId so
-    // shell components (PermissionManager, etc.) can clean up state
-    // tied to the dead app without translating PID → appId themselves.
+    // Tracked app-runner exited. Subscribers receive the appId directly
+    // so they don't have to translate PID → appId on their own.
     void appExited(const QString &appId);
 
   private:

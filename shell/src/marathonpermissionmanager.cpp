@@ -314,15 +314,9 @@ void MarathonPermissionManager::dismissForApp(const QString &appId) {
     if (appId.isEmpty())
         return;
 
-    // Drop any queued prompts belonging to this app.
-    const int beforeQueue = m_pendingRequests.size();
-    m_pendingRequests.erase(
-        std::remove_if(m_pendingRequests.begin(), m_pendingRequests.end(),
-                       [&](const PendingRequest &r) { return r.appId == appId; }),
-        m_pendingRequests.end());
-    const bool queueChanged = m_pendingRequests.size() != beforeQueue;
+    const qsizetype droppedFromQueue =
+        m_pendingRequests.removeIf([&appId](const PendingRequest &r) { return r.appId == appId; });
 
-    // Clear the active prompt only if it belongs to the dead app.
     const bool clearedActive = m_promptActive && m_currentAppId == appId;
     if (clearedActive) {
         qDebug() << "[MarathonPermissionManager] App exited — dropping active prompt for" << appId;
@@ -332,13 +326,10 @@ void MarathonPermissionManager::dismissForApp(const QString &appId) {
         m_currentPermission.clear();
         emit promptActiveChanged();
         emit currentRequestChanged();
-    } else if (queueChanged) {
-        qDebug() << "[MarathonPermissionManager] App exited — dropped queued prompts for" << appId;
-    }
-
-    // If we cleared the active prompt, fire the next queued one.
-    if (clearedActive) {
         checkQueue();
+    } else if (droppedFromQueue > 0) {
+        qDebug() << "[MarathonPermissionManager] App exited — dropped" << droppedFromQueue
+                 << "queued prompt(s) for" << appId;
     }
 }
 

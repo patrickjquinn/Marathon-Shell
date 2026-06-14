@@ -699,12 +699,8 @@ Item {
         target: NavigationRouter
     }
 
-    // Single-modal rule (iOS HIG / Material): opening a modal collapses
-    // the Quick Settings shade so the user never has two surfaces with
-    // backdrops fighting for attention. The reviewer's UX tour captured
-    // the QS-shade-stuck-under-permission-modal stack three layers deep
-    // on every app screenshot; this rule kills it at the source. Extend
-    // the target list when new system modals are added.
+    // Single-modal rule (iOS HIG / Material): only one backdropped
+    // surface visible at a time. Wire new system modals here too.
     Connections {
         function onPromptActiveChanged() {
             if (PermissionManager.promptActive && UIStore.quickSettingsOpen)

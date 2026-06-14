@@ -657,9 +657,6 @@ int main(int argc, char *argv[]) {
                                                             "PermissionManager", permissionManager);
     qInfo() << "[MarathonShell] Permission Manager initialized";
 
-    // When an app-runner process exits, drop any prompts it owned —
-    // otherwise the dead app's modal sticks over every subsequent
-    // foreground app. (UX-review #1 ship-blocker.)
     QObject::connect(appLaunchService, &AppLaunchService::appExited, permissionManager,
                      &MarathonPermissionManager::dismissForApp);
 
