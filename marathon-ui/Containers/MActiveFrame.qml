@@ -87,7 +87,7 @@ Item {
                 text: root.appName
                 color: MColors.textPrimary
                 font.family: MTypography.fontFamily
-                font.pixelSize: 12
+                font.pixelSize: MTypography.sizeCaption
                 font.weight: MTypography.weightDemiBold
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -99,7 +99,7 @@ Item {
             text: root.badge
             color: MColors.textSecondary
             font.family: MTypography.fontFamily
-            font.pixelSize: 10
+            font.pixelSize: MTypography.sizeEyebrow
             font.weight: MTypography.weightRegular
         }
     }
@@ -158,14 +158,14 @@ Item {
                     text: root.appName
                     color: MColors.textPrimary
                     font.family: MTypography.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: MTypography.sizeCaption
                     font.weight: MTypography.weightDemiBold
                 }
                 Text {
                     text: root.badge
                     color: MColors.textSecondary
                     font.family: MTypography.fontFamily
-                    font.pixelSize: 10
+                    font.pixelSize: MTypography.sizeEyebrow
                     font.weight: MTypography.weightRegular
                     visible: text.length > 0
                 }
