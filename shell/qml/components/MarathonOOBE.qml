@@ -5,6 +5,7 @@ import MarathonUI.Core
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Item {
     id: oobeRoot
@@ -712,6 +713,52 @@ Item {
         }
 
         Item {
+            id: gesturesPage
+
+            // Interactive coachmark sequence — one gesture per sub-page.
+            // The animated arrow loops to demonstrate direction; the user
+            // performs the matching swipe inside the practice zone, which
+            // marks the coachmark complete and advances. A Skip link is
+            // available for users who cannot or do not want to practise.
+            property int currentCoachmark: 0
+            readonly property var coachmarks: [
+                {
+                    "icon": "chevron-up",
+                    "title": "Swipe Up",
+                    "body": "From the bottom of the screen to go home or peek at open apps.",
+                    "direction": "up"
+                },
+                {
+                    "icon": "chevron-down",
+                    "title": "Swipe Down",
+                    "body": "From the top of the screen to open Quick Settings — Wi-Fi, brightness, Do Not Disturb.",
+                    "direction": "down"
+                },
+                {
+                    "icon": "chevron-right",
+                    "title": "Swipe Right",
+                    "body": "Across the home grid to reach the Hub — messages, notifications, calls.",
+                    "direction": "right"
+                },
+                {
+                    "icon": "chevron-left",
+                    "title": "Swipe Left",
+                    "body": "From the Hub back to your apps. The same gesture works between any two pages.",
+                    "direction": "left"
+                },
+                {
+                    "icon": "check-circle",
+                    "title": "You're set",
+                    "body": "These gestures work everywhere in Marathon. Tap Next to continue.",
+                    "direction": "none"
+                }
+            ]
+
+            function markComplete() {
+                if (gesturesPage.currentCoachmark < gesturesPage.coachmarks.length - 1)
+                    gesturesPage.currentCoachmark++;
+            }
+
             Row {
                 id: gesturesHeader
 
@@ -731,108 +778,247 @@ Item {
                 }
             }
 
-            Flickable {
+            StackLayout {
+                id: coachmarkStack
+
                 anchors.top: gesturesHeader.bottom
                 anchors.topMargin: MSpacing.xl
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                contentHeight: gestureColumn.height
-                clip: true
-                boundsBehavior: Flickable.DragAndOvershootBounds
+                anchors.bottom: coachmarkDots.top
+                anchors.bottomMargin: MSpacing.lg
+                currentIndex: gesturesPage.currentCoachmark
 
-                Column {
-                    id: gestureColumn
+                Repeater {
+                    model: gesturesPage.coachmarks
 
-                    width: parent.width
-                    spacing: MSpacing.xxl
+                    delegate: Item {
+                        required property var modelData
+                        required property int index
 
-                    Text {
-                        text: "Marathon OS is designed for fluid, gesture-driven navigation."
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        color: MColors.textSecondary
-                        wrapMode: Text.WordWrap
-                        width: parent.width
-                    }
-
-                    Repeater {
-                        model: [
-                            {
-                                "icon": "chevron-up",
-                                "title": "Swipe Up",
-                                "description": "From bottom edge to open app grid"
-                            },
-                            {
-                                "icon": "chevron-down",
-                                "title": "Swipe Down",
-                                "description": "From top edge to open quick settings"
-                            },
-                            {
-                                "icon": "chevron-right",
-                                "title": "Swipe Right",
-                                "description": "From left edge to open Hub"
-                            },
-                            {
-                                "icon": "grid",
-                                "title": "Pinch In",
-                                "description": "In app grid to open task switcher"
-                            },
-                            {
-                                "icon": "chevrons-up",
-                                "title": "Swipe Sideways",
-                                "description": "Navigate between pages"
-                            }
-                        ]
-
-                        MCard {
-                            required property var modelData
-
+                        Column {
+                            anchors.centerIn: parent
                             width: parent.width
-                            height: MSpacing.touchTargetLarge + MSpacing.md
-                            elevation: 2
+                            spacing: MSpacing.xl
 
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: MSpacing.md
-                                spacing: MSpacing.lg
+                            // Animated arrow demo — only loops while this is
+                            // the active coachmark and there is a direction
+                            // to demonstrate.
+                            Item {
+                                width: Math.round(120 * Constants.scaleFactor)
+                                height: Math.round(120 * Constants.scaleFactor)
+                                anchors.horizontalCenter: parent.horizontalCenter
 
-                                MCard {
-                                    width: MSpacing.touchTargetMedium
-                                    height: MSpacing.touchTargetMedium
-                                    elevation: 0
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: parent.width
+                                    height: parent.height
+                                    radius: width / 2
                                     color: MColors.marathonTealHoverGradient
+                                    opacity: 0.5
+                                }
+
+                                Icon {
+                                    id: coachmarkIcon
+
+                                    anchors.centerIn: parent
+                                    name: modelData.icon
+                                    size: Math.round(72 * Constants.scaleFactor)
+                                    color: MColors.accent
+
+                                    transform: Translate {
+                                        id: coachmarkNudge
+
+                                        x: 0
+                                        y: 0
+                                    }
+                                }
+
+                                SequentialAnimation {
+                                    running: gesturesPage.currentCoachmark === index && modelData.direction !== "none"
+                                    loops: Animation.Infinite
+
+                                    NumberAnimation {
+                                        target: coachmarkNudge
+                                        property: (modelData.direction === "left" || modelData.direction === "right") ? "x" : "y"
+                                        from: 0
+                                        to: {
+                                            const amount = Math.round(32 * Constants.scaleFactor);
+                                            if (modelData.direction === "up")
+                                                return -amount;
+                                            if (modelData.direction === "down")
+                                                return amount;
+                                            if (modelData.direction === "left")
+                                                return -amount;
+                                            if (modelData.direction === "right")
+                                                return amount;
+                                            return 0;
+                                        }
+                                        duration: 700
+                                        easing.type: Easing.OutCubic
+                                    }
+                                    PauseAnimation {
+                                        duration: 120
+                                    }
+                                    NumberAnimation {
+                                        target: coachmarkNudge
+                                        property: (modelData.direction === "left" || modelData.direction === "right") ? "x" : "y"
+                                        to: 0
+                                        duration: 500
+                                        easing.type: Easing.OutCubic
+                                    }
+                                    PauseAnimation {
+                                        duration: 400
+                                    }
+                                }
+                            }
+
+                            Text {
+                                text: modelData.title
+                                font.pixelSize: MTypography.sizeXLarge
+                                font.weight: Font.Bold
+                                font.family: MTypography.fontFamily
+                                color: MColors.text
+                                horizontalAlignment: Text.AlignHCenter
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+
+                            Text {
+                                text: modelData.body
+                                font.pixelSize: MTypography.sizeBody
+                                font.family: MTypography.fontFamily
+                                color: MColors.textSecondary
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                                width: parent.width - MSpacing.xxl
+                                anchors.horizontalCenter: parent.horizontalCenter
+                            }
+
+                            // Practice zone — capture a matching swipe to
+                            // confirm the gesture. Single-touch only; both
+                            // distance and axis dominance are checked so a
+                            // diagonal jitter doesn't accidentally pass.
+                            Item {
+                                width: parent.width - MSpacing.xxl
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                height: MSpacing.touchTargetMedium
+                                visible: modelData.direction !== "none"
+
+                                Rectangle {
+                                    anchors.fill: parent
                                     radius: MRadius.md
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: MColors.elev2
+                                    border.width: 1
+                                    border.color: MColors.borderSubtle
+                                    opacity: practiceArea.pressed ? 0.7 : 0.4
 
-                                    Icon {
-                                        name: modelData.icon
-                                        size: Math.round(24 * Constants.scaleFactor)
-                                        color: MColors.accent
-                                        anchors.centerIn: parent
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: 120
+                                        }
                                     }
                                 }
 
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: MSpacing.xs
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Try the " + modelData.title.toLowerCase() + " here"
+                                    font.pixelSize: MTypography.sizeFootnote
+                                    font.family: MTypography.fontFamily
+                                    color: MColors.textTertiary
+                                }
 
-                                    Text {
-                                        text: modelData.title
-                                        font.pixelSize: MTypography.sizeLarge
-                                        font.weight: Font.Medium
-                                        font.family: MTypography.fontFamily
-                                        color: MColors.text
+                                MouseArea {
+                                    id: practiceArea
+
+                                    property real pressX: 0
+                                    property real pressY: 0
+
+                                    anchors.fill: parent
+                                    onPressed: function (mouse) {
+                                        pressX = mouse.x;
+                                        pressY = mouse.y;
                                     }
-
-                                    Text {
-                                        text: modelData.description
-                                        font.pixelSize: MTypography.sizeBody
-                                        font.family: MTypography.fontFamily
-                                        color: MColors.textSecondary
-                                        wrapMode: Text.WordWrap
+                                    onReleased: function (mouse) {
+                                        const dx = mouse.x - pressX;
+                                        const dy = mouse.y - pressY;
+                                        const threshold = Math.round(36 * Constants.scaleFactor);
+                                        let matched = false;
+                                        if (modelData.direction === "up" && dy < -threshold && Math.abs(dy) > Math.abs(dx))
+                                            matched = true;
+                                        else if (modelData.direction === "down" && dy > threshold && Math.abs(dy) > Math.abs(dx))
+                                            matched = true;
+                                        else if (modelData.direction === "left" && dx < -threshold && Math.abs(dx) > Math.abs(dy))
+                                            matched = true;
+                                        else if (modelData.direction === "right" && dx > threshold && Math.abs(dx) > Math.abs(dy))
+                                            matched = true;
+                                        if (matched) {
+                                            if (typeof HapticManager !== "undefined")
+                                                HapticManager.medium();
+                                            gesturesPage.markComplete();
+                                        }
                                     }
                                 }
+                            }
+
+                            Item {
+                                width: parent.width
+                                height: Math.round(32 * Constants.scaleFactor)
+                                visible: modelData.direction !== "none"
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Skip this gesture"
+                                    font.pixelSize: MTypography.sizeBody
+                                    font.weight: Font.Medium
+                                    font.family: MTypography.fontFamily
+                                    color: MColors.accent
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        if (typeof HapticManager !== "undefined")
+                                            HapticManager.light();
+                                        gesturesPage.markComplete();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row {
+                id: coachmarkDots
+
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: MSpacing.lg
+                spacing: MSpacing.sm
+
+                Repeater {
+                    model: gesturesPage.coachmarks.length
+
+                    delegate: Rectangle {
+                        required property int index
+
+                        readonly property bool isActive: index === gesturesPage.currentCoachmark
+
+                        width: isActive ? Math.round(20 * Constants.scaleFactor) : Math.round(6 * Constants.scaleFactor)
+                        height: Math.round(6 * Constants.scaleFactor)
+                        radius: height / 2
+                        color: isActive ? MColors.accent : MColors.whiteOverlay24
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Behavior on width {
+                            NumberAnimation {
+                                duration: 200
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 200
                             }
                         }
                     }
