@@ -693,10 +693,6 @@ void AppLaunchService::onCompositorAppClosed(qint64 pid) {
                                   Q_ARG(QString, p.appId));
     }
 
-    // Tell the rest of the shell the app is gone. PermissionManager hooks
-    // this to drop any pending dialog owned by the dead app — the cause
-    // of the "Clock is requesting access" modal persisting across every
-    // subsequent app launch in the UX-review tour.
     emit appExited(p.appId);
 }
 

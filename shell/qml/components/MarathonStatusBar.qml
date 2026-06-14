@@ -185,12 +185,10 @@ Item {
             visible: BluetoothManagerCpp.available && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
 
-        // Cellular: only when the device actually has a modem. Marathon
-        // was rendering a "smartphone" silhouette as the no-modem
-        // fallback — at 14 px next to the bluetooth glyph the reviewer
-        // read it (and the wifi-off icon below) as a SECOND battery
-        // beside the real battery on the left. iOS/Android both hide
-        // these tiles when the radio is absent. Match that.
+        // Hide the radio icons when their radio is absent (iOS/Android
+        // convention). A no-modem "smartphone" silhouette next to the
+        // bluetooth glyph reads as visual noise — and at 14 px it's
+        // easily mis-parsed as another battery indicator.
         Icon {
             name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
             color: MColors.textPrimary

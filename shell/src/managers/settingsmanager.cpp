@@ -196,9 +196,9 @@ void SettingsManager::load() {
         m_settings.value("notifications/showOnLockScreen", true).toBool();
 
     m_filterMobileFriendlyApps = m_settings.value("apps/filterMobileFriendly", false).toBool();
-    // Default-hide developer-oriented surfaces — they're still tappable
-    // from Settings → Apps → Hidden Apps. A consumer phone shouldn't put
-    // a shell prompt one tap away in the launcher (UX-review #4).
+    // Terminal default-hidden so a consumer phone doesn't ship a shell
+    // prompt as a first-class launcher entry. Still reachable via
+    // Settings → Apps → Hidden Apps.
     m_hiddenApps     = m_settings.value("apps/hiddenApps", QStringList{"terminal"}).toStringList();
     m_appSortOrder   = m_settings.value("apps/sortOrder", "alphabetical").toString();
     m_appGridColumns = m_settings.value("apps/gridColumns", 0).toInt();
