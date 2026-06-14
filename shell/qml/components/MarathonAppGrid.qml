@@ -15,7 +15,11 @@ Item {
     // each cell footprint (icon + halo + label) exceeds 1/4 screen and the
     // Grid wraps to a single column. 3 × 4 = 12/page restores the layout
     // and keeps thumb-reach proportional to icon size.
-    readonly property real _userScale: (typeof Constants !== "undefined" && Constants.userScaleFactor) ? Constants.userScaleFactor : 1.0
+    // Hit SettingsManagerCpp directly (skip Constants) so the binding is
+    // unambiguously tied to the live user-scale signal — and stash it on a
+    // readonly so column/row both bind to the same notifier and re-evaluate
+    // together when the user changes Display Size.
+    readonly property real _userScale: SettingsManagerCpp.userScaleFactor
     property int columns: {
         if (_userScale >= 1.25)
             return 3;
