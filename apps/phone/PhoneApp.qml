@@ -383,15 +383,14 @@ MApp {
                                     width: dialPadGrid.cellSize
                                     height: dialPadGrid.cellSize
                                     radius: width / 2
-                                    // JSX dialer keys are darker than the
-                                    // default elev-2 card — they sit on the
-                                    // background as soft pucks. elev-1
-                                    // (#0a0a0b) reads correctly against the
-                                    // pure-black canvas; pressed state lifts
-                                    // to bb10-card.
-                                    color: keyArea.pressed ? MColors.bb10Card : MColors.elev1
+                                    // elev-1 over bb10Black was visually
+                                    // invisible — 6 brightness units of
+                                    // separation. Bumped to elev-2 with a
+                                    // brighter border so the chip silhouette
+                                    // is actually legible at a glance.
+                                    color: keyArea.pressed ? MColors.bb10Card : MColors.elev2
                                     border.width: 1
-                                    border.color: MColors.whiteOverlay04
+                                    border.color: MColors.whiteOverlay08
 
                                     // Top-only inset highlight — circular
                                     // version of the asymmetric DS edge
