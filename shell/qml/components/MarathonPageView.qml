@@ -197,8 +197,9 @@ Item {
 
             MarathonAppGrid {
                 appModel: sharedAppModel
-                columns: 4
-                rows: 4
+                // Don't override columns/rows here — AppGrid computes them
+                // scale-aware (drops 4×4 → 3×4 at userScaleFactor ≥ 1.25,
+                // matching the iOS Home Screen density behaviour).
                 onSearchPullProgressChanged: {
                     pageViewContainer.searchPullProgress = searchPullProgress;
                 }
