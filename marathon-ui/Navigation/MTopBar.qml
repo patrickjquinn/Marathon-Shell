@@ -61,7 +61,7 @@ Rectangle {
             text: "‹"        // single left guillemet — chevron-left glyph
             color: MColors.textSecondary
             font.family: MTypography.fontFamily
-            font.pixelSize: 28
+            font.pixelSize: MTypography.sizeTitle2
         }
 
         MouseArea {

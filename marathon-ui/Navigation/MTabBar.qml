@@ -160,7 +160,7 @@ Rectangle {
                         text: modelData.label || ""
                         color: tabButton.selected ? MColors.textPrimary : MColors.textSecondary
                         font.family: MTypography.fontFamily
-                        font.pixelSize: 12
+                        font.pixelSize: MTypography.sizeCaption
                         font.weight: Font.Medium
 
                         Behavior on color {
