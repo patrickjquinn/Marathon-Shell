@@ -401,10 +401,12 @@ MApp {
                             return "transparent"; // gradient
                         if (keyArea.pressed)
                             return MColors.bb10Card;
-                        // JSX calculator keys sit on the canvas as discrete
-                        // dark pucks — elev-1 (#0a0a0b) over the background
-                        // matches the spec; elev-2 reads as too light.
-                        return MColors.elev1;
+                        // elev-1 over bb10Black gave the chip 6 brightness
+                        // units of separation from the canvas — visually the
+                        // chrome disappeared and the numbers floated. elev-2
+                        // restores the puck silhouette without darkening the
+                        // primary "=" tile.
+                        return MColors.elev2;
                     }
 
                     gradient: modelData.type === "primary" ? primaryGradient : null
@@ -422,7 +424,7 @@ MApp {
                     }
 
                     border.width: 1
-                    border.color: modelData.type === "primary" ? MColors.tealBorder : MColors.whiteOverlay04
+                    border.color: modelData.type === "primary" ? MColors.tealBorder : MColors.whiteOverlay08
 
                     // Top-only inset highlight — matches the JSX calculator
                     // "C" button reference (thin lighter stripe on the top
