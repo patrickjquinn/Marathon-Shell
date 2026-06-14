@@ -77,8 +77,12 @@ Item {
             return Math.round(50 * scaleFactor);
         return Math.round(45 * scaleFactor);
     }
-    readonly property real horizontalPadding: size === "large" ? 22 : 18
-    readonly property real fontSize: size === "compact" ? 13 : (size === "large" ? 15 : 14)
+    readonly property real horizontalPadding: Math.round((size === "large" ? 22 : 18) * scaleFactor)
+    // Hand off to MTypography so the text scales with the DS canvas the
+    // same way the button height does. Hard-coded 13/14/15 px was the
+    // smoking gun behind "buttons look weirdly tall with small text" —
+    // the box scaled with DPI, the glyphs didn't.
+    readonly property real fontSize: size === "compact" ? MTypography.sizeFootnote : (size === "large" ? MTypography.sizeBody : MTypography.sizeSubhead)
     readonly property real iconSize: Math.round((size === "large" ? 20 : 18) * scaleFactor)
     readonly property bool isPrimary: variant === "primary"
 

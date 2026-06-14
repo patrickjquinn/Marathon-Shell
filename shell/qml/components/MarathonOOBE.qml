@@ -679,7 +679,7 @@ Item {
                                 MButton {
                                     text: "12h"
                                     variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
-                                    height: MSpacing.touchTargetSmall
+                                    size: "large"
                                     onClicked: {
                                         SettingsManagerCpp.timeFormat = "12h";
                                         HapticManager.light();
@@ -689,7 +689,7 @@ Item {
                                 MButton {
                                     text: "24h"
                                     variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
-                                    height: MSpacing.touchTargetSmall
+                                    size: "large"
                                     onClicked: {
                                         SettingsManagerCpp.timeFormat = "24h";
                                         HapticManager.light();
@@ -1314,12 +1314,11 @@ Item {
         anchors.leftMargin: MSpacing.xl
         anchors.rightMargin: MSpacing.xl
         anchors.bottomMargin: MSpacing.xl
-        height: MSpacing.touchTargetMedium
         spacing: MSpacing.md
 
         MButton {
             width: (parent.width - MSpacing.md) / 2
-            height: parent.height
+            size: "large"
             text: "Back"
             variant: "default"
             visible: oobeRoot.currentPage > 0
@@ -1333,13 +1332,13 @@ Item {
 
         Item {
             width: (parent.width - MSpacing.md) / 2
-            height: parent.height
+            height: Math.round(50 * Constants.scaleFactor)
             visible: oobeRoot.currentPage === 0
         }
 
         MButton {
             width: (parent.width - MSpacing.md) / 2
-            height: parent.height
+            size: "large"
             text: oobeRoot.currentPage === oobeRoot.pages.length - 1 ? "Get Started" : "Next"
             variant: "primary"
             // Passcode page (index 5) has its own primary "Set passcode"
