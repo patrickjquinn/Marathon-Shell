@@ -9,13 +9,23 @@ Item {
 
     property var appModel: null
     property int pageIndex: 0
-    property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6))
-    // DS HomePage1 (screens-shell.jsx) ships 16 apps per page in a 4×4 grid on
-    // the 390×844 phone canvas, with a 4-icon pinned dock below. We honour
-    // that exactly on phone widths; wider canvases get an extra row of breathing
-    // room. Earlier work pushed this to 6×4 = 24 for "density" — that's past
-    // spec and made the dock collide with the last row visually.
-    property int rows: Constants.screenWidth < 700 ? 4 : 5
+    // Scale-aware grid density. iOS does exactly this — bump Display Size
+    // in Settings and the Home Screen drops from 4×6 to 3×6 once icons
+    // grow past comfortable density. At Marathon's userScaleFactor ≥ 1.25,
+    // each cell footprint (icon + halo + label) exceeds 1/4 screen and the
+    // Grid wraps to a single column. 3 × 4 = 12/page restores the layout
+    // and keeps thumb-reach proportional to icon size.
+    readonly property real _userScale: (typeof Constants !== "undefined" && Constants.userScaleFactor) ? Constants.userScaleFactor : 1.0
+    property int columns: {
+        if (_userScale >= 1.25)
+            return 3;
+        return SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6));
+    }
+    property int rows: {
+        if (_userScale >= 1.25)
+            return 4;
+        return Constants.screenWidth < 700 ? 4 : 5;
+    }
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
@@ -254,8 +264,14 @@ Item {
                         font.family: MTypography.fontFamily
                         font.pixelSize: MTypography.sizeFootnote
                         font.weight: MTypography.weightMedium
+                        // iOS Home Screen + Android launchers wrap to 2 lines
+                        // before truncating. At ≥1.25× canvas the cell width
+                        // can't hold "Calculator" / "App Store" / "Messages"
+                        // / "Calendar" in one line at the scaled footnote
+                        // size; wrap → fit instead of "Calcul…".
+                        wrapMode: Text.Wrap
                         elide: Text.ElideRight
-                        maximumLineCount: 1
+                        maximumLineCount: 2
                     }
                 }
 
