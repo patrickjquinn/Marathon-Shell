@@ -427,6 +427,13 @@ Item {
                 letterSpacing: clockColumn.mediaActive ? -1.5 : -2
                 color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
+                // 16 px safe margin each side. HorizontalFit inside
+                // MHaloedDisplay shrinks down to minimumPixelSize when
+                // pixelSize × char-count exceeds this width — keeps the
+                // clock inside the viewport on high-DPI panels where
+                // 84 × scaleFactor would overflow.
+                width: parent.width
+                maxWidth: parent.width - 32
 
                 Behavior on pixelSize {
                     NumberAnimation {
