@@ -401,7 +401,7 @@ Rectangle {
             Text {
                 text: "•••"
                 color: MColors.textSecondary
-                font.pixelSize: 18
+                font.pixelSize: MTypography.sizeBody
                 font.family: MTypography.fontFamily
                 anchors.centerIn: parent
             }
