@@ -44,9 +44,17 @@ MApp {
         }
     }
 
+    property bool savePending: false
+
     function saveNotes() {
+        if (typeof PermissionManager !== "undefined" && !PermissionManager.hasPermission(appId, "storage")) {
+            notesApp.savePending = true;
+            PermissionManager.requestPermission(appId, "storage");
+            return;
+        }
         var data = JSON.stringify(notes);
         SettingsManagerCpp.set("notes/data", data);
+        notesApp.savePending = false;
     }
 
     function createNote(title, content) {
@@ -110,20 +118,13 @@ MApp {
     appName: "Notes"
     appIcon: "assets/icon.svg"
     Component.onCompleted: {
-        // Notes are stored under the app-scoped key notes/data, which
-        // gates on the "storage" permission in the shell's settings
-        // bridge. We try the load eagerly (no-op if the permission
-        // isn't there yet) and request the permission if missing; the
-        // Connections block below reloads once it's granted.
         loadNotes();
-        if (typeof PermissionManager !== "undefined" && !PermissionManager.hasPermission(appId, "storage"))
-            PermissionManager.requestPermission(appId, "storage");
     }
 
     Connections {
         function onPermissionGranted(grantedAppId, permission) {
-            if (grantedAppId === appId && permission === "storage")
-                notesApp.loadNotes();
+            if (grantedAppId === appId && permission === "storage" && notesApp.savePending)
+                notesApp.saveNotes();
         }
 
         target: typeof PermissionManager !== "undefined" ? PermissionManager : null

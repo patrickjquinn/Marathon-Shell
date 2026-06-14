@@ -115,6 +115,24 @@ MApp {
     appId: "phone"
     appName: "Phone"
     appIcon: "assets/icon.svg"
+
+    // First-use gate: prompt the moment the user opens a contacts-backed
+    // tab (Contacts / Favorites) or the contacts shortcut, not on app
+    // launch. The Dialer + Recents tabs render fine without contacts.
+    function ensureContactsPermission() {
+        if (emergencyOnly)
+            return;
+        if (hasContactsPermission)
+            return;
+        if (typeof PermissionManager === "undefined")
+            return;
+        if (PermissionManager.hasPermission(appId, "contacts")) {
+            hasContactsPermission = true;
+            return;
+        }
+        PermissionManager.requestPermission(appId, "contacts");
+    }
+
     Component.onCompleted: {
         if (emergencyOnly)
             Logger.warn("Phone", "Launched in EMERGENCY ONLY mode -- contacts/history disabled");
@@ -128,16 +146,10 @@ MApp {
             Logger.info("Phone", "Phone app opened with active call: " + contactName + " (" + number + ")");
         }
         if (emergencyOnly)
-            // Skip contacts permission request -- emergency mode never reads contacts.
             return;
 
-        if (PermissionManager.hasPermission(appId, "contacts")) {
-            Logger.info("Phone", "Contacts permission already granted");
+        if (PermissionManager.hasPermission(appId, "contacts"))
             hasContactsPermission = true;
-        } else {
-            Logger.info("Phone", "Requesting contacts permission");
-            PermissionManager.requestPermission(appId, "contacts");
-        }
     }
 
     Connections {
@@ -198,6 +210,12 @@ MApp {
 
         Column {
             property int currentIndex: 0
+            onCurrentIndexChanged: {
+                // Contacts (2) + Favorites (3) read ContactsManager; this is
+                // where the first-use prompt belongs, not on app launch.
+                if (currentIndex === 2 || currentIndex === 3)
+                    phoneApp.ensureContactsPermission();
+            }
 
             anchors.fill: parent
             spacing: 0
