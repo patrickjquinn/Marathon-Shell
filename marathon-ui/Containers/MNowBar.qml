@@ -137,11 +137,12 @@ Item {
                 text: root.sublabel
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
-                // 9 px is intentionally below the type ramp — DS NowBar spec
-                // ("11/600 title, 9/400 subtitle"). Live-activity sublabel
-                // never appears anywhere else; promoting to a token would
-                // imply reuse that doesn't exist.
-                font.pixelSize: 9
+                // DS NowBar spec was "11/600 title, 9/400 subtitle" but the
+                // 9-px subtitle was hard-coded and disappeared at 1.5×.
+                // sizeEyebrow (11 scaled) is the smallest typography token
+                // and keeps the title/subtitle hierarchy intact at every
+                // scale.
+                font.pixelSize: MTypography.sizeEyebrow
                 font.weight: MTypography.weightRegular
                 elide: Text.ElideRight
                 visible: text.length > 0
