@@ -259,14 +259,18 @@ Item {
     }
 
     // ── Drag handle ─────────────────────────────────────────
+    // Bumped from 44×4 white/12 to 56×5 white/24 per reviewer note —
+    // the original was too faint to register as "grabbable" against
+    // the dimmed app behind. iOS Control Center pill and Android 16
+    // shade handle are both this size and prominence.
     Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 14
-        width: 44
-        height: 4
-        radius: 2
-        color: MColors.whiteOverlay12
+        width: 56
+        height: 5
+        radius: 2.5
+        color: MColors.whiteOverlay24
     }
 
     // ── Behaviour hooks ─────────────────────────────────────

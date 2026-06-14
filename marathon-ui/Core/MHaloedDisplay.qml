@@ -60,9 +60,23 @@ Item {
         id: label
         anchors.centerIn: parent
         color: MColors.textPrimary
-        font.family: MTypography.fontFamilyForWeight(root.weight)
+        // Use the VARIABLE Sora family (not a static cut) so the wght
+        // axis is actually instanceable. Drive the weight via
+        // variableAxes; do NOT also set font.weight — per the Qt 6.7+
+        // variable-font docs (qt.io/blog/text-improvements-in-qt-6.7)
+        // and the runebook deep-dive, setting both causes Qt to
+        // prioritise the standard property and silently ignore the
+        // axis. That was the bug we chased through r103-r111.
+        font.family: MTypography.fontFamily
         font.pixelSize: root.pixelSize
-        font.weight: root.weight
+        font.variableAxes: ({
+                "wght": root.weight
+            })
         font.letterSpacing: root.letterSpacing
+        // QtRendering preserves the variable axis through the SDF
+        // pipeline. NativeRendering would flatten to the nearest
+        // static cut on the fontconfig side and lose the smoothness
+        // of the lock-clock fade/scale animations.
+        renderType: Text.QtRendering
     }
 }
