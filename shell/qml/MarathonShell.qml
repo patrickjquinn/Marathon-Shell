@@ -890,6 +890,8 @@ Item {
             if (pageView.currentIndex < pageView.count - 1) {
                 pageView.incrementCurrentIndex();
                 Router.navigateLeft();
+            } else {
+                pageView.nudgeAtBoundary(1);
             }
         }
         onSwipeRight: {
@@ -904,6 +906,8 @@ Item {
             if (pageView.currentIndex > 0) {
                 pageView.decrementCurrentIndex();
                 Router.navigateRight();
+            } else {
+                pageView.nudgeAtBoundary(-1);
             }
         }
         onSwipeBack: {

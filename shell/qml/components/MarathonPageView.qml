@@ -44,6 +44,39 @@ Item {
         }
     }
 
+    // Head-shake feedback for discrete-swipe events that hit a boundary.
+    // Plasma Mobile gesture revamp (Akademy 2024): a failed gesture must
+    // teach, never no-op. direction: -1 nudges right (nothing further left),
+    // +1 nudges left.
+    function nudgeAtBoundary(direction) {
+        nudgeAnimation.stop();
+        nudgeAnimation.fromX = pageView.contentX;
+        nudgeAnimation.peakX = pageView.contentX + direction * 24;
+        nudgeAnimation.start();
+    }
+
+    SequentialAnimation {
+        id: nudgeAnimation
+
+        property real fromX: 0
+        property real peakX: 0
+
+        NumberAnimation {
+            target: pageView
+            property: "contentX"
+            to: nudgeAnimation.peakX
+            duration: 110
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            target: pageView
+            property: "contentX"
+            to: nudgeAnimation.fromX
+            duration: 200
+            easing.type: Easing.OutBack
+        }
+    }
+
     Component.onCompleted: {}
 
     Timer {
@@ -93,12 +126,17 @@ Item {
         snapMode: ListView.SnapOneItem
         highlightRangeMode: ListView.StrictlyEnforceRange
         interactive: true
-        pressDelay: 200
+        // pressDelay 200 ate fast horizontal flicks before the Flickable
+        // could steal — the user reported swipe Drawer→Hub silently failed.
+        // Per-icon MouseAreas already reject tap-on-release when drag > 15 px,
+        // so children don't need the delay to suppress accidental taps.
+        pressDelay: 0
         flickDeceleration: 3000
         maximumFlickVelocity: 10000
         flickableDirection: Flickable.HorizontalFlick
         currentIndex: 2
-        boundsBehavior: Flickable.StopAtBounds
+        // Rubber-band at the first/last page instead of a hard stop.
+        boundsBehavior: Flickable.DragAndOvershootBounds
         // 250 ms felt sluggish on small screens; 180 ms matches the
         // OutCubic snap pattern the rest of the shell uses.
         highlightMoveDuration: 180
