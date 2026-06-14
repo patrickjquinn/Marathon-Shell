@@ -42,6 +42,16 @@ Item {
     property int weight: MTypography.weightExtraLight
     property real letterSpacing: MTypography.trackingDisplay
 
+    // Hard upper bound on the rendered text width. Set by the caller
+    // (lock screen passes parent.width - 2 × safeMargin). When 0 the
+    // text renders unbounded — keeps backwards-compatible behaviour
+    // for callers that don't care (calculator, dialer).
+    property real maxWidth: 0
+    // Floor for fontSizeMode shrinking: never below this px size, no
+    // matter how wide the text is. Anything smaller becomes unreadable
+    // at lock-screen distance.
+    property int minimumPixelSize: 32
+
     // The halo. SVG asset, gradient pre-baked.
     Image {
         id: halo
@@ -76,5 +86,14 @@ Item {
         // preserves smoothness across the lock-clock scale/fade.
         // NativeRendering would flatten to the nearest static cut.
         renderType: Text.QtRendering
+
+        width: root.maxWidth > 0 ? root.maxWidth : implicitWidth
+        horizontalAlignment: Text.AlignHCenter
+        // HorizontalFit shrinks pixelSize down to root.minimumPixelSize
+        // when the text wouldn't otherwise fit width — keeps the clock
+        // inside the viewport on high-DPI panels where the design-px
+        // size × scaleFactor would overflow.
+        fontSizeMode: root.maxWidth > 0 ? Text.HorizontalFit : Text.FixedSize
+        minimumPixelSize: root.minimumPixelSize
     }
 }
