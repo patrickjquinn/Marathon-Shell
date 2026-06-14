@@ -173,6 +173,14 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
 
+# Sweep stale Wayland socket + lockfile from a previous shell instance that
+# died via SIGKILL/SIGABRT before Qt could release them. Systemd Restart=
+# would otherwise crash-loop forever as the new instance fails to open the
+# server socket. Safe to run unconditionally because we're about to bind
+# the socket ourselves.
+rm -f "$XDG_RUNTIME_DIR/marathon-wayland-0" \
+      "$XDG_RUNTIME_DIR/marathon-wayland-0.lock" 2>/dev/null || true
+
 # ---- Logging -----------------------------------------------------------------
 # MARATHON_DEBUG=1 turns on full Qt logging. Without it, only warnings + the
 # marathon.* info channel reach the journal.
