@@ -185,12 +185,19 @@ Item {
             visible: BluetoothManagerCpp.available && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
         }
 
+        // Cellular: only when the device actually has a modem. Marathon
+        // was rendering a "smartphone" silhouette as the no-modem
+        // fallback — at 14 px next to the bluetooth glyph the reviewer
+        // read it (and the wifi-off icon below) as a SECOND battery
+        // beside the real battery on the left. iOS/Android both hide
+        // these tiles when the radio is absent. Match that.
         Icon {
-            name: ModemManagerCpp.modemAvailable ? StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength) : "smartphone"
+            name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
             color: MColors.textPrimary
             size: 14
             anchors.verticalCenter: parent.verticalCenter
-            opacity: ModemManagerCpp.modemAvailable ? StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength) : 0.3
+            visible: ModemManagerCpp.modemAvailable
+            opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
         }
 
         Icon {
@@ -203,11 +210,12 @@ Item {
         }
 
         Icon {
-            name: NetworkManagerCpp.wifiAvailable ? StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected) : "wifi-off"
+            name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
             color: MColors.textPrimary
             size: 14
             anchors.verticalCenter: parent.verticalCenter
-            opacity: NetworkManagerCpp.wifiAvailable ? StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected) : 0.3
+            visible: NetworkManagerCpp.wifiAvailable
+            opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
         }
     }
 }

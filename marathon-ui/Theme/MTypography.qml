@@ -59,8 +59,12 @@ QtObject {
 
     // Default family for callers that don't care about weight. Most
     // body text lands here. Always falls back to literal "Sora" so the
-    // resolver never returns empty during cold boot.
-    readonly property string fontFamily: _soraRegular.name !== "" ? _soraRegular.name : "Sora"
+    // resolver never returns empty during cold boot. Bind to the
+    // variable font's loaded name — this is the family that supports
+    // font.variableAxes for weight axis instancing (Qt 6.7+). Static
+    // cuts (fontFamilyForWeight) remain available for callsites that
+    // set font.weight directly without engaging the axis.
+    readonly property string fontFamily: _soraLoader.name !== "" ? _soraLoader.name : "Sora"
     readonly property string fontFamilyMono: _monoLoader.name !== "" ? _monoLoader.name : "JetBrains Mono"
     readonly property string fontMonospace: fontFamilyMono
 
