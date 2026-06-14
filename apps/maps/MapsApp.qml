@@ -153,15 +153,25 @@ MApp {
     appId: "maps"
     appName: "Maps"
     appIcon: "assets/icon.svg"
+
+    // First-use permission gate. Wraps a callback so the location request
+    // only happens when the user actually exercises a location-dependent
+    // feature (Locate Me, Start Navigation). The callback runs once the
+    // grant lands via the Connections block below.
+    property var pendingLocationCallback: null
+    function requireLocation(callback) {
+        if (PermissionManager.hasPermission(appId, "location")) {
+            callback();
+            return;
+        }
+        pendingLocationCallback = callback;
+        PermissionManager.requestPermission(appId, "location");
+    }
+
     onAppLaunched: {
         loadTimer.start();
-        if (PermissionManager.hasPermission(appId, "location")) {
-            Logger.info("Maps", "Location permission already granted");
+        if (PermissionManager.hasPermission(appId, "location"))
             hasLocationPermission = true;
-        } else {
-            Logger.info("Maps", "Requesting location permission");
-            PermissionManager.requestPermission(appId, "location");
-        }
     }
 
     Connections {
@@ -170,11 +180,12 @@ MApp {
                 Logger.info("Maps", "Location permission granted");
                 hasLocationPermission = true;
                 positionSource.active = true;
-                // Kick off the shell-side Geoclue fix via the IPC
-                // client. The fix arrives asynchronously and updates
-                // `bestCoord` reactively.
                 if (typeof LocationService !== "undefined" && LocationService)
                     LocationService.start();
+                if (mapsApp.pendingLocationCallback) {
+                    mapsApp.pendingLocationCallback();
+                    mapsApp.pendingLocationCallback = null;
+                }
             }
         }
 
@@ -182,6 +193,7 @@ MApp {
             if (deniedAppId === appId && permission === "location") {
                 Logger.warn("Maps", "Location permission denied");
                 hasLocationPermission = false;
+                mapsApp.pendingLocationCallback = null;
             }
         }
 
@@ -665,16 +677,16 @@ MApp {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     HapticService.medium();
-                    if (mapsApp.bestCoordValid) {
-                        mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 15);
-                        Logger.info("Maps", "Centered on current location (" + (mapsApp.geoclueValid ? "Geoclue" : "QtPositioning") + ")");
-                    } else {
-                        Logger.warn("Maps", "Position not available");
-                        // Re-arm Geoclue in case the user denied earlier or
-                        // the daemon dropped its client.
-                        if (typeof LocationService !== "undefined" && LocationService)
-                            LocationService.start();
-                    }
+                    mapsApp.requireLocation(function () {
+                        if (mapsApp.bestCoordValid) {
+                            mapCall("setCenter", mapsApp.bestCoord.latitude, mapsApp.bestCoord.longitude, 15);
+                            Logger.info("Maps", "Centered on current location (" + (mapsApp.geoclueValid ? "Geoclue" : "QtPositioning") + ")");
+                        } else {
+                            Logger.warn("Maps", "Position not available");
+                            if (typeof LocationService !== "undefined" && LocationService)
+                                LocationService.start();
+                        }
+                    });
                 }
             }
         }
@@ -1011,7 +1023,9 @@ MApp {
                             anchors.fill: parent
                             onClicked: {
                                 HapticService.medium();
-                                mapsApp.startNavigation();
+                                mapsApp.requireLocation(function () {
+                                    mapsApp.startNavigation();
+                                });
                             }
                         }
                     }
