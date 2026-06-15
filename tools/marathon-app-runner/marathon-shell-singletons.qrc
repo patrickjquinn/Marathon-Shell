@@ -1,0 +1,24 @@
+<!--
+    Mirror the MarathonOS.Shell singletons (Constants, Logger) into
+    marathon-app-runner's own resource namespace at the EXACT path the
+    installed shell qmldir's `prefer :/qt/qml/MarathonOS/Shell/` directive
+    points to.
+
+    Without this, the qmldir's prefer line tells Qt to chase
+    :/qt/qml/MarathonOS/Shell/qml/core/Constants.qml inside the consumer
+    binary's rcc — and marathon-app-runner historically had no such
+    resource, so every app that imported MarathonOS.Shell (Settings was
+    the most user-visible) failed to launch with
+        qrc:/qt/qml/MarathonOS/Shell/qml/core/Constants.qml: No such file
+    The historical workaround was a post-package sed in marathon-shell's
+    APKBUILD that stripped the prefer line. Baking the singletons here
+    instead lets the installed qmldir keep its native shape — the
+    structural fix the workaround was standing in for.
+-->
+<RCC>
+    <qresource prefix="/qt/qml/MarathonOS/Shell/qml/core">
+        <file alias="Constants.qml">../../shell/qml/core/Constants.qml</file>
+        <file alias="Logger.qml">../../shell/qml/core/Logger.qml</file>
+        <file alias="qmldir">marathon-shell-singletons.qmldir</file>
+    </qresource>
+</RCC>
