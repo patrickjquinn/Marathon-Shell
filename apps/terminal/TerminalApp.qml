@@ -170,7 +170,7 @@ MApp {
 
             VirtualKeyRow {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 48
+                Layout.preferredHeight: Math.round(48 * Constants.scaleFactor)
                 onKeyTriggered: (key, modifiers) => {
                     var tab = terminalApp.tabs[currentTabIndex];
                     if (tab && tab.session)
