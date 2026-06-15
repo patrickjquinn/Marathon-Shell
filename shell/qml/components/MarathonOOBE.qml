@@ -1256,8 +1256,8 @@ Item {
 
             clip: true
 
-            readonly property int requiredLength: 4
-            readonly property int maxLength: 8
+            readonly property int requiredLength: 6
+            readonly property int maxLength: 6
             // "enter" → first attempt, "confirm" → re-enter to verify.
             property string stage: "enter"
             // PIN digits accumulated in the current stage.
@@ -1285,6 +1285,8 @@ Item {
                 oobeRoot.passcodeError = "";
                 if (typeof HapticManager !== 'undefined')
                     HapticManager.light();
+                if (passcodePage.currentPin.length === passcodePage.requiredLength)
+                    passcodePage.tryAdvance();
             }
 
             function deleteDigit() {
@@ -1482,15 +1484,6 @@ Item {
                         }
                     }
                 }
-
-                MButton {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: Math.round(220 * Constants.scaleFactor)
-                    text: passcodePage.stage === "enter" ? "Next" : "Set passcode"
-                    variant: "primary"
-                    disabled: passcodePage.currentPin.length < passcodePage.requiredLength
-                    onClicked: passcodePage.tryAdvance()
-                }
             }
         }
 
@@ -1519,34 +1512,24 @@ Item {
                 }
 
                 Text {
-                    text: "You're All Set!"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
+                    text: "You're all set"
+                    font.pixelSize: MTypography.sizeTitle2
+                    font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
-                    color: MColors.text
+                    font.letterSpacing: MTypography.trackingTitle2
+                    color: MColors.textPrimary
                     horizontalAlignment: Text.AlignHCenter
                     width: parent.width
                 }
 
                 Text {
-                    text: "Marathon OS is ready to use. Swipe up from the bottom to see your apps."
-                    font.pixelSize: MTypography.sizeLarge
+                    text: "Marathon is ready. Swipe up from the bottom of the screen to see your apps."
+                    font.pixelSize: MTypography.sizeSubhead
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
                     horizontalAlignment: Text.AlignHCenter
                     width: parent.width
                     wrapMode: Text.WordWrap
-                }
-
-                Text {
-                    text: "Tip: open Settings to set a screen-lock PIN, link a CardDAV/CalDAV account for contacts and calendar sync, or check for software updates."
-                    font.pixelSize: MTypography.sizeBody
-                    font.family: MTypography.fontFamily
-                    color: MColors.textTertiary
-                    horizontalAlignment: Text.AlignHCenter
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    Accessible.name: text
                 }
             }
         }
@@ -1586,16 +1569,21 @@ Item {
         MButton {
             width: (parent.width - MSpacing.md) / 2
             size: "large"
-            text: oobeRoot.currentPage === oobeRoot.pages.length - 1 ? "Get Started" : "Next"
+            text: {
+                if (oobeRoot.currentPage === oobeRoot.pages.length - 1)
+                    return "Get Started";
+                if (oobeRoot.currentPage === 5)
+                    return passcodePage.stage === "enter" ? "Next" : "Set passcode";
+                return "Next";
+            }
             variant: "primary"
-            // Passcode page (index 5) has its own primary "Set passcode"
-            // action — the bottom Next button is hidden there so the user
-            // can't bypass passcode setup. /etc/shadow ships with the user
-            // account locked '!'; skipping passcode produces an unusable
-            // lock screen.
-            visible: oobeRoot.currentPage !== 5
+            disabled: oobeRoot.currentPage === 5 && passcodePage.currentPin.length < passcodePage.requiredLength
             onClicked: {
                 HapticManager.light();
+                if (oobeRoot.currentPage === 5) {
+                    passcodePage.tryAdvance();
+                    return;
+                }
                 if (oobeRoot.currentPage < oobeRoot.pages.length - 1) {
                     oobeRoot.currentPage++;
                 } else {
