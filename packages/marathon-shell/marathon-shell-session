@@ -181,6 +181,20 @@ fi
 
 # ---- Wayland runtime ---------------------------------------------------------
 
+# Force the QtWayland compositor's hardware integration to load wayland-egl.
+# Without this Qt probes the host and on Alpine + V3D falls through to
+# shm-emulation-server -- app clients then get NO GPU buffers from the
+# compositor, Mesa degrades to llvmpipe inside every app, and QtWebEngine
+# SIGSEGVs when its RHI tries to share a texture with the llvmpipe context.
+# wayland-egl is the SAME plugin name on both server and client sides
+# (different shared objects under different plugin dirs) so the same env
+# var resolves correctly when an app-runner inherits this from the shell.
+# Do NOT set QT_WAYLAND_CLIENT_BUFFER_INTEGRATION to "linux-dmabuf-unstable-v1"
+# -- the client-side plugin folder doesn't ship that integration on Alpine,
+# the runner logs "Failed to load client buffer integration" and the GL
+# context creation silently fails (verified Pi 5 / 2026-06-15).
+export QT_WAYLAND_HARDWARE_INTEGRATION=wayland-egl
+
 export WAYLAND_DISPLAY=wayland-0
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 mkdir -p "$XDG_RUNTIME_DIR"
