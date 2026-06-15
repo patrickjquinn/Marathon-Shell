@@ -69,26 +69,16 @@ Item {
     Text {
         id: label
         anchors.centerIn: parent
-        // font.family must be the VARIABLE Sora (so the wght axis can
-        // be instanced), and font.weight must NOT also be set: per the
-        // Qt 6.7 text-improvements blog and runebook variableAxes
-        // notes, setting both causes Qt to prioritise the standard
-        // property and silently ignore the axis. Drive weight only
-        // through variableAxes.
+        // Bind to the static per-weight Sora cut via fontFamilyForWeight().
+        // Variable Sora + variableAxes worked on QEMU virtio but on real
+        // hardware (CM5 freetype) NativeRendering reads the OS/2 default
+        // weight off the variable file and ignores the wght axis, so the
+        // clock rendered in Sora Regular instead of Thin.
         color: MColors.textPrimary
-        font.family: MTypography.fontFamily
+        font.family: MTypography.fontFamilyForWeight(root.weight)
         font.pixelSize: root.pixelSize
-        font.variableAxes: ({
-                "wght": root.weight
-            })
+        font.weight: root.weight
         font.letterSpacing: root.letterSpacing
-        // NativeRendering snaps to the nearest static cut of the
-        // variable font (e.g. wght=100 → Thin) and renders glyphs
-        // through the platform freetype hinter. QtRendering uses an
-        // SDF atlas that, on Qt 6.10 + virtio-gpu software fallback,
-        // overlays a ghosted secondary stroke on certain digits ("8"
-        // most reliably). Trade a hair of smoothness across the
-        // pixelSize animation for sharp, single-stroke glyphs.
         renderType: Text.NativeRendering
 
         width: root.maxWidth > 0 ? root.maxWidth : implicitWidth
