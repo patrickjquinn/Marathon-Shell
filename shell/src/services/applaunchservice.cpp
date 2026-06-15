@@ -10,6 +10,9 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSettings>
 #include <QGuiApplication>
 #include <QScreen>
@@ -388,9 +391,28 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
     }
 
-    QStringList permissions   = app.value("permissions").toStringList();
-    QStringList requiresQt    = app.value("requiresQtModules").toStringList();
-    const bool  usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
+    QStringList permissions = app.value("permissions").toStringList();
+    QStringList requiresQt  = app.value("requiresQtModules").toStringList();
+    // resolveAppObject populates only id/name/icon/type/exec/permissions
+    // from the App model -- the model never exposed requiresQtModules, so
+    // every map that reaches this path has an empty requiresQt. The
+    // !usesWebEngine branch below then adds --unshare-user-try to bwrap
+    // unconditionally, which the kernel rejects when Chromium tries to
+    // nest its own CLONE_NEWUSER, killing every WebEngine app with
+    // SIGTRAP deep in libQt6WebEngineCore.so. Until the App model is
+    // extended, fall back to a manifest read for the appId so the
+    // sandbox shape matches what Chromium can survive.
+    if (requiresQt.isEmpty()) {
+        const QString appId = app.value("id").toString();
+        QFile         mf(QStringLiteral("/usr/share/marathon-apps/%1/manifest.json").arg(appId));
+        if (mf.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(mf.readAll());
+            const auto    arr = doc.object().value(QStringLiteral("requiresQtModules")).toArray();
+            for (const auto &v : arr)
+                requiresQt << v.toString();
+        }
+    }
+    const bool usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
 
     if (permissions.contains("network")) {
         env.insert("MARATHON_PERM_NETWORK", "1");
@@ -445,22 +467,29 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         QDir().mkpath(appConfig);
 
         QStringList bwrapArgs;
-        bwrapArgs << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session")
-                  << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
-                  << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try");
+        bwrapArgs << QStringLiteral("--die-with-parent") << QStringLiteral("--new-session");
 
-        // User-ns unshare BREAKS Chromium's own zygote sandbox: it tries
-        // to nest its own CLONE_NEWUSER on top, the kernel rejects with
-        // EPERM, the renderer process aborts with SIGTRAP and no log to
-        // QML. For webengine apps we leave the user-ns intact so
-        // Chromium can do its own user-ns unshare. Non-webengine apps
-        // still get the extra isolation layer.
-        if (!usesWebEngine)
-            bwrapArgs << QStringLiteral("--unshare-user-try");
-
-        // Network namespace: only granted to apps with "network" permission.
-        if (!permissions.contains("network"))
-            bwrapArgs << QStringLiteral("--unshare-net");
+        // Chromium's zygote sandbox does its own CLONE_NEW{PID,USER,IPC,UTS,
+        // NET,CGROUP} on every renderer + GPU + utility process. Nesting
+        // those over bwrap-pre-unshared namespaces returns EPERM, Chromium
+        // CHECKs in its sandbox setup, and the WebEngine app aborts with
+        // SIGTRAP deep in libQt6WebEngineCore (the same backtrace every
+        // time -- thread N → sandbox::policy::SandboxLinux::PreSpawnTarget
+        // → CHECK). The right shape for WebEngine apps is: bwrap provides
+        // ONLY the filesystem / device cage (--ro-bind /usr, --tmpfs /tmp,
+        // --bind /run/user/1000, etc) and Chromium runs its own full
+        // namespace sandbox inside that. Non-WebEngine apps still get the
+        // belt-and-braces extra isolation layer.
+        if (!usesWebEngine) {
+            bwrapArgs << QStringLiteral("--unshare-pid") << QStringLiteral("--unshare-uts")
+                      << QStringLiteral("--unshare-ipc") << QStringLiteral("--unshare-cgroup-try")
+                      << QStringLiteral("--unshare-user-try");
+            // Network namespace: only granted to apps with "network"
+            // permission. WebEngine apps need network and can't have a net
+            // unshare under bwrap anyway (Chromium re-unshares).
+            if (!permissions.contains("network"))
+                bwrapArgs << QStringLiteral("--unshare-net");
+        }
 
         bwrapArgs << QStringLiteral("--ro-bind") << QStringLiteral("/usr") << QStringLiteral("/usr")
                   << QStringLiteral("--ro-bind") << QStringLiteral("/etc") << QStringLiteral("/etc")
