@@ -57,7 +57,7 @@ Item {
         Text {
             text: SystemStatusStore.batteryLevel + "%"
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
-            font.family: MTypography.fontFamily
+            font.family: MTypography.fontFamilyMedium
             font.pixelSize: MTypography.sizeCaption
             font.weight: MTypography.weightMedium
             font.letterSpacing: trackingForCaption
@@ -91,7 +91,7 @@ Item {
             opacity: SessionStore.isOnLockScreen ? 0 : 1
             text: SystemStatusStore.timeString
             color: MColors.textPrimary
-            font.family: MTypography.fontFamily
+            font.family: MTypography.fontFamilyRegular
             font.pixelSize: MTypography.sizeCaption
             font.weight: MTypography.weightRegular
             font.features: ({
