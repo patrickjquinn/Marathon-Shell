@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=118
+pkgrel=162
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -244,17 +244,6 @@ package() {
 		fi
 	done
 
-	# Strip the `prefer :/qt/qml/MarathonOS/Shell/` directive from the
-	# installed shell qmldir. The shell binary loads its QML from its
-	# own embedded qrc and ignores this file at runtime; marathon-app-runner
-	# DOES read it when importing MarathonOS.Shell types into app surfaces,
-	# and the prefer line makes Qt chase the singleton entries (Constants,
-	# Logger) into a qrc namespace that doesn't exist in app-runner's
-	# address space — which is why launching Settings was failing with
-	# "qrc:/qt/qml/MarathonOS/Shell/qml/core/Constants.qml: No such file".
-	if [ -f "$pkgdir/usr/lib/qt6/qml/MarathonOS/Shell/qmldir" ]; then
-		sed -i '/^prefer /d' "$pkgdir/usr/lib/qt6/qml/MarathonOS/Shell/qmldir"
-	fi
 }
 
 # sha512sums regenerate with `abuild checksum` on build host.
