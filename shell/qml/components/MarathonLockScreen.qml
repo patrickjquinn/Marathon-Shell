@@ -410,8 +410,12 @@ Item {
             width: parent.width * 0.9
             anchors.top: parent.top
             anchors.topMargin: Math.round((mediaActive ? 170 : 190) * Constants.scaleFactor)
-            layer.enabled: true
-            layer.smooth: true
+            // layer.enabled was: true (with layer.smooth) to keep the
+            // pixelSize Behavior from chattering, but on Qt 6.10 + SDF
+            // QtRendering the extra FBO + bilinear pass renders the
+            // glyphs with a ghosted secondary stroke ~3 px inside each
+            // digit. Static composition is sharp; the size animation
+            // doesn't need an extra texture pass at this scale.
 
             Behavior on anchors.topMargin {
                 NumberAnimation {
@@ -422,25 +426,29 @@ Item {
 
             MHaloedDisplay {
                 text: SystemStatusStore.timeString
-                pixelSize: Math.round((clockColumn.mediaActive ? 76 : 84) * Constants.scaleFactor)
+                // Design size is (76|84) × scaleFactor, but HorizontalFit
+                // inside MHaloedDisplay has been unreliable on Qt 6.10
+                // QtRendering — at scaleFactor 2 the clock clipped past
+                // both edges instead of shrinking. Clamp pixelSize so
+                // the natural width never exceeds the canvas:
+                //   "HH:MM AM/PM" → 8 chars · ~0.55 advance width ratio
+                //   → max pixelSize ≈ (parent.width - 32) / (8 · 0.55)
+                // which gives the design value at scaleFactor 1 and
+                // a sub-canvas value when DPI scaling would blow it up.
+                pixelSize: Math.min(Math.round((clockColumn.mediaActive ? 76 : 84) * Constants.scaleFactor), Math.floor((parent.width - 32) / 4.4))
                 weight: MTypography.weightThin
                 letterSpacing: clockColumn.mediaActive ? -1.5 : -2
                 color: MColors.textPrimary
                 anchors.horizontalCenter: parent.horizontalCenter
-                // 16 px safe margin each side. HorizontalFit inside
-                // MHaloedDisplay shrinks down to minimumPixelSize when
-                // pixelSize × char-count exceeds this width — keeps the
-                // clock inside the viewport on high-DPI panels where
-                // 84 × scaleFactor would overflow.
                 width: parent.width
                 maxWidth: parent.width - 32
 
-                Behavior on pixelSize {
-                    NumberAnimation {
-                        duration: MMotion.moderate
-                        easing.type: Easing.OutCubic
-                    }
-                }
+                // Behavior on pixelSize removed: NativeRendering caches
+                // each rasterised pixelSize separately, so animating the
+                // size produces a ghosted overlay of the old size while
+                // the new one fades in. pixelSize only changes when
+                // mediaActive flips (rare) — a hard jump there is
+                // acceptable and keeps the static state crisp.
             }
 
             Text {
