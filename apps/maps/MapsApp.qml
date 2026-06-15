@@ -812,7 +812,7 @@ MApp {
                         },
                         {
                             label: "Share",
-                            icon: "share-2",
+                            icon: "share",
                             accent: false
                         },
                         {

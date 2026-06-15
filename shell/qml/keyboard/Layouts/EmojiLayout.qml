@@ -62,7 +62,7 @@ Item {
             "id": "smileys"
         },
         {
-            "icon": "tree-pine",
+            "icon": "tree-evergreen",
             "id": "animals"
         },
         {
@@ -70,7 +70,7 @@ Item {
             "id": "food"
         },
         {
-            "icon": "zap",
+            "icon": "lightning",
             "id": "activities"
         },
         {
