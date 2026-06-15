@@ -223,6 +223,7 @@ MApp {
             // App header — "Phone" title + search · menu actions per JSX
             // screens-apps-1.jsx:PhoneDialer (TopBar).
             MTopBar {
+                id: topBar
                 width: parent.width
                 title: "Phone"
                 actions: [
@@ -241,7 +242,14 @@ MApp {
 
             StackLayout {
                 width: parent.width
-                height: parent.height - tabBar.height - 88
+                // Was `parent.height - tabBar.height - 88`. The magic 88
+                // (action-row 76 + 12 margin) was already accounted for
+                // INSIDE dialerPane via the spacer at the bottom of the
+                // dial-pad Column — subtracting it here too pushed the
+                // bottom tab bar (Dial / Recents / Contacts / Favorites)
+                // off the canvas by ~22 px and only the top of each
+                // tab icon remained visible as a ghost fragment.
+                height: parent.height - topBar.height - tabBar.height
                 currentIndex: parent.currentIndex
 
                 // DS Phone · Dialer (screens-apps-1.jsx:171).
@@ -270,17 +278,34 @@ MApp {
                     }
                     readonly property string contactMatch: lookupContact(dialedNumber)
 
-                    Column {
-                        anchors.fill: parent
+                    // Action row is anchored as a sibling of this ColumnLayout
+                    // (below) — anchored directly to dialerPane.bottom with
+                    // an explicit 56 px margin so the call FAB sits clearly
+                    // above the tab bar. Nesting it INSIDE the ColumnLayout
+                    // made Layout.bottomMargin / anchors.bottomMargin both no-op
+                    // on this surface (Qt 6.10 ColumnLayout vs. fillHeight
+                    // sibling interaction).
+                    ColumnLayout {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: actionRow.top
                         anchors.leftMargin: 24
                         anchors.rightMargin: 24
                         anchors.topMargin: 20
+                        anchors.bottomMargin: 16
                         spacing: 0
 
-                        // Display: dialed number + contact match
+                        // Display: dialed number + contact match.
+                        // 70 px is enough for a 36 px digit row with
+                        // the 14 px contact-match subtitle below;
+                        // anything taller showed as dead air above
+                        // the first dial-pad row when no number was
+                        // entered yet (the JSX canvas has a similarly
+                        // tight display block).
                         Item {
-                            width: parent.width
-                            height: 110
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 70
 
                             Column {
                                 anchors.centerIn: parent
@@ -310,15 +335,17 @@ MApp {
                         Grid {
                             id: dialPadGrid
 
+                            Layout.alignment: Qt.AlignHCenter
+
                             // Key diameter scales with the available width
                             // (parent column width minus 24 px side padding
                             // minus 2 × 18 px gaps). JSX shows ~92 px keys at
                             // 390 px canvas; mapped to 540 px that's ~127 px.
-                            // Clamped to 110 to leave breathing room for the
-                            // bottom action row.
-                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), Math.round(110 * Constants.scaleFactor))
+                            // Hard-clamped at 110 logical px so 4 rows fit
+                            // between the dialed-number display and the
+                            // action-row FAB without overlap on tall scales.
+                            readonly property real cellSize: Math.min(Math.floor((parent.width - 18 * 2) / 3), 124)
 
-                            anchors.horizontalCenter: parent.horizontalCenter
                             columns: 3
                             rowSpacing: 14
                             columnSpacing: 18
@@ -392,21 +419,16 @@ MApp {
                                     border.width: 1
                                     border.color: MColors.whiteOverlay08
 
-                                    // Top-only inset highlight — circular
-                                    // version of the asymmetric DS edge
-                                    // treatment. A 1-px-thick arc at the
-                                    // top of the key reads as "lit from
-                                    // above" without breaking the round
-                                    // silhouette.
-                                    Rectangle {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        anchors.top: parent.top
-                                        anchors.topMargin: 2
-                                        width: parent.width * 0.55
-                                        height: 1
-                                        color: Qt.rgba(1, 1, 1, 0.10)
-                                        radius: 0.5
-                                    }
+                                    // The original "lit from above" highlight
+                                    // was a 1 px straight horizontal Rectangle
+                                    // sitting 2 px from the top of the circle.
+                                    // On a round button the straight line
+                                    // reads as a horizontal SLICE through the
+                                    // top of the circle, not a curved
+                                    // highlight — the chord doesn't follow
+                                    // the silhouette. Removed; the elev-2
+                                    // fill + whiteOverlay08 border already
+                                    // gives enough visual separation.
 
                                     Column {
                                         anchors.centerIn: parent
@@ -451,109 +473,120 @@ MApp {
                         }
 
                         // Spacer pushes the action row to the bottom.
+                        // Layout.fillHeight on this empty Item makes
+                        // ColumnLayout grant it every leftover pixel.
                         Item {
-                            width: parent.width
-                            height: Math.max(0, parent.parent.parent.height - 110 - dialPadGrid.height - 76 - 20)
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
                         }
+                    }
 
-                        // Action row — contacts shortcut · call · backspace.
-                        Item {
-                            width: parent.width
-                            height: 76
+                    // Action row — contacts shortcut · call · backspace.
+                    // Anchored directly to dialerPane.bottom with a hard 56 px
+                    // margin so the call FAB clears the bottom MTabBar; making
+                    // it a sibling of the ColumnLayout means its position is
+                    // not subject to ColumnLayout's fillHeight redistribution.
+                    Item {
+                        id: actionRow
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.leftMargin: 24
+                        anchors.rightMargin: 24
+                        anchors.bottomMargin: 56
+                        height: 76
 
-                            Row {
-                                anchors.fill: parent
-                                anchors.bottomMargin: 12
+                        Row {
+                            anchors.fill: parent
 
-                                Item {
-                                    width: parent.width / 3
-                                    height: parent.height
-                                    Icon {
-                                        anchors.centerIn: parent
-                                        name: "user"
-                                        size: 22
-                                        color: MColors.textTertiary
-                                    }
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: parent.parent.parent.parent.parent.parent.parent.parent.parent.currentIndex = 2
-                                    }
+                            Item {
+                                width: parent.width / 3
+                                height: parent.height
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "user"
+                                    size: 22
+                                    color: MColors.textTertiary
                                 }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: dialerPane.parent.parent.currentIndex = 2
+                                }
+                            }
 
-                                Item {
-                                    width: parent.width / 3
-                                    height: parent.height
+                            Item {
+                                width: parent.width / 3
+                                height: parent.height
+                                Rectangle {
+                                    id: callButton
+                                    anchors.centerIn: parent
+                                    width: 64
+                                    height: 64
+                                    radius: width / 2
+                                    border.width: 1
+                                    border.color: MColors.tealBorder
+                                    gradient: Gradient {
+                                        GradientStop {
+                                            position: 0
+                                            color: MColors.marathonTealBright
+                                        }
+                                        GradientStop {
+                                            position: 1
+                                            color: MColors.marathonTealDark
+                                        }
+                                    }
+
                                     Rectangle {
-                                        id: callButton
-                                        anchors.centerIn: parent
-                                        width: 64
-                                        height: 64
+                                        anchors.fill: parent
+                                        anchors.margins: 1
                                         radius: width / 2
+                                        color: "transparent"
                                         border.width: 1
-                                        border.color: MColors.tealBorder
-                                        gradient: Gradient {
-                                            GradientStop {
-                                                position: 0
-                                                color: MColors.marathonTealBright
-                                            }
-                                            GradientStop {
-                                                position: 1
-                                                color: MColors.marathonTealDark
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            anchors.margins: 1
-                                            radius: width / 2
-                                            color: "transparent"
-                                            border.width: 1
-                                            border.color: Qt.rgba(1, 1, 1, 0.3)
-                                        }
-
-                                        Icon {
-                                            anchors.centerIn: parent
-                                            name: "phone"
-                                            size: 28
-                                            color: "#000000"
-                                        }
-
-                                        scale: callArea.pressed ? 0.94 : 1.0
-                                        Behavior on scale {
-                                            NumberAnimation {
-                                                duration: 120
-                                                easing.type: Easing.OutBack
-                                            }
-                                        }
-
-                                        MouseArea {
-                                            id: callArea
-                                            anchors.fill: parent
-                                            enabled: dialedNumber.length > 0
-                                            onClicked: {
-                                                HapticService.medium();
-                                                makeCall();
-                                            }
-                                        }
+                                        border.color: Qt.rgba(1, 1, 1, 0.3)
                                     }
-                                }
 
-                                Item {
-                                    width: parent.width / 3
-                                    height: parent.height
                                     Icon {
                                         anchors.centerIn: parent
-                                        name: "x"
-                                        size: 22
-                                        color: dialedNumber.length > 0 ? MColors.textSecondary : MColors.textTertiary
+                                        name: "phone"
+                                        size: 28
+                                        color: "#000000"
                                     }
+
+                                    scale: callArea.pressed ? 0.94 : 1.0
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 120
+                                            easing.type: Easing.OutBack
+                                        }
+                                    }
+
                                     MouseArea {
+                                        id: callArea
                                         anchors.fill: parent
                                         enabled: dialedNumber.length > 0
                                         onClicked: {
-                                            HapticService.light();
-                                            deleteDigit();
+                                            HapticService.medium();
+                                            makeCall();
                                         }
+                                    }
+                                }
+                            }
+
+                            Item {
+                                width: parent.width / 3
+                                height: parent.height
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "x"
+                                    size: 22
+                                    color: dialedNumber.length > 0 ? MColors.textSecondary : MColors.textTertiary
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    enabled: dialedNumber.length > 0
+                                    onClicked: {
+                                        HapticService.light();
+                                        deleteDigit();
                                     }
                                 }
                             }
