@@ -98,7 +98,13 @@ MApp {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 56
+                // Hide the tab strip entirely when there's only one
+                // session. A solo half-rendered "Te..." tab pill above
+                // the modifier-key row is pure visual noise — the user
+                // can still open additional tabs via the "+" button when
+                // it's needed, which switches the bar back on.
+                visible: terminalApp.tabs.length > 1
+                Layout.preferredHeight: visible ? 56 : 0
                 color: MColors.surface
 
                 Rectangle {
