@@ -65,8 +65,6 @@ Item {
                 }
             }
 
-            // The disc itself — gradient-filled circle with inner top
-            // highlight (the "inset 0 1px 0 rgba(255,255,255,0.3)" from JSX).
             Rectangle {
                 id: disc
 
@@ -85,16 +83,6 @@ Item {
                         position: 1
                         color: root.monochrome ? "#1de9b6" : "#00bfa5"
                     }
-                }
-
-                // Inner top-edge highlight for the glassy lift.
-                Rectangle {
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    height: 1
-                    color: Qt.rgba(1, 1, 1, 0.3)
-                    radius: parent.radius
                 }
 
                 // Black M path. viewBox 0..56 per JSX spec. ShapePath has
