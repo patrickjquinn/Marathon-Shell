@@ -1,5 +1,7 @@
 #include <QGuiApplication>
 #include <QQuickView>
+#include <QQuickWindow>
+#include <QSGRendererInterface>
 #include <QQmlEngine>
 #include <QQmlComponent>
 #include <QQmlContext>
@@ -422,6 +424,30 @@ int main(int argc, char *argv[]) {
                     // sandboxed /dev/shm is tmpfs-sized to defaults and
                     // Chromium's larger buffer pages can hit ENOSPC.
                     {
+                        // Force Qt's scene-graph onto the OpenGL RHI backend.
+                        // Without this Qt's RHI auto-detect on Pi 5 V3D + bwrap
+                        // tmpfs /home picks QSGSoftwareRenderer because the
+                        // initial EGL probe fails (the bwrap-mounted /home is
+                        // tmpfs and the default-device EGL fd lookup misses).
+                        // Software renderer then SIGSEGVs inside
+                        // RenderWidgetHostViewQtDelegateItem::updatePaintNode
+                        // the first time WebEngine tries to paint -- because
+                        // WebEngine produces a GL-backed QSGNode the software
+                        // renderer can't walk. Forcing OpenGL up-front makes
+                        // Qt use the v3d EGL+GBM path that actually works.
+                        QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+                        qputenv("QSG_RHI_BACKEND", "opengl");
+
+                        // Qt WebEngine REQUIRES Qt::AA_ShareOpenGLContexts so
+                        // the GPU process's GL context can share textures
+                        // with the Qt scene-graph context. Without it the
+                        // render thread calls QOpenGLContext::functions() on
+                        // a null/non-current context and SIGSEGVs the moment
+                        // WebEngine tries to schedule its first paint -- the
+                        // crash trace is identical to "no scene-graph
+                        // context" upstream filed bugs.
+                        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
                         QByteArray flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
                         // Qt's Chromium build does NOT include the Wayland Ozone
                         // backend -- passing --ozone-platform=wayland triggers
@@ -431,10 +457,6 @@ int main(int argc, char *argv[]) {
                         // surface plumbing; dmabuf passthrough still works
                         // because Qt's wayland QPA exports buffer handles via
                         // the QWindow itself, not through Chromium's Ozone.
-                        // --use-gl=egl: bind GL through Mesa's libEGL (V3D on
-                        //   Pi 5, virtio-gpu native on QEMU). Without it
-                        //   Chromium probes ANGLE / Desktop GL and falls back
-                        //   to SwiftShader (CPU) on the first failure.
                         // --ignore-gpu-blocklist + --enable-gpu-rasterization
                         //   + --enable-zero-copy: Chromium's default blocklist
                         //   disables the GPU on most embedded GL ES drivers
@@ -443,8 +465,15 @@ int main(int argc, char *argv[]) {
                         // --disable-dev-shm-usage: sandboxed /dev/shm is tmpfs-
                         //   sized to defaults; Chromium's larger buffer pages
                         //   hit ENOSPC.
+                        // NOTE: --use-gl=egl deliberately omitted. With Qt
+                        // 6.10 the RHI scene-graph backend is selected via
+                        // QQuickWindow::setGraphicsApi above; forcing
+                        // Chromium's GL implementation on top of that
+                        // triggers Qt's "--use-gl=egl is set with unsupported
+                        // SceneGraph Backend. Expect troubles!" warning and
+                        // the GL context init fails. Chromium auto-picks the
+                        // platform-correct GL implementation when left alone.
                         const QByteArray needed = "--disable-dev-shm-usage "
-                                                  "--use-gl=egl "
                                                   "--ignore-gpu-blocklist "
                                                   "--enable-gpu-rasterization "
                                                   "--enable-zero-copy";
@@ -761,27 +790,64 @@ int main(int argc, char *argv[]) {
     if (hasPerm("storage"))
         ctx->setContextProperty("MediaLibraryManager", new MediaLibraryClient(appId, &app));
 
+    // Qt 6.10+ qmlcache compiles singleton lookups into bytecode at app build
+    // time. Apps are built against the shell's MarathonOS.Shell module where
+    // these names are QML_SINGLETON. When the runner loads compiled app QML,
+    // setContextProperty alone fails with "X was a singleton at compile time,
+    // but is not a singleton anymore" -- every singleton-style call throws
+    // and onCompleted bails before tabs are created. Mirror the shell's
+    // registration in the runner so the compiled-cache lookup resolves.
     SettingsClient *settingsClient = nullptr;
     if (hasPerm("system") || hasPerm("storage")) {
         settingsClient = new SettingsClient(appId, &app);
         ctx->setContextProperty("SettingsManagerCpp", settingsClient);
+        qmlRegisterSingletonInstance<SettingsClient>("MarathonOS.Shell", 1, 0, "SettingsManagerCpp",
+                                                     settingsClient);
     }
 
+    BluetoothClient *bluetoothClient = nullptr;
+    DisplayClient   *displayClient   = nullptr;
+    PowerClient     *powerClient     = nullptr;
+    AudioClient     *audioClient     = nullptr;
+    SecurityClient  *securityClient  = nullptr;
     if (hasPerm("system")) {
-        ctx->setContextProperty("BluetoothManagerCpp", new BluetoothClient(appId, &app));
-        ctx->setContextProperty("DisplayManagerCpp", new DisplayClient(appId, &app));
-        ctx->setContextProperty("PowerManagerService", new PowerClient(appId, &app));
-        ctx->setContextProperty("AudioManagerCpp", new AudioClient(appId, &app));
-        ctx->setContextProperty("SecurityManagerCpp", new SecurityClient(appId, &app));
+        bluetoothClient = new BluetoothClient(appId, &app);
+        displayClient   = new DisplayClient(appId, &app);
+        powerClient     = new PowerClient(appId, &app);
+        audioClient     = new AudioClient(appId, &app);
+        securityClient  = new SecurityClient(appId, &app);
+        ctx->setContextProperty("BluetoothManagerCpp", bluetoothClient);
+        ctx->setContextProperty("DisplayManagerCpp", displayClient);
+        ctx->setContextProperty("PowerManagerService", powerClient);
+        ctx->setContextProperty("AudioManagerCpp", audioClient);
+        ctx->setContextProperty("SecurityManagerCpp", securityClient);
+        qmlRegisterSingletonInstance<BluetoothClient>("MarathonOS.Shell", 1, 0,
+                                                      "BluetoothManagerCpp", bluetoothClient);
+        qmlRegisterSingletonInstance<DisplayClient>("MarathonOS.Shell", 1, 0, "DisplayManagerCpp",
+                                                    displayClient);
+        qmlRegisterSingletonInstance<PowerClient>("MarathonOS.Shell", 1, 0, "PowerManagerService",
+                                                  powerClient);
+        qmlRegisterSingletonInstance<AudioClient>("MarathonOS.Shell", 1, 0, "AudioManagerCpp",
+                                                  audioClient);
+        qmlRegisterSingletonInstance<SecurityClient>("MarathonOS.Shell", 1, 0, "SecurityManagerCpp",
+                                                     securityClient);
     }
 
-    if (hasPerm("network"))
-        ctx->setContextProperty("NetworkManagerCpp", new NetworkClient(appId, &app));
+    NetworkClient *networkClient = nullptr;
+    if (hasPerm("network")) {
+        networkClient = new NetworkClient(appId, &app);
+        ctx->setContextProperty("NetworkManagerCpp", networkClient);
+        qmlRegisterSingletonInstance<NetworkClient>("MarathonOS.Shell", 1, 0, "NetworkManagerCpp",
+                                                    networkClient);
+    }
 
     auto *navigationClient = new NavigationClient(&app);
     ctx->setContextProperty("NavigationService", navigationClient);
     ctx->setContextProperty("NavigationRouter", navigationClient);
-    ctx->setContextProperty("HapticService", new HapticClient(&app));
+    auto *hapticClient = new HapticClient(&app);
+    ctx->setContextProperty("HapticService", hapticClient);
+    qmlRegisterSingletonInstance<HapticClient>("MarathonOS.Shell", 1, 0, "HapticService",
+                                               hapticClient);
 
     NotificationClient *notificationClient = nullptr;
     if (hasPerm("notifications")) {
