@@ -969,22 +969,31 @@ Item {
                     gesturesPage.currentCoachmark++;
             }
 
-            Row {
+            Column {
                 id: gesturesHeader
 
                 anchors.top: parent.top
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.topMargin: MSpacing.lg
-                height: Math.round(40 * Constants.scaleFactor)
+                spacing: oobeRoot.compactLayout ? MSpacing.xs : MSpacing.sm
+
+                Icon {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    name: "hand-pointing"
+                    size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
+                    color: MColors.marathonTealBright
+                }
 
                 Text {
-                    text: "Learn Gestures"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Learn the gestures"
+                    font.pixelSize: MTypography.sizeTitle2
+                    font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
-                    color: MColors.text
-                    anchors.verticalCenter: parent.verticalCenter
+                    font.letterSpacing: MTypography.trackingTitle2
+                    color: MColors.textPrimary
+                    horizontalAlignment: Text.AlignHCenter
                 }
             }
 
@@ -1085,17 +1094,18 @@ Item {
 
                             Text {
                                 text: modelData.title
-                                font.pixelSize: MTypography.sizeXLarge
-                                font.weight: Font.Bold
+                                font.pixelSize: MTypography.sizeTitle3
+                                font.weight: MTypography.weightExtraLight
                                 font.family: MTypography.fontFamily
-                                color: MColors.text
+                                font.letterSpacing: MTypography.trackingTitle3
+                                color: MColors.textPrimary
                                 horizontalAlignment: Text.AlignHCenter
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
 
                             Text {
                                 text: modelData.body
-                                font.pixelSize: MTypography.sizeBody
+                                font.pixelSize: MTypography.sizeSubhead
                                 font.family: MTypography.fontFamily
                                 color: MColors.textSecondary
                                 horizontalAlignment: Text.AlignHCenter
@@ -1203,7 +1213,7 @@ Item {
 
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: MSpacing.lg
+                anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
                 spacing: MSpacing.sm
 
                 Repeater {
