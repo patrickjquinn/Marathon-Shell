@@ -192,14 +192,22 @@ MApp {
         }
 
         // ── Display — right-aligned column ──────────────────
+        // Anchor BOTTOM to the function-chip row instead of TOP to the
+        // app-bar. iOS Calculator positions the digits flush against the
+        // keypad so the display "grows up" as the user types; the
+        // previous top-anchored layout pinned "0" at the top of the
+        // surface and left a ~750 px void between the digit and the
+        // keypad. The Column packs from top still, but its top edge is
+        // pushed down because we anchor the bottom; the result is the
+        // display tracking the keypad's edge instead of floating.
         Column {
             id: displayCol
-            anchors.top: topBar.bottom
+            anchors.bottom: fnRow.top
+            anchors.bottomMargin: 16
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.leftMargin: 20
             anchors.rightMargin: 20
-            anchors.topMargin: 12
             spacing: 4
 
             Text {
@@ -256,7 +264,11 @@ MApp {
             orientation: ListView.Horizontal
             spacing: 6
             clip: true
-            model: ["C", "( )", "mod", "π", "√", "x²", "sin", "cos", "tan", "log", "ln"]
+            // C and ( ) are dropped here — they're already in the main
+            // keypad below. Scientific row keeps only operators the basic
+            // pad doesn't carry, to avoid the visual stutter of the same
+            // glyph appearing twice 30 px apart.
+            model: ["mod", "π", "√", "x²", "sin", "cos", "tan", "log", "ln", "!", "ans"]
             delegate: Rectangle {
                 width: 56
                 height: 36
@@ -275,11 +287,10 @@ MApp {
                 MouseArea {
                     id: chipArea
                     anchors.fill: parent
-                    onClicked: {
-                        HapticService.light();
-                        if (modelData === "C")
-                            calcApp.clear();
-                    }
+                    onClicked: HapticService.light()
+                    // Scientific chips are visual placeholders until
+                    // the parser supports them — tapping just gives
+                    // a haptic ack so users know the key registered.
                 }
                 Behavior on color {
                     ColorAnimation {
