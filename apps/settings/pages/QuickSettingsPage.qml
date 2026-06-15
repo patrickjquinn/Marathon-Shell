@@ -70,7 +70,7 @@ SettingsPageTemplate {
                             {
                                 "id": "autobrightness",
                                 "label": "Auto-brightness",
-                                "icon": "sun-moon",
+                                "icon": "sun-horizon",
                                 "desc": "Automatic brightness adjustment"
                             },
                             {
@@ -82,7 +82,7 @@ SettingsPageTemplate {
                             {
                                 "id": "hotspot",
                                 "label": "Hotspot",
-                                "icon": "router",
+                                "icon": "wifi-high",
                                 "desc": "Share internet connection"
                             },
                             {

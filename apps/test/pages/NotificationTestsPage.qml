@@ -229,7 +229,7 @@ Item {
                                 HapticService.medium();
                                 for (var i = 0; i < 10; i++) {
                                     NotificationService.sendNotification("test", "Burst Test " + (i + 1), "Testing notification system under load", {
-                                        "icon": "zap"
+                                        "icon": "lightning"
                                     });
                                 }
                                 Logger.info("TestApp", "Sent 10 burst notifications");

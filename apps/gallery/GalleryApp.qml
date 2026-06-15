@@ -596,7 +596,11 @@ MApp {
                     },
                     {
                         "label": "Memories",
-                        "icon": "sparkles"
+                        // `sparkles` is BANNED Marathon-wide
+                        // (feedback_no_sparkle_icon.md — the AI-sparkle
+                        // glyph). Memories = retrospective time-cluster,
+                        // so use clock-counter-clockwise (rewind).
+                        "icon": "clock-counter-clockwise"
                     },
                     {
                         "label": "Search",

@@ -159,14 +159,23 @@ MApp {
                 // halo'd teal scrubber + tnum times · 5-button transport
                 // (shuffle · prev · big play circle · next · heart).
                 Rectangle {
+                    id: nowPlayingFrame
                     color: MColors.background
 
+                    // Top column: eyebrow, album bay, track info, scrubber.
+                    // Packs from the top. Transport row is anchored to the
+                    // bottom separately so the empty vertical space sits in
+                    // the middle as breathing room, NOT as dead space under
+                    // the controls (iOS / BB10 Music both anchor playback
+                    // controls to the bottom for this reason).
                     Column {
-                        anchors.fill: parent
+                        id: nowPlayingTopColumn
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
                         anchors.leftMargin: 20
                         anchors.rightMargin: 20
                         anchors.topMargin: 8
-                        anchors.bottomMargin: Constants.navBarHeight + 20
                         spacing: 14
 
                         // ── Eyebrow row — chevron + PLAYING FROM + more ──
@@ -214,9 +223,16 @@ MApp {
                         }
 
                         // ── Album bay — square, gradient + stripe pattern ──
+                        // Cap-was-320 left the lower half of the Now Playing
+                        // surface as dead space below the transport row on
+                        // tall canvases (720×1440 reserved ~500 px for
+                        // nothing). Iterate to the full surface width so
+                        // the album-art square fills the upper viewport
+                        // the same way iOS Music does, and the transport
+                        // row sits at a natural distance below the scrubber.
                         Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            width: Math.min(parent.width - 4, 320)
+                            width: parent.width
                             height: width
                             radius: MRadius.md
                             border.width: 1
@@ -342,169 +358,176 @@ MApp {
                                 }
                             }
                         }
+                    }
 
-                        // ── Transport row — shuffle · prev · play · next · heart ──
-                        Row {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            spacing: 18
+                    // ── Transport row — shuffle · prev · play · next · heart ──
+                    // Anchored to bottom of the parent Rectangle so the
+                    // controls hug the nav bar instead of stacking under
+                    // the scrubber (used to leave ~500 px of dead space
+                    // between the heart button and the bottom tab bar).
+                    Row {
+                        id: nowPlayingTransport
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: Constants.navBarHeight + 36
+                        spacing: 18
 
-                            // Shuffle — accent icon, no bay.
-                            Item {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 32
-                                height: 32
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "shuffle"
-                                    size: 20
-                                    color: shuffle ? MColors.marathonTealBright : MColors.textTertiary
+                        // Shuffle — accent icon, no bay.
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 32
+                            height: 32
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "shuffle"
+                                size: 20
+                                color: shuffle ? MColors.marathonTealBright : MColors.textTertiary
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    HapticService.light();
+                                    shuffle = !shuffle;
                                 }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        HapticService.light();
-                                        shuffle = !shuffle;
-                                    }
+                            }
+                        }
+
+                        // Previous — 42 dark circle.
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 42
+                            height: 42
+                            radius: width / 2
+                            color: prevArea.pressed ? MColors.bb10Card : MColors.elev2
+                            border.width: 1
+                            border.color: MColors.whiteOverlay04
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "skip-back"
+                                size: 18
+                                color: MColors.textPrimary
+                            }
+                            MouseArea {
+                                id: prevArea
+                                anchors.fill: parent
+                                onClicked: {
+                                    HapticService.light();
+                                    playPrevious();
+                                }
+                            }
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 80
+                                }
+                            }
+                        }
+
+                        // Play / pause — 64 teal-gradient with halo.
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 64
+                            height: 64
+                            radius: width / 2
+                            border.width: 1
+                            border.color: MColors.tealBorder
+                            gradient: Gradient {
+                                GradientStop {
+                                    position: 0
+                                    color: MColors.marathonTealBright
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: MColors.marathonTealDark
                                 }
                             }
 
-                            // Previous — 42 dark circle.
                             Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 42
-                                height: 42
+                                anchors.fill: parent
+                                anchors.margins: 1
                                 radius: width / 2
-                                color: prevArea.pressed ? MColors.bb10Card : MColors.elev2
+                                color: "transparent"
                                 border.width: 1
-                                border.color: MColors.whiteOverlay04
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "skip-back"
-                                    size: 18
-                                    color: MColors.textPrimary
-                                }
-                                MouseArea {
-                                    id: prevArea
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        HapticService.light();
-                                        playPrevious();
-                                    }
-                                }
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 80
-                                    }
+                                border.color: Qt.rgba(1, 1, 1, 0.3)
+                            }
+
+                            Icon {
+                                anchors.centerIn: parent
+                                name: isPlaying ? "pause" : "play"
+                                size: 26
+                                color: "#000000"
+                            }
+
+                            scale: playArea.pressed ? 0.94 : 1.0
+                            Behavior on scale {
+                                NumberAnimation {
+                                    duration: 120
+                                    easing.type: Easing.OutBack
                                 }
                             }
 
-                            // Play / pause — 64 teal-gradient with halo.
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 64
-                                height: 64
-                                radius: width / 2
-                                border.width: 1
-                                border.color: MColors.tealBorder
-                                gradient: Gradient {
-                                    GradientStop {
-                                        position: 0
-                                        color: MColors.marathonTealBright
-                                    }
-                                    GradientStop {
-                                        position: 1
-                                        color: MColors.marathonTealDark
-                                    }
-                                }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    anchors.margins: 1
-                                    radius: width / 2
-                                    color: "transparent"
-                                    border.width: 1
-                                    border.color: Qt.rgba(1, 1, 1, 0.3)
-                                }
-
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: isPlaying ? "pause" : "play"
-                                    size: 26
-                                    color: "#000000"
-                                }
-
-                                scale: playArea.pressed ? 0.94 : 1.0
-                                Behavior on scale {
-                                    NumberAnimation {
-                                        duration: 120
-                                        easing.type: Easing.OutBack
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: playArea
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        HapticService.medium();
-                                        if (isPlaying) {
-                                            audioPlayer.pause();
-                                        } else {
-                                            if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
-                                                audioPlayer.source = currentTrack.path;
-                                            audioPlayer.play();
-                                        }
+                            MouseArea {
+                                id: playArea
+                                anchors.fill: parent
+                                onClicked: {
+                                    HapticService.medium();
+                                    if (isPlaying) {
+                                        audioPlayer.pause();
+                                    } else {
+                                        if (currentTrack && audioPlayer.playbackState === MediaPlayer.StoppedState)
+                                            audioPlayer.source = currentTrack.path;
+                                        audioPlayer.play();
                                     }
                                 }
                             }
+                        }
 
-                            // Next — 42 dark circle.
-                            Rectangle {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 42
-                                height: 42
-                                radius: width / 2
-                                color: nextArea.pressed ? MColors.bb10Card : MColors.elev2
-                                border.width: 1
-                                border.color: MColors.whiteOverlay04
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: "skip-forward"
-                                    size: 18
-                                    color: MColors.textPrimary
-                                }
-                                MouseArea {
-                                    id: nextArea
-                                    anchors.fill: parent
-                                    onClicked: {
-                                        HapticService.light();
-                                        playNext();
-                                    }
-                                }
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 80
-                                    }
+                        // Next — 42 dark circle.
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 42
+                            height: 42
+                            radius: width / 2
+                            color: nextArea.pressed ? MColors.bb10Card : MColors.elev2
+                            border.width: 1
+                            border.color: MColors.whiteOverlay04
+                            Icon {
+                                anchors.centerIn: parent
+                                name: "skip-forward"
+                                size: 18
+                                color: MColors.textPrimary
+                            }
+                            MouseArea {
+                                id: nextArea
+                                anchors.fill: parent
+                                onClicked: {
+                                    HapticService.light();
+                                    playNext();
                                 }
                             }
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 80
+                                }
+                            }
+                        }
 
-                            // Heart — accent icon, no bay. JSX puts heart
-                            // here in place of repeat; repeat stays
-                            // available via a long-press of the scrubber
-                            // (TBD).
-                            Item {
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 32
-                                height: 32
-                                Icon {
-                                    anchors.centerIn: parent
-                                    name: currentTrack && currentTrack.favorited ? "heart" : "heart"
-                                    size: 20
-                                    color: (currentTrack && currentTrack.favorited) ? MColors.marathonTealBright : MColors.textTertiary
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: HapticService.light()
-                                }
+                        // Heart — accent icon, no bay. JSX puts heart
+                        // here in place of repeat; repeat stays
+                        // available via a long-press of the scrubber
+                        // (TBD).
+                        Item {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 32
+                            height: 32
+                            Icon {
+                                anchors.centerIn: parent
+                                name: currentTrack && currentTrack.favorited ? "heart" : "heart"
+                                size: 20
+                                color: (currentTrack && currentTrack.favorited) ? MColors.marathonTealBright : MColors.textTertiary
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: HapticService.light()
                             }
                         }
                     }
@@ -624,7 +647,7 @@ MApp {
                     },
                     {
                         "label": "Library",
-                        "icon": "library"
+                        "icon": "music-notes"
                     }
                 ]
                 onTabSelected: index => {

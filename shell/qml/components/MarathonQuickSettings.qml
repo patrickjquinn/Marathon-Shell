@@ -76,7 +76,7 @@ Item {
         },
         {
             id: "cellular",
-            icon: "signal-high",
+            icon: "cell-signal-high",
             label: "Mobile data",
             on: SystemControlStore.isCellularDataOn,
             sub: mobileDataSub()
@@ -90,7 +90,7 @@ Item {
         },
         {
             id: "dnd",
-            icon: "bell-off",
+            icon: "bell-slash",
             label: "Do Not Disturb",
             on: SystemControlStore.isDndMode,
             sub: SystemControlStore.isDndMode ? "On" : "Off"
