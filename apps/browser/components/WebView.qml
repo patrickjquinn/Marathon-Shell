@@ -14,8 +14,8 @@ WebEngineView {
 
     zoomFactor: 1
     lifecycleState: forceDiscarded ? WebEngineView.LifecycleState.Discarded : (active ? WebEngineView.LifecycleState.Active : WebEngineView.LifecycleState.Frozen)
-    settings.accelerated2dCanvasEnabled: false
-    settings.webGLEnabled: false
+    settings.accelerated2dCanvasEnabled: true
+    settings.webGLEnabled: true
     settings.pluginsEnabled: false
     settings.fullScreenSupportEnabled: true
     settings.allowRunningInsecureContent: false

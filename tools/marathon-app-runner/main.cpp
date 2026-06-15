@@ -422,8 +422,32 @@ int main(int argc, char *argv[]) {
                     // sandboxed /dev/shm is tmpfs-sized to defaults and
                     // Chromium's larger buffer pages can hit ENOSPC.
                     {
-                        QByteArray       flags  = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
-                        const QByteArray needed = "--disable-dev-shm-usage";
+                        QByteArray flags = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+                        // Qt's Chromium build does NOT include the Wayland Ozone
+                        // backend -- passing --ozone-platform=wayland triggers
+                        // FATAL "Invalid ozone platform: wayland" at startup
+                        // (verified on Pi 5 / postmarketOS edge, 2026-06-15).
+                        // Qt WebEngine uses Qt's QPA integration for window
+                        // surface plumbing; dmabuf passthrough still works
+                        // because Qt's wayland QPA exports buffer handles via
+                        // the QWindow itself, not through Chromium's Ozone.
+                        // --use-gl=egl: bind GL through Mesa's libEGL (V3D on
+                        //   Pi 5, virtio-gpu native on QEMU). Without it
+                        //   Chromium probes ANGLE / Desktop GL and falls back
+                        //   to SwiftShader (CPU) on the first failure.
+                        // --ignore-gpu-blocklist + --enable-gpu-rasterization
+                        //   + --enable-zero-copy: Chromium's default blocklist
+                        //   disables the GPU on most embedded GL ES drivers
+                        //   (V3D, Adreno, Mali) treating them as
+                        //   not-good-enough; on this hardware they are.
+                        // --disable-dev-shm-usage: sandboxed /dev/shm is tmpfs-
+                        //   sized to defaults; Chromium's larger buffer pages
+                        //   hit ENOSPC.
+                        const QByteArray needed = "--disable-dev-shm-usage "
+                                                  "--use-gl=egl "
+                                                  "--ignore-gpu-blocklist "
+                                                  "--enable-gpu-rasterization "
+                                                  "--enable-zero-copy";
                         if (flags.isEmpty())
                             flags = needed;
                         else
