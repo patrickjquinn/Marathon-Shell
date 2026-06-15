@@ -93,7 +93,7 @@ Rectangle {
             id: keyRow
 
             padding: MSpacing.sm
-            spacing: MSpacing.xs
+            spacing: MSpacing.sm
             height: parent.height
 
             Repeater {
@@ -103,7 +103,12 @@ Rectangle {
                     required property int index
                     required property var modelData
 
-                    width: 48
+                    // 56 px wide so 4-glyph labels like "Ctrl" and
+                    // "Esc" don't overflow their pill chrome (was 48 —
+                    // text rendered past the button bounds and the
+                    // outline read as one continuous "EscTabCtrlAlt"
+                    // run instead of four chips).
+                    width: 56
                     height: keyRow.height - (keyRow.padding * 2)
                     anchors.verticalCenter: parent.verticalCenter
                     text: modelData.label
