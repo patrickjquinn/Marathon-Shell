@@ -22,6 +22,16 @@ set(SOURCES
 
 qt6_add_executable(marathon-app-runner ${SOURCES})
 
+# The installed shell qmldir keeps its native `prefer :/qt/qml/MarathonOS/Shell/`
+# directive — when an app-runner-hosted app imports MarathonOS.Shell and
+# touches Constants or Logger, Qt resolves the singleton path through that
+# prefix into THIS binary's resource namespace. Mirror just the singleton
+# QML files (and a synthetic sub-qmldir) at the exact rcc paths the prefer
+# line points to so the lookup lands. See the .qrc for the historical
+# context this replaces.
+qt_add_resources(SHELL_SINGLETONS_RCC marathon-shell-singletons.qrc)
+target_sources(marathon-app-runner PRIVATE ${SHELL_SINGLETONS_RCC})
+
 target_include_directories(marathon-app-runner PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../marathon-core/src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../shell/src
