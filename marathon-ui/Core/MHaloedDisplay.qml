@@ -82,10 +82,14 @@ Item {
                 "wght": root.weight
             })
         font.letterSpacing: root.letterSpacing
-        // QtRendering keeps the axis through the SDF pipeline and
-        // preserves smoothness across the lock-clock scale/fade.
-        // NativeRendering would flatten to the nearest static cut.
-        renderType: Text.QtRendering
+        // NativeRendering snaps to the nearest static cut of the
+        // variable font (e.g. wght=100 → Thin) and renders glyphs
+        // through the platform freetype hinter. QtRendering uses an
+        // SDF atlas that, on Qt 6.10 + virtio-gpu software fallback,
+        // overlays a ghosted secondary stroke on certain digits ("8"
+        // most reliably). Trade a hair of smoothness across the
+        // pixelSize animation for sharp, single-stroke glyphs.
+        renderType: Text.NativeRendering
 
         width: root.maxWidth > 0 ? root.maxWidth : implicitWidth
         horizontalAlignment: Text.AlignHCenter
