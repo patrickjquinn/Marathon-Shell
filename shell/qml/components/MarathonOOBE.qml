@@ -348,218 +348,383 @@ Item {
         }
 
         Item {
+            id: wifiPage
+
             clip: true
 
-            Row {
-                id: wifiHeader
+            property string pendingSsid: ""
+            property bool firstScanDone: NetworkManagerCpp.availableNetworks.length > 0
 
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.topMargin: MSpacing.lg
-                height: Math.round(40 * Constants.scaleFactor)
-
-                Text {
-                    text: "Connect to WiFi"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
-                    font.family: MTypography.fontFamily
-                    color: MColors.text
-                    anchors.verticalCenter: parent.verticalCenter
+            Connections {
+                target: NetworkManagerCpp
+                function onConnectionSuccess() {
+                    wifiPage.pendingSsid = "";
+                }
+                function onConnectionFailed(message) {
+                    wifiPage.pendingSsid = "";
+                }
+                function onAvailableNetworksChanged() {
+                    if (NetworkManagerCpp.availableNetworks.length > 0)
+                        wifiPage.firstScanDone = true;
                 }
             }
 
-            Flickable {
-                anchors.top: wifiHeader.bottom
-                anchors.topMargin: MSpacing.xl
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                contentHeight: wifiColumn.height
-                clip: true
-                boundsBehavior: Flickable.DragAndOvershootBounds
+            Timer {
+                interval: 2500
+                running: SystemStatusStore.isWifiOn && !wifiPage.firstScanDone
+                repeat: false
+                onTriggered: wifiPage.firstScanDone = true
+            }
 
-                Column {
-                    id: wifiColumn
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
+                anchors.leftMargin: MSpacing.xl
+                anchors.rightMargin: MSpacing.xl
+                anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
+                spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
 
-                    width: parent.width
-                    spacing: MSpacing.xxl
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
+                    size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
+                    color: MColors.marathonTealBright
+                }
 
-                    Text {
-                        text: "Connect to a wireless network to continue"
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        color: MColors.textSecondary
-                        wrapMode: Text.WordWrap
-                        width: parent.width
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "Connect to a network"
+                    font.pixelSize: MTypography.sizeTitle2
+                    font.weight: MTypography.weightExtraLight
+                    font.family: MTypography.fontFamily
+                    font.letterSpacing: MTypography.trackingTitle2
+                    color: MColors.textPrimary
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: SystemStatusStore.isWifiOn ? "Pick a network, or continue without one." : "Turn WiFi on to see nearby networks."
+                    font.pixelSize: MTypography.sizeSubhead
+                    font.family: MTypography.fontFamily
+                    color: MColors.textSecondary
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
+
+                MCard {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: wifiOffRow.implicitHeight + MSpacing.md * 2
+                    elevation: 2
+                    visible: !SystemStatusStore.isWifiOn
+
+                    RowLayout {
+                        id: wifiOffRow
+
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.md
+                        spacing: MSpacing.md
+
+                        Icon {
+                            name: "wifi"
+                            size: Math.round(24 * Constants.scaleFactor)
+                            color: MColors.textSecondary
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "WiFi is off"
+                            font.pixelSize: MTypography.sizeBody
+                            font.family: MTypography.fontFamily
+                            color: MColors.textPrimary
+                        }
+
+                        MToggle {
+                            checked: SystemStatusStore.isWifiOn
+                            onToggled: SystemControlStore.toggleWifi()
+                        }
                     }
+                }
 
-                    MCard {
-                        width: parent.width
-                        height: MSpacing.touchTargetMedium
-                        elevation: 2
+                MCard {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    elevation: 2
+                    visible: SystemStatusStore.isWifiOn
 
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            spacing: MSpacing.md
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.sm
+                        spacing: 0
 
-                            Icon {
-                                id: wifiIcon
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: MSpacing.touchTargetMedium
+                            spacing: MSpacing.sm
 
-                                name: SystemStatusStore.isWifiOn ? "wifi" : "wifi-off"
-                                size: Math.round(24 * Constants.scaleFactor)
-                                color: SystemStatusStore.isWifiOn ? MColors.accent : MColors.textSecondary
-                                anchors.verticalCenter: parent.verticalCenter
+                            Text {
+                                Layout.fillWidth: true
+                                Layout.leftMargin: MSpacing.md
+                                text: "Networks"
+                                font.pixelSize: MTypography.sizeSmall
+                                font.weight: Font.DemiBold
+                                font.capitalization: Font.AllUppercase
+                                font.letterSpacing: Math.max(1, Math.round(1 * Constants.scaleFactor))
+                                font.family: MTypography.fontFamily
+                                color: MColors.textTertiary
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            MIconButton {
+                                Layout.preferredWidth: MSpacing.touchTargetMedium
+                                Layout.preferredHeight: MSpacing.touchTargetMedium
+                                Layout.rightMargin: MSpacing.xs
+                                iconName: "refresh-cw"
+                                a11yName: "Rescan networks"
+                                iconSize: 18
+                                iconColor: MColors.marathonTealBright
+                                onClicked: {
+                                    HapticManager.light();
+                                    wifiPage.firstScanDone = false;
+                                    NetworkManagerCpp.scanWifi();
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 1
+                            color: MColors.border
+                            opacity: 0.5
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: MSpacing.sm
+                                spacing: MSpacing.sm
+                                visible: !wifiPage.firstScanDone
+
+                                Repeater {
+                                    model: 4
+
+                                    Rectangle {
+                                        width: parent.width
+                                        height: Math.round(56 * Constants.scaleFactor)
+                                        radius: Math.round(8 * Constants.scaleFactor)
+                                        color: MColors.surface
+
+                                        SequentialAnimation on opacity {
+                                            loops: Animation.Infinite
+                                            running: !wifiPage.firstScanDone
+
+                                            NumberAnimation {
+                                                from: 0.25
+                                                to: 0.55
+                                                duration: 800
+                                            }
+
+                                            NumberAnimation {
+                                                from: 0.55
+                                                to: 0.25
+                                                duration: 800
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
                             Column {
-                                width: parent.width - wifiIcon.width - wifiToggleSwitch.width - (MSpacing.md * 2)
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: MSpacing.xs
+                                anchors.centerIn: parent
+                                width: parent.width - MSpacing.lg * 2
+                                spacing: MSpacing.sm
+                                visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length === 0
 
-                                Text {
-                                    text: "WiFi"
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.DemiBold
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.text
+                                Icon {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    name: "wifi-off"
+                                    size: Math.round(32 * Constants.scaleFactor)
+                                    color: MColors.textTertiary
                                 }
 
                                 Text {
-                                    text: SystemStatusStore.isWifiOn ? "Enabled" : "Disabled"
-                                    font.pixelSize: MTypography.sizeSmall
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: "No networks found"
+                                    font.pixelSize: MTypography.sizeBody
                                     font.family: MTypography.fontFamily
                                     color: MColors.textSecondary
+                                    horizontalAlignment: Text.AlignHCenter
+                                }
+
+                                Text {
+                                    width: parent.width
+                                    text: "Move closer to a router, or tap refresh."
+                                    font.pixelSize: MTypography.sizeSmall
+                                    font.family: MTypography.fontFamily
+                                    color: MColors.textTertiary
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.WordWrap
                                 }
                             }
 
-                            MToggle {
-                                id: wifiToggleSwitch
+                            Flickable {
+                                anchors.fill: parent
+                                contentHeight: networkColumn.height
+                                clip: true
+                                boundsBehavior: Flickable.StopAtBounds
+                                visible: wifiPage.firstScanDone && NetworkManagerCpp.availableNetworks.length > 0
 
-                                checked: SystemStatusStore.isWifiOn
-                                onToggled: SystemControlStore.toggleWifi()
-                                anchors.verticalCenter: parent.verticalCenter
+                                Column {
+                                    id: networkColumn
+
+                                    width: parent.width
+                                    spacing: 0
+
+                                    Repeater {
+                                        model: NetworkManagerCpp.availableNetworks
+
+                                        Item {
+                                            id: networkRow
+
+                                            required property var modelData
+                                            required property int index
+
+                                            readonly property bool isPending: wifiPage.pendingSsid === modelData.ssid
+                                            readonly property bool rowEnabled: !modelData.connected && wifiPage.pendingSsid === ""
+
+                                            width: parent.width
+                                            height: Math.round(56 * Constants.scaleFactor)
+
+                                            Rectangle {
+                                                anchors.fill: parent
+                                                color: pressArea.pressed ? MColors.elevated : "transparent"
+
+                                                Behavior on color {
+                                                    ColorAnimation {
+                                                        duration: MMotion.xs
+                                                    }
+                                                }
+                                            }
+
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: MSpacing.sm
+                                                anchors.rightMargin: MSpacing.sm
+                                                spacing: MSpacing.md
+
+                                                Icon {
+                                                    name: {
+                                                        const s = modelData.strength;
+                                                        if (s >= 75)
+                                                            return "wifi-high";
+                                                        if (s >= 50)
+                                                            return "wifi";
+                                                        if (s >= 25)
+                                                            return "wifi-low";
+                                                        return "wifi-zero";
+                                                    }
+                                                    size: Math.round(20 * Constants.scaleFactor)
+                                                    color: modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
+                                                }
+
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 2
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData.ssid
+                                                        font.pixelSize: MTypography.sizeBody
+                                                        font.weight: modelData.connected ? Font.DemiBold : Font.Medium
+                                                        font.family: MTypography.fontFamily
+                                                        color: modelData.connected ? MColors.marathonTealBright : MColors.textPrimary
+                                                        elide: Text.ElideRight
+                                                    }
+
+                                                    Text {
+                                                        visible: modelData.connected || networkRow.isPending
+                                                        text: networkRow.isPending ? "Connecting…" : "Connected"
+                                                        font.pixelSize: MTypography.sizeSmall
+                                                        font.family: MTypography.fontFamily
+                                                        color: networkRow.isPending ? MColors.textSecondary : MColors.marathonTealBright
+                                                    }
+                                                }
+
+                                                BusyIndicator {
+                                                    Layout.preferredWidth: Math.round(20 * Constants.scaleFactor)
+                                                    Layout.preferredHeight: Math.round(20 * Constants.scaleFactor)
+                                                    running: networkRow.isPending
+                                                    visible: running
+                                                }
+
+                                                Icon {
+                                                    visible: modelData.secured && !networkRow.isPending && !modelData.connected
+                                                    name: "lock"
+                                                    size: Math.round(14 * Constants.scaleFactor)
+                                                    color: MColors.textTertiary
+                                                }
+
+                                                Icon {
+                                                    visible: modelData.connected
+                                                    name: "check"
+                                                    size: Math.round(16 * Constants.scaleFactor)
+                                                    color: MColors.marathonTealBright
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                anchors.bottom: parent.bottom
+                                                anchors.left: parent.left
+                                                anchors.leftMargin: MSpacing.xl + MSpacing.md
+                                                anchors.right: parent.right
+                                                anchors.rightMargin: MSpacing.sm
+                                                height: 1
+                                                color: MColors.border
+                                                opacity: 0.3
+                                                visible: networkRow.index < NetworkManagerCpp.availableNetworks.length - 1
+                                            }
+
+                                            MouseArea {
+                                                id: pressArea
+
+                                                anchors.fill: parent
+                                                enabled: networkRow.rowEnabled
+                                                onClicked: {
+                                                    HapticManager.light();
+                                                    if (modelData.secured) {
+                                                        wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security, modelData.secured);
+                                                    } else {
+                                                        wifiPage.pendingSsid = modelData.ssid;
+                                                        NetworkManagerCpp.connectToNetwork(modelData.ssid, "");
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+                }
 
-                    Column {
-                        width: parent.width
-                        spacing: MSpacing.md
-                        visible: SystemStatusStore.isWifiOn
+                Text {
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.topMargin: MSpacing.xs
+                    text: "Join other network…"
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
+                    font.weight: Font.Medium
+                    color: MColors.marathonTealBright
+                    visible: SystemStatusStore.isWifiOn && wifiPage.firstScanDone
 
-                        Text {
-                            text: "Available Networks"
-                            width: parent.width
-                            font.pixelSize: MTypography.sizeLarge
-                            font.weight: Font.DemiBold
-                            font.family: MTypography.fontFamily
-                            color: MColors.text
-                        }
-
-                        Repeater {
-                            model: NetworkManagerCpp.availableNetworks
-
-                            MCard {
-                                required property var modelData
-
-                                width: parent.parent.width
-                                height: MSpacing.touchTargetMedium
-                                elevation: 2
-                                interactive: true
-                                onPressedChanged: {
-                                    border.color = pressed ? MColors.accent : MColors.border;
-                                }
-                                onClicked: {
-                                    Logger.info("OOBE", "WiFi network selected:", modelData.ssid);
-                                    HapticManager.light();
-                                    wifiPasswordDialogLoader.show(modelData.ssid, modelData.strength, modelData.security, modelData.secured);
-                                }
-
-                                Row {
-                                    anchors.fill: parent
-                                    anchors.margins: MSpacing.md
-                                    spacing: MSpacing.md
-
-                                    Icon {
-                                        name: {
-                                            if (modelData.strength === 0)
-                                                return "wifi-zero";
-
-                                            if (modelData.strength <= 33)
-                                                return "wifi-low";
-
-                                            if (modelData.strength <= 66)
-                                                return "wifi";
-
-                                            return "wifi-high";
-                                        }
-                                        size: Math.round(24 * Constants.scaleFactor)
-                                        color: modelData.connected ? MColors.accent : MColors.text
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-
-                                    Column {
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        spacing: MSpacing.xs
-                                        width: parent.width - Math.round(24 * Constants.scaleFactor) - MSpacing.md * 2 - (modelData.connected ? Math.round(24 * Constants.scaleFactor) + MSpacing.md : 0)
-
-                                        Text {
-                                            text: modelData.ssid
-                                            font.pixelSize: MTypography.sizeBody
-                                            font.weight: modelData.connected ? Font.DemiBold : Font.Medium
-                                            font.family: MTypography.fontFamily
-                                            color: modelData.connected ? MColors.accent : MColors.text
-                                            elide: Text.ElideRight
-                                            width: parent.width
-                                        }
-
-                                        Row {
-                                            spacing: MSpacing.sm
-
-                                            Text {
-                                                text: modelData.connected ? "Connected" : (modelData.security || "Open")
-                                                font.pixelSize: MTypography.sizeSmall
-                                                font.family: MTypography.fontFamily
-                                                color: modelData.connected ? MColors.accent : MColors.textSecondary
-                                                font.weight: modelData.connected ? Font.Medium : Font.Normal
-                                            }
-
-                                            Text {
-                                                text: "•"
-                                                font.pixelSize: MTypography.sizeSmall
-                                                color: MColors.textSecondary
-                                                visible: !modelData.connected
-                                            }
-
-                                            Text {
-                                                text: modelData.strength + "%"
-                                                font.pixelSize: MTypography.sizeSmall
-                                                font.family: MTypography.fontFamily
-                                                color: MColors.textSecondary
-                                                visible: !modelData.connected
-                                            }
-
-                                            Icon {
-                                                name: "lock"
-                                                size: Math.round(16 * Constants.scaleFactor)
-                                                color: MColors.textTertiary
-                                                visible: modelData.secured && !modelData.connected
-                                                anchors.verticalCenter: parent.verticalCenter
-                                            }
-                                        }
-                                    }
-
-                                    Icon {
-                                        name: "circle-check"
-                                        size: Math.round(24 * Constants.scaleFactor)
-                                        color: MColors.accent
-                                        visible: modelData.connected
-                                        anchors.verticalCenter: parent.verticalCenter
-                                    }
-                                }
-                            }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: {
+                            HapticManager.light();
+                            wifiPasswordDialogLoader.show("", 0, "WPA2", true);
                         }
                     }
                 }
