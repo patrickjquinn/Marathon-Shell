@@ -21,7 +21,7 @@ class PowerPolicyController : public QObject {
     Q_PROPERTY(QString wakeReason READ wakeReason NOTIFY wakeReasonChanged)
 
   public:
-    enum PowerButtonAction {
+    enum PowerButtonAction : quint8 {
         NoOp = 0,
         TurnScreenOn,
         LockAndTurnScreenOff,
@@ -29,7 +29,7 @@ class PowerPolicyController : public QObject {
     };
     Q_ENUM(PowerButtonAction)
 
-    enum SleepAction {
+    enum SleepAction : quint8 {
         SleepNoLock = 0,
         LockThenSleep,
     };

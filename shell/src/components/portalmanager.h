@@ -12,7 +12,7 @@ class PortalManager : public QObject {
 
   public:
     explicit PortalManager(QObject *parent = nullptr);
-    ~PortalManager();
+    ~PortalManager() override;
     void checkCameraPortal();
 
     bool isPortalAvailable(const QString &portalName = QString()) const;

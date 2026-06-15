@@ -8,7 +8,7 @@ class MarathonAppVerifier : public QObject {
     Q_OBJECT
 
   public:
-    enum VerificationResult {
+    enum VerificationResult : quint8 {
         Valid,
         InvalidSignature,
         UntrustedKey,

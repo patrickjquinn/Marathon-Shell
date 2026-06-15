@@ -106,6 +106,7 @@ void CrashHandler::signalHandler(int signum) {
             signame     = "SIGBUS";
             description = "Bus error (invalid memory alignment)";
             break;
+        default: break;
     }
 
     writeStr(STDERR_FILENO, "----------------------------------------\n");

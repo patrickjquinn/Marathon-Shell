@@ -166,13 +166,10 @@ void PowerPolicyController::performCriticalPowerAction() {
         m_powerManager->hybridSleep();
     } else if (action.compare("Hibernate", Qt::CaseInsensitive) == 0) {
         m_powerManager->hibernate();
-    } else if (action.compare("PowerOff", Qt::CaseInsensitive) == 0 ||
-               action.compare("Shutdown", Qt::CaseInsensitive) == 0) {
-        m_powerManager->shutdown();
     } else if (action.compare("Suspend", Qt::CaseInsensitive) == 0) {
         m_powerManager->suspend();
     } else {
-
+        // Default: PowerOff / Shutdown / anything unrecognized → safe shutdown.
         m_powerManager->shutdown();
     }
 }

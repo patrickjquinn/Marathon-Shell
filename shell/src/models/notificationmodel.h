@@ -79,7 +79,7 @@ class NotificationModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum NotificationRoles {
+    enum NotificationRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         AppIdRole,
         TitleRole,

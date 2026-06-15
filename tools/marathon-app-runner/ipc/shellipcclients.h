@@ -690,7 +690,7 @@ class RemoteAudioStreamModel : public QAbstractListModel {
     Q_OBJECT
 
   public:
-    enum StreamRoles {
+    enum StreamRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         AppNameRole,

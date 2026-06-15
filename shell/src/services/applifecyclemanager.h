@@ -23,7 +23,7 @@ class AppLifecycleManager : public QObject {
     // briefly: Foreground/BackgroundActive/BackgroundIdle keep the process
     // running; Frozen halts CPU via cgroup.freeze (wired in Phase B); Killed
     // means the runner exited (memory pressure or user-initiated close).
-    enum LifecycleState {
+    enum LifecycleState : quint8 {
         Unregistered     = 0,
         Foreground       = 1,
         BackgroundActive = 2,

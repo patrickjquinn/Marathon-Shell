@@ -114,7 +114,7 @@ class TaskModel : public QAbstractListModel {
     Q_PROPERTY(int taskCount READ taskCount NOTIFY taskCountChanged)
 
   public:
-    enum TaskRoles {
+    enum TaskRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         AppIdRole,
         TitleRole,

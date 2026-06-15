@@ -100,9 +100,17 @@ if [ -n "$CLANG_TIDY" ]; then
 '-bugprone-narrowing-conversions,-performance-no-int-to-ptr,'\
 '-clang-analyzer-cplusplus.NewDeleteLeaks'
     # Restrict header-warning scope to OUR headers; otherwise every Qt
-    # internal nit floods the output.
-    HEADER_FILTER='.*/(shell|marathon-core|marathon-ui|tools/marathon-app-runner)/.*'
+    # internal nit floods the output. Negative-lookahead drops /build/ so the
+    # qtwaylandscanner-generated *-server.h headers (under build/shell/) and
+    # MOC autogen (under build/<target>_autogen/) don't get linted -- those
+    # are codegen, not source.
+    HEADER_FILTER='^(?!.*/(build|_autogen)/).*/(shell|marathon-core|marathon-ui|tools/marathon-app-runner)/.*$'
+    # --warnings-as-errors is what makes clang-tidy actually exit non-zero on
+    # warning hits; without it the binary returns 0 even with thousands of
+    # diagnostics. Same check list as enabled so we don't accidentally elevate
+    # something disabled above.
     "$CLANG_TIDY" -p "$BUILD_DIR" --quiet --checks="$CHECKS" \
+        --warnings-as-errors="$CHECKS" \
         --header-filter="$HEADER_FILTER" "${SOURCES[@]}" 2>&1 ||
         errors=1
 else
