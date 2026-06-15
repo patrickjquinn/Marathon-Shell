@@ -189,159 +189,212 @@ Item {
 
             clip: true
 
-            property var scaleOptions: [
-                {
-                    "factor": 0.75,
-                    "title": "75% - Compact",
-                    "description": "More content, smaller text"
-                },
-                {
-                    "factor": 0.9,
-                    "title": "90% - Small",
-                    "description": "Slightly smaller UI"
-                },
-                {
-                    "factor": 1,
-                    "title": "100% - Default",
-                    "description": "Recommended for most users"
-                },
-                {
-                    "factor": 1.1,
-                    "title": "110% - Comfortable",
-                    "description": "A bit larger for readability"
-                },
-                {
-                    "factor": 1.25,
-                    "title": "125% - Large",
-                    "description": "Larger text, easier to read"
-                },
-                {
-                    "factor": 1.4,
-                    "title": "140% - Extra Large",
-                    "description": "Maximum readability"
-                },
-                {
-                    "factor": 1.5,
-                    "title": "150% - Huge",
-                    "description": "Oversized UI elements"
-                }
-            ]
+            readonly property var scaleFactors: [0.75, 0.9, 1.0, 1.1, 1.25, 1.4, 1.5]
 
-            Column {
-                // Anchor at top instead of centerIn -- the 7-radio list is
-                // taller than the swipeView area at higher scale factors, so
-                // centerIn would overflow upward and collide with the Skip
-                // button row.
-                anchors.top: parent.top
-                anchors.topMargin: Math.round(60 * Constants.scaleFactor)
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: parent.width
-                spacing: MSpacing.xl
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
+                anchors.leftMargin: MSpacing.xl
+                anchors.rightMargin: MSpacing.xl
+                anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
+                spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
+
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: "text-aa"
+                    size: Math.round((oobeRoot.compactLayout ? 32 : 40) * Constants.scaleFactor)
+                    color: MColors.marathonTealBright
+                }
 
                 Text {
-                    text: "Choose Display Size"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
+                    Layout.alignment: Qt.AlignHCenter
+                    text: "Choose display size"
+                    font.pixelSize: MTypography.sizeTitle2
+                    font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
-                    color: MColors.text
-                    width: parent.width
-                    wrapMode: Text.WordWrap
+                    font.letterSpacing: MTypography.trackingTitle2
+                    color: MColors.textPrimary
                     horizontalAlignment: Text.AlignHCenter
                 }
 
                 Text {
-                    text: "Adjust the size of text and UI elements. You can change this later in Settings."
-                    font.pixelSize: MTypography.sizeBody
+                    Layout.fillWidth: true
+                    text: "Make text and icons easier to read. You can change this anytime."
+                    font.pixelSize: MTypography.sizeSubhead
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
-                    width: parent.width
-                    wrapMode: Text.WordWrap
                     horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
                 }
 
-                Column {
-                    width: parent.width
-                    spacing: MSpacing.sm
+                MCard {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    elevation: 2
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.lg
+                        spacing: MSpacing.sm
+
+                        Text {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "Preview"
+                            font.pixelSize: MTypography.sizeSmall
+                            font.weight: Font.DemiBold
+                            font.capitalization: Font.AllUppercase
+                            font.letterSpacing: Math.max(1, Math.round(1 * Constants.scaleFactor))
+                            font.family: MTypography.fontFamily
+                            color: MColors.textTertiary
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                width: parent.width
+                                spacing: Math.round(MSpacing.sm * Constants.userScaleFactor)
+
+                                Text {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    text: "Sample"
+                                    font.pixelSize: Math.round(MTypography.sizeTitle2 * Constants.userScaleFactor)
+                                    font.weight: MTypography.weightExtraLight
+                                    font.family: MTypography.fontFamily
+                                    font.letterSpacing: MTypography.trackingTitle2
+                                    color: MColors.textPrimary
+
+                                    Behavior on font.pixelSize {
+                                        NumberAnimation {
+                                            duration: MMotion.sm
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: "The quick brown fox jumps over the lazy dog."
+                                    font.pixelSize: Math.round(MTypography.sizeBody * Constants.userScaleFactor)
+                                    font.family: MTypography.fontFamily
+                                    color: MColors.textSecondary
+                                    wrapMode: Text.WordWrap
+                                    horizontalAlignment: Text.AlignHCenter
+
+                                    Behavior on font.pixelSize {
+                                        NumberAnimation {
+                                            duration: MMotion.sm
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    spacing: Math.round(MSpacing.sm * Constants.userScaleFactor)
+
+                                    Icon {
+                                        name: "house"
+                                        size: Math.round(20 * Constants.userScaleFactor)
+                                        color: MColors.marathonTealBright
+
+                                        Behavior on size {
+                                            NumberAnimation {
+                                                duration: MMotion.sm
+                                                easing.type: Easing.OutCubic
+                                            }
+                                        }
+                                    }
+
+                                    Icon {
+                                        name: "envelope"
+                                        size: Math.round(20 * Constants.userScaleFactor)
+                                        color: MColors.textPrimary
+
+                                        Behavior on size {
+                                            NumberAnimation {
+                                                duration: MMotion.sm
+                                                easing.type: Easing.OutCubic
+                                            }
+                                        }
+                                    }
+
+                                    Icon {
+                                        name: "gear"
+                                        size: Math.round(20 * Constants.userScaleFactor)
+                                        color: MColors.textPrimary
+
+                                        Behavior on size {
+                                            NumberAnimation {
+                                                duration: MMotion.sm
+                                                easing.type: Easing.OutCubic
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: MSpacing.xs
+
+                    Text {
+                        text: "A"
+                        font.pixelSize: MTypography.sizeSmall
+                        font.family: MTypography.fontFamily
+                        color: MColors.textTertiary
+                    }
 
                     Repeater {
-                        model: scalePage.scaleOptions
+                        model: scalePage.scaleFactors
 
                         Rectangle {
-                            required property var modelData
+                            required property real modelData
 
-                            width: parent.width
-                            height: Constants.touchTargetMedium
-                            radius: Constants.borderRadiusSmall
-                            color: Constants.userScaleFactor === modelData.factor ? Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.08) : "transparent"
-                            border.width: Constants.userScaleFactor === modelData.factor ? 1 : 0
-                            border.color: Qt.rgba(20 / 255, 184 / 255, 166 / 255, 0.3)
+                            readonly property bool selected: Math.abs(Constants.userScaleFactor - modelData) < 0.001
 
-                            Row {
-                                anchors.fill: parent
-                                anchors.margins: MSpacing.md
-                                spacing: MSpacing.md
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Math.round(40 * Constants.scaleFactor)
+                            radius: Math.round(8 * Constants.scaleFactor)
+                            color: selected ? MColors.marathonTealBright : "transparent"
+                            border.width: 1
+                            border.color: selected ? MColors.marathonTealBright : MColors.border
 
-                                Rectangle {
-                                    width: Math.round(28 * Constants.userScaleFactor)
-                                    height: Math.round(28 * Constants.userScaleFactor)
-                                    radius: Math.round(14 * Constants.userScaleFactor)
-                                    color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : "transparent"
-                                    border.width: Math.round(2 * Constants.userScaleFactor)
-                                    border.color: Constants.userScaleFactor === modelData.factor ? MColors.marathonTeal : MColors.textSecondary
-                                    anchors.verticalCenter: parent.verticalCenter
-
-                                    Rectangle {
-                                        visible: Constants.userScaleFactor === modelData.factor
-                                        width: Math.round(12 * Constants.userScaleFactor)
-                                        height: Math.round(12 * Constants.userScaleFactor)
-                                        radius: Math.round(6 * Constants.userScaleFactor)
-                                        color: MColors.background
-                                        anchors.centerIn: parent
-                                    }
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: MMotion.xs
                                 }
+                            }
 
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 4
-
-                                    Text {
-                                        text: modelData.title
-                                        color: MColors.textPrimary
-                                        font.pixelSize: MTypography.sizeBody
-                                        font.weight: Font.DemiBold
-                                        font.family: MTypography.fontFamily
-                                    }
-
-                                    Text {
-                                        text: modelData.description
-                                        color: MColors.textSecondary
-                                        font.pixelSize: MTypography.sizeSmall
-                                        font.family: MTypography.fontFamily
-                                    }
-                                }
+                            Text {
+                                anchors.centerIn: parent
+                                text: Math.round(parent.modelData * 100)
+                                font.pixelSize: MTypography.sizeSmall
+                                font.weight: parent.selected ? Font.DemiBold : Font.Medium
+                                font.family: MTypography.fontFamily
+                                color: parent.selected ? "#000000" : MColors.textPrimary
                             }
 
                             MouseArea {
                                 anchors.fill: parent
-                                // Write only to SettingsManagerCpp — the
-                                // Constants.userScaleFactor Binding listens
-                                // for the change and propagates back. Direct
-                                // assignment to Constants would break that
-                                // binding and the shell would no longer
-                                // react to subsequent scale changes.
-                                onClicked: SettingsManagerCpp.userScaleFactor = modelData.factor
+                                onClicked: {
+                                    HapticManager.light();
+                                    SettingsManagerCpp.userScaleFactor = parent.modelData;
+                                }
                             }
                         }
                     }
 
                     Text {
-                        text: "Current: " + Math.round(Constants.scaleFactor * 100) + "% (Base: " + Math.round((Constants.screenHeight / Constants.baseHeight) * 100) + "% × User: " + Math.round(Constants.userScaleFactor * 100) + "%)"
-                        font.pixelSize: MTypography.sizeSmall
+                        text: "A"
+                        font.pixelSize: Math.round(MTypography.sizeLarge * Constants.scaleFactor)
                         font.family: MTypography.fontFamily
-                        color: MColors.textSecondary
-                        width: parent.width
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
+                        color: MColors.textTertiary
                     }
                 }
             }
