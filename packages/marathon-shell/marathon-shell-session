@@ -163,8 +163,21 @@ export QT_ENABLE_HIGHDPI_SCALING=0
 export QSG_RENDER_LOOP=threaded
 
 # QML disk cache for fast cold-start.
+# Cache is keyed by qmlcache's internal hashes — but they do NOT include
+# the SHELL BINARY mtime, so a marathon-shell-bin rebuild that ships
+# updated QML (without renaming files) reuses stale .qmlc and renders
+# the OLD layout. We saw this break the URL-keyboard rows 3+4 across
+# r129→r132. Stamp the cache with the binary's mtime and nuke it on
+# mismatch — costs one cold-start frame, fixes silent visual regressions.
 export QT_QML_DISK_CACHE_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/marathon-qml"
 mkdir -p "$QT_QML_DISK_CACHE_PATH"
+SHELL_BIN_MTIME=$(stat -c %Y /usr/bin/marathon-shell-bin 2>/dev/null || echo 0)
+STAMP_FILE="$QT_QML_DISK_CACHE_PATH/.shell-bin-mtime"
+PREV_STAMP=$(cat "$STAMP_FILE" 2>/dev/null || echo 0)
+if [ "$SHELL_BIN_MTIME" != "$PREV_STAMP" ]; then
+    find "$QT_QML_DISK_CACHE_PATH" -mindepth 1 -delete 2>/dev/null || true
+    echo "$SHELL_BIN_MTIME" > "$STAMP_FILE"
+fi
 
 # ---- Wayland runtime ---------------------------------------------------------
 
