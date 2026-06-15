@@ -301,7 +301,11 @@ class QemuDriver:
                 "-p", str(self.ssh_port),
                 f"{self.ssh_user}@127.0.0.1",
                 cmd]
-        r = subprocess.run(argv, capture_output=True, timeout=timeout)
+        env = os.environ.copy()
+        env.pop("SSH_ASKPASS", None)
+        env.pop("DISPLAY", None)
+        env["SSH_ASKPASS_REQUIRE"] = "never"
+        r = subprocess.run(argv, capture_output=True, timeout=timeout, env=env)
         return r.returncode, r.stdout.decode(errors="replace"), r.stderr.decode(errors="replace")
 
     def wait_for_ssh(self, timeout: int = 180):
