@@ -408,13 +408,20 @@ Item {
             spacing: Math.round(12 * Constants.scaleFactor)
             visible: !passwordMode
 
+            // MCircularIconButton scales `buttonSize` / `iconSize` by
+            // Constants.scaleFactor internally. Pass DESIGN px here —
+            // pre-scaling caused the button + halo to render at
+            // sf × sf (≈ 2.5×) and overflow the cells, producing the
+            // overlapping-circles pin-pad bug.
             Grid {
                 anchors.horizontalCenter: parent.horizontalCenter
                 columns: 3
                 columnSpacing: Math.round(pinScreen.keypadColumnSpacing * Constants.scaleFactor)
                 rowSpacing: Math.round(pinScreen.keypadRowSpacing * Constants.scaleFactor)
-                layer.enabled: true
-                layer.smooth: true
+                // layer.enabled was true (with layer.smooth) — the FBO
+                // pass on top of the over-sized halo turned the overlap
+                // into a stack of semi-transparent overlapping rings.
+                // Removing the layer keeps the button chrome single-pass.
 
                 Repeater {
                     model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -429,8 +436,8 @@ Item {
                         MCircularIconButton {
                             anchors.centerIn: parent
                             text: digit
-                            iconSize: Math.round((pinScreen.compactLayout ? 22 : 28) * Constants.scaleFactor)
-                            buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
+                            iconSize: pinScreen.compactLayout ? 22 : 28
+                            buttonSize: pinScreen.keyButtonSize
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: {
@@ -453,8 +460,8 @@ Item {
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "keyboard"
-                        iconSize: Math.round((pinScreen.compactLayout ? 20 : 24) * Constants.scaleFactor)
-                        buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
+                        iconSize: pinScreen.compactLayout ? 20 : 24
+                        buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         visible: !passwordMode
                         onClicked: {
@@ -471,8 +478,8 @@ Item {
                     MCircularIconButton {
                         anchors.centerIn: parent
                         text: "0"
-                        iconSize: Math.round((pinScreen.compactLayout ? 22 : 28) * Constants.scaleFactor)
-                        buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
+                        iconSize: pinScreen.compactLayout ? 22 : 28
+                        buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         textColor: MColors.textPrimary
                         onClicked: {
@@ -489,8 +496,8 @@ Item {
                     MCircularIconButton {
                         anchors.centerIn: parent
                         iconName: "delete"
-                        iconSize: Math.round((pinScreen.compactLayout ? 20 : 24) * Constants.scaleFactor)
-                        buttonSize: Math.round(pinScreen.keyButtonSize * Constants.scaleFactor)
+                        iconSize: pinScreen.compactLayout ? 20 : 24
+                        buttonSize: pinScreen.keyButtonSize
                         variant: "secondary"
                         iconColor: MColors.textSecondary
                         onClicked: {
@@ -611,8 +618,8 @@ Item {
         MCircularIconButton {
             anchors.horizontalCenter: parent.horizontalCenter
             iconName: "fingerprint"
-            iconSize: Math.round(28 * Constants.scaleFactor)
-            buttonSize: Math.round(64 * Constants.scaleFactor)
+            iconSize: 28
+            buttonSize: 64
             variant: "secondary"
             visible: SecurityManagerCpp.fingerprintAvailable && !biometricInProgress && !passwordMode
             enabled: !SecurityManagerCpp.isLockedOut

@@ -1043,9 +1043,25 @@ Item {
             property string confirmedPin: ""
             readonly property string currentPin: stage === "enter" ? enteredPin : confirmedPin
 
-            readonly property bool isCompact: oobeRoot.compactLayout
+            // Even on standard-aspect phones the OOBE chrome (page-dots
+            // footer + Back/Next bar) eats the bottom ~120 px, so the
+            // 70 px design key + dot indicators + title block + Next
+            // button no longer fits and the 7-8-9 row clips. Use the
+            // compact key size (56) on every screen here; the lock-
+            // screen unlock page still uses 70 px because it has the
+            // full canvas to itself.
+            readonly property bool isCompact: true
             readonly property real dotSize: Math.round((isCompact ? 12 : 16) * Constants.scaleFactor)
-            readonly property real keySize: Math.round((isCompact ? 56 : 70) * Constants.scaleFactor)
+            // keySize is passed as buttonSize to MCircularIconButton —
+            // the component multiplies by Constants.scaleFactor internally,
+            // so we MUST pass design px here. Pre-scaling produced sf²
+            // (≈ 2.5×) buttons that overflowed and clipped one another.
+            readonly property real keySize: 56
+            // Scaled size for cell-container Items (the spacer at row 4 col 0
+            // and the +/-/dot keys). Must be ≥ MCircularIconButton's full
+            // chrome size (buttonSize × sf + halo), so the layout reserves
+            // enough room around the rendered button.
+            readonly property real scaledKeyCell: Math.round(keySize * Constants.scaleFactor) + Math.round(12 * Constants.scaleFactor)
             readonly property real keySpacing: Math.round((isCompact ? 10 : 14) * Constants.scaleFactor)
 
             function appendDigit(d) {
@@ -1195,7 +1211,7 @@ Item {
 
                             text: modelData
                             buttonSize: passcodePage.keySize
-                            iconSize: Math.round((passcodePage.isCompact ? 22 : 28) * Constants.scaleFactor)
+                            iconSize: passcodePage.isCompact ? 22 : 28
                             variant: "secondary"
                             textColor: MColors.textPrimary
                             onClicked: passcodePage.appendDigit(modelData)
@@ -1208,14 +1224,14 @@ Item {
                     spacing: passcodePage.keySpacing
 
                     Item {
-                        width: passcodePage.keySize
-                        height: passcodePage.keySize
+                        width: passcodePage.scaledKeyCell
+                        height: passcodePage.scaledKeyCell
                     }
 
                     MCircularIconButton {
                         text: "0"
                         buttonSize: passcodePage.keySize
-                        iconSize: Math.round((passcodePage.isCompact ? 22 : 28) * Constants.scaleFactor)
+                        iconSize: passcodePage.isCompact ? 22 : 28
                         variant: "secondary"
                         textColor: MColors.textPrimary
                         onClicked: passcodePage.appendDigit("0")
@@ -1224,7 +1240,7 @@ Item {
                     MCircularIconButton {
                         iconName: "delete"
                         buttonSize: passcodePage.keySize
-                        iconSize: Math.round((passcodePage.isCompact ? 20 : 24) * Constants.scaleFactor)
+                        iconSize: passcodePage.isCompact ? 20 : 24
                         variant: "secondary"
                         iconColor: MColors.textSecondary
                         enabled: passcodePage.currentPin.length > 0
