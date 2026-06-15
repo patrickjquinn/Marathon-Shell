@@ -144,6 +144,8 @@ Item {
         clip: true
 
         Item {
+            clip: true
+
             // Welcome page — canonical MarathonMark (teal disc + black M
             // + "MARATHON" tracked caps) per docs/redesign/marathonos/
             // project/design-system/ds-foundations.jsx. This is THE
@@ -184,6 +186,8 @@ Item {
 
         Item {
             id: scalePage
+
+            clip: true
 
             property var scaleOptions: [
                 {
@@ -344,6 +348,8 @@ Item {
         }
 
         Item {
+            clip: true
+
             Row {
                 id: wifiHeader
 
@@ -561,159 +567,145 @@ Item {
         }
 
         Item {
-            Row {
-                id: timeHeader
+            id: timezonePage
 
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.topMargin: MSpacing.lg
-                height: Math.round(40 * Constants.scaleFactor)
+            clip: true
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
+                anchors.leftMargin: MSpacing.xl
+                anchors.rightMargin: MSpacing.xl
+                spacing: oobeRoot.compactLayout ? MSpacing.md : MSpacing.lg
+
+                Icon {
+                    Layout.alignment: Qt.AlignHCenter
+                    name: "clock"
+                    size: Math.round((oobeRoot.compactLayout ? 36 : 48) * Constants.scaleFactor)
+                    color: MColors.marathonTealBright
+                }
 
                 Text {
+                    Layout.alignment: Qt.AlignHCenter
                     text: "Set Time & Date"
-                    font.pixelSize: MTypography.sizeXXLarge
-                    font.weight: Font.Bold
+                    font.pixelSize: MTypography.sizeTitle2
+                    font.weight: MTypography.weightExtraLight
                     font.family: MTypography.fontFamily
-                    color: MColors.text
-                    anchors.verticalCenter: parent.verticalCenter
+                    font.letterSpacing: MTypography.trackingTitle2
+                    color: MColors.textPrimary
+                    horizontalAlignment: Text.AlignHCenter
                 }
-            }
 
-            Flickable {
-                anchors.top: timeHeader.bottom
-                anchors.topMargin: MSpacing.xl
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                contentHeight: timeColumn.height
-                clip: true
-                boundsBehavior: Flickable.DragAndOvershootBounds
+                Text {
+                    Layout.fillWidth: true
+                    text: "Configure your time format preferences."
+                    font.pixelSize: MTypography.sizeSubhead
+                    font.family: MTypography.fontFamily
+                    color: MColors.textSecondary
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
 
-                Column {
-                    id: timeColumn
+                MCard {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: timeColumn.implicitHeight + MSpacing.lg * 2
+                    elevation: 2
 
-                    width: parent.width
-                    spacing: MSpacing.xxl
+                    ColumnLayout {
+                        id: timeColumn
 
-                    Text {
-                        text: "Configure your time format preferences"
-                        font.pixelSize: MTypography.sizeBody
-                        font.family: MTypography.fontFamily
-                        color: MColors.textSecondary
-                        wrapMode: Text.WordWrap
-                        width: parent.width
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.lg
+                        spacing: MSpacing.sm
+
+                        Text {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: Qt.formatTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
+                            font.pixelSize: Math.round(48 * Constants.scaleFactor)
+                            font.weight: Font.Light
+                            font.family: MTypography.fontFamily
+                            color: MColors.text
+                        }
+
+                        Text {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
+                            font.pixelSize: MTypography.sizeLarge
+                            font.family: MTypography.fontFamily
+                            color: MColors.textSecondary
+                        }
                     }
+                }
 
-                    MCard {
-                        width: parent.width
-                        height: Math.round(120 * Constants.scaleFactor)
-                        elevation: 2
+                MCard {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: formatRow.implicitHeight + MSpacing.md * 2
+                    elevation: 2
 
-                        Column {
-                            anchors.centerIn: parent
-                            anchors.topMargin: MSpacing.lg
-                            anchors.bottomMargin: MSpacing.lg
-                            spacing: MSpacing.sm
-                            width: parent.width - (MSpacing.lg * 2)
+                    RowLayout {
+                        id: formatRow
 
-                            Text {
-                                text: Qt.formatTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
-                                font.pixelSize: Math.round(48 * Constants.scaleFactor)
-                                font.weight: Font.Light
-                                font.family: MTypography.fontFamily
-                                color: MColors.text
-                                anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.fill: parent
+                        anchors.margins: MSpacing.md
+                        spacing: MSpacing.md
+
+                        Icon {
+                            name: "clock"
+                            size: Math.round(24 * Constants.scaleFactor)
+                            color: MColors.text
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Time Format"
+                            font.pixelSize: MTypography.sizeLarge
+                            font.family: MTypography.fontFamily
+                            color: MColors.text
+                            elide: Text.ElideRight
+                        }
+
+                        MButton {
+                            text: "12h"
+                            variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
+                            size: "small"
+                            onClicked: {
+                                SettingsManagerCpp.timeFormat = "12h";
+                                HapticManager.light();
                             }
+                        }
 
-                            Text {
-                                text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
-                                font.pixelSize: MTypography.sizeLarge
-                                font.family: MTypography.fontFamily
-                                color: MColors.textSecondary
-                                anchors.horizontalCenter: parent.horizontalCenter
+                        MButton {
+                            text: "24h"
+                            variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
+                            size: "small"
+                            onClicked: {
+                                SettingsManagerCpp.timeFormat = "24h";
+                                HapticManager.light();
                             }
                         }
                     }
+                }
 
-                    MCard {
-                        width: parent.width
-                        height: MSpacing.touchTargetMedium
-                        elevation: 2
+                Text {
+                    Layout.fillWidth: true
+                    text: "Automatic timezone detection and network time sync will be enabled."
+                    font.pixelSize: MTypography.sizeSmall
+                    font.family: MTypography.fontFamily
+                    color: MColors.textTertiary
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                }
 
-                        Row {
-                            anchors.fill: parent
-                            anchors.margins: MSpacing.md
-                            spacing: MSpacing.md
-
-                            Icon {
-                                id: clockIcon
-
-                                name: "clock"
-                                size: Math.round(24 * Constants.scaleFactor)
-                                color: MColors.text
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Text {
-                                id: timeFormatText
-
-                                text: "Time Format"
-                                font.pixelSize: MTypography.sizeLarge
-                                font.family: MTypography.fontFamily
-                                color: MColors.text
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
-
-                            Item {
-                                width: parent.width - clockIcon.width - timeFormatText.implicitWidth - buttonsRow.implicitWidth - (MSpacing.md * 3)
-                                height: parent.height
-                            }
-
-                            Row {
-                                id: buttonsRow
-
-                                spacing: MSpacing.md
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                MButton {
-                                    text: "12h"
-                                    variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
-                                    size: "large"
-                                    onClicked: {
-                                        SettingsManagerCpp.timeFormat = "12h";
-                                        HapticManager.light();
-                                    }
-                                }
-
-                                MButton {
-                                    text: "24h"
-                                    variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
-                                    size: "large"
-                                    onClicked: {
-                                        SettingsManagerCpp.timeFormat = "24h";
-                                        HapticManager.light();
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: "Automatic timezone detection and network time sync will be enabled"
-                        font.pixelSize: MTypography.sizeSmall
-                        font.family: MTypography.fontFamily
-                        color: MColors.textTertiary
-                        horizontalAlignment: Text.AlignHCenter
-                        width: parent.width
-                        wrapMode: Text.WordWrap
-                    }
+                Item {
+                    Layout.fillHeight: true
                 }
             }
         }
 
         Item {
             id: gesturesPage
+
+            clip: true
 
             // Interactive coachmark sequence — one gesture per sub-page.
             // The animated arrow loops to demonstrate direction; the user
@@ -1034,6 +1026,8 @@ Item {
         Item {
             id: passcodePage
 
+            clip: true
+
             readonly property int requiredLength: 4
             readonly property int maxLength: 8
             // "enter" → first attempt, "confirm" → re-enter to verify.
@@ -1273,6 +1267,8 @@ Item {
         }
 
         Item {
+            clip: true
+
             Column {
                 anchors.centerIn: parent
                 width: parent.width
