@@ -483,7 +483,7 @@ int AppLifecycleManager::oomScoreForState(LifecycleState state) {
         // Frozen via cgroup.freeze. Eligible for kernel kill; we also
         // kill oldest-frozen-first from MemoryPressureMonitor at Critical.
         case Frozen: return 950;
-        case Killed: return 0;
+        case Killed:
         case Unregistered: return 0;
     }
     return 0;

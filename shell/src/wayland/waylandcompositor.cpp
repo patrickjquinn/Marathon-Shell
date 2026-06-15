@@ -402,8 +402,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         if (!output.isEmpty()) {
             QString tail = safeProcess->property("marathonStdoutTail").toString();
             tail += output;
-            if (tail.size() > 64 * 1024)
-                tail = tail.right(64 * 1024);
+            if (tail.size() > qsizetype{64} * 1024)
+                tail = tail.right(qsizetype{64} * 1024);
             safeProcess->setProperty("marathonStdoutTail", tail);
 
             if (wlVerbose() && !output.trimmed().isEmpty())
@@ -436,8 +436,8 @@ void WaylandCompositor::launchApp(const QString &command, const QVariantMap &ext
         if (!error.isEmpty()) {
             QString tail = safeProcess->property("marathonStderrTail").toString();
             tail += error;
-            if (tail.size() > 64 * 1024)
-                tail = tail.right(64 * 1024);
+            if (tail.size() > qsizetype{64} * 1024)
+                tail = tail.right(qsizetype{64} * 1024);
             safeProcess->setProperty("marathonStderrTail", tail);
 
             if (wlVerbose() && !error.trimmed().isEmpty())
@@ -1258,8 +1258,12 @@ void WaylandCompositor::sendSuspendedState(const QString &appId, bool suspended)
             continue;
         if (xdgSurface->surface()->property("appId").toString() != appId)
             continue;
-        toplevel = xdgSurface->surface()->property("xdgToplevel").value<QWaylandXdgToplevel *>();
-        foundId  = it.key();
+        auto *candidate =
+            xdgSurface->surface()->property("xdgToplevel").value<QWaylandXdgToplevel *>();
+        if (candidate) {
+            toplevel = candidate;
+            foundId  = it.key();
+        }
         break;
     }
     if (!toplevel)

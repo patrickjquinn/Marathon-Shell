@@ -4,11 +4,12 @@
 #include <QString>
 #include <QDateTime>
 #include <QMutex>
+#include <QtGlobal>
 #include <syslog.h>
 
 class SecurityLogger {
   public:
-    enum EventType {
+    enum EventType : quint8 {
         AuthSuccess,
         AuthFailure,
         AuthLockout,

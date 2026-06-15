@@ -447,7 +447,7 @@ void MPRIS2Controller::next() {
     if (!m_playerInterface)
         return;
 
-    const qint64 podcastThreshold = 20 * 60 * 1000000;
+    const qint64 podcastThreshold = qint64{20} * 60 * 1000000;
 
     if (m_canSeek && m_trackLength > podcastThreshold) {
         qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength
@@ -465,7 +465,7 @@ void MPRIS2Controller::previous() {
     if (!m_playerInterface)
         return;
 
-    const qint64 podcastThreshold = 20 * 60 * 1000000;
+    const qint64 podcastThreshold = qint64{20} * 60 * 1000000;
 
     if (m_canSeek && m_trackLength > podcastThreshold) {
         qInfo() << "[MPRIS2Controller] Smart Skip: Long track detected (" << m_trackLength

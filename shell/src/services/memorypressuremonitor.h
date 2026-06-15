@@ -15,7 +15,7 @@ class MemoryPressureMonitor : public QObject {
     Q_OBJECT
 
   public:
-    enum PressureLevel {
+    enum PressureLevel : quint8 {
         Normal   = 0,
         Moderate = 1,
         High     = 2,

@@ -84,7 +84,7 @@ void SessionStore::unlock() {
     setLockTransition("unlocking");
     setIsAnimatingLock(true);
     emit lockStateChanging(false);
-    m_sessionValidUntil = QDateTime::currentMSecsSinceEpoch() + 5 * 60 * 1000;
+    m_sessionValidUntil = QDateTime::currentMSecsSinceEpoch() + qint64{5} * 60 * 1000;
     startLockTimer(false);
 }
 

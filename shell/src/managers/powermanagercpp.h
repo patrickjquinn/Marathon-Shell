@@ -48,7 +48,7 @@ class PowerManagerCpp : public QObject, protected QDBusContext {
     Q_PROPERTY(QString criticalAction READ criticalAction NOTIFY criticalActionChanged)
 
   public:
-    enum PowerProfile {
+    enum PowerProfile : quint8 {
         Performance,
         Balanced,
         PowerSaver

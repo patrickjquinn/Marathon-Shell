@@ -7,7 +7,7 @@ class RTScheduler : public QObject {
     Q_OBJECT
 
   public:
-    enum Priority {
+    enum Priority : quint8 {
         InputHandling    = 85,
         CompositorRender = 75,
         DefaultUserRT    = 80,

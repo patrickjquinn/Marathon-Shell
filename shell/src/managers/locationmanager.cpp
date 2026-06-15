@@ -12,11 +12,14 @@ QDBusArgument &operator<<(QDBusArgument &argument, const GeoClueTimestamp &ts) {
     return argument;
 }
 
+// Qt-DBus mandates this exact signature so operator chaining (arg >> a >> b)
+// works; the returned reference is always to QDBus's stable internal arg,
+// never a temporary.
 const QDBusArgument &operator>>(const QDBusArgument &argument, GeoClueTimestamp &ts) {
     argument.beginStructure();
     argument >> ts.seconds >> ts.microseconds;
     argument.endStructure();
-    return argument;
+    return argument; // NOLINT(bugprone-return-const-ref-from-parameter)
 }
 
 LocationManager::LocationManager(QObject *parent)

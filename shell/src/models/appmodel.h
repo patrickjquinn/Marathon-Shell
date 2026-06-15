@@ -66,7 +66,7 @@ class AppModel : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum AppRoles {
+    enum AppRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         IconRole,

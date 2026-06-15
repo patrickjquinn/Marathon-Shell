@@ -36,7 +36,7 @@ class SecurityManager : public QObject {
     explicit SecurityManager(QObject *parent = nullptr);
     ~SecurityManager() override;
 
-    enum AuthMode {
+    enum AuthMode : quint8 {
         SystemPassword,
         QuickPIN,
         Biometric,
@@ -44,7 +44,7 @@ class SecurityManager : public QObject {
     };
     Q_ENUM(AuthMode)
 
-    enum BiometricType {
+    enum BiometricType : quint8 {
         Fingerprint,
         FaceRecognition
     };

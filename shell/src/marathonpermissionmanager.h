@@ -27,7 +27,7 @@ class MarathonPermissionManager : public QObject {
     Q_PROPERTY(QStringList currentPermissions READ currentPermissions NOTIFY currentRequestChanged)
 
   public:
-    enum PermissionStatus {
+    enum PermissionStatus : quint8 {
         NotRequested,
         Granted,
         Denied,

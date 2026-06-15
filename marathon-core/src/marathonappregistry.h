@@ -10,14 +10,14 @@ class MarathonAppRegistry : public QAbstractListModel {
     Q_PROPERTY(int count READ count NOTIFY countChanged)
 
   public:
-    enum AppType {
+    enum AppType : quint8 {
         System,
         Marathon,
         Native
     };
     Q_ENUM(AppType)
 
-    enum AppRoles {
+    enum AppRoles : quint16 {
         IdRole = Qt::UserRole + 1,
         NameRole,
         IconRole,
