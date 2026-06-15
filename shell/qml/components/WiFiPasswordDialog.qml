@@ -14,6 +14,7 @@ Item {
     property bool secured: true
     property bool isConnecting: false
     property string errorMessage: ""
+    readonly property bool hiddenMode: networkSsid === ""
 
     signal connectRequested(string ssid, string password)
     signal cancelled
@@ -26,11 +27,15 @@ Item {
         isConnecting = false;
         errorMessage = "";
         passwordInput.text = "";
-        passwordInput.forceActiveFocus();
+        ssidInput.text = "";
+        if (hiddenMode)
+            ssidInput.forceActiveFocus();
+        else
+            passwordInput.forceActiveFocus();
         wifiDialog.visible = true;
         showAnimation.start();
         HapticManager.light();
-        Logger.info("WiFiDialog", "Showing dialog for: " + ssid);
+        Logger.info("WiFiDialog", "Showing dialog for: " + (ssid === "" ? "(hidden)" : ssid));
     }
 
     function hide() {
@@ -127,6 +132,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
+                        visible: !hiddenMode
                         text: networkSsid
                         font.pixelSize: MTypography.sizeLarge
                         font.weight: Font.Medium
@@ -134,6 +140,31 @@ Item {
                         color: MColors.textPrimary
                         elide: Text.ElideRight
                         width: parent.width
+                    }
+
+                    TextInput {
+                        id: ssidInput
+
+                        visible: hiddenMode
+                        width: parent.width
+                        font.pixelSize: MTypography.sizeLarge
+                        font.weight: Font.Medium
+                        font.family: MTypography.fontFamily
+                        color: MColors.textPrimary
+                        inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                        selectByMouse: true
+                        clip: true
+                        onTextChanged: if (hiddenMode)
+                            networkSsid = text
+                        Keys.onReturnPressed: passwordInput.forceActiveFocus()
+
+                        Text {
+                            text: "Network name"
+                            font: ssidInput.font
+                            color: MColors.textTertiary
+                            visible: ssidInput.text.length === 0 && !ssidInput.activeFocus
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
                     }
 
                     Row {
@@ -158,7 +189,17 @@ Item {
                         }
 
                         Text {
+                            visible: !hiddenMode
                             text: signalStrength >= 75 ? "Excellent" : signalStrength >= 50 ? "Good" : signalStrength >= 25 ? "Fair" : "Weak"
+                            font.pixelSize: MTypography.sizeXSmall
+                            font.family: MTypography.fontFamily
+                            color: MColors.textTertiary
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Text {
+                            visible: hiddenMode
+                            text: "Hidden"
                             font.pixelSize: MTypography.sizeXSmall
                             font.family: MTypography.fontFamily
                             color: MColors.textTertiary
@@ -351,11 +392,13 @@ Item {
 
                     signal clicked
 
+                    readonly property bool joinable: !isConnecting && (!secured || passwordInput.text.length >= 8) && (!hiddenMode || ssidInput.text.length > 0)
+
                     width: (parent.width - Constants.spacingMedium) / 2
                     height: parent.height
                     radius: Constants.borderRadiusSmall
-                    color: (secured && passwordInput.text.length < 8) || isConnecting ? Qt.darker(MColors.accent, 1.5) : MColors.accent
-                    opacity: (secured && passwordInput.text.length < 8) || isConnecting ? 0.5 : 1
+                    color: joinable ? MColors.accent : Qt.darker(MColors.accent, 1.5)
+                    opacity: joinable ? 1 : 0.5
 
                     Text {
                         text: "Connect"
@@ -368,7 +411,7 @@ Item {
 
                     MouseArea {
                         anchors.fill: parent
-                        enabled: !isConnecting && (!secured || passwordInput.text.length >= 8)
+                        enabled: connectButton.joinable
                         onClicked: {
                             Logger.info("WiFiDialog", "Connect clicked for: " + networkSsid);
                             HapticManager.medium();
@@ -420,6 +463,7 @@ Item {
             script: {
                 wifiDialog.visible = false;
                 passwordInput.text = "";
+                ssidInput.text = "";
                 errorMessage = "";
                 isConnecting = false;
             }
