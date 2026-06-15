@@ -159,7 +159,7 @@ MApp {
             MTabBar {
                 id: tabBar
                 anchors.bottom: parent.bottom
-                active: 0
+                activeTab: 0
                 tabs: [
                     {
                         icon: "inbox",
