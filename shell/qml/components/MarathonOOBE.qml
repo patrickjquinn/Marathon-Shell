@@ -1043,20 +1043,9 @@ Item {
             property string confirmedPin: ""
             readonly property string currentPin: stage === "enter" ? enteredPin : confirmedPin
 
-            // Even on standard-aspect phones the OOBE chrome (page-dots
-            // footer + Back/Next bar) eats the bottom ~120 px, so the
-            // 70 px design key + dot indicators + title block + Next
-            // button no longer fits and the 7-8-9 row clips. Use the
-            // compact key size (56) on every screen here; the lock-
-            // screen unlock page still uses 70 px because it has the
-            // full canvas to itself.
-            readonly property bool isCompact: true
+            readonly property bool isCompact: oobeRoot.compactLayout
             readonly property real dotSize: Math.round((isCompact ? 12 : 16) * Constants.scaleFactor)
-            // keySize is passed as buttonSize to MCircularIconButton —
-            // the component multiplies by Constants.scaleFactor internally,
-            // so we MUST pass design px here. Pre-scaling produced sf²
-            // (≈ 2.5×) buttons that overflowed and clipped one another.
-            readonly property real keySize: 56
+            readonly property real keySize: isCompact ? 56 : 70
             // Scaled size for cell-container Items (the spacer at row 4 col 0
             // and the +/-/dot keys). Must be ≥ MCircularIconButton's full
             // chrome size (buttonSize × sf + halo), so the layout reserves
@@ -1113,7 +1102,7 @@ Item {
                 }
             }
 
-            Column {
+            ColumnLayout {
                 anchors.fill: parent
                 anchors.topMargin: Math.round((passcodePage.isCompact ? 32 : 56) * Constants.scaleFactor)
                 anchors.leftMargin: Math.round(28 * Constants.scaleFactor)
@@ -1121,14 +1110,14 @@ Item {
                 spacing: Math.round((passcodePage.isCompact ? 14 : 22) * Constants.scaleFactor)
 
                 Icon {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    Layout.alignment: Qt.AlignHCenter
                     name: "lock"
                     size: Math.round((passcodePage.isCompact ? 36 : 48) * Constants.scaleFactor)
                     color: MColors.marathonTealBright
                 }
 
                 Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    Layout.alignment: Qt.AlignHCenter
                     text: passcodePage.stage === "enter" ? "Create a passcode" : "Confirm passcode"
                     font.pixelSize: MTypography.sizeTitle2
                     font.weight: MTypography.weightExtraLight
@@ -1139,21 +1128,19 @@ Item {
                 }
 
                 Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    Layout.fillWidth: true
                     text: passcodePage.stage === "enter" ? "Used to unlock your device after sleep." : "Re-enter the same passcode."
                     font.pixelSize: MTypography.sizeSubhead
                     font.family: MTypography.fontFamily
                     color: MColors.textSecondary
                     horizontalAlignment: Text.AlignHCenter
-                    width: parent.width
                     wrapMode: Text.WordWrap
                 }
 
                 // PIN-progress dots — fill teal as digits are entered.
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                RowLayout {
+                    Layout.alignment: Qt.AlignHCenter
                     spacing: Math.round(14 * Constants.scaleFactor)
-                    topPadding: Math.round(6 * Constants.scaleFactor)
 
                     Repeater {
                         model: passcodePage.maxLength
@@ -1161,8 +1148,8 @@ Item {
                         Rectangle {
                             required property int index
 
-                            width: passcodePage.dotSize
-                            height: passcodePage.dotSize
+                            Layout.preferredWidth: passcodePage.dotSize
+                            Layout.preferredHeight: passcodePage.dotSize
                             radius: width / 2
                             color: index < passcodePage.currentPin.length ? MColors.marathonTealBright : "transparent"
                             border.width: 1
@@ -1186,77 +1173,97 @@ Item {
                 }
 
                 Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    Layout.alignment: Qt.AlignHCenter
                     visible: oobeRoot.passcodeError.length > 0
                     text: oobeRoot.passcodeError
                     color: MColors.error
                     font.pixelSize: MTypography.sizeFootnote
                     font.family: MTypography.fontFamily
-                    height: visible ? implicitHeight : 0
                 }
 
-                // Numeric keypad — 1-9 grid, then [empty | 0 | delete] row.
-                Grid {
-                    anchors.horizontalCenter: parent.horizontalCenter
+                GridLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.alignment: Qt.AlignHCenter
                     columns: 3
                     columnSpacing: passcodePage.keySpacing
                     rowSpacing: passcodePage.keySpacing
-                    topPadding: Math.round(6 * Constants.scaleFactor)
 
                     Repeater {
                         model: ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-                        MCircularIconButton {
+                        Item {
                             required property string modelData
 
-                            text: modelData
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.maximumWidth: passcodePage.scaledKeyCell
+                            Layout.maximumHeight: passcodePage.scaledKeyCell
+
+                            MCircularIconButton {
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width, parent.height)
+                                height: width
+                                text: modelData
+                                buttonSize: passcodePage.keySize
+                                iconSize: passcodePage.isCompact ? 22 : 28
+                                variant: "secondary"
+                                textColor: MColors.textPrimary
+                                onClicked: passcodePage.appendDigit(modelData)
+                            }
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.maximumWidth: passcodePage.scaledKeyCell
+                        Layout.maximumHeight: passcodePage.scaledKeyCell
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.maximumWidth: passcodePage.scaledKeyCell
+                        Layout.maximumHeight: passcodePage.scaledKeyCell
+
+                        MCircularIconButton {
+                            anchors.centerIn: parent
+                            width: Math.min(parent.width, parent.height)
+                            height: width
+                            text: "0"
                             buttonSize: passcodePage.keySize
                             iconSize: passcodePage.isCompact ? 22 : 28
                             variant: "secondary"
                             textColor: MColors.textPrimary
-                            onClicked: passcodePage.appendDigit(modelData)
+                            onClicked: passcodePage.appendDigit("0")
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.maximumWidth: passcodePage.scaledKeyCell
+                        Layout.maximumHeight: passcodePage.scaledKeyCell
+
+                        MCircularIconButton {
+                            anchors.centerIn: parent
+                            width: Math.min(parent.width, parent.height)
+                            height: width
+                            iconName: "delete"
+                            buttonSize: passcodePage.keySize
+                            iconSize: passcodePage.isCompact ? 20 : 24
+                            variant: "secondary"
+                            iconColor: MColors.textSecondary
+                            enabled: passcodePage.currentPin.length > 0
+                            onClicked: passcodePage.deleteDigit()
                         }
                     }
                 }
 
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: passcodePage.keySpacing
-
-                    Item {
-                        width: passcodePage.scaledKeyCell
-                        height: passcodePage.scaledKeyCell
-                    }
-
-                    MCircularIconButton {
-                        text: "0"
-                        buttonSize: passcodePage.keySize
-                        iconSize: passcodePage.isCompact ? 22 : 28
-                        variant: "secondary"
-                        textColor: MColors.textPrimary
-                        onClicked: passcodePage.appendDigit("0")
-                    }
-
-                    MCircularIconButton {
-                        iconName: "delete"
-                        buttonSize: passcodePage.keySize
-                        iconSize: passcodePage.isCompact ? 20 : 24
-                        variant: "secondary"
-                        iconColor: MColors.textSecondary
-                        enabled: passcodePage.currentPin.length > 0
-                        onClicked: passcodePage.deleteDigit()
-                    }
-                }
-
-                Item {
-                    width: parent.width
-                    height: Math.round(8 * Constants.scaleFactor)
-                }
-
-                // Primary action — context-aware text + state.
                 MButton {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.round(220 * Constants.scaleFactor)
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: Math.round(220 * Constants.scaleFactor)
                     text: passcodePage.stage === "enter" ? "Next" : "Set passcode"
                     variant: "primary"
                     disabled: passcodePage.currentPin.length < passcodePage.requiredLength
