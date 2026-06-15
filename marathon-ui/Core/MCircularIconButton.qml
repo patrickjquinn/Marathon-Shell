@@ -22,6 +22,10 @@ Item {
     readonly property real scaledIconSize: Math.round(iconSize * scaleFactor)
     readonly property real scaledBorderSize: Math.round(3 * scaleFactor)
     readonly property bool hasText: text !== ""
+    readonly property real haloPadding: scaledBorderSize + Math.round(3 * scaleFactor)
+    readonly property real renderDiameter: Math.min(width, height)
+    readonly property real innerDiameter: Math.max(0, renderDiameter - haloPadding * 2)
+    readonly property real effectiveIconSize: Math.min(scaledIconSize, Math.floor(innerDiameter * 0.5))
 
     signal clicked
 
@@ -32,13 +36,13 @@ Item {
             clicked();
         }
     }
-    implicitWidth: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
-    implicitHeight: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
+    implicitWidth: scaledButtonSize + haloPadding * 2
+    implicitHeight: implicitWidth
 
     Rectangle {
         anchors.centerIn: parent
-        width: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
-        height: scaledButtonSize + (scaledBorderSize * 2) + Math.round(6 * scaleFactor)
+        width: root.renderDiameter
+        height: root.renderDiameter
         radius: width / 2
         color: "transparent"
         border.width: scaledBorderSize
@@ -50,8 +54,8 @@ Item {
         id: mainButton
 
         anchors.centerIn: parent
-        width: scaledButtonSize
-        height: scaledButtonSize
+        width: root.innerDiameter
+        height: root.innerDiameter
         radius: width / 2
         color: {
             if (disabled)
@@ -121,7 +125,7 @@ Item {
         Icon {
             visible: !hasText
             name: root.iconName
-            size: scaledIconSize
+            size: root.effectiveIconSize
             color: {
                 if (disabled)
                     return MColors.textHint;
@@ -152,7 +156,7 @@ Item {
 
                 return textColor;
             }
-            font.pixelSize: scaledIconSize
+            font.pixelSize: root.effectiveIconSize
             font.weight: Font.Light
             font.family: MTypography.fontFamily
             anchors.centerIn: parent
