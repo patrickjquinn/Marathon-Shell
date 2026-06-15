@@ -327,15 +327,26 @@ void SettingsManager::setUnifiedPushFallbackEnabled(bool enabled) {
 }
 
 void SettingsManager::setUserScaleFactor(qreal factor) {
-    if (qFuzzyCompare(m_userScaleFactor, factor)) {
+    // Clamp to the union of every scale the OOBE + Settings ScalePage
+    // expose (0.75 .. 1.5). A corrupt or out-of-band value reaching
+    // save() would persist nonsense to the user's conf and the next
+    // load() would feed it back into every layout binding — better to
+    // reject at the door and log the offender than to plaster it across
+    // disk and chase the symptom later.
+    const qreal clamped = qBound<qreal>(0.5, factor, 2.0);
+    if (!qFuzzyCompare(clamped, factor)) {
+        qWarning() << "[SettingsManager] userScaleFactor" << factor << "out of range, clamped to"
+                   << clamped;
+    }
+    if (qFuzzyCompare(m_userScaleFactor, clamped)) {
         return;
     }
 
-    m_userScaleFactor = factor;
+    m_userScaleFactor = clamped;
     save();
     emit userScaleFactorChanged();
 
-    qDebug() << "[SettingsManager] userScaleFactor changed to" << factor;
+    qInfo() << "[SettingsManager] userScaleFactor persisted at" << clamped;
 }
 
 void SettingsManager::setWallpaperPath(const QString &path) {
