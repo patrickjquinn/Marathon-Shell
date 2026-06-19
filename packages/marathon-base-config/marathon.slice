@@ -10,7 +10,13 @@ Description=Marathon Shell — delegated cgroup root
 # machine still runs, just without real CPU/wakeup throttling).
 
 [Slice]
-Delegate=yes
+# NOTE: Delegate= is NOT supported on slice units — only on scope and
+# service units (systemd.io/CGROUP_DELEGATION). Setting it here caused
+# systemd to log "Delegate= setting not supported for this unit type,
+# ignoring" 4× on every shell start. Delegation is granted by the
+# scope that marathon-shell-session creates via
+# `systemd-run --user --scope --slice=marathon.slice --property=Delegate=yes`
+# — the scope unit honours Delegate, the slice doesn't need to.
 # Defense in depth: let systemd-oomd reclaim from this slice under
 # memory pressure even if our PSI listener is offline.
 ManagedOOMMemoryPressure=kill

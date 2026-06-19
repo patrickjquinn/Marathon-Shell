@@ -4,8 +4,11 @@
 # Set Kyber scheduler on all mmcblk devices
 ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/scheduler}="kyber"
 
-# Enable I/O polling (test per device - may help latency on some controllers)
-ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/io_poll}="1"
+# I/O polling DOES NOT apply to MMC — the mmc block driver doesn't
+# implement the poll_fn op, so writing 1 to queue/io_poll returns EINVAL
+# (logged at boot as "Failed to write \"1\" to sysfs attribute"). Keep
+# the polling enable for NVMe-class block devices only.
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="nvme*", ATTR{queue/io_poll}="1"
 
 # Set read-ahead to 128KB for better sequential performance
 ACTION=="add|change", KERNEL=="mmcblk[0-9]", ATTR{queue/read_ahead_kb}="128"
