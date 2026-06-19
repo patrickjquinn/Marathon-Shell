@@ -1,7 +1,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-plymouth-theme
 pkgver=1.0.0
-pkgrel=5
+pkgrel=7
 pkgdesc="Marathon OS boot splash for plymouth"
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
@@ -9,9 +9,10 @@ arch="noarch"
 options="!check"
 depends="plymouth"
 # We override /usr/share/plymouth/plymouthd.defaults (owned by the
-# upstream plymouth package) so the Marathon theme is the actual
-# default — apk needs explicit replaces= permission for the overlap.
-replaces="plymouth"
+# upstream plymouth package AND by postmarketos-bootsplash, the latter
+# pulled in transitively by postmarketos-duranium-initramfs). apk needs
+# explicit replaces= permission for the overlap.
+replaces="plymouth postmarketos-bootsplash"
 install="$pkgname.post-install $pkgname.post-upgrade"
 source="
 	marathon.plymouth
@@ -53,6 +54,14 @@ package() {
 		Theme=marathon
 		ShowDelay=0
 		DeviceTimeout=8
+		# On the HackberryPi CM5 + HyperPixel, plymouth's auto-renderer picks
+		# /dev/dri/card0 (vc4 HDMI, disconnected) instead of /dev/dri/card2
+		# (rp1-dpi, the actual HyperPixel) because card0 sorts first. The
+		# drm renderer then can't find a CRTC and silently falls back to no
+		# visible output. Setting Renderer=fbdev tells plymouth to render
+		# into /dev/fb0 instead — that fb is wired to fbcon on the rp1-dpi
+		# panel, so the Marathon splash lands directly on the HyperPixel.
+		Renderer=fbdev
 	EOF
 	chmod 644 "$pkgdir/usr/share/plymouth/plymouthd.defaults"
 
@@ -64,6 +73,7 @@ package() {
 	cat > "$pkgdir/usr/share/factory/etc/plymouth/plymouthd.conf" <<-EOF
 		[Daemon]
 		Theme=marathon
+		Renderer=fbdev
 	EOF
 	chmod 644 "$pkgdir/usr/share/factory/etc/plymouth/plymouthd.conf"
 
