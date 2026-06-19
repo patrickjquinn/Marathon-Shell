@@ -8,7 +8,7 @@ systemctl enable greetd
 systemctl enable NetworkManager
 systemctl enable ModemManager  2>/dev/null || true
 systemctl enable upower
-systemctl enable iwd            2>/dev/null || true
+# iwd intentionally NOT enabled — NetworkManager uses wpa_supplicant.
 systemctl enable bluetooth      2>/dev/null || true
 systemctl enable pipewire
 systemctl enable pipewire-pulse

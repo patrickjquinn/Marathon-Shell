@@ -1,0 +1,31 @@
+# Marathon Shell — generic Pi 5 / CM5 user config.
+#
+# Loaded via the standard Raspberry Pi firmware include chain
+# (raspberrypi-bootloader's /boot/config.txt sources /boot/usercfg.txt).
+#
+# Enclosure-specific overrides (HyperPixel panel, BBQ keyboard, MAX17048
+# battery) live in device-hackberrypi-cm5-marathon and load via the
+# `include usercfg-hackberrypi.txt` line at the bottom.
+
+# v3d KMS — required for OpenGL ES under Wayland (Marathon's eglfs KMS
+# backend renders through this).
+dtoverlay=vc4-kms-v3d
+
+# GPU memory split — 128M leaves enough headroom for KMS planes plus
+# QtWebEngine's compositor.
+gpu_mem=128
+
+# CPU boost. Pi 5 stock arm_freq is 2.4 GHz. arm_boost=1 is a no-op on
+# this SoC (Pi 4 / Pi 400 only — confirmed by Pi engineer PhilE on the
+# forum, raspi-config has no Pi 5 overclock branch either). The
+# equivalent on Pi 5 is firmware-side: set arm_freq + over_voltage_delta
+# explicitly. 2.6 GHz with +10 mV delta is the documented stable boost
+# ceiling for stock cooling. SkatterBencher 77 validated 3000 MHz with
+# better cooling — Marathon stays conservative for thermal headroom.
+arm_freq=2600
+over_voltage_delta=10000
+
+# HackberryPi enclosure overrides — silently skipped if the file isn't
+# shipped (raspberrypi firmware tolerates missing includes), activated
+# when device-hackberrypi-cm5-marathon is installed.
+include usercfg-hackberrypi.txt

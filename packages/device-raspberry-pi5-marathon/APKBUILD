@@ -2,29 +2,32 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 
 pkgname=device-raspberry-pi5-marathon
-pkgdesc="Raspberry Pi 5 / HackberryPi CM5 - Marathon OS Edition"
+pkgdesc="Raspberry Pi 5 / CM5 — Marathon OS base port (no enclosure)"
 pkgver=1.0.0
-pkgrel=5
+pkgrel=7
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
 options="!check !archcheck"
 # Override /boot/usercfg.txt that device-raspberry-pi5 ships (a stub
 # that just suggests where user configs go). We need ours to take
-# precedence so the HyperPixel + KMS overlays land in /boot.
+# precedence so the KMS overlay + boost knobs land in /boot.
 replaces="device-raspberry-pi5"
+# This package is the GENERIC Pi 5 / CM5 base. HackberryPi enclosure
+# specifics (HyperPixel panel, MAX17048 fuel gauge, BBQ keyboard
+# requirements) live in device-hackberrypi-cm5-marathon, which depends
+# on this and layers its own DT overlay + usercfg-hackberrypi.txt on
+# top via the include directive at the bottom of our usercfg.txt.
+#
 # Notes on the depends list:
 #   - device-raspberry-pi5 pulls postmarketos-base + raspberrypi-bootloader
-#     + linux-rpi. The CM5 uses the same BCM2712 as the Pi 5, so this is
-#     the right base.
-#   - The HyperPixel-style DPI panel + RP2040 USB-HID keyboard come from
-#     the ZitaoTech HackberryPi CM5 carrier. The panel is driven via the
-#     hackberrypi.dtbo overlay (vendored, applied at firmware stage); the
-#     keyboard works out of the box as USB HID.
+#     + linux-rpi. The CM5 uses the same BCM2712 as the Pi 5.
 #   - marathon-shell + marathon-base-config + marathon-boot-logo +
 #     marathon-plymouth-theme + plymouth + the runtime stack mirror the
-#     OnePlus 6 / Librem 5 overlay aports for consistency across all
-#     Marathon devices.
+#     OnePlus 6 / Librem 5 overlay aports for consistency.
+#   - iwd intentionally absent — NetworkManager uses wpa_supplicant,
+#     and iwd auto-enables a colliding nl80211 client (see
+#     marathon-base-config preset).
 depends="
 	device-raspberry-pi5
 	marathon-shell
@@ -38,7 +41,6 @@ depends="
 	networkmanager-cli
 	modemmanager
 	upower
-	iwd
 	wireless-tools
 	wpa_supplicant
 	bluez
@@ -53,7 +55,6 @@ source="
 	greetd-marathon.toml
 	logind.conf
 	usercfg.txt
-	hackberrypi.dtbo
 	"
 
 package() {
@@ -70,40 +71,18 @@ package() {
 	# HyperPixel + KMS overlay activation via standard Raspberry Pi
 	# firmware include chain (raspberrypi-bootloader's /boot/config.txt
 	# sources /boot/usercfg.txt). device-raspberry-pi5 ships a stub
-	# usercfg.txt; we OVERRIDE it (replaces= directive above) to enable
-	# Marathon's overlays.
+	# usercfg.txt; we OVERRIDE it (replaces= directive above).
+	#
+	# The file ends with `include usercfg-hackberrypi.txt` — Pi firmware
+	# silently skips missing includes, so the line is a no-op on a
+	# vanilla Pi 5 / CM5 and activates HackberryPi panel + battery + USB
+	# OTG overrides when device-hackberrypi-cm5-marathon is installed.
 	install -Dm644 "$srcdir/usercfg.txt" \
 		"$pkgdir/boot/usercfg.txt"
-
-	# hackberrypi.dtbo: Marathon's compiled overlay (hackberrypi.dts
-	# in this aport). Equivalent to ZitaoTech's stock for the 720x720
-	# HyperPixel + edt-ft5x06 touch on GPIO 10/11 i2c-gpio, PLUS adds
-	# the MAX17048 fuel gauge node (compatible="maxim,max17048" @ 0x36
-	# on the same bus). ZitaoTech's stock dtbo omits the fuel gauge
-	# which is why on-CM5 Marathon kept showing 0% in the status bar —
-	# diagnosed 2026-05-20.
-	install -Dm644 "$srcdir/hackberrypi.dtbo" \
-		"$pkgdir/boot/overlays/hackberrypi.dtbo"
-
-	# Auto-load the MAX17040/MAX17048 fuel-gauge driver at boot. The
-	# kernel ships it as CONFIG_BATTERY_MAX17040=m and the dtoverlay
-	# declares the chip on i2c-1 @ 0x36, but the module isn't loaded
-	# by udev modalias matching alone in some pmOS configs. Forcing
-	# the load via modules-load.d guarantees /sys/class/power_supply/
-	# gets a battery entry that UPower picks up and Marathon shows
-	# in the status bar (was sitting at 0% because no power_supply
-	# node existed — diagnosed on real CM5 hardware 2026-05-20).
-	mkdir -p "$pkgdir/usr/lib/modules-load.d"
-	cat > "$pkgdir/usr/lib/modules-load.d/marathon-cm5-fuelgauge.conf" <<-EOF
-		# MAX17048 LiPo fuel-gauge on the Hackberry CM5 — i2c-1 @ 0x36.
-		# CONFIG_BATTERY_MAX17040=m in linux-rpi.
-		max17040_battery
-	EOF
 }
 
 sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-c2b2f4a11c2aef1276336fa77f4f5049ae63abb4ace0c921c19b1ed7c186b408ae170c6f6ca9b12715765aa8d89ebd39f18d9c703c1259ddcb878820a2df301d  usercfg.txt
-de7bc200a19810d9f003a63a61cd9c3a57b025a8d54d65b530d5687d431d3f1c7a16da923ce0417acef289d8ee70f6863164222dd6f67c8ad503c75258ddb94e  hackberrypi.dtbo
+e55c325b2ba38df1b83321cb37c2844372135eef8c43935e1715b3b7b275f37002bee77f8a6956460c1adc6d9ab801453582f132dbcbebec298b5be013fdf219  usercfg.txt
 "
