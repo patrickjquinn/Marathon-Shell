@@ -119,7 +119,22 @@ Item {
         // App-grid pages start at index 2 → currentPage 0, 1, 2…
         property int currentPage: currentIndex - 2
         property bool isGestureActive: false
-        property int pageCount: Math.ceil(sharedAppModel.count / 16)
+        // Items per page = MarathonAppGrid.columns × rows. Hardcoding 16
+        // (= 4×4) worked accidentally on phone canvas at scale 1.25 but
+        // broke on the HyperPixel 720×720 where the grid is 4×4 at scale
+        // 1.25 but 5×5 at scale 1.0. With the wrong divisor pageCount
+        // returned 1 for a 13-app set that needs 2 pages and swipe to
+        // page 2 silently did nothing. Replicate MarathonAppGrid's
+        // columns × rows math here (Constants + SettingsManagerCpp are
+        // singletons; same inputs → same answer).
+        property real _userScale: SettingsManagerCpp.userScaleFactor
+        property int _baseCols: Constants.screenWidth < 700 ? 4 : Constants.screenWidth < 900 ? 5 : 6
+        property int _baseRows: Constants.screenWidth < 700 ? 4 : 5
+        property real _scaleDivisor: Math.max(1.0, _userScale)
+        property int _gridCols: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : Math.max(3, Math.floor(_baseCols / _scaleDivisor))
+        property int _gridRows: Math.max(4, Math.floor(_baseRows / _scaleDivisor))
+        property int _itemsPerPage: _gridCols * _gridRows
+        property int pageCount: Math.max(1, Math.ceil(sharedAppModel.count / _itemsPerPage))
 
         anchors.fill: parent
         orientation: ListView.Horizontal

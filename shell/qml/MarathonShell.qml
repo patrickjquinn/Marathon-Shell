@@ -792,7 +792,7 @@ Item {
                     Logger.nav("page" + shell.currentPage, "page" + currentPage, "navigation");
                     if (currentPage >= 0) {
                         shell.currentPage = pageView.internalAppGridPage;
-                        shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16));
+                        shell.totalPages = pageView.pageCount;
                     } else {
                         shell.currentPage = currentPage;
                     }
@@ -807,7 +807,7 @@ Item {
                     AppLaunchService.launchApp(app, compositor, appWindow);
                 }
                 Component.onCompleted: {
-                    shell.totalPages = Math.max(1, Math.ceil(AppModel.count / 16));
+                    shell.totalPages = pageView.pageCount;
                 }
             }
 
