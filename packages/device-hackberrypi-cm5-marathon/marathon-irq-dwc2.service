@@ -1,0 +1,25 @@
+[Unit]
+Description=Pin dwc2 USB IRQ away from CPU0 (BlackBerry HID polling)
+Documentation=https://www.kernel.org/doc/html/latest/core-api/irq/irq-affinity.html
+DefaultDependencies=no
+After=sysinit.target
+Before=basic.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Pi 5 dwc2 sits on the BCM2712 GIC (SPI 73), not the rp1 IRQ controller,
+# so unlike rp1-routed IRQs (which silently refuse affinity writes — see
+# raspberrypi/linux issue #7101), this one is fully steerable. The
+# BlackBerry HID polled at ~250 Hz drives this line continuously; before
+# steering, CPU0 took 4.3 M dwc2 hits in 35 min and 0 went to CPU1–3.
+# Mask 'e' = 0b1110 → CPUs 1, 2, 3 (excludes 0). Match by IRQ name
+# (dwc2_hsotg) because the kernel-assigned IRQ number drifts between
+# linux-rpi releases.
+ExecStart=/bin/sh -c '\
+    irq=$(awk -F: "/dwc2/ {gsub(/ /, \"\", $1); print $1; exit}" /proc/interrupts); \
+    [ -n "$irq" ] && echo e > /proc/irq/$irq/smp_affinity 2>/dev/null || true; \
+    exit 0'
+
+[Install]
+WantedBy=sysinit.target

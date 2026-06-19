@@ -1,0 +1,73 @@
+# Reference: <https://postmarketos.org/devicepkg>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+
+pkgname=device-hackberrypi-cm5-marathon
+pkgdesc="HackberryPi CM5 enclosure layer for Marathon OS (panel + battery + BBQ kbd)"
+pkgver=1.0.0
+pkgrel=2
+url="https://github.com/patrickjquinn/Marathon-Image"
+license="MIT"
+arch="aarch64"
+options="!check !archcheck"
+# Layered on top of the generic Pi 5 / CM5 base. Vanilla Pi 5 / CM5 dev
+# boards don't install this; they get device-raspberry-pi5-marathon
+# only and the include line in /boot/usercfg.txt silently no-ops.
+depends="
+	device-raspberry-pi5-marathon
+"
+makedepends="dtc"
+install="$pkgname.post-install"
+source="
+	hackberrypi.dts
+	usercfg-hackberrypi.txt
+	marathon-irq-dwc2.service
+	marathon-cm5-fuelgauge.conf
+	"
+
+build() {
+	# Compile the device-tree overlay. We ship .dts (the source of
+	# truth) and build .dtbo here so source review catches DT changes,
+	# not opaque binary diffs. abuild doesn't auto-create $builddir for
+	# noarch-style aports with no archive — make it ourselves.
+	mkdir -p "$builddir"
+	dtc -@ -I dts -O dtb -o "$builddir/hackberrypi.dtbo" \
+		"$srcdir/hackberrypi.dts"
+}
+
+package() {
+	# Device tree overlay — HyperPixel panel + edt-ft5x06 touch +
+	# MAX17048 fuel gauge + pwm-backlight on rp1_pwm0 ch3 / GPIO19.
+	install -Dm644 "$builddir/hackberrypi.dtbo" \
+		"$pkgdir/boot/overlays/hackberrypi.dtbo"
+
+	# Enclosure-specific config.txt fragment. /boot/usercfg.txt
+	# (shipped by device-raspberry-pi5-marathon) ends with
+	#   include usercfg-hackberrypi.txt
+	# which Pi firmware loads from /boot/. Silently skipped if this
+	# file isn't shipped (vanilla CM5 dev board).
+	install -Dm644 "$srcdir/usercfg-hackberrypi.txt" \
+		"$pkgdir/boot/usercfg-hackberrypi.txt"
+
+	# IRQ steering oneshot — pin dwc2 USB IRQ away from CPU0 so the
+	# BlackBerry HID polling load doesn't saturate the compositor's
+	# CPU. Pi 5 dwc2 is on the BCM2712 GIC (NOT rp1-routed) so
+	# affinity is steerable.
+	install -Dm644 "$srcdir/marathon-irq-dwc2.service" \
+		"$pkgdir/usr/lib/systemd/system/marathon-irq-dwc2.service"
+	install -d "$pkgdir/usr/lib/systemd/system/sysinit.target.wants"
+	ln -sf /usr/lib/systemd/system/marathon-irq-dwc2.service \
+		"$pkgdir/usr/lib/systemd/system/sysinit.target.wants/marathon-irq-dwc2.service"
+
+	# Force-load the MAX17048 fuel-gauge module at boot. udev modalias
+	# matching is unreliable on linux-rpi here (the i2c-gpio bus
+	# enumerates after the modules-load.d phase on cold boot).
+	install -Dm644 "$srcdir/marathon-cm5-fuelgauge.conf" \
+		"$pkgdir/usr/lib/modules-load.d/marathon-cm5-fuelgauge.conf"
+}
+
+sha512sums="
+df26511eef4f0bb465eaff6eb19055ad03829e3e0a1f8cf6b97c5c9b65d59f14c26abe297073be7b41e2ab8d6b67988fb0b50b7d94634997cdcb66dce9816caf  hackberrypi.dts
+06dfeae9c12f6695c7e8c22cb1c74a8475edbcf3e6fcf0f47a7a3acfa28b24106a41f5d753a8168ef2fe9df8083fcb84dde09f6b40c94b4604222ae22840af45  usercfg-hackberrypi.txt
+17fbc185c528b305f4b4d29dd4119f15c58d1966a3e9b616cc37f8d7e6b72ca3f43ab31a9c4cd344713f8fa50336336edff78fb0cc1cec9325a38f9fd1bff91f  marathon-irq-dwc2.service
+c01c58dc77b79d63ed7994bd8c78bea44bf7060c49da91b2faef0fa46bcae989ea9c0b5f06c4ddee701c46f955a5fc406564ec917b09b54b1670c856c57386b2  marathon-cm5-fuelgauge.conf
+"
