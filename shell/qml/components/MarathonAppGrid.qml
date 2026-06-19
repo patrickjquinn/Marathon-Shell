@@ -20,16 +20,18 @@ Item {
     // readonly so column/row both bind to the same notifier and re-evaluate
     // together when the user changes Display Size.
     readonly property real _userScale: SettingsManagerCpp.userScaleFactor
-    property int columns: {
-        if (_userScale >= 1.25)
-            return 3;
-        return SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : (Constants.screenWidth < 700 ? 4 : (Constants.screenWidth < 900 ? 5 : 6));
-    }
-    property int rows: {
-        if (_userScale >= 1.25)
-            return 4;
-        return Constants.screenWidth < 700 ? 4 : 5;
-    }
+    // Bucket the base column/row count by canvas width — phone, small
+    // tablet (HyperPixel CM5 720×720), and wider. Higher userScale grows
+    // every icon's footprint proportionally, so fewer cells fit. Use
+    // floor(base / scale) but clamp the divisor at 1.0 so the grid never
+    // ADDS columns when scale drops below 1.0 — getting 6-wide on a phone
+    // at scale 0.7 would look absurd. Floor at 3 so the bottom row never
+    // collapses to a single icon when scale → 2.0 on a small canvas.
+    readonly property int _baseColumns: Constants.screenWidth < 700 ? 4 : Constants.screenWidth < 900 ? 5 : 6
+    readonly property int _baseRows: Constants.screenWidth < 700 ? 4 : 5
+    readonly property real _scaleDivisor: Math.max(1.0, _userScale)
+    property int columns: SettingsManagerCpp.appGridColumns > 0 ? SettingsManagerCpp.appGridColumns : Math.max(3, Math.floor(_baseColumns / _scaleDivisor))
+    property int rows: Math.max(4, Math.floor(_baseRows / _scaleDivisor))
     property int itemsPerPage: columns * rows
     property real searchPullProgress: 0
     property bool searchGestureActive: false
