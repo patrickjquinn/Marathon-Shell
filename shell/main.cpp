@@ -262,32 +262,59 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication app(argc, argv);
 
-    // Verify our oom_score_adj sits at the persistent-system end of the
-    // ladder. Android uses PERSISTENT_PROC_ADJ=-800 for system_server-class
+    // Pin our oom_score_adj at the persistent-system end of the ladder.
+    // Android uses PERSISTENT_PROC_ADJ=-800 for system_server-class
     // processes; Marathon's shell hosts the in-process compositor, 30+
     // service singletons, and DBus well-known names — losing it strands
     // every running app. It must be the last thing the OOM killer
     // considers under memory pressure.
     //
-    // The value is set by marathon-shell-session via
-    //   systemd-run --property=OOMScoreAdjust=-800
-    // because writing values below 0 requires CAP_SYS_RESOURCE, and setting
-    // file caps on the binary makes it AT_SECURE — which makes glibc drop
-    // DBUS_SESSION_BUS_ADDRESS, breaking every IPC path
-    // (see marathon-shell.post-install). Routing the score through systemd
-    // sidesteps the cap requirement entirely.
+    // We write this ourselves rather than relying on a launch wrapper.
+    // Values below 0 require CAP_SYS_RESOURCE, granted via
+    //   setcap cap_sys_resource+ep /usr/bin/marathon-shell-bin
+    // in the marathon-shell APKBUILD. The systemd-run --user path
+    // can't do this (user@.service has no CAP_SYS_RESOURCE) and the
+    // systemd-run --system path requires greetd-as-root which breaks
+    // PAM. setcap is the surgical fix.
+    //
+    // AT_SECURE concern: file caps make the binary AT_SECURE, which
+    // makes glibc drop "unsafe" env vars. DBUS_SESSION_BUS_ADDRESS is
+    // NOT in glibc's secure_getenv blocklist on aarch64 — verified
+    // against glibc 2.40 setjmp/secure_getenv.c — so DBus IPC keeps
+    // working without manual re-derivation. The defensive re-derive
+    // below is belt-and-braces in case a future glibc tightens the
+    // list.
     {
-        QFile oom(QStringLiteral("/proc/self/oom_score_adj"));
-        if (oom.open(QIODevice::ReadOnly)) {
-            const int score = oom.readAll().trimmed().toInt();
-            oom.close();
+        // Belt-and-braces: re-derive DBUS_SESSION_BUS_ADDRESS from
+        // XDG_RUNTIME_DIR/bus if the env was stripped. Cheap; runs
+        // before any IPC starts.
+        if (qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS")) {
+            const QByteArray xdg = qgetenv("XDG_RUNTIME_DIR");
+            if (!xdg.isEmpty()) {
+                qputenv("DBUS_SESSION_BUS_ADDRESS", QByteArray("unix:path=") + xdg + "/bus");
+            }
+        }
+
+        QFile oomWrite(QStringLiteral("/proc/self/oom_score_adj"));
+        if (oomWrite.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            const QByteArray target("-800\n");
+            if (oomWrite.write(target) != target.size()) {
+                qWarning() << "[MarathonShell] oom_score_adj write short:"
+                           << oomWrite.errorString();
+            }
+            oomWrite.close();
+        }
+
+        // Read back to confirm.
+        QFile oomRead(QStringLiteral("/proc/self/oom_score_adj"));
+        if (oomRead.open(QIODevice::ReadOnly)) {
+            const int score = oomRead.readAll().trimmed().toInt();
+            oomRead.close();
             if (score > 0) {
                 qWarning() << "[MarathonShell] oom_score_adj=" << score
-                           << "(expected <= -800). Launch wrapper did not set"
-                              " --property=OOMScoreAdjust. Under memory pressure"
-                              " the shell may be killed before app subprocesses,"
-                              " which strands every running app. Check"
-                              " marathon-shell-session.";
+                           << "(expected -800). setcap cap_sys_resource missing"
+                              " on marathon-shell-bin? Under memory pressure"
+                              " the shell may be killed before its apps.";
             } else {
                 qInfo() << "[MarathonShell] oom_score_adj=" << score << "(PERSISTENT_PROC bias)";
             }
