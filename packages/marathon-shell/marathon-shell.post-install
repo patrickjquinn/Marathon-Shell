@@ -3,13 +3,18 @@
 #
 # - Refresh ld cache (Marathon ships extra .so libs under /usr/lib).
 # - Reload udev so the 90-backlight.rules apply on the running system.
+# - setcap cap_sys_resource on marathon-shell-bin so it can write
+#   oom_score_adj=-800 (PERSISTENT_PROC bias) at startup. setting this
+#   in the APKBUILD's package() does work — apk preserves file caps via
+#   xattrs since 2.13 — but doing it here is belt-and-braces against
+#   xattr stripping on weird rootfs (and idempotent).
 #
 # RT scheduling: granted via /etc/security/limits.d/99-marathon-rtprio.conf
-# (pam_limits) rather than per-binary file capabilities. File caps mark the
-# binary as AT_SECURE, which causes glibc to drop "tainted" env vars and
-# breaks Qt's QDBusConnection::sessionBus() -- DBUS_SESSION_BUS_ADDRESS comes
-# from the environment, and without it the shell silently fails to register
-# org.marathonos.Shell, breaking every app's IPC. See docs/RT_SCHEDULING.md.
+# (pam_limits) rather than per-binary file capabilities. cap_sys_resource
+# IS set, but DBUS_SESSION_BUS_ADDRESS is NOT in glibc's secure_getenv
+# blocklist (verified against glibc 2.40 setjmp/secure_getenv.c on
+# aarch64), and main.cpp re-derives it from XDG_RUNTIME_DIR as
+# defence-in-depth, so AT_SECURE no longer breaks the IPC path.
 
 if command -v ldconfig >/dev/null 2>&1; then
     ldconfig
@@ -18,6 +23,10 @@ fi
 if command -v udevadm >/dev/null 2>&1; then
     udevadm control --reload-rules 2>/dev/null || true
     udevadm trigger 2>/dev/null || true
+fi
+
+if command -v setcap >/dev/null 2>&1 && [ -x /usr/bin/marathon-shell-bin ]; then
+    setcap cap_sys_resource+ep /usr/bin/marathon-shell-bin 2>/dev/null || true
 fi
 
 # Refresh the AT-SPI bus so accessibility comes up on first boot.

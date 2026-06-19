@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=173
+pkgrel=180
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -206,6 +206,15 @@ package() {
 	# /usr/local -- make sure /usr/bin/marathon-shell-session is OUR pmOS one).
 	install -Dm755 "$srcdir/marathon-shell-session" \
 		"$pkgdir/usr/bin/marathon-shell-session"
+
+	# Grant CAP_SYS_RESOURCE on marathon-shell-bin so the shell can write
+	# oom_score_adj=-800 (PERSISTENT_PROC bias) at startup. user@.service
+	# has no caps and writes below 0 to /proc/self/oom_score_adj need
+	# CAP_SYS_RESOURCE. apk preserves file caps via xattrs since 2.13;
+	# post-install re-applies for belt-and-braces.
+	if command -v setcap >/dev/null 2>&1; then
+		setcap cap_sys_resource+ep "$pkgdir/usr/bin/marathon-shell-bin" 2>/dev/null || true
+	fi
 
 	# QEMU/test-only synthetic touch driver. Creates a virtual touchscreen
 	# via /dev/uinput so the QEMU automation harness can drive real
