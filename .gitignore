@@ -11,6 +11,13 @@ build-*/
 *.txt
 !BUILD_INSTRUCTIONS.txt
 !CONTRIBUTING.txt
+# Aport source files under packages/ are not scratch — usercfg.txt,
+# config.txt, CMakeLists.txt etc. ship inside .apk's. Without this
+# negation a new aport adding a *.txt source silently fails to be
+# tracked (caught 2026-06-19: device-hackberrypi-cm5-marathon's
+# usercfg-hackberrypi.txt + the long-orphaned device-raspberry-pi5-
+# marathon usercfg.txt).
+!packages/**/*.txt
 
 # Temporary progress tracking files (vibe coding prevention)
 *BUILD_COMPLETE*.md
