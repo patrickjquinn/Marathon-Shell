@@ -871,18 +871,22 @@ Item {
                             name: "clock"
                             size: Math.round(24 * Constants.scaleFactor)
                             color: MColors.text
+                            Layout.alignment: Qt.AlignVCenter
                         }
 
                         Text {
                             Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
                             text: "Time Format"
                             font.pixelSize: MTypography.sizeLarge
                             font.family: MTypography.fontFamily
                             color: MColors.text
                             elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
                         }
 
                         MButton {
+                            Layout.alignment: Qt.AlignVCenter
                             text: "12h"
                             variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
                             size: "small"
@@ -893,6 +897,7 @@ Item {
                         }
 
                         MButton {
+                            Layout.alignment: Qt.AlignVCenter
                             text: "24h"
                             variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
                             size: "small"
@@ -1000,11 +1005,15 @@ Item {
             StackLayout {
                 id: coachmarkStack
 
-                anchors.top: gesturesHeader.bottom
-                anchors.topMargin: MSpacing.xl
+                // Dots moved to the top — anchor the stack below the dots
+                // instead of above them, and let it run to the bottom of
+                // the page so the per-coachmark Item + Next button has the
+                // full vertical breathing room.
+                anchors.top: coachmarkDots.bottom
+                anchors.topMargin: MSpacing.lg
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.bottom: coachmarkDots.top
+                anchors.bottom: parent.bottom
                 anchors.bottomMargin: MSpacing.lg
                 currentIndex: gesturesPage.currentCoachmark
 
@@ -1114,87 +1123,48 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
 
-                            // Practice zone — capture a matching swipe to
-                            // confirm the gesture. Single-touch only; both
-                            // distance and axis dominance are checked so a
-                            // diagonal jitter doesn't accidentally pass.
+                            // Tap to advance. The previous practice-zone
+                            // forced the user to swipe inside a centred
+                            // Rectangle, but real Marathon gestures fire on
+                            // the SCREEN EDGES via EdgeGestures.qml — a
+                            // centred MouseArea can't reproduce that input.
+                            // Teaching a fake gesture that bears no relation
+                            // to the real one taught the user the wrong
+                            // muscle memory. Now the coachmark just shows
+                            // the gesture (icon + description); the user
+                            // taps "Next" to advance.
                             Item {
-                                width: parent.width - MSpacing.xxl
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                height: MSpacing.touchTargetMedium
+                                width: parent.width
+                                height: Math.round(48 * Constants.scaleFactor)
                                 visible: modelData.direction !== "none"
 
                                 Rectangle {
-                                    anchors.fill: parent
+                                    anchors.centerIn: parent
+                                    width: Math.round(120 * Constants.scaleFactor)
+                                    height: Math.round(40 * Constants.scaleFactor)
                                     radius: MRadius.md
-                                    color: MColors.elev2
+                                    color: nextArea.pressed ? MColors.accent : MColors.elev2
                                     border.width: 1
-                                    border.color: MColors.borderSubtle
-                                    opacity: practiceArea.pressed ? 0.7 : 0.4
+                                    border.color: nextArea.pressed ? MColors.accent : MColors.borderSubtle
 
-                                    Behavior on opacity {
-                                        NumberAnimation {
+                                    Behavior on color {
+                                        ColorAnimation {
                                             duration: 120
                                         }
                                     }
-                                }
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "Try the " + modelData.title.toLowerCase() + " here"
-                                    font.pixelSize: MTypography.sizeFootnote
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.textTertiary
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Next"
+                                        font.pixelSize: MTypography.sizeBody
+                                        font.weight: Font.Medium
+                                        font.family: MTypography.fontFamily
+                                        color: nextArea.pressed ? MColors.elev0 : MColors.textPrimary
+                                    }
                                 }
 
                                 MouseArea {
-                                    id: practiceArea
-
-                                    property real pressX: 0
-                                    property real pressY: 0
-
-                                    anchors.fill: parent
-                                    onPressed: function (mouse) {
-                                        pressX = mouse.x;
-                                        pressY = mouse.y;
-                                    }
-                                    onReleased: function (mouse) {
-                                        const dx = mouse.x - pressX;
-                                        const dy = mouse.y - pressY;
-                                        const threshold = Math.round(36 * Constants.scaleFactor);
-                                        let matched = false;
-                                        if (modelData.direction === "up" && dy < -threshold && Math.abs(dy) > Math.abs(dx))
-                                            matched = true;
-                                        else if (modelData.direction === "down" && dy > threshold && Math.abs(dy) > Math.abs(dx))
-                                            matched = true;
-                                        else if (modelData.direction === "left" && dx < -threshold && Math.abs(dx) > Math.abs(dy))
-                                            matched = true;
-                                        else if (modelData.direction === "right" && dx > threshold && Math.abs(dx) > Math.abs(dy))
-                                            matched = true;
-                                        if (matched) {
-                                            if (typeof HapticManager !== "undefined")
-                                                HapticManager.medium();
-                                            gesturesPage.markComplete();
-                                        }
-                                    }
-                                }
-                            }
-
-                            Item {
-                                width: parent.width
-                                height: Math.round(32 * Constants.scaleFactor)
-                                visible: modelData.direction !== "none"
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "Skip this gesture"
-                                    font.pixelSize: MTypography.sizeBody
-                                    font.weight: Font.Medium
-                                    font.family: MTypography.fontFamily
-                                    color: MColors.accent
-                                }
-
-                                MouseArea {
+                                    id: nextArea
                                     anchors.fill: parent
                                     onClicked: {
                                         if (typeof HapticManager !== "undefined")
@@ -1211,9 +1181,14 @@ Item {
             Row {
                 id: coachmarkDots
 
+                // Moved from bottom→top. The OOBE bottom edge gets
+                // crowded with the navigation buttons + the per-page
+                // Next/Skip + footer copy; putting the page-indicator
+                // dots up near the gesturesHeader keeps the bottom
+                // clean and is more iOS-Settings-like anyway.
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
+                anchors.top: gesturesHeader.bottom
+                anchors.topMargin: MSpacing.sm
                 spacing: MSpacing.sm
 
                 Repeater {
@@ -1540,7 +1515,10 @@ Item {
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: pageIndicatorRow.top
+        // Pin to navBar.top now that pageIndicatorRow lives at the top of
+        // the screen — anchoring to pageIndicatorRow.top pushed this row
+        // off the top edge and hid Back/Next entirely.
+        anchors.bottom: navBar.top
         anchors.leftMargin: MSpacing.xl
         anchors.rightMargin: MSpacing.xl
         anchors.bottomMargin: MSpacing.xl
@@ -1597,9 +1575,15 @@ Item {
     Row {
         id: pageIndicatorRow
 
+        // Page indicator moved to the TOP. The bottom of every OOBE page
+        // is already busy with the nav buttons + Skip + per-page Done
+        // chrome; the dots were getting squashed. Sitting them just under
+        // the status bar is cleaner and matches the iOS Settings-OOBE
+        // pattern. (See also the gesture-page dots inside gesturesPage,
+        // which were moved for the same reason.)
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: navBar.top
-        anchors.bottomMargin: MSpacing.xxl
+        anchors.top: statusBar.bottom
+        anchors.topMargin: MSpacing.sm
         spacing: MSpacing.md
         height: Math.round(20 * Constants.scaleFactor)
 
