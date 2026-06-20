@@ -1,7 +1,7 @@
 From 63ab875e9e4f8daf1e022afcdaf9f820f517c2cb Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 22 May 2026 07:03:14 +0100
-Subject: [PATCH 03/10] feat(base): avahi + nss-mdns + hostname=marathon for
+Subject: [PATCH 03/11] feat(base): avahi + nss-mdns + hostname=marathon for
  SSH discovery
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

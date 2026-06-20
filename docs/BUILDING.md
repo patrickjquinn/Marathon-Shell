@@ -55,18 +55,15 @@ If upstream has drifted past the pinned commit (the script's
 patches against the new tip — see *Refreshing the patch series*
 below.
 
-## 3. Build mkosi
+## 3. mkosi
 
-mkosi has no Alpine package and isn't shipped via pip. Build from source.
+`bootstrap.sh` (step 2) clones mkosi into `$HOME/duranium-build/mkosi-src`
+at the pinned commit and stops there — mkosi runs straight from the
+checkout, no install step needed. The build scripts prepend
+`$HOME/duranium-build/mkosi-src/bin` to `PATH`.
 
-```sh
-git clone https://github.com/systemd/mkosi.git $HOME/duranium-build/mkosi-src
-# mkosi runs straight from the checkout — no install step needed.
-# The build scripts prepend $HOME/duranium-build/mkosi-src/bin to PATH.
-```
-
-Pin to a known-good commit (`git log` on the upstream tree shows the
-last version we built against; bump after testing).
+The pinned mkosi commit is recorded in `bootstrap.sh`'s `MKOSI_COMMIT`
+variable. Bump after a successful build against a newer mkosi tip.
 
 ## 4. Set up secrets
 
@@ -252,12 +249,8 @@ git add pipeline-patches/
 git commit -m "chore(pipeline-patches): refresh against duranium <new-sha>"
 ```
 
-## Known gaps
+## Notes for porters
 
-- **`mkosi-src` is unpinned.** Bootstrap clones tip-of-main. If mkosi
-  upstream breaks our config, pin a commit in step 3.
-- **`StoreApp.qml` in duranium-build/marathon-extras/** has icon-name
-  edits unrelated to image bring-up. Not captured in the patch series.
 - **The HackberryPi-specific `usercfg-hackberrypi.txt`** controls
   panel + battery + USB OTG host mode. To port to a different Pi 5
   enclosure, write a sibling aport (e.g. `device-MYBOARD-cm5-marathon`)
@@ -267,3 +260,12 @@ git commit -m "chore(pipeline-patches): refresh against duranium <new-sha>"
 - **The cgroup_enable=memory kernel cmdline override** is mandatory for
   PSI memory pressure and Phase B freezer policy to work. It's set in
   the patch series (patch 0009). Don't drop it.
+- **`marathon-extras/StoreApp.qml`** is a deploy-time override of the
+  Store app's QML — it overrides the version compiled into
+  marathon-shell's libstoreplugin.so resource bundle via the install
+  in `mkosi.images/base/mkosi.postinst`. Lets you iterate Store
+  without rebuilding the (slow) marathon-shell APK. The canonical
+  pre-compile copy lives in `Marathon-Shell/apps/store/StoreApp.qml`;
+  when changes are stable, sync them back to that canonical path so
+  the next marathon-shell APK build embeds them. Eventually the
+  override block should be retired in favour of the canonical copy.

@@ -22,12 +22,23 @@ UPSTREAM="https://gitlab.postmarketos.org/postmarketOS/duranium.git"
 # applies. Bump after a successful rebase.
 PINNED_COMMIT="394290c68276e07cc1de326e60d467ee603a920c"
 
+MKOSI_UPSTREAM="https://github.com/systemd/mkosi.git"
+# Last mkosi commit Marathon's pipeline was validated against (r180
+# image build, 2026-06-19). mkosi master moves fast and breaks our
+# config periodically; pin here.
+MKOSI_COMMIT="dc801b00a3c8b77c7ad0a5ea6dd684ea3c689546"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="${1:-$HOME/duranium-build}"
 DURANIUM_DIR="$DEST_DIR/duranium"
+MKOSI_DIR="$DEST_DIR/mkosi-src"
 
 if [ -d "$DURANIUM_DIR" ]; then
     echo "error: $DURANIUM_DIR already exists. Move or delete it first." >&2
+    exit 1
+fi
+if [ -d "$MKOSI_DIR" ]; then
+    echo "error: $MKOSI_DIR already exists. Move or delete it first." >&2
     exit 1
 fi
 
@@ -50,11 +61,17 @@ fi
 echo "==> applying $(ls "$SCRIPT_DIR"/*.patch | wc -l) patches"
 git am "$SCRIPT_DIR"/*.patch
 
+echo "==> cloning mkosi into $MKOSI_DIR"
+git clone "$MKOSI_UPSTREAM" "$MKOSI_DIR"
+cd "$MKOSI_DIR"
+echo "==> checking out pinned mkosi commit $MKOSI_COMMIT"
+git checkout "$MKOSI_COMMIT"
+
 cd "$DEST_DIR"
 echo "==> next steps:"
-echo "   1. Clone mkosi into $DEST_DIR/mkosi-src and build the mkosi binary."
-echo "      git clone https://github.com/systemd/mkosi.git $DEST_DIR/mkosi-src"
-echo "   2. Populate \$HOME/.marathon-secrets/ with SKYZMTGV.nmconnection.raw"
+echo "   1. Populate \$HOME/.marathon-secrets/ with SKYZMTGV.nmconnection.raw"
 echo "      and ensure ~/.ssh/id_ed25519.pub exists."
-echo "   3. Build per Marathon-Image/docs/BUILDING.md."
-echo "==> done. Patched duranium tree is at $DURANIUM_DIR"
+echo "   2. Build per Marathon-Image/docs/BUILDING.md."
+echo "==> done."
+echo "   duranium tree:  $DURANIUM_DIR (at $PINNED_COMMIT + Marathon patches)"
+echo "   mkosi source:   $MKOSI_DIR (at $MKOSI_COMMIT)"
