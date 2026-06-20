@@ -1,7 +1,7 @@
 From bf027d908f0f9a05b0670a702b7bf98fd4a2d928 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 13 Jun 2026 06:47:47 +0100
-Subject: [PATCH 05/14] build(marathon-shell): pull qt6-qtwebchannel-dev for
+Subject: [PATCH 05/15] build(marathon-shell): pull qt6-qtwebchannel-dev for
  Maps build
 
 Maps app imports QtWebChannel for the QWebChannel bridge between QML

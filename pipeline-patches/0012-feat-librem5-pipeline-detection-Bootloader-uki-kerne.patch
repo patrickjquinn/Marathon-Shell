@@ -1,7 +1,7 @@
 From bf247dbf2aabbaf4ade20c74a1909970bbdbc0ac Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 20 Jun 2026 09:59:01 +0100
-Subject: [PATCH 12/14] =?UTF-8?q?feat(librem5):=20pipeline=20detection=20?=
+Subject: [PATCH 12/15] =?UTF-8?q?feat(librem5):=20pipeline=20detection=20?=
  =?UTF-8?q?=E2=80=94=20Bootloader=3Duki,=20kernel=20pin,=20/etc=20stash?=
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

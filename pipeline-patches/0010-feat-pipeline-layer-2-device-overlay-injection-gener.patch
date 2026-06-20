@@ -1,7 +1,7 @@
 From f4bf2250bb106e858ed2b37c1c3e4eaa5a3074ea Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 20 Jun 2026 08:08:20 +0100
-Subject: [PATCH 10/14] feat(pipeline): layer-2 device overlay injection +
+Subject: [PATCH 10/15] feat(pipeline): layer-2 device overlay injection +
  generic device-APK builder
 
 Two coupled additions enabling the device-raspberry-pi5-marathon /

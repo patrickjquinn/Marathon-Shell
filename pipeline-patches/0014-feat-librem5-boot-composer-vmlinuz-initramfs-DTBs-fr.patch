@@ -1,7 +1,7 @@
 From 68279ea2520ff6965eeca632e4fff2d7210614f5 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 20 Jun 2026 10:20:02 +0100
-Subject: [PATCH 14/14] feat(librem5): boot composer (vmlinuz + initramfs +
+Subject: [PATCH 14/15] feat(librem5): boot composer (vmlinuz + initramfs +
  DTBs from UKI)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
