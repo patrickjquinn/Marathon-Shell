@@ -4,11 +4,33 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 — Marathon OS port"
 pkgver=1.0.0
-pkgrel=3
+pkgrel=5
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
 options="!check !archcheck"
+# Upstream device-purism-librem5 depends on `pulseaudio<9990` to mark a
+# generic-pulseaudio sound stack. apk picks
+# `postmarketos-base-ui-audio-backend-pulseaudio` to satisfy it — but
+# that package carries `[!pipewire-pulse]` (conflicts-with). Marathon's
+# audio stack wants pipewire-pulse (which itself provides=pulseaudio).
+# Stub-provide the conflicting package at a sky-high version so apk
+# never installs the real one, leaving pipewire-pulse free to satisfy
+# the pulseaudio dep cleanly. Same pattern as our unl0kr-agent stub on
+# device-raspberry-pi5-marathon's marathon-base-config.
+#
+# greetd-agreety-config ships /etc/greetd/config.toml which
+# marathon-base-config already owns (with our greetd-marathon.toml
+# content). Without this stub, apk pulls greetd-agreety-config via the
+# upstream device-purism-librem5 dep chain and errors with
+# "trying to overwrite etc/greetd/config.toml owned by
+# marathon-base-config". Marathon owns the config; greetd-agreety
+# itself isn't pulled (Marathon doesn't use the agreety greeter — the
+# shell IS the greeter via greetd-marathon.toml's autologin command).
+provides="
+	postmarketos-base-ui-audio-backend-pulseaudio=999.0.0-r0
+	greetd-agreety-config=999.0.0-r0
+"
 # Notes on the depends list:
 #   - device-purism-librem5 pulls the upstream pmaports kernel + DTBs +
 #     deviceinfo for the i.MX 8M Quad Librem 5. We layer Marathon on
@@ -32,11 +54,10 @@ depends="
 	u-boot-librem5
 	marathon-shell
 	marathon-base-config
-	marathon-boot-logo
 	marathon-plymouth-theme
 	plymouth
 	greetd
-	greetd-agreety
+	greetd-systemd
 	networkmanager
 	networkmanager-wifi
 	networkmanager-cli
@@ -55,25 +76,23 @@ install="$pkgname.post-install"
 source="
 	greetd-marathon.toml
 	logind.conf
-	greetd.service
 	"
 
 package() {
-	# Install greetd config for Marathon Shell autologin
+	# Install greetd config for Marathon Shell autologin. The actual
+	# greetd.service unit comes from the greetd-systemd subpackage we
+	# depend on — don't ship our own (r4 did and apk errored:
+	# `device-purism-librem5-marathon: trying to overwrite usr/lib/
+	# systemd/system/greetd.service owned by greetd-systemd`).
 	install -Dm644 "$srcdir/greetd-marathon.toml" \
 		"$pkgdir/etc/greetd/marathon-config.toml"
 
 	# Install logind config to let Marathon Shell handle power button
 	install -Dm644 "$srcdir/logind.conf" \
 		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
-
-	# Install greetd systemd service file
-	install -Dm644 "$srcdir/greetd.service" \
-		"$pkgdir/usr/lib/systemd/system/greetd.service"
 }
 
 sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
-db580d365c13bb196f2fdd4ac2a4339c3ad91490dc5ca4a3d3eab882121a1a5b38afe5a24d8fab0caa2e3cecf129d464833d2e2752641711ff74356e51282d49  greetd.service
 "
