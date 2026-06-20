@@ -2,9 +2,9 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 
 pkgname=device-purism-librem5-marathon
-pkgdesc="Purism Librem 5 - Marathon OS Edition"
+pkgdesc="Purism Librem 5 — Marathon OS port"
 pkgver=1.0.0
-pkgrel=2
+pkgrel=3
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -15,17 +15,21 @@ options="!check !archcheck"
 #     top rather than overriding it.
 #   - u-boot-librem5 ships /usr/share/u-boot/librem5/phone-boot.img.
 #     Both the on-device boot flow AND the host-side `flash-librem5.sh
-#     emmc` path need this artifact, so we pin the package as a hard
-#     dependency.
-#   - eg25-manager runs the BM818 modem's power state machine.
-#     Without it, mobile data + voice never come up.
+#     emmc` path need this artifact.
+#   - The Librem 5's BroadMobi BM818 modem is handled by
+#     ModemManager's `broadmobi` plugin (in mainline MM since 1.12)
+#     out of the box — NO eg25-manager. eg25-manager is the Quectel
+#     EG25-G state machine for PinePhone / PinePhone Pro and does not
+#     apply here. Earlier r2 of this aport incorrectly depended on
+#     eg25-manager + enabled it in post-install; removed in r3.
+#   - iwd intentionally absent — NetworkManager uses wpa_supplicant.
+#     iwd auto-enables a colliding nl80211 client. Same boundary as
+#     device-raspberry-pi5-marathon r7.
 #   - The rest of the runtime stack mirrors device-oneplus-enchilada-
-#     marathon line-for-line to keep the two device experiences in
-#     sync.
+#     marathon line-for-line to keep the device experiences in sync.
 depends="
 	device-purism-librem5
 	u-boot-librem5
-	eg25-manager
 	marathon-shell
 	marathon-base-config
 	marathon-boot-logo
@@ -38,7 +42,6 @@ depends="
 	networkmanager-cli
 	modemmanager
 	upower
-	iwd
 	wireless-tools
 	wpa_supplicant
 	bluez

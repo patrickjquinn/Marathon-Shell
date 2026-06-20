@@ -6,17 +6,14 @@ ln -sf marathon-config.toml /etc/greetd/config.toml
 # Enable services
 systemctl enable greetd
 systemctl enable NetworkManager
+# ModemManager talks to the BroadMobi BM818 via the broadmobi plugin
+# directly. No eg25-manager — that's PinePhone-only.
 systemctl enable ModemManager
 systemctl enable upower
-systemctl enable iwd
+# iwd intentionally NOT enabled — NetworkManager uses wpa_supplicant.
 systemctl enable bluetooth
 systemctl enable pipewire
 systemctl enable pipewire-pulse
 systemctl enable wireplumber
 
-# eg25-manager drives the Librem 5's modem power / firmware state machine.
-# Without it, the BM818 modem never comes up at boot.
-systemctl enable eg25-manager 2>/dev/null || true
-
 exit 0
-
