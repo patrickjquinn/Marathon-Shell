@@ -1,7 +1,7 @@
 From bd45cb04a871e4527353140c7dcace5ca5b39644 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 20 Jun 2026 08:08:03 +0100
-Subject: [PATCH 09/11] fix(mkosi.finalize): r180 cmdline + drop usercfg.txt
+Subject: [PATCH 09/13] fix(mkosi.finalize): r180 cmdline + drop usercfg.txt
  writes
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

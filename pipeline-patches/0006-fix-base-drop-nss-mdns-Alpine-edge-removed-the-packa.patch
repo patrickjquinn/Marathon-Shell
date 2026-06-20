@@ -1,7 +1,7 @@
 From 2f5576579bb7cd8bc906e5e7b33cae6f85dc993b Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Mon, 15 Jun 2026 13:02:25 +0100
-Subject: [PATCH 06/11] fix(base): drop nss-mdns; Alpine edge removed the
+Subject: [PATCH 06/13] fix(base): drop nss-mdns; Alpine edge removed the
  package mid-2026
 
 The nss-mdns aports/community package was removed from Alpine edge

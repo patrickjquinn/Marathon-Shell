@@ -1,7 +1,7 @@
 From 1695db3c56a315612bfb0e6f42e5d6a283f5a429 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 20 Jun 2026 08:41:36 +0100
-Subject: [PATCH 11/11] feat(store): vendor StoreApp.qml override +
+Subject: [PATCH 11/13] feat(store): vendor StoreApp.qml override +
  density-factor rendering fix
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

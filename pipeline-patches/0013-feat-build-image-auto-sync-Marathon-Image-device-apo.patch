@@ -1,0 +1,77 @@
+From a6a01b777b051fee7628a50dec59fe627b4fb947 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 09:59:01 +0100
+Subject: [PATCH 13/13] feat(build-image): auto-sync Marathon-Image device
+ aports into pmaports
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+mkosi's sandbox bind-mounts the duranium source dir but its
+follow-symlinks logic dangles when targets point outside the bind
+root. Marathon's per-device overlay aports (device-purism-librem5-
+marathon, device-oneplus-enchilada-marathon, ...) were symlinks from
+pmaports/device/community/ into $MARATHON_IMAGE_DIR/packages/, which
+meant the symlinks resolved on the host but were broken inside the
+sandbox — pmaports.py's deviceinfo resolver couldn't read the
+APKBUILD to walk the depends chain. Pi 5 worked only because its
+overlay aport happened to have been replaced with a real directory
+at some earlier point.
+
+Fix: at the top of build_image(), rsync every Marathon-Image
+device-*-marathon aport into pmaports/device/community/<same name>/,
+overwriting any existing copy (whether symlink or real-dir snapshot).
+Source-of-truth is $MARATHON_IMAGE_DIR/packages/; pmaports gets a
+just-in-time snapshot every build. New aports auto-flow through too.
+
+Caught while diagnosing Librem 5 build attempt 1 — the resolver
+errored with "deviceinfo not found" inside the sandbox even though
+the aport was visible on the host.
+---
+ scripts/build-image.py | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 954aa95..6f66192 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -63,6 +63,36 @@ def build_image(components: List[str], extra_args: List[str]):
+         print(f"Device: {device_name}, UI: {ui_name}")
+         print(f"ImageID: {image_id}")
+ 
++        # Sync Marathon-Image device overlay aports into pmaports/community/
++        # so mkosi.configure's resolver can see them inside the sandbox.
++        # mkosi's bind-mount follows symlinks but the symlink targets point
++        # outside the sandbox root and dangle inside, so we copy. JIT here
++        # so the latest Marathon-Image edits flow through every build.
++        # Source-of-truth remains $MARATHON_IMAGE_DIR/packages/.
++        marathon_image_dir = os.environ.get(
++            "MARATHON_IMAGE_DIR",
++            os.path.expanduser("~/Developer/Marathon-Image"),
++        )
++        pmaports_community = os.path.join("pmaports", "device", "community")
++        if os.path.isdir(marathon_image_dir) and os.path.isdir(pmaports_community):
++            for marathon_aport in os.listdir(os.path.join(marathon_image_dir, "packages")):
++                if not marathon_aport.startswith("device-") or not marathon_aport.endswith("-marathon"):
++                    continue
++                src = os.path.join(marathon_image_dir, "packages", marathon_aport)
++                dst = os.path.join(pmaports_community, marathon_aport)
++                if os.path.islink(dst) or not os.path.exists(dst):
++                    if os.path.islink(dst):
++                        os.unlink(dst)
++                    subprocess.run(["cp", "-a", src, dst], check=True)
++                else:
++                    # rsync the contents; --delete so removed files in
++                    # Marathon-Image disappear from the pmaports copy too.
++                    subprocess.run(
++                        ["rsync", "-a", "--delete",
++                         os.path.join(src, ""), os.path.join(dst, "")],
++                        check=True,
++                    )
++
+         # Make sure the pmaports cache has the right branch checked out. The mkosi
+         # sandbox has no network access, so the configure script uses --skip-fetch
+         resolved = resolve(device_name, ui_name, release)
+-- 
+2.53.0
+
