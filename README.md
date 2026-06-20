@@ -83,6 +83,7 @@ Marathon-Image/
 ## Documentation
 
 - [**Building from a cold clone**](docs/BUILDING.md) - Reproduce the r180 HackberryPi CM5 image
+- [**Librem 5 recovery runbook**](docs/LIBREM5_RECOVERY.md) - uuu, Jumpdrive, factory-reset image, brick-recovery procedure
 - [Deployment Guide](docs/MARATHON_SHELL_DEPLOYMENT.md) - Detailed deployment guide
 - [Device Support](docs/DEVICE_SUPPORT.md) - Supported devices
 - [Kernel Configuration](docs/KERNEL_CONFIG.md) - Kernel build details
