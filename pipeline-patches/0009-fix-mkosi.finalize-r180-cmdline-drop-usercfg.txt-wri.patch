@@ -1,0 +1,640 @@
+From bd45cb04a871e4527353140c7dcace5ca5b39644 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 08:08:03 +0100
+Subject: [PATCH 09/10] fix(mkosi.finalize): r180 cmdline + drop usercfg.txt
+ writes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Three changes to the Pi-firmware-boot branches of mkosi.finalize:
+
+* cmdline.txt at both write sites (Pi UKI fallback + Pi legacy) now
+  includes splash + quiet + loglevel=3 + vt.global_cursor_default=0
+  + cgroup_enable=memory + console=tty3 (instead of tty1).
+  cgroup_enable=memory is critical — bcm2712-rpi.dtsi bakes
+  cgroup_disable=memory into the DTB bootargs, killing PSI memory
+  pressure and the Phase B freezer. linux-rpi PR #6524 added the
+  cgroup_enable= override token in 6.12.3+.  splash + console=tty3
+  + cursor=0 let Plymouth take over /dev/fb0 cleanly without kernel
+  printk or VT cursor stomping the splash.
+
+* All three `cat > /boot/usercfg.txt` blocks (lines ~379, ~562, ~752
+  pre-edit) replaced with a no-op echo. The device-raspberry-pi5-
+  marathon + device-hackberrypi-cm5-marathon aports now ship
+  usercfg.txt + usercfg-hackberrypi.txt themselves with the proper
+  generic-vs-enclosure split; the pipeline used to overwrite the
+  APK's file with a hardcoded HackberryPi-specific version which
+  clobbered the split.
+
+* arm_boost=1 lines in config.txt writes (lines 367, 548, 751
+  pre-edit) commented out. Pi 5 ignores arm_boost (Pi 4 / 400 only,
+  confirmed by Pi engineer PhilE on forum t=325836). The Pi 5 boost
+  path is firmware-side arm_freq=2600 + over_voltage_delta=10000,
+  now in device-raspberry-pi5-marathon's usercfg.txt.
+---
+ mkosi.finalize | 550 ++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 518 insertions(+), 32 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 5e280fc..0f6603f 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -6,6 +6,23 @@ set -e
+ # does...
+ chmod 4755 "$BUILDROOT/usr/sbin/unix_chkpwd"
+ 
++## Pre-baked NetworkManager keyfiles (e.g. office WiFi) shipped via
++## mkosi.extra/etc/NetworkManager/system-connections/ end up owned by
++## the build user. NM rejects keyfiles that aren't 0600 root:root.
++## We can't chown in finalize (mkosi sandbox uid maps reject it), so
++## drop a tmpfiles.d entry that fixes ownership/mode on first boot.
++if [ -d "$BUILDROOT/etc/NetworkManager/system-connections" ]; then
++    mkdir -p "$BUILDROOT/usr/lib/tmpfiles.d"
++    : > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-wifi-keyfiles.conf"
++    for f in "$BUILDROOT/etc/NetworkManager/system-connections"/*.nmconnection; do
++        [ -f "$f" ] || continue
++        rel="/etc/NetworkManager/system-connections/$(basename "$f")"
++        # z = adjust permissions+ownership of existing file (don't create)
++        echo "z $rel 0600 root root -" \
++            >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-wifi-keyfiles.conf"
++    done
++fi
++
+ ## Fixup os-release
+ # Fix IMAGE_ID to be device-only (not device_ui_release)
+ sed -i "s/^IMAGE_ID=.*/IMAGE_ID=$PMOS_DEVICE/" "$BUILDROOT/usr/lib/os-release"
+@@ -93,10 +110,75 @@ rm -f "$BUILDROOT/etc/machine-id" \
+       "$BUILDROOT/etc/gshadow-" \
+       "$BUILDROOT/etc/.pwd.lock"
+ 
+-# Move /etc into the base confext image directory
++# Move /etc into the base confext image directory.
++#
++# Pi 5 / CM5 exception: we boot via raw kernel + postmarketos-mkinitfs,
++# which has no equivalent of systemd-confext-initrd.service. PID 1
++# systemd would start with empty /etc → no passwd, no fstab, no
++# machine-id → hangs. Copy /etc to a stash, do the move, then restore
++# the stash. The rootfs gets a populated /etc *and* the confext.
++# See [[duranium-pi5-boot-recipe]].
++PI_BASE_FIRMWARE_BOOT=""
++if [ "${PMOS_DEVICE#raspberry-pi}" != "$PMOS_DEVICE" ] || \
++   [ "${PMOS_DEVICE#rpi}" != "$PMOS_DEVICE" ]; then
++    PI_BASE_FIRMWARE_BOOT=1
++fi
++PI_ETC_STASH=""
++if [ -n "$PI_BASE_FIRMWARE_BOOT" ] && [ -d "$BUILDROOT/etc" ]; then
++    PI_ETC_STASH=$(mktemp -d)
++    cp -a "$BUILDROOT/etc/." "$PI_ETC_STASH/"
++fi
++
+ mkdir -p "$BUILDROOT/usr/lib/confexts/duranium-base-config"
+ mv "$BUILDROOT/etc" "$BUILDROOT/usr/lib/confexts/duranium-base-config/etc"
+ 
++if [ -n "$PI_ETC_STASH" ]; then
++    mkdir -p "$BUILDROOT/etc"
++    cp -a "$PI_ETC_STASH/." "$BUILDROOT/etc/"
++    rm -rf "$PI_ETC_STASH"
++    # systemd needs /etc/machine-id to exist (can be empty).
++    [ -e "$BUILDROOT/etc/machine-id" ] || touch "$BUILDROOT/etc/machine-id"
++    echo "info: Pi-base: /etc restored to rootfs ($(ls "$BUILDROOT/etc" | wc -l) entries)"
++    # NetworkManager-wait-online blocks network-online.target waiting for
++    # a connection; on first boot before WiFi associates it stalls for ~90
++    # seconds. The marathon-base-config preset (`disable
++    # NetworkManager-wait-online.service`) is supposed to handle this, but
++    # it loses the race against NetworkManager.apk's own postinstall
++    # trigger which created the wants-symlink first. apk doesn't re-run
++    # preset-all after our package installs. Mask it explicitly to make
++    # the disable stick across confext merges + apk upgrades.
++    rm -f "$BUILDROOT/etc/systemd/system/network-online.target.wants/NetworkManager-wait-online.service"
++    mkdir -p "$BUILDROOT/etc/systemd/system"
++    ln -sf /dev/null "$BUILDROOT/etc/systemd/system/NetworkManager-wait-online.service"
++    echo "info: Pi-base: NetworkManager-wait-online masked"
++
++    # systemd-time-wait-sync.service is Before=sysinit.target. It runs early
++    # and waits for time-sync.target (= NTP-synced clock) before exiting.
++    # On the CM5 there's no hardware RTC — first-boot clock has to come
++    # from NTP, which can't run until WiFi associates, which can't run
++    # until sysinit is past, which is gated on time-wait-sync. The whole
++    # thing eventually unblocks but it adds ~90 seconds to every cold boot.
++    # We don't need correct wall-clock time before the shell starts; it'll
++    # sync seconds after greetd lights up. Mask it.
++    ln -sf /dev/null "$BUILDROOT/etc/systemd/system/systemd-time-wait-sync.service"
++    echo "info: Pi-base: systemd-time-wait-sync masked"
++
++    # /etc/crypttab ships with `root  PARTLABEL=pmOS_root  /dev/null
++    # luks,keyfile-timeout=0`. systemd-cryptsetup-generator turns that
++    # into systemd-cryptsetup@root.service BindsTo=dev-disk-by-partlabel
++    # -pmOS_root.device. Pi 5 boots via MBR (no GPT, no PARTLABEL); the
++    # device never shows up. systemd waits 90 s on the device unit and
++    # cascades that into sysinit.target → graphical.target — that's the
++    # remaining boot delay after time-wait-sync was masked.
++    # We have no FDE (postmarketos-base-nofde is installed) so the
++    # crypttab entry is dead weight. Empty the file rather than rm it
++    # so cryptsetup-related sysext drops don't recreate stale content.
++    if [ -f "$BUILDROOT/etc/crypttab" ]; then
++        : > "$BUILDROOT/etc/crypttab"
++        echo "info: Pi-base: /etc/crypttab emptied (no FDE on Pi)"
++    fi
++fi
++
+ # Generate extension-release
+ mkdir -p "$BUILDROOT/usr/lib/confexts/duranium-base-config/etc/extension-release.d"
+ # Extract ID from os-release to be sure it matches
+@@ -144,6 +226,21 @@ EOF
+     # Find existing loader entry created by pmOS tooling
+     EXISTING_ENTRY=$(find "$BUILDROOT/boot/loader/entries" -name "*.conf" -type f | head -1)
+ 
++    # Pi-firmware devices boot via /boot/config.txt + cmdline.txt + kernel +
++    # initramfs (no UEFI, no systemd-boot). But the loader entry still gets
++    # created by kernel-install and is useful — it tells us where to find the
++    # staged kernel + initrd that mkosi will bundle into the UKI. We RUN the
++    # systemd-boot branch to do all the setup (kernel-move to $kdir/vmlinuz,
++    # ARTIFACTDIR initrd, etc.) for the eventual UKI, but ALSO copy the same
++    # files to Pi-firmware-friendly locations (kernel_2712.img, initramfs_2712).
++    # The UKI is built and lands in the ESP but the Pi firmware ignores it.
++    # Set a flag so the post-processing knows we need the Pi-firmware composer.
++    PI_FIRMWARE_BOOT=""
++    if [ "${PMOS_DEVICE#raspberry-pi}" != "$PMOS_DEVICE" ] || \
++       [ "${PMOS_DEVICE#rpi}" != "$PMOS_DEVICE" ]; then
++        PI_FIRMWARE_BOOT=1
++    fi
++
+     if [ -f "$EXISTING_ENTRY" ]; then
+         # Extract kernel, initrds, cmdline and DTB from existing entry
+         KERNEL_FILE=""
+@@ -151,6 +248,138 @@ EOF
+         CMDLINE=""
+         DTB_PATH=""
+ 
++        # On Pi-firmware boot we need to STAGE the kernel + initramfs at
++        # /boot/kernel_2712.img + /boot/initramfs_2712 BEFORE the rest of
++        # this branch moves the kernel out of /boot. Re-read the entry
++        # ahead of the main parse to capture the values, do the Pi-firmware
++        # stage, then let the systemd-boot branch run normally for UKI
++        # generation (Pi 5 ignores the UKI; the explicit files are what
++        # the BootROM loads).
++        if [ -n "${PI_FIRMWARE_BOOT:-}" ]; then
++            PI_KPATH=""
++            PI_INITRD_PATHS=""
++            PI_CMD=""
++            while IFS= read -r line; do
++                case "$line" in
++                    linux[[:space:]]*)
++                        # Keep the full path from the loader entry (relative
++                        # to /boot). kernel-install with layout=bls writes the
++                        # kernel at /boot/<machineid>/<kver>/linux — taking
++                        # basename throws away the path and we'd look at the
++                        # wrong location.
++                        PI_KPATH=$(echo "$line" | sed 's/^linux[[:space:]]*//')
++                        ;;
++                    initrd[[:space:]]*)
++                        f=$(echo "$line" | sed 's/^initrd[[:space:]]*//')
++                        PI_INITRD_PATHS="$PI_INITRD_PATHS $f"
++                        ;;
++                    options[[:space:]]*)
++                        PI_CMD=$(echo "$line" | sed 's/^options[[:space:]]*//')
++                        ;;
++                esac
++            done < "$EXISTING_ENTRY"
++            echo "debug: Pi-firmware loader entry: kernel=$PI_KPATH initrds=[$PI_INITRD_PATHS]"
++            # Stage kernel for Pi 5 BootROM. Pi 5 auto-loads
++            # /boot/kernel_2712.img + /boot/initramfs_2712 when
++            # auto_initramfs=1 is set in config.txt.
++            case "$PI_KPATH" in /*) PI_KSRC="$BUILDROOT/boot$PI_KPATH" ;; *) PI_KSRC="$BUILDROOT/boot/$PI_KPATH" ;; esac
++            if [ -n "$PI_KPATH" ] && [ -f "$PI_KSRC" ]; then
++                cp "$PI_KSRC" "$BUILDROOT/boot/kernel_2712.img"
++                # ALSO move the kernel to /boot/<basename> where the rest of
++                # the systemd-boot branch expects it. The existing code at
++                # line ~175 does `mv "$BUILDROOT/boot/$KERNEL_FILE"` with
++                # KERNEL_FILE=basename(linux). For nested layout=bls paths
++                # like /boot/<id>/<kver>/vmlinuz, that mv fails. Stage a
++                # copy at /boot/<basename> so the subsequent move works.
++                PI_KBASE=$(basename "$PI_KPATH")
++                if [ ! -f "$BUILDROOT/boot/$PI_KBASE" ]; then
++                    cp "$PI_KSRC" "$BUILDROOT/boot/$PI_KBASE"
++                    echo "info: Pi-firmware staged $PI_KPATH -> /boot/$PI_KBASE (for UKI gen)"
++                fi
++                echo "info: Pi-firmware staged $PI_KPATH -> /boot/kernel_2712.img"
++            else
++                # Last-resort: scan for any /boot/**/vmlinuz or vmlinuz-rpi
++                FALLBACK=""
++                for cand in "$BUILDROOT/boot/vmlinuz-rpi" "$BUILDROOT/boot/vmlinuz"; do
++                    [ -f "$cand" ] && FALLBACK="$cand" && break
++                done
++                if [ -z "$FALLBACK" ]; then
++                    FALLBACK=$(find "$BUILDROOT/boot" -maxdepth 4 -name "vmlinuz*" -o -name "linux" -type f 2>/dev/null | head -1)
++                fi
++                if [ -n "$FALLBACK" ] && [ -f "$FALLBACK" ]; then
++                    cp "$FALLBACK" "$BUILDROOT/boot/kernel_2712.img"
++                    echo "info: Pi-firmware fallback-staged $FALLBACK -> /boot/kernel_2712.img"
++                else
++                    echo "warning: Pi-firmware kernel ($PI_KPATH) missing from /boot, no fallback found"
++                fi
++            fi
++            # Concatenate initrds in entry order (microcode first per the
++            # Linux convention).
++            : > "$BUILDROOT/boot/initramfs_2712"
++            PI_INITRD_COUNT=0
++            for f in $PI_INITRD_PATHS; do
++                src="$BUILDROOT/boot${f#/}"
++                case "$f" in /*) src="$BUILDROOT/boot$f" ;; esac
++                if [ -f "$src" ]; then
++                    cat "$src" >> "$BUILDROOT/boot/initramfs_2712"
++                    PI_INITRD_COUNT=$((PI_INITRD_COUNT + 1))
++                fi
++            done
++            if [ "$PI_INITRD_COUNT" -gt 0 ]; then
++                echo "info: Pi-firmware concatenated $PI_INITRD_COUNT initrd(s) -> /boot/initramfs_2712 ($(stat -c %s "$BUILDROOT/boot/initramfs_2712") bytes)"
++            else
++                rm -f "$BUILDROOT/boot/initramfs_2712"
++                # Fallback: scan /boot for initramfs-like files
++                for cand in "$BUILDROOT/boot/initramfs" "$BUILDROOT/boot/initramfs-rpi"; do
++                    if [ -f "$cand" ]; then
++                        cp "$cand" "$BUILDROOT/boot/initramfs_2712"
++                        echo "info: Pi-firmware fallback-staged $cand -> /boot/initramfs_2712"
++                        break
++                    fi
++                done
++                if [ ! -f "$BUILDROOT/boot/initramfs_2712" ]; then
++                    INITRD_FOUND=$(find "$BUILDROOT/boot" -maxdepth 4 -name "initramfs*" -o -name "initrd*" 2>/dev/null | head -1)
++                    if [ -n "$INITRD_FOUND" ]; then
++                        cp "$INITRD_FOUND" "$BUILDROOT/boot/initramfs_2712"
++                        echo "info: Pi-firmware fallback-staged $INITRD_FOUND -> /boot/initramfs_2712"
++                    else
++                        echo "warning: Pi-firmware found no initrds in loader entry or /boot"
++                    fi
++                fi
++            fi
++            # Cmdline for Pi BootROM. duranium's kernel-install hook bakes
++            # `usrhash=<roothash>` into the cmdline; this is what
++            # systemd-veritysetup-generator reads in the initramfs to bring
++            # up /dev/mapper/usr. So passing the loader-entry cmdline
++            # unchanged is exactly what we need.
++            if [ -n "$PI_CMD" ]; then
++                echo "$PI_CMD" > "$BUILDROOT/boot/cmdline.txt"
++                echo "info: Pi-firmware wrote /boot/cmdline.txt (from loader entry)"
++            fi
++            # Pi-OS-Lite-aligned config.txt. auto_initramfs=1 pairs
++            # kernel_2712.img + initramfs_2712 automatically. Display knobs
++            # (disable_fw_kms_setup, display_auto_detect, max_framebuffers)
++            # bring up HyperPixel/HDMI framebuffer before kernel takes over.
++            cat > "$BUILDROOT/boot/config.txt" <<'CONFIG'
++# Marathon / Duranium Pi 5 boot. Aligned with Pi OS Lite shape.
++auto_initramfs=1
++arm_64bit=1
++# arm_boost=1 is a no-op on Pi 5 (Pi 4 only); usercfg.txt sets arm_freq=2600 + over_voltage_delta=10000 instead.
++disable_fw_kms_setup=1
++display_auto_detect=1
++max_framebuffers=2
++include usercfg.txt
++CONFIG
++            echo "info: Pi-firmware wrote /boot/config.txt"
++            # /boot/usercfg.txt is shipped by device-raspberry-pi5-marathon
++            # (vanilla Pi 5 base, with `include usercfg-hackberrypi.txt`
++            # at the end) layered with device-hackberrypi-cm5-marathon
++            # (HyperPixel + BBQ keyboard + fuel-gauge dtoverlays). Don't
++            # overwrite here — that would clobber the new generic-vs-
++            # enclosure split.
++            echo "info: /boot/usercfg.txt left to device aports"
++        fi
++
+         while IFS= read -r line; do
+             case "$line" in
+                 linux[[:space:]]*)
+@@ -252,44 +481,301 @@ EOF
+         # Note: /boot/dtbs is preserved
+ 
+     else
+-        # No systemd-boot loader entries — Bootloader=none devices (Pi
+-        # firmware boot chain via /boot/config.txt + cmdline.txt). Pi 5
+-        # has no UEFI, so systemd-stub never runs. Compose the Pi-
+-        # firmware-bootable boot chain by hand. mkosi.repart's
+-        # CopyFiles=/boot:/ promotes everything under $BUILDROOT/boot
+-        # to the ESP root.
+-        if [ "${PMOS_DEVICE#raspberry-pi}" != "$PMOS_DEVICE" ] || \
+-           [ "${PMOS_DEVICE#rpi}" != "$PMOS_DEVICE" ]; then
+-            echo "info: no /boot/loader/entries (Bootloader=none for $PMOS_DEVICE) — composing Pi-firmware boot chain"
+-
+-            # postmarketos-mkinitfs writes the initramfs under
+-            # /boot/$device/initrd. Pi firmware (per the symlink chain
+-            # in /boot/config.txt: `initramfs initramfs-rpi`) expects
+-            # it at /boot/initramfs-rpi. Promote it.
+-            INITRD_SRC="$BUILDROOT/boot/$PMOS_DEVICE/initrd"
+-            if [ -f "$INITRD_SRC" ]; then
+-                cp "$INITRD_SRC" "$BUILDROOT/boot/initramfs-rpi"
+-                echo "info: promoted $INITRD_SRC -> /boot/initramfs-rpi"
++        # No systemd-boot loader entries AND not a Pi-firmware device.
++        # Hard fail.
++        if [ -z "${PI_FIRMWARE_BOOT:-}" ]; then
++            echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
++            exit 1
++        fi
++        # Pi-firmware + Bootloader=uki: mkosi builds a UKI at
++        # /boot/EFI/Linux/<id>_<ver>.efi but doesn't create loader/entries.
++        # Extract the UKI's .linux + .initrd + .cmdline sections so Pi
++        # BootROM can load them as plain files.
++        UKI=$(find "$BUILDROOT/boot/EFI/Linux" -name "*.efi" -type f 2>/dev/null | head -1)
++        if [ -n "${PI_FIRMWARE_BOOT:-}" ] && [ -f "$UKI" ]; then
++            echo "info: Pi-firmware extracting UKI sections from $UKI"
++            # objcopy --dump-section copies the named PE section to a file.
++            # The UKI has these sections (per systemd-stub spec):
++            #   .linux    - the kernel ELF/Image
++            #   .initrd   - the initrd (duranium-initramfs + kmods concat)
++            #   .cmdline  - the kernel command line (includes usrhash= for verity)
++            #   .dtb      - the devicetree blob (optional)
++            #   .uname    - kernel version string
++            #   .osrel    - /etc/os-release
++            objcopy --dump-section .linux="$BUILDROOT/boot/kernel_2712.img" "$UKI" 2>&1 \
++                && echo "info: Pi-firmware extracted .linux -> /boot/kernel_2712.img" \
++                || echo "warning: objcopy .linux extract failed"
++            objcopy --dump-section .initrd="$BUILDROOT/boot/initramfs_2712" "$UKI" 2>&1 \
++                && echo "info: Pi-firmware extracted .initrd -> /boot/initramfs_2712 ($(stat -c %s "$BUILDROOT/boot/initramfs_2712") bytes)" \
++                || echo "warning: objcopy .initrd extract failed"
++            # cmdline has a trailing NUL; strip it. objcopy --dump-section
++            # has inconsistent exit codes for missing sections across
++            # binutils versions — check the output file instead.
++            rm -f "$BUILDROOT/boot/cmdline.txt.raw"
++            objcopy --dump-section .cmdline="$BUILDROOT/boot/cmdline.txt.raw" "$UKI" 2>/dev/null || true
++            if [ -s "$BUILDROOT/boot/cmdline.txt.raw" ]; then
++                tr -d '\0' < "$BUILDROOT/boot/cmdline.txt.raw" > "$BUILDROOT/boot/cmdline.txt"
++                rm -f "$BUILDROOT/boot/cmdline.txt.raw"
++                echo "info: Pi-firmware extracted .cmdline -> /boot/cmdline.txt"
++            else
++                # Plymouth-friendly cmdline:
++                #   splash             — engage plymouth's fbdev backend
++                #   quiet loglevel=3   — silence kernel printk on the panel
++                #   vt.global_cursor_default=0 — hide the blinking VT cursor
++                #   console=tty3       — kernel msgs go to tty3, NOT tty1
++                #                        (plymouth owns tty1 / the panel fb)
++                #   console=ttyAMA10   — UART debug still works
++                # dwc_otg.lpm_enable=0 keeps the HackberryPi USB keyboard
++                # responsive. systemd.gpt_auto=no — Pi MBR is not GPT.
++                # cgroup_enable=memory — bcm2712-rpi.dtsi bakes
++                #   cgroup_disable=memory into the DTB bootargs, killing
++                #   /proc/pressure/memory and PSI-driven app freezer.
++                #   linux-rpi PR #6524 added cgroup_enable= to override
++                #   the DTB-set disable; it landed in 6.12.3+ so 6.12.85
++                #   has it. Without this, Phase B lifecycle policy is a
++                #   no-op on Pi 5 / CM5.
++                echo "splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no" \
++                    > "$BUILDROOT/boot/cmdline.txt"
++                rm -f "$BUILDROOT/boot/cmdline.txt.raw"
++                echo "info: Pi-firmware UKI has no .cmdline section, wrote default /boot/cmdline.txt"
++            fi
++            echo "       cmdline: $(cat "$BUILDROOT/boot/cmdline.txt")"
++            # Pi-OS-Lite-aligned config.txt
++            cat > "$BUILDROOT/boot/config.txt" <<'CONFIG'
++# Marathon / Duranium Pi 5 boot.
++auto_initramfs=1
++arm_64bit=1
++# arm_boost=1 is a no-op on Pi 5 (Pi 4 only); usercfg.txt sets arm_freq=2600 + over_voltage_delta=10000 instead.
++disable_fw_kms_setup=1
++display_auto_detect=1
++max_framebuffers=2
++include usercfg.txt
++CONFIG
++            # /boot/usercfg.txt shipped by device-raspberry-pi5-marathon +
++            # device-hackberrypi-cm5-marathon — see comment at the first
++            # usercfg.txt write site for the boundary rationale.
++            echo "info: Pi-firmware wrote /boot/config.txt; usercfg.txt from aports"
++            # DO NOT clear PI_FIRMWARE_BOOT here. The UKI's .initrd section
++            # only contains kernel modules + firmware (KernelModulesInitrd=yes),
++            # NOT the postmarketos-duranium-initramfs init scripts. Without an
++            # /init, the kernel mounts the cpio rootfs and panics ("no working
++            # init"). The mkinitfs fallback below runs in chroot, produces a
++            # real duranium initrd (init.sh + init_functions.sh + dm-verity
++            # + composefs handlers), and overwrites initramfs_2712 with it.
++            # Verified 2026-06-18 after duranium-on-Pi5 build #26051814 booted
++            # to LED-solid-white (kernel running) but had no userspace.
++        fi
++        # Pi-firmware fallback path retained for the case where the UKI
++        # truly is missing.
++        if [ -n "${PI_FIRMWARE_BOOT:-}" ]; then
++            echo "warning: no loader/entries AND no UKI — Pi-firmware path falling back to legacy mkinitfs composer"
++
++            # mkinitfs needs to run in chroot to produce the Pi-firmware
++            # initrd. mkosi.postinst tried this but mkosi swallowed its
++            # stdout AND the chroot's /in-pmbootstrap trigger suppression
++            # was inconsistent across runs. Doing it here (finalize) gets
++            # us reliable stdout for diagnostics + a well-defined moment
++            # in the pipeline (after package install, before image pack).
++            rm -f "$BUILDROOT/in-pmbootstrap"
++            # Temporarily stash /usr/lib/systemd/boot/efi so boot-deploy's
++            # *.efi glob (run by chroot mkinitfs below) doesn't try to copy
++            # anything into /boot. We restore it after mkinitfs returns so
++            # mkosi's final UKI regeneration step can still find
++            # linuxaa64.efi.stub at its expected path.
++            BOOT_EFI_STASH=""
++            if [ -d "$BUILDROOT/usr/lib/systemd/boot/efi" ]; then
++                BOOT_EFI_STASH=$(mktemp -d)
++                mv "$BUILDROOT/usr/lib/systemd/boot/efi" "$BOOT_EFI_STASH/efi"
++            fi
++            KVER=$(ls "$BUILDROOT/usr/lib/modules/" 2>/dev/null | head -1)
++            INITRD_SRC=""
++            if [ -n "$KVER" ]; then
++                echo "info: running mkinitfs in chroot for $KVER"
++                mkdir -p "$BUILDROOT/proc" "$BUILDROOT/sys" "$BUILDROOT/dev"
++                mount --bind /proc "$BUILDROOT/proc" 2>/dev/null || true
++                mount --bind /sys  "$BUILDROOT/sys"  2>/dev/null || true
++                mount --bind /dev  "$BUILDROOT/dev"  2>/dev/null || true
++                # At this point in finalize, /etc has been moved into
++                # /usr/lib/confexts/duranium-base-config/etc (lines 83-98).
++                # mkinitfs reads /etc/os-release which is a symlink to
++                # ../usr/lib/os-release — a /etc -> confext symlink rewrites
++                # that relative path through the confext root and breaks
++                # resolution. Copy /etc back transiently so symlinks resolve
++                # correctly, then remove the copy.
++                ETC_RESTORE=""
++                CONFEXT_ETC="$BUILDROOT/usr/lib/confexts/duranium-base-config/etc"
++                if [ ! -e "$BUILDROOT/etc" ] && [ -d "$CONFEXT_ETC" ]; then
++                    cp -a "$CONFEXT_ETC" "$BUILDROOT/etc"
++                    ETC_RESTORE=1
++                fi
++                # postmarketos-mkinitfs is a Go binary; it doesn't take
++                # -k. It auto-discovers the kernel via /usr/lib/modules/
++                # and writes to /boot by default. Plain invocation is
++                # correct.
++                chroot "$BUILDROOT" /sbin/mkinitfs 2>&1 \
++                    | sed 's/^/  mkinitfs: /' \
++                    || echo "warning: mkinitfs non-zero exit"
++                [ -n "$ETC_RESTORE" ] && rm -rf "$BUILDROOT/etc"
++                umount "$BUILDROOT/proc" 2>/dev/null || true
++                umount "$BUILDROOT/sys"  2>/dev/null || true
++                umount "$BUILDROOT/dev"  2>/dev/null || true
++            else
++                echo "warning: no /usr/lib/modules/<kver> — cannot run mkinitfs"
++            fi
++            # Restore /usr/lib/systemd/boot/efi for mkosi's later UKI step.
++            if [ -n "$BOOT_EFI_STASH" ] && [ -d "$BOOT_EFI_STASH/efi" ]; then
++                mv "$BOOT_EFI_STASH/efi" "$BUILDROOT/usr/lib/systemd/boot/efi"
++                rmdir "$BOOT_EFI_STASH"
++            fi
++
++            # Locate the initrd mkinitfs just wrote. postmarketos-mkinitfs +
++            # boot-deploy default output is /boot/initramfs (a gzip cpio).
++            # Older / device-specific layouts use /boot/$device/initrd —
++            # check both.
++            INITRD_SRC=""
++            for cand in \
++                "$BUILDROOT/boot/initramfs" \
++                "$BUILDROOT/boot/initramfs-rpi" \
++                "$BUILDROOT/boot/$PMOS_DEVICE/initrd" \
++                "$BUILDROOT/boot/${PMOS_DEVICE%-marathon}/initrd"
++            do
++                [ -f "$cand" ] && INITRD_SRC="$cand" && break
++            done
++            if [ -z "$INITRD_SRC" ]; then
++                for d in "$BUILDROOT"/boot/*/initrd "$BUILDROOT"/boot/initramfs*; do
++                    [ -f "$d" ] && INITRD_SRC="$d" && break
++                done
++            fi
++            # mkinitfs writes a separate kernel-modules.initrd under
++            # /boot/<kver>/ for legacy device-subdir layouts; concat is
++            # only required if it exists.
++            KMOD_INITRD=""
++            if [ -n "$INITRD_SRC" ]; then
++                KMOD_DIR="$(dirname "$INITRD_SRC")"
++                for cand in "$KMOD_DIR"/*/kernel-modules.initrd; do
++                    [ -f "$cand" ] && KMOD_INITRD="$cand" && break
++                done
++            fi
++            # Pi OS Lite's known-good Pi 5 layout uses:
++            #   /boot/kernel_2712.img   (uncompressed Image)
++            #   /boot/initramfs_2712    (uncompressed ASCII cpio)
++            #   auto_initramfs=1  (in config.txt, no explicit kernel= /
++            #                      initramfs= lines)
++            # Recent Pi 5 EEPROM has known issues with:
++            #   - non-default `kernel=<name>` paths (firmware sometimes
++            #     fails to map the file in cached mode)
++            #   - gzip-compressed initramfs (firmware-side parser is
++            #     conservative)
++            # Align our layout exactly to Pi OS Lite's so the BootROM
++            # sees the same shape it always boots cleanly.
++            if [ -n "$INITRD_SRC" ] && [ -f "$INITRD_SRC" ]; then
++                STAGED="$BUILDROOT/boot/initramfs_2712"
++                if [ -n "$KMOD_INITRD" ] && [ "$INITRD_SRC" != "$STAGED" ]; then
++                    echo "info: concatenating $INITRD_SRC + $KMOD_INITRD -> /boot/initramfs_2712"
++                    cat "$INITRD_SRC" "$KMOD_INITRD" > "$STAGED"
++                elif [ "$INITRD_SRC" != "$STAGED" ]; then
++                    cp "$INITRD_SRC" "$STAGED"
++                fi
++                # Decompress: Pi OS Lite ships an UNCOMPRESSED cpio
++                # archive. The kernel can decompress gzipped initramfs
++                # itself, but recent Pi 5 EEPROM verifies the archive
++                # before pass-through and chokes on gzip. Strip the
++                # compression so the BootROM sees plain cpio.
++                if file "$STAGED" 2>/dev/null | grep -q "gzip compressed"; then
++                    gunzip -c "$STAGED" > "$STAGED.cpio"
++                    mv "$STAGED.cpio" "$STAGED"
++                    echo "info: decompressed gzip -> plain cpio (Pi 5 BootROM-friendly)"
++                fi
++                # Keep initramfs-rpi as a backwards-compatible alias —
++                # older config.txt forms reference it; the new config.txt
++                # below uses auto_initramfs= and `initramfs_2712`.
++                cp "$STAGED" "$BUILDROOT/boot/initramfs-rpi"
++                echo "info: promoted $INITRD_SRC -> /boot/initramfs_2712 (+ initramfs-rpi alias)"
+             else
+-                echo "warning: $INITRD_SRC not found — Pi firmware will fail to load initramfs"
++                echo "warning: no initrd found anywhere under \$BUILDROOT/boot/ — Pi firmware will fail to load initramfs"
++            fi
++            # Rename kernel to Pi 5's default name kernel_2712.img.
++            # auto_initramfs=1 (set in config.txt below) pairs kernel_2712.img
++            # with initramfs_2712 automatically.
++            if [ -f "$BUILDROOT/boot/vmlinuz-rpi" ] \
++               && [ ! -f "$BUILDROOT/boot/kernel_2712.img" ]; then
++                cp "$BUILDROOT/boot/vmlinuz-rpi" "$BUILDROOT/boot/kernel_2712.img"
++                echo "info: copied vmlinuz-rpi -> /boot/kernel_2712.img (Pi 5 default)"
+             fi
+ 
+-            # Write the kernel command line. systemd-stub would have
+-            # baked this into the UKI's .cmdline section; the Pi
+-            # firmware reads /boot/cmdline.txt instead. Discoverable-
+-            # partitions spec (systemd-gpt-auto-generator) finds the
+-            # verity pair via GPT type UUIDs — no roothash= needed,
+-            # the partition UUIDs encode the hash. systemd-repart at
+-            # boot creates the encrypted root partition from the
+-            # 30-root.conf shipped in the rootfs.
++            # Bake the HyperPixel 4.0 Square DTB overlay into the Pi 5
++            # base DTB. linux-rpi ships bcm2712-rpi-5-b.dtb but NOT the
++            # rpi-firmware userland overlays (vc4-kms-dpi-hyperpixel4sq).
++            # Without the overlay, the kernel has no DPI panel node and
++            # /dev/fb0 never materialises — blank screen on HyperPixel.
++            DTBO="$BUILDROOT/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo"
++            for PI5_DTB in \
++                "$BUILDROOT/boot/dtbs/broadcom/bcm2712-rpi-5-b.dtb" \
++                "$BUILDROOT/boot/dtbs/broadcom/bcm2712-d-rpi-5-b.dtb"
++            do
++                if [ -f "$PI5_DTB" ] && [ -f "$DTBO" ]; then
++                    cp "$PI5_DTB" "$PI5_DTB.orig"
++                    if fdtoverlay -i "$PI5_DTB.orig" -o "$PI5_DTB" "$DTBO" 2>&1; then
++                        echo "info: merged HyperPixel overlay into $(basename "$PI5_DTB")"
++                    else
++                        echo "warning: fdtoverlay failed for $(basename "$PI5_DTB") — restoring upstream"
++                        mv "$PI5_DTB.orig" "$PI5_DTB"
++                    fi
++                    [ -f "$PI5_DTB.orig" ] && rm -f "$PI5_DTB.orig"
++                fi
++            done
++
++            # /boot/usercfg.txt now ships from two device aports — the
++            # generic device-raspberry-pi5-marathon (vc4-kms-v3d + GPU
++            # split + arm_freq=2600 + a tail `include
++            # usercfg-hackberrypi.txt`) and the enclosure-specific
++            # device-hackberrypi-cm5-marathon (HyperPixel panel + BBQ
++            # keyboard + MAX17048). Don't overwrite here.
++            echo "info: /boot/usercfg.txt left to device aports"
++
++            # Overwrite /boot/config.txt with a Pi OS Lite-aligned config.
++            # The raspberrypi-bootloader apk ships a config.txt with explicit
++            # `kernel=vmlinuz-rpi` + `initramfs initramfs-rpi` lines — recent
++            # Pi 5 EEPROM has known issues with both (non-default filenames
++            # + explicit-form initramfs). Use auto_initramfs=1 to pair
++            # kernel_2712.img with initramfs_2712 automatically. Add the
++            # Pi-OS-Lite display knobs (display_auto_detect, disable_fw_kms_setup,
++            # max_framebuffers) so the HyperPixel framebuffer comes up before
++            # the kernel takes over.
++            cat > "$BUILDROOT/boot/config.txt" <<'EOF'
++# Marathon / Duranium Pi 5 boot config. Aligned with Pi OS Lite's
++# known-good shape so recent Pi 5 EEPROM auto-loads kernel + initramfs
++# without explicit filename overrides.
++auto_initramfs=1
++arm_64bit=1
++# arm_boost=1 is a no-op on Pi 5 (Pi 4 only); usercfg.txt sets arm_freq=2600 + over_voltage_delta=10000 instead.
++
++# Display
++disable_fw_kms_setup=1
++display_auto_detect=1
++max_framebuffers=2
++
++# Marathon-overlay usercfg.txt loads HyperPixel + dwc2 host-mode etc.
++include usercfg.txt
++EOF
++            echo "info: wrote /boot/config.txt (Pi-OS-Lite aligned)"
++
++            # Compose /boot/cmdline.txt. Match pmbootstrap reference image
++            # — splash + plymouth.use-simpledrm hide every boot message on
++            # HyperPixel until DRM init (which only fires AFTER plymouth
++            # has already taken over the framebuffer), so we drop them.
++            # quiet stays so first-boot logs aren't noisy. dwc_otg disables
++            # USB OTG LPM (HackberryPi keyboard requirement). console=tty1
++            # routes the framebuffer console to the HyperPixel panel.
+             cat > "$BUILDROOT/boot/cmdline.txt" <<'EOF'
+-console=tty1 console=serial0,115200 rw quiet splash plymouth.use-simpledrm
++splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no
+ EOF
+             echo "info: wrote /boot/cmdline.txt"
+-        else
+-            echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
+-            exit 1
+         fi
++        # No more else here — the early `[ -z "${PI_FIRMWARE_BOOT:-}" ]`
++        # check above already handles the non-Pi error case. If we made
++        # it this far on a Pi device, the UKI extract or legacy fallback
++        # has done what's needed.
+     fi
+ fi
+ 
+-- 
+2.53.0
+

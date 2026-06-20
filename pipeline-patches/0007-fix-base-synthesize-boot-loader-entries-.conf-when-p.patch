@@ -1,0 +1,119 @@
+From 95cd8bada3f1102164319520aa5cae4024aa5779 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 15 Jun 2026 13:34:27 +0100
+Subject: [PATCH 07/10] fix(base): synthesize /boot/loader/entries/*.conf when
+ pmOS leaves it empty
+
+pmOS edge's /usr/lib/kernel/install.conf ships layout=bls commented
+out, which causes systemd-kernel-install's 90-loaderentry hook to exit
+silently without writing the per-kernel .conf file. The mkosi UKI
+pipeline downstream reads that .conf to learn the kernel / initrd /
+cmdline / DTB triple, so without it the bake fails at finalize with
+"No existing boot loader entry found".
+
+Synthesize the entry directly from /boot/vmlinuz + the kernel-cmdline.d
+fragments + deviceinfo_dtb when the directory is empty. Subsequent
+processing (extract + clean up) treats it the same as a real entry,
+so the only side-effect is a small "info: synthesized ..." log line.
+
+Validated end-to-end on qemu-aarch64: image bakes, boots through EDK2,
+reaches "marathon login:" prompt with hostname + machine-id set
+correctly from the synthesized cmdline.
+---
+ mkosi.finalize | 73 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 71 insertions(+), 2 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 0aefd75..5e280fc 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -108,6 +108,39 @@ EOF
+ 
+ # Configure boot for UKI generation
+ if [ -d "$BUILDROOT/boot" ]; then
++    # pmOS edge ships /usr/lib/kernel/install.conf with `layout=bls`
++    # commented out, so systemd-kernel-install's 90-loaderentry hook
++    # exits silently and never writes /boot/loader/entries/*.conf.
++    # The UKI pipeline downstream NEEDS that .conf to learn the
++    # kernel / initrd / cmdline / DTB triple, so synthesize one if
++    # missing.
++    LOADER_ENTRIES_DIR="$BUILDROOT/boot/loader/entries"
++    if [ ! -d "$LOADER_ENTRIES_DIR" ] || \
++       ! find "$LOADER_ENTRIES_DIR" -name "*.conf" -type f | grep -q .; then
++        if [ -f "$BUILDROOT/boot/vmlinuz" ] && [ -d "$BUILDROOT/usr/lib/modules" ]; then
++            mkdir -p "$LOADER_ENTRIES_DIR"
++            KVER=$(ls "$BUILDROOT/usr/lib/modules/" | head -1)
++            CMDLINE=$(cat "$BUILDROOT"/usr/lib/kernel-cmdline.d/*.conf 2>/dev/null \
++                      | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
++            DTB_LINE=""
++            if [ -f "$BUILDROOT/usr/share/deviceinfo/deviceinfo" ]; then
++                . "$BUILDROOT/usr/share/deviceinfo/deviceinfo"
++                if [ -n "$deviceinfo_dtb" ] && \
++                   [ -f "$BUILDROOT/boot/dtbs/$deviceinfo_dtb.dtb" ]; then
++                    DTB_LINE="devicetree /dtbs/$deviceinfo_dtb.dtb"
++                fi
++            fi
++            cat > "$LOADER_ENTRIES_DIR/marathon-$KVER.conf" <<EOF
++title    Marathon ($PMOS_DEVICE)
++version  $KVER
++linux    /vmlinuz
++options  $CMDLINE
++${DTB_LINE}
++EOF
++            echo "info: synthesized $LOADER_ENTRIES_DIR/marathon-$KVER.conf (pmOS tooling left it empty)"
++        fi
++    fi
++
+     # Find existing loader entry created by pmOS tooling
+     EXISTING_ENTRY=$(find "$BUILDROOT/boot/loader/entries" -name "*.conf" -type f | head -1)
+ 
+@@ -219,8 +252,44 @@ if [ -d "$BUILDROOT/boot" ]; then
+         # Note: /boot/dtbs is preserved
+ 
+     else
+-        echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
+-        exit 1
++        # No systemd-boot loader entries — Bootloader=none devices (Pi
++        # firmware boot chain via /boot/config.txt + cmdline.txt). Pi 5
++        # has no UEFI, so systemd-stub never runs. Compose the Pi-
++        # firmware-bootable boot chain by hand. mkosi.repart's
++        # CopyFiles=/boot:/ promotes everything under $BUILDROOT/boot
++        # to the ESP root.
++        if [ "${PMOS_DEVICE#raspberry-pi}" != "$PMOS_DEVICE" ] || \
++           [ "${PMOS_DEVICE#rpi}" != "$PMOS_DEVICE" ]; then
++            echo "info: no /boot/loader/entries (Bootloader=none for $PMOS_DEVICE) — composing Pi-firmware boot chain"
++
++            # postmarketos-mkinitfs writes the initramfs under
++            # /boot/$device/initrd. Pi firmware (per the symlink chain
++            # in /boot/config.txt: `initramfs initramfs-rpi`) expects
++            # it at /boot/initramfs-rpi. Promote it.
++            INITRD_SRC="$BUILDROOT/boot/$PMOS_DEVICE/initrd"
++            if [ -f "$INITRD_SRC" ]; then
++                cp "$INITRD_SRC" "$BUILDROOT/boot/initramfs-rpi"
++                echo "info: promoted $INITRD_SRC -> /boot/initramfs-rpi"
++            else
++                echo "warning: $INITRD_SRC not found — Pi firmware will fail to load initramfs"
++            fi
++
++            # Write the kernel command line. systemd-stub would have
++            # baked this into the UKI's .cmdline section; the Pi
++            # firmware reads /boot/cmdline.txt instead. Discoverable-
++            # partitions spec (systemd-gpt-auto-generator) finds the
++            # verity pair via GPT type UUIDs — no roothash= needed,
++            # the partition UUIDs encode the hash. systemd-repart at
++            # boot creates the encrypted root partition from the
++            # 30-root.conf shipped in the rootfs.
++            cat > "$BUILDROOT/boot/cmdline.txt" <<'EOF'
++console=tty1 console=serial0,115200 rw quiet splash plymouth.use-simpledrm
++EOF
++            echo "info: wrote /boot/cmdline.txt"
++        else
++            echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
++            exit 1
++        fi
+     fi
+ fi
+ 
+-- 
+2.53.0
+

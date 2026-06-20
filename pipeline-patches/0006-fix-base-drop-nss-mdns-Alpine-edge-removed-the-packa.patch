@@ -1,0 +1,76 @@
+From 2f5576579bb7cd8bc906e5e7b33cae6f85dc993b Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Mon, 15 Jun 2026 13:02:25 +0100
+Subject: [PATCH 06/10] fix(base): drop nss-mdns; Alpine edge removed the
+ package mid-2026
+
+The nss-mdns aports/community package was removed from Alpine edge
+during the 0.9_rc4 avahi cycle without a replacement; avahi itself
+does not ship libnss_mdns. Builds were failing at the apk-add stage
+with "nss-mdns (no such package)".
+
+Drop the package from the base manifest and revert /etc/nsswitch.conf
+to plain "hosts: files dns". On-device gethostbyname("foo.local") no
+longer short-circuits via mDNS, but the avahi daemon still broadcasts
+our hostname so workstation-side resolvers (macOS Bonjour, Linux
+nss-mdns/avahi-nss, Windows mDNSResponder) still find marathon.local.
+On-device lookups can fall back to avahi-resolve / getent ahosts.
+---
+ mkosi.images/base/mkosi.conf     | 13 +++++++------
+ mkosi.images/base/mkosi.postinst |  9 +--------
+ 2 files changed, 8 insertions(+), 14 deletions(-)
+
+diff --git a/mkosi.images/base/mkosi.conf b/mkosi.images/base/mkosi.conf
+index 18eb877..11414d4 100644
+--- a/mkosi.images/base/mkosi.conf
++++ b/mkosi.images/base/mkosi.conf
+@@ -18,13 +18,14 @@ Packages=
+ 	# Installs /usr/bin/marathon-mail-oauth, invoked by the
+ 	# marathonoauth + marathonclassic QMF credential plugins.
+ 	marathon-mail-oauth
+-	# Avahi daemon + NSS mDNS plugin so the device responds to
+-	# `<hostname>.local` on the LAN. Postinst sets hostname=marathon
+-	# via /usr/share/factory/etc/hostname + tmpfiles and enables
+-	# avahi-daemon via systemd preset so dev/QA can ssh
+-	# root@marathon.local without scraping the DHCP lease.
++	# Avahi daemon so the device responds to `<hostname>.local` on the
++	# LAN. Postinst sets hostname=marathon via /usr/share/factory/etc/
++	# hostname + tmpfiles and enables avahi-daemon via systemd preset so
++	# dev/QA can ssh root@marathon.local without scraping the DHCP lease.
++	# (nss-mdns was removed from Alpine edge mid-2026; workstation-side
++	# resolvers still see us via avahi's network broadcast, on-device
++	# resolution falls back to avahi-resolve / getent.)
+ 	avahi
+-	nss-mdns
+ RemovePackages=
+ 	# Ideally this could be excluded in packaging, but it's difficult
+ 	# to do this without causing regressions in mutable pmOS. See:
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 0a122d1..15cf384 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -153,20 +153,13 @@ enable avahi-daemon.service
+ enable sshd.service
+ EOF
+ 
+-# NSS mDNS resolution: nss-mdns ships with a stub /etc/nsswitch.conf
+-# entry pattern; ensure the hosts: line resolves *.local via mDNS BEFORE
+-# DNS, otherwise glibc falls through to a real DNS server which doesn't
+-# know about marathon.local. Override the hosts line in factory.
+ mkdir -p "$BUILDROOT/usr/share/factory/etc"
+ cat > "$BUILDROOT/usr/share/factory/etc/nsswitch.conf" <<'EOF'
+-# Marathon: mdns_minimal short-circuits *.local lookups so DNS doesn't
+-# spuriously answer NXDOMAIN before avahi has a chance. The standard
+-# Debian/Alpine NSS recipe for nss-mdns.
+ passwd:     files
+ group:      files
+ shadow:     files
+ gshadow:    files
+-hosts:      files mdns_minimal [NOTFOUND=return] dns mdns
++hosts:      files dns
+ networks:   files
+ protocols:  db files
+ services:   db files
+-- 
+2.53.0
+

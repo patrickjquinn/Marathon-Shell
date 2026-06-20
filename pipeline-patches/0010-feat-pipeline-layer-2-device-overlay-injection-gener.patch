@@ -1,0 +1,170 @@
+From f4bf2250bb106e858ed2b37c1c3e4eaa5a3074ea Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 08:08:20 +0100
+Subject: [PATCH 10/10] feat(pipeline): layer-2 device overlay injection +
+ generic device-APK builder
+
+Two coupled additions enabling the device-raspberry-pi5-marathon /
+device-hackberrypi-cm5-marathon aport split:
+
+* scripts/mkosi-configure.py: when device == raspberry-pi5-marathon
+  and mkosi.packages/ contains a device-hackberrypi-cm5-marathon-*
+  APK, inject it as a second overlay package alongside the marathon-
+  overlay aport. Vanilla CM5 dev-board ports omit the APK at build
+  time and the include directive in /boot/usercfg.txt silently no-ops
+  (Pi firmware tolerates missing includes).
+
+* marathon-extras/build-device-apk.sh: generic builder taking a
+  device-* aport name as argv[1]. Bootstraps abuild + dtc in an
+  alpine:edge container, builds the aport, copies the resulting .apk
+  to mkosi.packages/. Replaces the per-aport build scripts
+  (build-marathon-base-config-apk.sh pattern) for the device layer.
+---
+ marathon-extras/build-device-apk.sh | 69 +++++++++++++++++++++++++++++
+ scripts/mkosi-configure.py          | 50 ++++++++++++++++++++-
+ 2 files changed, 118 insertions(+), 1 deletion(-)
+ create mode 100755 marathon-extras/build-device-apk.sh
+
+diff --git a/marathon-extras/build-device-apk.sh b/marathon-extras/build-device-apk.sh
+new file mode 100755
+index 0000000..f79029d
+--- /dev/null
++++ b/marathon-extras/build-device-apk.sh
+@@ -0,0 +1,69 @@
++#!/usr/bin/env bash
++# Build a device-*-marathon aport to <name>-<pkgver>-r<pkgrel>.apk for
++# Duranium's mkosi.packages/.
++#
++# Usage:
++#   build-device-apk.sh device-raspberry-pi5-marathon
++#   build-device-apk.sh device-hackberrypi-cm5-marathon
++#
++# Pattern lifted from build-marathon-base-config-apk.sh — abuild in a
++# transient alpine:edge container with a throwaway key.
++set -euo pipefail
++
++PKG="${1:?usage: $0 <pkgname>}"
++
++SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
++DURANIUM_DIR="$(dirname "$SCRIPT_DIR")"
++MARATHON_IMAGE_DIR="${MARATHON_IMAGE_DIR:-/home/patrickquinn/Developer/Marathon-Image}"
++APORTS_SRC="$MARATHON_IMAGE_DIR/packages"
++MKOSI_PKG_DIR="$DURANIUM_DIR/mkosi.packages"
++
++[ -d "$APORTS_SRC/$PKG" ] || {
++    echo "error: $PKG APKBUILD not found at $APORTS_SRC/$PKG" >&2
++    exit 1
++}
++mkdir -p "$MKOSI_PKG_DIR"
++
++PKGVER="$(grep -E '^pkgver=' "$APORTS_SRC/$PKG/APKBUILD" | cut -d= -f2)"
++PKGREL="$(grep -E '^pkgrel=' "$APORTS_SRC/$PKG/APKBUILD" | cut -d= -f2)"
++TARGET="${PKG}-${PKGVER}-r${PKGREL}.apk"
++
++echo "+-- building $TARGET --+"
++
++podman run --rm -i \
++    -e PKG="$PKG" \
++    -e PKGVER="$PKGVER" \
++    -e PKGREL="$PKGREL" \
++    -e TARGET="$TARGET" \
++    -v "$APORTS_SRC:/aports-src:Z,ro" \
++    -v "$MKOSI_PKG_DIR:/out:Z" \
++    alpine:edge sh -s <<'CSCRIPT'
++set -euo pipefail
++apk add --no-cache --quiet abuild rsync dtc 2>&1 | tail -2
++
++mkdir -p /root/.abuild
++abuild-keygen -a -n -q
++KEY_PRIV=$(ls /root/.abuild/*.rsa | head -1)
++cp "${KEY_PRIV}.pub" /etc/apk/keys/
++echo "PACKAGER_PRIVKEY=$KEY_PRIV" > /etc/abuild.conf
++
++mkdir -p /work/aports
++rsync -a --checksum --no-times /aports-src/ /work/aports/
++cd "/work/aports/${PKG}"
++abuild -F checksum >/dev/null
++abuild -d -F
++
++# Device aports build for the device arch (aarch64) on a noarch host.
++# Find the produced apk regardless of which arch directory abuild used.
++APK_PATH="$(find /root/packages/aports -name "${TARGET}" -print -quit)"
++if [ -z "$APK_PATH" ]; then
++    echo "error: built apk not found for $TARGET" >&2
++    find /root/packages -name '*.apk' | head -10 >&2
++    exit 1
++fi
++cp "$APK_PATH" "/out/${TARGET}"
++echo "wrote /out/${TARGET}"
++CSCRIPT
++
++echo "+-- done: $MKOSI_PKG_DIR/$TARGET --+"
++ls -l "$MKOSI_PKG_DIR/$TARGET"
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index 19f1658..0c94f5f 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -39,11 +39,59 @@ def main() -> int:
+         for key in ("Architecture", "SectorSize"):
+             if pmaports.get(key):
+                 config[key] = pmaports[key]
++        # Pi 5: Bootloader=uki. Pi BootROM doesn't run UEFI, so
++        # systemd-boot is irrelevant — but we DO need mkosi to build the
++        # UKI (which includes the InitrdPackages = duranium-initramfs).
++        # Bootloader=uki tells mkosi: build the UKI but don't install
++        # systemd-boot. Pi 5 ignores the .efi file at /efi/Linux/. Our
++        # mkosi.finalize then extracts the UKI's .initrd + .cmdline
++        # sections to /boot/initramfs_2712 + cmdline.txt for the Pi
++        # BootROM to load.
++        #
++        # (Bootloader=systemd-boot was attempted but fails: Alpine
++        #  doesn't ship a systemd-boot binary in linux-stable, and
++        #  mkosi hard-errors when it can't find one. Bootloader=none
++        #  silently disables UKI gen entirely. Bootloader=uki threads
++        #  the needle.)
++        if device.startswith("raspberry-pi") or device.startswith("rpi"):
++            config["Bootloader"] = "uki"
+     elif image == "base":
+         # base gets device+UI packages resolved from pmaports
+         existing = config.get("Packages", [])
+         dynamic = pmaports.get("Packages", [])
+-        config["Packages"] = list(dict.fromkeys(existing + dynamic))
++        # Inject Marathon's per-device overlay aport if Marathon-Image
++        # has one for this device. The aport (e.g.
++        # device-oneplus-enchilada-marathon) carries the marathon
++        # runtime stack + device-specific configs (greetd, dtbo,
++        # config.txt edits). Check mkosi.packages/ for a matching
++        # apk before injecting — qemu-aarch64 and other generic
++        # targets don't ship an overlay, and apk will fail if we
++        # add a non-existent package to the world.
++        marathon_overlay = f"device-{device}-marathon"
++        pkg_dir = os.path.join(srcdir, "mkosi.packages")
++        prefix = f"{marathon_overlay}-"
++        has_overlay = os.path.isdir(pkg_dir) and any(
++            f.startswith(prefix) and f.endswith(".apk")
++            for f in os.listdir(pkg_dir)
++        )
++        extra_overlays = []
++        if has_overlay:
++            extra_overlays.append(marathon_overlay)
++        # Layer-2 enclosure overlay: for raspberry-pi5-marathon, pull in
++        # device-hackberrypi-cm5-marathon when its APK is present in
++        # mkosi.packages/. Vanilla Pi 5 / CM5 dev boards skip building
++        # that APK and the include directive in /boot/usercfg.txt
++        # silently no-ops on the missing usercfg-hackberrypi.txt file.
++        if device == "raspberry-pi5-marathon":
++            hbp = "device-hackberrypi-cm5-marathon"
++            hbp_prefix = f"{hbp}-"
++            has_hbp = os.path.isdir(pkg_dir) and any(
++                f.startswith(hbp_prefix) and f.endswith(".apk")
++                for f in os.listdir(pkg_dir)
++            )
++            if has_hbp:
++                extra_overlays.append(hbp)
++        config["Packages"] = list(dict.fromkeys(existing + dynamic + extra_overlays))
+     elif image == "default-initrd":
+         # pmaports emits InitrdPackages to distinguish base-image pkgs from
+         # initramfs pkgs. for the initrd image, these need to go in Packages.
+-- 
+2.53.0
+

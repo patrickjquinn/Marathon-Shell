@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# bootstrap.sh — clone upstream postmarketos/duranium at the pinned
+# merge-base commit and apply Marathon's local divergence as a series
+# of git-am patches. Produces a duranium-build/ tree that can build
+# the r180 HackberryPi CM5 image.
+#
+# Why this layout (instead of a Marathon-owned duranium fork): the user
+# explicitly preferred patches-in-Marathon-Image to keep the upstream
+# relationship visible. Cost: when upstream drifts past the pinned
+# commit, patches may need rebasing.
+#
+# Usage:
+#   ./bootstrap.sh [DEST_DIR]
+#
+# DEST_DIR defaults to $HOME/duranium-build. Pass an alternate to
+# stage in /tmp/scratch etc.
+
+set -euo pipefail
+
+UPSTREAM="https://gitlab.postmarketos.org/postmarketOS/duranium.git"
+# Last commit on upstream main where Marathon's patch series cleanly
+# applies. Bump after a successful rebase.
+PINNED_COMMIT="394290c68276e07cc1de326e60d467ee603a920c"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEST_DIR="${1:-$HOME/duranium-build}"
+DURANIUM_DIR="$DEST_DIR/duranium"
+
+if [ -d "$DURANIUM_DIR" ]; then
+    echo "error: $DURANIUM_DIR already exists. Move or delete it first." >&2
+    exit 1
+fi
+
+mkdir -p "$DEST_DIR"
+echo "==> cloning upstream duranium into $DURANIUM_DIR"
+git clone "$UPSTREAM" "$DURANIUM_DIR"
+
+cd "$DURANIUM_DIR"
+echo "==> checking out pinned commit $PINNED_COMMIT"
+git checkout "$PINNED_COMMIT"
+
+# Configure a local identity so git am can apply patches without
+# inheriting the developer's name. The patches carry their own author
+# headers; the committer just needs valid name + email set.
+if ! git config user.email >/dev/null 2>&1; then
+    git config user.email "marathon-bootstrap@localhost"
+    git config user.name  "Marathon Bootstrap"
+fi
+
+echo "==> applying $(ls "$SCRIPT_DIR"/*.patch | wc -l) patches"
+git am "$SCRIPT_DIR"/*.patch
+
+cd "$DEST_DIR"
+echo "==> next steps:"
+echo "   1. Clone mkosi into $DEST_DIR/mkosi-src and build the mkosi binary."
+echo "      git clone https://github.com/systemd/mkosi.git $DEST_DIR/mkosi-src"
+echo "   2. Populate \$HOME/.marathon-secrets/ with SKYZMTGV.nmconnection.raw"
+echo "      and ensure ~/.ssh/id_ed25519.pub exists."
+echo "   3. Build per Marathon-Image/docs/BUILDING.md."
+echo "==> done. Patched duranium tree is at $DURANIUM_DIR"

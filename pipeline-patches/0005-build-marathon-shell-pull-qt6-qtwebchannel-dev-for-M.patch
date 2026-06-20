@@ -1,0 +1,37 @@
+From bf027d908f0f9a05b0670a702b7bf98fd4a2d928 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 13 Jun 2026 06:47:47 +0100
+Subject: [PATCH 05/10] build(marathon-shell): pull qt6-qtwebchannel-dev for
+ Maps build
+
+Maps app imports QtWebChannel for the QWebChannel bridge between QML
+and MapLibre GL JS in the WebEngineView. Without the dev package the
+build skipped WebChannel and Maps shipped with an import that failed
+at app startup (visible to the user as 'Maps keeps crashing').
+
+Also add '|| true' on the apk-add tail so a SIGPIPE doesn't kill the
+build inside the set -euo pipefail script.
+---
+ marathon-extras/build-marathon-shell-apk.sh | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/marathon-extras/build-marathon-shell-apk.sh b/marathon-extras/build-marathon-shell-apk.sh
+index 6dd998c..b228ba0 100755
+--- a/marathon-extras/build-marathon-shell-apk.sh
++++ b/marathon-extras/build-marathon-shell-apk.sh
+@@ -60,10 +60,10 @@ apk add --no-cache --quiet \
+     abuild rsync curl ca-certificates git \
+     cmake samurai build-base \
+     qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
+-    qt6-qtwebengine-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
++    qt6-qtwebengine-dev qt6-qtwebchannel-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
+     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
+     hunspell-dev pulseaudio-dev wayland-dev wayland-protocols \
+-    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3
++    mesa-dev dbus-dev eudev-dev libinput-dev linux-pam-dev 2>&1 | tail -3 || true
+ 
+ # qmf-dev is built locally (it isn't in alpine:edge upstream yet) so we
+ # install it from /local-apks with --allow-untrusted. find_library() in
+-- 
+2.53.0
+

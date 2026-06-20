@@ -1,0 +1,799 @@
+From 7a204b9fb26e4037919984bc38a73f3dae889003 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 08:07:44 +0100
+Subject: [PATCH 08/10] chore(pipeline): r180 image bringup snapshot
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Bundle of pre-existing local divergence from postmarketos/duranium that
+the r180 HackberryPi CM5 image depends on. Captured as one snapshot so
+Marathon-Image's pipeline-patches/ can reproduce the working build
+from a clean upstream-duranium clone.
+
+* .gitignore — exclude mkosi.extra paths that carry secrets
+  (NetworkManager keyfile + SSH authorized_keys, populated from
+  ~/.marathon-secrets/ at build time).
+* mkosi.conf — force FAT16 (Pi 5 BootROM EEPROMs reject FAT32) +
+  pmOS_boot/pmOS_root FS labels for blkid discovery; binutils in the
+  tools tree for objcopy UKI section extraction.
+* mkosi.images/base/mkosi.conf — postmarketos-base-nofde (replaces
+  unl0kr conflict), postmarketos-duranium-initramfs (understands
+  composefs + /usr-only layout), wireless-regdb, wireplumber-logind,
+  pipewire-spa-bluez, linux-rpi pinned to 6.12.85 (6.18.35 has a Pi 5
+  initrd NULL-deref).
+* mkosi.images/base/mkosi.postinst — user .ssh tmpfiles, factory
+  Marathon Shell.conf with firstRunComplete=false +
+  userScaleFactor=1.10, /etc/pam.d/base-{auth,session} overrides that
+  drop pam_gnome_keyring / pam_kwallet5 (we ship neither daemon).
+* mkosi.repart — pmOS_boot label on ESP, delete the /usr-verity +
+  /usr-only partitions, add a single-root 11-root.conf (5G ext4 with
+  pmOS_root label).
+* scripts/build-image.py — post-mkosi Pi 5 MBR fixup: wipe GPT
+  primary+backup headers, sfdisk a clean MBR (FAT16 LBA bootable +
+  Linux 0x83). Pi 5 BootROM doesn't honour GPT — see
+  [[duranium-pi5-boot-recipe]] memory.
+* scripts/pmaports.py — qemu-aarch64 kernel override to
+  kernel-stable (LTS 6.18.35 has a regression); deviceinfo walker
+  that follows marathon-overlay depends to inherit deviceinfo from
+  upstream base device pkgs.
+* marathon-extras/build-marathon-shell-apk.sh — patchelf in the
+  build container (needed for RPATH stripping during install).
+* marathon-extras/build-and-boot-phaseB.sh — BUILD_FOR_SD=1 skips the
+  20G qemu pad (SD-card flashes don't need it).
+* marathon-extras/dtbos/ — vendored hackberrypi + hyperpixel4sq
+  DTBs (also baked into mkosi.extra for in-image runtime use).
+* mkosi.extra/{boot/loader,etc/kernel,usr/share/marathon-dtbos} —
+  loader.conf timeout, kernel install.conf layout=bls (pmOS edge
+  ships it commented out, which breaks systemd-kernel-install's
+  90-loaderentry hook).
+* mkosi.images/base/mkosi.skeleton — in-pmbootstrap marker for the
+  build chroot + per-image kernel install.conf.
+
+Excluded from this snapshot:
+* mkosi.packages/  - 383 MB of built APKs (gitignored already).
+* mkosi.repart/.verity-disabled/ - backup of the deleted configs.
+* mkosi.extra/etc/NetworkManager/system-connections/*.nmconnection -
+  WiFi credentials, gitignored, repopulated from ~/.marathon-secrets/.
+* mkosi.extra/usr/share/factory/home/user/.ssh/authorized_keys - SSH
+  pubkey, gitignored, repopulated from ~/.ssh/id_ed25519.pub.
+* marathon-extras/StoreApp.qml - unrelated UI icon-name refactor.
+* marathon-extras/repack-r123.sh - ad-hoc per-build helper.
+---
+ .gitignore                                    |   2 +
+ marathon-extras/build-and-boot-phaseB.sh      |  11 +-
+ marathon-extras/build-marathon-shell-apk.sh   |   2 +-
+ marathon-extras/dtbos/hackberrypi.dtbo        | Bin 0 -> 3636 bytes
+ .../dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo      | Bin 0 -> 3369 bytes
+ mkosi.conf                                    |  17 ++
+ mkosi.extra/etc/kernel/install.conf           |   6 +
+ .../usr/share/marathon-dtbos/hackberrypi.dtbo | Bin 0 -> 3636 bytes
+ .../vc4-kms-dpi-hyperpixel4sq.dtbo            | Bin 0 -> 3369 bytes
+ mkosi.images/base/mkosi.conf                  |  40 ++++
+ mkosi.images/base/mkosi.postinst              | 171 +++++++++++++++++-
+ .../mkosi.skeleton/etc/kernel/install.conf    |   4 +
+ .../base/mkosi.skeleton/in-pmbootstrap        |   0
+ mkosi.repart/00-esp.conf                      |   1 +
+ mkosi.repart/10-usr-verity.conf               |   8 -
+ mkosi.repart/11-root.conf                     |   8 +
+ mkosi.repart/11-usr.conf                      |  11 --
+ scripts/build-image.py                        |  56 ++++++
+ scripts/pmaports.py                           |  52 +++++-
+ 19 files changed, 354 insertions(+), 35 deletions(-)
+ create mode 100644 marathon-extras/dtbos/hackberrypi.dtbo
+ create mode 100644 marathon-extras/dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo
+ create mode 100644 mkosi.extra/etc/kernel/install.conf
+ create mode 100644 mkosi.extra/usr/share/marathon-dtbos/hackberrypi.dtbo
+ create mode 100644 mkosi.extra/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo
+ create mode 100644 mkosi.images/base/mkosi.skeleton/etc/kernel/install.conf
+ create mode 100644 mkosi.images/base/mkosi.skeleton/in-pmbootstrap
+ delete mode 100644 mkosi.repart/10-usr-verity.conf
+ create mode 100644 mkosi.repart/11-root.conf
+ delete mode 100644 mkosi.repart/11-usr.conf
+
+diff --git a/.gitignore b/.gitignore
+index 50db545..a6724b4 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -10,3 +10,5 @@ mkosi.tools.manifest
+ mkosi.tools/
+ mkosi.version
+ pmaports/
++mkosi.extra/etc/NetworkManager/system-connections/
++mkosi.extra/usr/share/factory/home/user/.ssh/
+diff --git a/marathon-extras/build-and-boot-phaseB.sh b/marathon-extras/build-and-boot-phaseB.sh
+index ac913f3..187fca8 100755
+--- a/marathon-extras/build-and-boot-phaseB.sh
++++ b/marathon-extras/build-and-boot-phaseB.sh
+@@ -35,7 +35,16 @@ IMG="$(ls -1t "$OUT_BASE"/qemu-aarch64_marathon_edge_*.raw 2>/dev/null \
+ [ -z "$IMG" ] && { echo "no raw image found" >&2; exit 1; }
+ echo "==> image: $IMG"
+ 
+-qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
++# Pad the raw out to 20G ONLY for QEMU runs -- the guest disk needs slack to
++# grow (var, /home, journal, etc) and mkosi's 6.4G output would fill instantly.
++# Skip when BUILD_FOR_SD=1: SD card flashes don't need the padding (dd would
++# write 14G of zeros for nothing) and we shouldn't be leaving 20G-apparent
++# sparse files around in the cache for daily SD-flash workflows.
++if [ "${BUILD_FOR_SD:-0}" != "1" ]; then
++    qemu-img resize -f raw -q "$IMG" 20G 2>/dev/null || true
++else
++    echo "==> BUILD_FOR_SD=1: skipping 20G resize (raw stays at mkosi's native size)"
++fi
+ 
+ cp /usr/share/edk2/aarch64/QEMU_EFI-qemuvars-pflash.qcow2 "$EFI_VARS"
+ rm -f "$SERIAL" "$MONITOR" "$QMP"
+diff --git a/marathon-extras/build-marathon-shell-apk.sh b/marathon-extras/build-marathon-shell-apk.sh
+index b228ba0..9aa39b3 100755
+--- a/marathon-extras/build-marathon-shell-apk.sh
++++ b/marathon-extras/build-marathon-shell-apk.sh
+@@ -58,7 +58,7 @@ podman run --rm -i \
+ set -euo pipefail
+ apk add --no-cache --quiet \
+     abuild rsync curl ca-certificates git \
+-    cmake samurai build-base \
++    cmake samurai build-base patchelf \
+     qt6-qtbase-dev qt6-qtdeclarative-dev qt6-qtwayland-dev \
+     qt6-qtwebengine-dev qt6-qtwebchannel-dev qt6-qtmultimedia-dev qt6-qtsensors-dev \
+     qt6-qtsvg-dev qt6-qtlocation-dev qt6-qtpositioning-dev \
+diff --git a/marathon-extras/dtbos/hackberrypi.dtbo b/marathon-extras/dtbos/hackberrypi.dtbo
+new file mode 100644
+index 0000000000000000000000000000000000000000..9560917be4153d714b0b8eb1cd38450d5755ac26
+GIT binary patch
+literal 3636
+zcmbtX&5ImG6#sQ6F~-Fh#i%Iwl@LUyoR3XRSV0y<Pz-p|g9n?M?waXx`^)O;*=Z3G
+z5d=Z-sNf+Wco9A7Ar}u`M1)BG0S_KT5N{r{@~XS1t9v%P3l=m}uj>8Y`_-%Ws%mcB
+zed}-F^hE$yfQ_pFo&s<$fHN@7{S(-@zv_3IQ%lDHJWc(n^5enOk0+PM6DXc%Q=wFu
+z$-yP&r*T$j!QwP1B2fXInd0+UBzl{?!`N{FYz*sp&r26VMZEMp8gZ1E7ZKN~Vj=f;
+zjB&QP*le(dZ>uwtOA$14rvW^;hN^rX2XFzCH?LXp3zkgnje3sS+m_yYfZ<HMo3CBh
+z$mmmi4qTU<_-vlZ)M!_nPEmiK@rM9>w70jn2jDK!srwrime%tLV1CIr$zM|ZEZ*Pr
+z^l2R@NJpoIALhOiBH6xp#b_PH#yzAd0zD9cW;1>1;^?^!_6Gnj*Z%JWa6J$+UPPLd
+z8v8%@INq$+M)QRE1HdD7EE~)}fP160;kZ5dY**iTyepe^-%*b_Q?9j8<@RRF-K;C-
+zOBoMhz8qg3^<qNnBJG-w!*KQ0ZA*U5dH5AOuPDwZYky6?&~KYFV>@n+s$<Zv1@d<S
+zaLROtmj+RBxNU43J6Wns(8;Grf-IFuBR6aKptjY-m^f1o*?ha4Co9f0e%t!Zcp{>T
+zEZH{sYsOfR$#(oW;Cu#vzJ}8mJ^3r(%z116yM6YRVo~{ITE;S&S1wjIue%SN{?W4W
+zOD}hB0vK5Hzju8&e*t*bn*X<(zwWWFJ(p^f&Zv4#F4Z!{tC61saGxcUZL4P8=X>%?
+zUD@mtof~Fvj=0aXueE=Jr#|8PUz?xixNR`E%}<BUv&rREUYr2j*L!E&Nx*%pr$?^+
+z9w&-{&ByV)yo{%5lvnoxaUKC~Hf%4Hp>=l*+dE<H1|aMcfct)n9d)q#oWbPl<HPia
+z>jx?M8UXI6hhn=25#cTX?&mFT+~G)jJ?s`UVIBqCYb|Ed#dK@&8NmJeK;2<gsa7R5
+z>-qK&T%R4`9s}I(Tij-co0StLmpyMLmqk`@x50;i`%{bGf6unaP`)+75f#T1OLKEe
+zb2S%w%Ut5b`9;9}@Gw)oeczIa7D^SFW*Ju^sm&RCX94%u*50_|u&#mgfcu-JW5;PL
+zlZmfY#6}gzI#yBY^Qap!`+lk3B>nrO{{}he9YFVV!;j8tx?^pb?pSJe%^Gg2@~rN-
+zH4aBSvktah-9_uRyZKJM>CT|`fBf2OJVlROuH`fmsB(v8T!+?^G~uzZ#8@UQmcB|C
+zX{7COzT9`5N4vbtS(;e7(=^pIl7&18A_0@~tC!;-5D_m~k>eZ>0wwaC`67yPoXh3A
+zqV6j(N0Um#FkeX{^wYN;$YGsu%$QrQ50zN>KFf<Ni%Q7U68w<Li_MBCVu8rzyp9Er
+zGZv<W${`Y==H<G^F4wwNsltq0b6w<6B2KkntCMh720CPMj8MpVsHrzCayCm<%r&xf
+zSEz=XAEo{dn<?>5Arikt$bBsr0^v-hiDp@<{19PYCO(Tqf^f?Hoz7^jzi57K++u}W
+zSh#Am)(=F}%j8l-ezeobvm)`eq#c$?j;Z81%P3|=MkK3$K_2}Jk`v#f-LEzQvqD7P
+zoELL}Ad_BN=<2P7`UE!x;mM>@_hh2IOeRp-xUxb|G6IgTOr`exj0d4KGb8*5gFpQk
+
+literal 0
+HcmV?d00001
+
+diff --git a/marathon-extras/dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo b/marathon-extras/dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo
+new file mode 100644
+index 0000000000000000000000000000000000000000..64bdc3e377131913dc2f2cef8dfe847a74ae39ea
+GIT binary patch
+literal 3369
+zcmbtXIfx}i82)N6cV`^d15rHDl~rMycg*ZEJVZAXK_l~~UU$8D#q?3zRXx5oGtt1*
+zbir&R!AOiuT`+JW0|PM@3<U#m<nOBPu71bNz&6ZG9p8UnH77g&{RQm21K<GI-UskD
+zfTsaGh5BQE16%*vb?;+tcNxGAt*1ql?oOk0e6V-N-LYB04^xqud&ByKu$KUA4=jL%
+zVSX%%gjZomCrm3ze+hSk7Fx;RP|4iF>+>rBo+qrs(f;<*{n)#|4&dEb%y^lYhWC>I
+zK0G}=Jq7TRM@#3Qxbqj6&O>+pjK`Z~&%Hf;3);t0tAtn1>{jnDJ)T7S71$Twcy>H+
+z{vrG6{-KAj^;9y=i#(IN^Gb<A$%RPv_5G3;qDD4!-vPKvdZ@gpji$B8VwKCR**Dl9
+zocv}_v?QD2<o~cKkB$;~ICl&Pf0Gzfe1iTZ-H|Upc0PO7vx9h(44*fxyIdLdY<c8(
+zEawWzARB+lk9g(rUl(tZId1q|&?iLW`-Ik;b*7B#@SAjIUf4pdWT<4OJ>AJ?zq*{H
+zJfj?JeEEkb-<S2LN8k9CYQxvH^X*<sOZOY=P>v%%ck5b|<7l}SU+`kQMVy_Fx0iJK
+z$K_Px&-3b+^5cnR8*HyAWGuAp7S=a60Y<W~7P;X@=Gmm{HCq6qUWQ;V7}>O{b$A(I
+zuK~Db@-mw1s1PCxWOghHBjRB3K9P{FguA;DSH0fgUIExg%Q*chSBls<ptGloh1IC>
+z$s=d;a-K60n_y<{EQWXQ?H>>qs~g4oEI-z@DPpth==X<YNk>b)=!0(0go_>Na~)vE
+zE)OYBoQ~{s;L?e=|GK}g<92N|Zn{dRdE%l*ylw;R;h-B118)utw3350{c|5+-(HAj
+zKovgl+a1Y#1Hgk#^!@hL>iB(!AN6!xkzi>8fc@CfjC(Za)c&gg`>CVd>(MUN<68hb
+z>9C`|a;phLF=SyllZ#R{#d8^8?*Z)Rj?YRQCOSH*YhF)=I188N+79aTfRR3zUmJ@F
+zO_n~x@x<`rP?(-NYh1O4bTeu+_G~-LmlK&8Q52;zf#QY8NR76po&(r#osUMHrXA)@
+zfc@@a{1{J^%py}H!O(JbF-!7@C;iCzv(hTC(lfkwR6YBg4x8R3^zNYVqO*}c(r?|5
+z*WWBpueKjo#-<r?#mxZvnqEcy-QU~p*WFXUrmyyM+lp3ua)W7Xy%FW9;zmvr0h^40
+z;%1IpJdO*Ybr6Xp(YU4MXTq)9$hNDDr$VExE_C&Srb3XFX%Nk&(jpO&v1l15B9NIX
+z4GM8sKaW$s2xf)2Uy3ZM&=wDxaR@c%S)2$IBF&8m+P-L&hc?`l+P>cF=ScmIS7nme
+z)vU}S8msO6-;G7WtDw|Ygg`7cpC%%xhbh*N)b+<z@7NodSgy40K=*0L%YE+kQ3b^_
+uk=Wm%%n&OX=A|K**;khwM`8W1h02r4svav@<3<NlX~IbHcrI(q5dQ-J|Hb$K
+
+literal 0
+HcmV?d00001
+
+diff --git a/mkosi.conf b/mkosi.conf
+index a623a8c..6d81ebc 100644
+--- a/mkosi.conf
++++ b/mkosi.conf
+@@ -20,7 +20,24 @@ Incremental=no
+ ToolsTreePackages=
+ 	erofs-utils
+ 	ukify
++	# binutils for objcopy: mkosi.finalize extracts UKI .linux + .initrd
++	# sections to /boot/kernel_2712.img + /boot/initramfs_2712 for Pi
++	# firmware boot (no UEFI on Pi 5, so the UKI itself isn't loaded —
++	# we ship the extracted sections instead).
++	binutils
+ Environment=SYSTEMD_REPART_MKFS_OPTIONS_EROFS="-b 4096"
++# Pi 5 BootROM on shipped CM5 EEPROMs reads FAT16 reliably; FAT32 on this
++# hardware is silently rejected. Working pmbootstrap reference image uses
++# FAT16. mkfs.vfat defaults to FAT32 for partitions > 16 MB, so force FAT16
++# with 32 KB clusters (1 GB / 32 KB = 32768 clusters, within FAT16's 65525
++# limit). `-n pmOS_boot` sets the FS label so the postmarketos-mkinitfs
++# init script's `find_partition` (uses blkid --label) can locate it.
++# Pairs with the hybrid-MBR injection in scripts/build-image.py.
++Environment=SYSTEMD_REPART_MKFS_OPTIONS_VFAT="-F 16 -s 64 -n pmOS_boot"
++# Mirror for the ext4 root: FS label = pmOS_root for blkid --label
++# discovery. systemd-repart's Label= directive sets the GPT partition
++# entry name, not the filesystem label — those are separate.
++Environment=SYSTEMD_REPART_MKFS_OPTIONS_EXT4="-L pmOS_root"
+ 
+ [Output]
+ OutputDirectory=mkosi.output/%i
+diff --git a/mkosi.extra/etc/kernel/install.conf b/mkosi.extra/etc/kernel/install.conf
+new file mode 100644
+index 0000000..fdcd568
+--- /dev/null
++++ b/mkosi.extra/etc/kernel/install.conf
+@@ -0,0 +1,6 @@
++# Marathon override — pmOS edge ships /usr/lib/kernel/install.conf with
++# layout=bls commented out. That breaks systemd-kernel-install's
++# 90-loaderentry hook (no /boot/loader/entries written) and the whole
++# downstream initramfs deployment pipeline. /etc takes precedence over
++# /usr/lib, so this restores the expected behavior at kernel-install time.
++layout=bls
+diff --git a/mkosi.extra/usr/share/marathon-dtbos/hackberrypi.dtbo b/mkosi.extra/usr/share/marathon-dtbos/hackberrypi.dtbo
+new file mode 100644
+index 0000000000000000000000000000000000000000..9560917be4153d714b0b8eb1cd38450d5755ac26
+GIT binary patch
+literal 3636
+zcmbtX&5ImG6#sQ6F~-Fh#i%Iwl@LUyoR3XRSV0y<Pz-p|g9n?M?waXx`^)O;*=Z3G
+z5d=Z-sNf+Wco9A7Ar}u`M1)BG0S_KT5N{r{@~XS1t9v%P3l=m}uj>8Y`_-%Ws%mcB
+zed}-F^hE$yfQ_pFo&s<$fHN@7{S(-@zv_3IQ%lDHJWc(n^5enOk0+PM6DXc%Q=wFu
+z$-yP&r*T$j!QwP1B2fXInd0+UBzl{?!`N{FYz*sp&r26VMZEMp8gZ1E7ZKN~Vj=f;
+zjB&QP*le(dZ>uwtOA$14rvW^;hN^rX2XFzCH?LXp3zkgnje3sS+m_yYfZ<HMo3CBh
+z$mmmi4qTU<_-vlZ)M!_nPEmiK@rM9>w70jn2jDK!srwrime%tLV1CIr$zM|ZEZ*Pr
+z^l2R@NJpoIALhOiBH6xp#b_PH#yzAd0zD9cW;1>1;^?^!_6Gnj*Z%JWa6J$+UPPLd
+z8v8%@INq$+M)QRE1HdD7EE~)}fP160;kZ5dY**iTyepe^-%*b_Q?9j8<@RRF-K;C-
+zOBoMhz8qg3^<qNnBJG-w!*KQ0ZA*U5dH5AOuPDwZYky6?&~KYFV>@n+s$<Zv1@d<S
+zaLROtmj+RBxNU43J6Wns(8;Grf-IFuBR6aKptjY-m^f1o*?ha4Co9f0e%t!Zcp{>T
+zEZH{sYsOfR$#(oW;Cu#vzJ}8mJ^3r(%z116yM6YRVo~{ITE;S&S1wjIue%SN{?W4W
+zOD}hB0vK5Hzju8&e*t*bn*X<(zwWWFJ(p^f&Zv4#F4Z!{tC61saGxcUZL4P8=X>%?
+zUD@mtof~Fvj=0aXueE=Jr#|8PUz?xixNR`E%}<BUv&rREUYr2j*L!E&Nx*%pr$?^+
+z9w&-{&ByV)yo{%5lvnoxaUKC~Hf%4Hp>=l*+dE<H1|aMcfct)n9d)q#oWbPl<HPia
+z>jx?M8UXI6hhn=25#cTX?&mFT+~G)jJ?s`UVIBqCYb|Ed#dK@&8NmJeK;2<gsa7R5
+z>-qK&T%R4`9s}I(Tij-co0StLmpyMLmqk`@x50;i`%{bGf6unaP`)+75f#T1OLKEe
+zb2S%w%Ut5b`9;9}@Gw)oeczIa7D^SFW*Ju^sm&RCX94%u*50_|u&#mgfcu-JW5;PL
+zlZmfY#6}gzI#yBY^Qap!`+lk3B>nrO{{}he9YFVV!;j8tx?^pb?pSJe%^Gg2@~rN-
+zH4aBSvktah-9_uRyZKJM>CT|`fBf2OJVlROuH`fmsB(v8T!+?^G~uzZ#8@UQmcB|C
+zX{7COzT9`5N4vbtS(;e7(=^pIl7&18A_0@~tC!;-5D_m~k>eZ>0wwaC`67yPoXh3A
+zqV6j(N0Um#FkeX{^wYN;$YGsu%$QrQ50zN>KFf<Ni%Q7U68w<Li_MBCVu8rzyp9Er
+zGZv<W${`Y==H<G^F4wwNsltq0b6w<6B2KkntCMh720CPMj8MpVsHrzCayCm<%r&xf
+zSEz=XAEo{dn<?>5Arikt$bBsr0^v-hiDp@<{19PYCO(Tqf^f?Hoz7^jzi57K++u}W
+zSh#Am)(=F}%j8l-ezeobvm)`eq#c$?j;Z81%P3|=MkK3$K_2}Jk`v#f-LEzQvqD7P
+zoELL}Ad_BN=<2P7`UE!x;mM>@_hh2IOeRp-xUxb|G6IgTOr`exj0d4KGb8*5gFpQk
+
+literal 0
+HcmV?d00001
+
+diff --git a/mkosi.extra/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo b/mkosi.extra/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo
+new file mode 100644
+index 0000000000000000000000000000000000000000..64bdc3e377131913dc2f2cef8dfe847a74ae39ea
+GIT binary patch
+literal 3369
+zcmbtXIfx}i82)N6cV`^d15rHDl~rMycg*ZEJVZAXK_l~~UU$8D#q?3zRXx5oGtt1*
+zbir&R!AOiuT`+JW0|PM@3<U#m<nOBPu71bNz&6ZG9p8UnH77g&{RQm21K<GI-UskD
+zfTsaGh5BQE16%*vb?;+tcNxGAt*1ql?oOk0e6V-N-LYB04^xqud&ByKu$KUA4=jL%
+zVSX%%gjZomCrm3ze+hSk7Fx;RP|4iF>+>rBo+qrs(f;<*{n)#|4&dEb%y^lYhWC>I
+zK0G}=Jq7TRM@#3Qxbqj6&O>+pjK`Z~&%Hf;3);t0tAtn1>{jnDJ)T7S71$Twcy>H+
+z{vrG6{-KAj^;9y=i#(IN^Gb<A$%RPv_5G3;qDD4!-vPKvdZ@gpji$B8VwKCR**Dl9
+zocv}_v?QD2<o~cKkB$;~ICl&Pf0Gzfe1iTZ-H|Upc0PO7vx9h(44*fxyIdLdY<c8(
+zEawWzARB+lk9g(rUl(tZId1q|&?iLW`-Ik;b*7B#@SAjIUf4pdWT<4OJ>AJ?zq*{H
+zJfj?JeEEkb-<S2LN8k9CYQxvH^X*<sOZOY=P>v%%ck5b|<7l}SU+`kQMVy_Fx0iJK
+z$K_Px&-3b+^5cnR8*HyAWGuAp7S=a60Y<W~7P;X@=Gmm{HCq6qUWQ;V7}>O{b$A(I
+zuK~Db@-mw1s1PCxWOghHBjRB3K9P{FguA;DSH0fgUIExg%Q*chSBls<ptGloh1IC>
+z$s=d;a-K60n_y<{EQWXQ?H>>qs~g4oEI-z@DPpth==X<YNk>b)=!0(0go_>Na~)vE
+zE)OYBoQ~{s;L?e=|GK}g<92N|Zn{dRdE%l*ylw;R;h-B118)utw3350{c|5+-(HAj
+zKovgl+a1Y#1Hgk#^!@hL>iB(!AN6!xkzi>8fc@CfjC(Za)c&gg`>CVd>(MUN<68hb
+z>9C`|a;phLF=SyllZ#R{#d8^8?*Z)Rj?YRQCOSH*YhF)=I188N+79aTfRR3zUmJ@F
+zO_n~x@x<`rP?(-NYh1O4bTeu+_G~-LmlK&8Q52;zf#QY8NR76po&(r#osUMHrXA)@
+zfc@@a{1{J^%py}H!O(JbF-!7@C;iCzv(hTC(lfkwR6YBg4x8R3^zNYVqO*}c(r?|5
+z*WWBpueKjo#-<r?#mxZvnqEcy-QU~p*WFXUrmyyM+lp3ua)W7Xy%FW9;zmvr0h^40
+z;%1IpJdO*Ybr6Xp(YU4MXTq)9$hNDDr$VExE_C&Srb3XFX%Nk&(jpO&v1l15B9NIX
+z4GM8sKaW$s2xf)2Uy3ZM&=wDxaR@c%S)2$IBF&8m+P-L&hc?`l+P>cF=ScmIS7nme
+z)vU}S8msO6-;G7WtDw|Ygg`7cpC%%xhbh*N)b+<z@7NodSgy40K=*0L%YE+kQ3b^_
+uk=Wm%%n&OX=A|K**;khwM`8W1h02r4svav@<3<NlX~IbHcrI(q5dQ-J|Hb$K
+
+literal 0
+HcmV?d00001
+
+diff --git a/mkosi.images/base/mkosi.conf b/mkosi.images/base/mkosi.conf
+index 11414d4..6057eeb 100644
+--- a/mkosi.images/base/mkosi.conf
++++ b/mkosi.images/base/mkosi.conf
+@@ -5,6 +5,34 @@ Format=directory
+ CleanPackageMetadata=no
+ Packages=
+ 	postmarketos-duranium
++	# Explicit fde-unlocker provider: postmarketos-duranium-initramfs pulls
++	# postmarketos-initramfs which needs postmarketos-fde-unlocker. apk's
++	# default choice is unl0kr-3.5.1 (provides cmd:f0rmz=3.5.1) but that
++	# conflicts with the f0rmz-3.4.2 package postmarketos-duranium 11-r0
++	# directly requires. postmarketos-base-nofde provides a stub
++	# postmarketos-fde-unlocker=0.0.0-r0 that satisfies the requirement
++	# without dragging in unl0kr — duranium-on-Pi5 has no FDE anyway.
++	postmarketos-base-nofde
++	# The initramfs that actually understands duranium's /usr-only +
++	# composefs layout. postmarketos-mkinitfs's stock init.sh assumes
++	# pmbootstrap-style boot+rootfs partitions and fails to find root
++	# on duranium GPT.
++	postmarketos-duranium-initramfs
++	# Ships /lib/firmware/regulatory.db. Without it cfg80211 logs
++	# "Direct firmware load for regulatory.db failed -2" at boot and
++	# can't enforce regional channel/power limits when WiFi comes up.
++	# Harmless on a single-frequency office network but the kernel
++	# warning is loud.
++	wireless-regdb
++	# wireplumber-logind: the libwireplumber-module-logind plugin lives in
++	# this sub-package on Alpine. Without it wireplumber logs "optional
++	# component 'support.logind' failed to load" at startup and audio
++	# routing can't react to session lock/suspend events.
++	wireplumber-logind
++	# pipewire-spa-bluez: the BlueZ SPA plugins for PipeWire. Without them
++	# wireplumber's bluetooth monitor logs "PipeWire's BlueZ SPA plugin is
++	# missing or broken. Bluetooth devices will not be supported."
++	pipewire-spa-bluez
+ 	foot
+ 	alacritty
+ 	xterm
+@@ -26,7 +54,19 @@ Packages=
+ 	# resolvers still see us via avahi's network broadcast, on-device
+ 	# resolution falls back to avahi-resolve / getent.)
+ 	avahi
++	# Pin linux-rpi to 6.12.85-r0 (last 6.12.y LTS shipped in Alpine
++	# v3.23/main/aarch64). Alpine edge's current 6.18.35-r0 has a
++	# NULL-pointer-deref in __mod_node_page_state() during udev init
++	# in initrd on Pi 5 / CM5 hardware (raspberrypi/linux#7196) — boot
++	# never reaches userspace; HyperPixel shows nothing.
++	# The pinned APK lives at mkosi.packages/linux-rpi-6.12.85-r0.apk
++	# (mkosi builds a local repo from that dir). The `=` form is an
++	# apk exact-version match, so apk falls back to the local copy
++	# instead of dragging the broken edge build.
++	linux-rpi=6.12.85-r0
++	linux-rpi-dev=6.12.85-r0
+ RemovePackages=
++	linux-postmarketos-lts
+ 	# Ideally this could be excluded in packaging, but it's difficult
+ 	# to do this without causing regressions in mutable pmOS. See:
+ 	# https://gitlab.postmarketos.org/postmarketOS/pmaports/-/work_items/4495#note_548463
+diff --git a/mkosi.images/base/mkosi.postinst b/mkosi.images/base/mkosi.postinst
+index 15cf384..fd647f7 100755
+--- a/mkosi.images/base/mkosi.postinst
++++ b/mkosi.images/base/mkosi.postinst
+@@ -53,15 +53,25 @@ d /home/$USER_NAME 0750 $USER_NAME $USER_NAME -
+ d /home/$USER_NAME/.config 0700 $USER_NAME $USER_NAME -
+ d /home/$USER_NAME/.config/marathon-os 0700 $USER_NAME $USER_NAME -
+ d /home/$USER_NAME/.config/marathon 0700 $USER_NAME $USER_NAME -
++d /home/$USER_NAME/.ssh 0700 $USER_NAME $USER_NAME -
+ C+ "/home/$USER_NAME/.config/marathon-os/Marathon Shell.conf" 0600 $USER_NAME $USER_NAME - -
+ C+ "/home/$USER_NAME/.config/marathon/app-permissions.json" 0600 $USER_NAME $USER_NAME - -
++C+ /home/$USER_NAME/.ssh/authorized_keys 0600 $USER_NAME $USER_NAME - -
+ EOF
+ 
+ FACTORY="$BUILDROOT/usr/share/factory/home/$USER_NAME/.config/marathon-os"
+ mkdir -p "$FACTORY"
+ cat > "$FACTORY/Marathon Shell.conf" <<'EOF'
+ [system]
+-firstRunComplete=true
++firstRunComplete=false
++
++[ui]
++# HyperPixel 4 Square is 720×720 ~254 PPI; Marathon's design canvas is
++# 540×1140 phone aspect. 1.10 is the field-tuned value for the CM5 +
++# HyperPixel combo — bumps text + chrome up enough to be legible at
++# arm's-length without overflowing the square panel. OOBE's scale
++# picker can override.
++userScaleFactor=1.10
+ 
+ [apps]
+ filterMobileFriendly=false
+@@ -77,6 +87,56 @@ cat > "$FACTORY_PERMS/app-permissions.json" <<'EOF'
+ {}
+ EOF
+ 
++# Override Alpine's /usr/lib/pam.d/base-{auth,session} to drop the
++# pam_gnome_keyring (and pam_kwallet5) lines. /etc/pam.d/ takes
++# precedence over /usr/lib/pam.d/ when files have the same basename.
++# Without this override every sshd session (+ greetd, polkit, etc.) on
++# Marathon logs "gkr-pam: couldn't unlock the login keyring" because
++# we don't ship gnome-keyring-daemon and the 'user' account password
++# is locked. Floods the journal at >20 entries per minute on active
++# remote-dev sessions.
++mkdir -p "$BUILDROOT/etc/pam.d"
++cat > "$BUILDROOT/etc/pam.d/base-session" <<'EOF'
++# Marathon override of /usr/lib/pam.d/base-session — dropped the
++# gnome-keyring + kwallet lines (we ship neither daemon).
++session include base-session-noninteractive
++
++-session optional pam_rundir.so
++-session optional pam_elogind.so
++-session optional pam_systemd.so
++-session optional pam_ck_connector.so
++-session optional pam_turnstile.so
++-session optional pam_dumb_runtime_dir.so
++
++-session optional pam_openrc.so
++EOF
++
++cat > "$BUILDROOT/etc/pam.d/base-auth" <<'EOF'
++# Marathon override of /usr/lib/pam.d/base-auth — dropped the
++# gnome-keyring + kwallet lines (we ship neither daemon).
++auth required pam_unix.so nullok
++auth required pam_nologin.so
++auth required pam_env.so
++EOF
++
++# Factory tree: bake the build-host's SSH pub key (if present) so dev/QA
++# can ssh into freshly-flashed devices without typing a password. The
++# 'user' account has its password locked to '!' so password-based ssh
++# never works regardless. tmpfiles' C+ copies factory → ~/.ssh on first
++# boot. Skip silently when no host key exists; fallback to user adding
++# their own.
++FACTORY_SSH="$BUILDROOT/usr/share/factory/home/$USER_NAME/.ssh"
++HOST_SSH_PUB=""
++for cand in /home/patrickquinn/.ssh/id_ed25519.pub /home/patrickquinn/.ssh/id_rsa.pub /home/patrickquinn/.ssh/id_ecdsa.pub; do
++    if [ -f "$cand" ]; then HOST_SSH_PUB="$cand"; break; fi
++done
++if [ -n "$HOST_SSH_PUB" ]; then
++    mkdir -p "$FACTORY_SSH"
++    cp "$HOST_SSH_PUB" "$FACTORY_SSH/authorized_keys"
++    chmod 600 "$FACTORY_SSH/authorized_keys"
++    echo "info: baked $HOST_SSH_PUB into factory authorized_keys for $USER_NAME"
++fi
++
+ printf '%s\n' "$USER_NAME" > "$BUILDROOT/etc/default_user"
+ 
+ # Enable a known root password on serial so headless validation can log in
+@@ -109,13 +169,17 @@ cat > "$BUILDROOT/usr/share/factory/root/.ssh/authorized_keys" <<'EOF'
+ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOY8hEMlQd6FY6CXOZcjMDwrHPKR9uk2+10InrraEqP3 patrickquinn@fedora
+ EOF
+ 
+-cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
++# Ship SSH tmpfiles in their OWN file. Earlier this appended to
++# marathon-hostname.conf, which gets `cat >` clobbered a few lines down —
++# so the ssh entries silently vanished from the built image, and pubkey
++# auth never worked on first boot. Separate file = no collision.
++cat > "$BUILDROOT/usr/lib/tmpfiles.d/marathon-ssh.conf" <<'EOF'
+ d /etc/ssh 0755 root root -
+ d /etc/ssh/sshd_config.d 0755 root root -
+-C+ /etc/ssh/sshd_config.d/99-marathon-dev.conf 0644 root root - /usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf
++C /etc/ssh/sshd_config.d/99-marathon-dev.conf 0644 root root - /usr/share/factory/etc/ssh/sshd_config.d/99-marathon-dev.conf
+ d /root 0700 root root -
+ d /root/.ssh 0700 root root -
+-C+ /root/.ssh/authorized_keys 0600 root root - /usr/share/factory/root/.ssh/authorized_keys
++C /root/.ssh/authorized_keys 0600 root root - /usr/share/factory/root/.ssh/authorized_keys
+ EOF
+ 
+ # Persistent journal so logs survive reboots and we can post-mortem.
+@@ -153,6 +217,57 @@ enable avahi-daemon.service
+ enable sshd.service
+ EOF
+ 
++# pmOS edge regression chain that broke Pi 5 Marathon builds mid-Jun 2026:
++#   1. pmOS edge commented out `layout=bls` in /usr/lib/kernel/install.conf.
++#      Result: systemd-kernel-install's 90-loaderentry hook exits silently
++#      without writing /boot/loader/entries/*.conf when the kernel is
++#      installed by apk.
++#   2. duranium's mkosi.skeleton/in-pmbootstrap drops the /in-pmbootstrap
++#      marker. The postmarketos-mkinitfs apk trigger short-circuits when
++#      it sees the marker, so no initrd is written under /boot/$device/.
++#   3. mkosi.finalize's Pi-firmware path (commit 95cd8ba) then can't find
++#      either loader/entries OR initrd, so the ESP ends up without
++#      /initramfs-rpi and the Pi BootROM has nothing to load post-kernel.
++# Repair the chain here: restore layout=bls, drop the in-pmbootstrap
++# marker, re-invoke kernel-install for the kernel that's already on disk.
++if [ -f "$BUILDROOT/usr/lib/kernel/install.conf" ]; then
++    sed -i 's/^#\s*layout=.*/layout=bls/' "$BUILDROOT/usr/lib/kernel/install.conf"
++    grep -q '^layout=bls' "$BUILDROOT/usr/lib/kernel/install.conf" \
++        || echo "layout=bls" >> "$BUILDROOT/usr/lib/kernel/install.conf"
++fi
++rm -f "$BUILDROOT/in-pmbootstrap"
++# Debug: show what we see in /usr/lib/modules at postinst time. Earlier
++# runs silently no-op'd the mkinitfs block because KVER was empty; the
++# echo below pinpoints whether the dir is missing, empty, or contains
++# the kernel modules we expect.
++echo "POSTINST-DEBUG: ls /buildroot/usr/lib/modules/ = $(ls "$BUILDROOT/usr/lib/modules/" 2>&1 || echo ENOENT)"
++KVER=$(ls "$BUILDROOT/usr/lib/modules/" 2>/dev/null | head -1)
++echo "POSTINST-DEBUG: KVER=[$KVER]"
++KIMG=""
++if [ -n "$KVER" ]; then
++    for cand in "$BUILDROOT/usr/lib/modules/$KVER/vmlinuz" \
++                "$BUILDROOT/boot/vmlinuz-rpi" \
++                "$BUILDROOT/boot/vmlinuz"; do
++        if [ -f "$cand" ]; then
++            KIMG="${cand#"$BUILDROOT"}"
++            break
++        fi
++    done
++fi
++if [ -n "$KVER" ]; then
++    # NOTE: The previous chroot-mkinitfs run here was a legacy workaround
++    # from when Bootloader=none on Pi 5 disabled mkosi's UKI generation
++    # (and therefore the duranium initramfs build). With Bootloader=
++    # systemd-boot restored for Pi devices, mkosi builds the UKI itself
++    # via kernel-install hooks AND the duranium initramfs is included.
++    # mkosi.finalize then extracts the UKI's .initrd + .cmdline sections
++    # to /boot/initramfs_2712 + cmdline.txt for the Pi BootROM.
++    #
++    # The systemd-boot/efi dir is now preserved so mkosi can copy the
++    # systemd-boot binary to the ESP (Pi 5 ignores it; small disk waste).
++    echo "info: postinst skipping chroot mkinitfs — mkosi UKI flow builds the duranium initramfs"
++fi
++
+ mkdir -p "$BUILDROOT/usr/share/factory/etc"
+ cat > "$BUILDROOT/usr/share/factory/etc/nsswitch.conf" <<'EOF'
+ passwd:     files
+@@ -171,6 +286,54 @@ cat >> "$BUILDROOT/usr/lib/tmpfiles.d/marathon-hostname.conf" <<'EOF'
+ C+ /etc/nsswitch.conf 0644 - - - /usr/share/factory/etc/nsswitch.conf
+ EOF
+ 
++# NOTE: Earlier sessions added a 55-marathon-hw.conf with
++#   console=tty0 / splash / plymouth.use-simpledrm
++# on the theory that tty1 wasn't routed to the HyperPixel framebuffer.
++# That theory was WRONG. On the HackberryPi CM5 with HyperPixel
++# 4 Square, console=tty1 from 50-device-raspberry-pi5.conf DOES route
++# to the panel — what was hiding the boot was plymouth taking over the
++# framebuffer via simpledrm before the kernel's vc4-kms-dpi-hyperpixel4sq
++# DRM driver was ready. Result: dark screen for the entire boot window
++# (and the "device isn't booting" diagnosis was a mirage —
++# see [[duranium-pi5-boot-recipe]] for the post-mortem).
++#
++# Do not reintroduce this file without testing on real CM5 hardware.
++# (Removing only — no replacement written.)
++
++# Bake the Pimoroni HyperPixel 4.0 Square overlay into the Pi 5 base DTB.
++# postmarketOS' linux-postmarketos-stable kernel ships bcm2712-rpi-5-b.dtb
++# but NONE of the rpi-firmware userland overlays (vc4-kms-dpi-hyperpixel4sq.dtbo
++# etc.) — those live in upstream raspberrypi/firmware, which the pmOS aports
++# don't include. Without the overlay applied, the kernel has no DPI panel
++# node, /dev/fb0 never materialises on HyperPixel hardware, and
++# console=tty0 emits to a non-existent framebuffer = blank screen.
++#
++# The dtbo is vendored at marathon-extras/dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo
++# (from raspberrypi/firmware:master). We use fdtoverlay to merge it into the
++# kernel-installed bcm2712-rpi-5-b.dtb in-place so mkosi's Devicetrees=*
++# picks up the merged DTB unmodified. Pi 5 UEFI boot passes this merged DTB
++# to the kernel via the EFI DTB Configuration Table.
++DTBO="$BUILDROOT/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo"
++PI5_DTB="$BUILDROOT/boot/dtbs/broadcom/bcm2712-rpi-5-b.dtb"
++if [ -f "$PI5_DTB" ] && [ -f "$DTBO" ]; then
++    cp "$PI5_DTB" "$PI5_DTB.orig"
++    fdtoverlay -i "$PI5_DTB.orig" -o "$PI5_DTB" "$DTBO" 2>&1 || {
++        echo "WARN: fdtoverlay failed for HyperPixel — restoring upstream DTB" >&2
++        mv "$PI5_DTB.orig" "$PI5_DTB"
++    }
++    [ -f "$PI5_DTB.orig" ] && rm -f "$PI5_DTB.orig"
++fi
++# Same for the D-stepping Pi 5 silicon variant — both share carrier pinout.
++PI5D_DTB="$BUILDROOT/boot/dtbs/broadcom/bcm2712-d-rpi-5-b.dtb"
++if [ -f "$PI5D_DTB" ] && [ -f "$DTBO" ]; then
++    cp "$PI5D_DTB" "$PI5D_DTB.orig"
++    fdtoverlay -i "$PI5D_DTB.orig" -o "$PI5D_DTB" "$DTBO" 2>&1 || {
++        echo "WARN: fdtoverlay failed for HyperPixel (D-step) — restoring" >&2
++        mv "$PI5D_DTB.orig" "$PI5D_DTB"
++    }
++    [ -f "$PI5D_DTB.orig" ] && rm -f "$PI5D_DTB.orig"
++fi
++
+ # Belt-and-suspenders for the QSettings pre-seed: a one-shot systemd unit that
+ # runs as 'user' BEFORE greetd starts marathon-shell, copies the factory file
+ # in place, and marks itself complete. tmpfiles.d 'C+' alone isn't reliable
+diff --git a/mkosi.images/base/mkosi.skeleton/etc/kernel/install.conf b/mkosi.images/base/mkosi.skeleton/etc/kernel/install.conf
+new file mode 100644
+index 0000000..6b5ca60
+--- /dev/null
++++ b/mkosi.images/base/mkosi.skeleton/etc/kernel/install.conf
+@@ -0,0 +1,4 @@
++# Restore layout=bls. pmOS edge commented this out in /usr/lib/kernel/
++# install.conf mid-Jun 2026; kernel-install needs it to fire 90-loaderentry
++# during the kernel package's own apk install hook. /etc takes precedence.
++layout=bls
+diff --git a/mkosi.images/base/mkosi.skeleton/in-pmbootstrap b/mkosi.images/base/mkosi.skeleton/in-pmbootstrap
+new file mode 100644
+index 0000000..e69de29
+diff --git a/mkosi.repart/00-esp.conf b/mkosi.repart/00-esp.conf
+index bd852a2..bab4501 100644
+--- a/mkosi.repart/00-esp.conf
++++ b/mkosi.repart/00-esp.conf
+@@ -1,5 +1,6 @@
+ [Partition]
+ Type=esp
++Label=pmOS_boot
+ Format=vfat
+ CopyFiles=/efi:/
+ CopyFiles=/boot:/
+diff --git a/mkosi.repart/10-usr-verity.conf b/mkosi.repart/10-usr-verity.conf
+deleted file mode 100644
+index 161fdaa..0000000
+--- a/mkosi.repart/10-usr-verity.conf
++++ /dev/null
+@@ -1,8 +0,0 @@
+-[Partition]
+-Type=usr-verity
+-Label=duranium_%A_vty
+-Verity=hash
+-VerityMatchKey=usr
+-SplitName=%t.%U
+-SizeMinBytes=400M
+-SizeMaxBytes=400M
+diff --git a/mkosi.repart/11-root.conf b/mkosi.repart/11-root.conf
+new file mode 100644
+index 0000000..b165c5b
+--- /dev/null
++++ b/mkosi.repart/11-root.conf
+@@ -0,0 +1,8 @@
++[Partition]
++Type=root
++Label=pmOS_root
++Format=ext4
++CopyFiles=/
++SizeMinBytes=5G
++SizeMaxBytes=5G
++SplitName=%t.%U
+diff --git a/mkosi.repart/11-usr.conf b/mkosi.repart/11-usr.conf
+deleted file mode 100644
+index 9b23a9a..0000000
+--- a/mkosi.repart/11-usr.conf
++++ /dev/null
+@@ -1,11 +0,0 @@
+-[Partition]
+-Type=usr
+-Label=duranium_%A_usr
+-Format=erofs
+-CopyFiles=/usr:/
+-Verity=data
+-VerityMatchKey=usr
+-SizeMinBytes=5G
+-SizeMaxBytes=5G
+-Compression=lz4
+-SplitName=%t.%U
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index f1234a0..954aa95 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -85,6 +85,62 @@ def build_image(components: List[str], extra_args: List[str]):
+ 
+         subprocess.run(mkosi_cmd, check=True)
+ 
++        # Pi 5 BootROM on shipped CM5 EEPROMs reads MBR, not GPT. mkosi emits
++        # a pure GPT layout (protective MBR slot 1 is type 0xEE, no bootable
++        # flag), which the BootROM silently ignores. Even a *hybrid* MBR
++        # didn't boot reliably — some EEPROM revisions peek at LBA 1 for
++        # the GPT primary header and treat the disk as GPT-only when found.
++        # Force pure MBR: wipe GPT headers + write a clean MBR via sfdisk.
++        #
++        # Trade-off: we lose systemd-gpt-auto-generator's auto-discovery,
++        # so we ALSO need the rootfs filesystem to carry a `pmOS_root` FS
++        # label (set via SYSTEMD_REPART_MKFS_OPTIONS_EXT4 in mkosi.conf).
++        # postmarketos-mkinitfs's init.sh looks for it via `blkid --label`.
++        # See [[duranium-pi5-boot-recipe]] for the full stack.
++        if device_name.startswith("raspberry-pi") or device_name.startswith("rpi"):
++            raw_path = os.path.join(
++                "mkosi.output", image_id,
++                f"{image_id}_{open('mkosi.version').read().strip()}.raw"
++            )
++            if not os.path.exists(raw_path):
++                print(f"warning: expected raw output not found at {raw_path}; skipping Pi MBR step")
++            else:
++                print(f"Pi: converting {raw_path} GPT → pure MBR")
++                # Read the image as a file we can seek into. Don't loop-mount
++                # since sfdisk expects a real device-or-image arg.
++                # 1. Wipe GPT primary header + partition table at LBA 1..33.
++                # 2. Wipe GPT backup header at last 33 sectors of the data range.
++                # 3. Write a clean MBR partition table via sfdisk (preserves
++                #    the boot code in bytes 0..445).
++                with open(raw_path, "r+b") as f:
++                    # GPT primary header is at LBA 1; partition table at LBA 2..33.
++                    f.seek(1 * 512); f.write(b"\x00" * (33 * 512))
++                # mkosi sizes the disk to the end of the last partition + 1 MiB.
++                # GPT backup header lives in the last 33 sectors.
++                raw_size = os.path.getsize(raw_path)
++                # Don't read raw_size into Python — just compute the offset.
++                backup_offset = raw_size - (33 * 512)
++                with open(raw_path, "r+b") as f:
++                    f.seek(backup_offset); f.write(b"\x00" * (33 * 512))
++                # Rewrite the MBR. The two partitions are at known LBA ranges
++                # because mkosi.repart is deterministic: ESP 2048..2099199 (1 GiB),
++                # root 2099200..(2099200+10485760-1) (5 GiB). Type 0x0e is
++                # FAT16 LBA (matches the FAT16 ESP forced via mkosi.conf).
++                # Type 0x83 is plain Linux.
++                sfdisk_input = (
++                    "label: dos\n"
++                    "unit: sectors\n"
++                    "\n"
++                    "start=2048,    size=2097152,  type=e, bootable\n"
++                    "start=2099200, size=10485760, type=83\n"
++                )
++                subprocess.run(
++                    ["sfdisk", "--no-reread", "--no-tell-kernel", raw_path],
++                    input=sfdisk_input.encode(),
++                    check=True,
++                )
++                print("Pi: pure MBR written (bootable FAT16 LBA + Linux ext4)")
++
+         duration = time.time() - start_time
+         print(f"Built device: {device}, ui: {ui}, release: {release} in {duration}s")
+         return
+diff --git a/scripts/pmaports.py b/scripts/pmaports.py
+index 1d1c9a0..e027f1e 100755
+--- a/scripts/pmaports.py
++++ b/scripts/pmaports.py
+@@ -157,9 +157,23 @@ def collect_recommends(pkgname: str, visited: set[str]) -> list[str]:
+ 
+ 
+ def pick_kernel_subpackage(apkbuild_path: str, device: str) -> Optional[str]:
+-    # This mirrors pmb's default behavior when picking a kernel for a device
+-    # package that supports multiple kernel options by picking the first
+-    # device-{device}-kernel-* subpackage.
++    # Override: on qemu-aarch64, force device-qemu-aarch64-kernel-stable
++    # (linux-postmarketos-stable 7.0.12). The pmaports APKBUILD lists
++    # kernel-lts first, which apk resolves to linux-postmarketos-lts
++    # 6.18.35 -- that LTS kernel has a NULL-pointer-deref bug in
++    # __mod_node_page_state() during udev init in initrd on Pi 5 / CM5
++    # hardware (raspberrypi/linux#7196). The image boots cleanly on
++    # QEMU and pings on hardware (kernel ICMP), but userspace never
++    # comes up because the initrd dies in udev before pivot_root.
++    # linux-postmarketos-stable 7.0.12 doesn't carry the regression.
++    # The kernel-stable subpackage is still published in the apk repo
++    # even though the upstream APKBUILD dropped it from the subpackages
++    # list, so we hard-pin it here until pmaports is fixed upstream.
++    if device == "qemu-aarch64":
++        return "device-qemu-aarch64-kernel-stable"
++
++    # Default: mirror pmb's behavior -- pick the first
++    # device-{device}-kernel-* subpackage in the APKBUILD list.
+     result = subprocess.run(
+         ["sh", "-c", f". '{apkbuild_path}' && echo $subpackages"],
+         capture_output=True,
+@@ -178,13 +192,31 @@ def resolve(device: str, ui: str, release: str, skip_fetch: bool = False) -> dic
+     pmaports_dir = prepare_pmaports(release, skip_fetch=skip_fetch)
+     build_apkbuild_index(pmaports_dir)
+ 
+-    # deviceinfo
+-    deviceinfo_path: Optional[Path] = None
+-    for subdir in ("main", "community", "testing"):
+-        candidate = pmaports_dir / "device" / subdir / f"device-{device}" / "deviceinfo"
+-        if candidate.exists():
+-            deviceinfo_path = candidate
+-            break
++    # deviceinfo lookup. Marathon-overlay packages (e.g.
++    # device-raspberry-pi5-marathon) don't ship their own deviceinfo —
++    # they depend on a base device package (device-raspberry-pi5) and
++    # inherit it. Walk depends until we find one with a deviceinfo.
++
++    def find_deviceinfo(dev: str, seen: Optional[set] = None) -> Optional[Path]:
++        seen = seen or set()
++        if dev in seen:
++            return None
++        seen.add(dev)
++        for subdir in ("main", "community", "testing", "downstream"):
++            candidate = pmaports_dir / "device" / subdir / f"device-{dev}" / "deviceinfo"
++            if candidate.exists():
++                return candidate
++            apkbuild = pmaports_dir / "device" / subdir / f"device-{dev}" / "APKBUILD"
++            if apkbuild.exists():
++                _, depends = parse_recommends(str(apkbuild))
++                for dep in depends:
++                    if dep.startswith("device-"):
++                        bare = dep[len("device-"):]
++                        result = find_deviceinfo(bare, seen)
++                        if result:
++                            return result
++        return None
++    deviceinfo_path = find_deviceinfo(device)
+     if deviceinfo_path is None:
+         raise RuntimeError(f"deviceinfo not found for device '{device}'")
+ 
+-- 
+2.53.0
+
