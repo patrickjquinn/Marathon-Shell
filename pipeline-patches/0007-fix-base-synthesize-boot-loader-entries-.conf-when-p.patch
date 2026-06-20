@@ -1,7 +1,7 @@
 From 95cd8bada3f1102164319520aa5cae4024aa5779 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Mon, 15 Jun 2026 13:34:27 +0100
-Subject: [PATCH 07/13] fix(base): synthesize /boot/loader/entries/*.conf when
+Subject: [PATCH 07/14] fix(base): synthesize /boot/loader/entries/*.conf when
  pmOS leaves it empty
 
 pmOS edge's /usr/lib/kernel/install.conf ships layout=bls commented

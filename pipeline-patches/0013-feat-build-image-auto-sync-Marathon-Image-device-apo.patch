@@ -1,7 +1,7 @@
 From a6a01b777b051fee7628a50dec59fe627b4fb947 Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Sat, 20 Jun 2026 09:59:01 +0100
-Subject: [PATCH 13/13] feat(build-image): auto-sync Marathon-Image device
+Subject: [PATCH 13/14] feat(build-image): auto-sync Marathon-Image device
  aports into pmaports
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

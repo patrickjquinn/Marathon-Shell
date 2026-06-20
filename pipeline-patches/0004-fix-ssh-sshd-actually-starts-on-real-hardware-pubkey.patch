@@ -1,7 +1,7 @@
 From e1be303017b5ca2fa2ef54b5a62547fe89b64f4a Mon Sep 17 00:00:00 2001
 From: patrickjquinn <patrick.jm.quinn@gmail.com>
 Date: Fri, 22 May 2026 12:57:18 +0100
-Subject: [PATCH 04/13] fix(ssh): sshd actually starts on real hardware +
+Subject: [PATCH 04/14] fix(ssh): sshd actually starts on real hardware +
  pubkey auth baked in
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

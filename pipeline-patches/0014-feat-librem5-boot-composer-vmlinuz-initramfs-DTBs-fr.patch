@@ -1,0 +1,325 @@
+From 68279ea2520ff6965eeca632e4fff2d7210614f5 Mon Sep 17 00:00:00 2001
+From: patrickjquinn <patrick.jm.quinn@gmail.com>
+Date: Sat, 20 Jun 2026 10:20:02 +0100
+Subject: [PATCH 14/14] feat(librem5): boot composer (vmlinuz + initramfs +
+ DTBs from UKI)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add the LIBREM5_UBOOT_BOOT branch in mkosi.finalize parallel to the
+existing Pi 5 path. The branch composes the /boot layout that the
+upstream device-purism-librem5 boot.scr expects:
+
+* /boot/vmlinuz — extracted via `objcopy --dump-section .linux`
+  from the UKI mkosi built. Same trick as Pi 5's kernel_2712.img
+  extract, just to a different name (matches boot.scr's
+  `ext2load $devtype ${devnum}:${bootpart} ${kernel_addr_r} vmlinuz`).
+* /boot/initramfs — initial extract from the UKI's .initrd, then
+  overlaid by mkinitfs chroot (the UKI's initrd is kmods-only per
+  KernelModulesInitrd=yes; postmarketos-mkinitfs is what carries
+  the real init.sh + duranium handlers).
+* /boot/imx8mq-librem5-r{2,3,4}.dtb — copied flat from the kernel
+  package's /usr/lib/modules/$KVER/dtb/freescale/ tree. boot.scr's
+  board-rev dispatcher picks one by name at runtime.
+* /boot/boot.scr — already shipped by device-purism-librem5 at
+  /boot/boot.scr (compiled via mkimage from upstream
+  uboot-script.cmd). No mkimage step needed in our pipeline.
+
+mkinitfs reuse: extend the existing PI_FIRMWARE_BOOT fallback to
+also fire for LIBREM5_UBOOT_BOOT (Librem 5's UKI initrd is kmods-
+only just like Pi 5's, so it needs the same duranium-initramfs
+overlay). Stage destination is now conditional —
+/boot/initramfs_2712 for Pi 5, /boot/initramfs for L5. Skip
+gzip-decomp on L5 (U-Boot's booti handles compressed initramfs
+natively).
+
+build-image.py also gains a phone-boot.img embed step parallel to
+the Pi 5 MBR rewrite: locates phone-boot.img inside the rootfs at
+/usr/share/u-boot/librem5/phone-boot.img and dd's it to byte 33 KiB
+of the output .raw.
+
+Image still won't boot on real hardware until the boot partition
+starts at sector 4096 — mkosi/systemd-repart in this sandbox don't
+support OffsetMinBytes, and U-Boot's bootpart=1 is hardcoded in
+the compiled boot.scr. Post-mkosi disk-rebuild step in
+build-image.py is the next chunk of work and the remaining gap
+before first-flash.
+---
+ mkosi.finalize             | 111 +++++++++++++++++++++++++++++--------
+ scripts/build-image.py     |  72 ++++++++++++++++++++++++
+ scripts/mkosi-configure.py |  12 ++++
+ 3 files changed, 172 insertions(+), 23 deletions(-)
+
+diff --git a/mkosi.finalize b/mkosi.finalize
+index 826b0a4..72768f5 100755
+--- a/mkosi.finalize
++++ b/mkosi.finalize
+@@ -496,9 +496,9 @@ CONFIG
+         # Note: /boot/dtbs is preserved
+ 
+     else
+-        # No systemd-boot loader entries AND not a Pi-firmware device.
++        # No systemd-boot loader entries AND not a Pi-firmware-or-L5 device.
+         # Hard fail.
+-        if [ -z "${PI_FIRMWARE_BOOT:-}" ]; then
++        if [ -z "${PI_FIRMWARE_BOOT:-}" ] && [ -z "${LIBREM5_UBOOT_BOOT:-}" ]; then
+             echo "Error: No existing boot loader entry found in $BUILDROOT/boot/loader/entries/"
+             exit 1
+         fi
+@@ -580,10 +580,60 @@ CONFIG
+             # Verified 2026-06-18 after duranium-on-Pi5 build #26051814 booted
+             # to LED-solid-white (kernel running) but had no userspace.
+         fi
++
++        # Librem 5: parallel UKI-extract path. boot.scr (shipped by
++        # device-purism-librem5 at /boot/boot.scr) expects:
++        #   /boot/vmlinuz
++        #   /boot/initramfs
++        #   /boot/imx8mq-librem5-r{2,3,4}.dtb   (flat, NOT under dtbs/freescale/)
++        # The kernel package installs vmlinuz under
++        # /usr/lib/modules/$KVER/vmlinuz and DTBs under
++        # /usr/lib/modules/$KVER/dtb/freescale/. We need to expose them
++        # at the boot.scr-expected names. The UKI's .linux section is
++        # equivalent to /usr/lib/modules/$KVER/vmlinuz; extract it for
++        # symmetry with the Pi 5 path. mkinitfs (below in the fallback
++        # block) overwrites the UKI's kmods-only initrd with a real
++        # duranium-initramfs.
++        if [ -n "${LIBREM5_UBOOT_BOOT:-}" ] && [ -f "$UKI" ]; then
++            echo "info: Librem 5 extracting UKI sections from $UKI"
++            objcopy --dump-section .linux="$BUILDROOT/boot/vmlinuz" "$UKI" 2>&1 \
++                && echo "info: Librem 5 extracted .linux -> /boot/vmlinuz" \
++                || echo "warning: objcopy .linux extract failed (L5)"
++            objcopy --dump-section .initrd="$BUILDROOT/boot/initramfs" "$UKI" 2>/dev/null \
++                && echo "info: Librem 5 extracted .initrd -> /boot/initramfs (placeholder; mkinitfs overwrites)" \
++                || true
++            LIBREM5_KVER=$(ls "$BUILDROOT/usr/lib/modules/" 2>/dev/null | grep librem5 | head -1)
++            if [ -n "$LIBREM5_KVER" ]; then
++                for r in r2 r3 r4; do
++                    DTB="$BUILDROOT/usr/lib/modules/$LIBREM5_KVER/dtb/freescale/imx8mq-librem5-$r.dtb"
++                    if [ -f "$DTB" ]; then
++                        cp "$DTB" "$BUILDROOT/boot/imx8mq-librem5-$r.dtb"
++                        echo "info: Librem 5 staged DTB imx8mq-librem5-$r.dtb"
++                    else
++                        echo "warning: missing DTB $DTB"
++                    fi
++                done
++            else
++                echo "warning: no librem5 kernel version found in /usr/lib/modules/"
++            fi
++            # boot.scr is already at /boot/boot.scr from the
++            # device-purism-librem5 aport's package() step (mkimage
++            # compile of uboot-script.cmd, install -D ... /boot/boot.scr).
++            if [ -f "$BUILDROOT/boot/boot.scr" ]; then
++                echo "info: Librem 5 boot.scr present at /boot/boot.scr"
++            else
++                echo "warning: /boot/boot.scr missing — device-purism-librem5 pkg should have installed it"
++            fi
++        fi
+         # Pi-firmware fallback path retained for the case where the UKI
+-        # truly is missing.
+-        if [ -n "${PI_FIRMWARE_BOOT:-}" ]; then
+-            echo "warning: no loader/entries AND no UKI — Pi-firmware path falling back to legacy mkinitfs composer"
++        # truly is missing. Librem 5 always runs this path — its UKI
++        # initrd is kmods-only and needs duranium-initramfs overlay.
++        if [ -n "${PI_FIRMWARE_BOOT:-}" ] || [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
++            if [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
++                echo "info: Librem 5 running mkinitfs to overlay duranium-initramfs onto kmods-only UKI initrd"
++            else
++                echo "warning: no loader/entries AND no UKI — Pi-firmware path falling back to legacy mkinitfs composer"
++            fi
+ 
+             # mkinitfs needs to run in chroot to produce the Pi-firmware
+             # initrd. mkosi.postinst tried this but mkosi swallowed its
+@@ -684,35 +734,47 @@ CONFIG
+             # Align our layout exactly to Pi OS Lite's so the BootROM
+             # sees the same shape it always boots cleanly.
+             if [ -n "$INITRD_SRC" ] && [ -f "$INITRD_SRC" ]; then
+-                STAGED="$BUILDROOT/boot/initramfs_2712"
++                # Stage destination differs per boot path:
++                #   Pi 5: /boot/initramfs_2712 (Pi OS Lite default name)
++                #   L5:   /boot/initramfs (matches boot.scr's ext2load)
++                if [ -n "${LIBREM5_UBOOT_BOOT:-}" ]; then
++                    STAGED="$BUILDROOT/boot/initramfs"
++                else
++                    STAGED="$BUILDROOT/boot/initramfs_2712"
++                fi
+                 if [ -n "$KMOD_INITRD" ] && [ "$INITRD_SRC" != "$STAGED" ]; then
+-                    echo "info: concatenating $INITRD_SRC + $KMOD_INITRD -> /boot/initramfs_2712"
++                    echo "info: concatenating $INITRD_SRC + $KMOD_INITRD -> $STAGED"
+                     cat "$INITRD_SRC" "$KMOD_INITRD" > "$STAGED"
+                 elif [ "$INITRD_SRC" != "$STAGED" ]; then
+                     cp "$INITRD_SRC" "$STAGED"
+                 fi
+-                # Decompress: Pi OS Lite ships an UNCOMPRESSED cpio
+-                # archive. The kernel can decompress gzipped initramfs
+-                # itself, but recent Pi 5 EEPROM verifies the archive
+-                # before pass-through and chokes on gzip. Strip the
+-                # compression so the BootROM sees plain cpio.
+-                if file "$STAGED" 2>/dev/null | grep -q "gzip compressed"; then
++                # Pi 5 only: decompress gzip → plain cpio (recent EEPROM
++                # chokes on gzip). Librem 5 U-Boot's booti handles
++                # gzip-compressed initramfs natively, no decomp needed.
++                if [ -z "${LIBREM5_UBOOT_BOOT:-}" ] \
++                   && file "$STAGED" 2>/dev/null | grep -q "gzip compressed"; then
+                     gunzip -c "$STAGED" > "$STAGED.cpio"
+                     mv "$STAGED.cpio" "$STAGED"
+                     echo "info: decompressed gzip -> plain cpio (Pi 5 BootROM-friendly)"
+                 fi
+-                # Keep initramfs-rpi as a backwards-compatible alias —
+-                # older config.txt forms reference it; the new config.txt
+-                # below uses auto_initramfs= and `initramfs_2712`.
+-                cp "$STAGED" "$BUILDROOT/boot/initramfs-rpi"
+-                echo "info: promoted $INITRD_SRC -> /boot/initramfs_2712 (+ initramfs-rpi alias)"
++                # Pi 5 also stages initramfs-rpi as a backwards-compat alias.
++                if [ -z "${LIBREM5_UBOOT_BOOT:-}" ]; then
++                    cp "$STAGED" "$BUILDROOT/boot/initramfs-rpi"
++                    echo "info: promoted $INITRD_SRC -> /boot/initramfs_2712 (+ initramfs-rpi alias)"
++                else
++                    echo "info: promoted $INITRD_SRC -> /boot/initramfs"
++                fi
+             else
+-                echo "warning: no initrd found anywhere under \$BUILDROOT/boot/ — Pi firmware will fail to load initramfs"
++                echo "warning: no initrd found anywhere under \$BUILDROOT/boot/ — boot will fail"
+             fi
+-            # Rename kernel to Pi 5's default name kernel_2712.img.
+-            # auto_initramfs=1 (set in config.txt below) pairs kernel_2712.img
+-            # with initramfs_2712 automatically.
+-            if [ -f "$BUILDROOT/boot/vmlinuz-rpi" ] \
++            # Pi 5-specific kernel naming: rename to Pi 5's default
++            # name kernel_2712.img. auto_initramfs=1 (in config.txt
++            # below) pairs kernel_2712.img with initramfs_2712
++            # automatically. Skip for Librem 5 (kernel already at
++            # /boot/vmlinuz via the UKI extract above, which is what
++            # boot.scr's ext2load expects).
++            if [ -z "${LIBREM5_UBOOT_BOOT:-}" ] \
++               && [ -f "$BUILDROOT/boot/vmlinuz-rpi" ] \
+                && [ ! -f "$BUILDROOT/boot/kernel_2712.img" ]; then
+                 cp "$BUILDROOT/boot/vmlinuz-rpi" "$BUILDROOT/boot/kernel_2712.img"
+                 echo "info: copied vmlinuz-rpi -> /boot/kernel_2712.img (Pi 5 default)"
+@@ -723,6 +785,8 @@ CONFIG
+             # rpi-firmware userland overlays (vc4-kms-dpi-hyperpixel4sq).
+             # Without the overlay, the kernel has no DPI panel node and
+             # /dev/fb0 never materialises — blank screen on HyperPixel.
++            # Skip entirely for Librem 5.
++            if [ -z "${LIBREM5_UBOOT_BOOT:-}" ]; then
+             DTBO="$BUILDROOT/usr/share/marathon-dtbos/vc4-kms-dpi-hyperpixel4sq.dtbo"
+             for PI5_DTB in \
+                 "$BUILDROOT/boot/dtbs/broadcom/bcm2712-rpi-5-b.dtb" \
+@@ -786,6 +850,7 @@ EOF
+ splash quiet loglevel=3 vt.global_cursor_default=0 cgroup_enable=memory dwc_otg.lpm_enable=0 console=ttyAMA10,115200 console=tty3 systemd.gpt_auto=no
+ EOF
+             echo "info: wrote /boot/cmdline.txt"
++            fi  # end "Pi-only: HyperPixel DTB merge + config.txt + cmdline.txt"
+         fi
+         # No more else here — the early `[ -z "${PI_FIRMWARE_BOOT:-}" ]`
+         # check above already handles the non-Pi error case. If we made
+diff --git a/scripts/build-image.py b/scripts/build-image.py
+index 6f66192..c1b32b4 100755
+--- a/scripts/build-image.py
++++ b/scripts/build-image.py
+@@ -127,6 +127,78 @@ def build_image(components: List[str], extra_args: List[str]):
+         # label (set via SYSTEMD_REPART_MKFS_OPTIONS_EXT4 in mkosi.conf).
+         # postmarketos-mkinitfs's init.sh looks for it via `blkid --label`.
+         # See [[duranium-pi5-boot-recipe]] for the full stack.
++        # Librem 5: i.MX 8M ROM expects SPL+ATF+U-Boot at byte 33 KiB on
++        # the eMMC user area. The u-boot-librem5 apk ships the combined
++        # blob at /usr/share/u-boot/librem5/phone-boot.img inside the
++        # rootfs (1.2 MiB). Extract it from the rootfs partition and
++        # dd it to byte 33×1024 of the output .raw. The first ext4
++        # partition starts at sector 4096 (= byte 2 MiB) so the blob
++        # fits cleanly in the [33 KiB, 2 MiB) gap.
++        if device_name.startswith("purism-librem5"):
++            raw_path = os.path.join(
++                "mkosi.output", image_id,
++                f"{image_id}_{open('mkosi.version').read().strip()}.raw"
++            )
++            if not os.path.exists(raw_path):
++                print(f"warning: expected raw output not found at {raw_path}; skipping L5 phone-boot.img embed")
++            else:
++                print(f"Librem 5: embedding phone-boot.img at byte 33 KiB of {raw_path}")
++                # Find the rootfs partition (partition 2 on our L5 layout)
++                # and extract phone-boot.img from it.
++                lo_dev = subprocess.run(
++                    ["sudo", "-A", "losetup", "-fP", "--show", raw_path],
++                    capture_output=True, text=True, check=True,
++                ).stdout.strip()
++                try:
++                    mnt = subprocess.run(
++                        ["mktemp", "-d"], capture_output=True, text=True, check=True,
++                    ).stdout.strip()
++                    root_part = f"{lo_dev}p2"  # partition 2 = root
++                    subprocess.run(
++                        ["sudo", "-A", "mount", "-o", "ro", root_part, mnt],
++                        check=True,
++                    )
++                    try:
++                        phone_boot_src = os.path.join(mnt, "usr", "share", "u-boot", "librem5", "phone-boot.img")
++                        if not os.path.exists(phone_boot_src):
++                            print(f"warning: phone-boot.img not found at {phone_boot_src} inside rootfs")
++                        else:
++                            phone_boot_size = os.path.getsize(phone_boot_src)
++                            print(f"Librem 5: phone-boot.img is {phone_boot_size} bytes")
++                            # Stage to /tmp because sudo needs to read it
++                            staged = subprocess.run(
++                                ["mktemp", "/tmp/phone-boot.img.XXXXXX"],
++                                capture_output=True, text=True, check=True,
++                            ).stdout.strip()
++                            subprocess.run(
++                                ["sudo", "-A", "cp", phone_boot_src, staged],
++                                check=True,
++                            )
++                            subprocess.run(
++                                ["sudo", "-A", "chmod", "0644", staged],
++                                check=True,
++                            )
++                            # dd to byte 33×1024 = 33792 of the .raw.
++                            # bs=1024 + seek=33 → byte 33792 start.
++                            subprocess.run(
++                                ["sudo", "-A", "dd",
++                                 f"if={staged}",
++                                 f"of={raw_path}",
++                                 "bs=1024", "seek=33",
++                                 "conv=notrunc,fsync"],
++                                check=True,
++                            )
++                            os.unlink(staged)
++                            print(f"Librem 5: wrote phone-boot.img to byte 33 KiB of {raw_path}")
++                    finally:
++                        subprocess.run(["sudo", "-A", "umount", mnt], check=False)
++                        subprocess.run(["rmdir", mnt], check=False)
++                finally:
++                    subprocess.run(
++                        ["sudo", "-A", "losetup", "-d", lo_dev],
++                        check=False,
++                    )
++
+         if device_name.startswith("raspberry-pi") or device_name.startswith("rpi"):
+             raw_path = os.path.join(
+                 "mkosi.output", image_id,
+diff --git a/scripts/mkosi-configure.py b/scripts/mkosi-configure.py
+index f0ef311..b641183 100755
+--- a/scripts/mkosi-configure.py
++++ b/scripts/mkosi-configure.py
+@@ -70,6 +70,18 @@ def main() -> int:
+         # the missing binary too.
+         if device.startswith("purism-librem5"):
+             config["Bootloader"] = "uki"
++            # The default mkosi.repart/ ESP+root layout collides with
++            # phone-boot.img (raw-written at byte 33 KiB by
++            # build-image.py post-mkosi; spans bytes 33,792 to ~1.3 MiB
++            # so corrupts the start of ESP at sector 2048). systemd-
++            # repart in this mkosi sandbox doesn't support
++            # OffsetMinBytes, and U-Boot's bootpart=1 is hardcoded in
++            # upstream uboot-script.cmd's compiled boot.scr — partition
++            # 1 MUST be a readable ext4 with boot.scr at sector ≥ 4096.
++            # Solution: build-image.py rebuilds the disk image post-
++            # mkosi with the correct layout (boot at 4096 + root after).
++            # mkosi keeps the default layout for now; the rebuild step
++            # is the source of truth.
+     elif image == "base":
+         # base gets device+UI packages resolved from pmaports
+         existing = config.get("Packages", [])
+-- 
+2.53.0
+
