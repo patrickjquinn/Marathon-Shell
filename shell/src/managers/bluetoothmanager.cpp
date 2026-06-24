@@ -5,7 +5,40 @@
 #include <QDBusMetaType>
 #include <QDBusPendingCallWatcher>
 #include <QDebug>
-#include <QProcess>
+#include <QDir>
+#include <QFile>
+
+// Soft-unblock a kernel rfkill switch by type. Direct sysfs write rather
+// than shelling out to /usr/sbin/rfkill — Alpine's util-linux rfkill has
+// a libsmartcols regression that SIGABRTs in xstrdup on `rfkill list` and
+// occasionally on `rfkill unblock` under empty-row conditions. The kernel
+// /sys/class/rfkill/* API is stable since 2.6.35 and write-permitted to
+// root only (we already are root via marathon-shell's session). Returns
+// the number of switches unblocked.
+static int unblockRfkillByType(const QString &type) {
+    QDir dir(QStringLiteral("/sys/class/rfkill"));
+    if (!dir.exists())
+        return 0;
+    int               touched = 0;
+    const QStringList entries = dir.entryList(QStringList{QStringLiteral("rfkill*")}, QDir::Dirs);
+    for (const QString &entry : entries) {
+        const QString base = dir.absoluteFilePath(entry);
+        QFile         typeFile(base + QStringLiteral("/type"));
+        if (!typeFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QString readType = QString::fromUtf8(typeFile.readAll()).trimmed();
+        typeFile.close();
+        if (readType != type)
+            continue;
+        QFile softFile(base + QStringLiteral("/soft"));
+        if (!softFile.open(QIODevice::WriteOnly | QIODevice::Text))
+            continue;
+        if (softFile.write("0\n") > 0)
+            ++touched;
+        softFile.close();
+    }
+    return touched;
+}
 
 BluetoothDevice::BluetoothDevice(const QString &path, QObject *parent)
     : QObject(parent)
@@ -319,8 +352,9 @@ void BluetoothManager::setEnabled(bool enabled) {
     qDebug() << "[BluetoothManager] Setting powered to" << enabled;
 
     if (enabled) {
-
-        QProcess::execute("rfkill", {"unblock", "bluetooth"});
+        const int unblocked = unblockRfkillByType(QStringLiteral("bluetooth"));
+        if (unblocked == 0)
+            qDebug() << "[BluetoothManager] no rfkill bluetooth entries found to unblock";
     }
 }
 
