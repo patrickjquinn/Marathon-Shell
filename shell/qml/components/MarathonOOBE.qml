@@ -138,9 +138,17 @@ Item {
         id: swipeView
 
         anchors.fill: parent
-        anchors.topMargin: Constants.statusBarHeight
-        anchors.leftMargin: MSpacing.xl
-        anchors.rightMargin: MSpacing.xl
+        // The SwipeView margins establish the page's *outer* gutter. Pages
+        // add their own inset on top (MSpacing.lg) for breathing room.
+        // Together they gave the L5 a 114 px gutter that pushed the scale
+        // ladder off both edges. The lg gutter here + lg page inset
+        // produces a ~56 px total gutter at scaleFactor 1.79.
+        //
+        // SwipeView top anchored to topChrome.bottom so the indicator + Skip
+        // row never overlaps page content.
+        anchors.topMargin: topChrome.height + MSpacing.sm
+        anchors.leftMargin: MSpacing.lg
+        anchors.rightMargin: MSpacing.lg
         // Reserve enough room at the bottom for the Back/Next row (height =
         // touchTargetMedium ~70sf), the page-indicator row, the nav bar, plus
         // margins. The old 170sf was tight at any scale and clipped cards on
@@ -204,9 +212,13 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
-                anchors.leftMargin: MSpacing.xl
-                anchors.rightMargin: MSpacing.xl
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
+                // SwipeView already insets by MSpacing.lg on each side;
+                // additional page-level margins doubled the gutter to ~114 px
+                // and pushed the 7-button scale ladder ~45 px off-edge on
+                // both sides. Drop the duplication.
+                anchors.leftMargin: 0
+                anchors.rightMargin: 0
                 anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
                 spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
 
@@ -242,6 +254,7 @@ Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     elevation: 2
+                    clip: true  // preview text + icons stay inside the card
 
                     ColumnLayout {
                         anchors.fill: parent
@@ -262,88 +275,42 @@ Item {
                         Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            clip: true
 
+                            // Preview "Sample" + body + icons. Sizes use
+                            // MTypography directly: MTypography.sizeTitle2
+                            // already includes Constants.scaleFactor (which
+                            // multiplies by userScaleFactor). Multiplying
+                            // *again* by userScaleFactor as the prior code
+                            // did double-applied the scale — at
+                            // userScaleFactor=1.5 the preview text was
+                            // 2.25× the rest of the OOBE chrome and broke
+                            // out of the card. The new render is "what your
+                            // typography looks like at this scale" — the
+                            // user comparison they actually want.
                             ColumnLayout {
                                 anchors.centerIn: parent
                                 width: parent.width
-                                spacing: Math.round(MSpacing.sm * Constants.userScaleFactor)
+                                spacing: MSpacing.sm
 
                                 Text {
                                     Layout.alignment: Qt.AlignHCenter
                                     text: "Sample"
-                                    font.pixelSize: Math.round(MTypography.sizeTitle2 * Constants.userScaleFactor)
+                                    font.pixelSize: MTypography.sizeTitle2
                                     font.weight: MTypography.weightExtraLight
                                     font.family: MTypography.fontFamily
                                     font.letterSpacing: MTypography.trackingTitle2
                                     color: MColors.textPrimary
-
-                                    Behavior on font.pixelSize {
-                                        NumberAnimation {
-                                            duration: MMotion.sm
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
                                 }
 
                                 Text {
                                     Layout.fillWidth: true
                                     text: "The quick brown fox jumps over the lazy dog."
-                                    font.pixelSize: Math.round(MTypography.sizeBody * Constants.userScaleFactor)
+                                    font.pixelSize: MTypography.sizeBody
                                     font.family: MTypography.fontFamily
                                     color: MColors.textSecondary
                                     wrapMode: Text.WordWrap
                                     horizontalAlignment: Text.AlignHCenter
-
-                                    Behavior on font.pixelSize {
-                                        NumberAnimation {
-                                            duration: MMotion.sm
-                                            easing.type: Easing.OutCubic
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.alignment: Qt.AlignHCenter
-                                    spacing: Math.round(MSpacing.sm * Constants.userScaleFactor)
-
-                                    Icon {
-                                        name: "house"
-                                        size: Math.round(20 * Constants.userScaleFactor)
-                                        color: MColors.marathonTealBright
-
-                                        Behavior on size {
-                                            NumberAnimation {
-                                                duration: MMotion.sm
-                                                easing.type: Easing.OutCubic
-                                            }
-                                        }
-                                    }
-
-                                    Icon {
-                                        name: "envelope"
-                                        size: Math.round(20 * Constants.userScaleFactor)
-                                        color: MColors.textPrimary
-
-                                        Behavior on size {
-                                            NumberAnimation {
-                                                duration: MMotion.sm
-                                                easing.type: Easing.OutCubic
-                                            }
-                                        }
-                                    }
-
-                                    Icon {
-                                        name: "gear"
-                                        size: Math.round(20 * Constants.userScaleFactor)
-                                        color: MColors.textPrimary
-
-                                        Behavior on size {
-                                            NumberAnimation {
-                                                duration: MMotion.sm
-                                                easing.type: Easing.OutCubic
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -442,9 +409,9 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
-                anchors.leftMargin: MSpacing.xl
-                anchors.rightMargin: MSpacing.xl
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
+                anchors.leftMargin: 0
+                anchors.rightMargin: 0
                 anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
                 spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
 
@@ -455,8 +422,14 @@ Item {
                     color: MColors.marathonTealBright
                 }
 
+                // Title + subtitle MUST use Layout.fillWidth + WordWrap.
+                // The prior code did Layout.alignment: AlignHCenter without
+                // width, so the Text laid out at its natural rendered width
+                // — at scaleFactor 1.79 the title "Connect to a network"
+                // was wider than the SwipeView column, clipping to
+                // "Connect to a netwo" off the right edge.
                 Text {
-                    Layout.alignment: Qt.AlignHCenter
+                    Layout.fillWidth: true
                     text: "Connect to a network"
                     font.pixelSize: MTypography.sizeTitle2
                     font.weight: MTypography.weightExtraLight
@@ -464,6 +437,7 @@ Item {
                     font.letterSpacing: MTypography.trackingTitle2
                     color: MColors.textPrimary
                     horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
                 }
 
                 Text {
@@ -802,9 +776,9 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.xl : MSpacing.xxl
-                anchors.leftMargin: MSpacing.xl
-                anchors.rightMargin: MSpacing.xl
+                anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
+                anchors.leftMargin: 0
+                anchors.rightMargin: 0
                 spacing: oobeRoot.compactLayout ? MSpacing.md : MSpacing.lg
 
                 Icon {
@@ -1165,8 +1139,18 @@ Item {
                                     }
 
                                     Text {
+                                        // Distinct verb from the outer OOBE
+                                        // primary "Next" so users don't see
+                                        // two competing Next buttons on the
+                                        // coachmark pages. "Continue" reads
+                                        // as "I've practiced this gesture,
+                                        // show me the next one" — and on
+                                        // the final coachmark the inner
+                                        // button isn't rendered, so the
+                                        // primary OOBE Next takes over
+                                        // cleanly.
                                         anchors.centerIn: parent
-                                        text: "Next"
+                                        text: "Continue"
                                         font.pixelSize: MTypography.sizeBody
                                         font.weight: Font.Medium
                                         font.family: MTypography.fontFamily
@@ -1530,9 +1514,12 @@ Item {
         // the screen — anchoring to pageIndicatorRow.top pushed this row
         // off the top edge and hid Back/Next entirely.
         anchors.bottom: navBar.top
-        anchors.leftMargin: MSpacing.xl
-        anchors.rightMargin: MSpacing.xl
-        anchors.bottomMargin: MSpacing.xl
+        // lg margins instead of xl. SwipeView uses lg now too — uniform
+        // outer gutter throughout the OOBE chrome makes the back/next row
+        // visually align with page content underneath.
+        anchors.leftMargin: MSpacing.lg
+        anchors.rightMargin: MSpacing.lg
+        anchors.bottomMargin: MSpacing.lg
         spacing: MSpacing.md
 
         MButton {
@@ -1583,57 +1570,83 @@ Item {
         }
     }
 
-    Row {
-        id: pageIndicatorRow
+    // Top chrome: page indicators (row 1) + Skip button (row 2, right-aligned).
+    // Stacking them in a Column means the Skip chip never overlaps the
+    // rightmost indicator dot. SwipeView's topMargin anchors below this
+    // entire chrome so page content never collides either.
+    Item {
+        id: topChrome
 
-        // Page indicator moved to the TOP. The bottom of every OOBE page
-        // is already busy with the nav buttons + Skip + per-page Done
-        // chrome; the dots were getting squashed. Sitting them just under
-        // the status bar is cleaner and matches the iOS Settings-OOBE
-        // pattern. (See also the gesture-page dots inside gesturesPage,
-        // which were moved for the same reason.)
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.top: statusBar.bottom
         anchors.topMargin: MSpacing.sm
-        spacing: MSpacing.md
-        height: Math.round(20 * Constants.scaleFactor)
+        height: pageIndicatorRow.height + skipRow.height + MSpacing.sm
+        z: 200
 
-        Repeater {
-            model: oobeRoot.pages.length
+        Row {
+            id: pageIndicatorRow
 
-            Rectangle {
-                required property int index
+            // Page indicator moved to the TOP. The bottom of every OOBE page
+            // is already busy with the nav buttons + per-page Done chrome;
+            // the dots were getting squashed. Sitting them just under the
+            // status bar is cleaner and matches the iOS Settings-OOBE
+            // pattern. (See also the gesture-page dots inside gesturesPage,
+            // which were moved for the same reason.)
+            //
+            // Sized at 14 inactive / 22 active sf — bigger than the original
+            // 12 / 20 so they read as a primary navigation affordance, not
+            // an afterthought. The Skip chip now lives in its own row below.
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            spacing: MSpacing.md
+            height: Math.round(22 * Constants.scaleFactor)
 
-                width: oobeRoot.currentPage === index ? Math.round(20 * Constants.scaleFactor) : Math.round(12 * Constants.scaleFactor)
-                height: oobeRoot.currentPage === index ? Math.round(20 * Constants.scaleFactor) : Math.round(12 * Constants.scaleFactor)
-                radius: oobeRoot.currentPage === index ? Math.round(10 * Constants.scaleFactor) : Math.round(6 * Constants.scaleFactor)
-                color: oobeRoot.currentPage === index ? MColors.accent : MColors.textTertiary
-                opacity: oobeRoot.currentPage === index ? 1 : 0.5
-                anchors.verticalCenter: parent.verticalCenter
+            Repeater {
+                model: oobeRoot.pages.length
+
+                Rectangle {
+                    required property int index
+
+                    width: oobeRoot.currentPage === index ? Math.round(22 * Constants.scaleFactor) : Math.round(14 * Constants.scaleFactor)
+                    height: oobeRoot.currentPage === index ? Math.round(22 * Constants.scaleFactor) : Math.round(14 * Constants.scaleFactor)
+                    radius: oobeRoot.currentPage === index ? Math.round(11 * Constants.scaleFactor) : Math.round(7 * Constants.scaleFactor)
+                    color: oobeRoot.currentPage === index ? MColors.accent : MColors.textTertiary
+                    opacity: oobeRoot.currentPage === index ? 1 : 0.5
+                    anchors.verticalCenter: parent.verticalCenter
+                }
             }
         }
-    }
 
-    MButton {
-        // Anchor below the status bar (not against swipeView top) so the
-        // button never crashes into centered logo content on the first page.
-        anchors.top: statusBar.bottom
-        anchors.topMargin: MSpacing.sm
-        anchors.right: parent.right
-        anchors.rightMargin: MSpacing.xl
-        text: "Skip"
-        variant: "default"
-        // Skip is only meaningful for early informational steps. The
-        // Passcode page needs to complete (the user has no PAM password to
-        // fall back on — pmOS_root /etc/shadow ships with the account
-        // locked '!'), so hide Skip from page 5 (Passcode) onward. Also
-        // hide on page 6 (Done) since that has its own Get Started action.
-        visible: oobeRoot.currentPage < 5
-        z: 200
-        onClicked: {
-            SettingsManagerCpp.firstRunComplete = true;
-            HapticManager.light();
-            oobeRoot.setupComplete();
+        Item {
+            id: skipRow
+
+            anchors.top: pageIndicatorRow.bottom
+            anchors.topMargin: MSpacing.sm
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: skipButton.visible ? skipButton.height : 0
+
+            MButton {
+                id: skipButton
+
+                anchors.right: parent.right
+                anchors.rightMargin: MSpacing.lg
+                text: "Skip"
+                variant: "default"
+                // Skip is only meaningful for early informational steps. The
+                // Passcode page needs to complete (the user has no PAM
+                // password to fall back on — pmOS_root /etc/shadow ships
+                // with the account locked '!'), so hide Skip from page 5
+                // (Passcode) onward. Also hide on page 6 (Done) since that
+                // has its own Get Started action.
+                visible: oobeRoot.currentPage < 5
+                onClicked: {
+                    SettingsManagerCpp.firstRunComplete = true;
+                    HapticManager.light();
+                    oobeRoot.setupComplete();
+                }
+            }
         }
     }
 
