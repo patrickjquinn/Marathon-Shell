@@ -8,6 +8,7 @@
 
 class QQmlEngine;
 class QJSEngine;
+class QFileSystemWatcher;
 
 class SettingsManager : public QObject {
     Q_OBJECT
@@ -375,61 +376,64 @@ class SettingsManager : public QObject {
     void unifiedPushFallbackEnabledChanged();
 
   private:
-    void        load();
-    void        save();
+    void                load();
+    void                save();
+    void                onSettingsFileChanged(const QString &path);
 
-    QSettings   m_settings;
+    QSettings           m_settings;
+    QFileSystemWatcher *m_watcher     = nullptr;
+    bool                m_inSelfWrite = false;
 
-    qreal       m_userScaleFactor;
-    QString     m_wallpaperPath;
+    qreal               m_userScaleFactor;
+    QString             m_wallpaperPath;
 
-    QString     m_deviceName;
-    bool        m_autoLock;
-    int         m_autoLockTimeout;
-    bool        m_showNotificationPreviews;
-    QString     m_timeFormat;
-    QString     m_dateFormat;
+    QString             m_deviceName;
+    bool                m_autoLock;
+    int                 m_autoLockTimeout;
+    bool                m_showNotificationPreviews;
+    QString             m_timeFormat;
+    QString             m_dateFormat;
 
-    QString     m_ringtone;
-    QString     m_notificationSound;
-    QString     m_alarmSound;
-    qreal       m_mediaVolume;
-    qreal       m_ringtoneVolume;
-    qreal       m_alarmVolume;
-    qreal       m_notificationVolume;
-    qreal       m_systemVolume;
-    bool        m_dndEnabled;
-    bool        m_vibrationEnabled;
-    QString     m_audioProfile;
+    QString             m_ringtone;
+    QString             m_notificationSound;
+    QString             m_alarmSound;
+    qreal               m_mediaVolume;
+    qreal               m_ringtoneVolume;
+    qreal               m_alarmVolume;
+    qreal               m_notificationVolume;
+    qreal               m_systemVolume;
+    bool                m_dndEnabled;
+    bool                m_vibrationEnabled;
+    QString             m_audioProfile;
 
-    int         m_screenTimeout;
-    bool        m_autoBrightness;
-    QString     m_statusBarClockPosition;
+    int                 m_screenTimeout;
+    bool                m_autoBrightness;
+    QString             m_statusBarClockPosition;
 
-    bool        m_showNotificationsOnLockScreen;
+    bool                m_showNotificationsOnLockScreen;
 
-    bool        m_filterMobileFriendlyApps;
-    QStringList m_hiddenApps;
-    QString     m_appSortOrder;
-    int         m_appGridColumns;
-    bool        m_searchNativeApps;
-    bool        m_showNotificationBadges;
-    QVariantMap m_appNotificationSettings;
-    bool        m_showFrequentApps;
-    QVariantMap m_defaultApps;
+    bool                m_filterMobileFriendlyApps;
+    QStringList         m_hiddenApps;
+    QString             m_appSortOrder;
+    int                 m_appGridColumns;
+    bool                m_searchNativeApps;
+    bool                m_showNotificationBadges;
+    QVariantMap         m_appNotificationSettings;
+    bool                m_showFrequentApps;
+    QVariantMap         m_defaultApps;
 
-    bool        m_firstRunComplete;
+    bool                m_firstRunComplete;
 
-    QStringList m_enabledQuickSettingsTiles;
-    QStringList m_quickSettingsTileOrder;
+    QStringList         m_enabledQuickSettingsTiles;
+    QStringList         m_quickSettingsTileOrder;
 
-    bool        m_keyboardAutoCorrection;
-    bool        m_keyboardAutoCapitalize;
-    bool        m_keyboardPredictiveText;
-    bool        m_keyboardWordFling;
-    bool        m_keyboardPredictiveSpacing;
-    QString     m_keyboardHapticStrength;
-    QString     m_keyboardLanguage;
+    bool                m_keyboardAutoCorrection;
+    bool                m_keyboardAutoCapitalize;
+    bool                m_keyboardPredictiveText;
+    bool                m_keyboardWordFling;
+    bool                m_keyboardPredictiveSpacing;
+    QString             m_keyboardHapticStrength;
+    QString             m_keyboardLanguage;
 
-    bool        m_unifiedPushFallbackEnabled;
+    bool                m_unifiedPushFallbackEnabled;
 };

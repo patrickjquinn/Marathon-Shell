@@ -3,9 +3,12 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QJSEngine>
 #include <QQmlEngine>
+#include <QScopeGuard>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QUrl>
 
 SettingsManager *SettingsManager::create(QQmlEngine *engine, QJSEngine *) {
@@ -56,6 +59,64 @@ SettingsManager::SettingsManager(QObject *parent)
     , m_keyboardLanguage("en_US")
     , m_unifiedPushFallbackEnabled(false) {
     load();
+
+    // Watch the conf file for external changes (Settings app process writes,
+    // OOBE writes, etc) and live-reload so the shell reflects them without
+    // a restart. The Settings app runs as a separate marathon-app-runner
+    // process — it pokes QSettings into the same file but the shell's
+    // SettingsManager only sees that file if we watch it.
+    m_watcher          = new QFileSystemWatcher(this);
+    const QString path = m_settings.fileName();
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        m_watcher->addPath(path);
+    }
+    // Also watch the parent dir — some editors rewrite the file (delete +
+    // create) and the watcher loses the original inode; re-adding the path
+    // when the dir notifies gets us back on track.
+    const QString dir = QFileInfo(path).absolutePath();
+    if (!dir.isEmpty()) {
+        m_watcher->addPath(dir);
+    }
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this,
+            &SettingsManager::onSettingsFileChanged);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this, path](const QString &) {
+        // Re-arm: if the watched file got swapped via rename, the path
+        // disappears from m_watcher->files(). Add it back.
+        if (QFileInfo::exists(path) && !m_watcher->files().contains(path)) {
+            m_watcher->addPath(path);
+            onSettingsFileChanged(path);
+        }
+    });
+}
+
+void SettingsManager::onSettingsFileChanged(const QString &path) {
+    // Guard against echoing our own writes back through load().
+    if (m_inSelfWrite) {
+        return;
+    }
+    // Debounce — QFileSystemWatcher may fire multiple times for a single
+    // logical write (QSettings does write-temp + rename). 50 ms is enough
+    // to coalesce the burst without making Settings UI feel sluggish.
+    QTimer::singleShot(50, this, [this, path]() {
+        m_settings.sync();
+        const qreal   prevScale = m_userScaleFactor;
+        const QString prevWp    = m_wallpaperPath;
+        load();
+        // Re-add the path in case the rename invalidated the watch handle.
+        if (m_watcher && !m_watcher->files().contains(path) && QFileInfo::exists(path)) {
+            m_watcher->addPath(path);
+        }
+        // Emit only the properties that actually changed so QML re-bindings
+        // don't churn unnecessarily.
+        if (!qFuzzyCompare(prevScale, m_userScaleFactor)) {
+            qInfo() << "[SettingsManager] external write: userScaleFactor" << prevScale << "->"
+                    << m_userScaleFactor;
+            emit userScaleFactorChanged();
+        }
+        if (prevWp != m_wallpaperPath) {
+            emit wallpaperPathChanged();
+        }
+    });
 }
 
 namespace {
@@ -251,6 +312,16 @@ void SettingsManager::load() {
 }
 
 void SettingsManager::save() {
+    // Mark this write as self-originated so the QFileSystemWatcher callback
+    // doesn't echo the value back through load() and re-emit *Changed signals
+    // we already emitted from the setter.
+    m_inSelfWrite   = true;
+    auto resetGuard = qScopeGuard([this]() {
+        // Re-arm after a short delay so the watcher's notification (which
+        // fires asynchronously after sync()) is filtered by the guard.
+        QTimer::singleShot(200, this, [this]() { m_inSelfWrite = false; });
+    });
+    Q_UNUSED(resetGuard)
 
     m_settings.setValue("ui/userScaleFactor", m_userScaleFactor);
     m_settings.setValue("ui/wallpaperPath", m_wallpaperPath);

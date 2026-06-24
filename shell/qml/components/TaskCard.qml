@@ -83,6 +83,12 @@ Item {
         border.width: 1
         border.color: MColors.borderSubtle
         antialiasing: true
+        // Clip children to the rounded corners. Without this, the banner
+        // (sharp-cornered Rectangle anchored to the bottom edge) renders
+        // its solid fill into the bottom-left/right corner pixels that
+        // lie OUTSIDE cardRoot's rounded shape — visually making the
+        // handle look wider than the card body.
+        clip: true
         scale: closing ? 0.7 : 1
         opacity: closing ? 0 : 1
 
@@ -276,10 +282,19 @@ Item {
                                 ShaderEffectSource {
                                     id: liveSnapshot
 
-                                    anchors.top: parent.top
+                                    // App is rendered at full device aspect (W:H = screenWidth:screenHeight).
+                                    // The card preview area has its own aspect — fit the app preview INTO it
+                                    // letterbox-style, preserving the app's true proportions. The prior
+                                    // `width: parent.width; height: (sH/sW)*width` formula always made the
+                                    // preview as TALL as the device, which on a 1:2 portrait screen meant
+                                    // the rendered texture overflowed the (shorter) card preview area and
+                                    // visually clipped the bottom — making the preview look squished + cropped.
+                                    property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
+                                    property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
+                                    height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
                                     sourceItem: previewContainer.liveApp
                                     live: false
                                     recursive: true
@@ -307,10 +322,14 @@ Item {
                                 Loader {
                                     id: nativeSurfaceLoader
 
-                                    anchors.top: parent.top
+                                    // Same aspect-preserving fit as liveSnapshot above — without it
+                                    // the native (Wayland) surface preview gets stretched/cropped.
+                                    property real appAspect: (Constants.screenHeight > 0 && Constants.screenWidth > 0) ? (Constants.screenHeight / Constants.screenWidth) : 1.0
+                                    property real parentAspect: (parent.height > 0 && parent.width > 0) ? (parent.height / parent.width) : 1.0
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: parent.width
-                                    height: (Constants.screenHeight / Constants.screenWidth) * width
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parentAspect >= appAspect ? parent.width : parent.height / appAspect
+                                    height: parentAspect >= appAspect ? parent.width * appAspect : parent.height
                                     visible: taskCard.type === "native"
                                     active: taskCard.nativeSurfaceActive && !taskCard.useRegisteredSurface
                                     source: taskCard.haveWayland ? "qrc:/qt/qml/MarathonOS/Shell/qml/components/WaylandShellSurfaceItem.qml" : ""

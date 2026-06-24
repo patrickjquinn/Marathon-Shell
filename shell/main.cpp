@@ -22,6 +22,11 @@
 #include "util/rtprio.h"
 #include <cstring>
 
+#include <QSocketNotifier>
+#include <csignal>
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "src/components/desktopfileparser.h"
 #include "src/components/crashhandler.h"
 #include "src/models/appmodel.h"
@@ -581,6 +586,38 @@ int main(int argc, char *argv[]) {
                                                     systemStatusStore);
     auto *screenshotService = createObject<ScreenshotServiceCpp>(
         ctx, "ScreenshotService", audioPolicyController, hapticManager, notificationService, &app);
+
+    // SIGUSR1 → live screenshot to $MARATHON_SCREENSHOT_PATH (default
+    // /tmp/marathon-shot.png). Unlike --screenshot-after which quits
+    // after one capture, this lets a driver loop:
+    //   kill -USR1 $(pgrep marathon-shell-bin)
+    //   scp .../marathon-shot.png .
+    //   marathon-touchctl tap …  # advance OOBE / app
+    //   kill -USR1 …             # capture next page
+    // without restarting the shell (which would reset OOBE state).
+    {
+        static int sigPipe[2] = {-1, -1};
+        if (::pipe2(sigPipe, O_CLOEXEC | O_NONBLOCK) == 0) {
+            struct sigaction sa;
+            std::memset(&sa, 0, sizeof(sa));
+            sa.sa_handler = [](int) {
+                const char b = '1';
+                ::write(sigPipe[1], &b, 1);
+            };
+            sigemptyset(&sa.sa_mask);
+            ::sigaction(SIGUSR1, &sa, nullptr);
+            auto *sn = new QSocketNotifier(sigPipe[0], QSocketNotifier::Read, &app);
+            QObject::connect(sn, &QSocketNotifier::activated, &app, [screenshotService]() {
+                char drain[16];
+                ::read(sigPipe[0], drain, sizeof(drain));
+                const QString path =
+                    qEnvironmentVariable("MARATHON_SCREENSHOT_PATH", "/tmp/marathon-shot.png");
+                const bool ok = screenshotService->saveScreenshotTo(path);
+                qInfo() << "[Screenshot] SIGUSR1 →" << path << (ok ? "OK" : "FAIL");
+            });
+            qInfo() << "[Screenshot] SIGUSR1 handler armed (default path /tmp/marathon-shot.png)";
+        }
+    }
     auto *systemControlStore = new SystemControlStore(
         networkManager, bluetoothManager, displayManager, flashlightManager, modemManager,
         settingsManager, alarmManager, locationManager, hapticManager, powerManager, audioManager,
