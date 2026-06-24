@@ -748,6 +748,20 @@ int main(int argc, char *argv[]) {
         const double dpi       = (ok && envDpi > 0) ? envDpi : 160.0;
         ctx->setContextProperty("MARATHON_USER_SCALE", userScale);
         ctx->setContextProperty("MARATHON_DPI", dpi);
+
+        // MARATHON_LAYER_SAMPLES + MARATHON_GPU_HDR mirror the shell-side
+        // exposures (shell/main.cpp). Apps need these too — every
+        // layer-wrapped QML item in shared marathon-ui primitives reads
+        // Constants.layerSamples, AppBackdropBlur reads Constants.gpuHdr.
+        // Without these context properties the runner falls back to
+        // hardcoded defaults that don't match the device's GPU capability.
+        bool      samplesOk = false;
+        const int envLayerSamples =
+            qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &samplesOk);
+        const int layerSamples = samplesOk ? envLayerSamples : 4;
+        ctx->setContextProperty("MARATHON_LAYER_SAMPLES", layerSamples);
+        const bool gpuHdr = qEnvironmentVariableIntValue("MARATHON_GPU_HDR") != 0;
+        ctx->setContextProperty("MARATHON_GPU_HDR", gpuHdr);
     }
 
     const auto hasPerm = [&](const QString &perm) -> bool {

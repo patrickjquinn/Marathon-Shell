@@ -148,7 +148,7 @@ Rectangle {
 
             layer.enabled: true
             layer.smooth: true
-            layer.samples: 4
+            layer.samples: Constants.layerSamples
             layer.effect: MultiEffect {
                 shadowEnabled: true
                 shadowColor: Qt.rgba(0, 0, 0, 0.4)

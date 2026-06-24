@@ -464,6 +464,30 @@ int main(int argc, char *argv[]) {
 
     ctx->setContextProperty("MARATHON_DEBUG_ENABLED", debugEnabled);
 
+    // MARATHON_LAYER_SAMPLES → QML Constants.layerSamples. Default 4 (the
+    // QML design system was authored against), env override 0 on GPUs
+    // without HW multisample renderbuffers (etnaviv GC7000Lite on the
+    // i.MX 8M Quad). Without this gate every layer-wrapped QML item
+    // tries to allocate a 4× MSAA renderbuffer, the alloc fails, Qt logs
+    // "Layer requested 4 samples but multisample renderbuffers are not
+    // supported" at ~100 lines/sec during animations. See memory
+    // [Etnaviv MSAA trap].
+    bool      samplesOk       = false;
+    const int envLayerSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &samplesOk);
+    const int layerSamples    = samplesOk ? envLayerSamples : 4;
+    ctx->setContextProperty("MARATHON_LAYER_SAMPLES", layerSamples);
+
+    // MARATHON_GPU_HDR → QML Constants.gpuHdr. Default false. When true,
+    // AppBackdropBlur (and other halo / glow primitives) requests an
+    // RGBA16F ShaderEffectSource to keep gamma-precise compositing. On
+    // etnaviv that allocation fails with "QSGRhiLayer: Attempted to set
+    // unsupported texture format 8" — the GC7000Lite doesn't expose
+    // RGBA16F as a colour-buffer attachment. Falling back to RGBA8
+    // gives a slightly darker halo around bright pixels but no warnings
+    // and no perf hit.
+    const bool gpuHdr = qEnvironmentVariableIntValue("MARATHON_GPU_HDR") != 0;
+    ctx->setContextProperty("MARATHON_GPU_HDR", gpuHdr);
+
 #ifdef HAVE_WAYLAND
     ctx->setContextProperty("HAVE_WAYLAND", true);
 #else
