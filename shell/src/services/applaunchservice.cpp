@@ -389,6 +389,33 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         const double userScale =
             shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
         env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
+
+        // QtVirtualKeyboard input method — must be set for Qt to load the
+        // VKB plugin and route key events through InputPanel. The shell
+        // sets this in greetd-marathon.toml; apps inherit a clean QProcess
+        // env so we re-export it explicitly. Without this, focusing a
+        // TextField in any app does nothing — Qt sees no input method and
+        // silently drops the focus event.
+        env.insert("QT_IM_MODULE", "qtvirtualkeyboard");
+
+        // Multisample renderbuffer suppression on GPUs without HW MSAA
+        // (etnaviv GC7000Lite on i.MX 8M Quad, v3d on Pi 5). The shell
+        // sets MARATHON_LAYER_SAMPLES=0 in greetd-marathon.toml so QML
+        // layer { samples: ... } honours the env override. App processes
+        // inherit a fresh env from QProcess::setProcessEnvironment so we
+        // forward the value explicitly — without it, every layered item
+        // requests 4× MSAA, GL fails the alloc, and qWarning floods at
+        // ~100 lines/sec during animation (~5% of available CPU just on
+        // the log path).
+        env.insert("MARATHON_LAYER_SAMPLES", qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0"));
+
+        // GPU HDR gate. AppBackdropBlur and any future MultiEffect/Shader
+        // sources that want linear-precise compositing read this — defaults
+        // off so etnaviv (Librem 5) skips the RGBA16F renderbuffer path
+        // that QRhi can't allocate on this GPU ("Attempted to set
+        // unsupported texture format 8"). Inherit from shell env or
+        // default 0.
+        env.insert("MARATHON_GPU_HDR", qEnvironmentVariable("MARATHON_GPU_HDR", "0"));
     }
 
     QStringList permissions = app.value("permissions").toStringList();
@@ -574,6 +601,18 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_DPI")
                       << QString::number(dpi, 'f', 1);
         }
+
+        // QtVirtualKeyboard input method + layer-MSAA suppression. Same
+        // reasoning as the unsandboxed path above — apps need these or
+        // (a) no soft keyboard renders on focus and (b) every layered
+        // QML item floods qWarning with "Layer requested 4 samples but
+        // multisample renderbuffers are not supported".
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_IM_MODULE")
+                  << QStringLiteral("qtvirtualkeyboard");
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_LAYER_SAMPLES")
+                  << qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0");
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_GPU_HDR")
+                  << qEnvironmentVariable("MARATHON_GPU_HDR", "0");
 
         cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
             runnerPath + QStringLiteral(" --app-id ") + appId;

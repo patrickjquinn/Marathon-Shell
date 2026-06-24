@@ -269,14 +269,35 @@ void SettingsManager::load() {
         m_settings.value("notifications/appSettings", QVariantMap()).toMap();
     m_showFrequentApps = m_settings.value("apps/showFrequentApps", false).toBool();
 
+    // Seed defaultXxx from the marathon-shipped app IDs so the role
+    // resolver (used by web-link openers, mailto: handlers, dialer
+    // intents) has something to resolve to on a clean install. Without
+    // these seeds every "open in default…" path is broken until the
+    // user manually picks an app in Settings — which doesn't happen
+    // because there's no UI surface that prompts. Marathon app IDs:
+    //   browser, camera, email (defaultFor "mail"), gallery,
+    //   messages, music, phone (defaultFor "dialer").
+    // video/files are intentionally empty — Marathon doesn't ship a
+    // first-party video player or file manager today; let the resolver
+    // fall back to the user's manual pick.
+    //
+    // QSettings::value's fallback fires only when the key is ABSENT. A
+    // previous shell launch may have committed empty strings (rXXX
+    // wrote them eagerly) — for that case we treat empty-string as
+    // "unseeded" and substitute the marathon ID; persistence happens
+    // on the next save().
+    const auto pickDefault = [this](const char *key, const QString &fallback) -> QString {
+        const QString v = m_settings.value(key, fallback).toString();
+        return v.isEmpty() ? fallback : v;
+    };
     QVariantMap defaultApps;
-    defaultApps["browser"]   = m_settings.value("apps/defaultBrowser", "").toString();
-    defaultApps["dialer"]    = m_settings.value("apps/defaultDialer", "").toString();
-    defaultApps["messaging"] = m_settings.value("apps/defaultMessaging", "").toString();
-    defaultApps["email"]     = m_settings.value("apps/defaultEmail", "").toString();
-    defaultApps["camera"]    = m_settings.value("apps/defaultCamera", "").toString();
-    defaultApps["gallery"]   = m_settings.value("apps/defaultGallery", "").toString();
-    defaultApps["music"]     = m_settings.value("apps/defaultMusic", "").toString();
+    defaultApps["browser"]   = pickDefault("apps/defaultBrowser", QStringLiteral("browser"));
+    defaultApps["dialer"]    = pickDefault("apps/defaultDialer", QStringLiteral("phone"));
+    defaultApps["messaging"] = pickDefault("apps/defaultMessaging", QStringLiteral("messages"));
+    defaultApps["email"]     = pickDefault("apps/defaultEmail", QStringLiteral("email"));
+    defaultApps["camera"]    = pickDefault("apps/defaultCamera", QStringLiteral("camera"));
+    defaultApps["gallery"]   = pickDefault("apps/defaultGallery", QStringLiteral("gallery"));
+    defaultApps["music"]     = pickDefault("apps/defaultMusic", QStringLiteral("music"));
     defaultApps["video"]     = m_settings.value("apps/defaultVideo", "").toString();
     defaultApps["files"]     = m_settings.value("apps/defaultFiles", "").toString();
     m_defaultApps            = defaultApps;

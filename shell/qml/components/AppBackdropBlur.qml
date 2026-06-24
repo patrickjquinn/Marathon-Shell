@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Effects
@@ -37,10 +38,16 @@ Item {
         // RGBA16F keeps the colour chain linear-precise across the blur
         // → tint composite. With 8-bit RGBA you get dark-fringe gamma
         // error around bright pixels (white app text against teal-glow
-        // tint shows a brown halo). Half-float is cheap on every GPU
-        // we ship to (Mali, Apple GPU, Mesa-virgl) and worth the
-        // ~2× FBO memory for the perceptual win.
-        format: ShaderEffectSource.RGBA16F
+        // tint shows a brown halo).
+        //
+        // Gated on Constants.gpuHdr (set via MARATHON_GPU_HDR env, read
+        // by shell/runner C++). The Librem 5's etnaviv GC7000Lite can't
+        // expose RGBA16F as a colour buffer attachment — QRhi logs
+        // "QSGRhiLayer: Attempted to set unsupported texture format 8"
+        // on every blur compose. RGBA fallback gives a slightly darker
+        // halo but eliminates the per-frame spam. Default off; enable
+        // on capable GPUs (Mali / Mesa-virgl / Apple GPU).
+        format: Constants.gpuHdr ? ShaderEffectSource.RGBA16F : ShaderEffectSource.RGBA
         // Mipmap so MultiEffect's wide-kernel reads sample a pre-filtered
         // chain rather than re-blurring 32× per pixel — visibly smoother
         // bokeh, lower fillrate cost.

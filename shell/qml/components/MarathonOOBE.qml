@@ -56,7 +56,14 @@ Item {
     // bottom + 180 sf hero image + status bar overflowed the 720 px
     // panel — the logo+title got clipped on first boot.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
-    readonly property real swipeBottomMargin: compactLayout ? 140 : 220
+    // Bumped 220→250 sf on tall screens after the L5 audit: the bottom
+    // row (Back/Next at touchTargetMedium ~70 sf + page indicators at
+    // ~24 sf + safe-area inset + nav bar) plus the per-page ColumnLayout
+    // bottomMargin compresses the Passcode keypad on the L5 at
+    // scaleFactor ~1.61 (DPI 287, userScale 0.9 ladder). 250 sf reserves
+    // ~447 px on this screen, leaving ~943 px of content height —
+    // enough for the keypad without clipping the last row.
+    readonly property real swipeBottomMargin: compactLayout ? 140 : 250
     readonly property real heroImageBlockSize: compactLayout ? 100 : 180
 
     signal setupComplete
@@ -179,7 +186,11 @@ Item {
                     color: MColors.textSecondary
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    width: Math.round(360 * Constants.scaleFactor)
+                    // 360sf was overflowing the L5 SwipeView page width
+                    // (606px after xl margins) by ~40px at scaleFactor 1.79.
+                    // Min'ed against the parent's available width so any
+                    // future scaleFactor change keeps the text inside.
+                    width: Math.min(parent.width, Math.round(320 * Constants.scaleFactor))
                 }
             }
         }

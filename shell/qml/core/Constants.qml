@@ -29,6 +29,16 @@ QtObject {
     // scale write never reached the live shell.
     property real userScaleFactor: (typeof SettingsManagerCpp !== "undefined" && SettingsManagerCpp) ? SettingsManagerCpp.userScaleFactor : ((typeof MARATHON_USER_SCALE !== "undefined" && MARATHON_USER_SCALE > 0) ? MARATHON_USER_SCALE : 1)
     readonly property real scaleFactor: (dpi / baseDPI) * userScaleFactor
+
+    // GPU capability gates exposed by C++ (shell/main.cpp + runner/main.cpp)
+    // via context properties. Gating renderbuffer-heavy QML primitives on
+    // these env-derived flags avoids per-frame qWarning spam on the
+    // Librem 5's etnaviv GC7000Lite, which doesn't support either MSAA
+    // renderbuffers or RGBA16F colour attachments. Defaults preserve the
+    // original behaviour on capable GPUs (Mali on phones, virgl on QEMU,
+    // v3d on Pi 5).
+    readonly property int layerSamples: (typeof MARATHON_LAYER_SAMPLES !== "undefined") ? MARATHON_LAYER_SAMPLES : 4
+    readonly property bool gpuHdr: (typeof MARATHON_GPU_HDR !== "undefined") ? MARATHON_GPU_HDR : false
     readonly property real baseHeight: 800
     readonly property real heightScaleFactor: screenHeight / baseHeight
     readonly property real tallScreenRatio: 1.2

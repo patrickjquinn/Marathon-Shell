@@ -1,3 +1,4 @@
+import MarathonOS.Shell
 import MarathonUI.Theme
 import QtQuick
 import QtQuick.Shapes
@@ -99,7 +100,7 @@ Item {
                     scale: root.mSize / 56
                     antialiasing: true
                     layer.enabled: true
-                    layer.samples: 4
+                    layer.samples: Constants.layerSamples
 
                     ShapePath {
                         strokeWidth: -1
