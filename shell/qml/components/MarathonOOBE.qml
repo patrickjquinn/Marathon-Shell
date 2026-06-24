@@ -810,19 +810,27 @@ Item {
                 }
 
                 MCard {
+                    id: timeCard
+
                     Layout.fillWidth: true
-                    Layout.preferredHeight: timeColumn.implicitHeight + MSpacing.lg * 2
+                    // Explicit, generous card height — 4× the time-text
+                    // font (~192 px at scaleFactor 1.79) plus padding. The
+                    // inner Column centers within the card via anchors,
+                    // which is honest vertical centering. The prior
+                    // ColumnLayout-fills-parent-with-margins produced a
+                    // box exactly the size of the content, so "centering"
+                    // was visually identical to top-aligning.
+                    Layout.preferredHeight: Math.round(180 * Constants.scaleFactor)
                     elevation: 2
 
-                    ColumnLayout {
+                    Column {
                         id: timeColumn
 
-                        anchors.fill: parent
-                        anchors.margins: MSpacing.lg
+                        anchors.centerIn: parent
                         spacing: MSpacing.sm
 
                         Text {
-                            Layout.alignment: Qt.AlignHCenter
+                            anchors.horizontalCenter: parent.horizontalCenter
                             text: Qt.formatTime(new Date(), SettingsManagerCpp.timeFormat === "12h" ? "h:mm AP" : "HH:mm")
                             font.pixelSize: Math.round(48 * Constants.scaleFactor)
                             font.weight: Font.Light
@@ -831,7 +839,7 @@ Item {
                         }
 
                         Text {
-                            Layout.alignment: Qt.AlignHCenter
+                            anchors.horizontalCenter: parent.horizontalCenter
                             text: Qt.formatDate(new Date(), "dddd, MMMM d, yyyy")
                             font.pixelSize: MTypography.sizeLarge
                             font.family: MTypography.fontFamily
@@ -841,27 +849,41 @@ Item {
                 }
 
                 MCard {
+                    id: formatCard
+
                     Layout.fillWidth: true
-                    Layout.preferredHeight: formatRow.implicitHeight + MSpacing.md * 2
+                    // Explicit row height — matches MButton.buttonHeight
+                    // (45 sf default) + 2× md padding so all three child
+                    // archetypes (Icon, Text, MButton) genuinely share the
+                    // same vertical-centre baseline. The prior
+                    // implicitHeight-of-RowLayout sizing collapsed to the
+                    // tallest child (MButton) which then made the icon and
+                    // text appear ABOVE the visual centre of the buttons —
+                    // the user's "12/24 not vertically centred" complaint.
+                    Layout.preferredHeight: Math.round((45 + MSpacing.md / Constants.scaleFactor * 2) * Constants.scaleFactor)
                     elevation: 2
 
-                    RowLayout {
-                        id: formatRow
-
+                    Item {
                         anchors.fill: parent
-                        anchors.margins: MSpacing.md
-                        spacing: MSpacing.md
+                        anchors.leftMargin: MSpacing.md
+                        anchors.rightMargin: MSpacing.md
 
                         Icon {
+                            id: formatIcon
+
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
                             name: "clock"
                             size: Math.round(24 * Constants.scaleFactor)
                             color: MColors.text
-                            Layout.alignment: Qt.AlignVCenter
                         }
 
                         Text {
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignVCenter
+                            anchors.left: formatIcon.right
+                            anchors.leftMargin: MSpacing.md
+                            anchors.right: formatButtonsRow.left
+                            anchors.rightMargin: MSpacing.md
+                            anchors.verticalCenter: parent.verticalCenter
                             text: "Time Format"
                             font.pixelSize: MTypography.sizeLarge
                             font.family: MTypography.fontFamily
@@ -870,25 +892,31 @@ Item {
                             verticalAlignment: Text.AlignVCenter
                         }
 
-                        MButton {
-                            Layout.alignment: Qt.AlignVCenter
-                            text: "12h"
-                            variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
-                            size: "small"
-                            onClicked: {
-                                SettingsManagerCpp.timeFormat = "12h";
-                                HapticManager.light();
-                            }
-                        }
+                        Row {
+                            id: formatButtonsRow
 
-                        MButton {
-                            Layout.alignment: Qt.AlignVCenter
-                            text: "24h"
-                            variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
-                            size: "small"
-                            onClicked: {
-                                SettingsManagerCpp.timeFormat = "24h";
-                                HapticManager.light();
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: MSpacing.sm
+
+                            MButton {
+                                text: "12h"
+                                variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
+                                size: "small"
+                                onClicked: {
+                                    SettingsManagerCpp.timeFormat = "12h";
+                                    HapticManager.light();
+                                }
+                            }
+
+                            MButton {
+                                text: "24h"
+                                variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
+                                size: "small"
+                                onClicked: {
+                                    SettingsManagerCpp.timeFormat = "24h";
+                                    HapticManager.light();
+                                }
                             }
                         }
                     }
