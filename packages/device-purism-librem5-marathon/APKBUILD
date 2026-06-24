@@ -4,7 +4,7 @@
 pkgname=device-purism-librem5-marathon
 pkgdesc="Purism Librem 5 — Marathon OS port"
 pkgver=1.0.0
-pkgrel=5
+pkgrel=19
 url="https://github.com/patrickjquinn/Marathon-Image"
 license="MIT"
 arch="aarch64"
@@ -32,9 +32,17 @@ provides="
 	greetd-agreety-config=999.0.0-r0
 "
 # Notes on the depends list:
-#   - device-purism-librem5 pulls the upstream pmaports kernel + DTBs +
+#   - device-purism-librem5 pulls the upstream pmaports DTBs +
 #     deviceinfo for the i.MX 8M Quad Librem 5. We layer Marathon on
-#     top rather than overriding it.
+#     top rather than overriding it. Note: it would normally pull in
+#     the upstream linux-purism-librem5 kernel, but our
+#     linux-purism-librem5-marathon dep below provides+replaces it at
+#     a higher provider_priority so apk picks our patched build.
+#   - linux-purism-librem5-marathon: our fork of pmaports'
+#     linux-purism-librem5 carrying a kCFI fix for the out-of-tree
+#     Silicon Labs RS9116 redpine driver. Without that patch, three
+#     kthreads die at module load (CFI signature mismatch) and wlan0
+#     never registers. See the package's APKBUILD header.
 #   - u-boot-librem5 ships /usr/share/u-boot/librem5/phone-boot.img.
 #     Both the on-device boot flow AND the host-side `flash-librem5.sh
 #     emmc` path need this artifact.
@@ -51,7 +59,11 @@ provides="
 #     marathon line-for-line to keep the device experiences in sync.
 depends="
 	device-purism-librem5
+	device-purism-librem5-nonfree-firmware
+	firmware-siliconlabs-rs9116
+	linux-purism-librem5-marathon
 	u-boot-librem5
+	u-boot-tools
 	marathon-shell
 	marathon-base-config
 	marathon-plymouth-theme
@@ -70,12 +82,18 @@ depends="
 	pipewire-pulse
 	wireplumber
 	pulseaudio-utils
+	linux-firmware-imx
 "
 makedepends=""
 install="$pkgname.post-install"
 source="
 	greetd-marathon.toml
 	logind.conf
+	greetd-l5-env.conf
+	eglfs-kms.json
+	journald-l5.conf
+	marathon-boot.cmd
+	99-marathon-cpufreq-l5.rules
 	"
 
 package() {
@@ -90,9 +108,58 @@ package() {
 	# Install logind config to let Marathon Shell handle power button
 	install -Dm644 "$srcdir/logind.conf" \
 		"$pkgdir/etc/systemd/logind.conf.d/50-marathon.conf"
+
+	# Qt EGLFS_KMS JSON config — only sanctioned way to pick a DRM
+	# device per Qt6 docs. Read by marathon-shell-bin via the
+	# QT_QPA_EGLFS_KMS_CONFIG env var (set in the greetd drop-in).
+	install -Dm644 "$srcdir/eglfs-kms.json" \
+		"$pkgdir/etc/marathon/eglfs-kms.json"
+
+	# greetd service drop-in: point Qt at the JSON above so EGLFS_KMS
+	# opens /dev/dri/card1 (LCDIF + DSI panel) instead of card0
+	# (etnaviv render-only).
+	install -Dm644 "$srcdir/greetd-l5-env.conf" \
+		"$pkgdir/etc/systemd/system/greetd.service.d/10-marathon-l5.conf"
+
+	# Persistent journald on L5 (overrides marathon-base-config's
+	# volatile journal during early bring-up so post-mortem logs survive
+	# the next reboot).
+	install -Dm644 "$srcdir/journald-l5.conf" \
+		"$pkgdir/etc/systemd/journald.conf.d/90-marathon-l5.conf"
+
+	# CPU governor override — re-set performance AFTER marathon-base-
+	# config's 60-marathon-cpufreq.rules pins schedutil. udev rules fire
+	# lexicographically and the LAST write to scaling_governor wins, so
+	# 99- after 60- leaves the L5 at performance. See file header.
+	install -Dm644 "$srcdir/99-marathon-cpufreq-l5.rules" \
+		"$pkgdir/etc/udev/rules.d/99-marathon-cpufreq-l5.rules"
+
+	# Mask iio-sensor-proxy.service: the lsm9ds1 accel driver hangs in
+	# st_lsm6dsx_read_raw on this hardware. iio-sensor-proxy independently
+	# wedges in kernel D-state polling that driver, accumulates context
+	# switches forever, and pegs load avg ~1.0. We blacklist the driver
+	# at kernel cmdline (see marathon-boot.cmd) AND mask the service so
+	# nothing tries to re-instantiate orientation work. The mask is a
+	# symlink to /dev/null per systemd convention.
+	install -d "$pkgdir/etc/systemd/system"
+	ln -sf /dev/null "$pkgdir/etc/systemd/system/iio-sensor-proxy.service"
+
+	# Marathon-customized U-Boot boot script source. Compiled to
+	# /boot/boot.scr by mkosi.finalize (which has u-boot-tools
+	# available via the u-boot-librem5 dep chain). Upstream
+	# u-boot-librem5 ships a minimal boot.cmd that omits `splash`,
+	# `quiet`, and `console=tty1` — Plymouth never engages and kernel
+	# msgs flood tty. Marathon replaces it at finalize time.
+	install -Dm644 "$srcdir/marathon-boot.cmd" \
+		"$pkgdir/usr/share/marathon/marathon-boot.cmd"
 }
 
 sha512sums="
 ccf365ea1ee9030c399377b197ea282f6d114419387f1dce3f85be5ea6a3641f121ea838f4e2ffe3c50f89ba3abf5811518ff77d7839369f6fa6a9b335c0ef04  greetd-marathon.toml
 334899f6aca24687cb8e1d41ae41821c22cd5626f2674c3c2bc661687b039dba4dbd0f126063f81bee64927ffc9c6c4d1ce3682a5c27861effbfe3d15b78a8b5  logind.conf
+SKIP  greetd-l5-env.conf
+SKIP  eglfs-kms.json
+SKIP  journald-l5.conf
+SKIP  marathon-boot.cmd
+SKIP  99-marathon-cpufreq-l5.rules
 "

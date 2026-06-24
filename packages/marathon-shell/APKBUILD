@@ -2,7 +2,7 @@
 # Maintainer: Patrick Quinn <patrick@jquinn.com>
 pkgname=marathon-shell
 pkgver=1.0.0
-pkgrel=180
+pkgrel=201
 pkgdesc="Marathon Shell - Modern Wayland compositor with Qt6/QML"
 url="https://github.com/patrickjquinn/Marathon-Shell"
 arch="aarch64"
@@ -114,9 +114,14 @@ prepare() {
 	mkdir -p "$builddir/third-party/asyncfuture"
 	cp -r "$srcdir"/asyncfuture-master/* "$builddir/third-party/asyncfuture/"
 
-	# Disable QML cache generation to save memory during build
-	sed -i '/qt6_add_qml_module/,/^)/ { /^)/i\    NO_CACHEGEN
-	}' "$builddir/shell/CMakeLists.txt"
+	# Note: do NOT inject NO_CACHEGEN into qt6_add_qml_module() blocks.
+	# r184 and earlier did, to save peak build RAM, but that ships the
+	# .apk without .qmlc bytecode and every QML file gets parsed + JIT-
+	# compiled at runtime on the device's CPU. On i.MX 8M Quad that
+	# means each OOBE page transition is paying full V4 JIT cost on
+	# already-saturated cores — measurable contributor to the r11/r12
+	# perf complaints. The build host has enough RAM; let Qt cachegen
+	# do its job.
 
 	# EMERGENCY FIX: strip heavy assets from resources.qrc to prevent OOM during ARM build
 	sed -i '/sounds\//d' "$builddir/shell/resources.qrc"
@@ -207,14 +212,23 @@ package() {
 	install -Dm755 "$srcdir/marathon-shell-session" \
 		"$pkgdir/usr/bin/marathon-shell-session"
 
-	# Grant CAP_SYS_RESOURCE on marathon-shell-bin so the shell can write
-	# oom_score_adj=-800 (PERSISTENT_PROC bias) at startup. user@.service
-	# has no caps and writes below 0 to /proc/self/oom_score_adj need
-	# CAP_SYS_RESOURCE. apk preserves file caps via xattrs since 2.13;
-	# post-install re-applies for belt-and-braces.
-	if command -v setcap >/dev/null 2>&1; then
-		setcap cap_sys_resource+ep "$pkgdir/usr/bin/marathon-shell-bin" 2>/dev/null || true
-	fi
+	# Do NOT setcap marathon-shell-bin. File caps mark the process
+	# non-dumpable (kernel sets AT_SECURE=1), which puts libdbus into
+	# secure mode — and libdbus's session-bus connect refuses to trust
+	# DBUS_SESSION_BUS_ADDRESS from the environment when AT_SECURE is on.
+	# Net effect: QDBusConnection::sessionBus().isConnected() returns
+	# false, ShellIpcServer can't register org.marathonos.Shell, every
+	# app→shell IPC breaks, LocationManager/Telephony/etc all fail.
+	#
+	# What we give up: writing oom_score_adj < 0 (PERSISTENT_PROC bias);
+	# SCHED_RR via cap_sys_nice (was already blocked at cgroup level by
+	# user.slice's RT runtime constraint anyway — so the cap was inert).
+	# Both losses are acceptable trades for a working session bus.
+	#
+	# Future: bind a small system-level marathon-shell-oom.service that
+	# finds the shell PID and writes oom_score_adj — keeps caps off the
+	# binary while restoring OOM ranking.
+	:
 
 	# QEMU/test-only synthetic touch driver. Creates a virtual touchscreen
 	# via /dev/uinput so the QEMU automation harness can drive real
@@ -257,11 +271,12 @@ package() {
 
 # sha512sums regenerate with `abuild checksum` on build host.
 sha512sums="
-SKIP  marathon-shell-1.0.0.tar.gz
-SKIP  asyncfuture.tar.gz
-SKIP  marathon-shell-session
-SKIP  pam-marathon-shell
-SKIP  90-backlight.rules
-SKIP  99-marathon-rtprio.conf
-SKIP  marathon-shell-tmpfiles.conf
+1c66550c57c95c688fa8a91b41fbdd6ee7c9f085c949c61de9f647f526bd9c36bdb6b24d2cb472509c619f1842a60679b3bb736c99827de9f178623f39e29837  marathon-shell-1.0.0.tar.gz
+34fad6dcde02924afa5579115a9a97d9b83dedda2586e460b55a52ed622e2e81394317fe63c9307bc627e202931ab8f32e8c87426373d7b937e462be0c7cc97e  asyncfuture.tar.gz
+21359e4cfc2b535ce6124c6ab1407e8b6d0807b4a5c7d196f81d67e5a945f1987840ba79685a256d9c7f06677d79df790b273f8a99be11fcbaa9b146668d8e16  marathon-shell-session
+dd624d17ddbe9b59024da1da26fe85ffe6649fedf4bada2c9e7e2ada1bd0f510a887e63c4abfa5227429b2eb8c3bd76152b18aad62978b9a2c3e731942f98fd7  marathon-touchctl
+269a02a215eded90eef472a037f66a852b8530c49d95f6d734069767747020b620787226f0ebc4cc697de2073ccbd330f7748e22b3aca36173aaf900815b4b9e  pam-marathon-shell
+6c7adb8400b3bb32fe108bfb5ebb0bbbaf1b3e08ebaaabaf2116c32b90f55f88340f88aad81b2d888c4c61c8ca745350c15182a90bcdf1305c51a43ecaa59133  90-backlight.rules
+8290f5c45f3ba269ae7c17c3204c569386eb0aac88dcff8a480bdca09c73fe6ea9f4007d9d01de54a2ce8844acca87601a1722581d5d8f5c65a0356ea978b055  99-marathon-rtprio.conf
+30813482a4c89137dfd85cd8ad9fd108c8b6bb44e1138a5d8c3a0d49143f11105f7e65e8a0f99d8e651409b5ff21e4830420e992d495e9b2e6ebeded817a516f  marathon-shell-tmpfiles.conf
 "

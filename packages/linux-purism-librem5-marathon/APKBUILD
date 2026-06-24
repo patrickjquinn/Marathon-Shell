@@ -1,0 +1,98 @@
+# Reference: <https://postmarketos.org/vendorkernel>
+# Contributor: Patrick Quinn <patrick@jquinn.com>
+# Maintainer: Patrick Quinn <patrick@jquinn.com>
+#
+# Marathon fork of pmaports' linux-purism-librem5 with a kCFI fix for the
+# out-of-tree Silicon Labs RS9116 driver. Three of redpine's kthread
+# functions (rsi_tx_scheduler_thread, rsi_coex_scheduler_thread,
+# rsi_sdio_rx_thread) are declared with the wrong signature and crash on
+# load via "Internal error: Oops - CFI" — once for each, killing the
+# thread. The driver finishes probing (BT comes up) but no wlan0 ever
+# registers because TX and RX are gone. See 0001-redpine-fix-kthread-
+# signatures-for-cfi.patch for the change and rationale.
+#
+# Mirrors pmaports' linux-purism-librem5 at pkgver 6.6.139. Drop this fork
+# the moment pmaports' linux-purism-librem5 carries the same patch.
+pkgname=linux-purism-librem5-marathon
+pkgver=6.6.139
+pkgrel=0
+_purismrel=1
+_purismver=${pkgver}pureos$_purismrel
+pkgdesc="Purism Librem 5 kernel — Marathon fork with RS9116 kCFI fix"
+arch="aarch64"
+_carch="arm64"
+_flavor="purism-librem5"
+url="https://source.puri.sm/Librem5/linux"
+license="GPL-2.0-only"
+# Replace pmaports' linux-purism-librem5 so device-purism-librem5 (the
+# upstream device package) installs THIS kernel instead. Higher provider
+# priority breaks ties in our favour. /usr/lib/modules/<KVER> still ends
+# up as 6.6.139-purism-librem5 to match upstream paths exactly.
+provides="linux-purism-librem5=$pkgver-r$pkgrel"
+replaces="linux-purism-librem5"
+provider_priority=200
+options="!strip !check !tracedeps
+	pmb:cross-native
+	pmb:kconfigcheck-community
+	pmb:kconfigcheck-librem5
+	"
+makedepends="
+	bison
+	clang
+	findutils
+	flex
+	linux-headers
+	lld
+	llvm
+	openssl-dev
+	perl
+	postmarketos-installkernel
+	python3
+	zstd
+	"
+install="$pkgname.post-upgrade"
+
+_config="config-$_flavor.$arch"
+
+source="
+	$pkgname-$_purismver.tar.gz::https://source.puri.sm/Librem5/linux/-/archive/pureos/$_purismver/linux-pureos-$_purismver.tar.gz
+	$_config
+	treewide-remove-unnecessary-linux-version.h-inclusion.patch
+	0001-redpine-fix-kthread-signatures-for-cfi.patch
+	0002-librem5-usdhc2-non-removable.patch
+"
+builddir="$srcdir/linux-pureos-$_purismver"
+
+prepare() {
+	default_prepare
+	cp "$srcdir/config-$_flavor.$arch" .config
+}
+
+build() {
+	unset LDFLAGS
+	make ARCH="$_carch" LLVM=1 \
+		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-marathon"
+}
+
+package() {
+	make dtbs_install install modules_install \
+		ARCH="$_carch" \
+		LLVM=1 \
+		INSTALL_PATH="$pkgdir"/boot \
+		INSTALL_MOD_PATH="$pkgdir"/usr \
+		INSTALL_MOD_STRIP=1 \
+		INSTALL_DTBS_PATH="$pkgdir"/boot/dtbs
+
+	rm -f "$pkgdir"/usr/lib/modules/*/build "$pkgdir"/usr/lib/modules/*/source
+
+	install -D "$builddir"/include/config/kernel.release \
+		"$pkgdir"/usr/share/kernel/"$_flavor"/kernel.release
+}
+
+sha512sums="
+d51709ee85ac8ebe271fc57ba60e2ab5f90225bd045b813a281553b0f76ae4c227317201fbb509e59af9813ea3e49947e83ac7d82b97cede15212cadd90fc372  linux-purism-librem5-marathon-6.6.139pureos1.tar.gz
+041d21c40d5868963da9779d9dca462b91eff3153da851cbef355d155ad342e83428ab56837bbde0f9030a4227763ce7edcb2df9dcfda799af1e294d5c24c270  config-purism-librem5.aarch64
+76c1e07b5479fe7be0d1e4a74a8f4a2cd8fc25fbeb3a4efcaf8300e27817a320c0c1340ea6c00ad1c3dd86cc2cb192280de8a91360bad80665115701ba11632d  treewide-remove-unnecessary-linux-version.h-inclusion.patch
+097f98b1fb24e2064ff726af65cf20a2a407bf53b310d9aa1d44c8cc7b39f737cf5b9a57cf454bbf4442a3ec9f6f4486f2c7d5568f67a8f168dad68a975d1b35  0001-redpine-fix-kthread-signatures-for-cfi.patch
+	0002-librem5-usdhc2-non-removable.patch
+"

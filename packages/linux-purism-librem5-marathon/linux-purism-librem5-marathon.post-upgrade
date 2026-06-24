@@ -1,0 +1,9 @@
+#!/bin/sh
+
+cat 1>&2 <<EOF
+*
+* IMPORTANT: 'firmware-siliconlabs-rs9116' (RS9116 WiFi+BT firmware) and
+* 'device-purism-librem5-nonfree-firmware' (BCM43752 alternative firmware)
+* must be installed for WiFi to work with this kernel.
+*
+EOF

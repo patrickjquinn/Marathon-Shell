@@ -16,4 +16,21 @@ systemctl enable pipewire
 systemctl enable pipewire-pulse
 systemctl enable wireplumber
 
+# --- mask noisy/broken upstream units --------------------------------------
+#
+# librem5-base-defaults.librem5-lockdown-support.service:
+#   Upstream pmaports unit that loads st_lsm6dsx{,_i2c,_spi} on boot.
+#   We blacklist that module family via cmdline (sensor stack lives in
+#   marathon-shell's own SensorManager). Without masking, the unit fails
+#   every boot, polluting the journal red ledger.
+systemctl mask librem5-base-defaults.librem5-lockdown-support.service 2>/dev/null || true
+
+# systemd-repart.service:
+#   Duranium ships /usr/lib/repart.d/{10-usr-verity,11-usr,...}.conf that
+#   assume a usr-verity partition Marathon doesn't build. The unit exits
+#   1 every boot. Partition expansion is handled by Marathon's
+#   /init.sh PMOS_FORCE_PARTITION_RESIZE — repart was never wired into
+#   this image's flow. Masking eliminates the failure noise.
+systemctl mask systemd-repart.service 2>/dev/null || true
+
 exit 0

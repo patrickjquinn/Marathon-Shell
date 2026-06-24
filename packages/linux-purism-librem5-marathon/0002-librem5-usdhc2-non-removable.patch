@@ -1,0 +1,40 @@
+From: Patrick Quinn <patrick@jquinn.com>
+Date: 2026-06-24
+Subject: [PATCH] librem5: mark usdhc2 (BRCM WiFi) as non-removable
+
+The Librem 5's usdhc2 hosts a soldered BRCM43752 SDIO WiFi/BT chip
+(or RS9116 on r1 variants), NOT a removable microSD card. The upstream
+Purism DTSI declares `cd-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;` for
+this slot but does NOT mark it `non-removable`. The MMC core then
+polls the CD GPIO at probe time; on this hardware GPIO2:12 reads
+"card absent" before the WiFi chip's power-on sequence completes,
+so the SDIO probe skips the slot and the chip is never enumerated:
+
+    mmc1: error -110 whilst initialising SDIO card
+
+After boot the chip is fully powered (3V3_WIFI regulator enabled,
+wlan-hks rfkill unblocked) but no driver ever sees it because the
+SDIO bus is empty. NetworkManager reports `WIFI-HW: missing`, no
+wlan0 interface exists.
+
+`non-removable;` tells the MMC core that this slot has a soldered
+device — skip CD polling, always assume the card is present, run
+the SDIO probe unconditionally. This is the same fix mainline uses
+for every other phone/board with soldered brcmfmac/rsi WiFi.
+
+Signed-off-by: Patrick Quinn <patrick@jquinn.com>
+---
+ arch/arm64/boot/dts/freescale/imx8mq-librem5.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/freescale/imx8mq-librem5.dtsi b/arch/arm64/boot/dts/freescale/imx8mq-librem5.dtsi
+--- a/arch/arm64/boot/dts/freescale/imx8mq-librem5.dtsi
++++ b/arch/arm64/boot/dts/freescale/imx8mq-librem5.dtsi
+@@ -1812,6 +1812,7 @@
+ 	cd-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;
+ 	disable-wp;
+ 	cap-sdio-irq;
++	non-removable;
+ 	cap-power-off-card;
+ 	keep-power-in-suspend;
+ 	wakeup-source;

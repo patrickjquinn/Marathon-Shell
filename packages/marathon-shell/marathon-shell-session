@@ -248,20 +248,51 @@ export GSETTINGS_BACKEND=memory
 # dbus-run-session only if nothing else is around (e.g. systemd-less
 # distros).
 
-# pam_systemd creates $XDG_RUNTIME_DIR/bus asynchronously after pam_open_session
-# returns, so greetd's session command can race ahead of the socket existing.
-# Poll up to ~6s; the bus is usually up in under a second on warm systems.
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-    [ -S "$XDG_RUNTIME_DIR/bus" ] && break
-    sleep 0.3
-done
+# If the caller already supplied a working DBUS_SESSION_BUS_ADDRESS
+# (e.g. greetd wraps the command with `dbus-run-session --`, or the
+# user's PAM stack pulls XDG_RUNTIME_DIR/bus into the env directly),
+# trust it. Without this guard the script clobbers a perfectly good
+# externally-set bus address with /run/user/$UID/bus — and on systems
+# where the user manager's bus broker is up but isn't actually
+# reachable from the spawned process (a real race we hit on Librem 5
+# with greetd's PAM session opener), every D-Bus call from
+# marathon-shell-bin then times out, blocking the main thread and
+# tanking shell responsiveness even though the GPU is fine.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    # pam_systemd creates $XDG_RUNTIME_DIR/bus asynchronously after pam_open_session
+    # returns, so greetd's session command can race ahead of the socket existing.
+    # Poll up to ~6 s for the SOCKET to appear AND for it to be REACHABLE
+    # (a dbus-send GetId probe round-trips). Just checking -S is not
+    # enough on Librem 5: the socket can land before systemd-user-instance
+    # is actually serving requests on it, and the shell then connects to
+    # a dead listener — every D-Bus call from marathon-shell-bin times
+    # out at 25 s (LocationManager init, ShellIpcServer register, etc.),
+    # the main thread wedges in D-state per sync call, frame rate
+    # collapses to ~2 fps.
+    BUS_OK=0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+        if [ -S "$XDG_RUNTIME_DIR/bus" ] && \
+           timeout 1 dbus-send --bus="unix:path=$XDG_RUNTIME_DIR/bus" --print-reply \
+               --dest=org.freedesktop.DBus /org/freedesktop/DBus \
+               org.freedesktop.DBus.GetId >/dev/null 2>&1; then
+            BUS_OK=1
+            break
+        fi
+        sleep 0.3
+    done
 
-if [ -S "$XDG_RUNTIME_DIR/bus" ]; then
-    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    if [ "$BUS_OK" = 1 ]; then
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    fi
 fi
 
-# Last-resort fallback: if no systemd-managed bus is around and we have
-# dbus-run-session, spawn a private one for the shell.
+# Fallback when the systemd-user-instance bus is NOT reachable (e.g. PAM
+# race on Librem 5, or systemd-less distros): spawn dbus-run-session as
+# the IMMEDIATE parent of marathon-shell-bin so the bus stays alive for
+# the lifetime of the shell. systemd-run --user --scope below would
+# orphan the shell from dbus-run-session — bus dies on bash exit — so
+# we explicitly skip the scope branch here. Lifecycle freezer becomes
+# a no-op on this path; functional shell trumps cgroup features.
 if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null 2>&1; then
     exec dbus-run-session -- /usr/bin/marathon-shell-bin "$@"
 fi
@@ -274,7 +305,24 @@ mkdir -p /home/user/.marathon 2>/dev/null
     echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
     echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
     echo "WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
+    echo "QT_QPA_PLATFORM=$QT_QPA_PLATFORM"
+    echo "QT_QPA_EGLFS_INTEGRATION=$QT_QPA_EGLFS_INTEGRATION"
+    echo "QT_QPA_EGLFS_KMS_CONFIG=$QT_QPA_EGLFS_KMS_CONFIG"
+    echo "MESA_LOADER_DRIVER_OVERRIDE=$MESA_LOADER_DRIVER_OVERRIDE"
+    echo "MARATHON_SAMPLES=$MARATHON_SAMPLES"
+    echo "QSG_SAMPLES=$QSG_SAMPLES"
+    echo "QSG_RENDER_LOOP=$QSG_RENDER_LOOP"
+    echo "QT_WAYLAND_HARDWARE_INTEGRATION=$QT_WAYLAND_HARDWARE_INTEGRATION"
     ls -la "$XDG_RUNTIME_DIR/bus" 2>&1
+    # Probe the actual D-Bus broker the address points to. Times out fast
+    # if the broker isn't responding; tells us instantly whether the env
+    # we're about to exec marathon-shell-bin with is actually usable.
+    if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+        echo "--- dbus-send GetId test (3s timeout) ---"
+        timeout 3 dbus-send --session --print-reply --dest=org.freedesktop.DBus \
+            /org/freedesktop/DBus org.freedesktop.DBus.GetId 2>&1 \
+            | head -5
+    fi
 } > /home/user/.marathon/session-env.log 2>&1
 
 # ---- Launch ------------------------------------------------------------------
@@ -293,9 +341,47 @@ if command -v systemd-run >/dev/null 2>&1 && \
     # launches). Tracked separately; shell logs a warning at boot if the
     # score is not at PERSISTENT_PROC bias. A future fix lands a
     # system-level marathon-shell.service that systemd itself privileges.
+    #
+    # --setenv=VAR (without =VALUE) inherits from the calling env. Without
+    # explicit forwarding, the new scope inherits the systemd-user-
+    # instance's view of DBUS_SESSION_BUS_ADDRESS ($XDG_RUNTIME_DIR/bus),
+    # which OVERRIDES the /tmp/dbus-XXX address dbus-run-session set up
+    # for greetd's session. On Librem 5 this is fatal: the user-instance
+    # bus has a PAM-vs-spawn race that leaves it unreachable from the
+    # spawned scope, so every D-Bus call from marathon-shell-bin times
+    # out after 25 s — LocationManager hangs init, ShellIpcServer can't
+    # register, the shell wedges D-state on each sync call, framerate
+    # collapses to ~2 fps. Confirmed via ~/.marathon/crash.log on r14:
+    # "Failed to connect to D-Bus session bus" + "Did not receive a
+    # reply" cluster on every boot. The full env list below forwards
+    # every variable our session script established BEFORE handing off
+    # to the cgroup-scoped marathon-shell-bin.
     exec systemd-run --user --quiet --collect --scope \
         --slice=marathon.slice \
         --unit="marathon-shell-$$" \
+        --setenv=DBUS_SESSION_BUS_ADDRESS \
+        --setenv=XDG_RUNTIME_DIR \
+        --setenv=WAYLAND_DISPLAY \
+        --setenv=QT_QPA_PLATFORM \
+        --setenv=QT_QPA_EGLFS_INTEGRATION \
+        --setenv=QT_QPA_EGLFS_KMS_CONFIG \
+        --setenv=QT_QPA_EGLFS_ALWAYS_SET_MODE \
+        --setenv=QT_QPA_EGLFS_HIDECURSOR \
+        --setenv=QSG_RENDER_LOOP \
+        --setenv=QT_WAYLAND_HARDWARE_INTEGRATION \
+        --setenv=QT_AUTO_SCREEN_SCALE_FACTOR \
+        --setenv=QT_ENABLE_HIGHDPI_SCALING \
+        --setenv=QT_LOGGING_RULES \
+        --setenv=QT_MEDIA_BACKEND \
+        --setenv=QT_QML_DISK_CACHE_PATH \
+        --setenv=QML_IMPORT_PATH \
+        --setenv=QML2_IMPORT_PATH \
+        --setenv=MESA_LOADER_DRIVER_OVERRIDE \
+        --setenv=MARATHON_FORCE_DPI \
+        --setenv=MARATHON_LAYER_SAMPLES \
+        --setenv=MARATHON_APPS_DIR \
+        --setenv=MARATHON_DATA_DIR \
+        --setenv=MARATHON_PREFIX \
         -- /usr/bin/marathon-shell-bin "$@"
 fi
 

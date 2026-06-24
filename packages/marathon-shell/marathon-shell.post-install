@@ -3,18 +3,17 @@
 #
 # - Refresh ld cache (Marathon ships extra .so libs under /usr/lib).
 # - Reload udev so the 90-backlight.rules apply on the running system.
-# - setcap cap_sys_resource on marathon-shell-bin so it can write
-#   oom_score_adj=-800 (PERSISTENT_PROC bias) at startup. setting this
-#   in the APKBUILD's package() does work — apk preserves file caps via
-#   xattrs since 2.13 — but doing it here is belt-and-braces against
+# - setcap cap_sys_nice,cap_sys_resource on marathon-shell-bin:
+#     * cap_sys_resource — oom_score_adj=-800 (PERSISTENT_PROC bias)
+#     * cap_sys_nice     — QSGRenderThread elevation to SCHED_RR.
+#   Setting this in the APKBUILD's package() does work (apk preserves file
+#   caps via xattrs since 2.13) but doing it here is belt-and-braces against
 #   xattr stripping on weird rootfs (and idempotent).
 #
-# RT scheduling: granted via /etc/security/limits.d/99-marathon-rtprio.conf
-# (pam_limits) rather than per-binary file capabilities. cap_sys_resource
-# IS set, but DBUS_SESSION_BUS_ADDRESS is NOT in glibc's secure_getenv
-# blocklist (verified against glibc 2.40 setjmp/secure_getenv.c on
-# aarch64), and main.cpp re-derives it from XDG_RUNTIME_DIR as
-# defence-in-depth, so AT_SECURE no longer breaks the IPC path.
+# Note: /etc/security/limits.d/99-marathon-rtprio.conf grants rtprio via
+# pam_limits — but the greetd PAM chain (base-session) does NOT include
+# pam_limits, so the limits.d file never takes effect for the shell. File
+# caps are the only reliable path for RT scheduling here.
 
 if command -v ldconfig >/dev/null 2>&1; then
     ldconfig
@@ -25,9 +24,10 @@ if command -v udevadm >/dev/null 2>&1; then
     udevadm trigger 2>/dev/null || true
 fi
 
-if command -v setcap >/dev/null 2>&1 && [ -x /usr/bin/marathon-shell-bin ]; then
-    setcap cap_sys_resource+ep /usr/bin/marathon-shell-bin 2>/dev/null || true
-fi
+# DO NOT setcap marathon-shell-bin. File caps break libdbus session bus
+# connect (kernel sets AT_SECURE=1 → libdbus secure mode → refuses the
+# DBUS_SESSION_BUS_ADDRESS env), which kills shell IPC, LocationManager,
+# Telephony, etc. See APKBUILD comment for full reasoning.
 
 # Refresh the AT-SPI bus so accessibility comes up on first boot.
 if command -v systemctl >/dev/null 2>&1; then
