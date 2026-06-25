@@ -93,9 +93,7 @@ class SystemControlStore : public QObject {
     bool isNightLightOn() const {
         return m_isNightLightOn;
     }
-    int brightness() const {
-        return m_brightness;
-    }
+    int brightness() const;
     int volume() const {
         return m_volume;
     }

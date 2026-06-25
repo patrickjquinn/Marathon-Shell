@@ -175,7 +175,12 @@ MApp {
                         anchors.right: parent.right
                         anchors.leftMargin: 20
                         anchors.rightMargin: 20
-                        anchors.topMargin: 8
+                        // 8 px clears the app's top edge but the app fills the
+                        // full screen including the area under the shell's
+                        // 56-px status bar — "PLAYING FROM" was rendering
+                        // half-under the clock. Push the column below the
+                        // status-bar safe-area inset.
+                        anchors.topMargin: Constants.safeAreaTop + 8
                         spacing: 14
 
                         // ── Eyebrow row — chevron + PLAYING FROM + more ──
