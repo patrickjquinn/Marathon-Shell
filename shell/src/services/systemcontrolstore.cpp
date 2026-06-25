@@ -136,6 +136,16 @@ bool SystemControlStore::isBluetoothOn() const {
     return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
 }
 
+int SystemControlStore::brightness() const {
+    // Live-read so we don't ship a cached 0% that was captured before
+    // the backlight device finished probing. Same passthrough pattern
+    // as isBluetoothOn().
+    if (!m_displayManager)
+        return 0;
+    return static_cast<int>(
+        std::round(std::clamp(m_displayManager->brightness(), 0.0, 1.0) * 100.0));
+}
+
 void SystemControlStore::toggleBluetooth() {
     if (m_bluetoothManager) {
         m_bluetoothManager->setEnabled(!m_bluetoothManager->enabled());

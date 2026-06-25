@@ -57,7 +57,18 @@ cmd_launch() {
         exit 2
     fi
     call_bus call org.marathonos.Shell /org/marathonos/Shell/Navigation \
-        org.marathonos.Shell.Navigation1 LaunchApp s "$appId"
+        org.marathonos.Shell.Navigation1 LaunchApp s "$appId" >/dev/null
+    # Wait until a marathon-app-runner for this id is running. Required
+    # for scripted audits — without this, the next screenshot fires
+    # before the new app's surface is composited.
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        if pgrep -f "marathon-app-runner --app-id $appId" >/dev/null 2>&1; then
+            sleep 2
+            return 0
+        fi
+        sleep 1
+    done
+    return 0
 }
 
 cmd_close() {
