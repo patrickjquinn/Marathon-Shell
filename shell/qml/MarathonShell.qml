@@ -655,9 +655,11 @@ Item {
         focus: false
         onPositionChanged: mouse => {
             CursorManager.onMouseActivity();
+            idleScreenTimer.restart();
             mouse.accepted = false;
         }
         onPressed: mouse => {
+            idleScreenTimer.restart();
             mouse.accepted = false;
         }
         onReleased: mouse => {
@@ -665,6 +667,46 @@ Item {
         }
         onClicked: mouse => {
             mouse.accepted = false;
+        }
+    }
+
+    // Global idle screen-off + lock. SettingsManager.screenTimeout defaults
+    // to 120 s; if the user is past the lock screen and the device sits idle
+    // for that long, blank the panel and re-lock. The lock-screen's own
+    // 30 s idleTimer continues to apply once locked — that path turns the
+    // screen back off if the user wakes the panel to peek at the time but
+    // doesn't unlock.
+    //
+    // Reset triggers (cursorTracker.onPositionChanged + onPressed) fire on
+    // ANY touch / pointer activity inside the shell's coordinate space — the
+    // MouseArea sits at z: 10000 and propagates events down (mouse.accepted
+    // = false) so apps still see the input. Inhibitors (video playback via
+    // zwp_idle_inhibit_manager_v1, active calls) postpone the blank by one
+    // full cycle so we don't blank during a YouTube video or mid-call.
+    Timer {
+        id: idleScreenTimer
+
+        property int defaultIntervalMs: 120000
+
+        interval: SettingsManagerCpp ? SettingsManagerCpp.screenTimeout : defaultIntervalMs
+        running: DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
+        repeat: false
+        onTriggered: {
+            if (typeof compositor !== 'undefined' && compositor && compositor.hasIdleInhibitingSurface) {
+                Logger.info("Shell", "Idle inhibitor active (video/call?) — postponing blank");
+                idleScreenTimer.restart();
+                return;
+            }
+            if (typeof TelephonyService !== 'undefined' && TelephonyService.hasActiveCall) {
+                Logger.info("Shell", "Active call — postponing blank");
+                idleScreenTimer.restart();
+                return;
+            }
+            Logger.info("Shell", "Idle timeout (" + idleScreenTimer.interval + "ms) — blanking + auto-locking");
+            if (SettingsManagerCpp && SettingsManagerCpp.autoLock) {
+                SessionStore.isLocked = true;
+            }
+            DisplayPolicyControllerCpp.turnScreenOff();
         }
     }
 
