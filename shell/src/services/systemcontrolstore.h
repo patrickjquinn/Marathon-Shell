@@ -56,9 +56,7 @@ class SystemControlStore : public QObject {
     bool isWifiOn() const {
         return m_isWifiOn;
     }
-    bool isBluetoothOn() const {
-        return m_isBluetoothOn;
-    }
+    bool isBluetoothOn() const;
     bool isAirplaneModeOn() const {
         return m_isAirplaneModeOn;
     }
@@ -147,7 +145,6 @@ class SystemControlStore : public QObject {
 
   private:
     void                   setIsWifiOn(bool enabled);
-    void                   setIsBluetoothOn(bool enabled);
     void                   setIsAirplaneModeOn(bool enabled);
     void                   setIsRotationLocked(bool enabled);
     void                   setIsFlashlightOn(bool enabled);
@@ -180,7 +177,6 @@ class SystemControlStore : public QObject {
     ScreenshotServiceCpp  *m_screenshotService;
 
     bool                   m_isWifiOn           = true;
-    bool                   m_isBluetoothOn      = false;
     bool                   m_isAirplaneModeOn   = false;
     bool                   m_isRotationLocked   = false;
     bool                   m_isFlashlightOn     = false;

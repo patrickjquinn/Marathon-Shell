@@ -47,9 +47,8 @@ SystemControlStore::SystemControlStore(
     }
 
     if (m_bluetoothManager) {
-        setIsBluetoothOn(m_bluetoothManager->enabled());
         connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this,
-                [this]() { setIsBluetoothOn(m_bluetoothManager->enabled()); });
+                &SystemControlStore::isBluetoothOnChanged);
     }
 
     if (m_displayManager) {
@@ -131,6 +130,10 @@ void SystemControlStore::toggleWifi() {
     if (m_networkManager) {
         m_networkManager->toggleWifi();
     }
+}
+
+bool SystemControlStore::isBluetoothOn() const {
+    return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
 }
 
 void SystemControlStore::toggleBluetooth() {
@@ -284,14 +287,6 @@ void SystemControlStore::setIsWifiOn(bool enabled) {
     }
     m_isWifiOn = enabled;
     emit isWifiOnChanged();
-}
-
-void SystemControlStore::setIsBluetoothOn(bool enabled) {
-    if (m_isBluetoothOn == enabled) {
-        return;
-    }
-    m_isBluetoothOn = enabled;
-    emit isBluetoothOnChanged();
 }
 
 void SystemControlStore::setIsAirplaneModeOn(bool enabled) {

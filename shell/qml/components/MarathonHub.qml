@@ -167,6 +167,17 @@ Rectangle {
     // ageGroup role on NotificationModel — deferred until the C++
     // model exposes it. For now the rows render in
     // newest-first order without grouping.
+    MEmptyState {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: header.bottom
+        anchors.bottom: parent.bottom
+        visible: list.count === 0
+        iconName: "inbox"
+        title: hub.selectedCategory === "all" ? "All caught up" : hub.selectedCategory === "messages" ? "No messages" : hub.selectedCategory === "mail" ? "No mail" : hub.selectedCategory === "work" ? "No work items" : hub.selectedCategory === "call" ? "No call history" : "Nothing here"
+        message: hub.selectedCategory === "all" ? "Notifications from your apps land here. New ones get a teal dot." : "Switch a category above to see other notifications."
+    }
+
     ListView {
         id: list
         anchors.left: parent.left

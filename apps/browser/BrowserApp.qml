@@ -318,10 +318,13 @@ MApp {
             "tabId": nextTabId++,
             "url": url || homepageUrl,
             "title": "New Tab",
-            "isLoading": false,
+            // #412: WebEngineView spawn on L5 takes seconds — flag the tab as
+            // loading from t=0 so the chrome progress bar appears immediately,
+            // not when WebEngine first emits loadingChanged.
+            "isLoading": true,
             "canGoBack": false,
             "canGoForward": false,
-            "loadProgress": 0,
+            "loadProgress": 5,
             "isCrashed": false,
             "isNewTab": true,
             "crashCount": 0,

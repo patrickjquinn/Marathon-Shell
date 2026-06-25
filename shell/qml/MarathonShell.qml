@@ -1037,8 +1037,16 @@ Item {
         property real currentGestureOpacity: 1 - (navBar.gestureProgress * 0.3)
         property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
 
-        anchors.fill: parent
-        anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
+        // #407: clip app viewport above the nav bar so app tab bars / FABs sit
+        // outside the home-indicator gesture zone — taps on the bottom row of a
+        // Phone tab no longer get swallowed by navMouseArea.
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: navBar.top
+        anchors.leftMargin: navBar.gestureProgress > 0 ? 8 : 0
+        anchors.rightMargin: navBar.gestureProgress > 0 ? 8 : 0
+        anchors.topMargin: navBar.gestureProgress > 0 ? 8 : 0
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
         scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)

@@ -59,10 +59,9 @@ SystemStatusStore::SystemStatusStore(PowerManagerCpp        *powerManager,
     }
 
     if (m_bluetoothManager) {
-        setIsBluetoothOn(m_bluetoothManager->enabled());
         updateBluetoothDevices();
         connect(m_bluetoothManager, &BluetoothManager::enabledChanged, this,
-                [this]() { setIsBluetoothOn(m_bluetoothManager->enabled()); });
+                &SystemStatusStore::isBluetoothOnChanged);
         connect(m_bluetoothManager, &BluetoothManager::pairedDevicesChanged, this,
                 [this]() { updateBluetoothDevices(); });
     }
@@ -256,12 +255,8 @@ void SystemStatusStore::setEthernetConnected(bool connected) {
     emit ethernetConnectedChanged();
 }
 
-void SystemStatusStore::setIsBluetoothOn(bool enabled) {
-    if (m_isBluetoothOn == enabled) {
-        return;
-    }
-    m_isBluetoothOn = enabled;
-    emit isBluetoothOnChanged();
+bool SystemStatusStore::isBluetoothOn() const {
+    return m_bluetoothManager ? m_bluetoothManager->enabled() : false;
 }
 
 void SystemStatusStore::setBluetoothDevices(const QVariantList &devices) {

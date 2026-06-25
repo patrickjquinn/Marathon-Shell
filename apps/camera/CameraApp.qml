@@ -247,24 +247,13 @@ MApp {
             }
         }
 
-        Column {
+        MEmptyState {
             anchors.centerIn: parent
-            spacing: MSpacing.lg
+            width: parent.width - MSpacing.xl * 2
             visible: cameraController.cameraCount === 0
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: ""
-                font.pixelSize: 64
-            }
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "No Camera Found"
-                font.pixelSize: MTypography.sizeLarge
-                font.weight: Font.Bold
-                color: MColors.textPrimary
-            }
+            iconName: "camera-off"
+            title: "Camera unavailable"
+            message: "We couldn't find a camera. Your device may not have a working camera, or the system needs camera permission."
         }
 
         Rectangle {
