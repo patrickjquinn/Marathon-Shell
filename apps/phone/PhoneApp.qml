@@ -815,35 +815,13 @@ MApp {
 
                 readonly property var favoriteContacts: phoneApp.contacts.filter(c => c && c.favorite === true)
 
-                Item {
-                    anchors.fill: parent
+                MEmptyState {
+                    anchors.centerIn: parent
+                    width: parent.width - MSpacing.xl * 2
                     visible: favoritesPane.favoriteContacts.length === 0
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 14
-                        Icon {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            name: "star"
-                            size: 36
-                            color: MColors.textTertiary
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "No favorites yet"
-                            color: MColors.textPrimary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeSubhead
-                            font.weight: Font.Medium
-                        }
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Star a contact in Contacts to pin it here"
-                            color: MColors.textSecondary
-                            font.family: MTypography.fontFamily
-                            font.pixelSize: MTypography.sizeFootnote
-                        }
-                    }
+                    iconName: "star"
+                    title: "No favorites yet"
+                    message: "Star a contact in Contacts to pin it here. Favorites give you one-tap calling."
                 }
 
                 GridView {

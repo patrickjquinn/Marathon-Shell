@@ -62,7 +62,10 @@ Item {
             "telephony": "phone",
             "sms": "message",
             "bluetooth": "bluetooth",
-            "system": "cog"
+            // Phosphor doesn't have "cog"; use "gear". The empty placeholder
+            // square in the System permission row was a missing glyph, not
+            // styling.
+            "system": "gear"
         };
         return m[p] || "shield";
     }
@@ -260,15 +263,19 @@ Item {
                             width: parent.width
                         }
 
+                        // Wrap instead of elide — "Read and write files on
+                        // your devi…" / "Access system-level features (re…"
+                        // cut off the meaningful half of the sentence.
                         Text {
                             text: permissionDialog.permissionSubtitle(permissionDialog.permission)
                             color: MColors.textSecondary
                             font.family: MTypography.fontFamily
                             font.pixelSize: Math.round(13 * Constants.scaleFactor)
                             font.weight: MTypography.weightRegular
-                            elide: Text.ElideRight
+                            wrapMode: Text.WordWrap
                             width: parent.width
                             visible: text.length > 0
+                            maximumLineCount: 2
                         }
                     }
                 }
