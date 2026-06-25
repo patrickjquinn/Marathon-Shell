@@ -46,7 +46,11 @@ static bool wlVerbose() {
 }
 
 static bool appLogsEnabled() {
-    return envBool("MARATHON_APP_LOGS", false) || envBool("MARATHON_DEBUG", false);
+    // Default ON. Without app logs in journald, browser/maps/etc cold-start
+    // hangs are undebuggable — the audit lost 6 minutes diagnosing a WebEngine
+    // ZINK init failure that was already in stderr but nobody was reading it.
+    // Set MARATHON_APP_LOGS=0 to silence in performance-critical builds.
+    return envBool("MARATHON_APP_LOGS", true);
 }
 
 static bool appLogsAllEnabled() {

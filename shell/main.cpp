@@ -1,6 +1,5 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
-#include <QQmlAbstractUrlInterceptor>
 #include <QQuickWindow>
 #include <QQuickStyle>
 #include <QDebug>
@@ -19,6 +18,9 @@
 #include <QTimer>
 #include <QSurfaceFormat>
 #include <QColorSpace>
+#include <QOffscreenSurface>
+#include <QOpenGLContext>
+#include <QOpenGLFunctions>
 
 #include "util/rtprio.h"
 #include <cstring>
@@ -204,6 +206,14 @@ int main(int argc, char *argv[]) {
 
     qputenv("QML_XHR_ALLOW_FILE_READ", "1");
 
+    // Curved-edge AA via geometry where FBO MSAA is unavailable. Etnaviv
+    // (GC7000Lite) hides MSAA renderbuffers — without this Shape strokes,
+    // squircle hairlines, and ShapePath outlines render aliased. Cost is
+    // a few extra triangles per Shape; the scenegraph already supports
+    // this code path. See doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph-renderer.html.
+    if (!qEnvironmentVariableIsSet("QSG_ANTIALIASING_METHOD"))
+        qputenv("QSG_ANTIALIASING_METHOD", "vertex");
+
     registerMprisTypes();
 
     QString debugEnv     = qgetenv("MARATHON_DEBUG");
@@ -236,30 +246,14 @@ int main(int argc, char *argv[]) {
     // attribute stays even when the shell never imports WebEngine.
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 
-    // High-fidelity rendering defaults for the whole scene graph. This is
-    // the single biggest "iOS-grade" lever — applied here so every shell
-    // surface (status bar, chrome, lock, app drawer, blurred panels) and
-    // every embedded ShapePath gets the same anti-aliased, sRGB-correct
-    // output without per-item opt-in.
-    //
-    //   • 4× MSAA — analytical AA on Shape strokes (squircle hairlines,
-    //     keypad keycaps, tab indicators). Free on tilers, ~10-15 % cost
-    //     on desktop iGPUs / virgl; we accept that for the visible win on
-    //     curved chrome. Per-item layer.samples opt-out exists if a
-    //     surface measures hot.
-    //   • sRGB color space — flag the swapchain so blending happens with
-    //     correct gamma. Doesn't add bits by itself, but removes the
-    //     dark-fringe error you get blending bright pixels through an
-    //     un-flagged 8-bit linear path.
-    //   • vsync — swap interval 1. We never want tearing on a shell that
-    //     overlays glass panels and live activity over app surfaces.
-    //   • 24/8 depth+stencil — gives Shape clipping a stencil to work
-    //     with without falling back to software rasterization.
+    // Baseline scenegraph defaults — sRGB blending, vsync, 24/8 depth+stencil.
+    // MSAA samples are chosen AFTER QGuiApplication constructs the QPA plugin
+    // (needs an EGLDisplay to probe). See the probe block below.
     {
         QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
         fmt.setRenderableType(QSurfaceFormat::OpenGL);
         fmt.setColorSpace(QColorSpace::SRgb);
-        fmt.setSamples(4);
+        fmt.setSamples(0);
         fmt.setSwapInterval(1);
         fmt.setDepthBufferSize(24);
         fmt.setStencilBufferSize(8);
@@ -267,6 +261,38 @@ int main(int argc, char *argv[]) {
     }
 
     QGuiApplication app(argc, argv);
+
+    // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
+    // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1. Calling setSamples(4)
+    // unconditionally floods Qt's qsgrhilayer with "Layer requested 4 samples
+    // but multisample renderbuffers are not supported" — 67 lines/sec during
+    // animation. Probe via a transient context and degrade to 0 if FBO MSAA
+    // is unavailable. Plasma Mobile / KWin never call setSamples; we want the
+    // higher quality where the hardware allows it.
+    {
+        int               maxSamples = 0;
+        bool              hasFboMsaa = false;
+        QOffscreenSurface sfc;
+        sfc.setFormat(QSurfaceFormat::defaultFormat());
+        sfc.create();
+        QOpenGLContext ctx;
+        if (sfc.isValid() && ctx.create() && ctx.makeCurrent(&sfc)) {
+            ctx.functions()->glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+            hasFboMsaa = ctx.hasExtension("GL_EXT_framebuffer_multisample") ||
+                ctx.format().majorVersion() >= 3;
+            ctx.doneCurrent();
+        }
+        bool           envOk      = false;
+        const int      envSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &envOk);
+        const int      requested  = envOk ? envSamples : 4;
+        const int      chosen     = (hasFboMsaa && maxSamples >= requested) ? requested : 0;
+
+        QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+        fmt.setSamples(chosen);
+        QSurfaceFormat::setDefaultFormat(fmt);
+        qInfo() << "[MarathonShell] MSAA probe: GL_MAX_SAMPLES=" << maxSamples
+                << "GL_EXT_framebuffer_multisample=" << hasFboMsaa << "→ chosen=" << chosen;
+    }
 
     // Pin our oom_score_adj at the persistent-system end of the ladder.
     // Android uses PERSISTENT_PROC_ADJ=-800 for system_server-class
@@ -430,38 +456,6 @@ int main(int argc, char *argv[]) {
     QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
     QQmlApplicationEngine engine;
-
-    // Hot-reload interceptor. With MARATHON_QML_HOT_RELOAD=1 + a populated
-    // MARATHON_QML_HOT_RELOAD_ROOT, qrc:/qt/qml/MarathonOS/Shell/qml/...
-    // lookups are rewritten to file:///<root>/MarathonOS/Shell/... so an
-    // rsync into the disk path is picked up on the next engine.load().
-    // qrc is still the default for shipped images; the env hook only opts
-    // in when the developer wants it.
-    if (qEnvironmentVariableIntValue("MARATHON_QML_HOT_RELOAD") != 0) {
-        const QString hotRoot =
-            qEnvironmentVariable("MARATHON_QML_HOT_RELOAD_ROOT", "/usr/lib/qt6/qml");
-        class HotReloadInterceptor : public QQmlAbstractUrlInterceptor {
-          public:
-            HotReloadInterceptor(QString root)
-                : m_root(std::move(root)) {}
-            QUrl intercept(const QUrl &url, DataType /*type*/) override {
-                if (url.scheme() != QStringLiteral("qrc"))
-                    return url;
-                static const QString needle = QStringLiteral("/qt/qml/MarathonOS/Shell/qml/");
-                if (!url.path().startsWith(needle))
-                    return url;
-                const QString tail = url.path().mid(needle.size());
-                const QString diskUrl =
-                    QStringLiteral("file://%1/MarathonOS/Shell/%2").arg(m_root, tail);
-                return QUrl(diskUrl);
-            }
-
-          private:
-            QString m_root;
-        };
-        engine.addUrlInterceptor(new HotReloadInterceptor(hotRoot));
-        qInfo() << "[MarathonShell] QML hot-reload interceptor active — root:" << hotRoot;
-    }
 
     qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
 

@@ -8,6 +8,7 @@ Item {
     property alias currentPage: pageView.currentPage
     property alias isGestureActive: pageView.isGestureActive
     property alias count: pageView.count
+    property alias pageCount: pageView.pageCount
     property real searchPullProgress: 0
     property int internalAppGridPage: 0
     property var compositor: null

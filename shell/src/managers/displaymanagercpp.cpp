@@ -89,6 +89,26 @@ bool DisplayManagerCpp::detectBacklightDevice() {
     return false;
 }
 
+double DisplayManagerCpp::brightness() const {
+    // Live sysfs read on every binding evaluation. The cached m_brightness
+    // drifts when systemd-logind or kernel auto-brightness writes the
+    // brightness file without firing the QFileSystemWatcher inotify event
+    // we expect (sysfs nodes are "special" — replaced not renamed on some
+    // kernel paths). QML caches the binding result until brightnessChanged
+    // emits, so the perceived cost is one sysfs read per emit, not per
+    // frame.
+    if (!m_available)
+        return m_brightness;
+    QFile file(QStringLiteral("/sys/class/backlight/%1/brightness").arg(m_backlightDevice));
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        const int v = file.readAll().trimmed().toInt();
+        file.close();
+        if (m_maxBrightness > 0)
+            return static_cast<double>(v) / m_maxBrightness;
+    }
+    return m_brightness;
+}
+
 double DisplayManagerCpp::getBrightness() {
     if (!m_available) {
         return 0.5;

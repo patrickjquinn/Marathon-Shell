@@ -19,6 +19,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QRegularExpression>
+#include <QTimer>
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusMessage>
@@ -335,6 +336,21 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                 emit appLaunchCompleted(appId, name);
                 return true;
             }
+            // Marathon (QML) app already in the task model — bring it forward
+            // instead of re-spawning. Without this, a tap on the task-switcher
+            // card while the surface is still attaching spawned a parallel
+            // bwrap + runner pair (two 75-100 MB clones for the same app).
+            if (existing->surfaceId() >= 0 && existing->waylandSurface()) {
+                if (m_uiStore)
+                    invokeVoid(m_uiStore, "restoreApp", {appId, name, icon});
+                invokeVoid(appWindowRef, "show",
+                           {appId, name, icon, existing->appType(),
+                            QVariant::fromValue(existing->waylandSurface()),
+                            existing->surfaceId()});
+                m_launchingApps.remove(appId);
+                emit appLaunchCompleted(appId, name);
+                return true;
+            }
         }
     }
 
@@ -390,24 +406,33 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
             shellSettings.value(QStringLiteral("ui/userScaleFactor"), 1.0).toDouble();
         env.insert("MARATHON_USER_SCALE", QString::number(userScale, 'f', 3));
 
-        // QtVirtualKeyboard input method — must be set for Qt to load the
-        // VKB plugin and route key events through InputPanel. The shell
-        // sets this in greetd-marathon.toml; apps inherit a clean QProcess
-        // env so we re-export it explicitly. Without this, focusing a
-        // TextField in any app does nothing — Qt sees no input method and
-        // silently drops the focus event.
-        env.insert("QT_IM_MODULE", "qtvirtualkeyboard");
+        // Input method for SPAWNED clients: QT_IM_MODULE=wayland.
+        // QtVirtualKeyboard has no Wayland client-side IM backend (Qt 6.x
+        // qtbase/src/plugins/platforms/wayland/qwaylandintegration.cpp);
+        // forwarding the compositor's qtvirtualkeyboard value here makes
+        // the app's QPA refuse to load any IM and emit the qWayland
+        // warning. The keyboard is rendered by the compositor; apps just
+        // speak text-input-v3 to it via the wayland IM client backend.
+        env.insert("QT_IM_MODULE", "wayland");
 
-        // Multisample renderbuffer suppression on GPUs without HW MSAA
-        // (etnaviv GC7000Lite on i.MX 8M Quad, v3d on Pi 5). The shell
-        // sets MARATHON_LAYER_SAMPLES=0 in greetd-marathon.toml so QML
-        // layer { samples: ... } honours the env override. App processes
-        // inherit a fresh env from QProcess::setProcessEnvironment so we
-        // forward the value explicitly — without it, every layered item
-        // requests 4× MSAA, GL fails the alloc, and qWarning floods at
-        // ~100 lines/sec during animation (~5% of available CPU just on
-        // the log path).
+        // QSG_ANTIALIASING_METHOD=vertex — same reasoning as the compositor
+        // probe. Etnaviv has no FBO MSAA; vertex AA covers Shape strokes.
+        env.insert("QSG_ANTIALIASING_METHOD",
+                   qEnvironmentVariable("QSG_ANTIALIASING_METHOD", "vertex"));
+
+        // MSAA samples for layered items. 0 silences "Layer requested N
+        // samples but multisample renderbuffers are not supported" on
+        // etnaviv. Shell's main.cpp probes the GPU and exports the chosen
+        // value; we forward whatever the shell decided.
         env.insert("MARATHON_LAYER_SAMPLES", qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0"));
+
+        // Locale for VirtualKeyboard spellcheck (hunspell). Without LANG,
+        // hunspell looks for dictionaries under "C" and finds nothing —
+        // predictive text and autocorrect silently fail. Inherits the
+        // user-chosen locale from the shell env if set, falls back to
+        // en_US.UTF-8. (Hunspell-en-us dictionaries land via the image
+        // depends; see pmaports.)
+        env.insert("LANG", qEnvironmentVariable("LANG", "en_US.UTF-8"));
 
         // GPU HDR gate. AppBackdropBlur and any future MultiEffect/Shader
         // sources that want linear-precise compositing read this — defaults
@@ -440,6 +465,32 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         }
     }
     const bool usesWebEngine = requiresQt.contains(QStringLiteral("webengine"));
+
+    // WebEngine on etnaviv GC7000Lite: Mesa 24+ picks Zink (GL-on-Vulkan)
+    // by default and etnaviv has no Vulkan ICD, so vkEnumeratePhysicalDevices
+    // returns nothing and Chromium falls back to llvmpipe (or worse, dies).
+    // Force the etnaviv Gallium driver, cap GLES to 2.0 (GLES3 still WIP
+    // per Christian Gmeiner 2026-02), and tell Chromium to use ANGLE on
+    // EGL — the only combination that initialises cleanly on this hardware.
+    // Applied only to apps that declare webengine in requiresQtModules so
+    // native QML apps don't pay the GLES2 cap.
+    if (usesWebEngine) {
+        env.insert("MESA_LOADER_DRIVER_OVERRIDE",
+                   qEnvironmentVariable("MESA_LOADER_DRIVER_OVERRIDE", "etnaviv"));
+        env.insert("GALLIUM_DRIVER", qEnvironmentVariable("GALLIUM_DRIVER", "etnaviv"));
+        env.insert("LIBGL_KOPPER_DISABLE", "true");
+        env.insert("MESA_GLES_VERSION_OVERRIDE",
+                   qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0"));
+        env.insert("MESA_GL_VERSION_OVERRIDE",
+                   qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1"));
+        env.insert(
+            "QTWEBENGINE_CHROMIUM_FLAGS",
+            qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS",
+                                 "--ozone-platform=wayland --use-gl=angle --use-angle=gl-egl "
+                                 "--use-cmd-decoder=passthrough "
+                                 "--disable-features=Vulkan,UseSkiaRenderer "
+                                 "--enable-features=UseOzonePlatform --ignore-gpu-blocklist"));
+    }
 
     if (permissions.contains("network")) {
         env.insert("MARATHON_PERM_NETWORK", "1");
@@ -602,17 +653,41 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                       << QString::number(dpi, 'f', 1);
         }
 
-        // QtVirtualKeyboard input method + layer-MSAA suppression. Same
-        // reasoning as the unsandboxed path above — apps need these or
-        // (a) no soft keyboard renders on focus and (b) every layered
-        // QML item floods qWarning with "Layer requested 4 samples but
-        // multisample renderbuffers are not supported".
+        // QT_IM_MODULE=wayland for clients — not qtvirtualkeyboard (see
+        // unsandboxed path above for the reasoning). Layer MSAA suppression
+        // + GPU HDR + vertex-AA propagation as before.
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QT_IM_MODULE")
-                  << QStringLiteral("qtvirtualkeyboard");
+                  << QStringLiteral("wayland");
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QSG_ANTIALIASING_METHOD")
+                  << qEnvironmentVariable("QSG_ANTIALIASING_METHOD", "vertex");
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_LAYER_SAMPLES")
                   << qEnvironmentVariable("MARATHON_LAYER_SAMPLES", "0");
         bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MARATHON_GPU_HDR")
                   << qEnvironmentVariable("MARATHON_GPU_HDR", "0");
+        bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LANG")
+                  << qEnvironmentVariable("LANG", "en_US.UTF-8");
+
+        // WebEngine GPU shape — etnaviv-friendly. See unsandboxed path
+        // comment for the full reasoning.
+        if (usesWebEngine) {
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_LOADER_DRIVER_OVERRIDE")
+                      << qEnvironmentVariable("MESA_LOADER_DRIVER_OVERRIDE", "etnaviv");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("GALLIUM_DRIVER")
+                      << qEnvironmentVariable("GALLIUM_DRIVER", "etnaviv");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("LIBGL_KOPPER_DISABLE")
+                      << QStringLiteral("true");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GLES_VERSION_OVERRIDE")
+                      << qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GL_VERSION_OVERRIDE")
+                      << qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1");
+            bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS")
+                      << qEnvironmentVariable(
+                             "QTWEBENGINE_CHROMIUM_FLAGS",
+                             "--ozone-platform=wayland --use-gl=angle --use-angle=gl-egl "
+                             "--use-cmd-decoder=passthrough "
+                             "--disable-features=Vulkan,UseSkiaRenderer "
+                             "--enable-features=UseOzonePlatform --ignore-gpu-blocklist");
+        }
 
         cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
             runnerPath + QStringLiteral(" --app-id ") + appId;
@@ -650,7 +725,12 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
         qWarning() << "[AppLaunchService] Failed to invoke launchApp(QString, QVariantMap) on "
                       "compositor";
 
-    m_launchingApps.remove(appId);
+    // Hold m_launchingApps until either the surface attaches (TaskModel
+    // reports the new task) or 10 s elapses — whichever comes first. Without
+    // the hold, a second tap that arrives during the WebEngine cold-start
+    // window (60-90s) passes the dedupe check and spawns a parallel runner.
+    QTimer::singleShot(10000, this, [this, appId]() { m_launchingApps.remove(appId); });
+
     emit appLaunchProgress(appId, 100);
     emit appLaunchCompleted(appId, name);
     return true;

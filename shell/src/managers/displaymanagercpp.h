@@ -48,10 +48,8 @@ class DisplayManagerCpp : public QObject {
         return m_screenTimeout;
     }
     QString screenTimeoutString() const;
-    double  brightness() const {
-        return m_brightness;
-    }
-    bool nightLightEnabled() const {
+    double  brightness() const;
+    bool    nightLightEnabled() const {
         return m_nightLightEnabled;
     }
     int nightLightTemperature() const {

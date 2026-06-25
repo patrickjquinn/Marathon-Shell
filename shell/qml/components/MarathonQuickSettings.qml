@@ -44,6 +44,35 @@ Item {
         color: Qt.rgba(13 / 255, 13 / 255, 14 / 255, 0.95)
     }
 
+    // Tap anywhere outside the tiles/sliders → dismiss. TapHandler composes
+    // with the MouseAreas inside MQSTile / MQSSlider — a tap that lands on
+    // a tile is claimed by the tile first; a tap on the dim area below the
+    // last tile reaches this handler. Without it, touches fall through to
+    // whatever's behind quickSettings (the home grid) and partially light
+    // up app icons under the dim overlay.
+    TapHandler {
+        gesturePolicy: TapHandler.ReleaseWithinBounds
+        onTapped: quickSettings.closed()
+    }
+
+    // Swipe-down anywhere in the shade also dismisses. Threshold matches
+    // the up-from-indicator swipe used to open the shade.
+    DragHandler {
+        id: dismissDrag
+        yAxis.enabled: true
+        xAxis.enabled: false
+        property real startY: 0
+        onActiveChanged: {
+            if (active) {
+                startY = centroid.position.y;
+            } else {
+                const dy = centroid.position.y - startY;
+                if (dy > 120 || centroid.velocity.y > 800)
+                    quickSettings.closed();
+            }
+        }
+    }
+
     // Tile state. Wired to SystemControlStore / SystemStatusStore.
     // Helper: descriptive sublabels per JSX QuickSettings — show meaningful
     // state when on (SSID, "5G · 87%", profile name), simple "Off" otherwise.
@@ -122,10 +151,21 @@ Item {
             width: parent.width
             height: 22
 
+            // ddd · h:mm AP — re-evaluated every 30 s so the chip stays in
+            // sync. Without the tick the string is frozen at QS-open time.
+            property string dateText: Qt.formatDateTime(new Date(), "ddd · h:mm AP")
+            Timer {
+                interval: 30000
+                running: quickSettings.visible
+                repeat: true
+                triggeredOnStart: true
+                onTriggered: parent.dateText = Qt.formatDateTime(new Date(), "ddd · h:mm AP")
+            }
+
             Text {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                text: Qt.formatDateTime(new Date(), "ddd · h:mm AP")
+                text: parent.dateText
                 color: MColors.textSecondary
                 font.family: MTypography.fontFamily
                 font.pixelSize: MTypography.sizeFootnote
