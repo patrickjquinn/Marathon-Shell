@@ -687,9 +687,14 @@ Item {
         id: idleScreenTimer
 
         property int defaultIntervalMs: 120000
+        // 0 = Never (user-selectable in Settings → Display & Brightness).
+        // QML Timer with interval 0 fires on next tick, so gate `running`
+        // on a positive interval — otherwise selecting "Never" would
+        // blank the screen immediately.
+        readonly property int effectiveInterval: SettingsManagerCpp ? SettingsManagerCpp.screenTimeout : defaultIntervalMs
 
-        interval: SettingsManagerCpp ? SettingsManagerCpp.screenTimeout : defaultIntervalMs
-        running: DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
+        interval: effectiveInterval > 0 ? effectiveInterval : defaultIntervalMs
+        running: effectiveInterval > 0 && DisplayPolicyControllerCpp.screenOn && !SessionStore.isLocked
         repeat: false
         onTriggered: {
             if (typeof compositor !== 'undefined' && compositor && compositor.hasIdleInhibitingSurface) {
@@ -1079,16 +1084,16 @@ Item {
         property real currentGestureOpacity: 1 - (navBar.gestureProgress * 0.3)
         property bool showCardFrame: navBar.gestureProgress > 0.3 || shell.isTransitioningToActiveFrames
 
-        // #407: clip app viewport above the nav bar so app tab bars / FABs sit
-        // outside the home-indicator gesture zone — taps on the bottom row of a
-        // Phone tab no longer get swallowed by navMouseArea.
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: navBar.top
-        anchors.leftMargin: navBar.gestureProgress > 0 ? 8 : 0
-        anchors.rightMargin: navBar.gestureProgress > 0 ? 8 : 0
-        anchors.topMargin: navBar.gestureProgress > 0 ? 8 : 0
+        // Apps render full-screen behind the navBar so their content (gradients,
+        // backgrounds, hero images) bleeds to the bottom edge. The first
+        // attempt at #407 clipped this to `navBar.top` to keep tab-bar taps
+        // outside the gesture zone, but that exposed the desktop wallpaper
+        // between every app's bottom chrome and the navBar — visually broken
+        // on Store / Browser / anything whose content didn't fill that strip.
+        // Tab-bar capture is handled at the navBar.MouseArea level instead,
+        // where only swipes from the bottom-N px register as gestures.
+        anchors.fill: parent
+        anchors.margins: navBar.gestureProgress > 0 ? 8 : 0
         visible: UIStore.appWindowOpen || shell.isTransitioningToActiveFrames
         z: Constants.zIndexAppWindow
         scale: shell.isTransitioningToActiveFrames ? scale : (navBar.gestureProgress > 0 ? currentGestureScale : 1)

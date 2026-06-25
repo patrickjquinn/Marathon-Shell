@@ -680,13 +680,24 @@ bool AppLaunchService::launchMarathonApp(const QVariantMap &app, QObject *, QObj
                       << qEnvironmentVariable("MESA_GLES_VERSION_OVERRIDE", "2.0");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("MESA_GL_VERSION_OVERRIDE")
                       << qEnvironmentVariable("MESA_GL_VERSION_OVERRIDE", "2.1");
+            // The chromium flags value contains spaces (multiple --foo=bar
+            // tokens) and the cmd string we build here is re-parsed by
+            // QProcess::splitCommand on the compositor side. Per Qt 6 docs
+            // QProcess::splitCommand only recognises DOUBLE quotes — single
+            // quotes pass through literally. Without quoting, splitCommand
+            // chops the value into separate args and bwrap sees
+            // `--use-gl=angle` as its own flag — "bwrap: Unknown option
+            // --use-gl=angle" and the WebEngine app fails to launch (Maps
+            // crash, observed 2026-06-25 r223). The chromium flags value
+            // doesn't contain any double quotes itself so wrapping is safe.
+            const QString chromiumFlags =
+                qEnvironmentVariable("QTWEBENGINE_CHROMIUM_FLAGS",
+                                     "--ozone-platform=wayland --use-gl=angle --use-angle=gl-egl "
+                                     "--use-cmd-decoder=passthrough "
+                                     "--disable-features=Vulkan,UseSkiaRenderer "
+                                     "--enable-features=UseOzonePlatform --ignore-gpu-blocklist");
             bwrapArgs << QStringLiteral("--setenv") << QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS")
-                      << qEnvironmentVariable(
-                             "QTWEBENGINE_CHROMIUM_FLAGS",
-                             "--ozone-platform=wayland --use-gl=angle --use-angle=gl-egl "
-                             "--use-cmd-decoder=passthrough "
-                             "--disable-features=Vulkan,UseSkiaRenderer "
-                             "--enable-features=UseOzonePlatform --ignore-gpu-blocklist");
+                      << QStringLiteral("\"") + chromiumFlags + QStringLiteral("\"");
         }
 
         cmd = bwrapPath + QStringLiteral(" ") + bwrapArgs.join(' ') + QStringLiteral(" ") +
