@@ -55,8 +55,12 @@ Item {
         onTapped: quickSettings.closed()
     }
 
-    // Swipe-down anywhere in the shade also dismisses. Threshold matches
-    // the up-from-indicator swipe used to open the shade.
+    // Swipe in EITHER direction dismisses. The shade opens via swipe-up
+    // from the navBar; once open, both swipe-down (pull the curtain
+    // closed) and swipe-up (push it back where it came from) feel like
+    // valid dismiss gestures and Marathon users expect both. Previously
+    // only swipe-down dismissed — a swipe-up from mid-shade left the
+    // gesture dangling and the user complained of "stuck half open".
     DragHandler {
         id: dismissDrag
         yAxis.enabled: true
@@ -67,7 +71,8 @@ Item {
                 startY = centroid.position.y;
             } else {
                 const dy = centroid.position.y - startY;
-                if (dy > 120 || centroid.velocity.y > 800)
+                const vy = centroid.velocity.y;
+                if (Math.abs(dy) > 120 || Math.abs(vy) > 800)
                     quickSettings.closed();
             }
         }

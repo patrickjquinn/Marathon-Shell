@@ -50,7 +50,7 @@ Item {
         Icon {
             name: StatusBarIconService.getBatteryIcon(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
             color: StatusBarIconService.getBatteryColor(SystemStatusStore.batteryLevel, SystemStatusStore.isPluggedIn)
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
         }
 
@@ -118,7 +118,7 @@ Item {
             visible: opacity > 0.01
             opacity: SessionStore.isOnLockScreen ? 1 : 0
             name: SessionStore.isLocked ? "lock" : "lock-open"
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             color: MColors.textPrimary
             scale: SessionStore.isAnimatingLock ? 0.8 : 1
             rotation: {
@@ -162,7 +162,7 @@ Item {
         Icon {
             name: "plane"
             color: MColors.textPrimary
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowAirplaneMode(SystemStatusStore.isAirplaneMode)
         }
@@ -170,7 +170,7 @@ Item {
         Icon {
             name: "bell"
             color: MColors.textPrimary
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: StatusBarIconService.shouldShowDnd(SystemStatusStore.isDndMode)
             opacity: 0.9
@@ -179,7 +179,7 @@ Item {
         Icon {
             name: StatusBarIconService.getBluetoothIcon(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             color: MColors.textPrimary
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             opacity: StatusBarIconService.getBluetoothOpacity(SystemStatusStore.isBluetoothOn, SystemStatusStore.isBluetoothConnected)
             visible: BluetoothManagerCpp.available && StatusBarIconService.shouldShowBluetooth(SystemStatusStore.isBluetoothOn)
@@ -192,7 +192,7 @@ Item {
         Icon {
             name: StatusBarIconService.getSignalIcon(SystemStatusStore.cellularStrength)
             color: MColors.textPrimary
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: ModemManagerCpp.modemAvailable
             opacity: StatusBarIconService.getSignalOpacity(SystemStatusStore.cellularStrength)
@@ -201,7 +201,7 @@ Item {
         Icon {
             name: "cable"
             color: MColors.textPrimary
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: SystemStatusStore.ethernetConnected
             opacity: 1
@@ -210,7 +210,7 @@ Item {
         Icon {
             name: StatusBarIconService.getWifiIcon(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)
             color: MColors.textPrimary
-            size: 14
+            size: Math.round(14 * Constants.scaleFactor)
             anchors.verticalCenter: parent.verticalCenter
             visible: NetworkManagerCpp.wifiAvailable
             opacity: StatusBarIconService.getWifiOpacity(SystemStatusStore.isWifiOn, SystemStatusStore.wifiStrength, NetworkManagerCpp.wifiConnected)

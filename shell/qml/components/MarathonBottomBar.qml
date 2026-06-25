@@ -44,7 +44,10 @@ Item {
         id: phoneShortcut
 
         anchors.left: parent.left
-        anchors.leftMargin: Constants.spacingLarge
+        // Tightened from spacingLarge — at scaleFactor 2 the Phone glyph
+        // floats 40 px in from the panel edge, breaking the iOS-like
+        // edge-hugging shortcut feel.
+        anchors.leftMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
@@ -321,7 +324,8 @@ Item {
         id: cameraShortcut
 
         anchors.right: parent.right
-        anchors.rightMargin: Constants.spacingLarge
+        // Symmetric with phoneShortcut.leftMargin tightening.
+        anchors.rightMargin: Constants.spacingMedium
         anchors.verticalCenter: parent.verticalCenter
         width: Constants.touchTargetSmall
         height: Constants.touchTargetSmall
