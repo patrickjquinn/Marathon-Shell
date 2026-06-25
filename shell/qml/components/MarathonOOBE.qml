@@ -56,13 +56,9 @@ Item {
     // bottom + 180 sf hero image + status bar overflowed the 720 px
     // panel — the logo+title got clipped on first boot.
     readonly property bool compactLayout: Constants.isSquareScreen || Constants.screenHeight < 800
-    // Bumped 220→250 sf on tall screens after the L5 audit: the bottom
-    // row (Back/Next at touchTargetMedium ~70 sf + page indicators at
-    // ~24 sf + safe-area inset + nav bar) plus the per-page ColumnLayout
-    // bottomMargin compresses the Passcode keypad on the L5 at
-    // scaleFactor ~1.61 (DPI 287, userScale 0.9 ladder). 250 sf reserves
-    // ~447 px on this screen, leaving ~943 px of content height —
-    // enough for the keypad without clipping the last row.
+    // Reserves room for the Back/Next row + page-indicator dots + nav
+    // bar pill. At less than 250 sf the Passcode keypad clips its last
+    // row on tall screens (L5 scaleFactor ~1.61).
     readonly property real swipeBottomMargin: compactLayout ? 140 : 250
     readonly property real heroImageBlockSize: compactLayout ? 100 : 180
 
@@ -138,14 +134,9 @@ Item {
         id: swipeView
 
         anchors.fill: parent
-        // The SwipeView margins establish the page's *outer* gutter. Pages
-        // add their own inset on top (MSpacing.lg) for breathing room.
-        // Together they gave the L5 a 114 px gutter that pushed the scale
-        // ladder off both edges. The lg gutter here + lg page inset
-        // produces a ~56 px total gutter at scaleFactor 1.79.
-        //
-        // SwipeView top anchored to topChrome.bottom so the indicator + Skip
-        // row never overlaps page content.
+        // Pages anchor under topChrome (indicator dots + Skip) and inside
+        // the lg gutter. Per-page ColumnLayouts add their own lg inset; an
+        // xl gutter here on top of that pushes the scale ladder off-edge.
         anchors.topMargin: topChrome.height + MSpacing.sm
         anchors.leftMargin: MSpacing.lg
         anchors.rightMargin: MSpacing.lg
@@ -194,10 +185,8 @@ Item {
                     color: MColors.textSecondary
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    // 360sf was overflowing the L5 SwipeView page width
-                    // (606px after xl margins) by ~40px at scaleFactor 1.79.
-                    // Min'ed against the parent's available width so any
-                    // future scaleFactor change keeps the text inside.
+                    // min() against parent.width so any future scaleFactor
+                    // delta can't push the text past the page edge.
                     width: Math.min(parent.width, Math.round(320 * Constants.scaleFactor))
                 }
             }
@@ -412,7 +401,11 @@ Item {
                 anchors.topMargin: oobeRoot.compactLayout ? MSpacing.lg : MSpacing.xl
                 anchors.leftMargin: 0
                 anchors.rightMargin: 0
-                anchors.bottomMargin: Math.round((oobeRoot.compactLayout ? 90 : 110) * Constants.scaleFactor)
+                // No bottomMargin — SwipeView.bottomMargin
+                // (swipeBottomMargin) already reserves the Back/Next +
+                // nav-bar zone. Stacking another inset on top here
+                // collapses the WiFi list card.
+                anchors.bottomMargin: 0
                 spacing: oobeRoot.compactLayout ? MSpacing.sm : MSpacing.md
 
                 Icon {
@@ -422,12 +415,10 @@ Item {
                     color: MColors.marathonTealBright
                 }
 
-                // Title + subtitle MUST use Layout.fillWidth + WordWrap.
-                // The prior code did Layout.alignment: AlignHCenter without
-                // width, so the Text laid out at its natural rendered width
-                // — at scaleFactor 1.79 the title "Connect to a network"
-                // was wider than the SwipeView column, clipping to
-                // "Connect to a netwo" off the right edge.
+                // Title + subtitle need Layout.fillWidth + WordWrap so the
+                // Text item sizes to the column width rather than its
+                // natural rendered width — at scaleFactor 1.79 a single
+                // long title overflows the SwipeView page and clips.
                 Text {
                     Layout.fillWidth: true
                     text: "Connect to a network"
@@ -487,16 +478,11 @@ Item {
                 MCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    // Minimum room for header + 5 network rows (~56 sf each).
-                    // The user surfaced that the card was rendering ~200 sf
-                    // tall on the L5, showing only the top half of a single
-                    // SSID row. Layout.fillHeight alone wasn't growing the
-                    // card because the items below in the parent ColumnLayout
-                    // ("Join other network…" Text) pack at their natural
-                    // height — leaving dead space below them that fillHeight
-                    // wasn't claiming. A preferredHeight floor of 380 sf
-                    // guarantees the list shows ~5 rows on every OOBE run.
-                    Layout.preferredHeight: Math.round(380 * Constants.scaleFactor)
+                    // Override MCard.implicitHeight (which sizes the card
+                    // to childrenRect — ~200 px here) so the network list
+                    // has a meaningful floor. fillHeight still grows it
+                    // when the column has leftover.
+                    implicitHeight: Math.round(380 * Constants.scaleFactor)
                     elevation: 2
                     visible: SystemStatusStore.isWifiOn
 
@@ -823,13 +809,10 @@ Item {
                     id: timeCard
 
                     Layout.fillWidth: true
-                    // Explicit, generous card height — 4× the time-text
-                    // font (~192 px at scaleFactor 1.79) plus padding. The
-                    // inner Column centers within the card via anchors,
-                    // which is honest vertical centering. The prior
-                    // ColumnLayout-fills-parent-with-margins produced a
-                    // box exactly the size of the content, so "centering"
-                    // was visually identical to top-aligning.
+                    // Generous card height + anchored centerIn Column gives
+                    // honest vertical centring. Sizing the card to its
+                    // content via implicit Layout collapses the inner space
+                    // and centring becomes a no-op.
                     Layout.preferredHeight: Math.round(180 * Constants.scaleFactor)
                     elevation: 2
 
@@ -862,14 +845,10 @@ Item {
                     id: formatCard
 
                     Layout.fillWidth: true
-                    // Explicit row height — matches MButton.buttonHeight
-                    // (45 sf default) + 2× md padding so all three child
-                    // archetypes (Icon, Text, MButton) genuinely share the
-                    // same vertical-centre baseline. The prior
-                    // implicitHeight-of-RowLayout sizing collapsed to the
-                    // tallest child (MButton) which then made the icon and
-                    // text appear ABOVE the visual centre of the buttons —
-                    // the user's "12/24 not vertically centred" complaint.
+                    // Explicit row height so the Icon, Text, and MButtons
+                    // share an honest geometric centre. RowLayout-implicit
+                    // sizing pinned the row to the tallest child (MButton)
+                    // and visually placed the icon + label above centre.
                     Layout.preferredHeight: Math.round((45 + MSpacing.md / Constants.scaleFactor * 2) * Constants.scaleFactor)
                     elevation: 2
 
@@ -910,13 +889,9 @@ Item {
                             spacing: MSpacing.sm
 
                             MButton {
-                                // compact size (38 sf height, sizeFootnote
-                                // font) instead of small. "small" wasn't a
-                                // recognised size in MButton so it fell
-                                // through to default (45 sf + sizeSubhead),
-                                // taking enough horizontal space to elide
-                                // the "Time Format" label down to
-                                // "Time Form...".
+                                // Compact gives the label more horizontal
+                                // room; default-sized pills elide the
+                                // "Time Format" Text to "Time Form...".
                                 text: "12h"
                                 variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
                                 size: "compact"
@@ -1185,15 +1160,9 @@ Item {
 
                                     Text {
                                         // Distinct verb from the outer OOBE
-                                        // primary "Next" so users don't see
-                                        // two competing Next buttons on the
-                                        // coachmark pages. "Continue" reads
-                                        // as "I've practiced this gesture,
-                                        // show me the next one" — and on
-                                        // the final coachmark the inner
-                                        // button isn't rendered, so the
-                                        // primary OOBE Next takes over
-                                        // cleanly.
+                                        // primary "Next" — two visible
+                                        // Nexts on the same screen confuse
+                                        // the action.
                                         anchors.centerIn: parent
                                         text: "Continue"
                                         font.pixelSize: MTypography.sizeBody
@@ -1632,16 +1601,9 @@ Item {
         Row {
             id: pageIndicatorRow
 
-            // Page indicator moved to the TOP. The bottom of every OOBE page
-            // is already busy with the nav buttons + per-page Done chrome;
-            // the dots were getting squashed. Sitting them just under the
-            // status bar is cleaner and matches the iOS Settings-OOBE
-            // pattern. (See also the gesture-page dots inside gesturesPage,
-            // which were moved for the same reason.)
-            //
-            // Sized at 14 inactive / 22 active sf — bigger than the original
-            // 12 / 20 so they read as a primary navigation affordance, not
-            // an afterthought. The Skip chip now lives in its own row below.
+            // Dots at the top, not the bottom — bottom is busy with the
+            // Back/Next row + per-page action chrome. Same pattern as iOS
+            // Settings OOBE.
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
             spacing: MSpacing.md

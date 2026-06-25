@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlAbstractUrlInterceptor>
 #include <QQuickWindow>
 #include <QQuickStyle>
 #include <QDebug>
@@ -429,6 +430,38 @@ int main(int argc, char *argv[]) {
     QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
 
     QQmlApplicationEngine engine;
+
+    // Hot-reload interceptor. With MARATHON_QML_HOT_RELOAD=1 + a populated
+    // MARATHON_QML_HOT_RELOAD_ROOT, qrc:/qt/qml/MarathonOS/Shell/qml/...
+    // lookups are rewritten to file:///<root>/MarathonOS/Shell/... so an
+    // rsync into the disk path is picked up on the next engine.load().
+    // qrc is still the default for shipped images; the env hook only opts
+    // in when the developer wants it.
+    if (qEnvironmentVariableIntValue("MARATHON_QML_HOT_RELOAD") != 0) {
+        const QString hotRoot =
+            qEnvironmentVariable("MARATHON_QML_HOT_RELOAD_ROOT", "/usr/lib/qt6/qml");
+        class HotReloadInterceptor : public QQmlAbstractUrlInterceptor {
+          public:
+            HotReloadInterceptor(QString root)
+                : m_root(std::move(root)) {}
+            QUrl intercept(const QUrl &url, DataType /*type*/) override {
+                if (url.scheme() != QStringLiteral("qrc"))
+                    return url;
+                static const QString needle = QStringLiteral("/qt/qml/MarathonOS/Shell/qml/");
+                if (!url.path().startsWith(needle))
+                    return url;
+                const QString tail = url.path().mid(needle.size());
+                const QString diskUrl =
+                    QStringLiteral("file://%1/MarathonOS/Shell/%2").arg(m_root, tail);
+                return QUrl(diskUrl);
+            }
+
+          private:
+            QString m_root;
+        };
+        engine.addUrlInterceptor(new HotReloadInterceptor(hotRoot));
+        qInfo() << "[MarathonShell] QML hot-reload interceptor active — root:" << hotRoot;
+    }
 
     qmlRegisterType<InputContext>("MarathonOS.Shell", 1, 0, "InputContext");
 
