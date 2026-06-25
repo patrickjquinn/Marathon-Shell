@@ -15,7 +15,11 @@ Item {
     property Item appBackdrop: null
 
     property real swipeProgress: 0
-    property int idleTimeoutMs: 30000
+    // Honour Settings → Display & Brightness → Screen Timeout for the
+    // lock screen too. SettingsManager.screenTimeout==0 means "Never"
+    // (handled below in idleTimer.running). Falls back to the previous
+    // hard-coded 30 s when the singleton hasn't published yet.
+    property int idleTimeoutMs: (typeof SettingsManagerCpp !== 'undefined' && SettingsManagerCpp.screenTimeout > 0) ? SettingsManagerCpp.screenTimeout : 30000
     readonly property int roleIsRead: roleId("isRead")
     readonly property int roleAppId: roleId("appId")
     readonly property int roleIcon: roleId("icon")
@@ -121,7 +125,10 @@ Item {
         id: idleTimer
 
         interval: idleTimeoutMs
-        running: lockScreen.visible && DisplayPolicyControllerCpp.screenOn
+        // "Never" (SettingsManager.screenTimeout == 0) gates the timer off
+        // — same logic as MarathonShell.idleScreenTimer. Otherwise a 0
+        // interval fires every tick and blanks the lock screen immediately.
+        running: lockScreen.visible && DisplayPolicyControllerCpp.screenOn && (typeof SettingsManagerCpp === 'undefined' || SettingsManagerCpp.screenTimeout > 0)
         repeat: false
         onTriggered: {
             if (typeof compositor !== 'undefined' && compositor.hasIdleInhibitingSurface) {
