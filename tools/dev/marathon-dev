@@ -50,6 +50,28 @@ cmd_unlock() {
         org.marathonos.Shell.Security1 AuthenticateQuickPIN s "$pin"
 }
 
+cmd_launch() {
+    appId="${1:-}"
+    if [ -z "$appId" ]; then
+        echo "marathon-dev launch: missing app id" >&2
+        exit 2
+    fi
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Navigation \
+        org.marathonos.Shell.Navigation1 LaunchApp s "$appId"
+}
+
+cmd_close() {
+    # Walk the running marathon-app-runner processes and SIGTERM them.
+    # Used to reset the foreground state between captures during a
+    # scripted UX audit.
+    appId="${1:-}"
+    if [ -n "$appId" ]; then
+        pkill -TERM -f "marathon-app-runner --app-id $appId" 2>/dev/null
+    else
+        pkill -TERM -f "marathon-app-runner --app-id" 2>/dev/null
+    fi
+}
+
 cmd_screenshot() {
     path="${1:-/tmp/marathon-shot.png}"
     pid="$(pidof marathon-shell-bin)"
@@ -72,6 +94,8 @@ case "${1:-}" in
     wake)        shift; cmd_wake "$@" ;;
     sleep|off)   shift; cmd_sleep "$@" ;;
     unlock)      shift; cmd_unlock "$@" ;;
+    launch)      shift; cmd_launch "$@" ;;
+    close)       shift; cmd_close "$@" ;;
     screenshot)  shift; cmd_screenshot "$@" ;;
     ""|--help|-h)
         cat <<EOF
@@ -81,6 +105,8 @@ usage:
   marathon-dev wake               # turn panel on
   marathon-dev sleep              # turn panel off
   marathon-dev unlock <pin>       # auth PIN + unlock session
+  marathon-dev launch <app-id>    # navigate the shell to an app
+  marathon-dev close [app-id]     # SIGTERM the running app(s)
   marathon-dev screenshot [path]  # SIGUSR1 capture (default /tmp/marathon-shot.png)
 
 All commands require the shell to be running. Most reach the shell via
