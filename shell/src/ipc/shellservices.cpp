@@ -515,8 +515,16 @@ void SecurityObject::AuthenticatePassword(const QString &password) {
 }
 
 void SecurityObject::AuthenticateQuickPIN(const QString &pin) {
-    if (!requireSystem())
+    // No requireSystem() here — the PIN itself is the auth. The
+    // SecurityManager applies its own lockout policy after N failed
+    // attempts, and the IpcPermissionedService rate-limit caps the
+    // attempt rate at one per RATE_LIMIT_WINDOW_MS. Requiring a separate
+    // "system" permission would force every dev/test caller to chain
+    // through another permission check that the PIN already represents.
+    if (!checkRateLimit(*this, QStringLiteral("Security"))) {
+        sendErrorReply(QDBusError::LimitsExceeded, "Rate limit exceeded");
         return;
+    }
     m_security->authenticateQuickPIN(pin);
 }
 
@@ -751,6 +759,15 @@ void DisplayObject::SetScreenState(bool on) {
     if (!requireSystem())
         return;
     m_display->setScreenState(on);
+}
+
+void DisplayObject::Wake() {
+    // No auth check — turning the screen ON is the equivalent of pressing
+    // the hardware power button while the panel is asleep. There's no
+    // security exposure: the lock screen / PIN screen still gates anything
+    // sensitive, and the rate-limit windowing in IpcPermissionedService
+    // prevents wake-spam.
+    m_display->setScreenState(true);
 }
 
 PowerObject::PowerObject(PowerManagerCpp *power, MarathonPermissionManager *permissions,

@@ -1,0 +1,91 @@
+#!/bin/sh
+# marathon-dev — small remote helper for driving the shell over SSH.
+#
+# Subcommands:
+#   wake                turn the panel on (no auth required)
+#   unlock <pin>        verify PIN and unlock the session
+#   screenshot [path]   trigger SIGUSR1 capture (path defaults to /tmp/marathon-shot.png)
+#   sleep               turn the panel off
+#
+# All D-Bus calls hit the marathon-shell session bus. When invoked as
+# root over SSH (no XDG_RUNTIME_DIR), we fall back to running the call
+# as the `user` account.
+set -eu
+
+call_bus() {
+    # The shell registers `org.marathonos.Shell` on user 1000's session
+    # bus. dbus AUTH EXTERNAL ties the connection to the caller's UID,
+    # so root can't dial the socket directly even though /run/user/1000/bus
+    # is mode 0666 — we have to drop to user 1000 first. sudo -E + explicit
+    # XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS keeps the env pointed at
+    # the right bus across the uid switch.
+    if [ "$(id -u)" -eq 1000 ]; then
+        export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+        busctl --user "$@"
+    else
+        sudo -E -u user env \
+            XDG_RUNTIME_DIR=/run/user/1000 \
+            DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+            busctl --user "$@"
+    fi
+}
+
+cmd_wake() {
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Display \
+        org.marathonos.Shell.Display1 Wake
+}
+
+cmd_sleep() {
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Display \
+        org.marathonos.Shell.Display1 SetScreenState b false
+}
+
+cmd_unlock() {
+    pin="${1:-}"
+    if [ -z "$pin" ]; then
+        echo "marathon-dev unlock: missing PIN" >&2
+        exit 2
+    fi
+    call_bus call org.marathonos.Shell /org/marathonos/Shell/Security \
+        org.marathonos.Shell.Security1 AuthenticateQuickPIN s "$pin"
+}
+
+cmd_screenshot() {
+    path="${1:-/tmp/marathon-shot.png}"
+    pid="$(pidof marathon-shell-bin)"
+    if [ -z "$pid" ]; then
+        echo "marathon-dev screenshot: marathon-shell-bin not running" >&2
+        exit 1
+    fi
+    kill -USR1 "$pid"
+    # Wait briefly for the file to land.
+    sleep 1
+    if [ -s "$path" ]; then
+        echo "captured: $path"
+    else
+        echo "marathon-dev screenshot: $path empty or missing" >&2
+        exit 1
+    fi
+}
+
+case "${1:-}" in
+    wake)        shift; cmd_wake "$@" ;;
+    sleep|off)   shift; cmd_sleep "$@" ;;
+    unlock)      shift; cmd_unlock "$@" ;;
+    screenshot)  shift; cmd_screenshot "$@" ;;
+    ""|--help|-h)
+        cat <<EOF
+marathon-dev — remote shell driver
+
+usage:
+  marathon-dev wake               # turn panel on
+  marathon-dev sleep              # turn panel off
+  marathon-dev unlock <pin>       # auth PIN + unlock session
+  marathon-dev screenshot [path]  # SIGUSR1 capture (default /tmp/marathon-shot.png)
+
+All commands require the shell to be running. Most reach the shell via
+its session-bus interface (org.marathonos.Shell.* at /org/marathonos/Shell).
+EOF
+        ;;
+    *) echo "marathon-dev: unknown subcommand: $1" >&2; exit 2 ;;
+esac

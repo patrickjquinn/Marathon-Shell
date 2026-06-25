@@ -236,6 +236,11 @@ install(PROGRAMS platforms/generic/marathon-shell-session
     DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+# Remote-driver helper (wake / unlock / screenshot over SSH).
+install(PROGRAMS tools/dev/marathon-dev
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
 # Install Wayland session file
 install(FILES platforms/generic/marathon.desktop
     DESTINATION ${CMAKE_INSTALL_DATADIR}/wayland-sessions

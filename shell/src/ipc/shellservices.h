@@ -370,6 +370,10 @@ class DisplayObject : public IpcPermissionedService {
     void        SetNightLightTemperature(int temperature);
     void        SetNightLightSchedule(const QString &schedule);
     void        SetScreenState(bool on);
+    // Wake() — no auth, just turns the panel on. Equivalent to a power
+    // button tap. Useful for remote testing over SSH when there is no
+    // physical button. Calls into DisplayManager::setScreenState(true).
+    void Wake();
 
   signals:
     void StateChanged(const QVariantMap &state);
