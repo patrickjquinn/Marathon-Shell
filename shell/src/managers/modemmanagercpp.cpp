@@ -25,7 +25,13 @@ ModemManagerCpp::ModemManagerCpp(QObject *parent)
     qDebug() << "[ModemManagerCpp] Initializing";
 
     m_stateMonitor = new QTimer(this);
-    m_stateMonitor->setInterval(5000);
+    // 60s safety-net poll for cosmetic status-bar fields (signal bars,
+    // operator name, network type). Incoming calls and SMS come via
+    // ModemManager's CallAdded / SMS signals from the daemon side; this
+    // poll is only a backstop for property drift the signal subscriptions
+    // may have missed. 5s here was burning ~17280 D-Bus calls/day for
+    // properties that change on the minute-scale.
+    m_stateMonitor->setInterval(60000);
     connect(m_stateMonitor, &QTimer::timeout, this, &ModemManagerCpp::queryModemState);
 
     m_dbusRetryTimer = new QTimer(this);

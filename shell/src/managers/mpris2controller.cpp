@@ -10,7 +10,6 @@ MPRIS2Controller::MPRIS2Controller(QObject *parent)
     : QObject(parent)
     , m_playerInterface(nullptr)
     , m_positionTimer(nullptr)
-    , m_scanTimer(nullptr)
     , m_hasActivePlayer(false)
     , m_playerName("")
     , m_desktopEntry("")
@@ -34,11 +33,12 @@ MPRIS2Controller::MPRIS2Controller(QObject *parent)
     m_positionTimer->setInterval(1000);
     connect(m_positionTimer, &QTimer::timeout, this, &MPRIS2Controller::updatePosition);
 
-    m_scanTimer = new QTimer(this);
-    m_scanTimer->setInterval(10000);
-    connect(m_scanTimer, &QTimer::timeout, this, &MPRIS2Controller::scanForPlayers);
-    m_scanTimer->start();
-
+    // scanForPlayers() at startup catches players already on the bus when
+    // the shell starts; setupDBusMonitoring() above subscribes to
+    // NameOwnerChanged so new players are detected the moment they
+    // register. A periodic poll on top was pure overhead — wake up every
+    // 10s, scan the entire D-Bus session-bus name list, find nothing new.
+    // Removed 2026-06-25 after observing ~2 D-Bus round-trips/s at idle.
     scanForPlayers();
 
     qInfo() << "[MPRIS2Controller] Initialized and monitoring for media players";
