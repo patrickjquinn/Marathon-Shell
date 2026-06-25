@@ -107,10 +107,12 @@ Page {
                         }
                     }
                 },
-                // 32×32 teal-gradient compose squircle per JSX.
+                // Compose squircle. Sized to iOS HIG min (44×44) — the original
+                // 32×32 was below tappable threshold and made the + look like a
+                // decorative chip rather than the primary action.
                 Rectangle {
-                    width: 32
-                    height: 32
+                    width: 44
+                    height: 44
                     radius: MRadius.md
                     border.width: 1
                     border.color: MColors.tealBorder
@@ -128,12 +130,13 @@ Page {
                     Icon {
                         anchors.centerIn: parent
                         name: "plus"
-                        size: 18
+                        size: 26
                         color: "#000000"
                     }
 
                     MouseArea {
                         anchors.fill: parent
+                        anchors.margins: -4
                         onClicked: {
                             HapticService.medium();
                             conversationsPage.newMessage();
