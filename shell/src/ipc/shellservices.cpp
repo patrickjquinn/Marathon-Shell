@@ -1565,18 +1565,20 @@ QString NavigationObject::callerAppIdOrEmpty() const {
 }
 
 bool NavigationObject::LaunchApp(const QString &appId) {
+    // No caller auth needed — launching an app already in the manifest
+    // registry exposes nothing the home grid wouldn't expose to a tap.
+    // Lets `marathon-dev launch <id>` over SSH drive UI audits without
+    // synthesising touches, which is fragile (overshoots the home-swipe
+    // window and leaves the previous app capturing subsequent input).
     const QString caller = callerAppIdOrEmpty();
-    if (caller.isEmpty()) {
-        sendErrorReply(QDBusError::AccessDenied, "Unknown caller");
-        return false;
-    }
 
     if (appId.isEmpty()) {
         sendErrorReply(QDBusError::InvalidArgs, "appId cannot be empty");
         return false;
     }
 
-    qInfo() << "[NavigationObject] LaunchApp requested by" << caller << "for" << appId;
+    qInfo() << "[NavigationObject] LaunchApp requested by"
+            << (caller.isEmpty() ? QStringLiteral("<external>") : caller) << "for" << appId;
 
     const bool ok = m_launchService->launchApp(QVariant(appId), nullptr, nullptr);
     if (ok) {
