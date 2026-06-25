@@ -174,8 +174,8 @@ Page {
                     }
                 },
                 Rectangle {
-                    width: 36
-                    height: 36
+                    width: 44
+                    height: 44
                     radius: MRadius.md
                     border.width: 1
                     border.color: MColors.tealBorder
@@ -192,11 +192,12 @@ Page {
                     Icon {
                         anchors.centerIn: parent
                         name: "plus"
-                        size: 20
+                        size: 26
                         color: "#000000"
                     }
                     MouseArea {
                         anchors.fill: parent
+                        anchors.margins: -4
                         onClicked: {
                             HapticService.medium();
                             listPage.createNewNote();
