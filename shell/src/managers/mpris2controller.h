@@ -140,7 +140,6 @@ class MPRIS2Controller : public QObject {
 
     QDBusInterface *m_playerInterface;
     QTimer         *m_positionTimer;
-    QTimer         *m_scanTimer;
 
     QString         m_currentBusName;
     bool            m_hasActivePlayer;

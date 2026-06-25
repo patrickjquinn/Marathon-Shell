@@ -106,8 +106,16 @@ Item {
             lockScreen.refreshNotifications();
         }
     }
-    layer.enabled: true
-    layer.smooth: true
+    // layer.enabled was true with layer.smooth — that turned the whole
+    // lock screen into an offscreen FBO. Combined with the "Swipe up
+    // to unlock" bobbing animation (loops: Infinite) any frame the
+    // animation produced re-rasterized the FULL lock-screen texture
+    // every refresh, pinning QSGRenderThread at ~37% CPU at idle (5m
+    // CPU per 15m wall-clock, measured 2026-06-25). The original
+    // motivation for layer.enabled was lost in the comment history;
+    // disabling it drops to dirty-region rendering and the lock
+    // screen sits at near-zero idle CPU.
+    layer.enabled: false
 
     Timer {
         id: idleTimer
