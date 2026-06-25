@@ -487,6 +487,16 @@ Item {
                 MCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    // Minimum room for header + 5 network rows (~56 sf each).
+                    // The user surfaced that the card was rendering ~200 sf
+                    // tall on the L5, showing only the top half of a single
+                    // SSID row. Layout.fillHeight alone wasn't growing the
+                    // card because the items below in the parent ColumnLayout
+                    // ("Join other network…" Text) pack at their natural
+                    // height — leaving dead space below them that fillHeight
+                    // wasn't claiming. A preferredHeight floor of 380 sf
+                    // guarantees the list shows ~5 rows on every OOBE run.
+                    Layout.preferredHeight: Math.round(380 * Constants.scaleFactor)
                     elevation: 2
                     visible: SystemStatusStore.isWifiOn
 
@@ -900,9 +910,16 @@ Item {
                             spacing: MSpacing.sm
 
                             MButton {
+                                // compact size (38 sf height, sizeFootnote
+                                // font) instead of small. "small" wasn't a
+                                // recognised size in MButton so it fell
+                                // through to default (45 sf + sizeSubhead),
+                                // taking enough horizontal space to elide
+                                // the "Time Format" label down to
+                                // "Time Form...".
                                 text: "12h"
                                 variant: SettingsManagerCpp.timeFormat === "12h" ? "primary" : "default"
-                                size: "small"
+                                size: "compact"
                                 onClicked: {
                                     SettingsManagerCpp.timeFormat = "12h";
                                     HapticManager.light();
@@ -912,7 +929,7 @@ Item {
                             MButton {
                                 text: "24h"
                                 variant: SettingsManagerCpp.timeFormat === "24h" ? "primary" : "default"
-                                size: "small"
+                                size: "compact"
                                 onClicked: {
                                     SettingsManagerCpp.timeFormat = "24h";
                                     HapticManager.light();
