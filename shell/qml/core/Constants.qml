@@ -93,8 +93,14 @@ QtObject {
     // dock keeps a tappable height (still ≥ Apple HIG 44pt @1×) without
     // eating the rest of the screen.
     readonly property real statusBarHeight: Math.round(28 * scaleFactor)
-    readonly property real navBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 48 : 64) * scaleFactor)
-    readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 56 : 70) * scaleFactor)
+    // 64 × scaleFactor = 128 px on the L5. Lower the design value so the
+    // combined dock + navBar doesn't dominate the bottom of the panel.
+    readonly property real navBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 44 : 56) * scaleFactor)
+    // 70 × scaleFactor pushes the dock to 140 px on the L5 (scaleFactor 2)
+    // — combined with the 128 px navBar that's 19% of the panel just for
+    // bottom chrome. Lower the design value to keep proportions sensible
+    // at high DPI.
+    readonly property real bottomBarHeight: Math.round((isSquareScreen || screenHeight < 800 ? 48 : 56) * scaleFactor)
     readonly property real safeAreaTop: statusBarHeight
     readonly property real safeAreaBottom: navBarHeight
     readonly property real safeAreaLeft: 0

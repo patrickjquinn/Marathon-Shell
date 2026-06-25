@@ -133,8 +133,13 @@ Item {
     }
 
     anchors.fill: parent
-    layer.enabled: true
-    layer.smooth: true
+    // layer.enabled was true (+ smooth) — same as MarathonLockScreen this
+    // turned the whole PIN screen into one FBO, and every tap on a digit
+    // triggered three Behaviors (dot color, dot scale, button spring)
+    // which forced a full re-rasterization every frame. User-perceived
+    // delay between tapping a digit and the circle filling. Drop the
+    // layer; dirty-region rendering is sufficient.
+    layer.enabled: false
     onVisibleChanged: {
         if (visible) {
             SessionStore.isOnLockScreen = true;
@@ -247,8 +252,8 @@ Item {
         anchors.verticalCenterOffset: pinScreen.compactLayout ? 0 : Math.round(-20 * Constants.scaleFactor)
         spacing: Math.round(pinScreen.columnSpacing * Constants.scaleFactor)
         z: 100
-        layer.enabled: true
-        layer.smooth: true
+        // layer.enabled removed — see note at the root pinScreen Item.
+        layer.enabled: false
 
         Column {
             anchors.horizontalCenter: parent.horizontalCenter
