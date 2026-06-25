@@ -263,35 +263,43 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
     // MSAA gate. Mesa hides etnaviv MSAA behind ETNA_DEBUG=msaa_4x since 22.3.0
-    // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1. Calling setSamples(4)
-    // unconditionally floods Qt's qsgrhilayer with "Layer requested 4 samples
-    // but multisample renderbuffers are not supported" — 67 lines/sec during
-    // animation. Probe via a transient context and degrade to 0 if FBO MSAA
-    // is unavailable. Plasma Mobile / KWin never call setSamples; we want the
-    // higher quality where the hardware allows it.
+    // and Vivante GC7000Lite reports GL_MAX_SAMPLES ≤ 1, so the target HW
+    // can't do FBO MSAA. Default to 0 here, controlled by MARATHON_LAYER_SAMPLES.
+    //
+    // The previous version probed via QOffscreenSurface + QOpenGLContext, which
+    // crashed the compositor in QEglFSWindow::QEglFSWindow during a later
+    // surface map (the probe corrupts shared EGL state for the eglfs_kms QPA
+    // underlying QtWaylandCompositor — repro: launch Notes ~12 min after boot,
+    // SIGABRT at libQt6EglFSDeviceIntegration top of stack). Opt into the
+    // probe with MARATHON_ENABLE_MSAA_PROBE=1 on hosts where MSAA is wanted
+    // (desktop dev with virgl/llvmpipe).
     {
-        int               maxSamples = 0;
-        bool              hasFboMsaa = false;
-        QOffscreenSurface sfc;
-        sfc.setFormat(QSurfaceFormat::defaultFormat());
-        sfc.create();
-        QOpenGLContext ctx;
-        if (sfc.isValid() && ctx.create() && ctx.makeCurrent(&sfc)) {
-            ctx.functions()->glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
-            hasFboMsaa = ctx.hasExtension("GL_EXT_framebuffer_multisample") ||
-                ctx.format().majorVersion() >= 3;
-            ctx.doneCurrent();
+        bool      envOk      = false;
+        const int envSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &envOk);
+        int       chosen     = envOk ? envSamples : 0;
+
+        if (qEnvironmentVariableIntValue("MARATHON_ENABLE_MSAA_PROBE") != 0) {
+            int               maxSamples = 0;
+            bool              hasFboMsaa = false;
+            QOffscreenSurface sfc;
+            sfc.setFormat(QSurfaceFormat::defaultFormat());
+            sfc.create();
+            QOpenGLContext ctx;
+            if (sfc.isValid() && ctx.create() && ctx.makeCurrent(&sfc)) {
+                ctx.functions()->glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+                hasFboMsaa = ctx.hasExtension("GL_EXT_framebuffer_multisample") ||
+                    ctx.format().majorVersion() >= 3;
+                ctx.doneCurrent();
+            }
+            const int requested = envOk ? envSamples : 4;
+            chosen              = (hasFboMsaa && maxSamples >= requested) ? requested : 0;
+            qInfo() << "[MarathonShell] MSAA probe: GL_MAX_SAMPLES=" << maxSamples
+                    << "ext=" << hasFboMsaa << "→ chosen=" << chosen;
         }
-        bool           envOk      = false;
-        const int      envSamples = qEnvironmentVariableIntValue("MARATHON_LAYER_SAMPLES", &envOk);
-        const int      requested  = envOk ? envSamples : 4;
-        const int      chosen     = (hasFboMsaa && maxSamples >= requested) ? requested : 0;
 
         QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
         fmt.setSamples(chosen);
         QSurfaceFormat::setDefaultFormat(fmt);
-        qInfo() << "[MarathonShell] MSAA probe: GL_MAX_SAMPLES=" << maxSamples
-                << "GL_EXT_framebuffer_multisample=" << hasFboMsaa << "→ chosen=" << chosen;
     }
 
     // Pin our oom_score_adj at the persistent-system end of the ladder.
@@ -317,15 +325,19 @@ int main(int argc, char *argv[]) {
     // below is belt-and-braces in case a future glibc tightens the
     // list.
     {
-        // Belt-and-braces: re-derive DBUS_SESSION_BUS_ADDRESS from
-        // XDG_RUNTIME_DIR/bus if the env was stripped. Cheap; runs
-        // before any IPC starts.
-        if (qEnvironmentVariableIsEmpty("DBUS_SESSION_BUS_ADDRESS")) {
-            const QByteArray xdg = qgetenv("XDG_RUNTIME_DIR");
-            if (!xdg.isEmpty()) {
-                qputenv("DBUS_SESSION_BUS_ADDRESS", QByteArray("unix:path=") + xdg + "/bus");
-            }
-        }
+        // Force DBUS_SESSION_BUS_ADDRESS via XDG_RUNTIME_DIR/bus regardless
+        // of whether it's already in the env. On musl, file caps make us
+        // AT_SECURE=1; the dynamic linker leaves the env in /proc/self/environ
+        // but libdbus's call into __secure_getenv() can return NULL, leaving
+        // QDBusConnection::sessionBus() permanently disconnected
+        // ("Not connected to D-Bus server"). qputenv re-installs the value
+        // in our process env at a fresh address libc-internal getenv resolves
+        // cleanly. Without this every shell respawn after the initial greetd
+        // start loses IPC to its own apps — Notes / Settings / etc see
+        // "The name is not activatable" on every call.
+        const QByteArray xdg = qgetenv("XDG_RUNTIME_DIR");
+        if (!xdg.isEmpty())
+            qputenv("DBUS_SESSION_BUS_ADDRESS", QByteArray("unix:path=") + xdg + "/bus");
 
         QFile oomWrite(QStringLiteral("/proc/self/oom_score_adj"));
         if (oomWrite.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
