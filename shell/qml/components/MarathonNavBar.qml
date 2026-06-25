@@ -23,7 +23,7 @@ Rectangle {
     signal swipeBack
     signal shortSwipeUp
     signal longSwipeUp
-    signal minimizeApp
+    signal minimizeApp(real velocityY)
     signal startPageTransition
     signal toggleKeyboard
     signal toggleSearch

@@ -503,12 +503,12 @@ Rectangle {
             }
 
             Connections {
+                target: dialogSurface
+                ignoreUnknownSignals: true
                 function onDestroyed() {
                     Logger.info("DialogOverlay", "Dialog surface destroyed: " + dialogSurfaceId);
                     dialogItem.destroy();
                 }
-
-                target: dialogSurface
             }
         }
     }
