@@ -1,4 +1,5 @@
 import "../../components" as ShellComponents
+import MarathonOS.Shell
 import MarathonUI.Containers
 import MarathonUI.Core
 import MarathonUI.Theme
@@ -58,6 +59,11 @@ MApp {
             }
         }
 
+        // Sized to match MarathonAppWindow's launch splash so the swap from
+        // shell-side splash → native-side splash on first surface map is
+        // visually seamless (same icon size + text + spacing). Previously
+        // the shell rendered 128 × scaleFactor (~229dp on L5) and this one
+        // rendered raw 128 — user saw a "smaller duplicate appear" mid-load.
         Rectangle {
             id: splashScreen
 
@@ -68,12 +74,12 @@ MApp {
 
             Column {
                 anchors.centerIn: parent
-                spacing: MSpacing.xl
+                spacing: 24
 
                 MAppIcon {
                     id: splashIcon
 
-                    size: 128
+                    size: Math.round(128 * Constants.scaleFactor)
                     source: nativeAppWindow.nativeAppIcon && nativeAppWindow.nativeAppIcon !== "" ? nativeAppWindow.nativeAppIcon : ""
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: source !== ""
@@ -81,7 +87,7 @@ MApp {
 
                 Icon {
                     name: "grid-3x3"
-                    size: 128
+                    size: Math.round(128 * Constants.scaleFactor)
                     color: MColors.textTertiary
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: splashIcon.source === "" || splashIcon.status === Image.Error
