@@ -107,12 +107,14 @@ Page {
                         }
                     }
                 },
-                // Compose squircle. Sized to iOS HIG min (44×44) — the original
-                // 32×32 was below tappable threshold and made the + look like a
-                // decorative chip rather than the primary action.
+                // Compose squircle. Uses Math.round(X * Constants.scaleFactor)
+                // per Marathon convention (MSectionHeader / MActionBar / MComboBox);
+                // raw 32 dp rendered at ~32 device px on the L5 (scaleFactor 1.79)
+                // — half the iOS HIG tappable. 48 dp scaled = ~86 device px,
+                // matches the rest of the chrome.
                 Rectangle {
-                    width: 44
-                    height: 44
+                    width: Math.round(48 * Constants.scaleFactor)
+                    height: Math.round(48 * Constants.scaleFactor)
                     radius: MRadius.md
                     border.width: 1
                     border.color: MColors.tealBorder
@@ -130,13 +132,13 @@ Page {
                     Icon {
                         anchors.centerIn: parent
                         name: "plus"
-                        size: 26
+                        size: Math.round(28 * Constants.scaleFactor)
                         color: "#000000"
                     }
 
                     MouseArea {
                         anchors.fill: parent
-                        anchors.margins: -4
+                        anchors.margins: -6
                         onClicked: {
                             HapticService.medium();
                             conversationsPage.newMessage();
