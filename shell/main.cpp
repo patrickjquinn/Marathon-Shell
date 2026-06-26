@@ -51,6 +51,7 @@
 #include "src/managers/powermanagercpp.h"
 #include "src/controllers/powerpolicycontroller.h"
 #include "src/managers/displaymanagercpp.h"
+#include "src/managers/powerkeylistener.h"
 #include "src/controllers/displaypolicycontroller.h"
 #include "src/services/powerbatteryhandlercpp.h"
 #include "src/managers/audiomanagercpp.h"
@@ -631,6 +632,25 @@ int main(int argc, char *argv[]) {
         new DisplayPolicyController(displayManager, settingsManager, &app);
     qmlRegisterSingletonInstance<DisplayPolicyController>(
         "MarathonOS.Shell", 1, 0, "DisplayPolicyControllerCpp", displayPolicyController);
+
+    // logind has HandlePowerKey=ignore (50-marathon.conf), so the shell owns
+    // the power button. PowerKeyListener watches every /dev/input/event*
+    // that advertises KEY_POWER and emits on key-down; we route the press
+    // into the same wake path marathon-dev wake uses.
+    auto *powerKeyListener = new PowerKeyListener(&app);
+    auto  screenIsOn       = std::make_shared<bool>(true);
+    QObject::connect(displayManager, &DisplayManagerCpp::screenStateChanged, &app,
+                     [screenIsOn](bool on) { *screenIsOn = on; });
+    QObject::connect(powerKeyListener, &PowerKeyListener::powerKeyPressed, displayManager,
+                     [displayManager, screenIsOn]() {
+                         if (*screenIsOn) {
+                             qInfo() << "[MarathonShell] Power key pressed while screen ON "
+                                        "— ignored (wake-only first pass)";
+                             return;
+                         }
+                         qInfo() << "[MarathonShell] Power key pressed — waking display";
+                         displayManager->setScreenState(true);
+                     });
     createObject<PowerBatteryHandlerCpp>(ctx, "PowerBatteryHandler", powerPolicyController,
                                          displayPolicyController, displayManager, hapticManager,
                                          &app);

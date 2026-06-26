@@ -15,6 +15,8 @@ build-tests/
 check_output.cpp
 .cache/
 compile_commands.json
+build-tests/
+build-power/
 CMakeFiles/
 
 # Deployment artifacts (generated manually, not part of source)
