@@ -277,12 +277,16 @@ int main(int argc, char *argv[]) {
         fmt.setColorSpace(QColorSpace::SRgb);
         fmt.setSamples(0);
         fmt.setSwapInterval(1);
-        fmt.setRedBufferSize(8);
-        fmt.setGreenBufferSize(8);
-        fmt.setBlueBufferSize(8);
-        fmt.setAlphaBufferSize(8);
         fmt.setDepthBufferSize(24);
         fmt.setStencilBufferSize(8);
+        // Do NOT set alpha/red/green/blue buffer sizes here. The Librem 5
+        // i.MX 8M Quad LCDIF DSI CRTC is configured for XRGB8888 (no
+        // alpha) by the kernel modesetting driver. Asking Qt for an
+        // EGLConfig with alpha=8 returns an ARGB8888 surface whose
+        // framebuffer pixel format does not match the CRTC; DRM rejects
+        // every drmModePageFlip with EINVAL and the panel never updates
+        // even though the shell is happily rendering frames. Letting Qt
+        // pick its defaults lands on an EGLConfig matching the CRTC.
         QSurfaceFormat::setDefaultFormat(fmt);
     }
 
